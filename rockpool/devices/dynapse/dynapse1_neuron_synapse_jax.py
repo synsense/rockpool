@@ -244,10 +244,38 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     :type sim_config: Optional[DynapSE1SimulationConfiguration], optional
     :param syn_order: The order of synapses to be stored in 2D synaptic parameter arrays. [AHP, NMDA, AMPA, GABA_A, GABA_B] by default
     :type syn_order: Optional[SYN], optional
-    :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(Nrec+Nin, Nrec, 4)``. The first 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
+    :param w_in: Initial input weights defining the connections from virtual FPGA neurons to real device neurons. It must be a rectangular matrix with shape ``(Nin, Nrec, 4)``. The last 4 holds a weight matrix for 4 different synapse types.
+    :type w_in: Optional[FloatVector], optional
+
+        #  Gb Ga N  A
+         [[0, 0, 0, 1], # pre = 0 (virtual) post = 0 (device)
+          [0, 0, 0, 1],  #                  post = 1 (device)
+          [0, 0, 0, 0],  #                  post = 2 (device)
+          [0, 0, 0, 0],  #                  post = 3 (device)
+          [0, 0, 0, 1]], #                  post = 4 (device)
+
+         [[0, 0, 0, 0], # pre = 1 (virtual)
+          [0, 0, 0, 0],
+          [0, 0, 1, 0],
+          [0, 0, 1, 0],
+          [0, 0, 0, 1]],
+
+         [[0, 0, 0, 0], # pre = 3 (virtual)
+          [0, 0, 0, 0],
+          [0, 0, 0, 0],
+          [0, 0, 0, 0],
+          [0, 1, 0, 0]]],
+
+          And rec_order SYN(AHP=-1, NMDA=2, AMPA=3, GABA_A=1, GABA_B=0)
+
+        Virtual(External Input)
+
+            AMPA : 1 from n5 to n0, 1 from n5 to n1 1 from n5 to n4
+            NMDA : 1 from n6 to n2, 1 from n6 to n3 1 from n6 to n4
+            GABA_A: 1 from n7 to n4
+
+    :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(Nrec, Nrec, 4)``. The last 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
     :type w_rec: Optional[FloatVector], optional
-    :param rec_order: The order of recurrent synapses in `w_rec` recurrent weight matrix. [GABA_B, GABA_A, NMDA, AMPA] by default
-    :type rec_order: Optional[SYN], optional
 
         Let's say 5 device neuron and 3 virtual FPGA neurons initiated with w_rec
 
@@ -282,24 +310,6 @@ class DynapSE1NeuronSynapseJax(JaxModule):
           [0, 0, 0, 0],
           [0, 0, 1, 0]],
 
-         [[0, 0, 0, 1], # pre = 5 (virtual)
-          [0, 0, 0, 1],
-          [0, 0, 0, 0],
-          [0, 0, 0, 0],
-          [0, 0, 0, 1]],
-
-         [[0, 0, 0, 0], # pre = 6 (virtual)
-          [0, 0, 0, 0],
-          [0, 0, 1, 0],
-          [0, 0, 1, 0],
-          [0, 0, 0, 1]],
-
-         [[0, 0, 0, 0], # pre = 7 (virtual)
-          [0, 0, 0, 0],
-          [0, 0, 0, 0],
-          [0, 0, 0, 0],
-          [0, 1, 0, 0]]],
-
           And rec_order SYN(AHP=-1, NMDA=2, AMPA=3, GABA_A=1, GABA_B=0)
 
         Real
@@ -308,11 +318,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             GABA_A: 1 from n0 to n4
             GABA_B: 2 from n2 to n0
 
-        Virtual(External Input)
-            AMPA : 1 from n5 to n0, 1 from n5 to n1 1 from n5 to n4
-            NMDA : 1 from n6 to n2, 1 from n6 to n3 1 from n6 to n4
-            GABA_A: 1 from n7 to n4
-
+    :param rec_order: The order of recurrent synapses in `w_rec` recurrent weight matrix. [GABA_B, GABA_A, NMDA, AMPA] by default
+    :type rec_order: Optional[SYN], optional
     :param dt: The time step for the forward-Euler ODE solve, defaults to 1e-3
     :type dt: float, optional
     :param rng_key: The Jax RNG seed to use on initialisation. By default, a new seed is generated, defaults to None
@@ -392,6 +399,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         shape: tuple = None,
         sim_config: Optional[DynapSE1SimulationConfiguration] = None,
         syn_order: Optional[SYN] = None,
+        w_in: Optional[FloatVector] = None,
         w_rec: Optional[FloatVector] = None,
         rec_order: Optional[SYN] = None,
         dt: float = 1e-3,
@@ -436,8 +444,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             **kwargs,
         )
 
-        # Check the network size and initialize the recurrent weight vector accordingly
-        self.w_rec = self._init_w_rec(w_rec, rec_order)
+        # Check the network size and initialize the input and recurrent weight vector accordingly
+        self.w_in, self.w_rec = self._init_weights(w_in, w_rec, rec_order)
 
         # --- Parameters & States --- #
         self.Imem, self.Itau_mem, self.f_gain_mem, self.mem_fb = self._set_mem_params(
@@ -549,12 +557,13 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             Isyn_inf = self.f_gain_syn * self.Iw
 
             # --- Forward step: DPI SYNAPSES --- #
-
             ## spike input for 4 synapses: NMDA, AMPA, GABA_A, GABA_B; spike output for 1 synapse: AHP
-            ## w_rec.shape = (Nrec+Nin)xNrecx4 [pre,post,syn]
+            ## w_in.shape = NinxNrecx4 [pre,post,syn]
+            ## w_rec.shape = NrecxNrecx4 [pre,post,syn]
 
-            spike_in = np.hstack((spikes, spike_inputs_ts))  # Nrec+Nin(pre-synaptic)
-            spike_inputs = np.dot(self.w_rec.T, spike_in) + self.Io  # 4xNrec (post)
+            spikes_external = np.dot(self.w_in.T, spike_inputs_ts)
+            spikes_internal = np.dot(self.w_rec.T, spikes)
+            spike_inputs = np.add(spikes_external, spikes_internal) + self.Io
 
             ## Calculate the effective pulse width with a linear increase
             t_pw_in = self.t_pulse * spike_inputs  # 4xNrec [NMDA, AMPA, GABA_A, GABA_B]
@@ -758,26 +767,65 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         return Imem, Itau, f_gain, feedback
 
-    def _init_w_rec(
-        self, w_rec: FloatVector, rec_order: SYN
+    def _init_weights(
+        self,
+        w_in: Optional[FloatVector] = None,
+        w_rec: Optional[FloatVector] = None,
+        rec_order: Optional[SYN] = None,
     ) -> Union[JP_ndarray, float]:
         """
         _init_w_rec Intialize a recurrent weight matrix parameter given the network shape.
 
-        :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a rectangular matrix with shape ``(Nrec+Nin, Nrec, 4)``. The first 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
-        :type w_rec: FloatVector
+        :param w_in: Initial input weights defining the connections from virtual FPGA neurons to real device neurons. It must be a rectangular matrix with shape ``(Nin, Nrec, 4)``. The last 4 holds a weight matrix for 4 different synapse types.
+        :type w_in: Optional[FloatVector], optional
+        :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(Nrec, Nrec, 4)``. The last 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
+        :type w_rec: Optional[FloatVector], optional
         :raises ValueError: If `shape` is unidimensional, then `w_rec` may not be provided as an argument.
-        :raises ValueError: `shape` may not specify more than two dimensions.
-        :raises ValueError: `shape[0]` and `shape[1]` must be equal for a recurrent module.
-        :raises ValueError: Recurrent weight matrix should be 3 dimensional
-        :raises ValueError: The last dimension of the recurrent weight matrix `w_rec` is reserved for different synapse types. There are 4 synapses, fixed!
+        :raises ValueError: `shape` may not specify more than two dimensions (Nin, Nrec).
         :return: Recurrent weight matrix parameter initialized randomly or depending on an initial weight vector.
         :rtype: Union[JP_ndarray, float]
-
-        [] TODO: More realistic, sparse weight matrix initialization. Make multiple connections possible in the initialization with non-uniform selection
         """
 
-        # - Recurrent or Feed forward?
+        def get_weight_matrix(
+            weight_matrix: Optional[FloatVector], shape: Tuple[int]
+        ) -> JP_ndarray:
+            """
+            get_weight_matrix Create a weight matrix parameter for w_in or w_rec given a shape.
+
+            :param weight_matrix: initial matrix values. init_func runs to fill the matrix if None.
+            :type weight_matrix: Optional[FloatVector]
+            :param shape: A tuple (or list) specifying the permitted shape of the attribute. If not provided, the shape of the concrete initialisation data will be used as the attribute shape.
+            :type shape: Tuple[int]
+            :return: a trainable weight matrix
+            :rtype: JP_ndarray
+
+            [] TODO: More realistic, sparse weight matrix initialization. Make multiple connections possible in the initialization with non-uniform selection
+            """
+            weight_init = lambda s: rand.randint(
+                rand.split(self._rng_key)[0],
+                shape=shape,
+                minval=0,
+                maxval=2,
+            )
+
+            # Values between 0,64
+            weight_matrix: JP_ndarray = Parameter(
+                weight_matrix,
+                family="weight",
+                init_func=weight_init,
+                shape=shape,
+            )
+
+            return weight_matrix
+
+        if w_in is not None:
+            w_in = np.array(w_in, dtype=np.float32)
+
+            # RE-ORDER [NMDA, AMPA, GABA_A, GABA_B]
+            if rec_order is not None:
+                w_in = w_in[:, :, rec_order.default_idx_no_ahp]
+
+        # Feed forward Mode
         if len(self.shape) == 1:
             # - Feed-forward mode
             if w_rec is not None:
@@ -785,45 +833,27 @@ class DynapSE1NeuronSynapseJax(JaxModule):
                     "If `shape` is unidimensional, then `w_rec` may not be provided as an argument."
                 )
 
-            w_rec: float = 0.0
+            w_rec = np.zeros((self.size_out, self.size_out, 4))
 
+        # Recurrent mode
         else:
-            # - Recurrent mode
             if len(self.shape) > 2:
-                raise ValueError("`shape` may not specify more than two dimensions.")
-
-            if self.size_out > self.size_in:
                 raise ValueError(
-                    "Input dimension (Nrec+Nin) should be bigger than output dimension (Nrec)"
+                    "`shape` can not specify more than two dimensions (Nin, Nrec)."
                 )
 
             if w_rec is not None:
                 w_rec = np.array(w_rec, dtype=np.float32)
-                if len(w_rec.shape) != 3:
-                    raise ValueError(
-                        "Recurrent weight matrix `w_rec` should be 3 dimensional."
-                    )
-                if w_rec.shape[2] != 4:
-                    raise ValueError(
-                        "The last dimension of the recurrent weight matrix `w_rec` is reserved for different synapse types. There are 4 synapses, fixed!"
-                    )
 
                 # RE-ORDER [NMDA, AMPA, GABA_A, GABA_B]
-                w_rec = w_rec[:, :, rec_order.default_idx_no_ahp]
+                if rec_order is not None:
+                    w_rec = w_rec[:, :, rec_order.default_idx_no_ahp]
 
-            w_rec: JP_ndarray = Parameter(
-                w_rec,
-                family="weights",
-                init_func=lambda s: rand.randint(
-                    rand.split(self._rng_key)[0],
-                    shape=(*self.shape, 4),
-                    minval=0,
-                    maxval=2,
-                ),
-                shape=(*self.shape, 4),
-            )
+            w_rec = get_weight_matrix(w_rec, (self.size_out, self.size_out, 4))
 
-        return w_rec
+        w_in = get_weight_matrix(w_in, (self.size_in, self.size_out, 4))
+
+        return w_in, w_rec
 
     ## --- HIGH LEVEL TIME CONSTANTS -- ##
 
