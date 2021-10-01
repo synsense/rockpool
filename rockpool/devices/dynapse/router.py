@@ -29,17 +29,32 @@ _SAMNA_AVAILABLE = True
 
 try:
     from samna.dynapse1 import (
-        Dynapse1Neuron,
-        Dynapse1Synapse,
-        Dynapse1Destination,
-        Dynapse1SynType,
         Dynapse1Configuration,
+        Dynapse1Destination,
+        Dynapse1Synapse,
+        Dynapse1SynType,
+        Dynapse1Neuron,
     )
 except ModuleNotFoundError as e:
     print(
         e,
         "\nDynapSE1NeuronSynapseJax module can only be used for simulation purposes."
         "Deployment utilities depends on samna!",
+    )
+    _SAMNA_AVAILABLE = False
+
+_SAMNA_AVAILABLE = True
+
+try:
+    from netgen import (
+        Network,
+        NetworkGenerator,
+        convert_incoming_conns_dict2list,
+    )
+except ModuleNotFoundError as e:
+    print(
+        e,
+        "\nRouter cannot extract the virtual connections from the network generator object!",
     )
     _SAMNA_AVAILABLE = False
 
@@ -882,3 +897,90 @@ class Router:
             )
         else:
             return Router.weight_matrix(real, virtual, dtype, return_maps, decode_UID)
+
+    @staticmethod
+    def get_virtual_connections(
+        network: Network, append_syn_type: bool = False
+    ) -> Union[List[NeuronConnection], List[NeuronConnectionSynType]]:
+        """
+        get_virtual_connections generates a neuron connection list between virtual FPGA neurons and real in-device neurons.
+        This list then can be used to provide the input_connections to `Router.weight_matrix()` method
+
+        :param network: network object defined in samna/ctxctl_contrib/netgen
+        :type network: Network
+        :param append_syn_type: specify the synapse type of the connection or not, defaults to False
+        :type append_syn_type: bool, optional
+        :return: a list of virtual-real neuron connections in either specifying the synapse type or not.
+        :rtype: Union[List[NeuronConnection], List[NeuronConnectionSynType]]
+        """
+
+        connections = []
+
+        # Traverse the post_neuron dictionary (1, 0): [C1c0n20, C1c0n36]
+        for _, post_list in network.post_neuron_dict.items():
+
+            for post in post_list:  # [C1c0n20, C1c0n36]
+                incoming_list, _ = convert_incoming_conns_dict2list(
+                    post.incoming_connections
+                )
+
+                # [(C0c0s50, <Dynapse1SynType.AMPA: 3>), (C3c0n60, <Dynapse1SynType.GABA_B: 0>)]
+                for pre, syn_type in incoming_list:
+
+                    # In a virtual connection, the pre-synaptic neurons is a spike-gen on the FPGA
+                    if pre.is_spike_gen:
+
+                        # Get universal neuron ids
+                        pre_UID = Router.get_UID(
+                            pre.chip_id, pre.core_id, pre.neuron_id
+                        )
+                        post_UID = Router.get_UID(
+                            post.chip_id, post.core_id, post.neuron_id
+                        )
+
+                        conn = (
+                            (pre_UID, post_UID, syn_type.value)
+                            if append_syn_type
+                            else (pre_UID, post_UID)
+                        )
+
+                        connections.append(conn)
+
+        return connections
+
+    @staticmethod
+    def get_weight_from_netgen(
+        netgen: NetworkGenerator, *args, **kwargs
+    ) -> Union[
+        np.ndarray,
+        Tuple[
+            np.ndarray,
+            Union[Dict[int, np.uint16], Dict[int, NeuronKey]],
+            Dict[int, str],
+        ],
+    ]:
+        """
+        get_weight_from_netgen a wrapper function which makes it easier to get a weight matrix using the `NetworkGenerator` object.
+        Extract the configuration and virtual connections from the network generator and then
+        runs the `Router.get_weight_from_config()` object with given parameter set.
+
+        :param netgen: network generator object defined in samna/ctxctl_contrib/netgen
+        :type netgen: NetworkGenerator
+        :param dtype: numeric type of the weight matrix. For Dynap-SE1, there are at most 64 connections between neurons so dtype defaults to np.uint8
+        :type dtype: type, optional
+        :param return_maps: return the index-to-UID, and syn-index-to-type maps or not, defaults to True
+        :type return_maps: bool, optional
+        :param decode_UID: decode the UID to get a key instead or not, defaults to False
+        :type decode_UID: bool, optional
+        :return: weight, index_UID_map, syn_dict
+            w_in: input weight matrix (3D, NinxNrecx4)
+            w_rec: recurrent weight matrix (3D, NrecxNrecx4)
+            index_UID_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique IDs (or keys)
+            syn_type_map:a  dictionary of integer synapse type index keys and their names
+            syn_dict: a super dictionary of `virtual` and `real` synapse dictionaries for number of occurances of each synapses indicated with (preUID, postUID, syn_type) keys
+        :rtype: Union[np.ndarray, Tuple[np.ndarray, Union[Dict[int, np.uint16], Dict[int, NeuronKey]] , Dict[int, str]]]
+        """
+
+        connections = Router.get_virtual_connections(netgen.network)
+        config = netgen.make_dynapse1_configuration()
+        return Router.get_weight_from_config(config, connections, *args, **kwargs)
