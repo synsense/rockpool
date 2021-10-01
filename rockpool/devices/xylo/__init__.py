@@ -31,3 +31,14 @@ try:
     )
 except Exception as inst:
     warnings.warn(inst.msg)
+
+try:
+    from .xylo_graph_modules import *
+except Exception as inst:
+    warnings.warn(inst.msg)
+
+
+try:
+    from .xylo_mapper import *
+except Exception as inst:
+    warnings.warn(inst.msg)
