@@ -1,16 +1,21 @@
+import numpy as np
+
+import copy
+
 from rockpool.graph import (
     GraphModule,
     GraphNode,
     GenericNeurons,
+    AliasConnection,
     LinearWeights,
     replace_module,
     bag_graph,
     find_modules_of_class,
 )
-from rockpool.devices.xylo import XyloHiddenNeurons, XyloOutputNeurons
+from rockpool.devices.xylo import XyloHiddenNeurons, XyloOutputNeurons, XyloNeurons
 
 
-from typing import List, Callable
+from typing import List, Callable, Set
 
 __all__ = ["mapper"]
 
@@ -52,10 +57,35 @@ def first_module_is_a_weight(graph: GraphModule):
                 )
 
 
+def le_16_input_channels(graph: GraphModule):
+    if len(graph.input_nodes) > 16:
+        raise DRCError(
+            f"Xylo only supports 16 input channels. The network requires {len(graph.input_nodes)}."
+        )
+
+
+def all_neurons_have_same_dt(graph: GraphModule):
+    neurons = find_modules_of_class(graph, GenericNeurons)
+
+    dt = None
+    for n in neurons:
+        if hasattr(n, "dt"):
+            dt = n.dt if dt is None else dt
+            if dt is not None and n.dt is not None and not np.isclose(dt, n.dt):
+                raise DRCError("All neurons must share a common `dt`.")
+
+    if dt is None:
+        raise DRCError(
+            "The network must specify a `dt` for at least one neuron module."
+        )
+
+
 xylo_drc = [
     output_nodes_have_neurons_as_source,
     input_to_neurons_is_a_weight,
     first_module_is_a_weight,
+    le_16_input_channels,
+    all_neurons_have_same_dt,
 ]
 
 
@@ -63,42 +93,256 @@ def check_drc(graph, design_rules: List[Callable[[GraphModule], None]]):
     for dr in design_rules:
         try:
             dr(graph)
-        except DRCError as error:
-            print(f"Design rule {dr.__module__}.{dr.__name__} triggered an error:")
-            raise error
+        except DRCError as e:
+            raise DRCError(
+                f"Design rule {dr.__name__} triggered an error: "
+                + "".join([f"{msg}" for msg in e.args])
+            )
+
+
+def assign_ids_to_class(graph: GraphModule, cls, available_ids: List) -> List:
+    # - Build a list of ids that are allocated
+    allocated_ids = []
+
+    # - Get all modules of the defined class
+    modules = find_modules_of_class(graph, cls)
+
+    # - Allocate HW ids to these modules
+    for m in modules:
+        num_needed_ids = len(m.output_nodes)
+        if len(available_ids) < num_needed_ids:
+            raise DRCError(
+                f"Exceeded number of available resources for graph module {m}."
+            )
+
+        # - Allocate the IDs and remove them from the available list
+        m.hw_ids = available_ids[:num_needed_ids]
+        allocated_ids.extend(m.hw_ids)
+        del available_ids[:num_needed_ids]
+
+    return allocated_ids
 
 
 def mapper(graph: GraphModule):
+    # - Make a deep copy of the graph
+    graph = copy.deepcopy(graph)
+
     # - Check design rules
     check_drc(graph, xylo_drc)
 
+    # --- Replace neuron modules with known graph classes ---
+
     # - Get output spiking layer from output nodes
-    output_neurons = set()
+    output_neurons: Set[GenericNeurons] = set()
     for on in graph.output_nodes:
         for sm in on.source_modules:
             if isinstance(sm, GenericNeurons):
                 output_neurons.add(sm)
 
     # - Replace these output neurons with XyloOutputNeurons
-    new_output_neurons = set()
+    new_output_neurons: Set[XyloOutputNeurons] = set()
     for on in output_neurons:
-        new_output_neurons.add(XyloOutputNeurons._swap(on))
-
-    output_neurons = new_output_neurons
+        try:
+            new_output_neurons.add(XyloOutputNeurons._convert_from(on))
+        except Exception as e:
+            raise DRCError(f"Error replacing output neuron module {on}.") from e
 
     # - Replace all other neurons with XyloHiddenNeurons
     nodes, modules = bag_graph(graph)
 
     for m in modules:
         if isinstance(m, GenericNeurons) and not isinstance(m, XyloOutputNeurons):
-            XyloHiddenNeurons._swap(m)
+            try:
+                XyloHiddenNeurons._convert_from(m)
+            except Exception as e:
+                raise DRCError(f"Error replacing module {m}.") from e
 
-    # - Enumerate neurons
+    # --- Assign neurons to HW neurons ---
+
+    # - Enumerate hidden neurons
     available_hidden_neuron_ids = list(range(1000))
+    try:
+        allocated_hidden_neurons = assign_ids_to_class(
+            graph, XyloHiddenNeurons, available_hidden_neuron_ids
+        )
+    except Exception as e:
+        raise DRCError("Failed to allocate HW resources for hidden neurons.") from e
+
+    # - Enumerate output neurons
+    available_output_neuron_ids = list(range(1000, 1008))
+    try:
+        allocated_output_neurons = assign_ids_to_class(
+            graph, XyloOutputNeurons, available_output_neuron_ids
+        )
+    except Exception as e:
+        raise DRCError("Failed to allocate HW resources for output neurons.") from e
+
+    # - Enumerate input channels
+    input_channels = list(range(len(graph.input_nodes)))
+
+    # - How many synapses are we using for hidden neurons?
     hidden_neurons = find_modules_of_class(graph, XyloHiddenNeurons)
+    num_hidden_synapses = 1
+    for hn in hidden_neurons:
+        if len(hn.input_nodes) > len(hn.output_nodes):
+            num_hidden_synapses = 2
+
+    # --- Map weights and build Xylo weight matrices ---
+
+    # - Build an input weight matrix
+    input_weight_mod: LinearWeights = graph.input_nodes[0].sink_modules[0]
+    target_neurons = input_weight_mod.output_nodes[0].sink_modules[0]
+    # ^ Since DRC passed, we know this is valid
+
+    weight_num_synapses = (
+        2 if len(target_neurons.input_nodes) > len(target_neurons.output_nodes) else 1
+    )
+
+    target_ids = target_neurons.hw_ids
+    these_dest_indices = [allocated_hidden_neurons.index(id) for id in target_ids]
+
+    # - Allocate and assign the input weights
+    w_in = np.zeros(
+        (len(input_channels), len(allocated_hidden_neurons), num_hidden_synapses),
+        "int16",
+    )
+    w_in[
+        np.ix_(input_channels, these_dest_indices, list(range(weight_num_synapses)))
+    ] = input_weight_mod.weights.reshape(
+        (len(input_channels), len(these_dest_indices), weight_num_synapses)
+    )
+
+    # - Build a recurrent weight matrix
+    w_rec = np.zeros(
+        (
+            len(allocated_hidden_neurons),
+            len(allocated_hidden_neurons),
+            num_hidden_synapses,
+        ),
+        "int16",
+    )
+    w_rec_source_ids = allocated_hidden_neurons
+    w_rec_dest_ids = allocated_hidden_neurons
+
+    # - Build an output weight matrix
+    w_out = np.zeros(
+        (len(allocated_hidden_neurons), len(allocated_output_neurons)), "int16"
+    )
+    w_out_source_ids = allocated_hidden_neurons
+    w_out_dest_ids = allocated_output_neurons
+
+    # - Get all weights
+    weights: Set[LinearWeights] = find_modules_of_class(graph, LinearWeights)
+    weights.remove(input_weight_mod)
+
+    # - For each weight module, place the weights in the right place
+    for w in weights:
+        # - How many target synapses per neuron?
+        target_neurons: XyloNeurons = w.output_nodes[0].sink_modules[0]
+        num_target_syns = (
+            2
+            if len(target_neurons.input_nodes) > len(target_neurons.output_nodes)
+            else 1
+        )
+
+        # - Get source and target HW IDs
+        source_neurons: XyloNeurons = w.input_nodes[0].source_modules[0]
+        source_ids = source_neurons.hw_ids
+        target_ids = target_neurons.hw_ids
+
+        # - Does this go in the recurrent or output weights?
+        if isinstance(target_neurons, XyloHiddenNeurons):
+            # - Recurrent weights
+            these_weights = np.reshape(
+                w.weights, (len(source_ids), len(target_ids), num_target_syns)
+            )
+            these_source_indices = [w_rec_source_ids.index(id) for id in source_ids]
+            these_dest_indices = [w_rec_dest_ids.index(id) for id in target_ids]
+
+            # - Assign weights
+            w_rec[
+                np.ix_(
+                    these_source_indices, these_dest_indices, np.arange(num_target_syns)
+                )
+            ] = these_weights
+
+        elif isinstance(target_neurons, XyloOutputNeurons):
+            # - Output weights
+            these_source_indices = [w_out_source_ids.index(id) for id in source_ids]
+            these_dest_indices = [w_out_dest_ids.index(id) for id in target_ids]
+
+            # - Assign weights
+            w_out[np.ix_(these_source_indices, these_dest_indices)] = w.weights
+
+        else:
+            raise DRCError(
+                f"Unexpected target of weight graph module {w}. Expected XyloHiddenNeurons or XyloOutputNeurons."
+            )
+
+    # --- Extract parameters from nodes ---
+
+    hidden_neurons: Set[XyloHiddenNeurons] = find_modules_of_class(
+        graph, XyloHiddenNeurons
+    )
+    output_neurons: Set[XyloOutputNeurons] = find_modules_of_class(
+        graph, XyloOutputNeurons
+    )
+    num_hidden_neurons = len(allocated_hidden_neurons)
+    num_output_neurons = len(allocated_output_neurons)
+
+    dash_mem = np.zeros(num_hidden_neurons, "int8")
+    dash_mem_out = np.zeros(num_output_neurons, "int8")
+    dash_syn = np.zeros(num_hidden_neurons, "int8")
+    dash_syn_2 = np.zeros(num_hidden_neurons, "int8")
+    dash_syn_out = np.zeros(num_output_neurons, "int16")
+    threshold = np.zeros(num_hidden_neurons, "int16")
+    threshold_out = np.zeros(num_output_neurons, "int16")
 
     for n in hidden_neurons:
-        num_needed_ids = len(n.output_nodes)
-        n.hw_ids = available_hidden_neuron_ids.pop()
+        these_indices = n.hw_ids
+        dash_mem[these_indices] = n.dash_mem
 
-    return graph
+        if len(n.input_nodes) > len(n.output_nodes):
+            dash_syn[these_indices] = n.dash_syn[::2]
+            dash_syn_2[these_indices] = n.dash_syn[1::2]
+        else:
+            dash_syn[these_indices] = n.dash_syn
+
+        threshold[these_indices] = n.threshold
+
+    for n in output_neurons:
+        these_indices = [allocated_output_neurons.index(id) for id in n.hw_ids]
+        dash_mem_out[these_indices] = n.dash_mem
+        dash_syn_out[these_indices] = n.dash_syn
+        threshold_out[these_indices] = n.threshold
+
+    neurons: Set[XyloNeurons] = find_modules_of_class(graph, XyloNeurons)
+    dt = None
+    for n in neurons:
+        dt = n.dt if dt is None else dt
+
+    # --- Extract aliases from nodes ---
+
+    aliases = find_modules_of_class(graph, AliasConnection)
+
+    if len(aliases) > 0:
+        raise DRCError("Alias mapping is not yet implemented.")
+
+    return {
+        "mapped_graph": graph,
+        "weights_in": np.squeeze(w_in),
+        "weights_out": np.squeeze(w_out),
+        "weights_rec": np.squeeze(w_rec),
+        "dash_mem": dash_mem,
+        "dash_mem_out": dash_mem_out,
+        "dash_syn": dash_syn,
+        "dash_syn_2": dash_syn_2,
+        "dash_syn_out": dash_syn_out,
+        "threshold": threshold,
+        "threshold_out": threshold_out,
+        "weight_shift_in": 0,
+        "weight_shift_rec": 0,
+        "weight_shift_out": 0,
+        "aliases": None,
+        "dt": dt,
+    }

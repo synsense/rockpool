@@ -72,5 +72,7 @@ class GraphModule(GraphModuleBase):
         return cls(input_nodes, output_nodes, name, *args, **kwargs)
 
     @classmethod
-    def _swap(cls, mod: GraphModuleBase) -> GraphModuleBase:
-        raise ValueError("No swapping rules implemented")
+    def _convert_from(cls, mod: GraphModuleBase) -> GraphModuleBase:
+        raise ValueError(
+            f"No conversion rules implemented for the class {cls.__name__}."
+        )
