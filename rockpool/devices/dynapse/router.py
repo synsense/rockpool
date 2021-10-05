@@ -278,7 +278,7 @@ class Router:
         neuron_UID: Optional[np.uint16] = None,
         listen_core_id: Optional[np.uint8] = None,
         listen_neuron_id: Optional[np.uint8] = None,
-        syn_type: Optional[Union[Dynapse1Synapse, np.uint8]] = None,
+        syn_type: Optional[Union[Dynapse1SynType, np.uint8]] = None,
     ) -> List[NeuronConnectionSynType]:
         """
         receiving_connections produce a list of spike receiving connections given
@@ -306,7 +306,7 @@ class Router:
         :param listen_neuron_id: the event sending neuron ID to listen, defaults to None
         :type listen_neuron_id: Optional[np.uint8], optional
         :param syn_type: the type of the synapse to process the events, defaults to None
-        :type syn_type: Optional[Union[Dynapse1Synapse, np.uint8]], optional
+        :type syn_type: Optional[Union[Dynapse1SynType, np.uint8]], optional
         :return: List of unique IDs of all neuron connection pairs in the (pre, post, syn_type) order.
         :rtype: List[NeuronConnectionSynType]
         """
@@ -427,7 +427,7 @@ class Router:
     def connect_pre_post(
         preUID: Union[np.uint16, ArrayLike],
         postUID: Union[np.uint16, ArrayLike],
-        syn_type: Optional[Union[Dynapse1Synapse, np.uint8]] = None,
+        syn_type: Optional[Union[Dynapse1SynType, np.uint8]] = None,
     ) -> Union[List[NeuronConnection], List[NeuronConnectionSynType]]:
         """
         connect_pre_post produce a list of connections between neurons like List[(preUID, postUID)].
@@ -439,7 +439,7 @@ class Router:
         :param postUID: a unique post-synaptic neuron ID or a list of IDs
         :type postUID: Union[np.uint16, ArrayLike]
         :param syn_type: The synapse type of the connection, defaults to None
-        :type syn_type: Optional[Union[Dynapse1Synapse, np.uint8]], optional
+        :type syn_type: Optional[Union[Dynapse1SynType, np.uint8]], optional
         :raises ValueError: When the size of the preUID and postUID arrays are not the same
         :raises ValueError: When the size of syn_type is different than the number of connections
         :raises TypeError: preUID or postUID is not ArraLike or a type which can casted to np.uint16
@@ -791,7 +791,8 @@ class Router:
             :param post_neurons: a unique list of post-synaptic neuron UIDs, defaults to None
             :type post_neurons: Optional[np.ndarray], optional
             :return: weight_matrix, idx_map
-
+                :weight_matrix: weight matrix generated using the synapses dictionary
+                :idx_map: index map 
             :rtype: Tuple[np.ndarray, Dict[int, np.uint16]]
             """
             pre_idx = dict(zip(pre_neurons, range(len(pre_neurons))))
@@ -892,7 +893,7 @@ class Router:
 
         if return_maps:
             return (
-                Router.weight_matrix(real, virtual, dtype, return_maps, decode_UID),
+                *Router.weight_matrix(real, virtual, dtype, return_maps, decode_UID),
                 syn_dict,
             )
         else:
