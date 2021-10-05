@@ -9,6 +9,7 @@ E-mail : ugurcan.cakal@gmail.com
 
 
 from typing import (
+    Any,
     Dict,
     Iterable,
     Union,
@@ -36,6 +37,12 @@ try:
         Dynapse1Neuron,
     )
 except ModuleNotFoundError as e:
+    Dynapse1Configuration = Any
+    Dynapse1Destination = Any
+    Dynapse1Synapse = Any
+    Dynapse1SynType = Any
+    Dynapse1Neuron = Any
+
     print(
         e,
         "\nDynapSE1NeuronSynapseJax module can only be used for simulation purposes."
@@ -43,7 +50,7 @@ except ModuleNotFoundError as e:
     )
     _SAMNA_AVAILABLE = False
 
-_SAMNA_AVAILABLE = True
+_NETGEN_AVAILABLE = True
 
 try:
     from netgen import (
@@ -52,11 +59,13 @@ try:
         convert_incoming_conns_dict2list,
     )
 except ModuleNotFoundError as e:
+    Network = Any
+    NetworkGenerator = Any
     print(
         e,
         "\nRouter cannot extract the virtual connections from the network generator object!",
     )
-    _SAMNA_AVAILABLE = False
+    _NETGEN_AVAILABLE = False
 
 
 class Router:
