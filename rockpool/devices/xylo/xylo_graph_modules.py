@@ -41,7 +41,7 @@ class XyloNeurons(GenericNeurons):
             dash_syn = (
                 np.round(np.log2(np.array(mod.tau_syn) / mod.dt)).astype(int).tolist()
             )
-            thresholds = np.round(np.array(mod.threshold)).tolist()
+            thresholds = np.round(np.array(mod.threshold)).astype(int).tolist()
 
             neurons = cls._factory(
                 len(mod.input_nodes),

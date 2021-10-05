@@ -1,7 +1,7 @@
 from rockpool.graph.graph_base import GraphModule
 
 from dataclasses import dataclass, field
-from typing import Iterable
+from typing import Iterable, Any, Union
 
 ArrayLike = Iterable
 
@@ -12,7 +12,7 @@ __all__ = ["LinearWeights", "GenericNeurons", "AliasConnection", "LIFNeuronRealV
 
 @dataclass(eq=False, repr=False)
 class LinearWeights(GraphModule):
-    weights: ArrayLike
+    weights: Union[np.array, Any]
 
     def __post_init__(self, *args, **kwargs):
         # - Check size
@@ -28,7 +28,7 @@ class LinearWeights(GraphModule):
 
         # - Attach input and output nodes back to module
         for n in self.input_nodes:
-            n.add_target(self)
+            n.add_sink(self)
 
         for n in self.output_nodes:
             n.add_source(self)
@@ -41,7 +41,7 @@ class GenericNeurons(GraphModule):
 
         # - Attach input and output nodes back to module
         for n in self.input_nodes:
-            n.add_target(self)
+            n.add_sink(self)
 
         for n in self.output_nodes:
             n.add_source(self)
@@ -54,7 +54,7 @@ class AliasConnection(GraphModule):
 
         # - Attach input and output nodes back to module
         for n in self.input_nodes:
-            n.add_target(self)
+            n.add_sink(self)
 
         for n in self.output_nodes:
             n.add_source(self)

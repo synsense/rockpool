@@ -8,9 +8,12 @@ from rockpool.graph import (
     GenericNeurons,
     AliasConnection,
     LinearWeights,
+    LIFNeuronRealValue,
+    SetList,
     replace_module,
     bag_graph,
     find_modules_of_class,
+    find_recurrent_modules,
 )
 from rockpool.devices.xylo import XyloHiddenNeurons, XyloOutputNeurons, XyloNeurons
 
@@ -30,7 +33,7 @@ def output_nodes_have_neurons_as_source(graph: GraphModule):
         for s in n.source_modules:
             if not isinstance(s, GenericNeurons):
                 raise DRCError(
-                    f"A network output node {n} has a source {s} which is not a neuron"
+                    f"All network outputs must be directly from neurons.\nA network output node {n} has a source {s} which is not a neuron."
                 )
 
 
@@ -43,7 +46,7 @@ def input_to_neurons_is_a_weight(graph: GraphModule):
             for sm in inp.source_modules:
                 if not isinstance(sm, LinearWeights):
                     raise DRCError(
-                        f"A neuron node {n} has a source module {sm} which is not a LinearWeight."
+                        f"All neurons must receive inputs only from weight nodes.\nA neuron node {n} has a source module {sm} which is not a LinearWeight."
                     )
 
 
@@ -53,14 +56,14 @@ def first_module_is_a_weight(graph: GraphModule):
         for sink in inp.sink_modules:
             if not isinstance(sink, LinearWeights):
                 raise DRCError(
-                    f"A network input node {inp} has a sink module {sink} which is not a LinearWeight."
+                    f"The network input must go first through a weight.\nA network input node {inp} has a sink module {sink} which is not a LinearWeight."
                 )
 
 
 def le_16_input_channels(graph: GraphModule):
     if len(graph.input_nodes) > 16:
         raise DRCError(
-            f"Xylo only supports 16 input channels. The network requires {len(graph.input_nodes)}."
+            f"Xylo only supports up to 16 input channels. The network requires {len(graph.input_nodes)} input channels."
         )
 
 
@@ -72,11 +75,27 @@ def all_neurons_have_same_dt(graph: GraphModule):
         if hasattr(n, "dt"):
             dt = n.dt if dt is None else dt
             if dt is not None and n.dt is not None and not np.isclose(dt, n.dt):
-                raise DRCError("All neurons must share a common `dt`.")
+                raise DRCError("All neurons in the network must share a common `dt`.")
 
     if dt is None:
         raise DRCError(
             "The network must specify a `dt` for at least one neuron module."
+        )
+
+
+def output_neurons_cannot_be_recurrent(graph: GraphModule):
+    recurrent_modules = find_recurrent_modules(graph)
+
+    output_neurons = SetList()
+    for n in graph.output_nodes:
+        for s in n.source_modules:
+            if isinstance(s, GenericNeurons):
+                output_neurons._add_unique(s)
+
+    rec_output_neurons = set(output_neurons).intersection(recurrent_modules)
+    if len(rec_output_neurons) > 0:
+        raise DRCError(
+            f"Output neurons may not be recurrent.\nFound output neurons {rec_output_neurons} that are recurrent."
         )
 
 
@@ -86,6 +105,7 @@ xylo_drc = [
     first_module_is_a_weight,
     le_16_input_channels,
     all_neurons_have_same_dt,
+    output_neurons_cannot_be_recurrent,
 ]
 
 
@@ -95,7 +115,7 @@ def check_drc(graph, design_rules: List[Callable[[GraphModule], None]]):
             dr(graph)
         except DRCError as e:
             raise DRCError(
-                f"Design rule {dr.__name__} triggered an error: "
+                f"Design rule {dr.__name__} triggered an error:\n"
                 + "".join([f"{msg}" for msg in e.args])
             )
 
@@ -140,10 +160,9 @@ def mapper(graph: GraphModule):
                 output_neurons.add(sm)
 
     # - Replace these output neurons with XyloOutputNeurons
-    new_output_neurons: Set[XyloOutputNeurons] = set()
     for on in output_neurons:
         try:
-            new_output_neurons.add(XyloOutputNeurons._convert_from(on))
+            XyloOutputNeurons._convert_from(on)
         except Exception as e:
             raise DRCError(f"Error replacing output neuron module {on}.") from e
 
@@ -181,7 +200,9 @@ def mapper(graph: GraphModule):
     input_channels = list(range(len(graph.input_nodes)))
 
     # - How many synapses are we using for hidden neurons?
-    hidden_neurons = find_modules_of_class(graph, XyloHiddenNeurons)
+    hidden_neurons: SetList[XyloHiddenNeurons] = find_modules_of_class(
+        graph, XyloHiddenNeurons
+    )
     num_hidden_synapses = 1
     for hn in hidden_neurons:
         if len(hn.input_nodes) > len(hn.output_nodes):
@@ -191,7 +212,7 @@ def mapper(graph: GraphModule):
 
     # - Build an input weight matrix
     input_weight_mod: LinearWeights = graph.input_nodes[0].sink_modules[0]
-    target_neurons = input_weight_mod.output_nodes[0].sink_modules[0]
+    target_neurons: XyloNeurons = input_weight_mod.output_nodes[0].sink_modules[0]
     # ^ Since DRC passed, we know this is valid
 
     weight_num_synapses = (
@@ -232,7 +253,7 @@ def mapper(graph: GraphModule):
     w_out_dest_ids = allocated_output_neurons
 
     # - Get all weights
-    weights: Set[LinearWeights] = find_modules_of_class(graph, LinearWeights)
+    weights: SetList[LinearWeights] = find_modules_of_class(graph, LinearWeights)
     weights.remove(input_weight_mod)
 
     # - For each weight module, place the weights in the right place
