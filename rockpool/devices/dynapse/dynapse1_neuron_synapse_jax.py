@@ -58,7 +58,6 @@ from rockpool.typehints import (
     JP_ndarray,
     P_float,
     FloatVector,
-    BoolVector,
 )
 
 from rockpool.devices.dynapse.utils import (
@@ -86,10 +85,10 @@ class SYN:
     """
 
     AHP: int = 4
-    NMDA: int = 0
+    NMDA: int = 2
     AMPA: int = 3
     GABA_A: int = 1
-    GABA_B: int = 2
+    GABA_B: int = 0
 
     def __post_init__(self) -> None:
         """
@@ -111,7 +110,7 @@ class SYN:
         return len(self.default_idx)
 
     @property
-    def target_idx(self):
+    def target_idx(self) -> np.ndarray:
         """
         target_idx is the index array to be used to put the synapses in the desired index order. It can be used to
         rearange the default order array [AHP, NMDA, AMPA, GABA_A, GABA_B] into desired order.
@@ -123,7 +122,7 @@ class SYN:
         return _idx
 
     @property
-    def default_idx(self):
+    def default_idx(self) -> np.ndarray:
         """
         default_idx returns the indexes of the synapses in the desired order. It can be used to
         rearange a custom ordered array into the original order [AHP, NMDA, AMPA, GABA_A, GABA_B].
@@ -135,7 +134,7 @@ class SYN:
         return _idx[_idx >= 0]
 
     @property
-    def default_idx_no_ahp(self):
+    def default_idx_no_ahp(self) -> np.ndarray:
         """
         default_idx_no_ahp is close to the `default_idx` property but the difference is that `default_idx_no_ahp` return an
         index array without AHP synapse. Even if AHP synapse is defined in the middle, it reorders the array and
@@ -154,6 +153,29 @@ class SYN:
         gaba_b = check_if_smaller(self.GABA_B)
         _idx = np.array([nmda, ampa, gaba_a, gaba_b])
         return _idx
+
+    @property
+    def default_idx_dict(self) -> Dict[str, int]:
+        """
+        default_idx_dict returns the application default storage order of the synapses
+
+        :return: a map between the name of the synapse and it's default storage index
+        :rtype: Dict[str, int]
+        """
+        keys = ["AHP", "NMDA", "AMPA", "GABA_A", "GABA_B"]
+        return dict(zip(keys, range(len(keys))))
+
+    @property
+    def default_idx_dict_no_ahp(self) -> Dict[str, int]:
+        """
+        default_idx_dict_no_ahp returns the application default storage order of the synapses without the AHP
+
+        :return: a map between the name of the synapse and it's default storage index (without AHP)
+        :rtype: Dict[str, int]
+        """
+        keys = ["NMDA", "AMPA", "GABA_A", "GABA_B"]
+        values = self.default_idx_no_ahp
+        return dict(zip(keys, range(len(keys))))
 
 
 @jax.custom_gradient
@@ -320,7 +342,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
     :param rec_order: The order of recurrent synapses in `w_rec` recurrent weight matrix. [GABA_B, GABA_A, NMDA, AMPA] by default
     :type rec_order: Optional[SYN], optional
-    :param dt: The time step for the forward-Euler ODE solve, defaults to 1e-3
+    :param dt: The time step for the forward-Euler ODE solver, defaults to 1e-3
     :type dt: float, optional
     :param rng_key: The Jax RNG seed to use on initialisation. By default, a new seed is generated, defaults to None
     :type rng_key: Optional[Any], optional
