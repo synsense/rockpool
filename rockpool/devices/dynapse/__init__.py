@@ -49,6 +49,7 @@ dModules = {
     ),
     ".biasgen": ("BiasGen",),
     ".router": ("Router"),
+    ".figure": ("Figure"),
     ".dynapse1_simulator": ("DynapSE1Jax"),
 }
 
