@@ -792,7 +792,7 @@ class Router:
             :type post_neurons: Optional[np.ndarray], optional
             :return: weight_matrix, idx_map
                 :weight_matrix: weight matrix generated using the synapses dictionary
-                :idx_map: index map 
+                :idx_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique IDs
             :rtype: Tuple[np.ndarray, Dict[int, np.uint16]]
             """
             pre_idx = dict(zip(pre_neurons, range(len(pre_neurons))))
@@ -977,7 +977,7 @@ class Router:
             w_in: input weight matrix (3D, NinxNrecx4)
             w_rec: recurrent weight matrix (3D, NrecxNrecx4)
             index_UID_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique IDs (or keys)
-            syn_type_map:a  dictionary of integer synapse type index keys and their names
+            syn_type_map: a  dictionary of integer synapse type index keys and their names
             syn_dict: a super dictionary of `virtual` and `real` synapse dictionaries for number of occurances of each synapses indicated with (preUID, postUID, syn_type) keys
         :rtype: Union[np.ndarray, Tuple[np.ndarray, Union[Dict[int, np.uint16], Dict[int, NeuronKey]] , Dict[int, str]]]
         """
