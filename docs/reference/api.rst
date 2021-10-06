@@ -189,8 +189,8 @@ Conversion utilities
 
     training.torch_loss
 
-Hardware support and simulation
--------------------------------
+Xylo hardware support and simulation
+------------------------------------
 
 .. autosummary::
     :toctree: _autosummary
@@ -212,9 +212,47 @@ Hardware support and simulation
     :toctree: _autosummary
     :template: module.rst
 
-    .. autosummary::
-    :toctree: _autosummary
-    :template: module.rst
-
     devices.xylo
     devices.xylo.xylo_devkit_utils
+
+.. autosummary::
+    :toctree: _autosummary
+
+    devices.xylo.mapper
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    devices.xylo.XyloHiddenNeurons
+    devices.xylo.XyloOutputNeurons
+
+Graph tracing and mapping
+-------------------------
+
+Base modules
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    graph.GraphModule
+    graph.GraphNode
+    graph.GraphHolder
+
+Computational graph modules
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    graph.LinearWeights
+    graph.GenericNeurons
+    graph.AliasConnection
+    graph.LIFNeuronWithSynsRealValue
+    graph.RateNeuronWithSynsRealValue
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: module.rst
+    graph.utils

@@ -1,3 +1,12 @@
+"""
+Mapper package for Xylo
+
+- Create a graph using the `._serialise()` API
+- Call :py:func:`.mapper`
+
+"""
+
+
 import numpy as np
 
 import copy
@@ -5,20 +14,21 @@ import copy
 from rockpool.graph import (
     GraphModule,
     GraphNode,
+    GraphModuleBase,
     GenericNeurons,
     AliasConnection,
     LinearWeights,
-    LIFNeuronRealValue,
+    LIFNeuronWithSynsRealValue,
     SetList,
     replace_module,
     bag_graph,
-    find_modules_of_class,
+    find_modules_of_subclass,
     find_recurrent_modules,
 )
 from rockpool.devices.xylo import XyloHiddenNeurons, XyloOutputNeurons, XyloNeurons
 
 
-from typing import List, Callable, Set
+from typing import List, Callable, Set, Optional
 
 __all__ = ["mapper"]
 
@@ -39,7 +49,7 @@ def output_nodes_have_neurons_as_source(graph: GraphModule):
 
 def input_to_neurons_is_a_weight(graph: GraphModule):
     # - Every neuron module must have weights on the input
-    neurons = find_modules_of_class(graph, GenericNeurons)
+    neurons = find_modules_of_subclass(graph, GenericNeurons)
 
     for n in neurons:
         for inp in n.input_nodes:
@@ -68,9 +78,9 @@ def le_16_input_channels(graph: GraphModule):
 
 
 def all_neurons_have_same_dt(graph: GraphModule):
-    neurons = find_modules_of_class(graph, GenericNeurons)
+    neurons: SetList[GenericNeurons] = find_modules_of_subclass(graph, GenericNeurons)
 
-    dt = None
+    dt: Optional[float] = None
     for n in neurons:
         if hasattr(n, "dt"):
             dt = n.dt if dt is None else dt
@@ -90,7 +100,7 @@ def output_neurons_cannot_be_recurrent(graph: GraphModule):
     for n in graph.output_nodes:
         for s in n.source_modules:
             if isinstance(s, GenericNeurons):
-                output_neurons._add_unique(s)
+                output_neurons.add(s)
 
     rec_output_neurons = set(output_neurons).intersection(recurrent_modules)
     if len(rec_output_neurons) > 0:
@@ -125,7 +135,7 @@ def assign_ids_to_class(graph: GraphModule, cls, available_ids: List) -> List:
     allocated_ids = []
 
     # - Get all modules of the defined class
-    modules = find_modules_of_class(graph, cls)
+    modules = find_modules_of_subclass(graph, cls)
 
     # - Allocate HW ids to these modules
     for m in modules:
@@ -143,7 +153,20 @@ def assign_ids_to_class(graph: GraphModule, cls, available_ids: List) -> List:
     return allocated_ids
 
 
-def mapper(graph: GraphModule):
+def mapper(graph: GraphModuleBase) -> dict:
+    """
+    Map a computational graph onto the Xylo v1 architecture
+
+    This function performs a DRC of the computational graph to ensure it can be mapped onto the Xylo v1 architecture.
+
+    It then allocates neurons and converts the network weights into a specification for Xylo. This specification can be used to create a config object with :py:func:`~rockpool.devices.xylo.config_from_specification`.
+
+    Args:
+        graph (GraphModuleBase): The graph to map
+
+    Returns:
+        dict: A dictionary of specifications for Xylo v1, containing the mapped computational graph
+    """
     # - Make a deep copy of the graph
     graph = copy.deepcopy(graph)
 
@@ -200,7 +223,7 @@ def mapper(graph: GraphModule):
     input_channels = list(range(len(graph.input_nodes)))
 
     # - How many synapses are we using for hidden neurons?
-    hidden_neurons: SetList[XyloHiddenNeurons] = find_modules_of_class(
+    hidden_neurons: SetList[XyloHiddenNeurons] = find_modules_of_subclass(
         graph, XyloHiddenNeurons
     )
     num_hidden_synapses = 1
@@ -253,7 +276,7 @@ def mapper(graph: GraphModule):
     w_out_dest_ids = allocated_output_neurons
 
     # - Get all weights
-    weights: SetList[LinearWeights] = find_modules_of_class(graph, LinearWeights)
+    weights: SetList[LinearWeights] = find_modules_of_subclass(graph, LinearWeights)
     weights.remove(input_weight_mod)
 
     # - For each weight module, place the weights in the right place
@@ -302,10 +325,10 @@ def mapper(graph: GraphModule):
 
     # --- Extract parameters from nodes ---
 
-    hidden_neurons: Set[XyloHiddenNeurons] = find_modules_of_class(
+    hidden_neurons: Set[XyloHiddenNeurons] = find_modules_of_subclass(
         graph, XyloHiddenNeurons
     )
-    output_neurons: Set[XyloOutputNeurons] = find_modules_of_class(
+    output_neurons: Set[XyloOutputNeurons] = find_modules_of_subclass(
         graph, XyloOutputNeurons
     )
     num_hidden_neurons = len(allocated_hidden_neurons)
@@ -337,14 +360,14 @@ def mapper(graph: GraphModule):
         dash_syn_out[these_indices] = n.dash_syn
         threshold_out[these_indices] = n.threshold
 
-    neurons: Set[XyloNeurons] = find_modules_of_class(graph, XyloNeurons)
+    neurons: Set[XyloNeurons] = find_modules_of_subclass(graph, XyloNeurons)
     dt = None
     for n in neurons:
         dt = n.dt if dt is None else dt
 
     # --- Extract aliases from nodes ---
 
-    aliases = find_modules_of_class(graph, AliasConnection)
+    aliases = find_modules_of_subclass(graph, AliasConnection)
 
     if len(aliases) > 0:
         raise DRCError("Alias mapping is not yet implemented.")

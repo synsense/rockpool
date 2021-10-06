@@ -1,18 +1,36 @@
+"""
+Basic computational modules for graph definition in Rockpool
+
+Defines :py:class:`.LinearWeights`, :py:class:`.GenericNeurons`, :py:class:`.AliasConnection` and :py:class:`.LIFNeuronRealValue`.
+"""
+
+
 from rockpool.graph.graph_base import GraphModule
 
 from dataclasses import dataclass, field
-from typing import Iterable, Any, Union
+from typing import Optional
 
-ArrayLike = Iterable
+from rockpool.typehints import FloatVector
 
 import numpy as np
 
-__all__ = ["LinearWeights", "GenericNeurons", "AliasConnection", "LIFNeuronRealValue"]
+__all__ = [
+    "LinearWeights",
+    "GenericNeurons",
+    "AliasConnection",
+    "LIFNeuronWithSynsRealValue",
+    "RateNeuronWithSynsRealValue",
+]
 
 
 @dataclass(eq=False, repr=False)
 class LinearWeights(GraphModule):
-    weights: Union[np.array, Any]
+    """
+    A :py:class:`.GraphModule` that encapsulates a single set of linear weights, with no biases
+    """
+
+    weights: FloatVector
+    """ FloatVector: The linear weights ``(Nin, Nout)`` encapsulated by this module """
 
     def __post_init__(self, *args, **kwargs):
         # - Check size
@@ -26,44 +44,63 @@ class LinearWeights(GraphModule):
         # - Convert weights to numpy array
         self.weights = np.array(self.weights)
 
-        # - Attach input and output nodes back to module
-        for n in self.input_nodes:
-            n.add_sink(self)
-
-        for n in self.output_nodes:
-            n.add_source(self)
-
 
 @dataclass(eq=False, repr=False)
 class GenericNeurons(GraphModule):
-    def __post_init__(self, *args, **kwargs):
-        super().__post_init__(*args, **kwargs)
+    """
+    A :py:class:`.GraphModule` than encapsulates a set of generic neurons
 
-        # - Attach input and output nodes back to module
-        for n in self.input_nodes:
-            n.add_sink(self)
+    This class is used as a base class for all specific neuron subclasses. It defines only input and output nodes, and does not specify any parameters for the neurons.
+    """
 
-        for n in self.output_nodes:
-            n.add_source(self)
+    pass
 
 
 @dataclass(eq=False, repr=False)
 class AliasConnection(GraphModule):
-    def __post_init__(self, *args, **kwargs):
-        super().__post_init__(*args, **kwargs)
+    """
+    A :py:class:`.GraphModule` that encapsulates a set of alias connections
+    """
 
-        # - Attach input and output nodes back to module
-        for n in self.input_nodes:
-            n.add_sink(self)
-
-        for n in self.output_nodes:
-            n.add_source(self)
+    pass
 
 
 @dataclass(eq=False, repr=False)
-class LIFNeuronRealValue(GenericNeurons):
-    tau_mem: ArrayLike[float] = field(default_factory=list)
-    tau_syn: ArrayLike[float] = field(default_factory=list)
-    threshold: ArrayLike[float] = field(default_factory=list)
-    bias: ArrayLike[float] = field(default_factory=list)
-    dt: float = None
+class LIFNeuronWithSynsRealValue(GenericNeurons):
+    """
+    A :py:class:`.GraphModule` that encapsulates a set of LIF spiking neurons with synaptic and membrane dynamics, and with real-valued parameters
+    """
+
+    tau_mem: FloatVector = field(default_factory=list)
+    """ Floatvector: The membrane time constants of these neurons, in seconds ``(Nout,)`` """
+
+    tau_syn: FloatVector = field(default_factory=list)
+    """ Floatvector: The synaptic time constants of these neurons, in seconds ``(Nin,)`` """
+
+    threshold: FloatVector = field(default_factory=list)
+    """ Floatvector: The firing threshold parameters of these neurons ``(Nout,)`` """
+
+    bias: FloatVector = field(default_factory=list)
+    """ Floatvector: The bias parameters of these neurons, if present ``(Nout,)`` """
+
+    dt: Optional[float] = None
+    """ float: The time-step used for these neurons in seconds, if present """
+
+
+@dataclass(eq=False, repr=False)
+class RateNeuronWithSynsRealValue(GenericNeurons):
+    """
+    A :py:class:`.GraphModule` that encapsulates a set of rate neurons, with synapses, and with real-valued parameters
+    """
+
+    tau_mem: FloatVector = field(default_factory=list)
+    """ Floatvector: The membrane time constants of these neurons, in seconds ``(Nout,)`` """
+
+    tau_syn: FloatVector = field(default_factory=list)
+    """ Floatvector: The synaptic time constants of these neurons, in seconds ``(Nin,)`` """
+
+    bias: FloatVector = field(default_factory=list)
+    """ Floatvector: The bias parameters of these neurons ``(Nout,)`` """
+
+    dt: Optional[float] = None
+    """ float: The time-step used for these neurons in seconds, if present """

@@ -4,6 +4,7 @@ Contains the module base classes for Rockpool
 # - Rockpool imports
 from rockpool.parameters import ParameterBase
 from rockpool.timeseries import TimeSeries
+from rockpool.graph import GraphModuleBase
 
 # - Other imports
 from abc import ABC, abstractmethod
@@ -630,6 +631,20 @@ class ModuleBase(ABC):
             Dict[str, TimeSeries]: The mapped recorded state dictionary, wrapped as :py:class:`TimeSeries` objects
         """
         return recorded_dict
+
+    def as_graph(self) -> GraphModuleBase:
+        """
+        Convert this module to a computational graph
+
+        Returns:
+            GraphModuleBase: The computational graph corresponding to this module
+
+        Raises:
+            NotImplementedError: If :py:meth:`.as_graph` is not implemented for this subclass
+        """
+        raise NotImplementedError(
+            f"The Module class '{type(self).__name__}' used by module [{self}] does not implement the graph serialisation API"
+        )
 
 
 class PostInitMetaMixin(type(ModuleBase)):

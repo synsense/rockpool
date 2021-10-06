@@ -1,17 +1,42 @@
-from rockpool.graph.graph_base import GraphModule, GraphHolder, GraphNode, SetList
+"""
+Utilities for generating and manipulating computational graphs
+
+"""
+
+
+from rockpool.graph.graph_base import (
+    GraphModule,
+    GraphHolder,
+    GraphNode,
+    SetList,
+    GraphModuleBase,
+)
 
 import copy
+
+from typing import Any, Optional
 
 __all__ = [
     "connect_modules",
     "bag_graph",
-    "find_modules_of_class",
+    "find_modules_of_subclass",
     "replace_module",
     "find_recurrent_modules",
 ]
 
 
-def connect_modules(source: GraphModule, dest: GraphModule):
+def connect_modules(source: GraphModule, dest: GraphModule) -> None:
+    """
+    Connect two :py:class:`.GraphModule` s together
+
+    Connecting two graph modules can only occur if the output and input dimensionality match across the connection. The output :py:class:`.GraphNode` s from the source module will be merged with the input :py:class:`.GraphNodes` of the destination module. The :py:class:`.GraphNode` s of the destination module will then be discarded.
+
+    If ``source`` or ``dest`` are :py:class:`.GraphHolder` s, then the internal subgraphs will be connected, and the :py:class:`.GraphHolder` s may be discarded.
+
+    Args:
+        source (GraphModule): The source graph module to connect
+        dest (GraphModule): The destination graph module to connect
+    """
     # - Check channel dimensions
     if len(source.output_nodes) != len(dest.input_nodes):
         raise ValueError(
@@ -51,21 +76,32 @@ def connect_modules(source: GraphModule, dest: GraphModule):
 
 
 def bag_graph(
-    graph: GraphModule,
-    nodes_bag: SetList[GraphNode] = None,
-    modules_bag: SetList[GraphModule] = None,
+    graph: GraphModuleBase,
+    nodes_bag: Optional[SetList[GraphNode]] = None,
+    modules_bag: Optional[SetList[GraphModule]] = None,
 ) -> (SetList[GraphNode], SetList[GraphModule]):
+    """
+    Convert a graph into a collection of connection nodes and modules, by traversal
+
+    A graph will be traversed, following all connections. The connection :py:class:`.GraphNode` s and :py:class:`.GraphModule` s will be collected and returned in two collections. Any :py:class:`.GraphHolder` modules will be ignored and discarded.
+
+    Args:
+        graph (GraphModuleBase): A graph to analyse
+
+    Returns:
+        (SetList[GraphNode], SetList[GraphModule]): nodes, modules. `nodes` will be a :py:class:`SetList` containing all the reachable :py:class:`GraphNode` s in `graph`. `modules` will be a :py:class:`SetList` containing all the reachable :py:class:`GraphModule` s in `graph`.
+    """
     nodes_bag = SetList() if nodes_bag is None else nodes_bag
     modules_bag = SetList() if modules_bag is None else modules_bag
 
     # - Have we seen this module before?
     if graph not in modules_bag:
         # - Add this module to the bag
-        modules_bag._add_unique(graph)
+        modules_bag.add(graph)
 
         # - Add input and output nodes to bag
-        [nodes_bag._add_unique(n) for n in graph.input_nodes]
-        [nodes_bag._add_unique(n) for n in graph.output_nodes]
+        [nodes_bag.add(n) for n in graph.input_nodes]
+        [nodes_bag.add(n) for n in graph.output_nodes]
 
         # - Recurse over input nodes
         for n in graph.input_nodes:
@@ -91,17 +127,38 @@ def bag_graph(
     modules_bag_to_return = SetList()
     for mod in modules_bag:
         if not isinstance(mod, GraphHolder):
-            modules_bag_to_return._add_unique(mod)
+            modules_bag_to_return.add(mod)
 
     return nodes_bag, modules_bag_to_return
 
 
-def find_modules_of_class(graph: GraphModule, cls) -> SetList[GraphModule]:
+def find_modules_of_subclass(graph: GraphModuleBase, cls) -> SetList[Any]:
+    """
+    Search a graph for all :py:class:`.GraphModule` s of a specific class or any subclass
+
+    The search uses `isinstance` to search for ``cls``, so any subclass of ``cls`` will also be found.
+
+    Args:
+        graph (GraphModuleBase):
+        cls: A class to search for instances of, or instances of any subclass
+
+    Returns:
+        SetList[Any]: A collection of objects of the desired class
+    """
     _, modules_bag = bag_graph(graph)
     return SetList(m for m in modules_bag if isinstance(m, cls))
 
 
-def replace_module(target_module: GraphModule, replacement_module: GraphModule):
+def replace_module(target_module: GraphModule, replacement_module: GraphModule) -> None:
+    """
+    Replace a graph module with a different module
+
+    This function removes a target graph module from a graph, and replaces it with a replacement module. It removes the target module from any connection :py:class:`.GraphNode` s, and wires in the replacement module instead.
+
+    Args:
+        target_module (GraphModule): A module inside a graph to replace
+        replacement_module (GraphModule): A replacement module to wire into the graph, in place of ``target_module``
+    """
     # - Check that the input and output numbers match
     if len(target_module.input_nodes) != len(replacement_module.input_nodes):
         raise ValueError("Number of input nodes do not match")
@@ -123,24 +180,32 @@ def replace_module(target_module: GraphModule, replacement_module: GraphModule):
     replacement_module.output_nodes = target_module.output_nodes
 
 
-def find_recurrent_modules(graph: GraphModule) -> SetList[GraphModule]:
+def find_recurrent_modules(graph: GraphModuleBase) -> SetList[GraphModule]:
+    """
+    Search for graph modules that are connected in a one-module loop
+
+    A "recurrent module" is defined as a graph module that connects with itself via another single graph module. e.g. a module of neurons, connected to a module of weights that itself connects recurrently back from output of the neurons to the input of the neurons.
+
+    Args:
+        graph (GraphModuleBase): A graph to search
+
+    Returns:
+        SetList[GraphModule]: A collection containing all identified recurrent modules in the graph
+    """
     _, modules = bag_graph(graph)
 
     recurrent_modules = SetList()
     for m in modules:
         # - Get a collection of all source modules
         source_modules = SetList()
-        [
-            source_modules._append_unique(i_node.source_modules)
-            for i_node in m.input_nodes
-        ]
+        [source_modules.extend(i_node.source_modules) for i_node in m.input_nodes]
 
         # - Get a collection of all destination modules
         dest_modules = SetList()
-        [dest_modules._append_unique(d_node.sink_modules) for d_node in m.output_nodes]
+        [dest_modules.extend(d_node.sink_modules) for d_node in m.output_nodes]
 
         # - Detect duplicates between source and destination modules
         if len(set(source_modules).intersection(dest_modules)) > 0:
-            recurrent_modules._add_unique(m)
+            recurrent_modules.add(m)
 
     return recurrent_modules
