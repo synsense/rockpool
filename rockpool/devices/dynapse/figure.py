@@ -316,65 +316,27 @@ class Figure:
         return scatter
 
     @staticmethod
-    def plot_Isyn(
-        Isyn_record: np.ndarray,
+    def plot_Ix(
+        Ix_record: np.ndarray,
+        Ithr: Optional[Union[float, np.ndarray]] = None,
         dt: float = 1e-3,
-        name: Optional[str] = "$I_{syn}$",
-        ax: Optional[matplotlib.axes.Axes] = None,
-        margin: Optional[float] = 0.2,
-        *args,
-        **kwargs,
-    ) -> TSContinuous:
-        """
-        plot_Isyn converts an `Isyn_record` obtained from the record dictionary to a TSContinuous object and plot
-
-        :param Isyn_record: Synaptic currents of the neurons recorded with respect to time (T,N)
-        :type Isyn_record: np.ndarray
-        :param dt: The discrete time resolution of recording, defaults to 1e-3
-        :type dt: float, optional
-        :param name: title of the figure, name of the `TSContinuous` object, defaults to "$I_{syn}$"
-        :type name: Optional[str], optional
-        :param ax: The sub-plot axis to plot the figure, defaults to None
-        :type ax: Optional[matplotlib.axes.Axes], optional
-        :param margin: The margin(ratio) between the edges of the figure and edges of the lines, defaults to 0.2
-        :type margin: Optional[float], optional
-        :return: Isyn current in `TSContinuous` object format
-        :rtype: TSContinuous
-        """
-        f_margin = 1.0 + margin if margin is not None else 1.0
-
-        if ax is not None:
-            plt.sca(ax)
-
-        Isyn = TSContinuous.from_clocked(Isyn_record, dt=dt, name=name)
-
-        # Plotting
-        Isyn.plot(stagger=Isyn.max * f_margin, *args, **kwargs)
-        plt.ylabel("Current(A)")
-
-        return Isyn
-
-    def plot_Imem(
-        Imem_record: np.ndarray,
-        Ispkthr: Optional[Union[float, np.ndarray]] = None,
-        dt: float = 1e-3,
-        name: str = "$I_{mem}$",
+        name: Optional[str] = None,
         margin: Optional[float] = 0.2,
         ax: Optional[matplotlib.axes.Axes] = None,
         line_ratio: float = 0.3,
         *args,
         **kwargs,
-    ) -> Tuple[TSContinuous, TSContinuous]:
+    ) -> Union[TSContinuous, Tuple[TSContinuous, TSContinuous]]:
         """
-        plot_Imem converts an `Imem_record` obtained from the record dictionary to a TSContinuous object and plot
+        plot_Ix converts an `Ix_record` current measurements/recordings obtained from the record dictionary to a `TSContinuous` object and plot
 
-        :param Imem_record: Membrane currents of the neurons recorded with respect to time (T,N)
-        :type Imem_record: np.ndarray
-        :param Ispkthr: Spike threshold for neurons. Both a single float number for global spike threshold and an array of numbers for neuron-specific thresholds can be provided. Plotted with dashed lines if provided, defaults to None
-        :type Ispkthr: Optional[float], optional
+        :param Ix_record: Membrane or synapse currents of the neurons recorded with respect to time (T,N)
+        :type Ix_record: np.ndarray
+        :param Ithr: Spike threshold or any other upper threshold for neurons. Both a single float number for global spike threshold and an array of numbers for neuron-specific thresholds can be provided. Plotted with dashed lines if provided, defaults to None
+        :type Ithr: Optional[float], optional
         :param dt: The discrete time resolution of the recording, defaults to 1e-3
         :type dt: float, optional
-        :param name: title of the figure, name of the `TSContinuous` object, defaults to "$I_{mem}$"
+        :param name: title of the figure, name of the `TSContinuous` object, defaults to None
         :type name: str, optional
         :param margin: The margin between the edges of the figure and edges of the lines, defaults to 0.2
         :type margin: Optional[float], optional
@@ -382,29 +344,64 @@ class Figure:
         :type ax: Optional[matplotlib.axes.Axes], optional
         :param line_ratio: the ratio between Imem lines and the Ispkthr lines, defaults to 0.3
         :type line_ratio: float, optional
-        :return: Imem, Ispkthr
-            :Imem: Imem current in `TSContinuous` object format
-            :Ispkthr: Ispkthr threshold current in `TSContinuous` object format
-        :rtype: Tuple[TSContinuous, TSContinuous]
+        :return: Ix, Ithr
+            :Ix: Imem current in `TSContinuous` object format
+            :Ithr: Ithr threshold current in `TSContinuous` object format
+        :rtype: Union[TSContinuous, Tuple[TSContinuous, TSContinuous]]
         """
         f_margin = 1.0 + margin if margin is not None else 1.0
 
         if ax is not None:
             plt.sca(ax)
 
-        Imem = TSContinuous.from_clocked(Imem_record, dt=dt, name=name)
-
-        # Plotting
-        _lines = Imem.plot(stagger=Imem.max * f_margin, *args, **kwargs)
+        # Convert and plot
+        Ix = TSContinuous.from_clocked(Ix_record, dt=dt, name=name)
+        _lines = Ix.plot(stagger=Ix.max * f_margin, *args, **kwargs)
         plt.ylabel("Current(A)")
 
-        # Spike threshold lines
-        if Ispkthr is not None:
+        # Upper threshold lines
+        if Ithr is not None:
             linewidth = _lines[0]._linewidth * line_ratio
-            Ispkthr = np.ones_like(Imem_record) * Ispkthr
-            Ispkthr = TSContinuous.from_clocked(Ispkthr, dt=dt, name="$I_{spkthr}$")
-            Ispkthr.plot(
-                stagger=Imem.max * f_margin, linestyle="dashed", linewidth=linewidth
+            Ithr = np.ones_like(Ix_record) * Ithr
+            Ithr = TSContinuous.from_clocked(Ithr, dt=dt)
+            Ithr.plot(
+                stagger=np.float32(Ix.max * f_margin),
+                linestyle="dashed",
+                linewidth=linewidth,
             )
 
-        return Imem, Ispkthr
+            return Ix, Ithr
+
+        return Ix
+
+    def plot_spikes(
+        spikes: np.ndarray,
+        dt: float = 1e-3,
+        name: Optional[str] = None,
+        ax: Optional[matplotlib.axes.Axes] = None,
+        *args,
+        **kwargs,
+    ) -> TSEvent:
+        """
+        plot_spikes converts a `spikes` record obtained from the record dictionary to a `TSEvent` object and plot
+
+        :param spikes: input or output spikes of the neurons recorded with respect to time (T,N)
+        :type spikes: np.ndarray
+        :param dt: The discrete time resolution of the recording, defaults to 1e-3
+        :type dt: float, optional
+        :param name: title of the figure, name of the `TSEvent` object, defaults to None
+        :type name: str, optional
+        :param ax: The sub-plot axis to plot the figure, defaults to None
+        :type ax: Optional[matplotlib.axes.Axes], optional
+        :return: spikes in `TSEvent` object format
+        :rtype: TSEvent
+        """
+
+        if ax is not None:
+            plt.sca(ax)
+
+        # Convert and plot
+        spikes_ts = TSEvent.from_raster(spikes, dt=dt, name=name)
+        spikes_ts.plot(*args, **kwargs)
+
+        return spikes_ts
