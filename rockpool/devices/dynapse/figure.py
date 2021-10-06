@@ -13,7 +13,7 @@ from rockpool.devices.dynapse.dynapse1_neuron_synapse_jax import (
     DynapSE1NeuronSynapseJax,
 )
 
-from rockpool.timeseries import TSEvent
+from rockpool.timeseries import TSEvent, TSContinuous
 
 from rockpool.devices.dynapse.utils import custom_spike_train
 
@@ -128,7 +128,7 @@ class Figure:
         :type idx_map: Optional[Union[Dict[int, np.uint16], Dict[int, NeuronKey]]], optional
         :param title: The name of the resulting input spike train, defaults to None
         :type title: Optional[str], optional
-        :raises ValueError: "Weighted mask should include as many elements as number of channels in the input_ts!"
+        :raises ValueError: Weighted mask should include as many elements as number of channels in the input_ts!
         :return: spikes_ts, labels
             :spikes_ts: selected spike trains
             :labels: list of string labels generated for the channels in the following format : `<NeuronType>[<NeuronID>]<Repetition>`
@@ -272,3 +272,139 @@ class Figure:
             spikes_ts, labels = gather_st(_ts, _weight, virtual)
 
         return spikes_ts, labels
+
+    @staticmethod
+    def plot_spikes_label(
+        spikes_ts: TSEvent,
+        labels: List[str],
+        ax: Optional[matplotlib.axes.Axes] = None,
+        cmap: Optional[str] = "rainbow",
+        *args,
+        **kwargs,
+    ) -> matplotlib.collections.PathCollection:
+        """
+        plot_spikes_label helper function used for plotting the spike train with labeled channels
+
+        :param spikes_ts: spike train to be plotted
+        :type spikes_ts: TSEvent
+        :param labels: Channel labels
+        :type labels: List[str]
+        :param ax: The sub-plot axis to plot the figure, defaults to None
+        :type ax: Optional[matplotlib.axes.Axes], optional
+        :param cmap: matplotlib color map. For full list, please check https://matplotlib.org/stable/tutorials/colors/colormaps.html, defaults to "rainbow"
+        :type cmap: Optional[str], optional
+        :raises ValueError: `labels` should include as many elements as number of channels in the `spikes_ts`
+        :return: `PathCollection` object returned by scatter plot
+        :rtype: matplotlib.collections.PathCollection
+        """
+        if len(labels) > spikes_ts.num_channels:
+            raise ValueError(
+                "`labels` should include as many elements as number of channels in the `spikes_ts`"
+            )
+
+        if ax is not None:
+            plt.sca(ax)
+
+        # Empty figure if no incoming spikes
+        if spikes_ts:
+            scatter = spikes_ts.plot(c=spikes_ts.channels, cmap=cmap, *args, **kwargs)
+            plt.yticks(range(len(labels)), labels)
+
+        else:
+            scatter = spikes_ts.plot()
+
+        return scatter
+
+    @staticmethod
+    def plot_Isyn(
+        Isyn_record: np.ndarray,
+        dt: float = 1e-3,
+        name: Optional[str] = "$I_{syn}$",
+        ax: Optional[matplotlib.axes.Axes] = None,
+        margin: Optional[float] = 0.2,
+        *args,
+        **kwargs,
+    ) -> TSContinuous:
+        """
+        plot_Isyn converts an `Isyn_record` obtained from the record dictionary to a TSContinuous object and plot
+
+        :param Isyn_record: Synaptic currents of the neurons recorded with respect to time (T,N)
+        :type Isyn_record: np.ndarray
+        :param dt: The discrete time resolution of recording, defaults to 1e-3
+        :type dt: float, optional
+        :param name: title of the figure, name of the `TSContinuous` object, defaults to "$I_{syn}$"
+        :type name: Optional[str], optional
+        :param ax: The sub-plot axis to plot the figure, defaults to None
+        :type ax: Optional[matplotlib.axes.Axes], optional
+        :param margin: The margin(ratio) between the edges of the figure and edges of the lines, defaults to 0.2
+        :type margin: Optional[float], optional
+        :return: Isyn current in `TSContinuous` object format
+        :rtype: TSContinuous
+        """
+        f_margin = 1.0 + margin if margin is not None else 1.0
+
+        if ax is not None:
+            plt.sca(ax)
+
+        Isyn = TSContinuous.from_clocked(Isyn_record, dt=dt, name=name)
+
+        # Plotting
+        Isyn.plot(stagger=Isyn.max * f_margin, *args, **kwargs)
+        plt.ylabel("Current(A)")
+
+        return Isyn
+
+    def plot_Imem(
+        Imem_record: np.ndarray,
+        Ispkthr: Optional[Union[float, np.ndarray]] = None,
+        dt: float = 1e-3,
+        name: str = "$I_{mem}$",
+        margin: Optional[float] = 0.2,
+        ax: Optional[matplotlib.axes.Axes] = None,
+        line_ratio: float = 0.3,
+        *args,
+        **kwargs,
+    ) -> Tuple[TSContinuous, TSContinuous]:
+        """
+        plot_Imem converts an `Imem_record` obtained from the record dictionary to a TSContinuous object and plot
+
+        :param Imem_record: Membrane currents of the neurons recorded with respect to time (T,N)
+        :type Imem_record: np.ndarray
+        :param Ispkthr: Spike threshold for neurons. Both a single float number for global spike threshold and an array of numbers for neuron-specific thresholds can be provided. Plotted with dashed lines if provided, defaults to None
+        :type Ispkthr: Optional[float], optional
+        :param dt: The discrete time resolution of the recording, defaults to 1e-3
+        :type dt: float, optional
+        :param name: title of the figure, name of the `TSContinuous` object, defaults to "$I_{mem}$"
+        :type name: str, optional
+        :param margin: The margin between the edges of the figure and edges of the lines, defaults to 0.2
+        :type margin: Optional[float], optional
+        :param ax: The sub-plot axis to plot the figure, defaults to None
+        :type ax: Optional[matplotlib.axes.Axes], optional
+        :param line_ratio: the ratio between Imem lines and the Ispkthr lines, defaults to 0.3
+        :type line_ratio: float, optional
+        :return: Imem, Ispkthr
+            :Imem: Imem current in `TSContinuous` object format
+            :Ispkthr: Ispkthr threshold current in `TSContinuous` object format
+        :rtype: Tuple[TSContinuous, TSContinuous]
+        """
+        f_margin = 1.0 + margin if margin is not None else 1.0
+
+        if ax is not None:
+            plt.sca(ax)
+
+        Imem = TSContinuous.from_clocked(Imem_record, dt=dt, name=name)
+
+        # Plotting
+        _lines = Imem.plot(stagger=Imem.max * f_margin, *args, **kwargs)
+        plt.ylabel("Current(A)")
+
+        # Spike threshold lines
+        if Ispkthr is not None:
+            linewidth = _lines[0]._linewidth * line_ratio
+            Ispkthr = np.ones_like(Imem_record) * Ispkthr
+            Ispkthr = TSContinuous.from_clocked(Ispkthr, dt=dt, name="$I_{spkthr}$")
+            Ispkthr.plot(
+                stagger=Imem.max * f_margin, linestyle="dashed", linewidth=linewidth
+            )
+
+        return Imem, Ispkthr
