@@ -7,7 +7,7 @@ E-mail : ugurcan.cakal@gmail.com
 01/10/2021
 """
 
-from matplotlib.axes import Axes
+import matplotlib
 import matplotlib.pyplot as plt
 from rockpool.devices.dynapse.dynapse1_neuron_synapse_jax import (
     DynapSE1NeuronSynapseJax,
@@ -20,11 +20,14 @@ from rockpool.devices.dynapse.utils import custom_spike_train
 from typing import (
     Any,
     Dict,
-    Type,
     Union,
     List,
     Optional,
     Tuple,
+)
+
+from rockpool.typehints import (
+    FloatVector,
 )
 
 import numpy as np
@@ -183,5 +186,89 @@ class Figure:
         # Merge spike trains in one TSEvent object
         for ts in spikes:
             spikes_ts = spikes_ts.append_c(ts)
+
+        return spikes_ts, labels
+
+    @staticmethod
+    def spike_input_post(
+        mod: DynapSE1NeuronSynapseJax,
+        input_ts: TSEvent,
+        output_ts: TSEvent,
+        post: int,
+        syn_type: Union[Dynapse1SynType, str, np.uint8],
+        virtual: Optional[bool] = None,
+        *args,
+        **kwargs,
+    ) -> Tuple[TSEvent, List[str]]:
+        """
+        spike_input_post gather together all the input spikes of a pre-synaptic neuron
+
+        :param mod: The module to investigate
+        :type mod: DynapSE1NeuronSynapseJax
+        :param input_ts: Input spike trains fed to DynapSE1NeuronSynapseJax object
+        :type input_ts: TSEvent
+        :param output_ts: Output spike trains of DynapSE1NeuronSynapseJax object
+        :type output_ts: TSEvent
+        :param post: matrix index of the post synaptic neuron defined inside the `mod`
+        :type post: int
+        :param syn_type: the listening synapse of post-synaptic neuron of interest (e.g. "AMPA", "GABA_A", ...)
+        :type syn_type: Union[Dynapse1SynType, str, np.uint8]
+        :param virtual: Gather only the virtual connections or not. Gather both if None, defaults to None
+        :type virtual: Optional[bool], optional
+        :return: spikes_ts, labels
+            :spikes_ts: input spike trains to post-synaptic neuron
+            :labels: list of string labels generated for the channels in the following format : `<NeuronType>[<NeuronID>]<Repetition>`
+                :NeuronType: can be 's' or 'n'. 's' means spike generator and 'n' means real in-device neuron
+                :NeuronID: can be NeuronKey indicating chipID, coreID and neuronID of the neuron, can be universal neruon ID or matrix index.
+                :Repetition: represents the number of synapse indicated in the weighted mask
+                    n[(3, 0, 20)]x3 -> real neuron in chip 3, core 0, with neuronID 20, connection repeated 3 times (idx_map provided)
+                    n[3092]x2 -> real neuron with UID 3092, connection repeated twice (idx_map provided)
+                    s[0]x1 -> virtual neuron(spike generator), connection repeated once
+        :rtype: Tuple[TSEvent, List[str]]
+        """
+
+        def gather_st(
+            _ts: TSEvent, weight: FloatVector, virtual: bool
+        ) -> Tuple[TSEvent, List[str]]:
+            """
+            gather_st extracts input spike trains to post-synaptic neuron from the given
+            ts_event object depending on the weight matrix provided.
+            In the weight matrix the organization is as follows : w[pre][post][syn_type].
+
+            :param _ts: Input or output `TSEvent` object fed to or produced by the simulation module
+            :type _ts: TSEvent
+            :param weight: the weight matrix encoding the connectivity between the neruons w[pre][post][syn_type]
+            :type weight: FloatVector
+            :param virtual: Label the neurons as virtual or not.
+            :type virtual: bool
+            :return: spikes_ts, labels (as the same as the encapsulating function)
+            :rtype: Tuple[TSEvent, List[str]]
+            """
+
+            mask = weight[:, post, syn_idx]
+            spikes_ts, labels = Figure.select_input_channels(
+                _ts, mask, virtual, *args, **kwargs
+            )
+            return spikes_ts, labels
+
+        if syn_type is not None:
+            _, syn_idx = Figure._decode_syn_type(
+                syn_type, mod.SYN.default_idx_dict_no_ahp
+            )
+
+        # Gather external AND recurrent input spike trains
+        if virtual is None:
+            external_ts, external_labels = gather_st(input_ts, mod.w_in, True)
+            recurrent_ts, recurrent_labels = gather_st(output_ts, mod.w_rec, False)
+
+            # Merge external and recurrent inputs
+            spikes_ts = external_ts.append_c(recurrent_ts)
+            labels = external_labels + recurrent_labels
+
+        # Gather external OR recurrent input spike trains
+        else:
+            _ts = input_ts if virtual else output_ts
+            _weight = mod.w_in if virtual else mod.w_rec
+            spikes_ts, labels = gather_st(_ts, _weight, virtual)
 
         return spikes_ts, labels
