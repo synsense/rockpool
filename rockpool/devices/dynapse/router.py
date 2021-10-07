@@ -117,7 +117,7 @@ class Router:
     @staticmethod
     def decode_UID(UID: np.uint16) -> NeuronKey:
         """
-        decode_UID decodes the uniquie neuron ID
+        decode_UID decodes the uniquie neuron ID to neuron keys (chipID, coreID, neuronID)
 
         :param UID: Globally unique neuron ID
         :type UID: np.uint16
@@ -847,14 +847,28 @@ class Router:
             index_UID_map = {"FPGA": in_idx, "Dynap-SE1": rec_idx}
 
             if decode_UID:
-                # Decode the index UID map to represent neurons with NeuronKeys instead of UIDs
-                map_decoder = lambda row: (row[0], Router.decode_UID(row[1]))
-                traverse = lambda row: (row[0], dict(map(map_decoder, row[1].items())))
-                index_UID_map = dict(map(traverse, index_UID_map.items()))
+                Router.decode_index_UID_map(index_UID_map)
 
             syn_type_map = Router.syn_type_map()
 
             return w_in, w_rec, index_UID_map, syn_type_map
+
+    @staticmethod
+    def decode_index_UID_map(
+        index_UID_map: Dict[int, np.uint16]
+    ) -> Dict[int, NeuronKey]:
+        """
+        decode_index_UID_map uses `Router.decode_UID()` and iterate over a index map to decode the index UID map to represent neurons with NeuronKeys instead of UIDs
+
+        :param index_UID_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique IDs
+        :type index_UID_map: Dict[int, np.uint16]
+        :return: the same `index_UID_map` dictionary with neuron keys (chipID, coreID, neuronID) instead of global unique IDs.
+        :rtype: Dict[int, NeuronKey]
+        """
+        map_decoder = lambda row: (row[0], Router.decode_UID(row[1]))
+        traverse = lambda row: (row[0], dict(map(map_decoder, row[1].items())))
+        index_UID_map = dict(map(traverse, index_UID_map.items()))
+        return index_UID_map
 
     @staticmethod
     def get_weight_from_config(
