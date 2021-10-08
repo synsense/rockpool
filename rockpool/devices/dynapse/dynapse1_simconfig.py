@@ -321,7 +321,7 @@ class DynapSE1SimulationConfiguration:
     :type t_pulse_ahp: float
     :ivar f_tau_mem: Tau factor for membrane circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau`
     :type f_tau_mem: float
-    :ivar f_tau_syn: A vector of tau factors in the following order: [AHP, NMDA, AMPA, GABA_A, GABA_B]
+    :ivar f_tau_syn: A vector of tau factors in the following order: [GABA_B, GABA_A, NMDA, AMPA, AHP]
     :type f_tau_syn: np.ndarray
     :ivar f_t_ref: time factor for refractory period circuit. :math:`f_{\\t} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\t} = I_{\\t} \\cdot \\t`
     :type f_t_ref: float
@@ -368,16 +368,17 @@ class DynapSE1SimulationConfiguration:
             self.mem = MembraneParameters(
                 C=_Co * 4, r_Cref=0.1, r_Cpulse=0.1, layout=self.layout
             )
-        if self.ahp is None:
-            self.ahp = AHPParameters(C=_Co * 10, layout=self.layout)
+
+        if self.gaba_b is None:
+            self.gaba_b = GABABParameters(C=_Co * 20, layout=self.layout)
+        if self.gaba_a is None:
+            self.gaba_a = GABAAParameters(C=_Co * 2, layout=self.layout)
         if self.nmda is None:
             self.nmda = NMDAParameters(C=_Co * 20, layout=self.layout)
         if self.ampa is None:
             self.ampa = AMPAParameters(C=_Co * 2, layout=self.layout)
-        if self.gaba_a is None:
-            self.gaba_a = GABAAParameters(C=_Co * 2, layout=self.layout)
-        if self.gaba_b is None:
-            self.gaba_b = GABABParameters(C=_Co * 20, layout=self.layout)
+        if self.ahp is None:
+            self.ahp = AHPParameters(C=_Co * 10, layout=self.layout)
 
         self.t_pulse_ahp = self.t_pulse * self.fpulse_ahp
 
@@ -389,10 +390,10 @@ class DynapSE1SimulationConfiguration:
         # All DPI synapses together
         self.f_tau_syn = np.array(
             [
-                self.ahp.f_tau,
+                self.gaba_b.f_tau,
+                self.gaba_a.f_tau,
                 self.nmda.f_tau,
                 self.ampa.f_tau,
-                self.gaba_a.f_tau,
-                self.gaba_b.f_tau,
+                self.ahp.f_tau,
             ]
         )
