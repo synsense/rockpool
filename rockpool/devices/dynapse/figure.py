@@ -433,6 +433,7 @@ class Figure:
 
         return Ix
 
+    @staticmethod
     def plot_spikes(
         spikes: np.ndarray,
         dt: float = 1e-3,
@@ -464,3 +465,124 @@ class Figure:
         spikes_ts.plot(*args, **kwargs)
 
         return spikes_ts
+
+    @staticmethod
+    def get_idx_from_map(
+        neuron_id: Union[
+            List[Union[NeuronKey, np.uint16]], Union[NeuronKey, np.uint16]
+        ],
+        idx_map: Union[Dict[int, np.uint16], Dict[int, NeuronKey]],
+        verbose: bool = False,
+    ) -> Union[List[int], int, None]:
+        """
+        get_idx_from_map finds the key or a list of keys given a value or list of values stored in the `idx_map` dictionary
+
+        :param neuron_id: a UID/NeuronKey describing the neuron or list of neuron UID/NeuronKeys to be converted to their related matrix indexes.
+        :type neuron_id: Union[List[Union[NeuronKey, np.uint16]], Union[NeuronKey, np.uint16]]
+        :param idx_map: dictionary to map the matrix indexes of the neurons to a NeuronKey or neuron UID to be used in the label
+        :type idx_map: Union[Dict[int, np.uint16], Dict[int, NeuronKey]]
+        :param verbose: log an error message if neuron_id cannot be found or not, defaults to False
+        :type verbose: bool, optional
+        :return: a list of neuron matrix indexes, a single neuron matrix index or None if nothing is found
+        :rtype: Union[List[int], int, None]
+        """
+        reverse_map = dict(zip(idx_map.values(), idx_map.keys()))
+
+        # Get the map_type
+        map_type = type(list(idx_map.values())[0])
+
+        # Format the pre-synaptic neruon ids in such a way that both single values and list of values work
+        if isinstance(map_type(), Iterable):
+            neuron_id = np.atleast_2d(neuron_id)
+        else:
+            neuron_id = np.atleast_1d(neuron_id)
+
+        # Generate the decoded list
+        try:
+            idx_list = list(map(lambda nid: reverse_map[map_type(nid)], neuron_id))
+        except:
+            if verbose:
+                print(f"Neuron ids {neuron_id} not be found in the dict {idx_map}")
+            return None
+
+        return idx_list if len(idx_list) > 1 else idx_list[0]
+
+    @staticmethod
+    def split_yaxis(
+        top_ax: matplotlib.axes.Axes,
+        bottom_ax: matplotlib.axes.Axes,
+        top_bottom_ratio: Tuple[float],
+    ) -> None:
+        """
+        split_yaxis arrange ylimits such that two different plots can share the same y axis without any intersection
+
+        :param top_ax: the axis to place on top
+        :type top_ax: matplotlib.axes.Axes
+        :param bottom_ax: the axis to place on bottom
+        :type bottom_ax: matplotlib.axes.Axes
+        :param top_bottom_ratio: the ratio between top and bottom axes
+        :type top_bottom_ratio: Tuple[float]
+        """
+
+        def arrange_ylim(
+            ax: matplotlib.axes.Axes, place_top: bool, factor: float
+        ) -> None:
+            """
+            arrange_ylim helper function to arrange y_limits
+
+            :param ax: the axis to change the limits
+            :type ax: matplotlib.axes.Axes
+            :param place_top: place the axis of interest to top or bottom
+            :type place_top: bool
+            :param factor: the factor to multiply the y-range and allocate space to the other plot
+            :type factor: float
+            """
+            bottom, top = ax.get_ylim()
+
+            if place_top:
+                bottom = bottom - factor * (top - bottom)
+            else:
+                top = top + factor * (top - bottom)
+
+            ax.set_ylim(top=top, bottom=bottom)
+
+        f_top = top_bottom_ratio[1] / top_bottom_ratio[0]
+        f_bottom = top_bottom_ratio[0] / top_bottom_ratio[1]
+
+        arrange_ylim(top_ax, 1, f_top)
+        arrange_ylim(bottom_ax, 0, f_bottom)
+
+    @staticmethod
+    def normalize_y(y: float, ax: matplotlib.axes.Axes) -> float:
+        """
+        normalize normalize a y value with respect to axis limits
+
+        :param y: the value to be normalized
+        :type y: float
+        :param ax: the axis of interest to get the limits
+        :type ax: matplotlib.axes.Axes
+        :return: normalized y value (in [0,1] if the value is within the limits)
+        :rtype: float
+        """
+
+        bottom, top = ax.get_ylim()
+        res = (y - bottom) / (top - bottom)
+        return res
+
+    @staticmethod
+    def normalize_x(x: float, ax: matplotlib.axes.Axes) -> float:
+        """
+        normalize normalize a x value with respect to axis limits
+
+        :param x: the value to be normalized
+        :type x: float
+        :param ax: the axis of interest to get the limits
+        :type ax: matplotlib.axes.Axes
+        :return: normalized x value (in [0,1] if the value is within the limits)
+        :rtype: float
+        """
+
+        x_min, x_max = ax.get_xlim()
+        res = (x - x_min) / (x_max - x_min)
+        return res
+
