@@ -825,9 +825,16 @@ class Router:
             return weight_matrix, idx_map
 
         # Extract the neurons from the synapse dictionaries
-        device_pre_post = np.array(list(device_synapses.keys()))[:, 0:2]
-        input_pre = np.array(list(input_synapses.keys()))[:, 0]
-        input_post = np.array(list(input_synapses.keys()))[:, 1]
+        device_pre_post = np.empty(0)
+        input_pre = np.empty(0)
+        input_post = np.empty(0)
+
+        if device_synapses:
+            device_pre_post = np.array(list(device_synapses.keys()))[:, 0:2]
+
+        if input_synapses:
+            input_pre = np.array(list(input_synapses.keys()))[:, 0]
+            input_post = np.array(list(input_synapses.keys()))[:, 1]
 
         # Get the device and virtual neurons seperately
         device_neurons = np.unique(np.hstack((device_pre_post.flatten(), input_post)))
