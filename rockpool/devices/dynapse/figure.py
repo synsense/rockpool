@@ -43,19 +43,9 @@ NeuronConnectionSynType = Tuple[np.uint16, np.uint16, np.uint8]
 _SAMNA_AVAILABLE = True
 
 try:
-    from samna.dynapse1 import (
-        Dynapse1Configuration,
-        Dynapse1Destination,
-        Dynapse1Synapse,
-        Dynapse1SynType,
-        Dynapse1Neuron,
-    )
+    from samna.dynapse1 import Dynapse1SynType
 except ModuleNotFoundError as e:
-    Dynapse1Configuration = Any
-    Dynapse1Destination = Any
-    Dynapse1Synapse = Any
     Dynapse1SynType = Any
-    Dynapse1Neuron = Any
     print(
         e,
         "\nFigure module cannot interact with samna objects",
@@ -249,7 +239,10 @@ class Figure:
         """
 
         def gather_st(
-            _ts: TSEvent, weight: FloatVector, virtual: bool
+            _ts: TSEvent,
+            weight: FloatVector,
+            virtual: bool,
+            pre_idx: Optional[int],
         ) -> Tuple[TSEvent, List[str]]:
             """
             gather_st extracts input spike trains to post-synaptic neuron from the given
@@ -262,6 +255,8 @@ class Figure:
             :type weight: FloatVector
             :param virtual: Label the neurons as virtual or not.
             :type virtual: bool
+            :param pre_idx: matrix index of the pre-synaptic neuron if pre is defined
+            :type pre_idx: int
             :return: spikes_ts, labels (as the same as the encapsulating function)
             :rtype: Tuple[TSEvent, List[str]]
             """
@@ -278,11 +273,9 @@ class Figure:
             )
             return spikes_ts, labels
 
-        # [] TODO: Simplify mod.SYN
+        pre_idx = None
         if syn_type is not None:
-            _, syn_idx = Figure._decode_syn_type(
-                syn_type, mod.SYN.default_idx_dict_no_ahp
-            )
+            _, syn_idx = Figure._decode_syn_type(syn_type, mod.SYN)
 
         # Resolve post-synaptic (and pre-synaptic if exist) neuron's matrix index
         if idx_map is not None:
@@ -319,8 +312,9 @@ class Figure:
                 raise ValueError(
                     "`virtual` flag should be set if pre-synaptic neuron is defined!"
                 )
-            external_ts, external_labels = gather_st(input_ts, mod.w_in, True)
-            recurrent_ts, recurrent_labels = gather_st(output_ts, mod.w_rec, False)
+
+            external_ts, external_labels = gather_st(input_ts, mod.w_in, 1, pre_idx)
+            recurrent_ts, recurrent_labels = gather_st(output_ts, mod.w_rec, 0, pre_idx)
 
             # Merge external and recurrent inputs
             spikes_ts = external_ts.append_c(recurrent_ts)
@@ -328,9 +322,11 @@ class Figure:
 
         # Gather external OR recurrent input spike trains
         else:
+            if idx_map is None:
+                pre_idx = pre
             _ts = input_ts if virtual else output_ts
             _weight = mod.w_in if virtual else mod.w_rec
-            spikes_ts, labels = gather_st(_ts, _weight, virtual)
+            spikes_ts, labels = gather_st(_ts, _weight, virtual, pre_idx)
 
         return spikes_ts, labels
 
@@ -380,6 +376,8 @@ class Figure:
         if ylabel is not None:
             plt.ylabel(ylabel)
 
+        plt.tight_layout()
+
         return scatter
 
     @staticmethod
@@ -423,7 +421,7 @@ class Figure:
 
         # Convert and plot
         Ix = TSContinuous.from_clocked(Ix_record, dt=dt, name=name)
-        _lines = Ix.plot(stagger=Ix.max * f_margin, *args, **kwargs)
+        _lines = Ix.plot(stagger=np.float32(Ix.max * f_margin), *args, **kwargs)
         plt.ylabel("Current(A)")
 
         # Upper threshold lines
@@ -438,6 +436,8 @@ class Figure:
             )
 
             return Ix, Ithr
+
+        plt.tight_layout()
 
         return Ix
 
@@ -471,6 +471,8 @@ class Figure:
         # Convert and plot
         spikes_ts = TSEvent.from_raster(spikes, dt=dt, name=name)
         spikes_ts.plot(*args, **kwargs)
+
+        plt.tight_layout()
 
         return spikes_ts
 
@@ -611,7 +613,8 @@ class Figure:
         ax: Optional[matplotlib.axes.Axes] = None,
         plot_guides: bool = True,
         line_ratio: float = 0.3,
-        top_bottom_ratio: Tuple[float] = (1, 2),
+        top_bottom_ratio: Tuple[float] = (2, 1),
+        s: float = 10.0,
     ) -> Tuple[TSContinuous, TSEvent, List[str]]:
         """
         plot_Isyn_trace plots a synaptic current(AMPA, NMDA, GABA_A, GABA_B, or AHP) of a pre-synaptic neuron
@@ -642,6 +645,8 @@ class Figure:
         :type line_ratio: float, optional
         :param top_bottom_ratio: the ratio between top and bottom axes, defaults to (1, 2)
         :type top_bottom_ratio: Tuple[float], optional
+        :param s: spike dot size, defaults to 10
+        :type s: float, optional
         :raises ValueError: AHP is a special synapse accepting recurrent (post->post) spikes, `pre` synaptic neuron cannot be defined!
         return: Isyn, spikes_ts, labels
             :Isyn: Isyn current in `TSContinuous` object format
@@ -717,7 +722,7 @@ class Figure:
             )
 
         scatter = Figure.plot_spikes_label(
-            spikes_ts, labels, ax=ax_spike, ylabel=f"Channels{ylabel}"
+            spikes_ts, labels, ax=ax_spike, ylabel=f"Channels{ylabel}", s=s
         )
 
         # Plot the synaptic current and the incoming spikes
