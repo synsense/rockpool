@@ -586,3 +586,158 @@ class Figure:
         res = (x - x_min) / (x_max - x_min)
         return res
 
+    @staticmethod
+    def plot_Isyn_trace(
+        mod: DynapSE1NeuronSynapseJax,
+        record_dict: Dict[str, np.ndarray],
+        post: Union[NeuronKey, np.uint16, int],
+        syn_type: Union[Dynapse1SynType, str, np.uint8],
+        pre: Optional[
+            Union[
+                List[Union[NeuronKey, np.uint16, int]], Union[NeuronKey, np.uint16, int]
+            ]
+        ] = None,
+        virtual: Optional[bool] = None,
+        idx_map: Optional[Union[Dict[int, np.uint16], Dict[int, NeuronKey]]] = None,
+        title: Optional[str] = None,
+        ax: Optional[matplotlib.axes.Axes] = None,
+        plot_guides: bool = True,
+        line_ratio: float = 0.3,
+        top_bottom_ratio: Tuple[float] = (1, 2),
+    ) -> Tuple[TSContinuous, TSEvent, List[str]]:
+        """
+        plot_Isyn_trace plots a synaptic current(AMPA, NMDA, GABA_A, GABA_B, or AHP) of a pre-synaptic neuron
+        with the input spikes trains affecting the synaptic current. By making `plot_guides` = True,
+        guide lines from the spikes to increments on the synaptic current can be drawn.
+
+        :param mod: The module to investigate
+        :type mod: DynapSE1NeuronSynapseJax
+        :param record_dict: is a dictionary containing the recorded state variables of `mod` during the evolution at each time step
+        :type record_dict: Dict[str, np.ndarray]
+        :param post: matrix index(if idx_map absent) or UID/NeuronKey(if idx_map provided) of the post synaptic neuron defined inside the `mod`
+        :type post: Union[NeuronKey, np.uint16, int]
+        :param syn_type: the listening synapse type of post-synaptic neuron of interest (e.g. "AMPA", "GABA_A", ...)
+        :type syn_type: Union[Dynapse1SynType, str, np.uint8]
+        :param pre: matrix indexes(if idx_map absent) or UIDs/NeuronKeys(if idx_map provided) of the pre synaptic neurons defined inside the `mod` to constraint the sending neurons. If None, all the pre-synaptic connections are listed. , defaults to None
+        :type pre: Optional[ Union[ List[Union[NeuronKey, np.uint16, int]], Union[NeuronKey, np.uint16, int] ] ], optional
+        :param virtual: Gather only the virtual connections or not (if `pre` is None). Gather both if None. It's not optional in the case that pre-synaptic neuro is defined by the matrix index. Automatically found if both pre-synaptic neuron and index map is given. defaults to None
+        :type virtual: Optional[bool], optional
+        :param idx_map: dictionary to map the matrix indexes of the neurons to a NeuronKey or neuron UID to be used in the label, defaults to None
+        :type idx_map: Optional[Union[Dict[int, np.uint16], Dict[int, NeuronKey]]], optional
+        :param title: The title of the resulting plot, name of the `Isyn` object returned, defaults to None
+        :type title: Optional[str], optional
+        :param ax: The sub-plot axis to plot the figure, defaults to None
+        :type ax: Optional[matplotlib.axes.Axes], optional
+        :param plot_guies: plot the spikes to Isyn current guide lines(dashed) or not, defaults to True
+        :type plot_guies: bool, optional
+        :param line_ratio: the ratio between Isyn lines and the spike to Isyn guide lines, defaults to 0.3
+        :type line_ratio: float, optional
+        :param top_bottom_ratio: the ratio between top and bottom axes, defaults to (1, 2)
+        :type top_bottom_ratio: Tuple[float], optional
+        :raises ValueError: AHP is a special synapse accepting recurrent (post->post) spikes, `pre` synaptic neuron cannot be defined!
+        return: Isyn, spikes_ts, labels
+            :Isyn: Isyn current in `TSContinuous` object format
+            :spikes_ts: input spike trains to post-synaptic neuron
+            :labels: list of string labels generated for the channels in the following format : `<NeuronType>[<NeuronID>]<Repetition>`
+                :NeuronType: can be 's' or 'n'. 's' means spike generator and 'n' means real in-device neuron
+                :NeuronID: can be NeuronKey indicating chipID, coreID and neuronID of the neuron, can be universal neruon ID or matrix index.
+                :Repetition: represents the number of synapse indicated in the weighted mask
+                    n[(3, 0, 20)]x3 -> real neuron in chip 3, core 0, with neuronID 20, connection repeated 3 times (idx_map provided)
+                    n[3092]x2 -> real neuron with UID 3092, connection repeated twice (idx_map provided)
+                    s[0]x1 -> virtual neuron(spike generator), connection repeated once
+        :rtype: Tuple[TSContinuous, TSEvent, List[str]]
+        """
+
+        syn_name, _ = Figure._decode_syn_type(syn_type)
+        ylabel = ""
+
+        # Resolve post-synaptic neuron's matrix index
+        if idx_map is not None:
+            virtual_key, real_key = idx_map.keys()
+            post_idx = Figure.get_idx_from_map(post, idx_map[real_key])
+
+            # Determine the ylabel of the spikes axis
+            map_type = type(list(idx_map[real_key].values())[0])
+            if isinstance(map_type(), Iterable):
+                ylabel = " [ChipID, CoreID, NeuronID]"
+            else:
+                ylabel = " [Neuron UID]"
+
+        else:
+            post_idx = post
+
+        # Plot the Isyn and spikes on a common x axis and different y axes
+        if ax is None:
+            _, ax_spike = plt.subplots()
+        else:
+            ax_spike = ax
+            plt.sca(ax_spike)
+
+        ax_syn = ax_spike.twinx()
+
+        # Generate a title
+        if title is None:
+            title = f"$I_{{{syn_name}}}$ n[{post}]"
+
+        # Plot input spikes
+        input_ts = TSEvent.from_raster(record_dict["input_data"], dt=mod.dt)
+        output_ts = TSEvent.from_raster(record_dict["spikes"], dt=mod.dt)
+
+        # AHP handler
+        if syn_name != "AHP":
+            spikes_ts, labels = Figure.spike_input_post(
+                mod,
+                input_ts,
+                output_ts,
+                post,
+                syn_type,
+                pre,
+                virtual,
+                idx_map,
+                title="",
+            )
+        else:
+            if pre is not None:
+                raise ValueError(
+                    "AHP is a special synapse accepting recurrent weights, `pre` synaptic neuron cannot be defined!"
+                )
+
+            weighted_mask = np.zeros(output_ts.num_channels)
+            weighted_mask[post_idx] = 1
+            spikes_ts, labels = Figure.select_input_channels(
+                output_ts, weighted_mask, virtual=False, idx_map=idx_map, title=""
+            )
+
+        scatter = Figure.plot_spikes_label(
+            spikes_ts, labels, ax=ax_spike, ylabel=f"Channels{ylabel}"
+        )
+
+        # Plot the synaptic current and the incoming spikes
+        Isyn = Figure.plot_Ix(
+            record_dict[f"I{syn_name.lower()}"][:, post_idx], name=title, ax=ax_syn
+        )
+
+        # Arrange the y limits so that plots won't intersect
+        Figure.split_yaxis(ax_syn, ax_spike, top_bottom_ratio)
+
+        # Plot guides to trace the effect of a spike on the synaptic current
+        if plot_guides:
+
+            # x,y info is in the scatter object
+            for x, y in scatter.get_offsets():
+                y_syn = Isyn.samples[int(x // mod.dt)][0]
+                linewidth = ax_syn.lines[0]._linewidth * line_ratio
+
+                # dashed lines, color can be obtained from the scatter object
+                plt.axvline(
+                    x,
+                    ymin=Figure.normalize_y(y, ax_spike),
+                    ymax=Figure.normalize_y(y_syn, ax_syn),
+                    linestyle="dashed",
+                    linewidth=linewidth,
+                    color=scatter.to_rgba(y),
+                )
+
+        plt.tight_layout()
+
+        return Isyn, spikes_ts, labels
