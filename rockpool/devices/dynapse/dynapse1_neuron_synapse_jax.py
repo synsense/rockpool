@@ -80,15 +80,15 @@ DynapSE1State = Tuple[JP_ndarray, JP_ndarray, JP_ndarray, Optional[Any]]
 class SYN:
     """
     SYN helps reordering of the synapses used in the DynapSE1NeuronSynapseJax module
-    Synapse parameters are combined in the order of [AHP, NMDA, AMPA, GABA_A, GABA_B] by default
+    Synapse parameters are combined in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] by default
     Synapse indexes should start from 0 and need to be all contiguous integers! Make a synapse index < 0 to eliminate!
     """
 
-    AHP: int = 4
+    GABA_B: int = 0
+    GABA_A: int = 1
     NMDA: int = 2
     AMPA: int = 3
-    GABA_A: int = 1
-    GABA_B: int = 0
+    AHP: int = 4
 
     def __post_init__(self) -> None:
         """
@@ -113,7 +113,7 @@ class SYN:
     def target_idx(self) -> np.ndarray:
         """
         target_idx is the index array to be used to put the synapses in the desired index order. It can be used to
-        rearange the default order array [AHP, NMDA, AMPA, GABA_A, GABA_B] into desired order.
+        rearange the default order array [GABA_B, GABA_A, NMDA, AMPA, AHP] into desired order.
 
         :return: the target indexes of the synapses
         :rtype: np.ndarray
@@ -125,12 +125,12 @@ class SYN:
     def default_idx(self) -> np.ndarray:
         """
         default_idx returns the indexes of the synapses in the desired order. It can be used to
-        rearange a custom ordered array into the original order [AHP, NMDA, AMPA, GABA_A, GABA_B].
+        rearange a custom ordered array into the original order [GABA_B, GABA_A, NMDA, AMPA, AHP].
 
         :return: the indexes of the synapses in original order
         :rtype: np.ndarray
         """
-        _idx = np.array([self.AHP, self.NMDA, self.AMPA, self.GABA_A, self.GABA_B])
+        _idx = np.array([self.GABA_B, self.GABA_A, self.NMDA, self.AMPA, self.AHP])
         return _idx[_idx >= 0]
 
     @property
@@ -147,11 +147,12 @@ class SYN:
         check_if_smaller = (
             lambda syn: syn if (self.AHP < 0 or syn < self.AHP) else syn - 1
         )
+        gaba_b = check_if_smaller(self.GABA_B)
+        gaba_a = check_if_smaller(self.GABA_A)
         nmda = check_if_smaller(self.NMDA)
         ampa = check_if_smaller(self.AMPA)
-        gaba_a = check_if_smaller(self.GABA_A)
-        gaba_b = check_if_smaller(self.GABA_B)
-        _idx = np.array([nmda, ampa, gaba_a, gaba_b])
+
+        _idx = np.array([gaba_b, gaba_a, nmda, ampa])
         return _idx
 
     @property
@@ -162,7 +163,7 @@ class SYN:
         :return: a map between the name of the synapse and it's default storage index
         :rtype: Dict[str, int]
         """
-        keys = ["AHP", "NMDA", "AMPA", "GABA_A", "GABA_B"]
+        keys = ["GABA_B", "GABA_A", "NMDA", "AMPA", "AHP"]
         return dict(zip(keys, range(len(keys))))
 
     @property
@@ -173,7 +174,7 @@ class SYN:
         :return: a map between the name of the synapse and it's default storage index (without AHP)
         :rtype: Dict[str, int]
         """
-        keys = ["NMDA", "AMPA", "GABA_A", "GABA_B"]
+        keys = ["GABA_B", "GABA_A", "NMDA", "AMPA"]
         values = self.default_idx_no_ahp
         return dict(zip(keys, range(len(keys))))
 
@@ -264,7 +265,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     :type shape: tuple, optional
     :param sim_config: Dynap-SE1 bias currents and simulation configuration parameters, defaults to None
     :type sim_config: Optional[DynapSE1SimulationConfiguration], optional
-    :param syn_order: The order of synapses to be stored in 2D synaptic parameter arrays. [AHP, NMDA, AMPA, GABA_A, GABA_B] by default
+    :param syn_order: The order of synapses to be stored in 2D synaptic parameter arrays. [GABA_B, GABA_A, NMDA, AMPA, AHP] by default
     :type syn_order: Optional[SYN], optional
     :param w_in: Initial input weights defining the connections from virtual FPGA neurons to real device neurons. It must be a rectangular matrix with shape ``(Nin, Nrec, 4)``. The last 4 holds a weight matrix for 4 different synapse types.
     :type w_in: Optional[FloatVector], optional
@@ -287,8 +288,6 @@ class DynapSE1NeuronSynapseJax(JaxModule):
           [0, 0, 0, 0],
           [0, 0, 0, 0],
           [0, 1, 0, 0]]],
-
-          And rec_order SYN(AHP=-1, NMDA=2, AMPA=3, GABA_A=1, GABA_B=0)
 
         Virtual(External Input)
 
@@ -332,16 +331,12 @@ class DynapSE1NeuronSynapseJax(JaxModule):
           [0, 0, 0, 0],
           [0, 0, 1, 0]],
 
-          And rec_order SYN(AHP=-1, NMDA=2, AMPA=3, GABA_A=1, GABA_B=0)
-
         Real
             AMPA : 1 from n0 to n1, 1 from n2 to n3, 1 from n3 to n2
             NMDA : 1 from n4 to n4
             GABA_A: 1 from n0 to n4
             GABA_B: 2 from n2 to n0
 
-    :param rec_order: The order of recurrent synapses in `w_rec` recurrent weight matrix. [GABA_B, GABA_A, NMDA, AMPA] by default
-    :type rec_order: Optional[SYN], optional
     :param dt: The time step for the forward-Euler ODE solver, defaults to 1e-3
     :type dt: float, optional
     :param rng_key: The Jax RNG seed to use on initialisation. By default, a new seed is generated, defaults to None
@@ -356,9 +351,9 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
     :ivar SYN: Instance of ``order`` parameter
     :type SYN: SYN
-    :ivar target_idx: The indexes to rearange the default ordered array [AHP, NMDA, AMPA, GABA_A, GABA_B] into custom order [...]
+    :ivar target_idx: The indexes to rearange the default ordered array [GABA_B, GABA_A, NMDA, AMPA, AHP] into custom order [...]
     :type target_idx: np.ndarray
-    :ivar default_idx: The indexes to rearange the custom ordered array [...] into default order [AHP, NMDA, AMPA, GABA_A, GABA_B]
+    :ivar default_idx: The indexes to rearange the custom ordered array [...] into default order [GABA_B, GABA_A, NMDA, AMPA, AHP]
     :type default_idx: np.ndarray
     :ivar Imem: Array of membrane currents of the neurons with shape = (Nrec,)
     :type Imem: JP_ndarray
@@ -368,13 +363,13 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     :type f_gain_mem: JP_ndarray
     :ivar mem_fb: positive feedback circuit heuristic parameters:Ia_gain, Ia_th, and Ia_norm
     :type mem_fb: FeedbackParameters
-    :ivar Isyn: 2D array of synapse currents of the neurons in the order of [AHP, NMDA, AMPA, GABA_A, GABA_B] with shape = (5,Nrec)
+    :ivar Isyn: 2D array of synapse currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
     :type Isyn: JP_ndarray
-    :ivar Itau_syn: 2D array of synapse leakage currents of the neurons in the order of [AHP, NMDA, AMPA, GABA_A, GABA_B] with shape = (5,Nrec)
+    :ivar Itau_syn: 2D array of synapse leakage currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
     :type Itau_syn: JP_ndarray
-    :ivar f_gain_syn: 2D array of synapse gain parameters of the neurons in the order of [AHP, NMDA, AMPA, GABA_A, GABA_B] with shape = (5,Nrec)
+    :ivar f_gain_syn: 2D array of synapse gain parameters of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
     :type gain_syn: JP_ndarray
-    :ivar Iw: 2D array of synapse weight currents of the neurons in the order of [AHP, NMDA, AMPA, GABA_A, GABA_B] with shape = (5,Nrec)
+    :ivar Iw: 2D array of synapse weight currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
     :type Iw: JP_ndarray
     :ivar spikes: Logical spiking raster for each neuron at the last simulation time-step with shape (Nrec,)
     :type spikes: JP_ndarray
@@ -386,7 +381,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     :type Ireset: JP_ndarray
     :ivar f_tau_mem: Tau factor for membrane circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau`
     :type f_tau_mem: float
-    :ivar f_tau_syn: A vector of tau factors in the following order: [AHP, NMDA, AMPA, GABA_A, GABA_B]
+    :ivar f_tau_syn: A vector of tau factors in the following order: [GABA_B, GABA_A, NMDA, AMPA, AHP]
     :type f_tau_syn: np.ndarray
     :ivar f_t_ref: The factor of conversion from refractory period in seconds to refractory period bias current in Amperes
     :type f_t_ref: float
@@ -423,7 +418,6 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         syn_order: Optional[SYN] = None,
         w_in: Optional[FloatVector] = None,
         w_rec: Optional[FloatVector] = None,
-        rec_order: Optional[SYN] = None,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
         spiking_input: bool = True,
@@ -448,9 +442,6 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         if syn_order is None:
             syn_order = SYN()
 
-        if rec_order is None:
-            rec_order = SYN(AHP=-1, NMDA=2, AMPA=3, GABA_A=1, GABA_B=0)
-
         self.SYN = syn_order
         self.target_idx = self.SYN.target_idx
         self.default_idx = self.SYN.default_idx
@@ -467,20 +458,20 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         )
 
         # Check the network size and initialize the input and recurrent weight vector accordingly
-        self.w_in, self.w_rec = self._init_weights(w_in, w_rec, rec_order)
+        self.w_in, self.w_rec = self._init_weights(w_in, w_rec)
 
         # --- Parameters & States --- #
         self.Imem, self.Itau_mem, self.f_gain_mem, self.mem_fb = self._set_mem_params(
             init=sim_config.mem,
         )
 
-        ## Synapse parameters are combined in the order of [AHP, NMDA, AMPA, GABA_A, GABA_B]
+        ## Synapse parameters are combined in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP]
         self.Isyn, self.Itau_syn, self.f_gain_syn, self.Iw = self._set_syn_params(
-            ahp=sim_config.ahp,
+            gaba_b=sim_config.gaba_b,
+            gaba_a=sim_config.gaba_a,
             nmda=sim_config.nmda,
             ampa=sim_config.ampa,
-            gaba_a=sim_config.gaba_a,
-            gaba_b=sim_config.gaba_b,
+            ahp=sim_config.ahp,
         )
         self.spikes: JP_ndarray = State(shape=(self.size_out,), init_func=np.zeros)
 
@@ -528,9 +519,9 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :param record: record the each timestep of evolution or not, defaults to False
         :type record: bool, optional
         :return: outputs, states, record_dict
-            outputs: is an array with shape ``(T, Nout)`` containing the output data(spike raster) produced by this module.
-            states: is a dictionary containing the updated module state following evolution.
-            record_dict: is a dictionary containing the recorded state variables during the evolution at each time step, if the ``record`` argument is ``True``.
+            :outputs: is an array with shape ``(T, Nout)`` containing the output data(spike raster) produced by this module.
+            :states: is a dictionary containing the updated module state following evolution.
+            :record_dict: is a dictionary containing the recorded state variables during the evolution at each time step, if the ``record`` argument is ``True``.
         :rtype: Tuple[np.ndarray, dict, dict]
         """
 
@@ -543,7 +534,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             :param state: (spikes, Imem, Isyn, key)
                 spikes: Logical spike raster for each neuron [Nrec]
                 Imem: Membrane currents of each neuron [Nrec]
-                Isyn: Synapse currents of each synapses[AHP, NMDA, AMPA, GABA_A, GABA_B] of each neuron [5xNrec]
+                Isyn: Synapse currents of each synapses[GABA_B, GABA_A, NMDA, AMPA, AHP] of each neuron [5xNrec]
                 key: The Jax RNG seed to be used for mismatch simulation
             :type state: DynapSE1State
             :param spike_inputs_ts: incoming spike raster to be used as an axis [T, Nrec]
@@ -552,11 +543,10 @@ class DynapSE1NeuronSynapseJax(JaxModule):
                 state: Updated state at end of the forward steps
                 spikes: Logical spiking raster for each neuron over time [Nrec]
                 Imem: Updated membrane membrane currents of each neuron [Nrec]
-                Isyn: Updated synapse currents of each synapses[AHP, NMDA, AMPA, GABA_A, GABA_B] of each neuron [5xNrec]
+                Isyn: Updated synapse currents of each synapses[GABA_B, GABA_A, NMDA, AMPA, AHP] of each neuron [5xNrec]
             :rtype: Tuple[DynapSE1State, Tuple[JP_ndarray, JP_ndarray, JP_ndarray]]
             """
             # [] TODO : Would you allow currents to go below Io or not?!!!!
-            # [] TODO : Input layer
 
             spikes, Imem, Isyn, key, timer_ref = state
 
@@ -579,7 +569,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             Isyn_inf = self.f_gain_syn * self.Iw
 
             # --- Forward step: DPI SYNAPSES --- #
-            ## spike input for 4 synapses: NMDA, AMPA, GABA_A, GABA_B; spike output for 1 synapse: AHP
+            ## spike input for 4 synapses: GABA_B, GABA_A, NMDA, AMPA; spike output for 1 synapse: AHP
             ## w_in.shape = NinxNrecx4 [pre,post,syn]
             ## w_rec.shape = NrecxNrecx4 [pre,post,syn]
 
@@ -588,9 +578,9 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             spike_inputs = np.add(spikes_external, spikes_internal) + self.Io
 
             ## Calculate the effective pulse width with a linear increase
-            t_pw_in = self.t_pulse * spike_inputs  # 4xNrec [NMDA, AMPA, GABA_A, GABA_B]
+            t_pw_in = self.t_pulse * spike_inputs  # 4xNrec [GABA_B, GABA_A, NMDA, AMPA]
             t_pw_out = self.t_pulse_ahp * spikes  # 1xNrec [AHP]
-            t_pw = np.vstack((t_pw_out, t_pw_in))[
+            t_pw = np.vstack((t_pw_in, t_pw_out))[
                 self.target_idx
             ]  # default -> target order
 
@@ -608,7 +598,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             # --- Forward step: MEMBRANE --- #
 
             ## Decouple synaptic currents and calculate membrane input
-            Iahp, Inmda, Iampa, Igaba_a, Igaba_b = Isyn[
+            Igaba_b, Igaba_a, Inmda, Iampa, Iahp = Isyn[
                 self.default_idx
             ]  # target -> default order
 
@@ -670,37 +660,38 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             "input_data": input_data,
             "spikes": spikes_ts,
             "Imem": Imem_ts,
-            "Iahp": Isyn_ts[:, self.SYN.AHP, :],
+            "Igaba_b": Isyn_ts[:, self.SYN.GABA_B, :],
+            "Igaba_a": Isyn_ts[:, self.SYN.GABA_A, :],
             "Inmda": Isyn_ts[:, self.SYN.NMDA, :],
             "Iampa": Isyn_ts[:, self.SYN.AMPA, :],
-            "Igaba_a": Isyn_ts[:, self.SYN.GABA_A, :],
-            "Igaba_b": Isyn_ts[:, self.SYN.GABA_B, :],
+            "Iahp": Isyn_ts[:, self.SYN.AHP, :],
         }
 
         return outputs, states, record_dict
 
     def _set_syn_params(
         self,
-        ahp: Optional[SynapseParameters] = None,
+        gaba_b: Optional[SynapseParameters] = None,
+        gaba_a: Optional[SynapseParameters] = None,
         nmda: Optional[SynapseParameters] = None,
         ampa: Optional[SynapseParameters] = None,
-        gaba_a: Optional[SynapseParameters] = None,
-        gaba_b: Optional[SynapseParameters] = None,
+        ahp: Optional[SynapseParameters] = None,
     ) -> Tuple[JP_ndarray, JP_ndarray, JP_ndarray, JP_ndarray]:
         """
         _set_syn_params helps constructing and initiating synapse parameters and states for ["AHP", "NMDA", "AMPA", "GABA_A", "GABA_B"]
 
-        :param ahp: Spike frequency adaptation block parameters (Isyn, Itau, f_gain, Iw), defaults to None
-        :type ahp: Optional[SynapseParameters], optional
+        :param gaba_b: GABA_B (shunt) synapse paramters (Isyn, Itau, f_gain, Iw), defaults to None
+        :type gaba_b: Optional[SynapseParameters], optional
+        :param gaba_a: GABA_A synapse paramters (Isyn, Itau, f_gain, Iw), defaults to None
+        :type gaba_a: Optional[SynapseParameters], optional
         :param nmda: NMDA synapse paramters (Isyn, Itau, f_gain, Iw), defaults to None
         :type nmda: Optional[SynapseParameters], optional
         :param ampa: AMPA synapse paramters (Isyn, Itau, f_gain, Iw), defaults to None
         :type ampa: Optional[SynapseParameters], optional
-        :param gaba_a: GABA_A synapse paramters (Isyn, Itau, f_gain, Iw), defaults to None
-        :type gaba_a: Optional[SynapseParameters], optional
-        :param gaba_b: GABA_B (shunt) synapse paramters (Isyn, Itau, f_gain, Iw), defaults to None
-        :type gaba_b: Optional[SynapseParameters], optional
-        :return: Isyn, Itau, f_gain, Iw : states and parameters in the order of [AHP, NMDA, AMPA, GABA_A, GABA_B] with shape = (5,Nrec)
+        :param ahp: Spike frequency adaptation block parameters (Isyn, Itau, f_gain, Iw), defaults to None
+        :type ahp: Optional[SynapseParameters], optional
+
+        :return: Isyn, Itau, f_gain, Iw : states and parameters in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
             Isyn: 2D array of synapse currents (State)
             Itau: 2D array of synapse leakage currents (Parameter)
             f_gain: 2D array of synapse gain parameters (SimulationParameter)
@@ -710,11 +701,11 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         dpi_list = [None] * len(self.SYN)
 
-        dpi_list[self.SYN.AHP] = ahp
+        dpi_list[self.SYN.GABA_B] = gaba_b
+        dpi_list[self.SYN.GABA_A] = gaba_a
         dpi_list[self.SYN.NMDA] = nmda
         dpi_list[self.SYN.AMPA] = ampa
-        dpi_list[self.SYN.GABA_A] = gaba_a
-        dpi_list[self.SYN.GABA_B] = gaba_b
+        dpi_list[self.SYN.AHP] = ahp
 
         def get_dpi_parameter(
             target: str, family: str, object: Optional[str] = "parameter"
@@ -793,7 +784,6 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         self,
         w_in: Optional[FloatVector] = None,
         w_rec: Optional[FloatVector] = None,
-        rec_order: Optional[SYN] = None,
     ) -> Union[JP_ndarray, float]:
         """
         _init_w_rec Intialize a recurrent weight matrix parameter given the network shape.
@@ -843,9 +833,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         if w_in is not None:
             w_in = np.array(w_in, dtype=np.float32)
 
-            # RE-ORDER [NMDA, AMPA, GABA_A, GABA_B]
-            if rec_order is not None:
-                w_in = w_in[:, :, rec_order.default_idx_no_ahp]
+            # RE-ORDER [GABA_B, GABA_A, NMDA, AMPA]
+            w_in = w_in[:, :, self.SYN.default_idx_no_ahp]
 
         # Feed forward Mode
         if len(self.shape) == 1:
@@ -867,9 +856,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             if w_rec is not None:
                 w_rec = np.array(w_rec, dtype=np.float32)
 
-                # RE-ORDER [NMDA, AMPA, GABA_A, GABA_B]
-                if rec_order is not None:
-                    w_rec = w_rec[:, :, rec_order.default_idx_no_ahp]
+                # RE-ORDER [GABA_B, GABA_A, NMDA, AMPA]
+                w_rec = w_rec[:, :, self.SYN.default_idx_no_ahp]
 
             w_rec = get_weight_matrix(w_rec, (self.size_out, self.size_out, 4))
 
@@ -901,14 +889,24 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         return self.f_tau_syn / self.Itau_syn.T
 
     @property
-    def tau_ahp(self):
+    def tau_gaba_b(self):
         """
-        tau_ahp holds an array of time constants in seconds for AHP synapse of the neurons with shape = (Nrec,)
+        tau_gaba_b holds an array of time constants in seconds for GABA_B synapse of the neurons with shape = (Nrec,)
 
         :return: array of time constants
         :rtype: JP_ndarray
         """
-        return self.f_tau_syn[self.SYN.AHP] / self.Itau_syn[self.SYN.AHP]
+        return self.f_tau_syn[self.SYN.GABA_B] / self.Itau_syn[self.SYN.GABA_B]
+
+    @property
+    def tau_gaba_a(self):
+        """
+        tau_gaba_a holds an array of time constants in seconds for GABA_A synapse of the neurons with shape = (Nrec,)
+
+        :return: array of time constants
+        :rtype: JP_ndarray
+        """
+        return self.f_tau_syn[self.SYN.GABA_A] / self.Itau_syn[self.SYN.GABA_A]
 
     @property
     def tau_nmda(self):
@@ -931,24 +929,14 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         return self.f_tau_syn[self.SYN.AMPA] / self.Itau_syn[self.SYN.AMPA]
 
     @property
-    def tau_gaba_a(self):
+    def tau_ahp(self):
         """
-        tau_gaba_a holds an array of time constants in seconds for GABA_A synapse of the neurons with shape = (Nrec,)
+        tau_ahp holds an array of time constants in seconds for AHP synapse of the neurons with shape = (Nrec,)
 
         :return: array of time constants
         :rtype: JP_ndarray
         """
-        return self.f_tau_syn[self.SYN.GABA_A] / self.Itau_syn[self.SYN.GABA_A]
-
-    @property
-    def tau_gaba_b(self):
-        """
-        tau_gaba_b holds an array of time constants in seconds for GABA_B synapse of the neurons with shape = (Nrec,)
-
-        :return: array of time constants
-        :rtype: JP_ndarray
-        """
-        return self.f_tau_syn[self.SYN.GABA_B] / self.Itau_syn[self.SYN.GABA_B]
+        return self.f_tau_syn[self.SYN.AHP] / self.Itau_syn[self.SYN.AHP]
 
     ## --- MID-LEVEL HIDDEN BIAS CURRENTS (JAX) -- ##
 
