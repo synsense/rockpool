@@ -76,109 +76,6 @@ from rockpool.devices.dynapse.dynapse1_simconfig import (
 DynapSE1State = Tuple[JP_ndarray, JP_ndarray, JP_ndarray, Optional[Any]]
 
 
-@dataclass
-class SYN:
-    """
-    SYN helps reordering of the synapses used in the DynapSE1NeuronSynapseJax module
-    Synapse parameters are combined in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] by default
-    Synapse indexes should start from 0 and need to be all contiguous integers! Make a synapse index < 0 to eliminate!
-    """
-
-    GABA_B: int = 0
-    GABA_A: int = 1
-    NMDA: int = 2
-    AMPA: int = 3
-    AHP: int = 4
-
-    def __post_init__(self) -> None:
-        """
-        __post_init__ Check if indexes given are contiguous integers and starts from zero. Ignore members with negative values
-
-        :raises ValueError: Indices should start from zero!
-        :raises ValueError: Indices should be contiguous integers!
-        """
-        sorted_idx = np.sort(self.default_idx)
-
-        if sorted_idx[0] != 0:
-            raise ValueError("Indices should start from zero!")
-
-        for i, idx in enumerate(sorted_idx[1:]):
-            if (idx - sorted_idx[i]) != 1:
-                raise ValueError("Indices should be contiguous integers.")
-
-    def __len__(self):
-        return len(self.default_idx)
-
-    @property
-    def target_idx(self) -> np.ndarray:
-        """
-        target_idx is the index array to be used to put the synapses in the desired index order. It can be used to
-        rearange the default order array [GABA_B, GABA_A, NMDA, AMPA, AHP] into desired order.
-
-        :return: the target indexes of the synapses
-        :rtype: np.ndarray
-        """
-        _idx = np.argsort(self.default_idx)
-        return _idx
-
-    @property
-    def default_idx(self) -> np.ndarray:
-        """
-        default_idx returns the indexes of the synapses in the desired order. It can be used to
-        rearange a custom ordered array into the original order [GABA_B, GABA_A, NMDA, AMPA, AHP].
-
-        :return: the indexes of the synapses in original order
-        :rtype: np.ndarray
-        """
-        _idx = np.array([self.GABA_B, self.GABA_A, self.NMDA, self.AMPA, self.AHP])
-        return _idx[_idx >= 0]
-
-    @property
-    def default_idx_no_ahp(self) -> np.ndarray:
-        """
-        default_idx_no_ahp is close to the `default_idx` property but the difference is that `default_idx_no_ahp` return an
-        index array without AHP synapse. Even if AHP synapse is defined in the middle, it reorders the array and
-        produces a contiguous index array out of given synapse indexes.
-
-        :return: the indexes of the synapses in AHP reduced order
-        :rtype: np.ndarray
-        """
-
-        check_if_smaller = (
-            lambda syn: syn if (self.AHP < 0 or syn < self.AHP) else syn - 1
-        )
-        gaba_b = check_if_smaller(self.GABA_B)
-        gaba_a = check_if_smaller(self.GABA_A)
-        nmda = check_if_smaller(self.NMDA)
-        ampa = check_if_smaller(self.AMPA)
-
-        _idx = np.array([gaba_b, gaba_a, nmda, ampa])
-        return _idx
-
-    @property
-    def default_idx_dict(self) -> Dict[str, int]:
-        """
-        default_idx_dict returns the application default storage order of the synapses
-
-        :return: a map between the name of the synapse and it's default storage index
-        :rtype: Dict[str, int]
-        """
-        keys = ["GABA_B", "GABA_A", "NMDA", "AMPA", "AHP"]
-        return dict(zip(keys, range(len(keys))))
-
-    @property
-    def default_idx_dict_no_ahp(self) -> Dict[str, int]:
-        """
-        default_idx_dict_no_ahp returns the application default storage order of the synapses without the AHP
-
-        :return: a map between the name of the synapse and it's default storage index (without AHP)
-        :rtype: Dict[str, int]
-        """
-        keys = ["GABA_B", "GABA_A", "NMDA", "AMPA"]
-        values = self.default_idx_no_ahp
-        return dict(zip(keys, range(len(keys))))
-
-
 @jax.custom_gradient
 def step_pwl(
     Imem: FloatVector, Ispkthr: FloatVector, Ireset: FloatVector
@@ -265,8 +162,6 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     :type shape: tuple, optional
     :param sim_config: Dynap-SE1 bias currents and simulation configuration parameters, defaults to None
     :type sim_config: Optional[DynapSE1SimulationConfiguration], optional
-    :param syn_order: The order of synapses to be stored in 2D synaptic parameter arrays. [GABA_B, GABA_A, NMDA, AMPA, AHP] by default
-    :type syn_order: Optional[SYN], optional
     :param w_in: Initial input weights defining the connections from virtual FPGA neurons to real device neurons. It must be a rectangular matrix with shape ``(Nin, Nrec, 4)``. The last 4 holds a weight matrix for 4 different synapse types.
     :type w_in: Optional[FloatVector], optional
 
@@ -349,8 +244,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
     :Instance Variables:
 
-    :ivar SYN: Instance of ``order`` parameter
-    :type SYN: SYN
+    :ivar SYN: A dictionary storing default indexes(order) of the synapse types
+    :type SYN: Dict[str, int]
     :ivar target_idx: The indexes to rearange the default ordered array [GABA_B, GABA_A, NMDA, AMPA, AHP] into custom order [...]
     :type target_idx: np.ndarray
     :ivar default_idx: The indexes to rearange the custom ordered array [...] into default order [GABA_B, GABA_A, NMDA, AMPA, AHP]
@@ -411,11 +306,13 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         -As a method on the class?
     """
 
+    syn_types = ["GABA_B", "GABA_A", "NMDA", "AMPA", "AHP"]
+    SYN = dict(zip(syn_types, range(len(syn_types))))
+
     def __init__(
         self,
         shape: tuple = None,
         sim_config: Optional[DynapSE1SimulationConfiguration] = None,
-        syn_order: Optional[SYN] = None,
         w_in: Optional[FloatVector] = None,
         w_rec: Optional[FloatVector] = None,
         dt: float = 1e-3,
@@ -438,13 +335,6 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         if sim_config is None:
             sim_config = DynapSE1SimulationConfiguration()
-
-        if syn_order is None:
-            syn_order = SYN()
-
-        self.SYN = syn_order
-        self.target_idx = self.SYN.target_idx
-        self.default_idx = self.SYN.default_idx
 
         _, rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
         self._rng_key: JP_ndarray = State(rng_key, init_func=lambda _: rng_key)
@@ -483,7 +373,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         ## Configuration Parameters
         self.f_tau_mem = SimulationParameter(sim_config.f_tau_mem)
-        self.f_tau_syn = SimulationParameter(sim_config.f_tau_syn[self.target_idx])
+        self.f_tau_syn = SimulationParameter(sim_config.f_tau_syn)
         self.f_t_ref = SimulationParameter(sim_config.f_t_ref)
         self.f_t_pulse = SimulationParameter(sim_config.f_t_pulse)
         self.t_pulse = SimulationParameter(sim_config.t_pulse)
@@ -580,9 +470,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             ## Calculate the effective pulse width with a linear increase
             t_pw_in = self.t_pulse * spike_inputs  # 4xNrec [GABA_B, GABA_A, NMDA, AMPA]
             t_pw_out = self.t_pulse_ahp * spikes  # 1xNrec [AHP]
-            t_pw = np.vstack((t_pw_in, t_pw_out))[
-                self.target_idx
-            ]  # default -> target order
+            t_pw = np.vstack((t_pw_in, t_pw_out))
 
             ## Exponential charge and discharge factor arrays
             f_charge = 1 - np.exp(-t_pw / tau_syn)  # 5xNrec
@@ -598,9 +486,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             # --- Forward step: MEMBRANE --- #
 
             ## Decouple synaptic currents and calculate membrane input
-            Igaba_b, Igaba_a, Inmda, Iampa, Iahp = Isyn[
-                self.default_idx
-            ]  # target -> default order
+            Igaba_b, Igaba_a, Inmda, Iampa, Iahp = Isyn
 
             # Inmda = 0 if Vmem < Vth_nmda else Inmda
             I_nmda_dp = Inmda / (1 + self.If_nmda / Imem)
@@ -660,11 +546,11 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             "input_data": input_data,
             "spikes": spikes_ts,
             "Imem": Imem_ts,
-            "Igaba_b": Isyn_ts[:, self.SYN.GABA_B, :],
-            "Igaba_a": Isyn_ts[:, self.SYN.GABA_A, :],
-            "Inmda": Isyn_ts[:, self.SYN.NMDA, :],
-            "Iampa": Isyn_ts[:, self.SYN.AMPA, :],
-            "Iahp": Isyn_ts[:, self.SYN.AHP, :],
+            "Igaba_b": Isyn_ts[:, self.SYN["GABA_B"], :],
+            "Igaba_a": Isyn_ts[:, self.SYN["GABA_A"], :],
+            "Inmda": Isyn_ts[:, self.SYN["NMDA"], :],
+            "Iampa": Isyn_ts[:, self.SYN["AMPA"], :],
+            "Iahp": Isyn_ts[:, self.SYN["AHP"], :],
         }
 
         return outputs, states, record_dict
@@ -701,11 +587,11 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         dpi_list = [None] * len(self.SYN)
 
-        dpi_list[self.SYN.GABA_B] = gaba_b
-        dpi_list[self.SYN.GABA_A] = gaba_a
-        dpi_list[self.SYN.NMDA] = nmda
-        dpi_list[self.SYN.AMPA] = ampa
-        dpi_list[self.SYN.AHP] = ahp
+        dpi_list[self.SYN["GABA_B"]] = gaba_b
+        dpi_list[self.SYN["GABA_A"]] = gaba_a
+        dpi_list[self.SYN["NMDA"]] = nmda
+        dpi_list[self.SYN["AMPA"]] = ampa
+        dpi_list[self.SYN["AHP"]] = ahp
 
         def get_dpi_parameter(
             target: str, family: str, object: Optional[str] = "parameter"
@@ -833,9 +719,6 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         if w_in is not None:
             w_in = np.array(w_in, dtype=np.float32)
 
-            # RE-ORDER [GABA_B, GABA_A, NMDA, AMPA]
-            w_in = w_in[:, :, self.SYN.default_idx_no_ahp]
-
         # Feed forward Mode
         if len(self.shape) == 1:
             # - Feed-forward mode
@@ -855,9 +738,6 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
             if w_rec is not None:
                 w_rec = np.array(w_rec, dtype=np.float32)
-
-                # RE-ORDER [GABA_B, GABA_A, NMDA, AMPA]
-                w_rec = w_rec[:, :, self.SYN.default_idx_no_ahp]
 
             w_rec = get_weight_matrix(w_rec, (self.size_out, self.size_out, 4))
 
@@ -896,7 +776,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :return: array of time constants
         :rtype: JP_ndarray
         """
-        return self.f_tau_syn[self.SYN.GABA_B] / self.Itau_syn[self.SYN.GABA_B]
+        return self.f_tau_syn[self.SYN["GABA_B"]] / self.Itau_syn[self.SYN["GABA_B"]]
 
     @property
     def tau_gaba_a(self):
@@ -906,7 +786,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :return: array of time constants
         :rtype: JP_ndarray
         """
-        return self.f_tau_syn[self.SYN.GABA_A] / self.Itau_syn[self.SYN.GABA_A]
+        return self.f_tau_syn[self.SYN["GABA_A"]] / self.Itau_syn[self.SYN["GABA_A"]]
 
     @property
     def tau_nmda(self):
@@ -916,7 +796,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :return: array of time constants
         :rtype: JP_ndarray
         """
-        return self.f_tau_syn[self.SYN.NMDA] / self.Itau_syn[self.SYN.NMDA]
+        return self.f_tau_syn[self.SYN["NMDA"]] / self.Itau_syn[self.SYN["NMDA"]]
 
     @property
     def tau_ampa(self):
@@ -926,7 +806,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :return: array of time constants
         :rtype: JP_ndarray
         """
-        return self.f_tau_syn[self.SYN.AMPA] / self.Itau_syn[self.SYN.AMPA]
+        return self.f_tau_syn[self.SYN["AMPA"]] / self.Itau_syn[self.SYN["AMPA"]]
 
     @property
     def tau_ahp(self):
@@ -936,7 +816,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :return: array of time constants
         :rtype: JP_ndarray
         """
-        return self.f_tau_syn[self.SYN.AHP] / self.Itau_syn[self.SYN.AHP]
+        return self.f_tau_syn[self.SYN["AHP"]] / self.Itau_syn[self.SYN["AHP"]]
 
     ## --- MID-LEVEL HIDDEN BIAS CURRENTS (JAX) -- ##
 

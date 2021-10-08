@@ -136,21 +136,21 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         IF_AHTAU_N is the bias current controlling the AHP circuit time constant. Itau_ahp
         """
         param = get_Dynapse1Parameter(
-            bias=self.Itau_syn[self.SYN.AHP].mean(), name="IF_AHTAU_N"
+            bias=self.Itau_syn[self.SYN["AHP"]].mean(), name="IF_AHTAU_N"
         )
         return param
 
     @property
     def IF_AHTHR_N(self):
         param = get_Dynapse1Parameter(
-            bias=self.Ith_syn[self.SYN.AHP].mean(), name="IF_AHTHR_N"
+            bias=self.Ith_syn[self.SYN["AHP"]].mean(), name="IF_AHTHR_N"
         )
         return param
 
     @property
     def IF_AHW_P(self):
         param = get_Dynapse1Parameter(
-            bias=self.Iw[self.SYN.AHP].mean(), name="IF_AHW_P"
+            bias=self.Iw[self.SYN["AHP"]].mean(), name="IF_AHW_P"
         )
         return param
 
@@ -210,7 +210,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
     def NPDPIE_TAU_F_P(self):
         # FAST_EXC, AMPA
         param = get_Dynapse1Parameter(
-            bias=self.Itau_syn[self.SYN.AMPA].mean(), name="NPDPIE_TAU_F_P"
+            bias=self.Itau_syn[self.SYN["AMPA"]].mean(), name="NPDPIE_TAU_F_P"
         )
         return param
 
@@ -218,7 +218,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
     def NPDPIE_TAU_S_P(self):
         # SLOW_EXC, NMDA
         param = get_Dynapse1Parameter(
-            bias=self.Itau_syn[self.SYN.NMDA].mean(), name="NPDPIE_TAU_S_P"
+            bias=self.Itau_syn[self.SYN["NMDA"]].mean(), name="NPDPIE_TAU_S_P"
         )
         return param
 
@@ -226,7 +226,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
     def NPDPIE_THR_F_P(self):
         # FAST_EXC, AMPA
         param = get_Dynapse1Parameter(
-            bias=self.Ith_syn[self.SYN.AMPA].mean(), name="NPDPIE_THR_F_P"
+            bias=self.Ith_syn[self.SYN["AMPA"]].mean(), name="NPDPIE_THR_F_P"
         )
         return param
 
@@ -234,7 +234,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
     def NPDPIE_THR_S_P(self):
         # SLOW_EXC, NMDA
         param = get_Dynapse1Parameter(
-            bias=self.Ith_syn[self.SYN.NMDA].mean(), name="NPDPIE_THR_S_P"
+            bias=self.Ith_syn[self.SYN["NMDA"]].mean(), name="NPDPIE_THR_S_P"
         )
         return param
 
@@ -242,7 +242,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
     def NPDPII_TAU_F_P(self):
         # SLOW_INH, GABA_B, subtractive
         param = get_Dynapse1Parameter(
-            bias=self.Itau_syn[self.SYN.GABA_B].mean(), name="NPDPII_TAU_F_P"
+            bias=self.Itau_syn[self.SYN["GABA_B"]].mean(), name="NPDPII_TAU_F_P"
         )
         return param
 
@@ -250,7 +250,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
     def NPDPII_TAU_S_P(self):
         # FAST_INH, GABA_A, shunting, a mixture of subtractive and divisive
         param = get_Dynapse1Parameter(
-            bias=self.Itau_syn[self.SYN.GABA_A].mean(), name="NPDPII_TAU_S_P"
+            bias=self.Itau_syn[self.SYN["GABA_A"]].mean(), name="NPDPII_TAU_S_P"
         )
         return param
 
@@ -258,7 +258,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
     def NPDPII_THR_F_P(self):
         # SLOW_INH, GABA_B, subtractive
         param = get_Dynapse1Parameter(
-            bias=self.Ith_syn[self.SYN.GABA_B].mean(), name="NPDPII_THR_F_P"
+            bias=self.Ith_syn[self.SYN["GABA_B"]].mean(), name="NPDPII_THR_F_P"
         )
         return param
 
@@ -266,7 +266,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
     def NPDPII_THR_S_P(self):
         # FAST_INH, GABA_A, shunting, a mixture of subtractive and divisive
         param = get_Dynapse1Parameter(
-            bias=self.Ith_syn[self.SYN.GABA_A].mean(), name="NPDPII_THR_S_P"
+            bias=self.Ith_syn[self.SYN["GABA_A"]].mean(), name="NPDPII_THR_S_P"
         )
         return param
 
@@ -274,7 +274,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
     def PS_WEIGHT_EXC_F_N(self):
         # FAST_EXC, AMPA
         param = get_Dynapse1Parameter(
-            bias=self.Iw[self.SYN.AMPA].mean(), name="PS_WEIGHT_EXC_F_N"
+            bias=self.Iw[self.SYN["AMPA"]].mean(), name="PS_WEIGHT_EXC_F_N"
         )
         return param
 
@@ -282,7 +282,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
     def PS_WEIGHT_EXC_S_N(self):
         # SLOW_EXC, NMDA
         param = get_Dynapse1Parameter(
-            bias=self.Iw[self.SYN.NMDA].mean(), name="PS_WEIGHT_EXC_S_N"
+            bias=self.Iw[self.SYN["NMDA"]].mean(), name="PS_WEIGHT_EXC_S_N"
         )
         return param
 
@@ -290,7 +290,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
     def PS_WEIGHT_INH_F_N(self):
         # SLOW_INH, GABA_B, subtractive
         param = get_Dynapse1Parameter(
-            bias=self.Iw[self.SYN.GABA_B].mean(), name="PS_WEIGHT_INH_F_N"
+            bias=self.Iw[self.SYN["GABA_B"]].mean(), name="PS_WEIGHT_INH_F_N"
         )
         return param
 
@@ -298,7 +298,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
     def PS_WEIGHT_INH_S_N(self):
         # FAST_INH, GABA_A, shunting, a mixture of subtractive and divisive
         param = get_Dynapse1Parameter(
-            bias=self.Iw[self.SYN.GABA_A].mean(), name="PS_WEIGHT_INH_S_N"
+            bias=self.Iw[self.SYN["GABA_A"]].mean(), name="PS_WEIGHT_INH_S_N"
         )
         return param
 
