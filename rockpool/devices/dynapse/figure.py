@@ -26,6 +26,8 @@ from typing import (
     Tuple,
 )
 
+from collections.abc import Iterable
+
 from rockpool.typehints import (
     FloatVector,
 )
@@ -107,7 +109,7 @@ class Figure:
     @staticmethod
     def select_input_channels(
         input_ts: TSEvent,
-        weighted_mask: ArrayLike,
+        weighted_mask: Optional[ArrayLike] = None,
         virtual: bool = True,
         idx_map: Optional[Union[Dict[int, np.uint16], Dict[int, NeuronKey]]] = None,
         title: Optional[str] = None,
@@ -124,7 +126,7 @@ class Figure:
         :type weighted_mask: np.ndarray
         :param virtual: Indicates if the pre-synaptic neruon is spike-generator(virtual) or real in-device neuron, defaults to True
         :type virtual: bool, optional
-        :param idx_map: to map the matrix indexes of the neurons to a NeuronKey or neuron UID to be used in the label, defaults to None
+        :param idx_map: dictionary to map the matrix indexes of the neurons to a NeuronKey or neuron UID to be used in the label, defaults to None
         :type idx_map: Optional[Union[Dict[int, np.uint16], Dict[int, NeuronKey]]], optional
         :param title: The name of the resulting input spike train, defaults to None
         :type title: Optional[str], optional
@@ -159,7 +161,7 @@ class Figure:
 
         # Create an empty TSEvent object to append channels
         spikes_ts = custom_spike_train(
-            times=np.array([]), channels=None, duration=0, name=title
+            times=np.array([]), channels=None, duration=input_ts.duration, name=title
         )
 
         # Select the channels of the TSEvent object with a weighted mask
@@ -338,6 +340,7 @@ class Figure:
         labels: List[str],
         ax: Optional[matplotlib.axes.Axes] = None,
         cmap: Optional[str] = "rainbow",
+        ylabel: Optional[str] = None,
         *args,
         **kwargs,
     ) -> matplotlib.collections.PathCollection:
@@ -352,6 +355,8 @@ class Figure:
         :type ax: Optional[matplotlib.axes.Axes], optional
         :param cmap: matplotlib color map. For full list, please check https://matplotlib.org/stable/tutorials/colors/colormaps.html, defaults to "rainbow"
         :type cmap: Optional[str], optional
+        :param ylabel: y axis label to set, defaults to None
+        :type ylabel: Optional[str], optional
         :raises ValueError: `labels` should include as many elements as number of channels in the `spikes_ts`
         :return: `PathCollection` object returned by scatter plot
         :rtype: matplotlib.collections.PathCollection
@@ -371,6 +376,9 @@ class Figure:
 
         else:
             scatter = spikes_ts.plot()
+
+        if ylabel is not None:
+            plt.ylabel(ylabel)
 
         return scatter
 
