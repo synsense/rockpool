@@ -127,7 +127,7 @@ class ExpSynTorch(TorchModule):
         )
 
         # - Build a tensor to compute and return internal state
-        self._isyn_rec = torch.zeros(data.shape, device=data.device)
+        self._isyn_rec = torch.zeros(data.shape, device=data.device).type(torch.double)
 
         beta = torch.exp(-self.dt / self.tau_syn)
 

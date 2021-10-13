@@ -157,7 +157,6 @@ class LIFTorch(TorchModule):
             if w_rec is not None:
                 raise ValueError("`w_rec` may not be provided if `has_rec` is `False`")
 
-            self.w_rec: torch.Tensor = torch.zeros(w_rec_shape, **factory_kwargs)
             """ (Tensor) Recurrent weights `(Nout, Nin)` """
 
         self.noise_std: P_float = rp.SimulationParameter(noise_std)
@@ -302,7 +301,8 @@ class LIFTorch(TorchModule):
             vmem = vmem - out_spikes[:, t, :]
 
             # - Apply spikes over the recurrent weights
-            isyn = isyn + F.linear(out_spikes[:, t, :], self.w_rec.T)
+            if hasattr(self, "w_rec"):
+                isyn = isyn + F.linear(out_spikes[:, t, :], self.w_rec.T)
 
         self.vmem = vmem[0:1, :].detach()
         self.isyn = isyn[0:1, :].detach()

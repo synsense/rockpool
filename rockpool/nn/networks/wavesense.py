@@ -102,6 +102,14 @@ class WaveBlock(TorchModule):
         tau_syn = torch.cat(tuple([tau_syn] * Nchannels))
 
         self.lin1 = LinearTorch((Nchannels, Nchannels * kernel_size), has_bias=has_bias)
+        with torch.no_grad():
+            # normalize for tau_syn
+            self.lin1.weight = self.lin1.weight / (tau_syn * 1000)
+        self.lin1.weight.requires_grad = True
+
+        if has_bias:
+            self.lin1.bias.requires_grad = True
+
         self.spk1 = LIFTorch(
             (Nchannels * kernel_size, Nchannels),
             tau_mem=tau_mem,
@@ -123,6 +131,16 @@ class WaveBlock(TorchModule):
 
         # - Remapping output layers
         self.lin2_res = LinearTorch((Nchannels, Nchannels), has_bias=has_bias)
+        with torch.no_grad():
+            # normalize for tau_syn
+            self.lin2_res.weight = self.lin2_res.weight / (tau_syn.min().item() * 1000)
+        self.lin2_res.weight.requires_grad = True
+
+
+        self.lin2_res.weight.requires_grad = True
+        if has_bias:
+            self.lin2_res.bias.requires_grad = True
+
         self.spk2_res = LIFTorch(
             (Nchannels,),
             tau_mem=tau_mem,
@@ -134,6 +152,13 @@ class WaveBlock(TorchModule):
 
         # - Skip output layers
         self.lin2_skip = LinearTorch((Nchannels, Nskip), has_bias=has_bias)
+        with torch.no_grad():
+            # normalize for tau_syn
+            self.lin2_skip.weight = self.lin2_skip.weight / (tau_syn.min().item() * 1000)
+        self.lin2_skip.weight.requires_grad = True
+        if has_bias:
+            self.lin2_skip.bias.requires_grad = True
+
         self.spk2_skip = LIFTorch(
             (Nskip,),
             tau_mem=tau_mem,
@@ -284,6 +309,13 @@ class WaveSenseNet(TorchModule):
 
         # - Input mapping layers
         self.lin1 = LinearTorch((n_channels_in, n_channels_res), has_bias=has_bias)
+        with torch.no_grad():
+            # normalize for tau_syn
+            self.lin1.weight = self.lin1.weight / (base_tau_syn * 1000)
+        self.lin1.weight.requires_grad = True
+        if has_bias:
+            self.lin1.bias.requires_grad = True
+
         self.spk1 = LIFTorch(
             n_channels_res,
             tau_mem=tau_mem,
@@ -311,6 +343,14 @@ class WaveSenseNet(TorchModule):
 
         # Dense readout layers
         self.dense = LinearTorch((n_channels_skip, n_hidden), has_bias=has_bias)
+        with torch.no_grad():
+            # normalize for tau_syn
+            self.dense.weight = self.dense.weight / (base_tau_syn * 1000)
+        self.dense.weight.requires_grad = True
+
+        if has_bias:
+            self.dense.bias.requires_grad = True
+
         self.spk2 = LIFTorch(
             n_hidden,
             tau_mem=tau_mem,
@@ -320,12 +360,18 @@ class WaveSenseNet(TorchModule):
             dt=dt,
         )
         self.readout = LinearTorch((n_hidden, n_classes), has_bias=has_bias)
+        self.readout.weight.requires_grad = True
+        if has_bias:
+            self.readout.bias.requires_grad = True
 
         # Smoothing output
         self.smooth_output = SimulationParameter(smooth_output)
         """ bool: Perform low-pass filtering of the readout """
 
         if smooth_output:
+            with torch.no_grad():
+                # normalize for tau_syn
+                self.readout.weight = self.readout.weight / (tau_lp  * 1000)
             self.lp = ExpSynTorch(n_classes, tau_syn=tau_lp, dt=dt)
 
         # - Record dt
@@ -380,3 +426,6 @@ class WaveSenseNet(TorchModule):
 
         record_dict = self._record_dict if record else {}
         return output, new_state, record_dict
+
+    def trainable_parameters(self):
+        return [p for p in list(self.parameters().astorch()) if p.requires_grad]
