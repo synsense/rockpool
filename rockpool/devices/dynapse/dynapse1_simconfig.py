@@ -14,6 +14,8 @@ import numpy as onp
 from dataclasses import dataclass
 
 from typing import (
+    Tuple,
+    Any,
     Optional,
 )
 
@@ -120,12 +122,14 @@ class DPIParameters:
 
     :param Itau: Synaptic time constant current in Amperes, that is inversely proportional to time constant tau, defaults to 10e-12
     :type Itau: float, optional
-    :param f_gain: the gain ratio for the steady state solution. :math:`f_{gain}= \dfrac{I_{th}}{I_{\\tau}}`, defaults to 4
-    :type f_gain: float, optional
-    :param C: DPI synaptic capacitance in Farads, fixed at layout time, defaults to 1e-12
-    :type C: float, optional
+    :param Ith:  DPI's threshold(gain) current in Amperes, scaling factor for the synaptic weight (typically x2, x4 of I_tau) :math:`I_{th} = f_{gain} \cdot I_{\\tau}`, defaults to None
+    :type Ith: float, optional
     :param tau: Synaptic time constant, co-depended to Itau. In the case its provided, Itau is infered from tau, defaults to None
     :type tau: Optional[float], optional
+    :param f_gain: the gain ratio for the steady state solution. :math:`f_{gain}= \dfrac{I_{th}}{I_{\\tau}}`. In the case its provided, Ith is infered from f_gain, defaults to 4
+    :type f_gain: float, optional
+    :param C: DPI synaptic capacitance in Farads, fixed at layout time, defaults to 1e-12
+    :type C: float
     :param layout: constant values that are related to the exact silicon layout of a chip, defaults to None
     :type layout: Optional[DynapSE1Layout], optional
 
@@ -133,60 +137,110 @@ class DPIParameters:
 
     :ivar f_tau: Tau factor for DPI circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau`
     :type f_tau: float
-    :ivar Ith:  DPI's threshold / gain current in Amperes, scaling factor for the synaptic weight (typically x2, x4 of I_tau) :math:`I_{th} = f_{gain} \cdot I_{\\tau}`
-    :type Ith: float
     """
 
-    Itau: float = 7e-12
-    f_gain: float = 4
-    C: float = 1e-12
+    Itau: Optional[float] = 7e-12
+    Ith: Optional[float] = None
     tau: Optional[float] = None
+    f_gain: Optional[float] = 4
+    C: float = 1e-12
     layout: Optional[DynapSE1Layout] = None
 
     def __post_init__(self) -> None:
         """
         __post_init__ runs after __init__ and initializes the DPIParameters block, check if given values are in legal bounds.
 
-        :raises ValueError: Illegal f_gain value given. It should be between [1,10].
         :raises ValueError: Illegal capacitor value given. It cannot be less than 0.
-        :raises ValueError: Illegal tau value desired. It cannot be less than 0
-        :raises ValueError: Itau infered from tau cannot be achievable with current parameter set
-        :raises ValueError: Illegal Itau value desired. It cannot be less than Io
         """
-        if self.f_gain < 1 or self.f_gain > 10:
-            raise ValueError(
-                f"Illegal gain factor value f_gain : {self.f_gain}. It should be between [1,10]"
-            )
 
+        # Silicon features
         if self.C < 0:
             raise ValueError(f"Illegal capacitor value C : {self.C}F. It should be > 0")
 
         if self.layout is None:
             self.layout = DynapSE1Layout()
 
+        # Find the tau factor using the layout parameters
         self.f_tau = (self.layout.Ut / self.layout.kappa) * self.C
 
         # Infere Itau from tau
         if self.tau is not None:
-
-            if self.tau <= 0:  # Illegal tau value
-                raise ValueError(f"Illegal tau : {self.tau}s. It should be > 0")
             self.Itau = self.f_tau / self.tau
 
-            if self.Itau <= (self.layout.Io):
-                raise ValueError(
-                    f"Desired tau : {self.tau:.1e} s is unachievable with this parameter set. "
-                    f"Itau: {self.Itau:.1e} A should have been greater than the dark current: {self.layout.Io:.1e}A"
+        # Infere tau from Itau
+        elif self.Itau is not None:
+            self.tau = self.f_tau / self.Itau
+
+        self.depended_param_check(
+            self.tau, self.Itau, current_limits=(self.layout.Io, None)
                 )
+
+        # Infere Ith from f_gain and Itau
+        if self.f_gain is not None:
             self.Ith = self.Itau * self.f_gain
 
-        # Infere tau from Itau
-        else:
-            if self.Itau <= (self.layout.Io):
+        # Infere f_gain from Ith and Itau
+        elif self.Ith is not None:
+            self.f_gain = self.Ith / self.Itau
+
+        self.depended_param_check(
+            self.f_gain, self.Ith, current_limits=(self.layout.Io, None)
+        )
+
+    def depended_param_check(
+        param: float,
+        current: float,
+        param_limits: Tuple[float] = (0, None),
+        current_limits: Tuple[float] = (0, None),
+    ) -> None:
+        """
+        depended_param_check checks the co-depended parameter and current values if they are None and
+        if they are in the valid range.
+
+        :param param: The current depended parameter value to set the current or to be set by the current.
+        :type param: float
+        :param current: The parameter depended current value to set the parameter or to be set by the parameter
+        :type current: float
+        :param param_limits: lower and upper limits of the current depended parameter Tuple(lower, upper), defaults to (0, None)
+        :type param_limits: Tuple[float], optional
+        :param current_limits: lower and upper limits of the parameter depended current value Tuple(lower, upper), defaults to (0, None)
+        :type current_limits: Tuple[float], optional
+        :raises ValueError: At least one of  `param` or `current` should be defined
+        :raises ValueError: Illegal parameter value given. It should be greater then param_limits[0]
+        :raises ValueError: Illegal parameter value given. It should be less then param_limits[1]
+        :raises ValueError: Illegal current value given. It should be greater then current_limits[0]
+        :raises ValueError: Illegal current value given. It should be less then current_limits[1]
+        """
+
+        param_lower, param_upper = param_limits
+        current_lower, current_upper = current_limits
+
+        if param is None and current is None:
                 raise ValueError(
-                    f"Illegal Itau : {self.Itau}A. It should be greater than dark current Io : {self.layout.Io}A"
+                "At least one of  `param` or `current` should be defined. `param` has priority over `current`"
                 )
-            self.tau = self.f_tau / self.Itau
+
+        if param_lower is not None and param < param_lower:
+            raise ValueError(
+                f"Illegal parameter value : {param:.1e}. It should be > {param_lower:.1e}"
+            )
+
+        if param_upper is not None and param > param_upper:
+            raise ValueError(
+                f"Illegal parameter value : {param:.1e}. It should be < {param_upper:.1e}"
+            )
+
+        if current_lower is not None and current < current_lower:
+            raise ValueError(
+                f"Desired parameter : {param:.1e} is unachievable with this parameter set. "
+                f"Current value: {current:.1e} A should have been greater than the dark current: {current_lower:.1e}A"
+            )
+
+        if current_upper is not None and current > current_upper:
+            raise ValueError(
+                f"Desired parameter : {param:.1e} is unachievable with this parameter set. "
+                f"Current value: {current:.1e} A should have been less than the upper limit: {current_upper:.1e}A"
+            )
 
 
 @dataclass
