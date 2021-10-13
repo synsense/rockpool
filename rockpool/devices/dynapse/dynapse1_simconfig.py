@@ -415,6 +415,10 @@ class DynapSE1SimulationConfiguration:
     :type Idc: Optional[float], optional
     :param If_nmda: The NMDA gate current in Amperes setting the NMDA gating voltage. If :math:`V_{mem} > V_{nmda}` : The :math:`I_{syn_{NMDA}}` current is added up to the input current, else it cannot. defaults to Io
     :type If_nmda: Optional[float], optional
+    :param layout: constant values that are related to the exact silicon layout of a chip, defaults to None
+    :type layout: Optional[DynapSE1Layout], optional
+    :param capacitance: subcircuit capacitance values that are related to each other and depended on exact silicon layout of a chip, defaults to None
+    :type capacitance: Optional[DynapSE1Capacitance], optional
     :param mem: Membrane block parameters (Imem, Itau, Ith, feedback(Igain, Ith, Inorm)), defaults to None
     :type mem: Optional[MembraneParameters], optional
     :param ahp: Spike frequency adaptation block parameters (Isyn, Itau, Ith, Iw), defaults to None
@@ -452,12 +456,13 @@ class DynapSE1SimulationConfiguration:
     Idc: Optional[float] = None
     If_nmda: Optional[float] = None
     layout: Optional[DynapSE1Layout] = None
+    capacitance: Optional[DynapSE1Capacitance] = None
     mem: Optional[MembraneParameters] = None
-    ahp: Optional[SynapseParameters] = None
+    gaba_b: Optional[SynapseParameters] = None
+    gaba_a: Optional[SynapseParameters] = None
     nmda: Optional[SynapseParameters] = None
     ampa: Optional[SynapseParameters] = None
-    gaba_a: Optional[SynapseParameters] = None
-    gaba_b: Optional[SynapseParameters] = None
+    ahp: Optional[SynapseParameters] = None
 
     def __post_init__(self) -> None:
         """
@@ -465,6 +470,8 @@ class DynapSE1SimulationConfiguration:
         """
         if self.layout is None:
             self.layout = DynapSE1Layout()
+        if self.capacitance is None:
+            self.capacitance = DynapSE1Capacitance()
 
         # Set the bias currents to Io by default
         if self.Idc is None:
@@ -474,24 +481,25 @@ class DynapSE1SimulationConfiguration:
         if self.Ireset is None:
             self.Ireset = self.layout.Io
 
-        _Co = 1e-12
-
         # Initialize the subcircuit blocks with the same layout
         if self.mem is None:
             self.mem = MembraneParameters(
-                C=_Co * 4, r_Cref=0.1, r_Cpulse=0.1, layout=self.layout
+                C=self.capacitance.mem,
+                Cref=self.capacitance.ref,
+                Cpulse=self.capacitance.pulse,
+                layout=self.layout,
             )
 
         if self.gaba_b is None:
-            self.gaba_b = GABABParameters(C=_Co * 20, layout=self.layout)
+            self.gaba_b = GABABParameters(C=self.capacitance.gaba_b, layout=self.layout)
         if self.gaba_a is None:
-            self.gaba_a = GABAAParameters(C=_Co * 2, layout=self.layout)
+            self.gaba_a = GABAAParameters(C=self.capacitance.gaba_a, layout=self.layout)
         if self.nmda is None:
-            self.nmda = NMDAParameters(C=_Co * 20, layout=self.layout)
+            self.nmda = NMDAParameters(C=self.capacitance.nmda, layout=self.layout)
         if self.ampa is None:
-            self.ampa = AMPAParameters(C=_Co * 2, layout=self.layout)
+            self.ampa = AMPAParameters(C=self.capacitance.ampa, layout=self.layout)
         if self.ahp is None:
-            self.ahp = AHPParameters(C=_Co * 10, layout=self.layout)
+            self.ahp = AHPParameters(C=self.capacitance.ahp, layout=self.layout)
 
         self.t_pulse_ahp = self.t_pulse * self.fpulse_ahp
 
