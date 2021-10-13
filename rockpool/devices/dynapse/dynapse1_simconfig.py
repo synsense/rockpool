@@ -305,17 +305,14 @@ class MembraneParameters(DPIParameters):
     :type Imem: Optional[float], optional
     :param feedback: positive feedback circuit heuristic parameters:Ia_gain, Ia_th, and Ia_norm, defaults to None
     :type feedback: Optional[FeedbackParameters], optional
-    :param r_Cref: The ratio of refractory and membrane capacitance values :math:`\\dfrac{C_{ref}}{C_{mem}}`
-    :type r_Cref: float, optional
-    :param r_Cpulse: The ratio of pulse and membrane capacitance values :math:`\\dfrac{C_{pulse}}{C_{mem}}`
-    :type r_Cpulse: float, optional
+    :param Cref: the capacitance value of the circuit that implements the refractory period
+    :type Cref: float
+    :param Cpulse: the capacitance value of the circuit that converts the spikes to pulses
+    :type Cpulse: float
 
     :Instance Variables:
 
-    :ivar Cref: the capacitance value of the circuit that implements the refractory period
-    :type Cref: float
-    :ivar Cpulse: the capacitance value of the circuit that converts the spikes to pulses
-    :type Cpulse: float
+
     :ivar f_ref: the capacitance value of the circuit that implements the refractory period
     :type f_ref: float
     :ivar f_pulse: the capacitance value of the circuit that converts the spikes to pulses
@@ -323,8 +320,9 @@ class MembraneParameters(DPIParameters):
     """
 
     C: float = 3.2e-12
-    r_Cref: float = 0.1
-    r_Cpulse: float = 0.1
+    Cref: float = 5e-13
+    Cpulse: float = 5e-13
+    tau: Optional[float] = 20e-3
     Imem: Optional[float] = None
     feedback: Optional[FeedbackParameters] = None
 
@@ -344,9 +342,6 @@ class MembraneParameters(DPIParameters):
                 f"Illegal Imem : {self.Imem}A. It should be greater than Io : {self.layout.Io}"
             )
 
-        self.Cref = self.C * self.r_Cref
-        self.Cpulse = self.C * self.r_Cpulse
-
         self.f_ref = (self.layout.Ut / self.layout.kappa) * self.Cref
         self.f_pulse = (self.layout.Ut / self.layout.kappa) * self.Cpulse
 
@@ -360,7 +355,7 @@ class AHPParameters(SynapseParameters):
     AHPParameters inherits SynapseParameters and re-arrange the default parameters for AHP circuit
     """
 
-    C: float = 40e-12
+    tau: Optional[float] = 50e-3
 
 
 @dataclass
@@ -369,7 +364,7 @@ class NMDAParameters(SynapseParameters):
     NMDAParameters inherits SynapseParameters and re-arrange the default parameters for NMDA circuit
     """
 
-    C: float = 28e-12
+    tau: Optional[float] = 100e-3
 
 
 @dataclass
@@ -378,7 +373,7 @@ class AMPAParameters(SynapseParameters):
     AMPAParameters inherits SynapseParameters and re-arrange the default parameters for AMPA circuit
     """
 
-    C: float = 28e-12
+    tau: Optional[float] = 10e-3
 
 
 @dataclass
@@ -387,7 +382,7 @@ class GABAAParameters(SynapseParameters):
     GABAAParameters inherits SynapseParameters and re-arrange the default parameters for GABA_A circuit
     """
 
-    C: float = 27e-12
+    tau: Optional[float] = 10e-3
     # Iw: float = 0
 
 
@@ -397,7 +392,7 @@ class GABABParameters(SynapseParameters):
     GABABParameters inherits SynapseParameters and re-arrange the default parameters for GABA_B circuit
     """
 
-    C: float = 27e-12
+    tau: Optional[float] = 100e-3
     # Iw: float = 0
 
 
