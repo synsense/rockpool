@@ -47,7 +47,7 @@ dModules = {
         "custom_spike_train",
         "random_spike_train",
     ),
-    ".biasgen": ("BiasGen",),
+    ".biasgen": ("BiasGen", "DynapSE1BiasGen"),
     ".router": ("Router"),
     ".figure": ("Figure"),
     ".dynapse1_simulator": ("DynapSE1Jax"),

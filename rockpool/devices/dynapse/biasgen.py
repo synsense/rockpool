@@ -11,7 +11,23 @@ import numpy as np
 
 from typing import (
     Tuple,
+    Any,
 )
+
+_SAMNA_AVAILABLE = True
+
+try:
+    from samna.dynapse1 import (
+        Dynapse1Parameter,
+    )
+except ModuleNotFoundError as e:
+    Dynapse1Parameter = Any
+
+    print(
+        e,
+        "\nSimulation currents cannot be obtained from samna config object",
+    )
+    _SAMNA_AVAILABLE = False
 
 
 class BiasGen:
@@ -196,3 +212,61 @@ class BiasGen:
 
         lookup = np.array(lookup, dtype=np.float32)
         return lookup
+
+
+class DynapSE1BiasGen(BiasGen):
+
+    """
+    DynapSE1BiasGen is Dynap-SE1 specific bias generator. It holds the corrections factors of
+    25 different biases and implements a parameter to bias conversion method.
+
+    :Instance Variables:
+
+    :ivar correction_factor: A dictionary storing correction factors of the bias currents obtained experimentally.
+    :type correction_factor: Dict[str, float]
+
+    """
+
+    correction_factor = {
+        "IF_AHTAU_N": 1.0,
+        "IF_AHTHR_N": 1.0,
+        "IF_AHW_P": 1.0,
+        "IF_BUF_P": 1.0,
+        "IF_CASC_N": 1.0,
+        "IF_DC_P": 1.0,
+        "IF_NMDA_N": 1.0,
+        "IF_RFR_N": 1.0,
+        "IF_TAU1_N": 1.0,
+        "IF_TAU2_N": 1.0,
+        "IF_THR_N": 1.0,
+        "NPDPIE_TAU_F_P": 1.0,
+        "NPDPIE_TAU_S_P": 1.0,
+        "NPDPIE_THR_F_P": 1.0,
+        "NPDPIE_THR_S_P": 1.0,
+        "NPDPII_TAU_F_P": 1.0,
+        "NPDPII_TAU_S_P": 1.0,
+        "NPDPII_THR_F_P": 1.0,
+        "NPDPII_THR_S_P": 1.0,
+        "PS_WEIGHT_EXC_F_N": 1.0,
+        "PS_WEIGHT_EXC_S_N": 1.0,
+        "PS_WEIGHT_INH_F_N": 1.0,
+        "PS_WEIGHT_INH_S_N": 1.0,
+        "PULSE_PWLK_P": 1.0,
+        "R2R_P": 1.0,
+    }
+
+    @staticmethod
+    def param_to_bias(param: Dynapse1Parameter, Io: float = 5e-13) -> float:
+        """
+        param_to_bias convert samna `Dynapse1Parameter` object to a bias current to be used in the simulator
+
+        :param param: Dynapse1Parameter holding a coarse and fine value tuple and the name of the device bias current
+        :type param: Dynapse1Parameter
+        :param Io: the dark current on the device, which flows through the transistors in the idle state. It's added to calculated bias, defaults to 5e-13
+        :type Io: float, optional
+        :return: corrected bias value by multiplying a correction factor first then adding the dark current.
+        :rtype: float
+        """
+        raw = DynapSE1BiasGen.get_bias(param.coarse_value, param.fine_value)
+        corrected = raw * DynapSE1BiasGen.correction_factor[param.param_name] + Io
+        return corrected
