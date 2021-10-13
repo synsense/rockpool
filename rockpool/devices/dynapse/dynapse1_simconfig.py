@@ -163,16 +163,8 @@ class DPIParameters:
         # Find the tau factor using the layout parameters
         self.f_tau = (self.layout.Ut / self.layout.kappa) * self.C
 
-        # Infere Itau from tau
-        if self.tau is not None:
-            self.Itau = self.f_tau / self.tau
-
-        # Infere tau from Itau
-        elif self.Itau is not None:
-            self.tau = self.f_tau / self.Itau
-
-        self.depended_param_check(
-            self.tau, self.Itau, current_limits=(self.layout.Io, None)
+        self.tau, self.Itau = self.time_current_dependence(
+            self.tau, self.Itau, self.f_tau
                 )
 
         # Infere Ith from f_gain and Itau
@@ -187,6 +179,7 @@ class DPIParameters:
             self.f_gain, self.Ith, current_limits=(self.layout.Io, None)
         )
 
+    @staticmethod
     def depended_param_check(
         param: float,
         current: float,
@@ -241,6 +234,35 @@ class DPIParameters:
                 f"Desired parameter : {param:.1e} is unachievable with this parameter set. "
                 f"Current value: {current:.1e} A should have been less than the upper limit: {current_upper:.1e}A"
             )
+
+    def time_current_dependence(
+        self, tx: Optional[float], Ix: Optional[float], factor: float
+    ) -> Tuple[float, float]:
+        """
+        time_current_dependence calculates the time constant from the current or the current from the time constant
+        depending on which one is provided using the factor calculated. In general :math:`f = I_{x} \cdot t_{x}`
+
+        :param tx: the current depended time constant, calculated using Ix if None.
+        :type tx: Optional[float]
+        :param Ix: the time constant depended current, calculated using tx if None.
+        :type Ix: Optional[float]
+        :param factor: the f value in :math:`f = I_{x} \cdot t_{x}`
+        :type factor: float
+        :return: the time constant and the current value calculated and controlled
+        :rtype: Tuple[float, float]
+        """
+
+        # Infere Ix from tx
+        if tx is not None:
+            Ix = factor / tx
+
+        # Infere tx from Ix
+        elif self.Itau is not None:
+            tx = factor / Ix
+
+        self.depended_param_check(tx, Ix, current_limits=(self.layout.Io, None))
+
+        return tx, Ix
 
 
 @dataclass
@@ -301,17 +323,24 @@ class MembraneParameters(DPIParameters):
     """
     MembraneParameters contains membrane specific parameters and state variables
 
-    :param Imem: The sub-threshold current that represents the real neuron’s membrane potential variable, defaults to Io
-    :type Imem: Optional[float], optional
-    :param feedback: positive feedback circuit heuristic parameters:Ia_gain, Ia_th, and Ia_norm, defaults to None
-    :type feedback: Optional[FeedbackParameters], optional
     :param Cref: the capacitance value of the circuit that implements the refractory period
     :type Cref: float
     :param Cpulse: the capacitance value of the circuit that converts the spikes to pulses
     :type Cpulse: float
+    :param Imem: The sub-threshold current that represents the real neuron’s membrane potential variable, defaults to Io
+    :type Imem: Optional[float], optional
+    :param Iref: [description], defaults to None
+    :type Iref: Optional[float], optional
+    :param t_ref: refractory period in seconds, limits maximum firing rate. The value co-depends on `Iref` and `t_ref` definition has priority over `Iref`, defaults to 10e-3
+    :type t_ref: Optional[float], optional
+    :param Ipulse: the bias current setting `t_pulse`, defaults to None
+    :type Ipulse: Optional[float], optional
+    :param t_pulse: the width of the pulse in seconds produced by virtue of a spike, The value co-depends on `Ipulse` and `t_pulse` definition has priority over `Ipulse`, defaults to 10e-6
+    :type t_pulse: Optional[float], optional
+    :param feedback: positive feedback circuit heuristic parameters:Ia_gain, Ia_th, and Ia_norm, defaults to None
+    :type feedback: Optional[FeedbackParameters], optional
 
     :Instance Variables:
-
 
     :ivar f_ref: the capacitance value of the circuit that implements the refractory period
     :type f_ref: float
@@ -324,6 +353,10 @@ class MembraneParameters(DPIParameters):
     Cpulse: float = 5e-13
     tau: Optional[float] = 20e-3
     Imem: Optional[float] = None
+    Iref: Optional[float] = None
+    t_ref: Optional[float] = 10e-3
+    Ipulse: Optional[float] = None
+    t_pulse: Optional[float] = 10e-6
     feedback: Optional[FeedbackParameters] = None
 
     def __post_init__(self) -> None:
@@ -344,6 +377,13 @@ class MembraneParameters(DPIParameters):
 
         self.f_ref = (self.layout.Ut / self.layout.kappa) * self.Cref
         self.f_pulse = (self.layout.Ut / self.layout.kappa) * self.Cpulse
+
+        self.t_ref, self.Iref = self.time_current_dependence(
+            self.t_ref, self.Iref, self.f_ref
+        )
+        self.t_pulse, self.Ipulse = self.time_current_dependence(
+            self.t_pulse, self.Ipulse, self.f_pulse
+        )
 
         if self.feedback is None:
             self.feedback = FeedbackParameters()
@@ -401,10 +441,6 @@ class DynapSE1SimulationConfiguration:
     """
     DynapSE1SimulationConfiguration encapsulates the DynapSE1 circuit parameters and provides an easy access.
 
-    :param t_ref: refractory period in seconds, limits maximum firing rate, defaults to 15e-3
-    :type t_ref: float, optional
-    :param t_pulse: the width of the pulse in seconds produced by virtue of a spike, defaults to 1e-5
-    :type t_pulse: float, optional
     :param fpulse_ahp: the decrement factor for the pulse widths arriving in AHP circuit, defaults to 0.1
     :type fpulse_ahp: float, optional
     :param Ispkthr: Spiking threshold current in Amperes, depends on layout (see chip for details), defaults to 1e-9
@@ -434,6 +470,10 @@ class DynapSE1SimulationConfiguration:
 
     :Instance Variables:
 
+    :type t_ref: refractory period in seconds, limits maximum firing rate
+    :type t_ref: float, optional
+    :type t_pulse: the width of the pulse in seconds produced by virtue of a spike
+    :type t_pulse: float, optional
     :ivar t_pulse_ahp: reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp``
     :type t_pulse_ahp: float
     :ivar f_tau_mem: Tau factor for membrane circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau`
@@ -448,8 +488,6 @@ class DynapSE1SimulationConfiguration:
     [] TODO : Implement get bias currents utility
     """
 
-    t_ref: float = 10e-3
-    t_pulse: float = 1e-5
     fpulse_ahp: float = 0.1
     Ispkthr: float = 1e-9
     Ireset: Optional[float] = None
@@ -501,6 +539,8 @@ class DynapSE1SimulationConfiguration:
         if self.ahp is None:
             self.ahp = AHPParameters(C=self.capacitance.ahp, layout=self.layout)
 
+        self.t_pulse = self.mem.t_pulse
+        self.t_ref = self.mem.t_ref
         self.t_pulse_ahp = self.t_pulse * self.fpulse_ahp
 
         # Membrane
