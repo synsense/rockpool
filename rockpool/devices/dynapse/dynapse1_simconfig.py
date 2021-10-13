@@ -10,11 +10,75 @@ E-mail : ugurcan.cakal@gmail.com
 from rockpool.typehints import Value
 from jax import numpy as np
 
+import numpy as onp
 from dataclasses import dataclass
 
 from typing import (
     Optional,
 )
+
+_SAMNA_AVAILABLE = True
+
+try:
+    from samna.dynapse1 import (
+        Dynapse1Configuration,
+        Dynapse1ParameterGroup,
+    )
+except ModuleNotFoundError as e:
+    Dynapse1Configuration = Any
+    Dynapse1ParameterGroup = Any
+
+    print(
+        e,
+        "\nDynapSE1SimulationConfiguration object cannot be factored from a samna config object!",
+    )
+    _SAMNA_AVAILABLE = False
+
+
+@dataclass
+class DynapSE1Capacitance:
+    """
+    DynapSE1Capacitance stores the ratio between capacitance values in the membrane subcircuit and
+    in the DPI synapse subcircuits. It also has a base capacitance value to multiply with the factors stored.
+    After the post-initialization, user sees the exact capacitance values in Farads.
+
+    :param Co: the base capacitance value in Farads, defaults to 5e-13
+    :type Co: float, optional
+    :param mem: membrane capacitance, defaults to 10.0
+    :type mem: float, optional
+    :param ref: refractory period sub-circuit capacitance in Co units, defaults to 1.0
+    :type ref: float, optional
+    :param pulse: pulse-width creation sub-circuit capacitance in Co units, defaults to 1.0
+    :type pulse: float, optional
+    :param gaba_b: GABA_B synapse capacitance in Co units, defaults to 50.0
+    :type gaba_b: float, optional
+    :param gaba_a: GABA_A synapse capacitance in Co units, defaults to 49.0
+    :type gaba_a: float, optional
+    :param nmda: NMDA synapse capacitance in Co units, defaults to 50.0
+    :type nmda: float, optional
+    :param ampa: AMPA synapse capacitance in Co units, defaults to 49.0
+    :type ampa: float, optional
+    :param ahp: AHP synapse capacitance in Co units, defaults to 80.0
+    :type ahp: float, optional
+    """
+
+    Co: float = 5e-13
+    mem: float = 10.0
+    ref: float = 1.0
+    pulse: float = 1.0
+    gaba_b: float = 50.0
+    gaba_a: float = 49.0
+    nmda: float = 50.0
+    ampa: float = 49.0
+    ahp: float = 80.0
+
+    def __post_init__(self) -> None:
+        """
+        __post_init__ runs after __init__ and sets the variables depending on the initial values
+        """
+        for name, value in self.__dict__.items():
+            if name != "Co":
+                self.__setattr__(name, onp.float32(value * self.Co))
 
 
 @dataclass
