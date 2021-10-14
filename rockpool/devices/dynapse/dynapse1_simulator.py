@@ -13,11 +13,22 @@ from rockpool.devices.dynapse.dynapse1_neuron_synapse_jax import (
     DynapSE1NeuronSynapseJax,
 )
 
+from rockpool.devices.dynapse.dynapse1_simconfig import (
+    DynapSE1SimulationConfiguration,
+)
+
+from rockpool.parameters import SimulationParameter
 
 from typing import (
+    Optional,
     Dict,
     Union,
     List,
+    Any,
+)
+
+from rockpool.typehints import (
+    FloatVector,
 )
 
 from rockpool.devices.dynapse.utils import (
@@ -35,13 +46,26 @@ try:
 except ModuleNotFoundError as e:
     print(
         e,
-        "\nDynapSE1NeuronSynapseJax module can only be used for simulation purposes."
+        "\DynapSE1Jax module can only be used for simulation purposes."
         "Deployment utilities depends on samna!",
     )
     _SAMNA_AVAILABLE = False
 
 
 class DynapSE1Jax(DynapSE1NeuronSynapseJax):
+    """
+    DynapSE1Jax is an extension to DynapSE1NeuronSynapseJax module with device specific deployment utilities.
+    The parameters and pipeline are explained in the superclass `DynapSE1NeuronSynapseJax` doctring
+
+    :Instance Variables:
+
+    :ivar f_t_ref: The factor of conversion from refractory period in seconds to refractory period bias current in Amperes
+    :type f_t_ref: float
+    :ivar f_t_pulse: The factor of conversion from pulse width in seconds to pulse width bias current in Amperes
+    :type f_t_pulse: float
+    """
+
+    __doc__ += DynapSE1NeuronSynapseJax.__doc__
 
     biases = [
         "IF_AHTAU_N",
@@ -71,6 +95,42 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         "R2R_P",
     ]
 
+    def __init__(
+        self,
+        shape: tuple = None,
+        sim_config: Optional[DynapSE1SimulationConfiguration] = None,
+        w_in: Optional[FloatVector] = None,
+        w_rec: Optional[FloatVector] = None,
+        dt: float = 1e-3,
+        rng_key: Optional[Any] = None,
+        spiking_input: bool = True,
+        spiking_output: bool = True,
+        *args,
+        **kwargs
+    ) -> None:
+        """
+        __init__ Initialize ``DynapSE1Jax`` module. Parameters are explained in the superclass docstring.
+        """
+
+        if sim_config is None:
+            sim_config = DynapSE1SimulationConfiguration()
+
+        sim_config = super().__init__(
+            shape,
+            sim_config,
+            w_in,
+            w_rec,
+            dt,
+            rng_key,
+            spiking_input,
+            spiking_output,
+            *args,
+            **kwargs
+        )
+
+        self.f_t_ref = SimulationParameter(sim_config.f_t_ref)
+        self.f_t_pulse = SimulationParameter(sim_config.f_t_pulse)
+
     def samna_param_group(self, chipId: int, coreId: int) -> Dynapse1ParameterGroup:
         """
         samna_param_group creates a samna Dynapse1ParameterGroup group object and configure the bias
@@ -80,7 +140,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         :type chipId: int
         :param coreId: the core ID to declare in the parameter group
         :type coreId: int
-        :return: samna config object
+        :return: samna config object to set a parameter group within one core
         :rtype: Dynapse1ParameterGroup
         """
         pg_json = json.dumps(self._param_group(chipId, coreId))
