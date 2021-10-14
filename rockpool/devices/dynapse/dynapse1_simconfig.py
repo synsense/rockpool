@@ -6,8 +6,10 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 24/08/2021
 """
+from __future__ import annotations
 
 from rockpool.typehints import Value
+from rockpool.devices.dynapse.biasgen import DynapSE1BiasGen
 from jax import numpy as np
 
 import numpy as onp
@@ -165,7 +167,7 @@ class DPIParameters:
 
         self.tau, self.Itau = self.time_current_dependence(
             self.tau, self.Itau, self.f_tau
-                )
+        )
 
         # Infere Ith from f_gain and Itau
         if self.f_gain is not None:
@@ -209,9 +211,9 @@ class DPIParameters:
         current_lower, current_upper = current_limits
 
         if param is None and current is None:
-                raise ValueError(
+            raise ValueError(
                 "At least one of  `param` or `current` should be defined. `param` has priority over `current`"
-                )
+            )
 
         if param_lower is not None and param < param_lower:
             raise ValueError(
@@ -485,7 +487,6 @@ class DynapSE1SimulationConfiguration:
     :ivar f_t_pulse: time factor for pulse width generation circuit. :math:`f_{\\t} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\t} = I_{\\t} \\cdot \\t`
     :type f_t_pulse: float
 
-    [] TODO : Implement get bias currents utility
     """
 
     fpulse_ahp: float = 0.1
@@ -558,3 +559,132 @@ class DynapSE1SimulationConfiguration:
                 self.ahp.f_tau,
             ]
         )
+
+    @classmethod
+    def from_samna_parameter_group(
+        cls,
+        parameter_group: Dynapse1ParameterGroup,
+        fpulse_ahp: float = 0.1,
+        Ispkthr: float = 1e-9,
+        Ireset: Optional[float] = None,
+        layout: Optional[DynapSE1Layout] = None,
+        capacitance: Optional[DynapSE1Capacitance] = None,
+    ) -> DynapSE1SimulationConfiguration:
+        """
+        from_samna_parameter_group create a simulation configuration object a the samna config object.
+        21/25 parameters used in the configuration of the simulator object.
+        "IF_BUF_P", "IF_CASC_N", "R2R_P", and "IF_TAU2_N" has no effect on the simulator.
+        The parameters which cannot be obtained from the parameter_group object should be defined explicitly
+
+        :param parameter_group: samna config object for setting the parameter group within one core
+        :type parameter_group: Dynapse1ParameterGroup
+        :param fpulse_ahp: the decrement factor for the pulse widths arriving in AHP circuit, defaults to 0.1
+        :type fpulse_ahp: float, optional
+        :param Ispkthr: Spiking threshold current in Amperes, depends on layout (see chip for details), defaults to 1e-9
+        :type Ispkthr: float, optional
+        :param Ireset: Reset current after spike generation in Amperes, defaults to Io
+        :type Ireset: Optional[float], optional
+        :param layout: constant values that are related to the exact silicon layout of a chip, defaults to None
+        :type layout: Optional[DynapSE1Layout], optional
+        :param capacitance: subcircuit capacitance values that are related to each other and depended on exact silicon layout of a chip, defaults to None
+        :type capacitance: Optional[DynapSE1Capacitance], optional
+        :return: simulator config object to construct a `DynapSE1NeuronSynapseJax` object
+        :rtype: DynapSE1SimulationConfiguration
+        """
+
+        if layout is None:
+            layout = DynapSE1Layout()
+
+        if capacitance is None:
+            capacitance = DynapSE1Capacitance()
+
+        bias = lambda name: DynapSE1BiasGen.param_to_bias(
+            parameter_group.get_parameter_by_name(name), Io=layout.Io
+        )
+
+        # Membrane
+        mem = MembraneParameters(
+            Itau=bias("IF_TAU1_N"),
+            Ith=bias("IF_THR_N"),
+            tau=None,  # deduced from Itau
+            f_gain=None,  # deduced from Ith/Itau
+            C=capacitance.mem,
+            layout=layout,
+            Cref=capacitance.ref,
+            Cpulse=capacitance.pulse,
+            Iref=bias("IF_RFR_N"),
+            t_ref=None,  # deduced from Iref
+            Ipulse=bias("PULSE_PWLK_P"),
+            t_pulse=None,  # deduced from Ipulse
+        )
+
+        # Fast inhibitory (shunt)
+        gaba_b = GABABParameters(
+            Itau=bias("NPDPII_TAU_F_P"),
+            Ith=bias("NPDPII_THR_F_P"),
+            f_gain=None,
+            C=capacitance.gaba_b,
+            tau=None,
+            layout=layout,
+            Iw=bias("PS_WEIGHT_INH_F_N"),
+        )
+
+        # Slow inhibitory
+        gaba_a = GABAAParameters(
+            Itau=bias("NPDPII_TAU_S_P"),
+            Ith=bias("NPDPII_THR_S_P"),
+            f_gain=None,
+            C=capacitance.gaba_a,
+            tau=None,
+            layout=layout,
+            Iw=bias("PS_WEIGHT_INH_S_N"),
+        )
+
+        # Slow Excitatory
+        nmda = NMDAParameters(
+            Itau=bias("NPDPIE_TAU_S_P"),
+            Ith=bias("NPDPIE_THR_S_P"),
+            f_gain=None,
+            C=capacitance.nmda,
+            tau=None,
+            layout=layout,
+            Iw=bias("PS_WEIGHT_EXC_S_N"),
+        )
+
+        # Fast Excitatory
+        ampa = AMPAParameters(
+            Itau=bias("NPDPIE_TAU_F_P"),
+            Ith=bias("NPDPIE_THR_F_P"),
+            f_gain=None,
+            C=capacitance.ampa,
+            tau=None,
+            layout=layout,
+            Iw=bias("PS_WEIGHT_EXC_F_N"),
+        )
+
+        ahp = AHPParameters(
+            Itau=bias("IF_AHTAU_N"),
+            Ith=bias("IF_AHTHR_N"),
+            f_gain=None,
+            C=capacitance.ahp,
+            tau=None,
+            layout=layout,
+            Iw=bias("IF_AHW_P"),
+        )
+
+        mod = cls(
+            fpulse_ahp=fpulse_ahp,
+            Ispkthr=Ispkthr,
+            Ireset=Ireset,
+            Idc=bias("IF_DC_P"),
+            If_nmda=bias("IF_NMDA_N"),
+            layout=layout,
+            capacitance=capacitance,
+            mem=mem,
+            gaba_b=gaba_b,
+            gaba_a=gaba_a,
+            nmda=nmda,
+            ampa=ampa,
+            ahp=ahp,
+        )
+        return mod
