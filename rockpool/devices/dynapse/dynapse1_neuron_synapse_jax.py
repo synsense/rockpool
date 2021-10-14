@@ -100,7 +100,7 @@ def step_pwl(
 
 class DynapSE1NeuronSynapseJax(JaxModule):
     """
-    Solves the chip dynamical equations for the DPI neuron and synapse models.
+    DynapSE1NeuronSynapseJax Solves the chip dynamical equations for the DPI neuron and synapse models.
     Receives configuration as bias currents and solves membrane and synapse dynamics using ``jax`` backend.
     One block has
         - 4 synapses receiving spikes from the other circuits,
@@ -278,10 +278,6 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     :type f_tau_mem: float
     :ivar f_tau_syn: A vector of tau factors in the following order: [GABA_B, GABA_A, NMDA, AMPA, AHP]
     :type f_tau_syn: np.ndarray
-    :ivar f_t_ref: The factor of conversion from refractory period in seconds to refractory period bias current in Amperes
-    :type f_t_ref: float
-    :ivar f_t_pulse: The factor of conversion from pulse width in seconds to pulse width bias current in Amperes
-    :type f_t_pulse: float
     :ivar t_pulse: the width of the pulse in seconds produced by virtue of a spike
     :type t_pulse: float
     :ivar t_pulse_ahp: reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp``
@@ -305,6 +301,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         -As a utility function that operates on a set of parameters?
         -As a method on the class?
     """
+
+    __doc__ += "\nJaxModule" + JaxModule.__doc__
 
     syn_types = ["GABA_B", "GABA_A", "NMDA", "AMPA", "AHP"]
     SYN = dict(zip(syn_types, range(len(syn_types))))
@@ -374,8 +372,6 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         ## Configuration Parameters
         self.f_tau_mem = SimulationParameter(sim_config.f_tau_mem)
         self.f_tau_syn = SimulationParameter(sim_config.f_tau_syn)
-        self.f_t_ref = SimulationParameter(sim_config.f_t_ref)
-        self.f_t_pulse = SimulationParameter(sim_config.f_t_pulse)
         self.t_pulse = SimulationParameter(sim_config.t_pulse)
         self.t_pulse_ahp = SimulationParameter(sim_config.t_pulse_ahp)
         self.Idc = SimulationParameter(sim_config.Idc)
