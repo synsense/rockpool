@@ -265,10 +265,10 @@ class LIFTorch(TorchModule):
             )
 
         # - Replicate states out by batches
-        vmem = torch.ones(n_batches, 1).type(torch.double) @ self.vmem.type(
+        vmem = torch.ones(n_batches, 1, device=self.vmem.device).type(torch.double) @ self.vmem.type(
             torch.double
         )
-        isyn = torch.ones(n_batches, 1).type(torch.double) @ self.isyn.type(
+        isyn = torch.ones(n_batches, 1, device=self.isyn.device).type(torch.double) @ self.isyn.type(
             torch.double
         )
         n_neurons = self.size_out
@@ -290,9 +290,9 @@ class LIFTorch(TorchModule):
             dvmem = (
                 isyn + self.bias - vmem
                 if self.w_syn is None
-                else isyn @ self.w_syn.type(torch.double) + self.bias - vmem
+                else isyn @ self.w_syn.type(torch.double).to(isyn.device) + self.bias - vmem
             )
-            vmem = vmem + alpha * dvmem + torch.randn(vmem.shape) * self.noise_std
+            vmem = vmem + alpha * dvmem + torch.randn(vmem.shape, device=vmem.device) * self.noise_std
 
             self._vmem_rec[:, t, :] = vmem
             self._isyn_rec[:, t, :] = isyn
