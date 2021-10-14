@@ -28,7 +28,6 @@ dModules = {
     ".dynapse1_neuron_synapse_jax": (
         "DynapSE1NeuronSynapseJax",
         "step_pwl",
-        "SYN",
     ),
     ".dynapse1_simconfig": (
         "DynapSE1Layout",
@@ -42,6 +41,7 @@ dModules = {
         "GABAAParameters",
         "GABABParameters",
         "DynapSE1SimulationConfiguration",
+        "DynapSE1Capacitance",
     ),
     ".utils": (
         "custom_spike_train",
