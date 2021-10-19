@@ -75,6 +75,7 @@ class ExpSynTorch(TorchModule):
             shape=(1, self.size_out,),
             init_func=lambda s: torch.zeros(*s, **factory_kwargs),
         )
+        self.isyn = self.isyn.to(device)
         """ (torch.tensor) Synaptic current state for each synapse ``(1, N)`` """
 
         self.dt: rt.P_float = rp.SimulationParameter(dt)

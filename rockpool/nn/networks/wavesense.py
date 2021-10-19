@@ -62,6 +62,7 @@ class WaveBlock(TorchModule):
         base_tau_syn: float = 10e-3,
         threshold: float = 0.0,
         dt: float = 1e-3,
+        device: str = 'cuda',
         *args,
         **kwargs,
     ):
@@ -99,9 +100,9 @@ class WaveBlock(TorchModule):
             torch.arange(0, dilation * kernel_size, dilation) * base_tau_syn
         ).float()
         tau_syn = torch.clamp(tau_syn, base_tau_syn, tau_syn.max())
-        tau_syn = torch.cat(tuple([tau_syn] * Nchannels)).cuda()
+        tau_syn = torch.cat(tuple([tau_syn] * Nchannels)).to(device)
 
-        self.lin1 = LinearTorch((Nchannels, Nchannels * kernel_size), has_bias=has_bias, device='cuda')
+        self.lin1 = LinearTorch((Nchannels, Nchannels * kernel_size), has_bias=has_bias, device=device)
         with torch.no_grad():
             # normalize for tau_syn
             self.lin1.weight = self.lin1.weight / (tau_syn * 1000)
@@ -117,6 +118,7 @@ class WaveBlock(TorchModule):
             has_bias=has_bias,
             threshold=threshold,
             dt=dt,
+            device=device,
         )
 
         # - Build a synapse-to-neuron mapping matrix
@@ -130,7 +132,7 @@ class WaveBlock(TorchModule):
         ).T
 
         # - Remapping output layers
-        self.lin2_res = LinearTorch((Nchannels, Nchannels), has_bias=has_bias, device='cuda')
+        self.lin2_res = LinearTorch((Nchannels, Nchannels), has_bias=has_bias, device=device)
         with torch.no_grad():
             # normalize for tau_syn
             self.lin2_res.weight = self.lin2_res.weight / (tau_syn.min().item() * 1000)
@@ -148,10 +150,11 @@ class WaveBlock(TorchModule):
             has_bias=has_bias,
             threshold=threshold,
             dt=dt,
+            device=device,
         )
 
         # - Skip output layers
-        self.lin2_skip = LinearTorch((Nchannels, Nskip), has_bias=has_bias, device='cuda')
+        self.lin2_skip = LinearTorch((Nchannels, Nskip), has_bias=has_bias, device=device)
         with torch.no_grad():
             # normalize for tau_syn
             self.lin2_skip.weight = self.lin2_skip.weight / (tau_syn.min().item() * 1000)
@@ -166,6 +169,7 @@ class WaveBlock(TorchModule):
             has_bias=has_bias,
             threshold=threshold,
             dt=dt,
+            device=device,
         )
 
         # - Internal record dictionary
@@ -278,6 +282,7 @@ class WaveSenseNet(TorchModule):
         tau_lp: float = 20e-3,
         threshold: float = 0.0,
         dt: float = 1e-3,
+        device: str = 'cuda',
         *args,
         **kwargs,
     ):
@@ -308,7 +313,7 @@ class WaveSenseNet(TorchModule):
         )
 
         # - Input mapping layers
-        self.lin1 = LinearTorch((n_channels_in, n_channels_res), has_bias=has_bias, device='cuda')
+        self.lin1 = LinearTorch((n_channels_in, n_channels_res), has_bias=has_bias, device=device)
         with torch.no_grad():
             # normalize for tau_syn
             self.lin1.weight = self.lin1.weight / (base_tau_syn * 1000)
@@ -323,6 +328,7 @@ class WaveSenseNet(TorchModule):
             has_bias=has_bias,
             threshold=threshold,
             dt=dt,
+            device=device,
         )
 
         # - WaveBlock layers
@@ -338,11 +344,12 @@ class WaveSenseNet(TorchModule):
                 base_tau_syn=base_tau_syn,
                 threshold=threshold,
                 dt=dt,
+                device=device,
             )
             self.__setattr__(f"wave{i}", wave)
 
         # Dense readout layers
-        self.dense = LinearTorch((n_channels_skip, n_hidden), has_bias=has_bias, device='cuda')
+        self.dense = LinearTorch((n_channels_skip, n_hidden), has_bias=has_bias, device=device)
         with torch.no_grad():
             # normalize for tau_syn
             self.dense.weight = self.dense.weight / (base_tau_syn * 1000)
@@ -358,8 +365,9 @@ class WaveSenseNet(TorchModule):
             has_bias=has_bias,
             threshold=threshold,
             dt=dt,
+            device=device,
         )
-        self.readout = LinearTorch((n_hidden, n_classes), has_bias=has_bias, device='cuda')
+        self.readout = LinearTorch((n_hidden, n_classes), has_bias=has_bias, device=device)
         self.readout.weight.requires_grad = True
         if has_bias:
             self.readout.bias.requires_grad = True
@@ -372,7 +380,7 @@ class WaveSenseNet(TorchModule):
             with torch.no_grad():
                 # normalize for tau_syn
                 self.readout.weight = self.readout.weight / (tau_lp  * 1000)
-            self.lp = ExpSynTorch(n_classes, tau_syn=tau_lp, dt=dt)
+            self.lp = ExpSynTorch(n_classes, tau_syn=tau_lp, dt=dt, device=device)
 
         # - Record dt
         self.dt = SimulationParameter(dt)
