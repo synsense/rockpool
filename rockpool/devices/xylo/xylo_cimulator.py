@@ -91,7 +91,11 @@ class XyloCim(Module):
         """ (XyloLayer) Handle to a Cimulator object """
 
     @classmethod
-    def from_config(cls, config: XyloConfiguration, dt: float = 1e-3):
+    def from_config(cls, 
+                    config: XyloConfiguration, 
+                    bias: np.array,
+                    bias_out: np.array,
+                    dt: float = 1e-3):
         """
         Creata a Cimulator based layer to simulate the Xylo hardware, from a configuration
 
@@ -184,6 +188,8 @@ class XyloCim(Module):
             aliases=_cim_params.aliases,
             threshold=_cim_params.threshold,
             threshold_out=_cim_params.threshold_out,
+            bias=bias.tolist(),
+            bias_out=bias_out.tolist(),
             weight_shift_inp=_cim_params.weight_shift_inp,
             weight_shift_rec=_cim_params.weight_shift_rec,
             weight_shift_out=_cim_params.weight_shift_out,

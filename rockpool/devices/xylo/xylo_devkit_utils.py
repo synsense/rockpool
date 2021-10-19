@@ -66,6 +66,12 @@ class XyloState(NamedTuple):
     I_syn2_hid: np.ndarray
     """ np.ndarray: Synaptic current 2 of hidden neurons ``(Nhidden,)``"""
 
+    biases_hid: np.ndarray
+    """ np.ndarray: Biases of hidden neurons ``(Nhidden,)``"""
+
+    biases_out: np.ndarray
+    """ np.ndarray: Biases of output neurons ``(Nhidden,)``"""
+
     Spikes_hid: np.ndarray
     """ np.ndarray: Spikes from hidden layer neurons ``(Nhidden,)``"""
 
@@ -1629,6 +1635,8 @@ def to_hex(n: int, digits: int) -> str:
 def export_config(
     path: Union[str, Path],
     config: XyloConfiguration,
+    bias,
+    bias_out,
     dt: float,
 ) -> None:
     """
@@ -1649,7 +1657,7 @@ def export_config(
     # - Generate a XyloCim module from the config
     from rockpool.devices.xylo import XyloCim
 
-    cim = XyloCim.from_config(config, dt=dt)
+    cim = XyloCim.from_config(config, bias, bias_out, dt=dt)
     model = cim._xylo_layer
 
     inp_size = len(model.synapses_in)
@@ -2111,6 +2119,23 @@ def export_temporal_state(
             for i_neur, val in enumerate(vals):
                 f.write(to_hex(val, 4))
                 f.write("\n")
+
+    # nbram
+    mat = np.zeros(size_total, dtype=int)
+    biases = np.array(state.biases_hid).astype(int)
+    mat[: num_neurons] = biases
+    biases_out = np.array(state.biases_out).astype(int)
+    mat[num_neurons : num_neurons + biases_out.shape[0]] = biases_out
+
+    path_bias = path / "bias"
+    if not path_bias.exists():
+        makedirs(path_bias)
+
+    print("Writing nbram files in bias", end="\r")
+    with open(path_bias / f"nbram.txt", "w+") as f:
+        for i_neur, val in enumerate(mat):
+            f.write(to_hex(val, 4))
+            f.write("\n")
 
     if inp_spks is not None:
         # input spikes

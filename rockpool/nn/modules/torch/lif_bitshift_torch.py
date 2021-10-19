@@ -93,7 +93,8 @@ class LIFBitshiftTorch(TorchModule):
         batch_size: int,
         tau_mem: Union[float, List],
         tau_syn: Union[float, List],
-        threshold: float,
+        threshold: Union[float, List],
+        bias: torch.Tensor,
         learning_window: float,
         dt=1,
         device="cuda",
@@ -114,6 +115,8 @@ class LIFBitshiftTorch(TorchModule):
             decay time constant in units of simulation time steps
         threshold: float
             Spiking threshold
+        bias: float
+            Bias / current injection to the membrane 
         learning_window: float
             Learning window around spike threshold for surrogate gradient calculation
         dt: float
@@ -147,7 +150,20 @@ class LIFBitshiftTorch(TorchModule):
                 torch.from_numpy(np.array(tau_syn)).to(device), "taus"
             )
 
-        self.threshold: P_tensor = rp.Parameter(torch.Tensor([threshold]).to(device))
+        if isinstance(threshold, float):
+            self.threshold: P_tensor = rp.Parameter(torch.Tensor([threshold]).to(device))
+        else:
+            raise NotImplementedError("Threshold must be float")
+            #self.threshold: P_tensor = rp.Parameter(torch.from_numpy(np.array(threshold)).to(device))
+
+        self.bias: P_tensor = bias.to(device)
+        #if isinstance(bias, float):
+        #    self.bias: P_tensor = rp.Parameter(torch.Tensor([bias] * n_neurons).double().to(device))
+        #else:
+        #    self.bias: P_tensor = rp.Parameter(torch.from_numpy(np.array(bias)).double().to(device))
+
+        #self.bias.requires_grad = True
+
         self.learning_window: P_tensor = rp.Parameter(
             torch.Tensor([learning_window]).to(device)
         )
@@ -223,6 +239,7 @@ class LIFBitshiftTorch(TorchModule):
             self.alpha_syn.double(),
             self.propagator_mem.double(),
             self.propagator_syn.double(),
+            self.bias.double(),
             self.threshold.double().item(),
             self.learning_window.double().item(),
             self._record,
@@ -268,6 +285,8 @@ class LIFBitshiftTorch(TorchModule):
 
         vmem = self.vmem
         isyn = self.isyn
+        bias = self.bias
+
         alpha_mem = self.alpha_mem
         alpha_syn = self.alpha_syn
         threshold = self.threshold
@@ -304,7 +323,7 @@ class LIFBitshiftTorch(TorchModule):
             isyn = self.bitshift_decay(isyn, alpha_syn, self.propagator_syn)
 
             # State propagation
-            vmem = vmem + isyn.sum(1)  # isyn shape (batch, syn, neuron)
+            vmem = vmem + isyn.sum(1) + bias  # isyn shape (batch, syn, neuron)
 
         self.vmem = vmem
         self.isyn = isyn
