@@ -66,6 +66,11 @@ class SetList(List[T]):
 class GraphModuleBase:
     """
     Base class for GraphModules
+
+    You should use the "public facing" base classes :py:class:`.GraphModule` and :py:class:`.GraphHolder`.
+
+    See Also:
+        For an overview of computational graphs in Rockpool, see :ref:`/advanced/graph_overview.ipynb`.
     """
 
     input_nodes: SetList["GraphNode"]
@@ -164,6 +169,9 @@ class GraphModule(GraphModuleBase):
     You should subclass :py:class:`.GraphModule` to make graph modules that define some specific computation. e.g. a set of weights; a set of spiking neurons with some characteristics. Specific subclasses of :py:class:`.GraphModule` can be converted between each other as part of the device mapping process. e.g. a set of generic LIF neurons can be converted to a HW specific graph module that defines the configuration of some neurons on a device.
 
     Specific subclasses of :py:class:`.GraphModule` should ideally be "units" of computation, as in the examples above. The exception is :py:class:`.GraphHolder`, which is deigned to encapsulate entire graphs or subgraphs.
+
+    See Also:
+        For an overview of computational graphs in Rockpool, see :ref:`/advanced/graph_overview.ipynb`.
     """
 
     def __post_init__(self, *args, **kwargs):
@@ -207,8 +215,9 @@ class GraphHolder(GraphModuleBase):
     :py:class:`.GraphHolder` modules contain only :py:attr:`.input_nodes` and :py:attr:`.input_nodes` attributes that are connected to other modules. A :py:class:`.GraphHolder` module should *never* be the sink or source of a :py:class:`.GraphNode`.
 
     See Also:
+        Use the :py:func:`.graph.utils.graph` helper function to encapsulate another :py:class:`.GraphModule`.
 
-        Use the :py:func:`.graph` helper function to encapsulate another :py:class:`.GraphModule`.
+        For an overview of computational graphs in Rockpool, see :ref:`/advanced/graph_overview.ipynb`.
     """
 
     pass
@@ -239,6 +248,9 @@ class GraphNode:
     Describe a node connecting :py:class:`.GraphModule` s
 
     :py:class:`.GraphNode` s are elements that connect multiple :py:class:`.GraphModule` s. They maintain lists of source and sink modules. Use the methods :py:meth:`.add_source`, :py:meth:`.add_sink`, :py:meth:`.remove_source` and :py:meth:`.remove_sink` to connect and disconnect :py:class:`GraphNode` s.
+
+    See Also:
+        For an overview of computational graphs in Rockpool, see :ref:`/advanced/graph_overview.ipynb`.
     """
 
     source_modules: SetList[GraphModule] = field(default_factory=SetList)

@@ -5,6 +5,7 @@ Implements linear weight matrix modules for numpy and Jax
 
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import Parameter
+from rockpool.graph import GraphModuleBase, LinearWeights
 
 import numpy as onp
 from warnings import warn
@@ -41,7 +42,7 @@ class LinearMixin(ABC):
         has_bias: bool = True,
         weight_init_func: Callable = kaiming,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """
         Encapsulate a linear weight matrix
@@ -101,6 +102,14 @@ class LinearMixin(ABC):
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
         return self._dot(input_data, self.weight) + self.bias, {}, {}
+
+    def as_graph(self) -> GraphModuleBase:
+        return LinearWeights._factory(
+            self.size_in,
+            self.size_out,
+            f"{type(self).__name__}_{self.name}_{id(self)}",
+            self.weight,
+        )
 
 
 class Linear(LinearMixin, Module):

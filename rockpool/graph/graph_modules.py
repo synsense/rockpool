@@ -93,11 +93,8 @@ class RateNeuronWithSynsRealValue(GenericNeurons):
     A :py:class:`.GraphModule` that encapsulates a set of rate neurons, with synapses, and with real-valued parameters
     """
 
-    tau_mem: FloatVector = field(default_factory=list)
-    """ Floatvector: The membrane time constants of these neurons, in seconds ``(Nout,)`` """
-
-    tau_syn: FloatVector = field(default_factory=list)
-    """ Floatvector: The synaptic time constants of these neurons, in seconds ``(Nin,)`` """
+    tau: FloatVector = field(default_factory=list)
+    """ Floatvector: The time constants of these neurons, in seconds ``(Nout,)`` """
 
     bias: FloatVector = field(default_factory=list)
     """ Floatvector: The bias parameters of these neurons ``(Nout,)`` """

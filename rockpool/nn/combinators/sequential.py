@@ -7,6 +7,8 @@ from copy import copy
 from typing import Tuple, Any
 from abc import ABC
 
+import rockpool.graph as rg
+
 __all__ = ["Sequential"]
 
 
@@ -122,6 +124,21 @@ class SequentialMixin(ABC):
             Module: The ``item``th module in the sequence
         """
         return self.modules()[self._submodule_names[item]]
+
+    def as_graph(self):
+        mod_graphs = []
+
+        for mod in self:
+            mod_graphs.append(mod.as_graph())
+
+        for source, dest in zip(mod_graphs[:-1], mod_graphs[1:]):
+            rg.connect_modules(source, dest)
+
+        return rg.GraphHolder(
+            mod_graphs[0].input_nodes,
+            mod_graphs[-1].output_nodes,
+            f"{type(self).__name__}_{self.name}_{id(self)}",
+        )
 
 
 class ModSequential(SequentialMixin, Module):

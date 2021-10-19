@@ -27,7 +27,7 @@ class XyloNeurons(GenericNeurons):
     """
 
     hw_ids: IntVector = field(default_factory=list)
-    """ IntVector: The HW neuron IDs allocated to this graph module ``(N,)``. Empty means than no HW IDs have been allocated. """
+    """ IntVector: The HW neuron IDs allocated to this graph module ``(N,)``. Empty means than no HW IDs have been allocated."""
 
     threshold: IntVector = field(default_factory=list)
     """ IntVector: The threshold parameters for each neuron ``(N,)`` """
@@ -117,7 +117,7 @@ class XyloNeurons(GenericNeurons):
 @dataclass(eq=False, repr=False)
 class XyloHiddenNeurons(XyloNeurons):
     """
-    A :py:class:`.GraphModule` encapsulating Xylo v1 hidden neurons
+    A :py:class:`.graph.GraphModule` encapsulating Xylo v1 hidden neurons
     """
 
     def __post_init__(self, *args, **kwargs):
@@ -133,7 +133,7 @@ class XyloHiddenNeurons(XyloNeurons):
 @dataclass(eq=False, repr=False)
 class XyloOutputNeurons(XyloNeurons):
     """
-    A :py:class:`.GraphModule` encapsulating Xylo V1 output neurons
+    A :py:class:`.graph.GraphModule` encapsulating Xylo V1 output neurons
     """
 
     def __post_init__(self, *args, **kwargs):
