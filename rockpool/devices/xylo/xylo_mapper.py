@@ -1,7 +1,7 @@
 """
 Mapper package for Xylo
 
-- Create a graph using the `._serialise()` API
+- Create a graph using the :py:meth:`~.graph.GraphModule.as_graph` API
 - Call :py:func:`.mapper`
 
 """
@@ -37,7 +37,7 @@ class DRCError(ValueError):
     pass
 
 
-def output_nodes_have_neurons_as_source(graph: GraphModule):
+def output_nodes_have_neurons_as_source(graph: GraphModuleBase) -> None:
     # - All output nodes must have a source that is a neuron
     for n in graph.output_nodes:
         for s in n.source_modules:
@@ -47,7 +47,7 @@ def output_nodes_have_neurons_as_source(graph: GraphModule):
                 )
 
 
-def input_to_neurons_is_a_weight(graph: GraphModule):
+def input_to_neurons_is_a_weight(graph: GraphModuleBase) -> None:
     # - Every neuron module must have weights on the input
     neurons = find_modules_of_subclass(graph, GenericNeurons)
 
@@ -60,7 +60,7 @@ def input_to_neurons_is_a_weight(graph: GraphModule):
                     )
 
 
-def first_module_is_a_weight(graph: GraphModule):
+def first_module_is_a_weight(graph: GraphModuleBase) -> None:
     # - The first module after the input must be a set of weights
     for inp in graph.input_nodes:
         for sink in inp.sink_modules:
@@ -70,14 +70,14 @@ def first_module_is_a_weight(graph: GraphModule):
                 )
 
 
-def le_16_input_channels(graph: GraphModule):
+def le_16_input_channels(graph: GraphModuleBase) -> None:
     if len(graph.input_nodes) > 16:
         raise DRCError(
             f"Xylo only supports up to 16 input channels. The network requires {len(graph.input_nodes)} input channels."
         )
 
 
-def all_neurons_have_same_dt(graph: GraphModule):
+def all_neurons_have_same_dt(graph: GraphModuleBase) -> None:
     neurons: SetList[GenericNeurons] = find_modules_of_subclass(graph, GenericNeurons)
 
     dt: Optional[float] = None
@@ -93,7 +93,7 @@ def all_neurons_have_same_dt(graph: GraphModule):
         )
 
 
-def output_neurons_cannot_be_recurrent(graph: GraphModule):
+def output_neurons_cannot_be_recurrent(graph: GraphModuleBase) -> None:
     recurrent_modules = find_recurrent_modules(graph)
 
     output_neurons = SetList()
@@ -109,7 +109,7 @@ def output_neurons_cannot_be_recurrent(graph: GraphModule):
         )
 
 
-xylo_drc = [
+xylo_drc: List[Callable[[GraphModuleBase], None]] = [
     output_nodes_have_neurons_as_source,
     input_to_neurons_is_a_weight,
     first_module_is_a_weight,
@@ -117,9 +117,22 @@ xylo_drc = [
     all_neurons_have_same_dt,
     output_neurons_cannot_be_recurrent,
 ]
+""" List[Callable[[GraphModuleBase], None]]: The collection of design rules for Xylo """
 
 
-def check_drc(graph, design_rules: List[Callable[[GraphModule], None]]):
+def check_drc(
+    graph: GraphModuleBase, design_rules: List[Callable[[GraphModuleBase], None]]
+):
+    """
+    Perform a design rule check over a graph
+
+    Args:
+        graph (GraphModuleBase): A graph to check
+        design_rules (List[Callable[[GraphModuleBase], None]]): A list of functions, each of which performs a DRC over a graph
+
+    Raises:
+        DRCError: If a design rule is violated
+    """
     for dr in design_rules:
         try:
             dr(graph)
@@ -130,7 +143,29 @@ def check_drc(graph, design_rules: List[Callable[[GraphModule], None]]):
             )
 
 
-def assign_ids_to_class(graph: GraphModule, cls, available_ids: List) -> List:
+def assign_ids_to_class(graph: GraphModule, cls, available_ids: List[int]) -> List[int]:
+    """
+    Assign IDs from a list to a class of graph module
+
+    This function sets the :py:attr:`~.graph.GraphModule.hw_ids` attribute for all :py:class:`.graph.GraphModule` s of a chosen subclass, by assigning them greedily from a list. The allocated IDs are removed from the ``available`` list, are set in the graph modules, and are returned as a list.
+
+    Examples:
+
+        >>> output_ids = list(range(16))
+        >>> allocated_ids = assign_ids_to_class(graph, XyloOutputNeurons, output_ids)
+        >>> print(allocated_ids)
+        [0, 1, 2, 3, 4, 5]
+        >>> print(output_ids)
+        [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+    Args:
+        graph (GraphModule):
+        cls: The :py:class:`~.graph.GraphModule` subclass to search for, to assign IDs to
+        available_ids (List[int]): A list of integer unique HW IDs that can be allocated from. These IDs will be allocated to the graph modules.
+
+    Returns:
+        List[int]: The hardware IDs that were allocated to the graph modules
+    """
     # - Build a list of ids that are allocated
     allocated_ids = []
 

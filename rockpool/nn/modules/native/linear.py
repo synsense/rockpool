@@ -5,7 +5,7 @@ Implements linear weight matrix modules for numpy and Jax
 
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import Parameter
-from rockpool.graph import GraphModuleBase, LinearWeights
+from rockpool.graph import GraphModuleBase, LinearWeights, as_GraphHolder
 
 import numpy as onp
 from warnings import warn
@@ -104,11 +104,13 @@ class LinearMixin(ABC):
         return self._dot(input_data, self.weight) + self.bias, {}, {}
 
     def as_graph(self) -> GraphModuleBase:
-        return LinearWeights._factory(
-            self.size_in,
-            self.size_out,
-            f"{type(self).__name__}_{self.name}_{id(self)}",
-            self.weight,
+        return as_GraphHolder(
+            LinearWeights._factory(
+                self.size_in,
+                self.size_out,
+                f"{type(self).__name__}_{self.name}_{id(self)}",
+                self.weight,
+            )
         )
 
 

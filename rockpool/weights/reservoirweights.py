@@ -1,9 +1,9 @@
-###
-# weights.py -- Utility functions for generating and manipulating networks
-###
+"""
+Utility functions for generating and manipulating reservoir networks
+"""
 
+import copy
 from typing import Callable, Optional, Tuple, Union
-from mpmath import mp
 from copy import deepcopy
 import random
 import numpy as np
@@ -1273,7 +1273,7 @@ def gen_sparse_partitioned_network(
         # - For each neuron in the partition, find a set of random inputs
         for dest in part_indices:
             # - Get in-partition sources
-            sources_in = list(copy(part_indices))
+            sources_in = list(copy.deepcopy(part_indices))
             shuffle(sources_in)
             sources_in = sources_in[:num_internal_inputs]
 
@@ -1281,7 +1281,7 @@ def gen_sparse_partitioned_network(
             weights[sources_in, dest] = 1
 
             # - Get out-partition sources
-            sources_out = list(copy(nonpart_indices))
+            sources_out = list(copy.deepcopy(nonpart_indices))
             shuffle(sources_out)
             sources_out = sources_out[:num_between_inputs]
 

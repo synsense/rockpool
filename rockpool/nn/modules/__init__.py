@@ -31,13 +31,17 @@ strBasePackage = "rockpool.nn.modules"
 
 # - Define docstring for module
 __doc__ = """
-            rockpool.nn.modules package - Contains building-block modules for networks
+            Contains building-block modules for networks
             
             Subpackages:
                 `native`: Numpy-backed modules
+                
                 `jax`: Jax-backed modules
+                
                 `torch`: Torch-backed modules
+                
                 `nest`: NEST-backed modules
+                
                 `brian`: Brian2-backed modules
                 
             The bases classes :py:class:`.Module`, :py:class:`.JaxModule` and :py:class:`TorchModule` are used to compose arbitrary networks of SNN modules.

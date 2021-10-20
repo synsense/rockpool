@@ -9,6 +9,8 @@ dModules = {}
 # - Define current package
 strBasePackage = "rockpool.training"
 
+__doc__ = """Package containing facilities to assist with training SNNs"""
+
 # - Initialise list of available modules
 __all__ = []
 

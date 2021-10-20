@@ -13,6 +13,7 @@ import math
 from typing import Union, Optional
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
+from rockpool.graph import GraphModuleBase, LinearWeights, as_GraphHolder
 import torch
 import torch.nn.init as init
 import torch.nn.functional as F
@@ -115,4 +116,14 @@ class LinearTorch(TorchModule):
     def _extra_repr(self) -> str:
         return "in_features={}, out_features={}, bias={}".format(
             self.shape[0], self.shape[1], self.bias is not None
+        )
+
+    def as_graph(self) -> GraphModuleBase:
+        return as_GraphHolder(
+            LinearWeights._factory(
+                self.size_in,
+                self.size_out,
+                f"{type(self).__name__}_{self.name}_{id(self)}",
+                self.weight,
+            )
         )

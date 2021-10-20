@@ -1,8 +1,10 @@
 """
-Xylo-family device simulations and deployment support
+Xylo-family device simulations, deployment and HDK support
 
 See Also:
-    :py:class:`XyloCim`, :py:class:`XyloSamna`, :py:class:`AFE`, :py:class:`DivisiveNormalisation`, :py:class:`DivisiveNormalisationNoLFSR`
+    See :ref:`/devices/xylo-overview.ipynb`, :ref:`/devices/torch-training-spiking-for-xylo.ipynb` and :ref:`/devices/analog-frontend-example.ipynb` for documentation of this module.
+
+    Defines the classes :py:class:`XyloCim`, :py:class:`XyloSamna`, :py:class:`AFE`, :py:class:`DivisiveNormalisation`, :py:class:`DivisiveNormalisationNoLFSR`.
 """
 
 # - Import submodules to make them available

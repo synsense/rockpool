@@ -1,5 +1,5 @@
 """
-Base classes for graph tracing
+Base classes and functionality for graph tracing
 """
 
 from dataclasses import dataclass, field
@@ -12,7 +12,7 @@ __all__ = [
     "GraphModule",
     "GraphModuleBase",
     "GraphHolder",
-    "graph",
+    "as_GraphHolder",
     "SetList",
 ]
 
@@ -65,7 +65,7 @@ class SetList(List[T]):
 @dataclass(eq=False)
 class GraphModuleBase:
     """
-    Base class for GraphModules
+    Base class for graph modules
 
     You should use the "public facing" base classes :py:class:`.GraphModule` and :py:class:`.GraphHolder`.
 
@@ -215,7 +215,7 @@ class GraphHolder(GraphModuleBase):
     :py:class:`.GraphHolder` modules contain only :py:attr:`.input_nodes` and :py:attr:`.input_nodes` attributes that are connected to other modules. A :py:class:`.GraphHolder` module should *never* be the sink or source of a :py:class:`.GraphNode`.
 
     See Also:
-        Use the :py:func:`.graph.utils.graph` helper function to encapsulate another :py:class:`.GraphModule`.
+        Use the :py:func:`~.graph.graph_base.as_GraphHolder` helper function to encapsulate another :py:class:`.GraphModule`.
 
         For an overview of computational graphs in Rockpool, see :ref:`/advanced/graph_overview.ipynb`.
     """
@@ -223,11 +223,11 @@ class GraphHolder(GraphModuleBase):
     pass
 
 
-def graph(g: GraphModule) -> GraphHolder:
+def as_GraphHolder(g: GraphModule) -> GraphHolder:
     """
-    Encapsulate a :py:class:`GraphModule` inside a :py:class:`.GraphHolder`
+    Encapsulate a :py:class:`.GraphModule` inside a :py:class:`.GraphHolder`
 
-    This function takes an existing :py:class:`GraphModule` and wraps it in a :py:class:`.GraphHolder` module, by using the input and output nodes of the existing module.
+    This function takes an existing :py:class:`.GraphModule` and wraps it in a :py:class:`.GraphHolder` module, by using the input and output nodes of the existing module.
 
     Args:
         g (GraphModule): A :py:class:`.GraphModule` to encapsulate

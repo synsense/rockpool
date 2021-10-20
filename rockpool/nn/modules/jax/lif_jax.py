@@ -6,7 +6,7 @@ from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
 from rockpool.graph import (
     GraphModuleBase,
-    graph,
+    as_GraphHolder,
     LIFNeuronWithSynsRealValue,
     LinearWeights,
 )
@@ -376,4 +376,4 @@ class LIFJax(JaxModule):
             )
 
         # - Return a graph containing neurons and optional weights
-        return neurons
+        return as_GraphHolder(neurons)

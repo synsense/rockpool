@@ -7,6 +7,26 @@ Module {{ fullname }}
 .. automodule:: {{ fullname }}
 .. currentmodule:: {{ fullname }}
 
+{% block modules %}
+{% if modules %}
+
+.. rubric:: Submodules
+
+.. autosummary::
+  :template: module.rst
+  :recursive:
+
+{% for item in modules %}
+
+  {{ item }}
+
+{% endfor %}
+
+{%- endif -%}
+
+{% endblock %}
+
+
 {% block functions %}
 {% if functions %}
 

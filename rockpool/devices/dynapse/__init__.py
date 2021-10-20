@@ -29,7 +29,7 @@ dModules = {
 strBasePackage = "rockpool.devices.dynapse"
 
 # - Define docstring for module
-__doc__ = """Defines classes for interacting with hardware"""
+__doc__ = """DynapSE-family device simulations, deployment and HDK support"""
 
 # - Initialise list of available modules
 __all__ = []

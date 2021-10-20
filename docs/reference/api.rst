@@ -3,6 +3,13 @@ Full API summary for |project|
 
 .. py:currentmodule::rockpool
 
+.. autosummary::
+    :toctree: _autosummary
+    :recursive:
+
+    rockpool
+
+
 Base classes
 ------------
 
@@ -236,9 +243,15 @@ Base modules
     :toctree: _autosummary
     :template: class.rst
 
+    graph.GraphModuleBase
     graph.GraphModule
     graph.GraphNode
     graph.GraphHolder
+
+.. autosummary::
+    :toctree: _autosummary
+
+    graph.graph_base.as_GraphHolder
 
 Computational graph modules
 
@@ -255,5 +268,5 @@ Computational graph modules
 .. autosummary::
     :toctree: _autosummary
     :template: module.rst
-    
+
     graph.utils

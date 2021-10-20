@@ -19,6 +19,10 @@ dModules = {
 # - Define current package
 strBasePackage = "rockpool"
 
+# - Define docstring for module
+__doc__ = """A machine learning library for spiking neural networks"""
+
+
 # - Initialise list of available modules
 __all__ = []
 

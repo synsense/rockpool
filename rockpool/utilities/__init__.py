@@ -18,6 +18,8 @@ dModules = {
 # - Define current package
 strBasePackage = "rockpool.utilities"
 
+__doc__ = """General utilities"""
+
 # - Initialise list of available modules
 __all__ = []
 

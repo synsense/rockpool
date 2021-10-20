@@ -5,7 +5,12 @@ Contains an implementation of a non-spiking rate module, with a Jax backend
 # - Rockpool imports
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
-from rockpool.graph import RateNeuronWithSynsRealValue, LinearWeights, GraphModuleBase
+from rockpool.graph import (
+    RateNeuronWithSynsRealValue,
+    LinearWeights,
+    GraphModuleBase,
+    as_GraphHolder,
+)
 
 # -- Imports
 from importlib import util
@@ -294,4 +299,4 @@ class RateEulerJax(JaxModule):
             )
 
         # - Return a graph containing neurons and optional weights
-        return neurons
+        return as_GraphHolder(neurons)
