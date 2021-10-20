@@ -1,7 +1,7 @@
 """
 Base classes and functionality for graph tracing
 """
-
+import copy
 from dataclasses import dataclass, field
 from typing import List, Any, TypeVar, Iterable, Hashable
 
@@ -30,8 +30,9 @@ class SetList(List[T]):
         super().__init__(*args, **kwargs)
 
         if len(self) > 0:
-            unique_list = SetList()
-            [unique_list.add(item) for item in self]
+            old_list = copy.copy(self)
+            self.clear()
+            [self.add(item) for item in old_list]
 
     def append(self, __object: T) -> None:
         """
@@ -81,6 +82,11 @@ class GraphModuleBase:
 
     name: str
     """ str: An arbitrary name attached to this specific :py:class:`.GraphModule` """
+
+    def __post_init__(self, *args, **kwargs):
+        # - Ensure node lists are SetLists
+        self.input_nodes = SetList(self.input_nodes)
+        self.output_nodes = SetList(self.output_nodes)
 
     def __repr__(self) -> str:
         type_name = type(self).__name__
@@ -178,6 +184,8 @@ class GraphModule(GraphModuleBase):
         """
         Perform any post-initialisation checks that need to be done for this class. You must call `super().__post_init__(*args, **kwargs)` if you override :py:meth:`.__post_init__` in a subclass.
         """
+        super().__post_init__(*args, **kwargs)
+
         # - Attach input and output nodes back to module
         for n in self.input_nodes:
             n.add_sink(self)
@@ -258,6 +266,11 @@ class GraphNode:
 
     sink_modules: SetList[GraphModule] = field(default_factory=SetList)
     """ SetList[GraphModule]: The sink modules that connect via this :py:class:`.GraphNode` """
+
+    def __post_init__(self, *args, **kwargs):
+        # - Ensure node lists are SetLists
+        self.source_modules = SetList(self.source_modules)
+        self.sink_modules = SetList(self.sink_modules)
 
     def add_sink(self, sink: GraphModule) -> None:
         """

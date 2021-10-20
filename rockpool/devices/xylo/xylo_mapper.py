@@ -30,7 +30,7 @@ from rockpool.devices.xylo import XyloHiddenNeurons, XyloOutputNeurons, XyloNeur
 
 from typing import List, Callable, Set, Optional
 
-__all__ = ["mapper"]
+__all__ = ["mapper", "DRCError"]
 
 
 class DRCError(ValueError):

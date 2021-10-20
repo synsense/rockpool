@@ -25,7 +25,7 @@ __all__ = [
 ]
 
 
-def connect_modules(source: GraphModule, dest: GraphModule) -> None:
+def connect_modules(source: GraphModuleBase, dest: GraphModuleBase) -> None:
     """
     Connect two :py:class:`.GraphModule` s together
 
@@ -87,6 +87,8 @@ def bag_graph(
 
     Args:
         graph (GraphModuleBase): A graph to analyse
+        nodes_bag (SetList): The initial nodes bag. Used in recursive calls. Default: ``None``
+        modules_bag (SetList): The initial modules bag. Used in recursive calls. Default: ``None``
 
     Returns:
         (SetList[GraphNode], SetList[GraphModule]): nodes, modules. `nodes` will be a :py:class:`SetList` containing all the reachable :py:class:`GraphNode` s in `graph`. `modules` will be a :py:class:`SetList` containing all the reachable :py:class:`GraphModule` s in `graph`.
