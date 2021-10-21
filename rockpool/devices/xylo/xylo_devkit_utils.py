@@ -1629,6 +1629,8 @@ def to_hex(n: int, digits: int) -> str:
 def export_config(
     path: Union[str, Path],
     config: XyloConfiguration,
+    bias,
+    bias_out,
     dt: float,
 ) -> None:
     """
@@ -1649,7 +1651,7 @@ def export_config(
     # - Generate a XyloCim module from the config
     from rockpool.devices.xylo import XyloCim
 
-    cim = XyloCim.from_config(config, dt=dt)
+    cim = XyloCim.from_config(config, bias, bias_out, dt=dt)
     model = cim._xylo_layer
 
     inp_size = len(model.synapses_in)
@@ -1844,6 +1846,20 @@ def export_config(
             )
             f.write("\n")
 
+    # nbram
+    mat = np.zeros(size_total, dtype=int)
+    bias = np.array(bias).astype(int)
+    mat[: num_neurons] = bias
+    bias_out = np.array(bias_out).astype(int)
+    mat[num_neurons : num_neurons + bias_out.shape[0]] = bias_out
+
+    print("Writing nbram files", end="\r")
+    with open(path / f"nbram.ini", "w+") as f:
+        for i_neur, val in enumerate(mat):
+            f.write(to_hex(val, 4))
+            f.write("\n")
+
+
     # basic config
     print("Writing basic_config.json", end="\r")
     with open(path / "basic_config.json", "w+") as f:
@@ -1886,6 +1902,12 @@ def export_config(
             conf["RA"] = True
         else:
             conf["RA"] = False
+
+        if np.any(bias) or np.any(bias_out):
+            conf["BIAS"] = True
+        else:
+            conf["BIAS"] = False 
+
 
         json.dump(conf, f)
 
