@@ -384,6 +384,14 @@ class MembraneParameters(DPIParameters):
     :type t_pulse: Optional[float], optional
     :param feedback: positive feedback circuit heuristic parameters:Ia_gain, Ia_th, and Ia_norm, defaults to None
     :type feedback: Optional[FeedbackParameters], optional
+    :param Ispkthr: Spiking threshold current in Amperes, depends on layout (see chip for details), defaults to 1e-9
+    :type Ispkthr: float, optional
+    :param Ireset: Reset current after spike generation in Amperes, defaults to Io
+    :type Ireset: Optional[float], optional
+    :param Idc: Constant DC current in Amperes, injected to membrane, defaults to Io
+    :type Idc: Optional[float], optional
+    :param If_nmda: The NMDA gate current in Amperes setting the NMDA gating voltage. If :math:`V_{mem} > V_{nmda}` : The :math:`I_{syn_{NMDA}}` current is added up to the input current, else it cannot. defaults to Io
+    :type If_nmda: Optional[float], optional
     """
 
     __doc__ += DPIParameters.__doc__
@@ -398,6 +406,10 @@ class MembraneParameters(DPIParameters):
     Ipulse: Optional[float] = None
     t_pulse: Optional[float] = 10e-6
     feedback: Optional[FeedbackParameters] = None
+    Ispkthr: float = 1e-9
+    Ireset: Optional[float] = None
+    Idc: Optional[float] = None
+    If_nmda: Optional[float] = None
 
     def __post_init__(self) -> None:
         """
@@ -409,6 +421,12 @@ class MembraneParameters(DPIParameters):
 
         if self.Imem is None:
             self.Imem = self.layout.Io
+        if self.Idc is None:
+            self.Idc = self.layout.Io
+        if self.If_nmda is None:
+            self.If_nmda = self.layout.Io
+        if self.Ireset is None:
+            self.Ireset = self.layout.Io
 
         if self.Imem < self.layout.Io:
             raise ValueError(
@@ -457,6 +475,8 @@ class MembraneParameters(DPIParameters):
             t_ref=None,  # deduced from Iref
             Ipulse=bias("PULSE_PWLK_P"),
             t_pulse=None,  # deduced from Ipulse
+            Idc=bias("IF_DC_P"),
+            If_nmda=bias("IF_NMDA_N"),
             layout=layout,
             *args,
             **kwargs,
@@ -687,14 +707,6 @@ class DynapSE1SimCore:
     :type size: int
     :param fpulse_ahp: the decrement factor for the pulse widths arriving in AHP circuit, defaults to 0.1
     :type fpulse_ahp: float, optional
-    :param Ispkthr: Spiking threshold current in Amperes, depends on layout (see chip for details), defaults to 1e-9
-    :type Ispkthr: float, optional
-    :param Ireset: Reset current after spike generation in Amperes, defaults to Io
-    :type Ireset: Optional[float], optional
-    :param Idc: Constant DC current in Amperes, injected to membrane, defaults to Io
-    :type Idc: Optional[float], optional
-    :param If_nmda: The NMDA gate current in Amperes setting the NMDA gating voltage. If :math:`V_{mem} > V_{nmda}` : The :math:`I_{syn_{NMDA}}` current is added up to the input current, else it cannot. defaults to Io
-    :type If_nmda: Optional[float], optional
     :param layout: constant values that are related to the exact silicon layout of a chip, defaults to None
     :type layout: Optional[DynapSE1Layout], optional
     :param capacitance: subcircuit capacitance values that are related to each other and depended on exact silicon layout of a chip, defaults to None
@@ -711,31 +723,10 @@ class DynapSE1SimCore:
     :type gaba_a: Optional[SynapseParameters], optional
     :param gaba_b: GABA_B (shunt) synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
     :type gaba_b: Optional[SynapseParameters], optional
-
-    :Instance Variables:
-
-    :type t_ref: refractory period in seconds, limits maximum firing rate
-    :type t_ref: float, optional
-    :type t_pulse: the width of the pulse in seconds produced by virtue of a spike
-    :type t_pulse: float, optional
-    :ivar t_pulse_ahp: reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp``
-    :type t_pulse_ahp: float
-    :ivar f_tau_mem: Tau factor for membrane circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau`
-    :type f_tau_mem: float
-    :ivar f_tau_syn: A vector of tau factors in the following order: [GABA_B, GABA_A, NMDA, AMPA, AHP]
-    :type f_tau_syn: np.ndarray
-    :ivar f_t_ref: time factor for refractory period circuit. :math:`f_{\\t} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\t} = I_{\\t} \\cdot \\t`
-    :type f_t_ref: float
-    :ivar f_t_pulse: time factor for pulse width generation circuit. :math:`f_{\\t} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\t} = I_{\\t} \\cdot \\t`
-    :type f_t_pulse: float
     """
 
     size: Optional[int] = 256
     fpulse_ahp: float = 0.1
-    Ispkthr: float = 1e-9
-    Ireset: Optional[float] = None
-    Idc: Optional[float] = None
-    If_nmda: Optional[float] = None
     layout: Optional[DynapSE1Layout] = None
     capacitance: Optional[DynapSE1Capacitance] = None
     mem: Optional[MembraneParameters] = None
@@ -753,14 +744,6 @@ class DynapSE1SimCore:
             self.layout = DynapSE1Layout()
         if self.capacitance is None:
             self.capacitance = DynapSE1Capacitance()
-
-        # Set the bias currents to Io by default
-        if self.Idc is None:
-            self.Idc = self.layout.Io
-        if self.If_nmda is None:
-            self.If_nmda = self.layout.Io
-        if self.Ireset is None:
-            self.Ireset = self.layout.Io
 
         # Initialize the subcircuit blocks with the same layout
         if self.mem is None:
@@ -830,6 +813,8 @@ class DynapSE1SimCore:
             C=capacitance.mem,
             Cref=capacitance.ref,
             Cpulse=capacitance.pulse,
+            Ispkthr=Ispkthr,
+            Ireset=Ireset,
         )
 
         # Fast inhibitory (shunt)
@@ -868,10 +853,6 @@ class DynapSE1SimCore:
 
         mod = cls(
             fpulse_ahp=fpulse_ahp,
-            Ispkthr=Ispkthr,
-            Ireset=Ireset,
-            Idc=bias("IF_DC_P"),
-            If_nmda=bias("IF_NMDA_N"),
             layout=layout,
             capacitance=capacitance,
             mem=mem,
@@ -965,21 +946,21 @@ class DynapSE1SimCore:
     @property
     def Ip_gain(self) -> np.ndarray:
         """
-        Itau_mem is an array of positive feedback gain current, heuristic parameter = (Nrec,)
+        Ip_gain is an array of positive feedback gain current, heuristic parameter = (Nrec,)
         """
         return self.feedback_property("Igain")
 
     @property
     def Ip_th(self) -> np.ndarray:
         """
-        Itau_mem is an array of positive feedback threshold current, typically a fraction of Ispk_th
+        Ip_th is an array of positive feedback threshold current, typically a fraction of Ispk_th with shape (Nrec,)
         """
         return self.feedback_property("Ith")
 
     @property
     def Ip_norm(self) -> np.ndarray:
         """
-        Itau_mem is an array of positive feedback normalization current, heuristic parameter
+        Ip_norm is an array of positive feedback normalization current, heuristic parameter with shape (Nrec,)
         """
         return self.feedback_property("Inorm")
 
@@ -1014,51 +995,85 @@ class DynapSE1SimCore:
     @property
     def Io(self) -> np.ndarray:
         """
-        Io is the dark current in Amperes that flows through the transistors even at the idle state
+        Io is the dark current in Amperes that flows through the transistors even at the idle state with shape (Nrec,)
         """
         return np.full(self.size, self.layout.Io, dtype=np.float32)
 
     @property
     def f_tau_mem(self) -> np.ndarray:
         """
-        f_tau_mem is an array of tau factor for membrane circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau`
+        f_tau_mem is an array of tau factor for membrane circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau` with shape (Nrec,)
         """
         return self.mem_property("f_tau")
 
     @property
     def f_tau_syn(self) -> np.ndarray:
         """
-        f_tau_syn is a 2D array of tau factors in the following order: [GABA_B, GABA_A, NMDA, AMPA, AHP]
+        f_tau_syn is a 2D array of tau factors in the following order: [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape (5, Nrec)
         """
         return self.syn_property("f_tau")
 
     @property
     def f_t_ref(self) -> np.ndarray:
+        """
+        f_t_ref is an array of the width of the pulse in seconds produced by virtue of a spike with shape (Nrec,)
+        """
         return self.mem_property("f_ref")
 
     @property
     def f_t_pulse(self) -> np.ndarray:
+        """
+        f_t_pulse is an array of the factor of conversion from pulse width in seconds to pulse width bias current in Amperes with shape (Nrec,)
+        """
         return self.mem_property("f_pulse")
 
     @property
     def t_pulse(self) -> np.ndarray:
         """
-        t_pulse is an array of the width of the pulse in seconds produced by virtue of a spike
+        t_pulse is an array of the width of the pulse in seconds produced by virtue of a spike with shape (Nrec,)
         """
         return self.mem_property("t_pulse")
 
     @property
     def t_pulse_ahp(self) -> np.ndarray:
         """
-        t_pulse_ahp is an array of reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp``
+        t_pulse_ahp is an array of reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp`` with shape (Nrec,)
         """
         return self.t_pulse * self.fpulse_ahp
 
     @property
     def t_ref(self) -> np.ndarray:
         """
-        t_ref is an array of the refractory period in seconds, limits maximum firing rate
+        t_ref is an array of the refractory period in seconds, limits maximum firing rate with shape (Nrec,)
         """
         return self.mem_property("t_ref")
+
+    @property
+    def Ispkthr(self) -> np.ndarray:
+        """
+        Ispkthr is an array of the refractory period in seconds, limits maximum firing rate with shape (Nrec,)
+        """
+        return self.mem_property("Ispkthr")
+
+    @property
+    def Ireset(self) -> np.ndarray:
+        """
+        Ireset is an array of the reset current after spike generation with shape (Nrec,)
+        """
+        return self.mem_property("Ireset")
+
+    @property
+    def Idc(self) -> np.ndarray:
+        """
+        Idc is an array of the constant DC current in Amperes, injected to membrane with shape (Nrec,)
+        """
+        return self.mem_property("Idc")
+
+    @property
+    def If_nmda(self) -> np.ndarray:
+        """
+        If_nmda is an array of the The NMDA gate current in Amperes setting the NMDA gating voltage. If :math:`V_{mem} > V_{nmda}` : The :math:`I_{syn_{NMDA}}` current is added up to the input current, else it cannot with shape (Nrec,)
+        """
+        return self.mem_property("If_nmda")
 
 
