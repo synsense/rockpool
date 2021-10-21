@@ -94,8 +94,8 @@ class LIFBitshiftTorch(TorchModule):
         tau_mem: Union[float, List],
         tau_syn: Union[float, List],
         threshold: Union[float, List],
-        bias: torch.Tensor,
         learning_window: float,
+        has_bias: bool = True,
         dt=1,
         device="cuda",
         *args,
@@ -115,10 +115,10 @@ class LIFBitshiftTorch(TorchModule):
             decay time constant in units of simulation time steps
         threshold: float
             Spiking threshold
-        bias: float
-            Bias / current injection to the membrane 
         learning_window: float
             Learning window around spike threshold for surrogate gradient calculation
+        has_bias: bool 
+            Bias / current injection to the membrane 
         dt: float
             Resolution of the simulation in seconds.
         """
@@ -156,7 +156,12 @@ class LIFBitshiftTorch(TorchModule):
             raise NotImplementedError("Threshold must be float")
             #self.threshold: P_tensor = rp.Parameter(torch.from_numpy(np.array(threshold)).to(device))
 
-        self.bias: P_tensor = bias.to(device)
+        bias: P_tensor = torch.zeros(self.n_neurons).to(device)
+        if has_bias:
+            self.bias: P_tensor = rp.Parameter(torch.nn.parameter.Parameter(bias))
+        else:
+            self.bias: P_tensor = bias
+
         #if isinstance(bias, float):
         #    self.bias: P_tensor = rp.Parameter(torch.Tensor([bias] * n_neurons).double().to(device))
         #else:

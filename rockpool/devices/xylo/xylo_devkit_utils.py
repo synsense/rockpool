@@ -66,12 +66,6 @@ class XyloState(NamedTuple):
     I_syn2_hid: np.ndarray
     """ np.ndarray: Synaptic current 2 of hidden neurons ``(Nhidden,)``"""
 
-    biases_hid: np.ndarray
-    """ np.ndarray: Biases of hidden neurons ``(Nhidden,)``"""
-
-    biases_out: np.ndarray
-    """ np.ndarray: Biases of output neurons ``(Nhidden,)``"""
-
     Spikes_hid: np.ndarray
     """ np.ndarray: Spikes from hidden layer neurons ``(Nhidden,)``"""
 
@@ -1852,6 +1846,20 @@ def export_config(
             )
             f.write("\n")
 
+    # nbram
+    mat = np.zeros(size_total, dtype=int)
+    bias = np.array(bias).astype(int)
+    mat[: num_neurons] = bias
+    bias_out = np.array(bias_out).astype(int)
+    mat[num_neurons : num_neurons + bias_out.shape[0]] = bias_out
+
+    print("Writing nbram files", end="\r")
+    with open(path / f"nbram.ini", "w+") as f:
+        for i_neur, val in enumerate(mat):
+            f.write(to_hex(val, 4))
+            f.write("\n")
+
+
     # basic config
     print("Writing basic_config.json", end="\r")
     with open(path / "basic_config.json", "w+") as f:
@@ -1894,6 +1902,12 @@ def export_config(
             conf["RA"] = True
         else:
             conf["RA"] = False
+
+        if np.any(bias) or np.any(bias_out):
+            conf["BIAS"] = True
+        else:
+            conf["BIAS"] = False 
+
 
         json.dump(conf, f)
 
@@ -2119,23 +2133,6 @@ def export_temporal_state(
             for i_neur, val in enumerate(vals):
                 f.write(to_hex(val, 4))
                 f.write("\n")
-
-    # nbram
-    mat = np.zeros(size_total, dtype=int)
-    biases = np.array(state.biases_hid).astype(int)
-    mat[: num_neurons] = biases
-    biases_out = np.array(state.biases_out).astype(int)
-    mat[num_neurons : num_neurons + biases_out.shape[0]] = biases_out
-
-    path_bias = path / "bias"
-    if not path_bias.exists():
-        makedirs(path_bias)
-
-    print("Writing nbram files in bias", end="\r")
-    with open(path_bias / f"nbram.txt", "w+") as f:
-        for i_neur, val in enumerate(mat):
-            f.write(to_hex(val, 4))
-            f.write("\n")
 
     if inp_spks is not None:
         # input spikes
