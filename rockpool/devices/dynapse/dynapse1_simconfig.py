@@ -131,11 +131,6 @@ class DPIParameters:
     :type C: float
     :param layout: constant values that are related to the exact silicon layout of a chip, defaults to None
     :type layout: Optional[DynapSE1Layout], optional
-
-    :Instance Variables:
-
-    :ivar f_tau: Tau factor for DPI circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau`
-    :type f_tau: float
     """
 
     Itau: Optional[float] = 7e-12
@@ -158,9 +153,6 @@ class DPIParameters:
 
         if self.layout is None:
             self.layout = DynapSE1Layout()
-
-        # Find the tau factor using the layout parameters
-        self.f_tau = (self.layout.Ut / self.layout.kappa) * self.C
 
         self.tau, self.Itau = self.time_current_dependence(
             self.tau, self.Itau, self.f_tau
@@ -262,6 +254,13 @@ class DPIParameters:
         self.depended_param_check(tx, Ix, current_limits=(self.layout.Io, None))
 
         return tx, Ix
+
+    @property
+    def f_tau(self) -> float:
+        """
+        f_tau is the tau factor for DPI circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau`
+        """
+        return (self.layout.Ut / self.layout.kappa) * self.C
 
 
 @dataclass
@@ -385,13 +384,6 @@ class MembraneParameters(DPIParameters):
     :type t_pulse: Optional[float], optional
     :param feedback: positive feedback circuit heuristic parameters:Ia_gain, Ia_th, and Ia_norm, defaults to None
     :type feedback: Optional[FeedbackParameters], optional
-
-    :Instance Variables:
-
-    :ivar f_ref: the capacitance value of the circuit that implements the refractory period
-    :type f_ref: float
-    :ivar f_pulse: the capacitance value of the circuit that converts the spikes to pulses
-    :type f_pulse: float
     """
 
     __doc__ += DPIParameters.__doc__
@@ -422,9 +414,6 @@ class MembraneParameters(DPIParameters):
             raise ValueError(
                 f"Illegal Imem : {self.Imem}A. It should be greater than Io : {self.layout.Io}"
             )
-
-        self.f_ref = (self.layout.Ut / self.layout.kappa) * self.Cref
-        self.f_pulse = (self.layout.Ut / self.layout.kappa) * self.Cpulse
 
         self.t_ref, self.Iref = self.time_current_dependence(
             self.t_ref, self.Iref, self.f_ref
@@ -474,6 +463,20 @@ class MembraneParameters(DPIParameters):
         )
         return mod
 
+    @property
+    def f_ref(self) -> float:
+        """
+        f_ref is a the recractory period factor for DPI circuit. :math:`f_{ref} = \\dfrac{U_T}{\\kappa \\cdot C_{ref}}`, :math:`f_{ref} = I_{ref} \\cdot \\t_{ref}`
+        """
+        return (self.layout.Ut / self.layout.kappa) * self.Cref
+
+    @property
+    def f_pulse(self) -> float:
+        """
+        f_pulse is a the pulse width factor for DPI circuit. :math:`f_{pulse} = \\dfrac{U_T}{\\kappa \\cdot C_{pulse}}`, :math:`f_{pulse} = I_{pulse} \\cdot \\t_{pulse}`
+        """
+        return (self.layout.Ut / self.layout.kappa) * self.Cpulse
+
 
 @dataclass
 class GABABParameters(SynapseParameters):
@@ -483,8 +486,7 @@ class GABABParameters(SynapseParameters):
 
     __doc__ += SynapseParameters.__doc__
 
-    tau: Optional[float] = 100e-3
-    # Iw: float = 0
+    tau: Optional[float] = 10e-3
 
     @classmethod
     def from_parameter_group(
@@ -524,8 +526,7 @@ class GABAAParameters(SynapseParameters):
 
     __doc__ += SynapseParameters.__doc__
 
-    tau: Optional[float] = 10e-3
-    # Iw: float = 0
+    tau: Optional[float] = 100e-3
 
     @classmethod
     def from_parameter_group(
@@ -682,6 +683,8 @@ class DynapSE1SimCore:
     """
     DynapSE1SimCore encapsulates the DynapSE1 circuit parameters and provides an easy access.
 
+    :param size: the number of neurons allocated in the simulation core, the length of the property arrays. Assumed to be 1 if None , defaults to 256
+    :type size: int
     :param fpulse_ahp: the decrement factor for the pulse widths arriving in AHP circuit, defaults to 0.1
     :type fpulse_ahp: float, optional
     :param Ispkthr: Spiking threshold current in Amperes, depends on layout (see chip for details), defaults to 1e-9
@@ -727,6 +730,7 @@ class DynapSE1SimCore:
     :type f_t_pulse: float
     """
 
+    size: Optional[int] = 256
     fpulse_ahp: float = 0.1
     Ispkthr: float = 1e-9
     Ireset: Optional[float] = None
@@ -777,26 +781,6 @@ class DynapSE1SimCore:
             self.ampa = AMPAParameters(C=self.capacitance.ampa, layout=self.layout)
         if self.ahp is None:
             self.ahp = AHPParameters(C=self.capacitance.ahp, layout=self.layout)
-
-        self.t_pulse = self.mem.t_pulse
-        self.t_ref = self.mem.t_ref
-        self.t_pulse_ahp = self.t_pulse * self.fpulse_ahp
-
-        # Membrane
-        self.f_tau_mem = self.mem.f_tau
-        self.f_t_ref = self.mem.f_ref
-        self.f_t_pulse = self.mem.f_pulse
-
-        # All DPI synapses together
-        self.f_tau_syn = np.array(
-            [
-                self.gaba_b.f_tau,
-                self.gaba_a.f_tau,
-                self.nmda.f_tau,
-                self.ampa.f_tau,
-                self.ahp.f_tau,
-            ]
-        )
 
     @classmethod
     def from_samna_parameter_group(
@@ -898,3 +882,183 @@ class DynapSE1SimCore:
             ahp=ahp,
         )
         return mod
+
+    ## Property Utils ##
+
+    def _get_syn_vector(self, target: str) -> np.ndarray:
+        """
+        _get_syn_vector lists the parameters traversing the different object instances of the same class
+
+        :param target: target parameter to be extracted and listed in the order of object list
+        :type target: str
+        :return: An array of target parameter values obtained from the objects
+        :rtype: np.ndarray
+        """
+
+        object_list = [self.gaba_b, self.gaba_a, self.nmda, self.ampa, self.ahp]
+
+        param_list = [
+            obj.__getattribute__(target) if obj is not None else None
+            for obj in object_list
+        ]
+
+        return np.array(param_list)
+
+    def mem_property(self, attr: str) -> np.ndarray:
+        """
+        mem_property fetches an attribute from the membrane subcircuit and create a property array covering all the neurons allocated
+
+        :param attr: the target attribute
+        :type attr: str
+        :return: 1D an array full of the value of the target attribute (`size`,)
+        :rtype: np.ndarray
+        """
+        return np.full(self.size, self.mem.__getattribute__(attr), dtype=np.float32)
+
+    def feedback_property(self, attr: str) -> np.ndarray:
+        """
+        feedback_property fetches an attribute from the membrane positive feedback subcircuit and create a property array covering all the neurons allocated
+
+        :param attr: the target attribute
+        :type attr: str
+        :return: 1D an array full of the value of the target attribute (`size`,)
+        :rtype: np.ndarray
+        """
+        return np.full(
+            self.size, self.mem.feedback.__getattribute__(attr), dtype=np.float32
+        )
+
+    def syn_property(self, attr: str) -> np.ndarray:
+        """
+        syn_property fetches a attributes from the synaptic gate subcircuits in [GABA_B, GABA_A, NMDA, AMPA, AHP] order and create a property array covering all the neurons allocated
+
+        :param attr: the target attribute
+        :type attr: str
+        :return: 2D an array full of the values of the target attributes of all 5 synapses (`size`, 5)
+        :rtype: np.ndarray
+        """
+        return np.full((self.size, 5), self._get_syn_vector(attr), dtype=np.float32).T
+
+    ## -- Property Utils End -- ##
+
+    @property
+    def Imem(self) -> np.ndarray:
+        """
+        Imem is an array of membrane currents of the neurons with shape = (Nrec,)
+        """
+        return self.mem_property("Imem")
+
+    @property
+    def Itau_mem(self) -> np.ndarray:
+        """
+        Itau_mem is an array of membrane leakage currents of the neurons with shape = (Nrec,)
+        """
+        return self.mem_property("Itau")
+
+    @property
+    def f_gain_mem(self) -> np.ndarray:
+        """
+        f_gain_mem is an array of membrane gain parameter of the neurons with shape = (Nrec,)
+        """
+        return self.mem_property("f_gain")
+
+    @property
+    def Ip_gain(self) -> np.ndarray:
+        """
+        Itau_mem is an array of positive feedback gain current, heuristic parameter = (Nrec,)
+        """
+        return self.feedback_property("Igain")
+
+    @property
+    def Ip_th(self) -> np.ndarray:
+        """
+        Itau_mem is an array of positive feedback threshold current, typically a fraction of Ispk_th
+        """
+        return self.feedback_property("Ith")
+
+    @property
+    def Ip_norm(self) -> np.ndarray:
+        """
+        Itau_mem is an array of positive feedback normalization current, heuristic parameter
+        """
+        return self.feedback_property("Inorm")
+
+    @property
+    def Isyn(self) -> np.ndarray:
+        """
+        Isyn is a 2D array of synapse currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
+        """
+        return self.syn_property("Isyn")
+
+    @property
+    def Itau_syn(self) -> np.ndarray:
+        """
+        Itau_syn is a 2D array of synapse leakage currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
+        """
+        return self.syn_property("Itau")
+
+    @property
+    def f_gain_syn(self) -> np.ndarray:
+        """
+        f_gain_syn is a 2D array of synapse gain parameters of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
+        """
+        return self.syn_property("f_gain")
+
+    @property
+    def Iw(self) -> np.ndarray:
+        """
+        Iw is a 2D array of synapse weight currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
+        """
+        return self.syn_property("Iw")
+
+    @property
+    def Io(self) -> np.ndarray:
+        """
+        Io is the dark current in Amperes that flows through the transistors even at the idle state
+        """
+        return np.full(self.size, self.layout.Io, dtype=np.float32)
+
+    @property
+    def f_tau_mem(self) -> np.ndarray:
+        """
+        f_tau_mem is an array of tau factor for membrane circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau`
+        """
+        return self.mem_property("f_tau")
+
+    @property
+    def f_tau_syn(self) -> np.ndarray:
+        """
+        f_tau_syn is a 2D array of tau factors in the following order: [GABA_B, GABA_A, NMDA, AMPA, AHP]
+        """
+        return self.syn_property("f_tau")
+
+    @property
+    def f_t_ref(self) -> np.ndarray:
+        return self.mem_property("f_ref")
+
+    @property
+    def f_t_pulse(self) -> np.ndarray:
+        return self.mem_property("f_pulse")
+
+    @property
+    def t_pulse(self) -> np.ndarray:
+        """
+        t_pulse is an array of the width of the pulse in seconds produced by virtue of a spike
+        """
+        return self.mem_property("t_pulse")
+
+    @property
+    def t_pulse_ahp(self) -> np.ndarray:
+        """
+        t_pulse_ahp is an array of reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp``
+        """
+        return self.t_pulse * self.fpulse_ahp
+
+    @property
+    def t_ref(self) -> np.ndarray:
+        """
+        t_ref is an array of the refractory period in seconds, limits maximum firing rate
+        """
+        return self.mem_property("t_ref")
+
+
