@@ -52,7 +52,6 @@ from typing import (
 
 from rockpool.typehints import (
     JP_ndarray,
-    P_float,
     FloatVector,
 )
 
@@ -232,61 +231,54 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
     :ivar SYN: A dictionary storing default indexes(order) of the synapse types
     :type SYN: Dict[str, int]
-    :ivar target_idx: The indexes to rearange the default ordered array [GABA_B, GABA_A, NMDA, AMPA, AHP] into custom order [...]
-    :type target_idx: np.ndarray
-    :ivar default_idx: The indexes to rearange the custom ordered array [...] into default order [GABA_B, GABA_A, NMDA, AMPA, AHP]
-    :type default_idx: np.ndarray
-    :ivar Imem: Array of membrane currents of the neurons with shape = (Nrec,)
-    :type Imem: JP_ndarray
-    :ivar Itau_mem: Array of membrane leakage currents of the neurons with shape = (Nrec,)
-    :type Itau_mem: JP_ndarray
-    :ivar f_gain_mem: Array of membrane gain parameter of the neurons with shape = (Nrec,)
-    :type f_gain_mem: JP_ndarray
-    :ivar Ip_gain: Array of positive feedback gain current, heuristic parameter = (Nrec,)
-    :type Ip_gain: JP_ndarray
-    :ivar Ip_th: Array of positive feedback threshold current, typically a fraction of Ispk_th
-    :type Ip_th: JP_ndarray
-    :ivar Ip_norm: Array of positive feedback normalization current, heuristic parameter
-    :type Ip_norm: JP_ndarray
-    :ivar Isyn: 2D array of synapse currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
+    :ivar Isyn: 2D array of synapse currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape (5,Nrec)
     :type Isyn: JP_ndarray
-    :ivar Itau_syn: 2D array of synapse leakage currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
-    :type Itau_syn: JP_ndarray
-    :ivar f_gain_syn: 2D array of synapse gain parameters of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
-    :type gain_syn: JP_ndarray
-    :ivar Iw: 2D array of synapse weight currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
-    :type Iw: JP_ndarray
+    :ivar Imem: Array of membrane currents of the neurons with shape (Nrec,)
+    :type Imem: JP_ndarray
     :ivar spikes: Logical spiking raster for each neuron at the last simulation time-step with shape (Nrec,)
     :type spikes: JP_ndarray
-    :ivar Io: Dark current in Amperes that flows through the transistors even at the idle state
-    :type Io: float
-    :ivar Ispkthr: Spiking threshold current in with shape (Nrec,)
-    :type Ispkthr: JP_ndarray
-    :ivar Ireset: Reset current after spike generation with shape (Nrec,)
-    :type Ireset: JP_ndarray
-    :ivar f_tau_mem: Tau factor for membrane circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau`
-    :type f_tau_mem: float
-    :ivar f_tau_syn: A vector of tau factors in the following order: [GABA_B, GABA_A, NMDA, AMPA, AHP]
-    :type f_tau_syn: np.ndarray
-    :ivar t_pulse: the width of the pulse in seconds produced by virtue of a spike
-    :type t_pulse: float
-    :ivar t_pulse_ahp: reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp``
-    :type t_pulse_ahp: float
-    :ivar Idc: Constant DC current in Amperes, injected to membrane
-    :type Idc: float
-    :ivar If_nmda: The NMDA gate current in Amperes setting the NMDA gating voltage. If :math:`V_{mem} > V_{nmda}` : The :math:`I_{syn_{NMDA}}` current is added up to the input current, else it cannot
-    :type If_nmda: float
-    :ivar t_ref: refractory period in seconds, limits maximum firing rate
-    :type t_ref: float
     :ivar timer_ref: timer to keep the time from the spike generation until the refractory period ends
     :type timer_ref: int
+    :ivar Itau_syn: 2D array of synapse leakage currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape (5,Nrec)
+    :type Itau_syn: JP_ndarray
+    :ivar f_gain_syn: 2D array of synapse gain parameters of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape (5,Nrec)
+    :type f_gain_syn: JP_ndarray
+    :ivar Iw: 2D array of synapse weight currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape (5,Nrec)
+    :type Iw: JP_ndarray
+    :ivar Itau_mem: Array of membrane leakage currents of the neurons with shape (Nrec,)
+    :type Itau_mem: JP_ndarray
+    :ivar f_gain_mem: Array of membrane gain parameter of the neurons with shape (Nrec,)
+    :type f_gain_mem: JP_ndarray
+    :ivar Idc: Array of constant DC current in Amperes, injected to membrane with shape (Nrec,)
+    :type Idc: JP_ndarray
+    :ivar If_nmda: Array of the NMDA gate current in Amperes setting the NMDA gating voltage. If :math:`V_{mem} > V_{nmda}` : The :math:`I_{syn_{NMDA}}` current is added up to the input current, else it cannot with shape (Nrec,)
+    :type If_nmda: JP_ndarray
+    :ivar Io: Array of Dark current in Amperes that flows through the transistors even at the idle state with shape (Nrec,)
+    :type Io: JP_ndarray
+    :ivar Ip_gain: Array of positive feedback gain current, heuristic parameter with shape (Nrec,)
+    :type Ip_gain: JP_ndarray
+    :ivar Ip_th: Array of positive feedback threshold current, typically a fraction of Ispk_th with shape (Nrec,)
+    :type Ip_th: JP_ndarray
+    :ivar Ip_norm: Array of positive feedback normalization current, heuristic parameter with shape (Nrec,)
+    :type Ip_norm: JP_ndarray
+    :ivar f_tau_mem: Array of tau factor for membrane circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau` with shape (Nrec,)
+    :type f_tau_mem: JP_ndarray
+    :ivar f_tau_syn: Array of tau factors in the following order: [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape (5,Nrec)
+    :type f_tau_syn: np.ndarray
+    :ivar t_pulse: Array of the width of the pulse in seconds produced by virtue of a spike with shape (Nrec,)
+    :type t_pulse: JP_ndarray
+    :ivar t_pulse_ahp: Array of reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp`` with shape (Nrec,)
+    :type t_pulse_ahp: JP_ndarray
+    :ivar t_ref: Array of refractory periods in seconds, limits maximum firing rate with shape (Nrec,)
+    :type t_ref: JP_ndarray
+    :ivar Ispkthr: Array of spiking threshold current in with shape (Nrec,)
+    :type Ispkthr: JP_ndarray
+    :ivar Ireset: Array of reset current after spike generation with shape (Nrec,)
+    :type Ireset: JP_ndarray
 
 
     [] TODO: ATTENTION Now, the implementation is only for one core, extend it for multiple cores
-    [] TODO: think about activating and deactivating certain circuit blocks.
     [] TODO: all neurons cannot have the same parameters ideally however, they experience different parameters in practice because of device mismatch
-    [] TODO: What is the initial configuration of biases?
-    [] TODO: How to convert from bias current parameters to high-level parameters and vice versa?
     [] TODO: Provides mismatch simulation (as second step)
         -As a utility function that operates on a set of parameters?
         -As a method on the class?
@@ -342,51 +334,48 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         self.w_in, self.w_rec = self._init_weights(w_in, w_rec)
 
         # --- Parameters & States --- #
+
+        # --- States --- #
+        self.Isyn = State(sim_config.Isyn)
         self.Imem = State(sim_config.Imem)
+        self.spikes = State(shape=(self.size_out,), init_func=np.zeros)
+        self.timer_ref = State(shape=(self.size_out,), init_func=np.zeros)
+
+        # --- Parameters --- #
+        ## Synapse
+        self.Itau_syn = Parameter(sim_config.Itau_syn)
+        self.f_gain_syn = Parameter(sim_config.f_gain_syn)
+        self.Iw = Parameter(sim_config.Iw)
+
+        ## Membrane
         self.Itau_mem = Parameter(sim_config.Itau_mem)
         self.f_gain_mem = Parameter(sim_config.f_gain_mem)
+        self.Idc = Parameter(sim_config.Idc)
+        self.If_nmda = Parameter(sim_config.If_nmda)
+
+        # --- Simulation Parameters --- #
+        self.dt = SimulationParameter(dt)
+        self.Io = SimulationParameter(sim_config.layout.Io)
 
         ## Positive Feedback
         self.Ip_gain = SimulationParameter(sim_config.Ip_gain)
         self.Ip_th = SimulationParameter(sim_config.Ip_th)
         self.Ip_norm = SimulationParameter(sim_config.Ip_norm)
 
-        self.Isyn = State(sim_config.Isyn)
-        self.Itau_syn = Parameter(sim_config.Itau_syn)
-        self.f_gain_syn = Parameter(sim_config.f_gain_syn)
-        self.Iw = Parameter(sim_config.Iw)
-
-        self.spikes: JP_ndarray = State(shape=(self.size_out,), init_func=np.zeros)
-
-        # --- Simulation Parameters --- #
-        self.dt: P_float = SimulationParameter(dt)
-
-        ## Layout Params
-        self.Io = SimulationParameter(sim_config.layout.Io)
-
-        ## Configuration Parameters
+        ## Time -> Current conversion
         self.f_tau_mem = SimulationParameter(sim_config.f_tau_mem)
         self.f_tau_syn = SimulationParameter(sim_config.f_tau_syn)
+
+        # Pulse width
         self.t_pulse = SimulationParameter(sim_config.t_pulse)
         self.t_pulse_ahp = SimulationParameter(sim_config.t_pulse_ahp)
-        self.Idc = SimulationParameter(sim_config.Idc)
-        self.If_nmda = SimulationParameter(sim_config.If_nmda)
+
+        ## Refractory Period
         self.t_ref = SimulationParameter(sim_config.t_ref)
 
-        ### Refractory Period
-        self.timer_ref = State(shape=(self.size_out,), init_func=np.zeros)
-
-        ### Policy currents
-        self.Ispkthr: JP_ndarray = SimulationParameter(
-            shape=(self.size_out,),
-            family="simulation",
-            init_func=lambda s: np.ones(s) * sim_config.Ispkthr,
-        )
-        self.Ireset: JP_ndarray = SimulationParameter(
-            shape=(self.size_out,),
-            family="simulation",
-            init_func=lambda s: np.ones(s) * sim_config.Ireset,
-        )
+        ## Policy
+        self.Ispkthr = SimulationParameter(sim_config.Ispkthr)
+        self.Ireset = SimulationParameter(sim_config.Ireset)
 
     def evolve(
         self, input_data: np.ndarray, record: bool = True
@@ -626,82 +615,67 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     ## --- HIGH LEVEL TIME CONSTANTS -- ##
 
     @property
-    def tau_mem(self):
+    def tau_mem(self) -> JP_ndarray:
         """
         tau_mem holds an array of time constants in seconds for neurons with shape = (Nrec,)
-
-        :return: array of time constants
-        :rtype: JP_ndarray
         """
         return self.f_tau_mem / self.Itau_mem.T
 
     @property
-    def tau_syn(self):
+    def tau_syn(self) -> JP_ndarray:
         """
         tau_syn holds an array of time constants in seconds for each synapse of the neurons with shape = (Nrec,5)
         There are tau_ahp, tau_nmda, tau_ampa, tau_gaba_a, and tau_gaba_b methods as well to fetch the time constants of the exact synapse
-
-        :return: array of time constants
-        :rtype: JP_ndarray
         """
         return self.f_tau_syn / self.Itau_syn.T
 
     @property
-    def tau_gaba_b(self):
+    def tau_gaba_b(self) -> JP_ndarray:
         """
         tau_gaba_b holds an array of time constants in seconds for GABA_B synapse of the neurons with shape = (Nrec,)
-
-        :return: array of time constants
-        :rtype: JP_ndarray
         """
         return self.f_tau_syn[self.SYN["GABA_B"]] / self.Itau_syn[self.SYN["GABA_B"]]
 
     @property
-    def tau_gaba_a(self):
+    def tau_gaba_a(self) -> JP_ndarray:
         """
         tau_gaba_a holds an array of time constants in seconds for GABA_A synapse of the neurons with shape = (Nrec,)
-
-        :return: array of time constants
-        :rtype: JP_ndarray
         """
         return self.f_tau_syn[self.SYN["GABA_A"]] / self.Itau_syn[self.SYN["GABA_A"]]
 
     @property
-    def tau_nmda(self):
+    def tau_nmda(self) -> JP_ndarray:
         """
         tau_nmda holds an array of time constants in seconds for NMDA synapse of the neurons with shape = (Nrec,)
-
-        :return: array of time constants
-        :rtype: JP_ndarray
         """
         return self.f_tau_syn[self.SYN["NMDA"]] / self.Itau_syn[self.SYN["NMDA"]]
 
     @property
-    def tau_ampa(self):
+    def tau_ampa(self) -> JP_ndarray:
         """
         tau_ampa holds an array of time constants in seconds for AMPA synapse of the neurons with shape = (Nrec,)
-
-        :return: array of time constants
-        :rtype: JP_ndarray
         """
         return self.f_tau_syn[self.SYN["AMPA"]] / self.Itau_syn[self.SYN["AMPA"]]
 
     @property
-    def tau_ahp(self):
+    def tau_ahp(self) -> JP_ndarray:
         """
         tau_ahp holds an array of time constants in seconds for AHP synapse of the neurons with shape = (Nrec,)
-
-        :return: array of time constants
-        :rtype: JP_ndarray
         """
         return self.f_tau_syn[self.SYN["AHP"]] / self.Itau_syn[self.SYN["AHP"]]
 
     ## --- MID-LEVEL HIDDEN BIAS CURRENTS (JAX) -- ##
 
     @property
-    def Ith_mem(self):
+    def Ith_mem(self) -> JP_ndarray:
+        """
+        Ith_mem create an array of membrane threshold(a.k.a gain) currents with shape = (Nrec,)
+        """
         return self.Itau_mem * self.f_gain_mem
 
     @property
-    def Ith_syn(self):
+    def Ith_syn(self) -> JP_ndarray:
+        """
+        Ith_syn create an array of synaptic threshold(a.k.a gain) currents in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
+        """
         return self.Itau_syn * self.f_gain_syn
