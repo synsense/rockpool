@@ -8,18 +8,15 @@ E-mail : ugurcan.cakal@gmail.com
 """
 from __future__ import annotations
 
-from rockpool.typehints import Value
+from rockpool.devices.dynapse.router import NeuronKey
+
 from rockpool.devices.dynapse.biasgen import DynapSE1BiasGen
 from jax import numpy as np
 
 import numpy as onp
 from dataclasses import dataclass
 
-from typing import (
-    Tuple,
-    Any,
-    Optional,
-)
+from typing import Tuple, Any, Optional, Union, List, Dict
 
 _SAMNA_AVAILABLE = True
 
@@ -34,7 +31,7 @@ except ModuleNotFoundError as e:
 
     print(
         e,
-        "\nDynapSE1SimulationConfiguration object cannot be factored from a samna config object!",
+        "\nDynapSE1SimCore object cannot be factored from a samna config object!",
     )
     _SAMNA_AVAILABLE = False
 
@@ -270,13 +267,15 @@ class DPIParameters:
 @dataclass
 class SynapseParameters(DPIParameters):
     """
-    DPIParameters contains DPI specific parameter and state variables
+    SynapseParameters contains DPI specific parameter and state variables
 
     :param Iw: Synaptic weight current in Amperes, determines how strong the response is in terms of amplitude, defaults to 1e-7
     :type Iw: float, optional
     :param Isyn: DPI output current in Amperes (state variable), defaults to Io
     :type Isyn: Optional[float], optional
     """
+
+    __doc__ += DPIParameters.__doc__
 
     Iw: float = 1e-7
     Isyn: Optional[float] = None
@@ -296,6 +295,51 @@ class SynapseParameters(DPIParameters):
             raise ValueError(
                 f"Illegal Isyn : {self.Isyn}A. It should be greater than Io : {self.layout.Io}"
             )
+
+    @classmethod
+    def _from_parameter_group(
+        cls,
+        parameter_group: Dynapse1ParameterGroup,
+        layout: DynapSE1Layout,
+        Itau_name: str,
+        Ithr_name: str,
+        Iw_name: str,
+        *args,
+        **kwargs,
+    ) -> SynapseParameters:
+        """
+        _from_parameter_group is a common factory method to construct a `SynapseParameters` object using a `Dynapse1ParameterGroup` object
+        Each individual synapse is expected to provide their individual Itau, Ithr and Iw bias names
+
+        :param parameter_group: samna config object for setting the parameter group within one core
+        :type parameter_group: Dynapse1ParameterGroup
+        :param layout: constant values that are related to the exact silicon layout of a chip
+        :type layout: DynapSE1Layout
+        :param Itau_name: the name of the leak bias current
+        :type Itau_name: str
+        :param Ithr_name: the name of the gain bias current
+        :type Ithr_name: str
+        :param Iw_name: the name of the base weight bias current
+        :type Iw_name: str
+        :return: a `SynapseParameters` object, whose parameters obtained from the hardware configuration
+        :rtype: SynapseParameters
+        """
+
+        bias = lambda name: DynapSE1BiasGen.param_to_bias(
+            parameter_group.get_parameter_by_name(name), Io=layout.Io
+        )
+
+        mod = cls(
+            Itau=bias(Itau_name),
+            Ith=bias(Ithr_name),
+            f_gain=None,  # deduced from Ith/Itau
+            tau=None,  # deduced from Itau
+            layout=layout,
+            Iw=bias(Iw_name),
+            *args,
+            **kwargs,
+        )
+        return mod
 
 
 @dataclass
@@ -350,6 +394,8 @@ class MembraneParameters(DPIParameters):
     :type f_pulse: float
     """
 
+    __doc__ += DPIParameters.__doc__
+
     C: float = 3.2e-12
     Cref: float = 5e-13
     Cpulse: float = 5e-13
@@ -390,42 +436,43 @@ class MembraneParameters(DPIParameters):
         if self.feedback is None:
             self.feedback = FeedbackParameters()
 
+    @classmethod
+    def from_parameter_group(
+        cls,
+        parameter_group: Dynapse1ParameterGroup,
+        layout: DynapSE1Layout,
+        *args,
+        **kwargs,
+    ) -> MembraneParameters:
+        """
+        from_parameter_group is a `MembraneParameters` factory method with hardcoded bias parameter names
 
-@dataclass
-class AHPParameters(SynapseParameters):
-    """
-    AHPParameters inherits SynapseParameters and re-arrange the default parameters for AHP circuit
-    """
+        :param parameter_group: samna config object for setting the parameter group within one core
+        :type parameter_group: Dynapse1ParameterGroup
+        :param layout: constant values that are related to the exact silicon layout of a chip
+        :type layout: DynapSE1Layout
+        :return: a `MembraneParameters` object whose parameters obtained from the hardware configuration
+        :rtype: MembraneParameters
+        """
 
-    tau: Optional[float] = 50e-3
+        bias = lambda name: DynapSE1BiasGen.param_to_bias(
+            parameter_group.get_parameter_by_name(name), Io=layout.Io
+        )
 
-
-@dataclass
-class NMDAParameters(SynapseParameters):
-    """
-    NMDAParameters inherits SynapseParameters and re-arrange the default parameters for NMDA circuit
-    """
-
-    tau: Optional[float] = 100e-3
-
-
-@dataclass
-class AMPAParameters(SynapseParameters):
-    """
-    AMPAParameters inherits SynapseParameters and re-arrange the default parameters for AMPA circuit
-    """
-
-    tau: Optional[float] = 10e-3
-
-
-@dataclass
-class GABAAParameters(SynapseParameters):
-    """
-    GABAAParameters inherits SynapseParameters and re-arrange the default parameters for GABA_A circuit
-    """
-
-    tau: Optional[float] = 10e-3
-    # Iw: float = 0
+        mod = cls(
+            Itau=bias("IF_TAU1_N"),
+            Ith=bias("IF_THR_N"),
+            tau=None,  # deduced from Itau
+            f_gain=None,  # deduced from Ith/Itau
+            Iref=bias("IF_RFR_N"),
+            t_ref=None,  # deduced from Iref
+            Ipulse=bias("PULSE_PWLK_P"),
+            t_pulse=None,  # deduced from Ipulse
+            layout=layout,
+            *args,
+            **kwargs,
+        )
+        return mod
 
 
 @dataclass
@@ -434,14 +481,206 @@ class GABABParameters(SynapseParameters):
     GABABParameters inherits SynapseParameters and re-arrange the default parameters for GABA_B circuit
     """
 
+    __doc__ += SynapseParameters.__doc__
+
     tau: Optional[float] = 100e-3
     # Iw: float = 0
 
+    @classmethod
+    def from_parameter_group(
+        cls,
+        parameter_group: Dynapse1ParameterGroup,
+        layout: DynapSE1Layout,
+        *args,
+        **kwargs,
+    ) -> GABABParameters:
+        """
+        from_parameter_group is a `GABABParameters` factory method implemented by customizing `SynapseParameter._from_parameter_group()`
+
+        :param parameter_group: samna config object for setting the parameter group within one core
+        :type parameter_group: Dynapse1ParameterGroup
+        :param layout: constant values that are related to the exact silicon layout of a chip
+        :type layout: DynapSE1Layout
+        :return: a `GABABParameters` object, whose parameters obtained from the hardware configuration
+        :rtype: GABABParameters
+        """
+
+        return cls._from_parameter_group(
+            parameter_group,
+            layout,
+            Itau_name="NPDPII_TAU_F_P",
+            Ithr_name="NPDPII_THR_F_P",
+            Iw_name="PS_WEIGHT_INH_F_N",
+            *args,
+            **kwargs,
+        )
+
 
 @dataclass
-class DynapSE1SimulationConfiguration:
+class GABAAParameters(SynapseParameters):
     """
-    DynapSE1SimulationConfiguration encapsulates the DynapSE1 circuit parameters and provides an easy access.
+    GABAAParameters inherits SynapseParameters and re-arrange the default parameters for GABA_A circuit
+    """
+
+    __doc__ += SynapseParameters.__doc__
+
+    tau: Optional[float] = 10e-3
+    # Iw: float = 0
+
+    @classmethod
+    def from_parameter_group(
+        cls,
+        parameter_group: Dynapse1ParameterGroup,
+        layout: DynapSE1Layout,
+        *args,
+        **kwargs,
+    ) -> GABAAParameters:
+        """
+        from_parameter_group is a `GABAAParameters` factory method implemented by customizing `SynapseParameter._from_parameter_group()`
+
+        :param parameter_group: samna config object for setting the parameter group within one core
+        :type parameter_group: Dynapse1ParameterGroup
+        :param layout: constant values that are related to the exact silicon layout of a chip
+        :type layout: DynapSE1Layout
+        :return: a `GABAAParameters` object, whose parameters obtained from the hardware configuration
+        :rtype: GABAAParameters
+        """
+
+        return cls._from_parameter_group(
+            parameter_group,
+            layout,
+            Itau_name="NPDPII_TAU_S_P",
+            Ithr_name="NPDPII_THR_S_P",
+            Iw_name="PS_WEIGHT_INH_S_N",
+            *args,
+            **kwargs,
+        )
+
+
+@dataclass
+class NMDAParameters(SynapseParameters):
+    """
+    NMDAParameters inherits SynapseParameters and re-arrange the default parameters for NMDA circuit
+    """
+
+    __doc__ += SynapseParameters.__doc__
+
+    tau: Optional[float] = 100e-3
+
+    @classmethod
+    def from_parameter_group(
+        cls,
+        parameter_group: Dynapse1ParameterGroup,
+        layout: DynapSE1Layout,
+        *args,
+        **kwargs,
+    ) -> NMDAParameters:
+        """
+        from_parameter_group is a `NMDAParameters` factory method implemented by customizing `SynapseParameter._from_parameter_group()`
+
+        :param parameter_group: samna config object for setting the parameter group within one core
+        :type parameter_group: Dynapse1ParameterGroup
+        :param layout: constant values that are related to the exact silicon layout of a chip
+        :type layout: DynapSE1Layout
+        :return: a `NMDAParameters` object, whose parameters obtained from the hardware configuration
+        :rtype: NMDAParameters
+        """
+
+        return cls._from_parameter_group(
+            parameter_group,
+            layout,
+            Itau_name="NPDPIE_TAU_S_P",
+            Ithr_name="NPDPIE_THR_S_P",
+            Iw_name="PS_WEIGHT_EXC_S_N",
+            *args,
+            **kwargs,
+        )
+
+
+@dataclass
+class AMPAParameters(SynapseParameters):
+    """
+    AMPAParameters inherits SynapseParameters and re-arrange the default parameters for AMPA circuit
+    """
+
+    __doc__ += SynapseParameters.__doc__
+
+    tau: Optional[float] = 10e-3
+
+    @classmethod
+    def from_parameter_group(
+        cls,
+        parameter_group: Dynapse1ParameterGroup,
+        layout: DynapSE1Layout,
+        *args,
+        **kwargs,
+    ) -> AMPAParameters:
+        """
+        from_parameter_group is a `AMPAParameters` factory method implemented by customizing `SynapseParameter._from_parameter_group()`
+
+        :param parameter_group: samna config object for setting the parameter group within one core
+        :type parameter_group: Dynapse1ParameterGroup
+        :param layout: constant values that are related to the exact silicon layout of a chip
+        :type layout: DynapSE1Layout
+        :return: a `AMPAParameters` object, whose parameters obtained from the hardware configuration
+        :rtype: AMPAParameters
+        """
+
+        return cls._from_parameter_group(
+            parameter_group,
+            layout,
+            Itau_name="NPDPIE_TAU_F_P",
+            Ithr_name="NPDPIE_THR_F_P",
+            Iw_name="PS_WEIGHT_EXC_F_N",
+            *args,
+            **kwargs,
+        )
+
+
+@dataclass
+class AHPParameters(SynapseParameters):
+    """
+    AHPParameters inherits SynapseParameters and re-arrange the default parameters for AHP circuit
+    """
+
+    __doc__ += SynapseParameters.__doc__
+
+    tau: Optional[float] = 50e-3
+
+    @classmethod
+    def from_parameter_group(
+        cls,
+        parameter_group: Dynapse1ParameterGroup,
+        layout: DynapSE1Layout,
+        *args,
+        **kwargs,
+    ) -> AHPParameters:
+    """
+        from_parameter_group is a `AHPParameters` factory method implemented by customizing `SynapseParameter._from_parameter_group()`
+
+        :param parameter_group: samna config object for setting the parameter group within one core
+        :type parameter_group: Dynapse1ParameterGroup
+        :param layout: constant values that are related to the exact silicon layout of a chip
+        :type layout: DynapSE1Layout
+        :return: a `AHPParameters` object, whose parameters obtained from the hardware configuration
+        :rtype: AHPParameters
+    """
+
+        return cls._from_parameter_group(
+            parameter_group,
+            layout,
+            Itau_name="IF_AHTAU_N",
+            Ithr_name="IF_AHTHR_N",
+            Iw_name="IF_AHW_P",
+            *args,
+            **kwargs,
+        )
+
+
+@dataclass
+class DynapSE1SimCore:
+    """
+    DynapSE1SimCore encapsulates the DynapSE1 circuit parameters and provides an easy access.
 
     :param fpulse_ahp: the decrement factor for the pulse widths arriving in AHP circuit, defaults to 0.1
     :type fpulse_ahp: float, optional
@@ -486,7 +725,6 @@ class DynapSE1SimulationConfiguration:
     :type f_t_ref: float
     :ivar f_t_pulse: time factor for pulse width generation circuit. :math:`f_{\\t} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\t} = I_{\\t} \\cdot \\t`
     :type f_t_pulse: float
-
     """
 
     fpulse_ahp: float = 0.1
@@ -569,7 +807,7 @@ class DynapSE1SimulationConfiguration:
         Ireset: Optional[float] = None,
         layout: Optional[DynapSE1Layout] = None,
         capacitance: Optional[DynapSE1Capacitance] = None,
-    ) -> DynapSE1SimulationConfiguration:
+    ) -> DynapSE1SimCore:
         """
         from_samna_parameter_group create a simulation configuration object a the samna config object.
         21/25 parameters used in the configuration of the simulator object.
@@ -589,7 +827,7 @@ class DynapSE1SimulationConfiguration:
         :param capacitance: subcircuit capacitance values that are related to each other and depended on exact silicon layout of a chip, defaults to None
         :type capacitance: Optional[DynapSE1Capacitance], optional
         :return: simulator config object to construct a `DynapSE1NeuronSynapseJax` object
-        :rtype: DynapSE1SimulationConfiguration
+        :rtype: DynapSE1SimCore
         """
 
         if layout is None:
@@ -602,74 +840,46 @@ class DynapSE1SimulationConfiguration:
             parameter_group.get_parameter_by_name(name), Io=layout.Io
         )
 
-        # Membrane
-        mem = MembraneParameters(
-            Itau=bias("IF_TAU1_N"),
-            Ith=bias("IF_THR_N"),
-            tau=None,  # deduced from Itau
-            f_gain=None,  # deduced from Ith/Itau
+        mem = MembraneParameters.from_parameter_group(
+            parameter_group,
+            layout,
             C=capacitance.mem,
-            layout=layout,
             Cref=capacitance.ref,
             Cpulse=capacitance.pulse,
-            Iref=bias("IF_RFR_N"),
-            t_ref=None,  # deduced from Iref
-            Ipulse=bias("PULSE_PWLK_P"),
-            t_pulse=None,  # deduced from Ipulse
         )
 
         # Fast inhibitory (shunt)
-        gaba_b = GABABParameters(
-            Itau=bias("NPDPII_TAU_F_P"),
-            Ith=bias("NPDPII_THR_F_P"),
-            f_gain=None,
+        gaba_b = GABABParameters.from_parameter_group(
+            parameter_group,
+            layout,
             C=capacitance.gaba_b,
-            tau=None,
-            layout=layout,
-            Iw=bias("PS_WEIGHT_INH_F_N"),
         )
 
         # Slow inhibitory
-        gaba_a = GABAAParameters(
-            Itau=bias("NPDPII_TAU_S_P"),
-            Ith=bias("NPDPII_THR_S_P"),
-            f_gain=None,
+        gaba_a = GABAAParameters.from_parameter_group(
+            parameter_group,
+            layout,
             C=capacitance.gaba_a,
-            tau=None,
-            layout=layout,
-            Iw=bias("PS_WEIGHT_INH_S_N"),
         )
 
         # Slow Excitatory
-        nmda = NMDAParameters(
-            Itau=bias("NPDPIE_TAU_S_P"),
-            Ith=bias("NPDPIE_THR_S_P"),
-            f_gain=None,
+        nmda = NMDAParameters.from_parameter_group(
+            parameter_group,
+            layout,
             C=capacitance.nmda,
-            tau=None,
-            layout=layout,
-            Iw=bias("PS_WEIGHT_EXC_S_N"),
         )
 
         # Fast Excitatory
-        ampa = AMPAParameters(
-            Itau=bias("NPDPIE_TAU_F_P"),
-            Ith=bias("NPDPIE_THR_F_P"),
-            f_gain=None,
+        ampa = AMPAParameters.from_parameter_group(
+            parameter_group,
+            layout,
             C=capacitance.ampa,
-            tau=None,
-            layout=layout,
-            Iw=bias("PS_WEIGHT_EXC_F_N"),
         )
 
-        ahp = AHPParameters(
-            Itau=bias("IF_AHTAU_N"),
-            Ith=bias("IF_AHTHR_N"),
-            f_gain=None,
+        ahp = AHPParameters.from_parameter_group(
+            parameter_group,
+            layout,
             C=capacitance.ahp,
-            tau=None,
-            layout=layout,
-            Iw=bias("IF_AHW_P"),
         )
 
         mod = cls(
