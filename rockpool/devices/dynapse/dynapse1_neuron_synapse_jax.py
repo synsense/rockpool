@@ -42,12 +42,8 @@ import jax.random as rand
 from jax.lax import scan
 from jax import numpy as np
 
-from dataclasses import dataclass
-
 from typing import (
-    Dict,
     Union,
-    List,
     Optional,
     Tuple,
     Any,
@@ -60,17 +56,7 @@ from rockpool.typehints import (
     FloatVector,
 )
 
-from rockpool.devices.dynapse.utils import (
-    get_param_vector,
-    set_param,
-)
-
-from rockpool.devices.dynapse.dynapse1_simconfig import (
-    DynapSE1SimulationConfiguration,
-    SynapseParameters,
-    MembraneParameters,
-    FeedbackParameters,
-)
+from rockpool.devices.dynapse.dynapse1_simconfig import DynapSE1SimCore
 
 
 DynapSE1State = Tuple[JP_ndarray, JP_ndarray, JP_ndarray, Optional[Any]]
@@ -161,7 +147,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     :param shape: The number of neruons to employ, defaults to None
     :type shape: tuple, optional
     :param sim_config: Dynap-SE1 bias currents and simulation configuration parameters, defaults to None
-    :type sim_config: Optional[DynapSE1SimulationConfiguration], optional
+    :type sim_config: Optional[DynapSE1SimCore], optional
     :param w_in: Initial input weights defining the connections from virtual FPGA neurons to real device neurons. It must be a rectangular matrix with shape ``(Nin, Nrec, 4)``. The last 4 holds a weight matrix for 4 different synapse types.
     :type w_in: Optional[FloatVector], optional
 
@@ -256,8 +242,12 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     :type Itau_mem: JP_ndarray
     :ivar f_gain_mem: Array of membrane gain parameter of the neurons with shape = (Nrec,)
     :type f_gain_mem: JP_ndarray
-    :ivar mem_fb: positive feedback circuit heuristic parameters:Ia_gain, Ia_th, and Ia_norm
-    :type mem_fb: FeedbackParameters
+    :ivar Ip_gain: Array of positive feedback gain current, heuristic parameter = (Nrec,)
+    :type Ip_gain: JP_ndarray
+    :ivar Ip_th: Array of positive feedback threshold current, typically a fraction of Ispk_th
+    :type Ip_th: JP_ndarray
+    :ivar Ip_norm: Array of positive feedback normalization current, heuristic parameter
+    :type Ip_norm: JP_ndarray
     :ivar Isyn: 2D array of synapse currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
     :type Isyn: JP_ndarray
     :ivar Itau_syn: 2D array of synapse leakage currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
@@ -310,7 +300,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     def __init__(
         self,
         shape: tuple = None,
-        sim_config: Optional[DynapSE1SimulationConfiguration] = None,
+        sim_config: Optional[DynapSE1SimCore] = None,
         w_in: Optional[FloatVector] = None,
         w_rec: Optional[FloatVector] = None,
         dt: float = 1e-3,
@@ -326,13 +316,10 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         # Check the parameters and initialize to default if necessary
         if shape is None:
-            raise ValueError("You must provide a ``shape`` tuple (N,) or (N,N)")
+            raise ValueError("You must provide a ``shape`` tuple (N,) or (Nin,Nrec)")
 
         if rng_key is None:
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
-
-        if sim_config is None:
-            sim_config = DynapSE1SimulationConfiguration()
 
         _, rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
         self._rng_key: JP_ndarray = State(rng_key, init_func=lambda _: rng_key)
@@ -345,22 +332,30 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             **kwargs,
         )
 
+        if sim_config is None:
+            sim_config = DynapSE1SimCore(size=self.size_out)
+
+        else:  # be sure that the size matches
+            sim_config.size = self.size_out
+
         # Check the network size and initialize the input and recurrent weight vector accordingly
         self.w_in, self.w_rec = self._init_weights(w_in, w_rec)
 
         # --- Parameters & States --- #
-        self.Imem, self.Itau_mem, self.f_gain_mem, self.mem_fb = self._set_mem_params(
-            init=sim_config.mem,
-        )
+        self.Imem = State(sim_config.Imem)
+        self.Itau_mem = Parameter(sim_config.Itau_mem)
+        self.f_gain_mem = Parameter(sim_config.f_gain_mem)
 
-        ## Synapse parameters are combined in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP]
-        self.Isyn, self.Itau_syn, self.f_gain_syn, self.Iw = self._set_syn_params(
-            gaba_b=sim_config.gaba_b,
-            gaba_a=sim_config.gaba_a,
-            nmda=sim_config.nmda,
-            ampa=sim_config.ampa,
-            ahp=sim_config.ahp,
-        )
+        ## Positive Feedback
+        self.Ip_gain = SimulationParameter(sim_config.Ip_gain)
+        self.Ip_th = SimulationParameter(sim_config.Ip_th)
+        self.Ip_norm = SimulationParameter(sim_config.Ip_norm)
+
+        self.Isyn = State(sim_config.Isyn)
+        self.Itau_syn = Parameter(sim_config.Itau_syn)
+        self.f_gain_syn = Parameter(sim_config.f_gain_syn)
+        self.Iw = Parameter(sim_config.Iw)
+
         self.spikes: JP_ndarray = State(shape=(self.size_out,), init_func=np.zeros)
 
         # --- Simulation Parameters --- #
@@ -451,7 +446,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
             # --- Implicit parameters  --- #  # 5xNrec
             tau_mem = self.f_tau_mem / Itau_mem_clip
-            tau_syn = (self.f_tau_syn / Itau_syn_clip.T).T
+            tau_syn = self.f_tau_syn / Itau_syn_clip
             Isyn_inf = self.f_gain_syn * self.Iw
 
             # --- Forward step: DPI SYNAPSES --- #
@@ -497,9 +492,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             Ith_mem_clip = self.f_gain_mem * Itau_mem_clip
 
             ## Positive feedback
-            Ia = self.mem_fb.Igain / (
-                1 + np.exp(-(Imem - self.mem_fb.Ith) / self.mem_fb.Inorm)
-            )
+            Ia = self.Ip_gain / (1 + np.exp(-(Imem - self.Ip_th) / self.Ip_norm))
             Ia = np.clip(Ia, self.Io)
             f_Imem = ((Ia) / (Itau_mem_clip)) * (Imem + Ith_mem_clip)
 
@@ -550,117 +543,6 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         }
 
         return outputs, states, record_dict
-
-    def _set_syn_params(
-        self,
-        gaba_b: Optional[SynapseParameters] = None,
-        gaba_a: Optional[SynapseParameters] = None,
-        nmda: Optional[SynapseParameters] = None,
-        ampa: Optional[SynapseParameters] = None,
-        ahp: Optional[SynapseParameters] = None,
-    ) -> Tuple[JP_ndarray, JP_ndarray, JP_ndarray, JP_ndarray]:
-        """
-        _set_syn_params helps constructing and initiating synapse parameters and states for ["AHP", "NMDA", "AMPA", "GABA_A", "GABA_B"]
-
-        :param gaba_b: GABA_B (shunt) synapse paramters (Isyn, Itau, f_gain, Iw), defaults to None
-        :type gaba_b: Optional[SynapseParameters], optional
-        :param gaba_a: GABA_A synapse paramters (Isyn, Itau, f_gain, Iw), defaults to None
-        :type gaba_a: Optional[SynapseParameters], optional
-        :param nmda: NMDA synapse paramters (Isyn, Itau, f_gain, Iw), defaults to None
-        :type nmda: Optional[SynapseParameters], optional
-        :param ampa: AMPA synapse paramters (Isyn, Itau, f_gain, Iw), defaults to None
-        :type ampa: Optional[SynapseParameters], optional
-        :param ahp: Spike frequency adaptation block parameters (Isyn, Itau, f_gain, Iw), defaults to None
-        :type ahp: Optional[SynapseParameters], optional
-
-        :return: Isyn, Itau, f_gain, Iw : states and parameters in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
-            Isyn: 2D array of synapse currents (State)
-            Itau: 2D array of synapse leakage currents (Parameter)
-            f_gain: 2D array of synapse gain parameters (SimulationParameter)
-            Iw: 2D array of synapse weight currents (Parameter)
-        :rtype: Tuple[JP_ndarray, JP_ndarray, JP_ndarray, JP_ndarray]
-        """
-
-        dpi_list = [None] * len(self.SYN)
-
-        dpi_list[self.SYN["GABA_B"]] = gaba_b
-        dpi_list[self.SYN["GABA_A"]] = gaba_a
-        dpi_list[self.SYN["NMDA"]] = nmda
-        dpi_list[self.SYN["AMPA"]] = ampa
-        dpi_list[self.SYN["AHP"]] = ahp
-
-        def get_dpi_parameter(
-            target: str, family: str, object: Optional[str] = "parameter"
-        ) -> JP_ndarray:
-            """
-            get_dpi_parameter encapsulates required data management to set a synaptic parameter
-
-            :param target: target parameter to be extracted from the DPIParameters object: Isyn, Itau, f_gain, or Iw
-            :type target: str
-            :param family: the parameter family name
-            :type family: str
-            :param object: the object type to be constructed. It can be "state", "parameter" or "simulation"
-            :type object: Optional[str], optional
-            :return: constructed parameter or the state variable
-            :rtype: JP_ndarray
-            """
-            _Iparam = get_param_vector(dpi_list, target)
-            shape = (len(_Iparam), self.size_out)
-            init_func = lambda s: (np.ones(s).T * _Iparam).T
-            Iparam = set_param(shape, family, init_func, object)
-
-            return Iparam
-
-        # Construct the parameter objects
-        Isyn = get_dpi_parameter("Isyn", "synapse", object="state")
-        Itau = get_dpi_parameter("Itau", "leak")
-        Iw = get_dpi_parameter("Iw", "weight")
-        f_gain = get_dpi_parameter("f_gain", "gain")
-        return Isyn, Itau, f_gain, Iw
-
-    def _set_mem_params(
-        self, init: MembraneParameters, family: Optional[str] = "membrane"
-    ) -> Tuple[JP_ndarray, JP_ndarray, JP_ndarray, FeedbackParameters]:
-        """
-        _set_mem_params constructs and initiates membrane parameters and states
-
-        :param init: Inital membrane block parameters (Imem, Itau, f_gain, feedback(Igain, Ith, Inorm))
-        :type init: MembraneParameters
-        :param family: the parameter family name, defaults to "membrane"
-        :type family: Optional[str], optional
-        :return: Imem, Itau, f_gain, feedback
-            Imem: Array of membrane currents with shape = (Nrec,) (State)
-            Itau: Array of membrane leakage currents with shape = (Nrec,) (Parameter)
-            f_gain: Array of membrane gain parameters with shape = (Nrec,) (SimulationParameter)
-            feedback: positive feedback circuit heuristic parameters: Ia_gain, Ia_th, and Ia_norm
-        :rtype: Tuple[JP_ndarray, JP_ndarray, JP_ndarray, FeedbackParameters]
-        """
-
-        def get_mem_parameter(
-            target: str, object: Optional[str] = "parameter"
-        ) -> JP_ndarray:
-            """
-            get_mem_parameter encapsulates required data management for setting a membrane parameter
-
-            :param target: target parameter to be extracted from the MembraneParameters object: Imem, Itau, or f_gain
-            :type target: str
-            :param object: the object type to be constructed. It can be "state", "parameter" or "simulation"
-            :type object: Optional[str], optional
-            :return: constructed parameter or the state variable
-            :rtype: JP_ndarray
-            """
-
-            shape = (self.size_out,)
-            init_func = lambda s: np.ones(s) * init.__getattribute__(target)
-            Iparam = set_param(shape, family, init_func, object)
-            return Iparam
-
-        Imem = get_mem_parameter("Imem", object="state")
-        Itau = get_mem_parameter("Itau")
-        f_gain = get_mem_parameter("f_gain")
-        feedback: FeedbackParameters = init.feedback
-
-        return Imem, Itau, f_gain, feedback
 
     def _init_weights(
         self,
