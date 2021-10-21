@@ -6,7 +6,7 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 20/09/2021
 """
-
+from __future__ import annotations
 import json
 
 from rockpool.devices.dynapse.dynapse1_neuron_synapse_jax import (
@@ -14,8 +14,10 @@ from rockpool.devices.dynapse.dynapse1_neuron_synapse_jax import (
 )
 
 from rockpool.devices.dynapse.dynapse1_simconfig import (
-    DynapSE1SimulationConfiguration,
+    DynapSE1SimCore,
 )
+
+from rockpool.devices.dynapse.router import Router, NeuronConnection
 
 from rockpool.parameters import SimulationParameter
 
@@ -40,16 +42,34 @@ _SAMNA_AVAILABLE = True
 
 try:
     from samna.dynapse1 import (
+        Dynapse1Configuration,
         Dynapse1ParameterGroup,
         Dynapse1Parameter,
     )
 except ModuleNotFoundError as e:
+    Dynapse1Configuration = Any
+    Dynapse1ParameterGroup = Any
+    Dynapse1Parameter = Any
     print(
         e,
         "\DynapSE1Jax module can only be used for simulation purposes."
         "Deployment utilities depends on samna!",
     )
     _SAMNA_AVAILABLE = False
+
+_NETGEN_AVAILABLE = True
+
+try:
+    from netgen import (
+        NetworkGenerator,
+    )
+except ModuleNotFoundError as e:
+    NetworkGenerator = Any
+    print(
+        e,
+        "\nSimulator object factory from the NetworkGenerator object is not possible!",
+    )
+    _NETGEN_AVAILABLE = False
 
 
 class DynapSE1Jax(DynapSE1NeuronSynapseJax):
@@ -98,7 +118,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
     def __init__(
         self,
         shape: tuple = None,
-        sim_config: Optional[DynapSE1SimulationConfiguration] = None,
+        sim_config: Optional[DynapSE1SimCore] = None,
         w_in: Optional[FloatVector] = None,
         w_rec: Optional[FloatVector] = None,
         dt: float = 1e-3,
@@ -113,9 +133,9 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         """
 
         if sim_config is None:
-            sim_config = DynapSE1SimulationConfiguration()
+            sim_config = DynapSE1SimCore(shape[-1])
 
-        sim_config = super().__init__(
+        super().__init__(
             shape,
             sim_config,
             w_in,
