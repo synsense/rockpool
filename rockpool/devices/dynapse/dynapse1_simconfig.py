@@ -676,7 +676,7 @@ class AHPParameters(SynapseParameters):
         *args,
         **kwargs,
     ) -> AHPParameters:
-    """
+        """
         from_parameter_group is a `AHPParameters` factory method implemented by customizing `SynapseParameter._from_parameter_group()`
 
         :param parameter_group: samna config object for setting the parameter group within one core
@@ -685,7 +685,7 @@ class AHPParameters(SynapseParameters):
         :type layout: DynapSE1Layout
         :return: a `AHPParameters` object, whose parameters obtained from the hardware configuration
         :rtype: AHPParameters
-    """
+        """
 
         return cls._from_parameter_group(
             parameter_group,
@@ -703,8 +703,12 @@ class DynapSE1SimCore:
     """
     DynapSE1SimCore encapsulates the DynapSE1 circuit parameters and provides an easy access.
 
-    :param size: the number of neurons allocated in the simulation core, the length of the property arrays. Assumed to be 1 if None , defaults to 256
+    :param size: the number of neurons allocated in the simulation core, the length of the property arrays, defaults to 256
     :type size: int
+    :param core_key: the chip_id and core_id tuple uniquely defining the core
+    :type core_key: Tuple[np.uint8]
+    :param neuron_idx_map: the neuron index map used in the case that the matrix indexes of the neurons and the device indexes are different.
+    :type neuron_idx_map: Dict[np.uint8, np.uint16]
     :param fpulse_ahp: the decrement factor for the pulse widths arriving in AHP circuit, defaults to 0.1
     :type fpulse_ahp: float, optional
     :param layout: constant values that are related to the exact silicon layout of a chip, defaults to None
@@ -725,7 +729,9 @@ class DynapSE1SimCore:
     :type gaba_b: Optional[SynapseParameters], optional
     """
 
-    size: Optional[int] = 256
+    size: int = 256
+    core_key: Tuple[np.uint8] = (0, 0)
+    neuron_idx_map: Dict[np.uint8, np.uint16] = None
     fpulse_ahp: float = 0.1
     layout: Optional[DynapSE1Layout] = None
     capacitance: Optional[DynapSE1Capacitance] = None
@@ -744,6 +750,8 @@ class DynapSE1SimCore:
             self.layout = DynapSE1Layout()
         if self.capacitance is None:
             self.capacitance = DynapSE1Capacitance()
+        if self.neuron_idx_map is None:
+            self.neuron_idx_map = dict(zip(range(self.size), range(self.size)))
 
         # Initialize the subcircuit blocks with the same layout
         if self.mem is None:
@@ -765,10 +773,16 @@ class DynapSE1SimCore:
         if self.ahp is None:
             self.ahp = AHPParameters(C=self.capacitance.ahp, layout=self.layout)
 
+    def __len__(self):
+        return self.size
+
     @classmethod
     def from_samna_parameter_group(
         cls,
         parameter_group: Dynapse1ParameterGroup,
+        size: int,
+        core_key: Tuple[np.uint8] = (0, 0),
+        neuron_idx_map: Optional[Dict[np.uint8, np.uint16]] = None,
         fpulse_ahp: float = 0.1,
         Ispkthr: float = 1e-9,
         Ireset: Optional[float] = None,
@@ -783,6 +797,12 @@ class DynapSE1SimCore:
 
         :param parameter_group: samna config object for setting the parameter group within one core
         :type parameter_group: Dynapse1ParameterGroup
+        :param size: the number of neurons allocated in the simulation core, the length of the property arrays.
+        :type size: int
+        :param core_key: the chip_id and core_id tuple uniquely defining the core
+        :type core_key: Tuple[np.uint8]
+        :param neuron_idx_map: the neuron index map used in the case that the matrix indexes of the neurons and the device indexes are different, defaults to None
+        :type neuron_idx_map: Optional[Dict[np.uint8, np.uint16]], optional
         :param fpulse_ahp: the decrement factor for the pulse widths arriving in AHP circuit, defaults to 0.1
         :type fpulse_ahp: float, optional
         :param Ispkthr: Spiking threshold current in Amperes, depends on layout (see chip for details), defaults to 1e-9
@@ -802,10 +822,6 @@ class DynapSE1SimCore:
 
         if capacitance is None:
             capacitance = DynapSE1Capacitance()
-
-        bias = lambda name: DynapSE1BiasGen.param_to_bias(
-            parameter_group.get_parameter_by_name(name), Io=layout.Io
-        )
 
         mem = MembraneParameters.from_parameter_group(
             parameter_group,
@@ -852,6 +868,9 @@ class DynapSE1SimCore:
         )
 
         mod = cls(
+            size=size,
+            core_key=core_key,
+            neuron_idx_map=neuron_idx_map,
             fpulse_ahp=fpulse_ahp,
             layout=layout,
             capacitance=capacitance,
@@ -1077,3 +1096,145 @@ class DynapSE1SimCore:
         return self.mem_property("If_nmda")
 
 
+@dataclass
+class DynapSE1SimConfig:
+    """
+    DynapSE1SimConfig encapsulates the DynapSE1 core configuration objects and help merging simulation
+    parameters implicitly defined in the cores. It makes it easier to run a multi-core simulation and simulate the mismatch
+
+    :param cores: a list of `DynapSE1SimCore` objects whose parameters are to be merged into one simulation base, defaults to None
+    :type cores: Optional[List[DynapSE1SimCore]], optional
+    """
+
+    cores: Optional[List[DynapSE1SimCore]] = None
+
+    def __post_init__(self) -> None:
+        """
+        __post_init__ runs after __init__ and merges DynapSE1SimCore properties in the given order
+        """
+        if self.cores is None:
+            self.cores = [DynapSE1SimCore()]
+
+        attr_list = [
+            "Imem",
+            "Itau_mem",
+            "f_gain_mem",
+            "Ip_gain",
+            "Ip_th",
+            "Ip_norm",
+            "Isyn",
+            "Itau_syn",
+            "f_gain_syn",
+            "Iw",
+            "Io",
+            "f_tau_mem",
+            "f_tau_syn",
+            "f_t_ref",
+            "f_t_pulse",
+            "t_pulse",
+            "t_pulse_ahp",
+            "t_ref",
+            "Ispkthr",
+            "Ireset",
+            "Idc",
+            "If_nmda",
+        ]
+
+        for attr in attr_list:
+            self.__setattr__(attr, self.merge_core_properties(attr))
+
+    def merge_core_properties(self, attr: str) -> np.ndarray:
+        """
+        merge_core_properties help merging property arrays of the cores given into one array.
+        In this way, the simulator runs in the neruon level and it only knows the location of the
+        neruon by looking at the index map. In this way, the simulator module can compute the evolution of
+        the currents and spikes efficiently.
+
+        :param attr: the target attribute to be merged
+        :type attr: str
+        :return: The parameter or state to be used in the simulation
+        :rtype: np.ndarray
+        """
+
+        prop = np.empty((*self.cores[0].__getattribute__(attr).shape[0:-1], 0))
+        for core in self.cores:
+            prop = np.hstack((prop, core.__getattribute__(attr)))
+        return prop
+
+    @staticmethod
+    def idx_map_to_core_dict(
+        idx_map: Dict[int, NeuronKey]
+    ) -> Dict[Tuple[int], Dict[int, int]]:
+        """
+        idx_map_to_core_dict converts an index map to a core dictionary. In the index map, the neuron
+        matric indices are mapped to nerun keys(chipID, coreID, neuronID). In the core dictionary,
+        the the neruon matric indices are mapped to neuronIDs for each individual core keys(chipID, coreID)
+
+        idx_map = {
+            0: (1, 0, 20),
+            1: (1, 0, 36),
+            2: (1, 0, 60),
+            3: (2, 3, 107),
+            4: (2, 3, 110),
+            5: (3, 1, 152)
+        }
+
+        core_dict = {
+            (1, 0): {0: 20, 1: 36, 2: 60},
+            (2, 3): {3: 107, 4: 110},
+            (3, 1): {5: 152}
+        }
+
+        :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique neuron keys
+        :type idx_map: Dict[int, NeuronKey]
+        :return: a dictionary from core keys (chipID, coreID) to an index map of neruons (neuron index : local neuronID) that the core allocates.
+        :rtype: Dict[Tuple[int], Dict[int, int]]
+        """
+        # Find unique chip-core ID pairs
+        chip_core = np.unique(
+            list(map(lambda nid: nid[0:2], idx_map.values())),
+            axis=0,
+        )
+        core_index = list(map(lambda t: tuple(t), chip_core))
+
+        # {(chipID, coreID):{neuron_index: neuronID}} -> {(0,2) : {0:60, 1: 78}}
+        core_dict = dict(zip(core_index, [{} for i in range(len(core_index))]))
+
+        # Fill core dictionary
+        for neuron_index, neuron_key in idx_map.items():
+            core_key = neuron_key[0:2]
+            core_dict[core_key][neuron_index] = neuron_key[2]
+
+        return core_dict
+
+    @classmethod
+    def from_config(
+        cls, config: Dynapse1Configuration, idx_map: Dict[int, NeuronKey]
+    ) -> DynapSE1SimConfig:
+        """
+        from_config is a class factory method for DynapSE1SimConfig object such that the parameters
+        are obtained from a samna device configuration object.
+
+        :param config: samna Dynapse1 configuration object used to configure a network on the chip
+        :type config: Dynapse1Configuration
+        :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique neuron keys
+        :type idx_map: Dict[int, NeuronKey]
+        :return: `DynapSE1SimConfig` object ready to configure a simulator
+        :rtype: DynapSE1SimConfig
+        """
+
+        sim_cores = []
+
+        core_dict = DynapSE1SimConfig.idx_map_to_core_dict(idx_map)
+
+        # Gather `DynapSE1SimCore` objects
+        for (chipID, coreID), neuron_map in core_dict.items():
+            # Traverse the chip for core parameter group
+            pg = config.chips[chipID].cores[coreID].parameter_group
+            sim_core = DynapSE1SimCore.from_samna_parameter_group(
+                pg, len(neuron_map), (chipID, coreID), neuron_map
+            )
+            sim_cores.append(sim_core)
+
+        mod = cls(sim_cores)
+        return mod
