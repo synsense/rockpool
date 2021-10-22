@@ -336,46 +336,52 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         # --- Parameters & States --- #
 
         # --- States --- #
-        self.Isyn = State(sim_config.Isyn)
-        self.Imem = State(sim_config.Imem)
+        self.Isyn = State(sim_config.Isyn, shape=(5, self.size_out))
+        self.Imem = State(sim_config.Imem, shape=(self.size_out,))
         self.spikes = State(shape=(self.size_out,), init_func=np.zeros)
         self.timer_ref = State(shape=(self.size_out,), init_func=np.zeros)
 
         # --- Parameters --- #
         ## Synapse
-        self.Itau_syn = Parameter(sim_config.Itau_syn)
-        self.f_gain_syn = Parameter(sim_config.f_gain_syn)
-        self.Iw = Parameter(sim_config.Iw)
+        self.Itau_syn = Parameter(sim_config.Itau_syn, shape=(5, self.size_out))
+        self.f_gain_syn = Parameter(sim_config.f_gain_syn, shape=(5, self.size_out))
+        self.Iw = Parameter(sim_config.Iw, shape=(5, self.size_out))
 
         ## Membrane
-        self.Itau_mem = Parameter(sim_config.Itau_mem)
-        self.f_gain_mem = Parameter(sim_config.f_gain_mem)
-        self.Idc = Parameter(sim_config.Idc)
-        self.If_nmda = Parameter(sim_config.If_nmda)
+        self.Itau_mem = Parameter(sim_config.Itau_mem, shape=(self.size_out,))
+        self.f_gain_mem = Parameter(sim_config.f_gain_mem, shape=(self.size_out,))
+        self.Idc = Parameter(sim_config.Idc, shape=(self.size_out,))
+        self.If_nmda = Parameter(sim_config.If_nmda, shape=(self.size_out,))
 
         # --- Simulation Parameters --- #
-        self.dt = SimulationParameter(dt)
-        self.Io = SimulationParameter(sim_config.layout.Io)
+        self.dt = SimulationParameter(dt, shape=())
+        self.Io = SimulationParameter(sim_config.Io, shape=(self.size_out,))
 
         ## Positive Feedback
-        self.Ip_gain = SimulationParameter(sim_config.Ip_gain)
-        self.Ip_th = SimulationParameter(sim_config.Ip_th)
-        self.Ip_norm = SimulationParameter(sim_config.Ip_norm)
+        self.Ip_gain = SimulationParameter(sim_config.Ip_gain, shape=(self.size_out,))
+        self.Ip_th = SimulationParameter(sim_config.Ip_th, shape=(self.size_out,))
+        self.Ip_norm = SimulationParameter(sim_config.Ip_norm, shape=(self.size_out,))
 
         ## Time -> Current conversion
-        self.f_tau_mem = SimulationParameter(sim_config.f_tau_mem)
-        self.f_tau_syn = SimulationParameter(sim_config.f_tau_syn)
+        self.f_tau_mem = SimulationParameter(
+            sim_config.f_tau_mem, shape=(self.size_out,)
+        )
+        self.f_tau_syn = SimulationParameter(
+            sim_config.f_tau_syn, shape=(5, self.size_out)
+        )
 
         # Pulse width
-        self.t_pulse = SimulationParameter(sim_config.t_pulse)
-        self.t_pulse_ahp = SimulationParameter(sim_config.t_pulse_ahp)
+        self.t_pulse = SimulationParameter(sim_config.t_pulse, shape=(self.size_out,))
+        self.t_pulse_ahp = SimulationParameter(
+            sim_config.t_pulse_ahp, shape=(self.size_out,)
+        )
 
         ## Refractory Period
-        self.t_ref = SimulationParameter(sim_config.t_ref)
+        self.t_ref = SimulationParameter(sim_config.t_ref, shape=(self.size_out,))
 
         ## Policy
-        self.Ispkthr = SimulationParameter(sim_config.Ispkthr)
-        self.Ireset = SimulationParameter(sim_config.Ireset)
+        self.Ispkthr = SimulationParameter(sim_config.Ispkthr, shape=(self.size_out,))
+        self.Ireset = SimulationParameter(sim_config.Ireset, shape=(self.size_out,))
 
     def evolve(
         self, input_data: np.ndarray, record: bool = True
@@ -619,7 +625,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         """
         tau_mem holds an array of time constants in seconds for neurons with shape = (Nrec,)
         """
-        return self.f_tau_mem / self.Itau_mem.T
+        return self.f_tau_mem / self.Itau_mem
 
     @property
     def tau_syn(self) -> JP_ndarray:
@@ -627,7 +633,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         tau_syn holds an array of time constants in seconds for each synapse of the neurons with shape = (Nrec,5)
         There are tau_ahp, tau_nmda, tau_ampa, tau_gaba_a, and tau_gaba_b methods as well to fetch the time constants of the exact synapse
         """
-        return self.f_tau_syn / self.Itau_syn.T
+        return self.f_tau_syn / self.Itau_syn
 
     @property
     def tau_gaba_b(self) -> JP_ndarray:
