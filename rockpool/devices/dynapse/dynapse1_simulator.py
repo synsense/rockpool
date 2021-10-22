@@ -15,6 +15,7 @@ from rockpool.devices.dynapse.dynapse1_neuron_synapse_jax import (
 
 from rockpool.devices.dynapse.dynapse1_simconfig import (
     DynapSE1SimCore,
+    DynapSE1SimConfig,
 )
 
 from rockpool.devices.dynapse.router import Router, NeuronConnection
@@ -79,10 +80,10 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
 
     :Instance Variables:
 
-    :ivar f_t_ref: The factor of conversion from refractory period in seconds to refractory period bias current in Amperes
-    :type f_t_ref: float
-    :ivar f_t_pulse: The factor of conversion from pulse width in seconds to pulse width bias current in Amperes
-    :type f_t_pulse: float
+    :ivar f_t_ref: An array of the factor of conversion from refractory period in seconds to refractory period bias current in Amperes
+    :type f_t_ref: JP_ndarray
+    :ivar f_t_pulse: An array of the factor of conversion from pulse width in seconds to pulse width bias current in Amperes
+    :type f_t_pulse: JP_ndarray
     """
 
     __doc__ += DynapSE1NeuronSynapseJax.__doc__
@@ -209,6 +210,58 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
 
         return group
 
+    @classmethod
+    def from_config(
+        cls,
+        config: Dynapse1Configuration,
+        virtual_connections: Optional[List[NeuronConnection]] = None,
+        w_in: Optional[FloatVector] = None,
+        *args,
+        **kwargs
+    ) -> DynapSE1Jax:
+        """
+        from_config is a class factory method depending on a samna device configuration object. Using this,
+        the virtual connections or input weights `w_in` should be provided explicitly. The reason is that
+        the config object does not have the FPGA -> device connections information
+
+        :param config: samna Dynapse1 configuration object used to configure a network on the chip
+        :type config: Dynapse1Configuration
+        :param virtual_connections: A list of tuples of universal neuron IDs defining the input connections from the FPGA to device neurons, defaults to None
+            e.g : [(50,1044),(50,1045)]
+        :type virtual_connections: Optional[List[NeuronConnection]], optional
+        :param w_in: input weight matrix (3D, NinxNrecx4), defaults to None
+        :type w_in: Optional[FloatVector], optional
+        :return: `DynapSE1Jax` simulator object
+        :rtype: DynapSE1Jax
+        """
+        _w_in, w_rec, idx_map = Router.get_weight_from_config(
+            config, virtual_connections, return_maps=True, decode_UID=True
+        )
+        w_in = _w_in if w_in is None else w_in
+
+        shape = w_in.shape[0:2]
+        simconfig = DynapSE1SimConfig.from_config(config, idx_map["w_rec"])
+        mod = cls(shape, simconfig, w_in, w_rec, *args, **kwargs)
+        return mod
+
+    @classmethod
+    def from_netgen(cls, netgen: NetworkGenerator, *args, **kwargs) -> DynapSE1Jax:
+        """
+        from_netgen is a class factory which makes it easier to get a `DynapSE1Jax` object using the `NetworkGenerator` object
+        The reason that it became easier to construct a simulator object than `from_config` is that netgen object has also the
+        implicit input connections information and a samna config object. Therefore the `from_netgen()` method
+        extracts the virtual connections and device configuration object from the netgen object and calls `.from_config()` method
+
+        :param netgen: network generator object defined in samna/ctxctl_contrib/netgen
+        :type netgen: NetworkGenerator
+        :return: `DynapSE1Jax` simulator object
+        :rtype: DynapSE1Jax
+        """
+        connections = Router.get_virtual_connections(netgen.network)
+        config = netgen.make_dynapse1_configuration()
+        mod = cls.from_config(config, connections, *args, **kwargs)
+        return mod
+
     ## --- LOW LEVEL BIAS CURRENTS (SAMNA) -- ##
     @property
     def IF_AHTAU_N(self):
@@ -320,7 +373,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
 
     @property
     def NPDPII_TAU_F_P(self):
-        # SLOW_INH, GABA_B, subtractive
+        # FAST_INH, GABA_B, shunting current, a mixture of subtractive and divisive
         param = get_Dynapse1Parameter(
             bias=self.Itau_syn[self.SYN["GABA_B"]].mean(), name="NPDPII_TAU_F_P"
         )
@@ -328,7 +381,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
 
     @property
     def NPDPII_TAU_S_P(self):
-        # FAST_INH, GABA_A, shunting, a mixture of subtractive and divisive
+        # SLOW_INH, GABA_A, subtractive
         param = get_Dynapse1Parameter(
             bias=self.Itau_syn[self.SYN["GABA_A"]].mean(), name="NPDPII_TAU_S_P"
         )
@@ -336,7 +389,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
 
     @property
     def NPDPII_THR_F_P(self):
-        # SLOW_INH, GABA_B, subtractive
+        # FAST_INH, GABA_B, shunting current, a mixture of subtractive and divisive
         param = get_Dynapse1Parameter(
             bias=self.Ith_syn[self.SYN["GABA_B"]].mean(), name="NPDPII_THR_F_P"
         )
@@ -344,7 +397,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
 
     @property
     def NPDPII_THR_S_P(self):
-        # FAST_INH, GABA_A, shunting, a mixture of subtractive and divisive
+        # SLOW_INH, GABA_A, subtractive
         param = get_Dynapse1Parameter(
             bias=self.Ith_syn[self.SYN["GABA_A"]].mean(), name="NPDPII_THR_S_P"
         )
@@ -368,7 +421,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
 
     @property
     def PS_WEIGHT_INH_F_N(self):
-        # SLOW_INH, GABA_B, subtractive
+        # FAST_INH, GABA_B, shunting current, a mixture of subtractive and divisive
         param = get_Dynapse1Parameter(
             bias=self.Iw[self.SYN["GABA_B"]].mean(), name="PS_WEIGHT_INH_F_N"
         )
@@ -376,7 +429,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
 
     @property
     def PS_WEIGHT_INH_S_N(self):
-        # FAST_INH, GABA_A, shunting, a mixture of subtractive and divisive
+        # SLOW_INH, GABA_A, subtractive
         param = get_Dynapse1Parameter(
             bias=self.Iw[self.SYN["GABA_A"]].mean(), name="PS_WEIGHT_INH_S_N"
         )
