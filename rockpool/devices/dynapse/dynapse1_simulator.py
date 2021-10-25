@@ -216,6 +216,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         config: Dynapse1Configuration,
         virtual_connections: Optional[List[NeuronConnection]] = None,
         w_in: Optional[FloatVector] = None,
+        default_bias: bool = True,
         *args,
         **kwargs
     ) -> DynapSE1Jax:
@@ -231,6 +232,8 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         :type virtual_connections: Optional[List[NeuronConnection]], optional
         :param w_in: input weight matrix (3D, NinxNrecx4), defaults to None
         :type w_in: Optional[FloatVector], optional
+        :param default_bias: use default bias values or get the bias parameters from the netgen.config, defaults to True
+        :type default_bias: bool
         :return: `DynapSE1Jax` simulator object
         :rtype: DynapSE1Jax
         """
@@ -240,7 +243,11 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         w_in = _w_in if w_in is None else w_in
 
         shape = w_in.shape[0:2]
-        simconfig = DynapSE1SimConfig.from_config(config, idx_map["w_rec"])
+        if not default_bias:
+            simconfig = DynapSE1SimConfig.from_config(config, idx_map["w_rec"])
+
+        else:
+            simconfig = DynapSE1SimConfig.from_config(None, idx_map["w_rec"])
         mod = cls(shape, simconfig, w_in, w_rec, *args, **kwargs)
         return mod
 
@@ -299,17 +306,17 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         """
         IF_CASC_N for AHP regularization, not so important, use samna defaults.
         """
-        param = get_Dynapse1Parameter(bias=self.Io, name="IF_CASC_N")
+        param = get_Dynapse1Parameter(bias=self.Io.mean(), name="IF_CASC_N")
         return param
 
     @property
     def IF_DC_P(self):
-        param = get_Dynapse1Parameter(bias=self.Idc, name="IF_DC_P")
+        param = get_Dynapse1Parameter(bias=self.Idc.mean(), name="IF_DC_P")
         return param
 
     @property
     def IF_NMDA_N(self):
-        param = get_Dynapse1Parameter(bias=self.If_nmda, name="IF_NMDA_N")
+        param = get_Dynapse1Parameter(bias=self.If_nmda.mean(), name="IF_NMDA_N")
         return param
 
     @property
@@ -319,7 +326,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         # 0, 20 by Ugurcan
         """
         I_ref = self.f_t_ref / self.t_ref
-        param = get_Dynapse1Parameter(bias=I_ref, name="IF_RFR_N")
+        param = get_Dynapse1Parameter(bias=I_ref.mean(), name="IF_RFR_N")
         return param
 
     @property
@@ -442,7 +449,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         # 3, 56 for 10u by Ugurcan
         """
         I_pulse = self.f_t_pulse / self.t_pulse
-        param = get_Dynapse1Parameter(bias=I_pulse, name="PULSE_PWLK_P")
+        param = get_Dynapse1Parameter(bias=I_pulse.mean(), name="PULSE_PWLK_P")
         return param
 
     @property
