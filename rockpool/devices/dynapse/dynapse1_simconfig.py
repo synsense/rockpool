@@ -1104,9 +1104,12 @@ class DynapSE1SimConfig:
 
     :param cores: a list of `DynapSE1SimCore` objects whose parameters are to be merged into one simulation base, defaults to None
     :type cores: Optional[List[DynapSE1SimCore]], optional
+    :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique neuron keys
+    :type idx_map: Dict[int, NeuronKey]
     """
 
     cores: Optional[List[DynapSE1SimCore]] = None
+    idx_map: Optional[Dict[int, NeuronKey]] = None
 
     def __post_init__(self) -> None:
         """
@@ -1209,14 +1212,14 @@ class DynapSE1SimConfig:
 
     @classmethod
     def from_config(
-        cls, config: Dynapse1Configuration, idx_map: Dict[int, NeuronKey]
+        cls, config: Optional[Dynapse1Configuration], idx_map: Dict[int, NeuronKey]
     ) -> DynapSE1SimConfig:
         """
         from_config is a class factory method for DynapSE1SimConfig object such that the parameters
         are obtained from a samna device configuration object.
 
         :param config: samna Dynapse1 configuration object used to configure a network on the chip
-        :type config: Dynapse1Configuration
+        :type config: Dynapse1Configuration, optional
         :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique neuron keys
         :type idx_map: Dict[int, NeuronKey]
         :return: `DynapSE1SimConfig` object ready to configure a simulator
@@ -1230,11 +1233,16 @@ class DynapSE1SimConfig:
         # Gather `DynapSE1SimCore` objects
         for (chipID, coreID), neuron_map in core_dict.items():
             # Traverse the chip for core parameter group
-            pg = config.chips[chipID].cores[coreID].parameter_group
-            sim_core = DynapSE1SimCore.from_samna_parameter_group(
-                pg, len(neuron_map), (chipID, coreID), neuron_map
-            )
+            if config is not None:
+                pg = config.chips[chipID].cores[coreID].parameter_group
+                sim_core = DynapSE1SimCore.from_samna_parameter_group(
+                    pg, len(neuron_map), (chipID, coreID), neuron_map
+                )
+            else:
+                sim_core = DynapSE1SimCore(
+                    len(neuron_map), (chipID, coreID), neuron_map
+                )
             sim_cores.append(sim_core)
 
-        mod = cls(sim_cores)
+        mod = cls(sim_cores, idx_map)
         return mod
