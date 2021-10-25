@@ -2,6 +2,8 @@
 Contains the module base classes for Rockpool
 """
 # - Rockpool imports
+import collections
+
 from rockpool.parameters import ParameterBase
 from rockpool.timeseries import TimeSeries
 from rockpool.graph import GraphModuleBase
@@ -429,7 +431,7 @@ class ModuleBase(ABC):
         # - Get attribute registry
         __registered_attributes, __modules = self._get_attribute_registry()
 
-        return {k: m[0] for (k, m) in __modules.items()}
+        return collections.OrderedDict([(k, m[0]) for (k, m) in __modules.items()])
 
     def _reset_attribute(self, name: str) -> "ModuleBase":
         """
@@ -500,7 +502,7 @@ class ModuleBase(ABC):
         Reset all parameters in this module
 
         Returns:
-            Module: The updated module is returned for compatibility with the funcitonal API
+            Module: The updated module is returned for compatibility with the functional API
         """
         # - Get attribute registry
         __registered_attributes, __modules = self._get_attribute_registry()
