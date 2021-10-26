@@ -1,17 +1,21 @@
 import numpy as np
-import sys
-import torch
-# np.set_printoptions(threshold=sys.maxsize)
-
-model = SomeNetworkModel(**model_params)
-model.cuda()
-
-class Quantization(JaxParameterTransformerMixin, JaxModule):
 
 def calc_bitshift_decay(tau, dt):
+    """
+    Approximate the exponential decay by bit shift decay
+
+    Args:
+        tau: exponential decay tau
+        dt: unit time step
+
+    Returns:
+        the bit shift value in digital circuit
+    """
+
     bitsh = np.log2(np.array(tau) / dt)
     bitsh[bitsh < 0] = 0
     return bitsh
+
 
 def global_quantize(model,
                     threshold_out: list = [20000],
@@ -19,14 +23,39 @@ def global_quantize(model,
                     weight_shift_out: int = 3,
                     fuzzy_scaling: bool = False,
                     weight_max_bit: int = 8,
+                    dt: float = 0.01,
                     ):
-    print('global quantize')
 
+    """
+    scale the weight matrix globally
+
+    Args:
+        model: PyTorch model in CUDA
+        threshold_out: output neuron threshold
+        weight_shift: scale input and recurrent weight to have more spikes
+        weight_shift_out: scale output weight to have more spikes
+        fuzzy_scaling: leave outliers
+        weight_max_bit: weight resolution, 8-bits in Xylo
+        dt: unit time step
+
+    Returns:
+        model_dict to be wrapped as PollenConfiguration()
+
+                 target
+           -------------------
+    s   -------------------  -
+    o   -**- -**- -**- -**-  -
+    u   -**- -**- -**- -**-  -
+    r   -**- -**- -**- -**-  -
+    c   -**- -**- -**- -**-  -
+    e   -**- -**- -**- -**-  -
+        -------------------
+    """
+
+    # TODO 'to_weight_matrix()', 'to_vmem_taus()', 'to_syn_taus()' to be replaced by general function
     w_in, w_rec, w_out, aliases = model.to_weight_matrix()
     tau_mem, tau_mem_out = model.to_vmem_taus()
     tau_syns, tau_syns_out = model.to_syn_taus()
-
-    dt = 0.01
 
     # get threshold relative to reset potential
     v_th_rel = model.spk1.threshold
@@ -54,27 +83,25 @@ def global_quantize(model,
     scaling = max_quant_val / max_val
     scaling_out = max_quant_val / max_val_out
 
-    print(f"Quantize: max recurrent weight: {max_val},  scaling {scaling}")
-    print(f"Quantize: max readout weight: {max_val_out},  scaling {scaling_out}")
-
     # scale weights
     weights_in = np.round(w_in * scaling).astype(int)
     weights_rec = np.round(w_rec * scaling).astype(int)
     weights_out = np.round(w_out * scaling_out).astype(int)
 
-    # membrane decay
-    dash_mem = np.round(calc_bitshift_decay(tau_mem * dt, dt)).astype(int)
-    dash_syn = np.round(calc_bitshift_decay(tau_syns * dt, dt)).astype(int)
-
-    dash_mem_out = np.round(calc_bitshift_decay(tau_mem_out * dt, dt)).astype(int)
-    dash_syn_out = np.round(calc_bitshift_decay(tau_syns_out * dt, dt)).astype(int)
-
     # thresholds
     threshold = np.repeat(np.round(v_th_rel * scaling).astype(int) << weight_shift, len(w_rec))
+    # dummy threshold for Vmem collection
     if len(threshold_out) == 1:
         threshold_out = np.array(threshold_out * w_out.shape[1]).astype(int)
+    # with optimized true threshold
     else:
         threshold_out = np.array(threshold_out).astype(int)
+
+    # membrane and synaptic decay based on bit shift
+    dash_mem = np.round(calc_bitshift_decay(tau_mem * dt, dt)).astype(int)
+    dash_syn = np.round(calc_bitshift_decay(tau_syns * dt, dt)).astype(int)
+    dash_mem_out = np.round(calc_bitshift_decay(tau_mem_out * dt, dt)).astype(int)
+    dash_syn_out = np.round(calc_bitshift_decay(tau_syns_out * dt, dt)).astype(int)
 
     return {"weights_in": weights_in,
             "weights_rec": weights_rec,
@@ -94,27 +121,49 @@ def channel_quantize(model,
                      threshold_out: list = [20000],
                      weight_shift: int = 2,
                      weight_shift_out: int = 3,
-                     fuzzy_scaling: bool = False,
-                     res_num: int = 16,
                      weight_max_bit: int = 8,
+                     dt: float = 0.01,
+                     res_num: int = 16,
                      ):
 
-    print('per channel quantize')
+    """
+    scale the weight matrix per target neuron (per weight matrix column in weight matrix), in Xylo each target neuron may receive events from up to 16*2 pre-synaptic neurons
 
+    Args:
+        model: PyTorch model in CUDA
+        threshold_out: output neuron threshold
+        weight_shift: scale input and recurrent weight to have more spikes
+        weight_shift_out: scale output weight to have more spikes
+        weight_max_bit: weight resolution, 8-bits in Xylo
+        dt: unit time step
+        res_num: number of the first layer of neurons receive spikes from input channels
+
+    Returns:
+        model_dict to be wrapped as PollenConfiguration()
+
+                 target
+           -------------------
+    s   -------------------  -
+    o   -++- -**- -##- -oo-  -
+    u   -++- -**- -##- -oo-  -
+    r   -++- -**- -##- -oo-  -
+    c   -++- -**- -##- -oo-  -
+    e   -++- -**- -##- -oo-  -
+        -------------------
+    """
+
+    # TODO 'to_weight_matrix()', 'to_vmem_taus()', 'to_syn_taus()' to be replaced by general function
     w_in, w_rec, w_out, aliases = model.to_weight_matrix()
-
-    # print('w_in.shape', w_in.shape)
-    # print('w_rec.shape', w_rec.shape)
-    # print('w_out.shape', w_out.shape)
-    # print('len(aliases)', len(aliases))
-
     tau_mem, tau_mem_out = model.to_vmem_taus()
     tau_syns, tau_syns_out = model.to_syn_taus()
 
-    threshold = model.spk1.threshold  # ???
+    # get threshold relative to reset potential
+    threshold = model.spk1.threshold
 
     weight_in_quan = np.zeros(shape=w_in.shape)
     threshold_in_quan = np.zeros(w_in.shape[1])
+
+    # quantize input weight
     for i in range(w_in.shape[1]):
         max_weight = 0
         max_weight = np.max([max_weight, np.max(np.abs(w_in[:, i, :]))])
@@ -124,8 +173,10 @@ def channel_quantize(model,
             weight_in_quan[:, i, :] = np.round(w_in[:, i, :] * scaling).astype(int)
             threshold_in_quan[i] = np.round(threshold * scaling)
 
+    # make sure matrix type is int
     weight_in_quan = weight_in_quan.astype(int)
 
+    # quantize recurrent weight
     weight_rec_quan = np.zeros(shape=w_rec.shape)
     threshold_rec_quan = np.zeros(w_rec.shape[1])
     for i in range(w_rec.shape[1]):
@@ -135,24 +186,17 @@ def channel_quantize(model,
         if max_weight != 0:
             scaling = max_weight_quan / max_weight
             weight_rec_quan[:, i, :] = np.round(w_rec[:, i, :] * scaling).astype(int)
-            threshold_rec_quan[i] = np.round(threshold * scaling)
+            threshold_rec_quan[i] = np.round(threshold * scaling) # 0 ~ res_num no weights, no threshold
 
+    # make sure matrix type is int
     weight_rec_quan = weight_rec_quan.astype(int)
 
-    threshold_rec_quan[0: res] = threshold_in_quan[0: res]
+    # concatenate all reservior neuron threshold (including 0 ~ res_num)
+    threshold_rec_quan[0: res_num] = threshold_in_quan[0: res_num]
     threshold_rec_quan = threshold_rec_quan.astype(int)
 
+    # quantize output weight
     weight_out_quan = np.zeros(shape=w_out.shape)
-
-    # - first condition is for the first Vmem collection
-    if len(threshold_out) == 1:
-        threshold_out_dummy = np.array(threshold_out * w_out.shape[1]).astype(int)
-        flag = 0
-    # - second condition is for optimized threshold scale
-    else:
-        threshold_out_quan = np.array(threshold_out).astype(int)
-        flag = 1
-
     max_weight_quan = 2 ** (weight_max_bit - 1) - 1
     for i in range(w_out.shape[1]):
         max_weight = 0
@@ -161,13 +205,19 @@ def channel_quantize(model,
             scaling = max_weight_quan / max_weight
             weight_out_quan[:, i, :] = np.round(w_out[:, i, :] * scaling).astype(int)
 
+    # make sure matrix type is int
     weight_out_quan = weight_out_quan.astype(int)
 
-    dt = 0.01  # 1e-3???
+    # dummy threshold for Vmem collection
+    if len(threshold_out) == 1:
+        threshold_out = np.array(threshold_out * w_out.shape[1]).astype(int)
+    # with optimized true threshold
+    else:
+        threshold_out = np.array(threshold_out).astype(int)
 
+    # membrane and synaptic decay based on bit shift
     dash_mem = np.round(calc_bitshift_decay(tau_mem * dt, dt)).astype(int)
     dash_syn = np.round(calc_bitshift_decay(tau_syns * dt, dt)).astype(int)
-
     dash_mem_out = np.round(calc_bitshift_decay(tau_mem_out * dt, dt)).astype(int)
     dash_syn_out = np.round(calc_bitshift_decay(tau_syns_out * dt, dt)).astype(int)
 
@@ -176,7 +226,7 @@ def channel_quantize(model,
             "weights_out": weight_out_quan,
             "aliases": aliases,
             "threshold": threshold_rec_quan,
-            "threshold_out": threshold_out_dummy if flag == 0 else threshold_out_quan,
+            "threshold_out": threshold_out,
             "weight_shift": weight_shift,
             "weight_shift_out": weight_shift_out,
             "dash_mem": dash_mem,
