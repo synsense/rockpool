@@ -1193,8 +1193,35 @@ class DynapSE1SimConfig:
         :return: a dictionary from core keys (chipID, coreID) to an index map of neruons (neuron index : local neuronID) that the core allocates.
         :rtype: Dict[Tuple[int], Dict[int, int]]
         """
+
+        def core_dict_valid() -> None:
+            """
+            core_dict_valid check if the neuron indices are successive and in order.
+
+            :raises ValueError: Neuron indices are not ordered
+            :raises ValueError: The neuron indices are not successive numbers between 0 and N
+            """
+            # should be adjacent and always increasing
+            nidx = []
+            for d in core_dict.values():
+                nidx.extend(list(d.keys()))
+
+            if nidx != sorted(nidx):
+                raise ValueError(
+                    f"Neuron indices are not ordered!\n"
+                    f"{nidx}\n"
+                    f"Core dictionary is not valid!\n"
+                    f"{core_dict}\n"
+                )
+
+            if onp.sum(nidx) * 2 != nidx[-1] * (nidx[-1] + 1):
+                raise ValueError(
+                    f"Missing neuron indices! The neuron indices should be successive numbers from 0 to n\n"
+                    f"{nidx}\n"
+                )
+
         # Find unique chip-core ID pairs
-        chip_core = np.unique(
+        chip_core = onp.unique(
             list(map(lambda nid: nid[0:2], idx_map.values())),
             axis=0,
         )
@@ -1208,7 +1235,58 @@ class DynapSE1SimConfig:
             core_key = neuron_key[0:2]
             core_dict[core_key][neuron_index] = neuron_key[2]
 
+        # Sort the core dictionary values(neuron index maps) w.r.t. keys {0: 20, 2: 60, 1: 36} -> {0: 20, 1: 36, 2: 60}
+        for core_key, nidx_map in core_dict.items():
+            core_dict[core_key] = dict(
+                sorted(nidx_map.items(), key=lambda item: item[0])
+            )
+
+        # Sort the core dictionary values(neuron index maps) between each others so that neuron indices are successive
+        core_dict = dict(
+            sorted(core_dict.items(), key=lambda item: list(item[1].values())[0])
+        )
+
+        # Check if everything is all right
+        core_dict_valid()
         return core_dict
+
+    @staticmethod
+    def core_dict_to_idx_map(
+        core_dict: Dict[Tuple[int], Dict[int, int]]
+    ) -> Dict[int, NeuronKey]:
+        """
+        core_dict_to_idx_map converts a core dictionary to an index map. In the index map, the neuron
+        matric indices are mapped to nerun keys(chipID, coreID, neuronID). In the core dictionary,
+        the the neruon matric indices are mapped to neuronIDs for each individual core keys(chipID, coreID)
+
+        core_dict = {
+            (1, 0): {0: 20, 1: 36, 2: 60},
+            (2, 3): {3: 107, 4: 110},
+            (3, 1): {5: 152}
+        }
+
+        idx_map = {
+            0: (1, 0, 20),
+            1: (1, 0, 36),
+            2: (1, 0, 60),
+            3: (2, 3, 107),
+            4: (2, 3, 110),
+            5: (3, 1, 152)
+        }
+
+        :param core_dict: a dictionary from core keys (chipID, coreID) to an index map of neruons (neuron index : local neuronID) that the core allocates.
+        :type core_dict: Dict[Tuple[int], Dict[int, int]]
+        :return: a dictionary of the mapping between matrix indexes of the neurons and their global unique neuron keys
+        :rtype: Dict[int, NeuronKey]
+        """
+        idx_map = {}
+        for core_key, neuron_idx in core_dict.items():
+            chip_core_id = onp.tile(core_key, (len(neuron_idx), 1))
+            device_nid = onp.array(list(neuron_idx.values())).reshape(-1, 1)
+            values = onp.hstack((chip_core_id, device_nid))
+            temp = dict(zip(list(neuron_idx.keys()), map(lambda t: tuple(t), values)))
+            idx_map = {**idx_map, **temp}
+        return idx_map
 
     @classmethod
     def from_config(
@@ -1244,5 +1322,7 @@ class DynapSE1SimConfig:
                 )
             sim_cores.append(sim_core)
 
+        # Helps to order the idx_map if it's not in proper format
+        idx_map = DynapSE1SimConfig.core_dict_to_idx_map(core_dict)
         mod = cls(sim_cores, idx_map)
         return mod
