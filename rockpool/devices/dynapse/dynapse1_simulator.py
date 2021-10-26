@@ -16,6 +16,7 @@ from rockpool.devices.dynapse.dynapse1_neuron_synapse_jax import (
 from rockpool.devices.dynapse.dynapse1_simconfig import (
     DynapSE1SimCore,
     DynapSE1SimConfig,
+    NeuronKey,
 )
 
 from rockpool.devices.dynapse.router import Router, NeuronConnection
@@ -28,6 +29,7 @@ from typing import (
     Union,
     List,
     Any,
+    Tuple,
 )
 
 from rockpool.typehints import (
@@ -84,6 +86,10 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
     :type f_t_ref: JP_ndarray
     :ivar f_t_pulse: An array of the factor of conversion from pulse width in seconds to pulse width bias current in Amperes
     :type f_t_pulse: JP_ndarray
+    :ivar idx_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique neuron keys
+    :type idx_map: Dict[int, NeuronKey]
+    :ivar core_dict: a dictionary from core keys (chipID, coreID) to an index map of neruons (neuron index : local neuronID) that the core allocates.
+    :type core_dict: Dict[Tuple[int], Dict[int, int]]
     """
 
     __doc__ += DynapSE1NeuronSynapseJax.__doc__
@@ -127,7 +133,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         spiking_input: bool = True,
         spiking_output: bool = True,
         *args,
-        **kwargs
+        **kwargs,
     ) -> None:
         """
         __init__ Initialize ``DynapSE1Jax`` module. Parameters are explained in the superclass docstring.
@@ -146,11 +152,47 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
             spiking_input,
             spiking_output,
             *args,
-            **kwargs
+            **kwargs,
         )
 
         self.f_t_ref = SimulationParameter(sim_config.f_t_ref)
         self.f_t_pulse = SimulationParameter(sim_config.f_t_pulse)
+        self.idx_map, self.core_dict = self._init_index_maps(sim_config.idx_map)
+
+    def _init_index_maps(
+        self, idx_map: Dict[int, NeuronKey]
+    ) -> Tuple[Dict[int, NeuronKey], Dict[Tuple[int], Dict[int, int]]]:
+        """
+        _init_index_maps Check if index map is in proper format, and a core dictionary can be inferred without an error.
+
+        idx_map = {
+            0: (1, 0, 20),
+            1: (1, 0, 36),
+            2: (1, 0, 60),
+            3: (2, 3, 107),
+            4: (2, 3, 110),
+            5: (3, 1, 152)
+        }
+
+        core_dict = {
+            (1, 0): {0: 20, 1: 36, 2: 60},
+            (2, 3): {3: 107, 4: 110},
+            (3, 1): {5: 152}
+        }
+
+        :param idx_map: a candidate idx_map, look at the return description for more info
+        :type idx_map: Dict[int, NeuronKey]
+        :raises ValueError: Neuron indices are not ordered
+        :raises ValueError: The neuron indices are not successive numbers between 0 and N
+        :return: idx_map, core_dict
+            :idx_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique neuron keys
+            :core_dict: a dictionary from core keys (chipID, coreID) to an index map of neruons (neuron index : local neuronID) that the core allocates.
+        :rtype: Tuple[Dict[int, NeuronKey], Dict[Tuple[int], Dict[int, int]]]
+        """
+        DynapSE1SimConfig.check_neuron_id_order(list(idx_map.keys()))
+        core_dict = DynapSE1SimConfig.idx_map_to_core_dict(idx_map)
+
+        return idx_map, core_dict
 
     def samna_param_group(self, chipId: int, coreId: int) -> Dynapse1ParameterGroup:
         """
@@ -218,7 +260,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         w_in: Optional[FloatVector] = None,
         default_bias: bool = True,
         *args,
-        **kwargs
+        **kwargs,
     ) -> DynapSE1Jax:
         """
         from_config is a class factory method depending on a samna device configuration object. Using this,
