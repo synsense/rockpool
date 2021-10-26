@@ -1165,6 +1165,26 @@ class DynapSE1SimConfig:
         return prop
 
     @staticmethod
+    def check_neuron_id_order(nidx: List[int]) -> None:
+        """
+        check_neuron_id_order check if the neuron indices are successive and in order.
+
+        :param nidx: a list of neuron indices
+        :type nidx: List[int]
+        :raises ValueError: Neuron indices are not ordered
+        :raises ValueError: The neuron indices are not successive numbers between 0 and N
+        """
+
+        if nidx != sorted(nidx):
+            raise ValueError(f"Neuron indices are not ordered!\n" f"{nidx}\n")
+
+        if onp.sum(nidx) * 2 != nidx[-1] * (nidx[-1] + 1):
+            raise ValueError(
+                f"Missing neuron indices! The neuron indices should be successive numbers from 0 to n\n"
+                f"{nidx}\n"
+            )
+
+    @staticmethod
     def idx_map_to_core_dict(
         idx_map: Dict[int, NeuronKey]
     ) -> Dict[Tuple[int], Dict[int, int]]:
@@ -1197,28 +1217,8 @@ class DynapSE1SimConfig:
         def core_dict_valid() -> None:
             """
             core_dict_valid check if the neuron indices are successive and in order.
-
-            :raises ValueError: Neuron indices are not ordered
-            :raises ValueError: The neuron indices are not successive numbers between 0 and N
             """
             # should be adjacent and always increasing
-            nidx = []
-            for d in core_dict.values():
-                nidx.extend(list(d.keys()))
-
-            if nidx != sorted(nidx):
-                raise ValueError(
-                    f"Neuron indices are not ordered!\n"
-                    f"{nidx}\n"
-                    f"Core dictionary is not valid!\n"
-                    f"{core_dict}\n"
-                )
-
-            if onp.sum(nidx) * 2 != nidx[-1] * (nidx[-1] + 1):
-                raise ValueError(
-                    f"Missing neuron indices! The neuron indices should be successive numbers from 0 to n\n"
-                    f"{nidx}\n"
-                )
 
         # Find unique chip-core ID pairs
         chip_core = onp.unique(
@@ -1247,7 +1247,9 @@ class DynapSE1SimConfig:
         )
 
         # Check if everything is all right
-        core_dict_valid()
+        nidx = [nid for nid_map in core_dict.values() for nid in nid_map]
+        DynapSE1SimConfig.check_neuron_id_order(nidx)
+
         return core_dict
 
     @staticmethod
