@@ -102,14 +102,10 @@ class WaveBlock(TorchModule):
         tau_syn = torch.clamp(tau_syn, base_tau_syn, tau_syn.max())
         tau_syn = torch.cat(tuple([tau_syn] * Nchannels)).to(device)
 
-        self.lin1 = LinearTorch((Nchannels, Nchannels * kernel_size), has_bias=has_bias, device=device)
+        self.lin1 = LinearTorch((Nchannels, Nchannels * kernel_size), has_bias=False, device=device)
         with torch.no_grad():
             # normalize for tau_syn
             self.lin1.weight = self.lin1.weight / (tau_syn * 1000)
-        self.lin1.weight.requires_grad = True
-
-        if has_bias:
-            self.lin1.bias.requires_grad = True
 
         self.spk1 = LIFTorch(
             (Nchannels * kernel_size, Nchannels),
@@ -132,16 +128,10 @@ class WaveBlock(TorchModule):
         ).T
 
         # - Remapping output layers
-        self.lin2_res = LinearTorch((Nchannels, Nchannels), has_bias=has_bias, device=device)
+        self.lin2_res = LinearTorch((Nchannels, Nchannels), has_bias=False, device=device)
         with torch.no_grad():
             # normalize for tau_syn
             self.lin2_res.weight = self.lin2_res.weight / (tau_syn.min().item() * 1000)
-        self.lin2_res.weight.requires_grad = True
-
-
-        self.lin2_res.weight.requires_grad = True
-        if has_bias:
-            self.lin2_res.bias.requires_grad = True
 
         self.spk2_res = LIFTorch(
             (Nchannels,),
@@ -154,13 +144,10 @@ class WaveBlock(TorchModule):
         )
 
         # - Skip output layers
-        self.lin2_skip = LinearTorch((Nchannels, Nskip), has_bias=has_bias, device=device)
+        self.lin2_skip = LinearTorch((Nchannels, Nskip), has_bias=False, device=device)
         with torch.no_grad():
             # normalize for tau_syn
             self.lin2_skip.weight = self.lin2_skip.weight / (tau_syn.min().item() * 1000)
-        self.lin2_skip.weight.requires_grad = True
-        if has_bias:
-            self.lin2_skip.bias.requires_grad = True
 
         self.spk2_skip = LIFTorch(
             (Nskip,),
@@ -313,13 +300,10 @@ class WaveSenseNet(TorchModule):
         )
 
         # - Input mapping layers
-        self.lin1 = LinearTorch((n_channels_in, n_channels_res), has_bias=has_bias, device=device)
+        self.lin1 = LinearTorch((n_channels_in, n_channels_res), has_bias=False, device=device)
         with torch.no_grad():
             # normalize for tau_syn
             self.lin1.weight = self.lin1.weight / (base_tau_syn * 1000)
-        self.lin1.weight.requires_grad = True
-        if has_bias:
-            self.lin1.bias.requires_grad = True
 
         self.spk1 = LIFTorch(
             n_channels_res,
@@ -349,14 +333,10 @@ class WaveSenseNet(TorchModule):
             self.__setattr__(f"wave{i}", wave)
 
         # Dense readout layers
-        self.dense = LinearTorch((n_channels_skip, n_hidden), has_bias=has_bias, device=device)
+        self.dense = LinearTorch((n_channels_skip, n_hidden), has_bias=False, device=device)
         with torch.no_grad():
             # normalize for tau_syn
             self.dense.weight = self.dense.weight / (base_tau_syn * 1000)
-        self.dense.weight.requires_grad = True
-
-        if has_bias:
-            self.dense.bias.requires_grad = True
 
         self.spk2 = LIFTorch(
             n_hidden,
@@ -367,10 +347,7 @@ class WaveSenseNet(TorchModule):
             dt=dt,
             device=device,
         )
-        self.readout = LinearTorch((n_hidden, n_classes), has_bias=has_bias, device=device)
-        self.readout.weight.requires_grad = True
-        if has_bias:
-            self.readout.bias.requires_grad = True
+        self.readout = LinearTorch((n_hidden, n_classes), has_bias=False, device=device)
 
         # Smoothing output
         self.smooth_output = SimulationParameter(smooth_output)

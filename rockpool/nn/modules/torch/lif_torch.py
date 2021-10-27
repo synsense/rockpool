@@ -272,7 +272,7 @@ class LIFTorch(TorchModule):
             torch.double
         )
         n_neurons = self.size_out
-        alpha = self.dt / self.tau_mem
+        alpha = torch.exp(-self.dt / self.tau_mem)
         beta = torch.exp(-self.dt / self.tau_syn)
         step_pwl = StepPWL.apply
 
@@ -307,7 +307,7 @@ class LIFTorch(TorchModule):
         self.vmem = vmem[0:1, :].detach()
         self.isyn = isyn[0:1, :].detach()
 
-        self._vmem_rec.detach_()
-        self._isyn_rec.detach_()
+        self._vmem_rec.detach()
+        self._isyn_rec.detach()
 
         return out_spikes

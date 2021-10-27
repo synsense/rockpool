@@ -62,17 +62,17 @@ class Bitshift(torch.autograd.Function):
     @staticmethod
     def forward(ctx, data, dash, tau):
 
-        scale = 10000
+        scale = 10000 / torch.max(torch.abs(data))
         data_ = (data * scale).float()
         dv = torch.floor((data_ / 2 ** dash)).float()
         dv[dv == 0] = 1 * torch.sign(data_[dv == 0])
         v = (data_ - torch.floor(dv)) / scale
-        ctx.save_for_backward(data.clone(), v.clone(), tau)
+        ctx.save_for_backward(tau)
         return v
 
     @staticmethod
     def backward(ctx, grad_output):
-        (data, v, tau) = ctx.saved_tensors
+        (tau) = ctx.saved_tensors
         grad_input = grad_output * tau
 
         return grad_input, None, None
@@ -89,8 +89,6 @@ class LIFBitshiftTorch(TorchModule):
     def __init__(
         self,
         n_neurons: int,
-        n_synapses: int,
-        batch_size: int,
         tau_mem: Union[float, List],
         tau_syn: Union[float, List],
         threshold: Union[float, List],
@@ -124,13 +122,19 @@ class LIFBitshiftTorch(TorchModule):
         """
         # Initialize class variables
         # torch.nn.Module.__init__(self)
+        if isinstance(tau_syn, float):
+            n_synapses = 1
+        else:
+            n_synapses = torch.shape(tau_syn)[1]
+
+
         super().__init__(
-            shape=(n_neurons * n_synapses * batch_size, n_neurons), *args, **kwargs
+            shape=(n_neurons * self.n_synapses, n_neurons), *args, **kwargs
         )
 
+        
         self.n_neurons: P_int = rp.SimulationParameter(n_neurons)
         self.n_synapses: P_int = rp.SimulationParameter(n_synapses)
-        self.batch_size: P_int = rp.SimulationParameter(batch_size)
 
         if isinstance(tau_mem, float):
             self.tau_mem: P_tensor = rp.Parameter(
@@ -153,21 +157,13 @@ class LIFBitshiftTorch(TorchModule):
         if isinstance(threshold, float):
             self.threshold: P_tensor = rp.Parameter(torch.Tensor([threshold]).to(device))
         else:
-            raise NotImplementedError("Threshold must be float")
-            #self.threshold: P_tensor = rp.Parameter(torch.from_numpy(np.array(threshold)).to(device))
+            self.threshold: P_tensor = rp.Parameter(torch.from_numpy(np.array(threshold)).to(device))
 
         bias: P_tensor = torch.zeros(self.n_neurons).to(device)
         if has_bias:
             self.bias: P_tensor = rp.Parameter(torch.nn.parameter.Parameter(bias))
         else:
-            self.bias: P_tensor = bias
-
-        #if isinstance(bias, float):
-        #    self.bias: P_tensor = rp.Parameter(torch.Tensor([bias] * n_neurons).double().to(device))
-        #else:
-        #    self.bias: P_tensor = rp.Parameter(torch.from_numpy(np.array(bias)).double().to(device))
-
-        #self.bias.requires_grad = True
+            self.bias: P_tensor = rp.Parameter(bias)
 
         self.learning_window: P_tensor = rp.Parameter(
             torch.Tensor([learning_window]).to(device)
@@ -175,10 +171,10 @@ class LIFBitshiftTorch(TorchModule):
         self.dt: P_float = rp.SimulationParameter(dt, "dt")
 
         self.vmem: P_tensor = rp.State(
-            torch.zeros((self.batch_size, self.n_neurons)).to(device)
+            torch.zeros(self.n_neurons).to(device)
         )
         self.isyn: P_tensor = rp.State(
-            torch.zeros((self.batch_size, self.n_synapses, self.n_neurons)).to(device)
+            torch.zeros((self.n_synapses, self.n_neurons)).to(device)
         )
 
         self.alpha_mem: P_tensor = rp.Parameter(
@@ -197,6 +193,7 @@ class LIFBitshiftTorch(TorchModule):
 
         # determine if cpp lif was compiled
         try:
+            asd
             import torch_lif_cpp
 
             self.forward = self.lif_cpp_forward
@@ -250,9 +247,6 @@ class LIFBitshiftTorch(TorchModule):
             self._record,
         )
 
-        self.vmem = self._record_Vmem[-1]
-        self.isyn = self._record_Isyn[-1]
-
         # Output spike count
         self.n_spikes_out = out
 
@@ -278,35 +272,52 @@ class LIFBitshiftTorch(TorchModule):
         Parameters
         ----------
         data: Tensor
-            Data takes the shape of (time_steps, batch, n_synapses, n_neurons)
+            Data takes the shape of (n_batches, time_steps, n_synapses, n_neurons)
 
         Returns
         -------
         out: Tensor
-            Tensor of spikes with the shape (time_steps, batch, n_neurons)
+            Tensor of spikes with the shape (n_batches, time_steps, n_neurons)
 
         """
-        (time_steps, n_batches, n_synapses, n_neurons) = data.shape
+        (n_batches, time_steps, n_synapses, n_neurons) = data.shape
 
-        vmem = self.vmem
-        isyn = self.isyn
+
+        # - Replicate states out by batches
+        vmem = torch.ones(n_batches, 1, device=self.vmem.device).type(torch.double) @ self.vmem.type(
+            torch.double
+        )
+        isyn = torch.ones(n_batches, 1, device=self.isyn.device).type(torch.double) @ self.isyn.type(
+            torch.double
+        )
+
         bias = self.bias
 
         alpha_mem = self.alpha_mem
         alpha_syn = self.alpha_syn
         threshold = self.threshold
         learning_window = self.learning_window
-        out_spikes = torch.zeros((time_steps, n_batches, n_neurons), device=data.device)
+        out_spikes = torch.zeros((n_batches, time_steps, n_neurons), device=data.device)
 
         if self._record:
             self._record_Vmem = torch.zeros(
-                (time_steps, n_batches, n_neurons), device=data.device
+                (n_batches, time_steps, n_neurons), device=data.device
             )
             self._record_Isyn = torch.zeros(
-                (time_steps, n_batches, n_synapses, n_neurons), device=data.device
+                (n_batches, time_steps, n_synapses, n_neurons), device=data.device
             )
 
         for t in range(time_steps):
+
+            # Leak
+            vmem = self.bitshift_decay(vmem, alpha_mem, self.propagator_mem)
+            isyn = self.bitshift_decay(isyn, alpha_syn, self.propagator_syn)
+
+            # Integrate input
+            isyn = isyn + data[t]
+
+            # State propagation
+            vmem = vmem + isyn.sum(1) + bias
 
             # Spike generation
             out = self.threshold_subtract(vmem, threshold, learning_window)
@@ -317,21 +328,15 @@ class LIFBitshiftTorch(TorchModule):
 
             if self._record:
                 # recording
-                self._record_Vmem[t] = vmem
-                self._record_Isyn[t] = isyn
+                self._record_Vmem[:, t] = vmem
+                self._record_Isyn[:, t] = isyn
 
-            # Integrate input
-            isyn = isyn + data[t]
 
-            # Leak
-            vmem = self.bitshift_decay(vmem, alpha_mem, self.propagator_mem)
-            isyn = self.bitshift_decay(isyn, alpha_syn, self.propagator_syn)
+        self.vmem = vmem[0:1, :].detach()
+        self.isyn = isyn[0:1, :].detach()
 
-            # State propagation
-            vmem = vmem + isyn.sum(1) + bias  # isyn shape (batch, syn, neuron)
-
-        self.vmem = vmem
-        self.isyn = isyn
+        self._vmem_rec.detach()
+        self._isyn_rec.detach()
 
         # Output spike count
         self.n_spikes_out = out_spikes
@@ -342,8 +347,8 @@ class LIFBitshiftTorch(TorchModule):
         """
         Inject static current as used in the signal to spike preprocessing step.
         """
-        time_steps = data.shape[0]
-        n_batches = data.shape[1]
+        time_steps = data.shape[1]
+        n_batches = data.shape[0]
         out_spikes = torch.zeros((time_steps, self.n_neurons)).to(data.device)
         for t in range(time_steps):
             # threshold crossing
@@ -354,7 +359,7 @@ class LIFBitshiftTorch(TorchModule):
             self.vmem = self.vmem - spikes * self.threshold
 
             # update vmem
-            self.vmem = self.vmem + data[t]
+            self.vmem = self.vmem + data[:, t]
 
             # decay
             self.vmem = self.vmem * self.alpha_mem
