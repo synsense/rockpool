@@ -327,8 +327,10 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         if sim_config is None:
             sim_config = DynapSE1SimCore(size=self.size_out)
 
-        else:  # be sure that the size matches
-            sim_config.size = self.size_out
+        if len(sim_config) != self.size_out:
+            raise ValueError(
+                f"The simulation configuration object size {len(sim_config)} and number of device neruons {self.size_out} does not match!"
+            )
 
         # Check the network size and initialize the input and recurrent weight vector accordingly
         self.w_in, self.w_rec = self._init_weights(w_in, w_rec)

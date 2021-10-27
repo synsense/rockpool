@@ -227,6 +227,8 @@ class DynapSE1BiasGen(BiasGen):
 
     """
 
+    __doc__ += BiasGen.__doc__
+
     correction_factor = {
         "IF_AHTAU_N": 1.0,
         "IF_AHTHR_N": 1.0,
