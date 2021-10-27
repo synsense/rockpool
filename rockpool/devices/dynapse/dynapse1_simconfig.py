@@ -11,12 +11,15 @@ from __future__ import annotations
 from rockpool.devices.dynapse.router import NeuronKey
 
 from rockpool.devices.dynapse.biasgen import DynapSE1BiasGen
+from rockpool.devices.dynapse.router import Router
 from jax import numpy as np
 
 import numpy as onp
 from dataclasses import dataclass
 
-from typing import Tuple, Any, Optional, Union, List, Dict
+from typing import Tuple, Any, Optional, List, Dict, Generator
+
+import itertools
 
 _SAMNA_AVAILABLE = True
 
@@ -1133,26 +1136,65 @@ class DynapSE1SimCore:
 
 
 @dataclass
-class DynapSE1SimConfig:
+class DynapSE1SimBoard:
     """
-    DynapSE1SimConfig encapsulates the DynapSE1 core configuration objects and help merging simulation
+    DynapSE1SimBoard encapsulates the DynapSE1 core configuration objects and help merging simulation
     parameters implicitly defined in the cores. It makes it easier to run a multi-core simulation and simulate the mismatch
 
+    :param size: the number of neurons allocated in the simulation board, the length of the property arrays. If the size is greater than the capacity of one core, then the neurons are splitted across different cores. If `cores` are defined, then the size are obtained from `cores` list. defaults to 1
+    :type size: Optional[int], optional
     :param cores: a list of `DynapSE1SimCore` objects whose parameters are to be merged into one simulation base, defaults to None
     :type cores: Optional[List[DynapSE1SimCore]], optional
     :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique neuron keys
     :type idx_map: Dict[int, NeuronKey]
     """
 
+    size: Optional[int] = 1
     cores: Optional[List[DynapSE1SimCore]] = None
     idx_map: Optional[Dict[int, NeuronKey]] = None
 
     def __post_init__(self) -> None:
         """
         __post_init__ runs after __init__ and merges DynapSE1SimCore properties in the given order
+
+        :raises ValueError: Core size does not match the number of neurons to allocate!
+        :raises ValueError: Core key in the index map and core key in the `DynapSE1SimCore` does not match!
+        :raises ValueError: Neuron index map for core in the `idx_map`, and the neuron index map in `DynapSE1SimCore` does not match!
+        :raises ValueError: The board configuration object size and number of device neruons indicated in idx_map does not match!
         """
         if self.cores is None:
-            self.cores = [DynapSE1SimCore()]
+            # Default construction of the simulation cores given the size
+            split_list = DynapSE1SimBoard.split_across_cores(self.size)
+            DynapSE1SimCore.reset(DynapSE1SimCore)
+            self.cores = [DynapSE1SimCore(size) for size in split_list]
+            # 600 -> [256, 256, 88]
+
+        if self.idx_map is None:
+            # Collect the index map from the simulation cores
+            self.idx_map = self.collect_idx_map_from_cores(self.cores)
+
+        core_dict = DynapSE1SimBoard.idx_map_to_core_dict(self.idx_map)
+        self.size = self.__len__()
+
+        # Check if simulation core's meta-information match with the global maps
+        for core, (core_key, neuron_map) in zip(self.cores, core_dict.items()):
+            if len(core) != len(neuron_map):
+                raise ValueError(
+                    f"Core size = {len(core)} does not match the number of neurons to allocate! {neuron_map}"
+                )
+            if core.core_key != core_key:
+                raise ValueError(
+                    f"Core key in the index map {core_key} and core key in the `DynapSE1SimCore` {core.core_key} does not match!"
+                )
+            if core.neuron_idx_map != neuron_map:
+                raise ValueError(
+                    f"Neuron index map for core {core_key} in the `idx_map` {neuron_map}, and the neuron index map in `DynapSE1SimCore` {core.neuron_idx_map } does not match!"
+                )
+
+        if self.__len__() != len(self.idx_map):
+            raise ValueError(
+                f"The board configuration object size {self.__len__()} and number of device neruons indicated in idx_map {len(self.idx_map)} does not match!"
+            )
 
         attr_list = [
             "Imem",
@@ -1182,6 +1224,47 @@ class DynapSE1SimConfig:
         for attr in attr_list:
             self.__setattr__(attr, self.merge_core_properties(attr))
 
+    def __len__(self):
+        size = 0
+        for core in self.cores:
+            size += len(core)
+        return size
+
+    @staticmethod
+    def split_across_cores(
+        size: int, neruon_per_core: int = Router.NUM_NEURONS
+    ) -> List[int]:
+        """
+        split_across_cores is a helper function to split some random number of neurons across different cores
+        600 -> [256, 256, 88]
+
+        :param size: desired simulation size, the total number of neurons
+        :type size: int
+        :param neruon_per_core: maximum number of neruons to be allocated in a single core, defaults to Router.NUM_NEURONS
+        :type neruon_per_core: int, optional
+        :return: a list of number of neurons to split across different cores
+        :rtype: List[int]
+        """
+
+        def it(n_neurons: int) -> Generator[int]:
+            """
+            it a while iterator to be used in list comprehension.
+            Yield maksimum number of neurons to allocate in one core `neruon_per_core`
+            if the number of neurons left is greater than the maksimum number of neurons.
+            Else yield the number of neruons left if the number of neurons left greater than 0.
+
+            :param n_neurons: total number of neurons to allocate
+            :type n_neurons: int
+            :yield: exact number of neurons for next step
+            :rtype: Generator[int]
+            """
+            while n_neurons > 0:
+                yield neruon_per_core if n_neurons > neruon_per_core else n_neurons
+                n_neurons -= neruon_per_core
+
+        split_list = [i for i in it(size)]
+        return split_list
+
     def merge_core_properties(self, attr: str) -> np.ndarray:
         """
         merge_core_properties help merging property arrays of the cores given into one array.
@@ -1199,6 +1282,24 @@ class DynapSE1SimConfig:
         for core in self.cores:
             prop = np.hstack((prop, core.__getattribute__(attr)))
         return prop
+
+    @staticmethod
+    def collect_idx_map_from_cores(
+        cores: List[DynapSE1SimCore],
+    ) -> Dict[int, NeuronKey]:
+        """
+        collect_idx_map_from_cores obtain an index map using the neuron index maps and core keys of the cores given in the `cores` list.
+
+        :param cores: a list of `DynapSE1SimCore` objects whose parameters are to be merged into one simulation base
+        :type cores: List[DynapSE1SimCore]
+        :return: a dictionary of the mapping between matrix indexes of the neurons and their global unique neuron keys
+        :rtype: Dict[int, NeuronKey]
+        """
+        core_dict = {}
+        for core in cores:
+            core_dict[core.core_key] = core.neuron_idx_map
+        idx_map = DynapSE1SimBoard.core_dict_to_idx_map(core_dict)
+        return idx_map
 
     @staticmethod
     def check_neuron_id_order(nidx: List[int]) -> None:
@@ -1249,13 +1350,6 @@ class DynapSE1SimConfig:
         :return: a dictionary from core keys (chipID, coreID) to an index map of neruons (neuron index : local neuronID) that the core allocates.
         :rtype: Dict[Tuple[int], Dict[int, int]]
         """
-
-        def core_dict_valid() -> None:
-            """
-            core_dict_valid check if the neuron indices are successive and in order.
-            """
-            # should be adjacent and always increasing
-
         # Find unique chip-core ID pairs
         chip_core = onp.unique(
             list(map(lambda nid: nid[0:2], idx_map.values())),
@@ -1279,12 +1373,12 @@ class DynapSE1SimConfig:
 
         # Sort the core dictionary values(neuron index maps) between each others so that neuron indices are successive
         core_dict = dict(
-            sorted(core_dict.items(), key=lambda item: list(item[1].values())[0])
+            sorted(core_dict.items(), key=lambda item: list(item[1].keys())[0])
         )
 
         # Check if everything is all right
         nidx = [nid for nid_map in core_dict.values() for nid in nid_map]
-        DynapSE1SimConfig.check_neuron_id_order(nidx)
+        DynapSE1SimBoard.check_neuron_id_order(nidx)
 
         return core_dict
 
@@ -1319,7 +1413,7 @@ class DynapSE1SimConfig:
         """
         idx_map = {}
         for core_key, neuron_idx in core_dict.items():
-            chip_core_id = onp.tile(core_key, (len(neuron_idx), 1))
+            chip_core_id = onp.array(onp.tile(core_key, (len(neuron_idx), 1)))
             device_nid = onp.array(list(neuron_idx.values())).reshape(-1, 1)
             values = onp.hstack((chip_core_id, device_nid))
             temp = dict(zip(list(neuron_idx.keys()), map(lambda t: tuple(t), values)))
@@ -1329,22 +1423,22 @@ class DynapSE1SimConfig:
     @classmethod
     def from_config(
         cls, config: Optional[Dynapse1Configuration], idx_map: Dict[int, NeuronKey]
-    ) -> DynapSE1SimConfig:
+    ) -> DynapSE1SimBoard:
         """
-        from_config is a class factory method for DynapSE1SimConfig object such that the parameters
+        from_config is a class factory method for DynapSE1SimBoard object such that the parameters
         are obtained from a samna device configuration object.
 
         :param config: samna Dynapse1 configuration object used to configure a network on the chip
         :type config: Dynapse1Configuration, optional
         :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique neuron keys
         :type idx_map: Dict[int, NeuronKey]
-        :return: `DynapSE1SimConfig` object ready to configure a simulator
-        :rtype: DynapSE1SimConfig
+        :return: `DynapSE1SimBoard` object ready to configure a simulator
+        :rtype: DynapSE1SimBoard
         """
 
         sim_cores = []
 
-        core_dict = DynapSE1SimConfig.idx_map_to_core_dict(idx_map)
+        core_dict = DynapSE1SimBoard.idx_map_to_core_dict(idx_map)
 
         # Gather `DynapSE1SimCore` objects
         for (chipID, coreID), neuron_map in core_dict.items():
@@ -1361,6 +1455,6 @@ class DynapSE1SimConfig:
             sim_cores.append(sim_core)
 
         # Helps to order the idx_map if it's not in proper format
-        idx_map = DynapSE1SimConfig.core_dict_to_idx_map(core_dict)
-        mod = cls(sim_cores, idx_map)
+        idx_map = DynapSE1SimBoard.core_dict_to_idx_map(core_dict)
+        mod = cls(None, sim_cores, idx_map)
         return mod
