@@ -703,10 +703,10 @@ class DynapSE1SimCore:
     """
     DynapSE1SimCore encapsulates the DynapSE1 circuit parameters and provides an easy access.
 
-    :param size: the number of neurons allocated in the simulation core, the length of the property arrays, defaults to 256
+    :param size: the number of neurons allocated in the simulation core, the length of the property arrays, defaults to 1
     :type size: int
-    :param core_key: the chip_id and core_id tuple uniquely defining the core
-    :type core_key: Tuple[np.uint8]
+    :param core_key: the chip_id and core_id tuple uniquely defining the core, defaults to None
+    :type core_key: Optional[Tuple[np.uint8]], optional
     :param neuron_idx_map: the neuron index map used in the case that the matrix indexes of the neurons and the device indexes are different.
     :type neuron_idx_map: Dict[np.uint8, np.uint16]
     :param fpulse_ahp: the decrement factor for the pulse widths arriving in AHP circuit, defaults to 0.1
@@ -727,10 +727,17 @@ class DynapSE1SimCore:
     :type gaba_a: Optional[SynapseParameters], optional
     :param gaba_b: GABA_B (shunt) synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
     :type gaba_b: Optional[SynapseParameters], optional
+
+    :Instance Variables:
+
+    :ivar matrix_id_iter: static matrix ID counter. Increase whenever a new object created with the default initialization routine. Increment by 1 for each and every neruon.
+    :type matrix_id_iter: itertools.count
+    :ivar chip_core_iter: static chip_core key counter. Increase whenever a new object created with the default initialization routine. Increment by NUM_NEURONS(256), then decode the UID to obtain the chip and core IDs.
+    :type chip_core_iter: itertools.count
     """
 
-    size: int = 256
-    core_key: Tuple[np.uint8] = (0, 0)
+    size: int = 1
+    core_key: Optional[Tuple[np.uint8]] = None
     neuron_idx_map: Dict[np.uint8, np.uint16] = None
     fpulse_ahp: float = 0.1
     layout: Optional[DynapSE1Layout] = None
@@ -742,16 +749,30 @@ class DynapSE1SimCore:
     ampa: Optional[SynapseParameters] = None
     ahp: Optional[SynapseParameters] = None
 
+    # Static counters for default construction
+    matrix_id_iter = itertools.count()
+    chip_core_iter = itertools.count(step=Router.NUM_NEURONS)
+
     def __post_init__(self) -> None:
         """
         __post_init__ runs after __init__ and initializes the DPI and membrane blocks with default values in the case that they are not specified.
         """
         if self.layout is None:
             self.layout = DynapSE1Layout()
+
         if self.capacitance is None:
             self.capacitance = DynapSE1Capacitance()
+
+        if self.core_key is None:
+            # Create a neuron key depending on the static chip_core counter then check if respective neuron ID is valid
+            _neuron_key = Router.decode_UID(next(self.chip_core_iter))
+            Router.get_UID(*_neuron_key[0:2], self.size - 1)
+            self.core_key = _neuron_key[0:2]
+
         if self.neuron_idx_map is None:
-            self.neuron_idx_map = dict(zip(range(self.size), range(self.size)))
+            # Create a neuron index map depending on the static matrix ID counter
+            matrix_ids = [next(self.matrix_id_iter) for i in range(self.size)]
+            self.neuron_idx_map = dict(zip(matrix_ids, range(self.size)))
 
         # Initialize the subcircuit blocks with the same layout
         if self.mem is None:
@@ -775,6 +796,21 @@ class DynapSE1SimCore:
 
     def __len__(self):
         return self.size
+
+    @staticmethod
+    def reset(cls: DynapSE1SimCore):
+        """
+        reset resets the static counters of a `DynapSE1SimCore` class to 0
+
+        :param cls: the class to reset
+        :type cls: DynapSE1SimCore
+
+        Usage:
+        from rockpool.devices.dynapse.dynapse1_simconfig import DynapSE1SimCore as simcore
+        simcore.reset(simcore)
+        """
+        cls.matrix_id_iter = itertools.count()
+        cls.chip_core_iter = itertools.count(step=Router.NUM_NEURONS)
 
     @classmethod
     def from_samna_parameter_group(
