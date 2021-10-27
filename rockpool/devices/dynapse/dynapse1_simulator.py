@@ -157,7 +157,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         if sim_config is None:
             # Get a simulation board from an index map with default bias parameters
             if idx_map is not None:
-                sim_config = DynapSE1SimBoard.from_config(None, idx_map)
+                sim_config = DynapSE1SimBoard.from_config(None, idx_map["w_rec"])
             else:
                 sim_config = DynapSE1SimBoard(shape[-1])
 
@@ -178,8 +178,8 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         self.f_t_pulse = SimulationParameter(sim_config.f_t_pulse)
 
         # Check if index map is in proper format, if so, a core dictionary can be inferred without an error.
-        DynapSE1SimBoard.check_neuron_id_order(list(idx_map.keys()))
-        self.core_dict = DynapSE1SimBoard.idx_map_to_core_dict(idx_map)
+        DynapSE1SimBoard.check_neuron_id_order(list(idx_map["w_rec"].keys()))
+        self.core_dict = DynapSE1SimBoard.idx_map_to_core_dict(idx_map["w_rec"])
         self.idx_map = idx_map
 
     def samna_param_group(self, chipId: int, coreId: int) -> Dynapse1ParameterGroup:
