@@ -42,7 +42,7 @@ dModules = {
         "GABABParameters",
         "DynapSE1SimCore",
         "DynapSE1Capacitance",
-        "DynapSE1SimConfig",
+        "DynapSE1SimBoard",
     ),
     ".utils": (
         "custom_spike_train",
