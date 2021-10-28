@@ -132,8 +132,11 @@ class TorchModule(Module, nn.Module):
             super().__setattr__(key, value)
 
         if isinstance(value, nn.Module) and not isinstance(value, TorchModule):
-            # - Convert torch module to a Rockpool Module and assign
-            TorchModule.from_torch(value, retain_torch_api=True)
+            try:
+                # - Convert torch module to a Rockpool Module and assign
+                TorchModule.from_torch(value, retain_torch_api=True)
+            except:
+                pass
             super().__setattr__(key, value)
 
     def register_buffer(self, name: str, tensor: torch.Tensor, *args, **kwargs) -> None:

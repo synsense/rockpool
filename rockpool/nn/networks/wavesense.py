@@ -98,7 +98,7 @@ class WaveBlock(TorchModule):
         # - Dilation layers
         tau_syn = (
             torch.arange(0, dilation * kernel_size, dilation) * base_tau_syn
-        ).float()
+        )
         tau_syn = torch.clamp(tau_syn, base_tau_syn, tau_syn.max())
         tau_syn = torch.cat(tuple([tau_syn] * Nchannels)).to(device)
 
@@ -170,6 +170,7 @@ class WaveBlock(TorchModule):
         out, _, self._record_dict["lin1"] = self.lin1(data, record=True)
         self._record_dict["lin1_output"] = out
 
+        # TODO what's that?
         # - Enforce the synapse-to-neuron mapping matrix for the dilation spiking layer
         self.spk1.w_syn = self._w_syn_mapping
 

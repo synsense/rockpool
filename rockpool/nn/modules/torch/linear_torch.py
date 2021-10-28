@@ -106,12 +106,12 @@ class LinearTorch(TorchModule):
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         return (
             F.linear(
-                input.type(torch.double),
-                self.weight.type(torch.double).T,
-                self.bias.type(torch.double),
+                input,
+                self.weight.T,
+                self.bias,
             )
             if self.bias is not None
-            else F.linear(input.type(torch.double), self.weight.type(torch.double).T)
+            else F.linear(input, self.weight.T)
         )
 
     def _extra_repr(self) -> str:
