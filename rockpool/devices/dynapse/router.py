@@ -769,7 +769,7 @@ class Router:
         for (pre, post, syn_type), count in synapses.items():
             weight_matrix[pre_idx[pre]][post_idx[post]][syn_type] = count
 
-        idx_map = {pre_idx[n]: n for n in pre_neurons}
+        idx_map = {pre_idx[n]: Router.decode_UID(n) for n in pre_neurons}
 
         return weight_matrix, idx_map
 
@@ -778,7 +778,6 @@ class Router:
         device_synapses: Dict[NeuronConnectionSynType, int],
         input_synapses: Optional[Dict[NeuronConnectionSynType, int]] = None,
         return_maps: bool = True,
-        decode_UID: bool = True,
     ) -> Union[
         Tuple[np.ndarray, np.ndarray],
         Tuple[
@@ -806,12 +805,10 @@ class Router:
         :type dtype: type, optional
         :param return_maps: return the index-to-UID, and syn-index-to-type maps or not, defaults to True
         :type return_maps: bool, optional
-        :param decode_UID: decode the UID to get a key instead or not, defaults to True
-        :type decode_UID: bool, optional
-        :return: weight, index_map
+        :return: weight, idx_map_dict
             w_in: input weight matrix (3D, NinxNrecx4)
             w_rec: recurrent weight matrix (3D, NrecxNrecx4)
-            index_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique IDs (or keys)
+            idx_map_dict: a dictionary of dictionaries (2 seperate dictionary for `w_in` and `w_rec`) of the mapping between matrix indexes of the neurons and their global unique IDs (or keys)
         :rtype: Union[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, Union[Dict[int, np.uint16], Dict[int, NeuronKey]] , Dict[int, str]]]
         """
 
@@ -851,34 +848,14 @@ class Router:
             return w_in, w_rec
 
         else:
-            index_map = {"w_in": in_idx, "w_rec": rec_idx}
-
-            if decode_UID:
-                index_map = Router.decode_index_map(index_map)
-
-            return w_in, w_rec, index_map
-
-    @staticmethod
-    def decode_index_map(index_map: Dict[int, np.uint16]) -> Dict[int, NeuronKey]:
-        """
-        decode_index_map uses `Router.decode_UID()` and iterate over a index map to decode the index UID map to represent neurons with NeuronKeys instead of UIDs
-
-        :param index_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique IDs
-        :type index_map: Dict[int, np.uint16]
-        :return: the same `index_map` dictionary with neuron keys (chipID, coreID, neuronID) instead of global unique IDs.
-        :rtype: Dict[int, NeuronKey]
-        """
-        map_decoder = lambda row: (row[0], Router.decode_UID(row[1]))
-        traverse = lambda row: (row[0], dict(map(map_decoder, row[1].items())))
-        index_map = dict(map(traverse, index_map.items()))
-        return index_map
+            idx_map_dict = {"w_in": in_idx, "w_rec": rec_idx}
+            return w_in, w_rec, idx_map_dict
 
     @staticmethod
     def get_weight_from_config(
         config: Dynapse1Configuration,
         virtual_connections: Optional[List[NeuronConnection]] = None,
         return_maps: bool = False,
-        decode_UID: bool = True,
     ) -> Union[
         np.ndarray,
         Tuple[
@@ -899,12 +876,10 @@ class Router:
         :type virtual_connections: Optional[List[NeuronConnection]], optional
         :param return_maps: return the index-to-UID, and syn-index-to-type maps or not, defaults to True
         :type return_maps: bool, optional
-        :param decode_UID: decode the UID to get a key instead or not, defaults to True
-        :type decode_UID: bool, optional
-        :return: weight, index_map, syn_dict
+        :return: weight, idx_map_dict, syn_dict
             w_in: input weight matrix (3D, NinxNrecx4)
             w_rec: recurrent weight matrix (3D, NrecxNrecx4)
-            index_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique IDs (or keys)
+            idx_map_dict: a dictionary of dictionaries (2 seperate dictionary for `w_in` and `w_rec`) of the mapping between matrix indexes of the neurons and their global unique keys
         :rtype: Union[np.ndarray, Tuple[np.ndarray, Union[Dict[int, np.uint16], Dict[int, NeuronKey]] , Dict[int, str]]]
         """
         syn_dict = Router.synapses_from_config(config, virtual_connections)
@@ -912,7 +887,7 @@ class Router:
         real = syn_dict["real"]
         virtual = syn_dict["virtual"]
 
-        return Router.weight_matrix(real, virtual, return_maps, decode_UID)
+        return Router.weight_matrix(real, virtual, return_maps)
 
     @staticmethod
     def get_virtual_connections(
@@ -982,10 +957,10 @@ class Router:
 
         :param netgen: network generator object defined in samna/ctxctl_contrib/netgen
         :type netgen: NetworkGenerator
-        :return: weight, index_map, syn_dict
+        :return: weight, idx_map_dict, syn_dict
             w_in: input weight matrix (3D, NinxNrecx4)
             w_rec: recurrent weight matrix (3D, NrecxNrecx4)
-            index_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique IDs (or keys)
+            idx_map_dict: a dictionary of dictionaries (2 seperate dictionary for `w_in` and `w_rec`) of the mapping between matrix indexes of the neurons and their global unique keys
         :rtype: Union[np.ndarray, Tuple[np.ndarray, Union[Dict[int, np.uint16], Dict[int, NeuronKey]] , Dict[int, str]]]
         """
 
