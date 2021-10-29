@@ -453,7 +453,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
             spikes_external = np.dot(self.w_in.T, spike_inputs_ts)
             spikes_internal = np.dot(self.w_rec.T, spikes)
-            spike_inputs = np.add(spikes_external, spikes_internal) + self.Io
+            spike_inputs = np.add(spikes_external, spikes_internal)
 
             ## Calculate the effective pulse width with a linear increase
             t_pw_in = self.t_pulse * spike_inputs  # 4xNrec [GABA_B, GABA_A, NMDA, AMPA]
