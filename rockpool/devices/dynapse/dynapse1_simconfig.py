@@ -377,7 +377,7 @@ class MembraneParameters(DPIParameters):
     :type Cpulse: float
     :param Imem: The sub-threshold current that represents the real neuron’s membrane potential variable, defaults to Io
     :type Imem: Optional[float], optional
-    :param Iref: [description], defaults to None
+    :param Iref: the bias current setting the `t_ref`, defaults to None
     :type Iref: Optional[float], optional
     :param t_ref: refractory period in seconds, limits maximum firing rate. The value co-depends on `Iref` and `t_ref` definition has priority over `Iref`, defaults to 10e-3
     :type t_ref: Optional[float], optional
