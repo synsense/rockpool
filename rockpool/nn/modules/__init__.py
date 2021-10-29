@@ -1,5 +1,3 @@
-## __init__.py Smart importer for submodules
-import importlib
 import warnings
 from warnings import warn
 
