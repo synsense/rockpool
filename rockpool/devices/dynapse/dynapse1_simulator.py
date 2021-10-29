@@ -246,6 +246,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         config: Dynapse1Configuration,
         virtual_connections: Optional[List[NeuronConnection]] = None,
         w_in: Optional[FloatVector] = None,
+        idx_map_in: Optional[Dict[int, NeuronKey]] = None,
         default_bias: bool = True,
         *args,
         **kwargs,
@@ -262,15 +263,20 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         :type virtual_connections: Optional[List[NeuronConnection]], optional
         :param w_in: input weight matrix (3D, NinxNrecx4), defaults to None
         :type w_in: Optional[FloatVector], optional
+        :param idx_map_in: a dictionary of the mapping between matrix indexes of the FPGA-to-device input connections and their global unique neuron keys. Define when virtual connections is not defined but w_in is provided explicitly, defaults to None
+        :type idx_map_in: Optional[Dict[int, NeuronKey]]
         :param default_bias: use default bias values or get the bias parameters from the netgen.config, defaults to True
         :type default_bias: bool
         :return: `DynapSE1Jax` simulator object
         :rtype: DynapSE1Jax
         """
         _w_in, w_rec, idx_map = Router.get_weight_from_config(
-            config, virtual_connections, return_maps=True, decode_UID=True
+            config, virtual_connections, return_maps=True
         )
         w_in = _w_in if w_in is None else w_in
+
+        if w_in is not None:
+            idx_map["w_in"] = idx_map_in
 
         shape = w_in.shape[0:2]
         if not default_bias:
