@@ -1,12 +1,14 @@
+from typing import Union, Iterable
 from itertools import product
 from multiprocessing import Pool
-from typing import Optional
-from typing import Union, Iterable
 
 import numpy as np
+from scipy.signal import butter, sosfilt, sosfreqz
+
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import ParameterBase, SimulationParameter
-from scipy.signal import butter, sosfilt, sosfreqz
+
+from typing import Optional
 
 P_int = Union[int, ParameterBase]
 P_float = Union[float, ParameterBase]
@@ -250,7 +252,6 @@ class ButterMelFilter(FilterBankBase):
         low_freq = hz2mel(self.cutoff_fs)
         high_freq = hz2mel((self.fs / 2) / (1 + filter_bandwidth) - 1)
         freqs = mel2hz(np.linspace(low_freq, high_freq, self.shape[-1]))
-        self.center_freqs = freqs
 
         if np.max(freqs * (1 + filter_bandwidth) / (self.fs / 2)) >= 1.0:
             raise ValueError(
