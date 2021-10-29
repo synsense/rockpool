@@ -109,6 +109,25 @@ def output_neurons_cannot_be_recurrent(graph: GraphModuleBase) -> None:
         )
 
 
+def no_consecutive_weights(graph: GraphModuleBase) -> None:
+    all_weights = find_modules_of_subclass(graph, LinearWeights)
+
+    for w in all_weights:
+        for i_n in w.input_nodes:
+            for sm in i_n.source_modules:
+                if isinstance(sm, LinearWeights):
+                    raise DRCError(
+                        f"Inputs to linear weights may not be linear weights.\nFound linear weights {sm} as source module -> to linear weights {w}."
+                    )
+
+        for o_n in w.output_nodes:
+            for sm in o_n.sink_modules:
+                if isinstance(sm, LinearWeights):
+                    raise DRCError(
+                        f"Outputs of linear weights may not be linear weights.\nFound linear weights {w} with output sink module -> {sm}."
+                    )
+
+
 xylo_drc: List[Callable[[GraphModuleBase], None]] = [
     output_nodes_have_neurons_as_source,
     input_to_neurons_is_a_weight,
@@ -116,6 +135,7 @@ xylo_drc: List[Callable[[GraphModuleBase], None]] = [
     le_16_input_channels,
     all_neurons_have_same_dt,
     output_neurons_cannot_be_recurrent,
+    no_consecutive_weights,
 ]
 """ List[Callable[[GraphModuleBase], None]]: The collection of design rules for Xylo """
 
@@ -316,16 +336,36 @@ def mapper(graph: GraphModuleBase) -> dict:
 
     # - For each weight module, place the weights in the right place
     for w in weights:
+        # - Find the destination neurons
+        sm = SetList(
+            [
+                sm
+                for n in w.output_nodes
+                for sm in n.sink_modules
+                if isinstance(sm, XyloNeurons)
+            ]
+        )
+        target_neurons: XyloNeurons = sm[0]
+
         # - How many target synapses per neuron?
-        target_neurons: XyloNeurons = w.output_nodes[0].sink_modules[0]
         num_target_syns = (
             2
             if len(target_neurons.input_nodes) > len(target_neurons.output_nodes)
             else 1
         )
 
+        # - Find the source neurons
+        sm = SetList(
+            [
+                sm
+                for n in w.input_nodes
+                for sm in n.source_modules
+                if isinstance(sm, XyloNeurons)
+            ]
+        )
+        source_neurons: XyloNeurons = sm[0]
+
         # - Get source and target HW IDs
-        source_neurons: XyloNeurons = w.input_nodes[0].source_modules[0]
         source_ids = source_neurons.hw_ids
         target_ids = target_neurons.hw_ids
 
@@ -404,8 +444,37 @@ def mapper(graph: GraphModuleBase) -> dict:
 
     aliases = find_modules_of_subclass(graph, AliasConnection)
 
-    if len(aliases) > 0:
-        raise DRCError("Alias mapping is not yet implemented.")
+    list_aliases = [[]] * num_hidden_neurons
+    for a in aliases:
+        # - Find the source neurons
+        sm = SetList(
+            [
+                sm
+                for n in w.input_nodes
+                for sm in n.source_modules
+                if isinstance(sm, XyloNeurons)
+            ]
+        )
+        source_neurons: XyloNeurons = sm[0]
+
+        # - Find the destination neurons
+        sm = SetList(
+            [
+                sm
+                for n in w.output_nodes
+                for sm in n.sink_modules
+                if isinstance(sm, XyloNeurons)
+            ]
+        )
+        target_neurons: XyloNeurons = sm[0]
+
+        # - Get the source and target HW IDs
+        source_ids = source_neurons.hw_ids
+        target_ids = target_neurons.hw_ids
+
+        # - Add to the aliases list
+        for (source, target) in zip(source_ids, target_ids):
+            list_aliases[source].append(target)
 
     return {
         "mapped_graph": graph,
@@ -422,6 +491,6 @@ def mapper(graph: GraphModuleBase) -> dict:
         "weight_shift_in": 0,
         "weight_shift_rec": 0,
         "weight_shift_out": 0,
-        "aliases": None,
+        "aliases": list_aliases,
         "dt": dt,
     }
