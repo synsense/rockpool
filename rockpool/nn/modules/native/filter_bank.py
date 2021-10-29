@@ -1,3 +1,7 @@
+"""
+Modules implementing filter banks
+"""
+
 from typing import Union, Iterable
 from itertools import product
 from multiprocessing import Pool
@@ -9,10 +13,9 @@ from rockpool.nn.modules.module import Module
 from rockpool.parameters import ParameterBase, SimulationParameter
 
 from typing import Optional
+from rockpool.typehints import P_int, P_float, P_bool
 
-P_int = Union[int, ParameterBase]
-P_float = Union[float, ParameterBase]
-P_bool = Union[bool, ParameterBase]
+__all__ = ["ButterFilter", "ButterMelFilter"]
 
 
 class FilterBankBase(Module):

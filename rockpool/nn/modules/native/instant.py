@@ -9,6 +9,8 @@ from warnings import warn
 
 from typing import Callable, Union
 
+__all__ = ["Instant", "InstantJax"]
+
 
 class InstantMixin:
     """
@@ -71,13 +73,13 @@ try:
             self.function = Partial(self.function)
 
 
-except:
+except (ImportError, ModuleNotFoundError) as err:
     warn(
-        "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available."
+        "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available.\n{err}"
     )
 
     class InstantJax:
-        def __init__(self):
+        def __init__(self, *_, **__):
             raise ImportError(
                 "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available."
             )

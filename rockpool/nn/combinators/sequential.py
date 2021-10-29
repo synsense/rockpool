@@ -16,7 +16,9 @@ class SequentialMixin(ABC):
     """
 
     def __init__(
-        self, *args, **kwargs,
+        self,
+        *args,
+        **kwargs,
     ):
         # - Check that `shape` wasn't provided as a keyword argument
         if "shape" in kwargs:
@@ -76,7 +78,9 @@ class SequentialMixin(ABC):
         # - Assign modules as submodules
         for (mod_name, submod) in zip(submod_names, submods):
             setattr(
-                self, mod_name, submod,
+                self,
+                mod_name,
+                submod,
             )
 
         # - Record module and weight lists
@@ -98,7 +102,10 @@ class SequentialMixin(ABC):
             x, substate, subrec = mod(x, record=record)
             new_state_dict.update({submod_name: substate})
             record_dict.update(
-                {submod_name: subrec, f"{submod_name}_output": copy(x),}
+                {
+                    submod_name: subrec,
+                    f"{submod_name}_output": copy(x),
+                }
             )
 
         # - Return output, state and record
