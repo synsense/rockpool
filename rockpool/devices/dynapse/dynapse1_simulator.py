@@ -19,6 +19,7 @@ from rockpool.devices.dynapse.dynapse1_simconfig import (
 )
 
 from rockpool.devices.dynapse.router import Router, NeuronConnection
+from rockpool.devices.dynapse.biasgen import BiasGen
 
 from rockpool.parameters import SimulationParameter
 
@@ -31,11 +32,9 @@ from typing import (
     Tuple,
 )
 
+import warnings
+import jax.numpy as np
 from rockpool.typehints import FloatVector
-
-from rockpool.devices.dynapse.utils import (
-    get_Dynapse1Parameter,
-)
 
 
 _SAMNA_AVAILABLE = True
@@ -78,8 +77,8 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
     The parameters and pipeline are explained in the superclass `DynapSE1NeuronSynapseJax` doctring
 
     :Parameters:
-    :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique neuron keys. if index map is in proper format, a core dictionary can be inferred without an error
-    :type idx_map: Dict[int, NeuronKey]
+    :param idx_map_dict: a dictionary of dictionaries (2 seperate dictionary for `w_in` and `w_rec`) of the mapping between matrix indexes of the neurons and their global unique neuron keys. if index map is in proper format, a core dictionary can be inferred without an error
+    :type idx_map_dict: Dict[str, Dict[int, NeuronKey]]
 
     :Instance Variables:
 
@@ -139,7 +138,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
     def __init__(
         self,
         shape: tuple = None,
-        idx_map: Optional[Dict[int, NeuronKey]] = None,
+        idx_map_dict: Optional[Dict[str, Dict[int, NeuronKey]]] = None,
         sim_config: Optional[DynapSE1SimBoard] = None,
         w_in: Optional[FloatVector] = None,
         w_rec: Optional[FloatVector] = None,
@@ -156,8 +155,8 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
 
         if sim_config is None:
             # Get a simulation board from an index map with default bias parameters
-            if idx_map is not None:
-                sim_config = DynapSE1SimBoard.from_config(None, idx_map["w_rec"])
+            if idx_map_dict is not None:
+                sim_config = DynapSE1SimBoard.from_config(None, idx_map_dict["w_rec"])
             else:
                 sim_config = DynapSE1SimBoard(shape[-1])
 
@@ -178,29 +177,31 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         self.f_t_pulse = SimulationParameter(sim_config.f_t_pulse)
 
         # Check if index map is in proper format, if so, a core dictionary can be inferred without an error.
-        DynapSE1SimBoard.check_neuron_id_order(list(idx_map["w_rec"].keys()))
-        self.core_dict = DynapSE1SimBoard.idx_map_to_core_dict(idx_map["w_rec"])
-        self.idx_map = idx_map
+        DynapSE1SimBoard.check_neuron_id_order(list(idx_map_dict["w_rec"].keys()))
+        self.core_dict = DynapSE1SimBoard.idx_map_to_core_dict(idx_map_dict["w_rec"])
+        self.idx_map_dict = idx_map_dict
 
-    def samna_param_group(self, chipId: int, coreId: int) -> Dynapse1ParameterGroup:
+    def samna_param_group(
+        self, chipID: np.uint8, coreID: np.uint8
+    ) -> Dynapse1ParameterGroup:
         """
         samna_param_group creates a samna Dynapse1ParameterGroup group object and configure the bias
         parameters by creating a dictionary. It does not check if the values are legal or not.
 
-        :param chipId: the chip ID to declare in the paramter group
-        :type chipId: int
-        :param coreId: the core ID to declare in the parameter group
-        :type coreId: int
+        :param chipID: Unique chip ID to of the parameter group
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID to of the parameter group
+        :type coreID: np.uint8
         :return: samna config object to set a parameter group within one core
         :rtype: Dynapse1ParameterGroup
         """
-        pg_json = json.dumps(self._param_group(chipId, coreId))
+        pg_json = json.dumps(self._param_group(chipID, coreID))
         pg_samna = Dynapse1ParameterGroup()
         pg_samna.from_json(pg_json)
         return pg_samna
 
     def _param_group(
-        self, chipId, coreId
+        self, chipID: np.uint8, coreID: np.uint8
     ) -> Dict[
         str,
         Dict[str, Union[int, List[Dict[str, Union[str, Dict[str, Union[str, int]]]]]]],
@@ -208,13 +209,15 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         """
         _param_group creates a samna type dictionary to configure the parameter group
 
-        :param chipId: the chip ID to declare in the paramter group
-        :type chipId: int
-        :param coreId: the core ID to declare in the parameter group
-        :type coreId: int
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
         :return: a dictonary of bias currents, and their coarse/fine values
         :rtype: Dict[str, Dict[str, Union[int, List[Dict[str, Union[str, Dict[str, Union[str, int]]]]]]]]
         """
+
+        bias_getter = lambda bias: getattr(self, bias)(chipID, coreID)
 
         def param_dict(param: Dynapse1Parameter) -> Dict[str, Union[str, int]]:
             serial = {
@@ -226,15 +229,15 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
             return serial
 
         paramMap = [
-            {"key": bias, "value": param_dict(self.__getattribute__(bias))}
+            {"key": bias, "value": param_dict(bias_getter(bias))}
             for bias in self.biases
         ]
 
         group = {
             "value0": {
                 "paramMap": paramMap,
-                "chipId": chipId,
-                "coreId": coreId,
+                "chipId": chipID,
+                "coreId": coreID,
             }
         }
 
@@ -270,21 +273,21 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         :return: `DynapSE1Jax` simulator object
         :rtype: DynapSE1Jax
         """
-        _w_in, w_rec, idx_map = Router.get_weight_from_config(
+        _w_in, w_rec, idx_map_dict = Router.get_weight_from_config(
             config, virtual_connections, return_maps=True
         )
         w_in = _w_in if w_in is None else w_in
 
         if w_in is not None:
-            idx_map["w_in"] = idx_map_in
+            idx_map_dict["w_in"] = idx_map_in
 
         shape = w_in.shape[0:2]
         if not default_bias:
-            simconfig = DynapSE1SimBoard.from_config(config, idx_map["w_rec"])
+            simconfig = DynapSE1SimBoard.from_config(config, idx_map_dict["w_rec"])
 
         else:
-            simconfig = DynapSE1SimBoard.from_config(None, idx_map["w_rec"])
-        mod = cls(shape, idx_map, simconfig, w_in, w_rec, *args, **kwargs)
+            simconfig = DynapSE1SimBoard.from_config(None, idx_map_dict["w_rec"])
+        mod = cls(shape, idx_map_dict, simconfig, w_in, w_rec, *args, **kwargs)
         return mod
 
     @classmethod
@@ -305,190 +308,228 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         mod = cls.from_config(config, connections, *args, **kwargs)
         return mod
 
-    ## --- LOW LEVEL BIAS CURRENTS (SAMNA) -- ##
+    def get_bias(
+        self,
+        chipID: np.uint8,
+        coreID: np.uint8,
+        attribute: str,
+        syn_type: Optional[str] = None,
+    ) -> float:
+        """
+        get_bias obtains a bias current from the simulation currents to convert this
+        into device bias with coarse and fine values
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :param attribute: the name of the simulation attribute which corresponds to the desired bias
+        :type attribute: str
+        :param syn_type: the synase type of the attribute if the corresponding current is a synaptic current rather than membrane, defaults to None
+        :type syn_type: Optional[str], optional
+        :raises IndexError: Chip:{chipID},Core:{coreID} is not used! Please look at the core dictionary!
+        :raises AttributeError: Bias: {attribute} is a synaptic current. Please define the syn_type!"
+        :return: the bias current of a subset of neruons obtained from the core dictionary
+        :rtype: float
+        """
+        I_bias = None
+        if (chipID, coreID) not in self.core_dict:
+            raise IndexError(
+                f"Chip:{chipID},Core:{coreID} is not used! Please look at the core dictionary! {list(self.core_dict.keys())}"
+            )
+        else:
+            # Obtain the neuron indices from the core dictionary
+            idx = np.array(list(self.core_dict[(chipID, coreID)].keys()))
+            I_base = self.__getattribute__(attribute)
+            if syn_type is None:
+                if len(I_base.shape) == 2:
+                    raise AttributeError(
+                        f"Bias: {attribute} is a synaptic current. Please define the syn_type!"
+                    )
+                I_bias = float(I_base[idx].mean())
+            else:
+                if len(I_base.shape) == 1:
+                    warnings.warn(
+                        f"Bias: {attribute} is a a membrane current. Defined syn_type:{syn_type} has no effect!"
+                    )
+                    I_bias = float(I_base[idx].mean())
+                else:
+                    I_bias = float(I_base[self.SYN[syn_type], idx].mean())
+
+        return I_bias
+
+    @staticmethod
+    def get_Dynapse1Parameter(bias: float, name: str) -> Dynapse1Parameter:
+        """
+        get_Dynapse1Parameter constructs a samna DynapSE1Parameter object given the bias current desired
+
+        :param bias: bias current desired. It will be expressed by a coarse fine tuple which will generate the closest possible bias current.
+        :type bias: float
+        :param name: the name of the bias parameter
+        :type name: str
+        :return: samna DynapSE1Parameter object
+        :rtype: Dynapse1Parameter
+        """
+        coarse, fine = BiasGen.bias_to_coarse_fine(bias)
+        param = Dynapse1Parameter(name, coarse, fine)
+        return param
+
+    def bias_parameter(
+        self,
+        chipID: np.uint8,
+        coreID: np.uint8,
+        sim_name: str,
+        dev_name: str,
+        syn_type: Optional[str] = None,
+    ) -> Dynapse1Parameter:
+        """
+        bias_parameter wraps the bias current inference from the simulation currents and DynapSE1Parameter construction
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :param sim_name: the name of the simulation attribute which corresponds to the desired bias
+        :type sim_name: str
+        :param dev_name: the name of the bias parameter
+        :type dev_name: str
+        :param syn_type: the synase type of the attribute if the corresponding current is a synaptic current rather than membrane, defaults to None
+        :type syn_type: Optional[str], optional
+        :return: samna DynapSE1Parameter object
+        :rtype: Dynapse1Parameter
+        """
+        I_bias = self.get_bias(chipID, coreID, sim_name, syn_type)
+        param = DynapSE1Jax.get_Dynapse1Parameter(bias=I_bias, name=dev_name)
+        return param
+
     @property
-    def IF_AHTAU_N(self):
+    def Iref(self) -> FloatVector:
+        """
+        Iref is the device bias current (specific to neurons, not the core) setting the refractory period.
+        """
+        return self.f_t_ref / self.t_ref
+
+    @property
+    def Ipulse(self) -> FloatVector:
+        """
+        Ipulse is the device bias current (specific to neurons, not the core) setting the spike triggered pulse width period.
+        """
+        return self.f_t_pulse / self.t_pulse
+
+    ## --- LOW LEVEL BIAS CURRENTS (SAMNA) -- ##
+    def IF_AHTAU_N(self, chipID: np.uint8, coreID: np.uint8):
         """
         IF_AHTAU_N is the bias current controlling the AHP circuit time constant. Itau_ahp
         """
-        param = get_Dynapse1Parameter(
-            bias=self.Itau_syn[self.SYN["AHP"]].mean(), name="IF_AHTAU_N"
-        )
-        return param
+        return self.bias_parameter(chipID, coreID, "Itau_syn", "IF_AHTAU_N", "AHP")
 
-    @property
-    def IF_AHTHR_N(self):
-        param = get_Dynapse1Parameter(
-            bias=self.Ith_syn[self.SYN["AHP"]].mean(), name="IF_AHTHR_N"
-        )
-        return param
+    def IF_AHTHR_N(self, chipID: np.uint8, coreID: np.uint8):
+        return self.bias_parameter(chipID, coreID, "Ith_syn", "IF_AHTHR_N", "AHP")
 
-    @property
-    def IF_AHW_P(self):
-        param = get_Dynapse1Parameter(
-            bias=self.Iw[self.SYN["AHP"]].mean(), name="IF_AHW_P"
-        )
-        return param
+    def IF_AHW_P(self, chipID: np.uint8, coreID: np.uint8):
+        return self.bias_parameter(chipID, coreID, "Iw", "IF_AHW_P", "AHP")
 
-    @property
-    def IF_BUF_P(self):
+    def IF_BUF_P(self, chipID: np.uint8, coreID: np.uint8):
         """
         IF_BUF_P Vm readout, use samna defaults.
         """
         return Dynapse1Parameter("IF_BUF_P", 4, 80)
 
-    @property
-    def IF_CASC_N(self):
+    def IF_CASC_N(self, chipID: np.uint8, coreID: np.uint8):
         """
         IF_CASC_N for AHP regularization, not so important, use samna defaults.
+        [] TODO: Check this
         """
-        param = get_Dynapse1Parameter(bias=self.Io.mean(), name="IF_CASC_N")
-        return param
+        return self.bias_parameter(chipID, coreID, "Io", "IF_CASC_N")
 
-    @property
-    def IF_DC_P(self):
-        param = get_Dynapse1Parameter(bias=self.Idc.mean(), name="IF_DC_P")
-        return param
+    def IF_DC_P(self, chipID: np.uint8, coreID: np.uint8):
+        return self.bias_parameter(chipID, coreID, "Idc", "IF_DC_P")
 
-    @property
-    def IF_NMDA_N(self):
-        param = get_Dynapse1Parameter(bias=self.If_nmda.mean(), name="IF_NMDA_N")
-        return param
+    def IF_NMDA_N(self, chipID: np.uint8, coreID: np.uint8):
+        return self.bias_parameter(chipID, coreID, "If_nmda", "IF_NMDA_N")
 
-    @property
-    def IF_RFR_N(self):
+    def IF_RFR_N(self, chipID: np.uint8, coreID: np.uint8):
         """
         # 4, 120 in Chenxi
-        # 0, 20 by Ugurcan
+        # 0, 30 by Ugurcan
         """
-        I_ref = self.f_t_ref / self.t_ref
-        param = get_Dynapse1Parameter(bias=I_ref.mean(), name="IF_RFR_N")
-        return param
+        return self.bias_parameter(chipID, coreID, "Iref", "IF_RFR_N")
 
-    @property
-    def IF_TAU1_N(self):
-        param = get_Dynapse1Parameter(bias=self.Itau_mem.mean(), name="IF_TAU1_N")
-        return param
+    def IF_TAU1_N(self, chipID: np.uint8, coreID: np.uint8):
+        return self.bias_parameter(chipID, coreID, "Itau_mem", "IF_TAU1_N")
 
-    @property
-    def IF_TAU2_N(self):
+    def IF_TAU2_N(self, chipID: np.uint8, coreID: np.uint8):
         """
         IF_TAU2_N Second refractory period. Generally max current. For deactivation of certain neruons.
         """
         return Dynapse1Parameter("IF_TAU2_N", 7, 255)
 
-    @property
-    def IF_THR_N(self):
-        param = get_Dynapse1Parameter(bias=self.Ith_mem.mean(), name="IF_THR_N")
-        return param
+    def IF_THR_N(self, chipID: np.uint8, coreID: np.uint8):
+        return self.bias_parameter(chipID, coreID, "Ith_mem", "IF_THR_N")
 
-    @property
-    def NPDPIE_TAU_F_P(self):
+    def NPDPIE_TAU_F_P(self, chipID: np.uint8, coreID: np.uint8):
         # FAST_EXC, AMPA
-        param = get_Dynapse1Parameter(
-            bias=self.Itau_syn[self.SYN["AMPA"]].mean(), name="NPDPIE_TAU_F_P"
-        )
-        return param
+        return self.bias_parameter(chipID, coreID, "Itau_syn", "NPDPIE_TAU_F_P", "AMPA")
 
-    @property
-    def NPDPIE_TAU_S_P(self):
+    def NPDPIE_TAU_S_P(self, chipID: np.uint8, coreID: np.uint8):
         # SLOW_EXC, NMDA
-        param = get_Dynapse1Parameter(
-            bias=self.Itau_syn[self.SYN["NMDA"]].mean(), name="NPDPIE_TAU_S_P"
-        )
-        return param
+        return self.bias_parameter(chipID, coreID, "Itau_syn", "NPDPIE_TAU_S_P", "NMDA")
 
-    @property
-    def NPDPIE_THR_F_P(self):
+    def NPDPIE_THR_F_P(self, chipID: np.uint8, coreID: np.uint8):
         # FAST_EXC, AMPA
-        param = get_Dynapse1Parameter(
-            bias=self.Ith_syn[self.SYN["AMPA"]].mean(), name="NPDPIE_THR_F_P"
-        )
-        return param
+        return self.bias_parameter(chipID, coreID, "Ith_syn", "NPDPIE_THR_F_P", "AMPA")
 
-    @property
-    def NPDPIE_THR_S_P(self):
+    def NPDPIE_THR_S_P(self, chipID: np.uint8, coreID: np.uint8):
         # SLOW_EXC, NMDA
-        param = get_Dynapse1Parameter(
-            bias=self.Ith_syn[self.SYN["NMDA"]].mean(), name="NPDPIE_THR_S_P"
-        )
-        return param
+        return self.bias_parameter(chipID, coreID, "Ith_syn", "NPDPIE_THR_S_P", "NMDA")
 
-    @property
-    def NPDPII_TAU_F_P(self):
+    def NPDPII_TAU_F_P(self, chipID: np.uint8, coreID: np.uint8):
         # FAST_INH, GABA_B, shunting current, a mixture of subtractive and divisive
-        param = get_Dynapse1Parameter(
-            bias=self.Itau_syn[self.SYN["GABA_B"]].mean(), name="NPDPII_TAU_F_P"
+        return self.bias_parameter(
+            chipID, coreID, "Itau_syn", "NPDPII_TAU_F_P", "GABA_B"
         )
-        return param
 
-    @property
-    def NPDPII_TAU_S_P(self):
+    def NPDPII_TAU_S_P(self, chipID: np.uint8, coreID: np.uint8):
         # SLOW_INH, GABA_A, subtractive
-        param = get_Dynapse1Parameter(
-            bias=self.Itau_syn[self.SYN["GABA_A"]].mean(), name="NPDPII_TAU_S_P"
+        return self.bias_parameter(
+            chipID, coreID, "Itau_syn", "NPDPII_TAU_S_P", "GABA_A"
         )
-        return param
 
-    @property
-    def NPDPII_THR_F_P(self):
+    def NPDPII_THR_F_P(self, chipID: np.uint8, coreID: np.uint8):
         # FAST_INH, GABA_B, shunting current, a mixture of subtractive and divisive
-        param = get_Dynapse1Parameter(
-            bias=self.Ith_syn[self.SYN["GABA_B"]].mean(), name="NPDPII_THR_F_P"
+        return self.bias_parameter(
+            chipID, coreID, "Ith_syn", "NPDPII_THR_F_P", "GABA_B"
         )
-        return param
 
-    @property
-    def NPDPII_THR_S_P(self):
+    def NPDPII_THR_S_P(self, chipID: np.uint8, coreID: np.uint8):
         # SLOW_INH, GABA_A, subtractive
-        param = get_Dynapse1Parameter(
-            bias=self.Ith_syn[self.SYN["GABA_A"]].mean(), name="NPDPII_THR_S_P"
+        return self.bias_parameter(
+            chipID, coreID, "Ith_syn", "NPDPII_THR_S_P", "GABA_A"
         )
-        return param
 
-    @property
-    def PS_WEIGHT_EXC_F_N(self):
+    def PS_WEIGHT_EXC_F_N(self, chipID: np.uint8, coreID: np.uint8):
         # FAST_EXC, AMPA
-        param = get_Dynapse1Parameter(
-            bias=self.Iw[self.SYN["AMPA"]].mean(), name="PS_WEIGHT_EXC_F_N"
-        )
-        return param
+        return self.bias_parameter(chipID, coreID, "Iw", "PS_WEIGHT_EXC_F_N", "AMPA")
 
-    @property
-    def PS_WEIGHT_EXC_S_N(self):
+    def PS_WEIGHT_EXC_S_N(self, chipID: np.uint8, coreID: np.uint8):
         # SLOW_EXC, NMDA
-        param = get_Dynapse1Parameter(
-            bias=self.Iw[self.SYN["NMDA"]].mean(), name="PS_WEIGHT_EXC_S_N"
-        )
-        return param
+        return self.bias_parameter(chipID, coreID, "Iw", "PS_WEIGHT_EXC_S_N", "NMDA")
 
-    @property
-    def PS_WEIGHT_INH_F_N(self):
+    def PS_WEIGHT_INH_F_N(self, chipID: np.uint8, coreID: np.uint8):
         # FAST_INH, GABA_B, shunting current, a mixture of subtractive and divisive
-        param = get_Dynapse1Parameter(
-            bias=self.Iw[self.SYN["GABA_B"]].mean(), name="PS_WEIGHT_INH_F_N"
-        )
-        return param
+        return self.bias_parameter(chipID, coreID, "Iw", "PS_WEIGHT_INH_F_N", "GABA_B")
 
-    @property
-    def PS_WEIGHT_INH_S_N(self):
+    def PS_WEIGHT_INH_S_N(self, chipID: np.uint8, coreID: np.uint8):
         # SLOW_INH, GABA_A, subtractive
-        param = get_Dynapse1Parameter(
-            bias=self.Iw[self.SYN["GABA_A"]].mean(), name="PS_WEIGHT_INH_S_N"
-        )
-        return param
+        return self.bias_parameter(chipID, coreID, "Iw", "PS_WEIGHT_INH_S_N", "GABA_A")
 
-    @property
-    def PULSE_PWLK_P(self):
+    def PULSE_PWLK_P(self, chipID: np.uint8, coreID: np.uint8):
         """
         # 4, 160 by default
-        # 3, 56 for 10u by Ugurcan
+        # 3, 70 for 10u by Ugurcan
         """
-        I_pulse = self.f_t_pulse / self.t_pulse
-        param = get_Dynapse1Parameter(bias=I_pulse.mean(), name="PULSE_PWLK_P")
-        return param
+        return self.bias_parameter(chipID, coreID, "Ipulse", "PULSE_PWLK_P")
 
-    @property
-    def R2R_P(self):
+    def R2R_P(self, chipID: np.uint8, coreID: np.uint8):
         # Use samna defaults
         return Dynapse1Parameter("R2R_P", 3, 85)
