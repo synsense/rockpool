@@ -34,11 +34,7 @@ from rockpool.typehints import (
 
 import numpy as np
 
-ArrayLike = Union[np.ndarray, List, Tuple]
-Numeric = Union[int, float, complex, np.number]
-NeuronKey = Tuple[np.uint8, np.uint8, np.uint16]
-NeuronConnection = Tuple[np.uint16, np.uint16]
-NeuronConnectionSynType = Tuple[np.uint16, np.uint16, np.uint8]
+from rockpool.devices.dynapse.router import ArrayLike, NeuronKey
 
 _SAMNA_AVAILABLE = True
 
@@ -101,7 +97,7 @@ class Figure:
         input_ts: TSEvent,
         weighted_mask: Optional[ArrayLike] = None,
         virtual: bool = True,
-        idx_map: Optional[Union[Dict[int, np.uint16], Dict[int, NeuronKey]]] = None,
+        idx_map_dict: Optional[Dict[str, Dict[int, NeuronKey]]] = None,
         title: Optional[str] = None,
     ) -> Tuple[TSEvent, List[str]]:
 
@@ -116,8 +112,8 @@ class Figure:
         :type weighted_mask: np.ndarray
         :param virtual: Indicates if the pre-synaptic neruon is spike-generator(virtual) or real in-device neuron, defaults to True
         :type virtual: bool, optional
-        :param idx_map: dictionary to map the matrix indexes of the neurons to a NeuronKey or neuron UID to be used in the label, defaults to None
-        :type idx_map: Optional[Union[Dict[int, np.uint16], Dict[int, NeuronKey]]], optional
+        :param idx_map_dict: a dictionary of dictionaries (2 seperate dictionary for `w_in` and `w_rec`) of the neurons to a NeuronKey to be used in the label, defaults to None
+        :type idx_map_dict: Optional[Dict[str, Dict[int, NeuronKey]]], optional
         :param title: The name of the resulting input spike train, defaults to None
         :type title: Optional[str], optional
         :raises ValueError: Weighted mask should include as many elements as number of channels in the input_ts!
@@ -128,7 +124,6 @@ class Figure:
                 :NeuronID: can be NeuronKey indicating chipID, coreID and neuronID of the neuron, can be universal neruon ID or matrix index.
                 :Repetition: represents the number of synapse indicated in the weighted mask
                     n[(3, 0, 20)]x3 -> real neuron in chip 3, core 0, with neuronID 20, connection repeated 3 times
-                    n[3092]x2 -> real neuron with UID 3092, connection repeated twice
                     s[0]x1 -> virtual neuron(spike generator), connection repeated once
         :rtype: Tuple[TSEvent, List[str]]
         """
@@ -146,8 +141,8 @@ class Figure:
         labels = []
 
         # Get the index map keys depending on their relative order
-        if idx_map is not None:
-            virtual_key, real_key = idx_map.keys()
+        if idx_map_dict is not None:
+            virtual_key, real_key = idx_map_dict.keys()
 
         # Create an empty TSEvent object to append channels
         spikes_ts = custom_spike_train(
@@ -163,10 +158,12 @@ class Figure:
             # Spike generator or in-device neuron
             n = "s" if virtual else "n"
 
-            # Map indexes to NeuronKey or NeuronUID depending on the type of the idx_map
-            if idx_map is not None:
+            # Map weight matric indices to NeuronKey
+            if idx_map_dict is not None:
                 key = virtual_key if virtual else real_key
-                name = list(map(lambda idx: f"{n}{[idx_map[key][idx]]}", nonzero_idx))
+                name = list(
+                    map(lambda idx: f"{n}{[idx_map_dict[key][idx]]}", nonzero_idx)
+                )
 
             else:
                 name = list(map(lambda idx: f"{n}[{idx}]", nonzero_idx))
@@ -186,15 +183,11 @@ class Figure:
         mod: DynapSE1NeuronSynapseJax,
         input_ts: TSEvent,
         output_ts: TSEvent,
-        post: Union[NeuronKey, np.uint16, int],
+        post: Union[NeuronKey, int],
         syn_type: Union[Dynapse1SynType, str, np.uint8],
-        pre: Optional[
-            Union[
-                List[Union[NeuronKey, np.uint16, int]], Union[NeuronKey, np.uint16, int]
-            ]
-        ] = None,
+        pre: Optional[Union[List[Union[NeuronKey, int]], Union[NeuronKey, int]]] = None,
         virtual: Optional[bool] = None,
-        idx_map: Optional[Union[Dict[int, np.uint16], Dict[int, NeuronKey]]] = None,
+        idx_map_dict: Optional[Dict[str, Dict[int, NeuronKey]]] = None,
         *args,
         **kwargs,
     ) -> Tuple[TSEvent, List[str]]:
@@ -203,7 +196,7 @@ class Figure:
         The post-synaptic neuron can be provided as matrix index in the absence of a index map.
         If an index map is provided, the post-neuron id should be compatible with map. That is,
         if neurons are represented in `NeuronKey` format(chipID, coreID, neuronID), the post-synaptic neuron should be indicated in
-        `NeuronKey` format as well. It can also be NeuronUID. One can provide a pre-synaptic neuron or
+        `NeuronKey` format as well. One can provide a pre-synaptic neuron or
         a pre-synaptic neuron list to constrain the incoming connections to be listed. In this case,
         the pre-synaptic neurons should also obey the same format in the `idx_map`.
 
@@ -213,16 +206,16 @@ class Figure:
         :type input_ts: TSEvent
         :param output_ts: Output spike trains of DynapSE1NeuronSynapseJax object
         :type output_ts: TSEvent
-        :param post: matrix index(if idx_map absent) or UID/NeuronKey(if idx_map provided) of the post synaptic neuron defined inside the `mod`
-        :type post: Union[NeuronKey, np.uint16, int]
+        :param post: matrix index(if idx_map absent) or NeuronKey(if idx_map provided) of the post synaptic neuron defined inside the `mod`
+        :type post: Union[NeuronKey, int]
         :param syn_type: the listening synapse type of post-synaptic neuron of interest (e.g. "AMPA", "GABA_A", ...)
         :type syn_type: Union[Dynapse1SynType, str, np.uint8]
-        :param pre: matrix indexes(if idx_map absent) or UIDs/NeuronKeys(if idx_map provided) of the pre synaptic neurons defined inside the `mod` to constraint the sending neurons. If None, all the pre-synaptic connections are listed. , defaults to None
-        :type pre: Optional[ Union[ List[Union[NeuronKey, np.uint16, int]], Union[NeuronKey, np.uint16, int] ] ], optional
+        :param pre: matrix indexes(if idx_map absent) or NeuronKeys(if idx_map provided) of the pre synaptic neurons defined inside the `mod` to constraint the sending neurons. If None, all the pre-synaptic connections are listed. , defaults to None
+        :type pre: Optional[ Union[ List[Union[NeuronKey, int]], Union[NeuronKey, int] ] ], optional
         :param virtual: Gather only the virtual connections or not (if `pre` is None). Gather both if None. It's not optional in the case that pre-synaptic neuro is defined by the matrix index. Automatically found if both pre-synaptic neuron and index map is given. defaults to None
         :type virtual: Optional[bool], optional
-        :param idx_map: dictionary to map the matrix indexes of the neurons to a NeuronKey or neuron UID to be used in the label, defaults to None
-        :type idx_map: Optional[Union[Dict[int, np.uint16], Dict[int, NeuronKey]]], optional
+        :param idx_map_dict: a dictionary of dictionaries (2 seperate dictionary for `w_in` and `w_rec`) of the neurons to a NeuronKey to be used in the label, defaults to None
+        :type idx_map_dict: Optional[Dict[str, Dict[int, NeuronKey]]], optional
         :raises ValueError: Duplicate pre-synaptic neurons found in real and virtual maps!
         :raises IndexError: Pre-synaptic neuron not found!
         :raises ValueError: `virtual` flag should be set if pre-synaptic neuron is defined
@@ -233,7 +226,6 @@ class Figure:
                 :NeuronID: can be NeuronKey indicating chipID, coreID and neuronID of the neuron, can be universal neruon ID or matrix index.
                 :Repetition: represents the number of synapse indicated in the weighted mask
                     n[(3, 0, 20)]x3 -> real neuron in chip 3, core 0, with neuronID 20, connection repeated 3 times (idx_map provided)
-                    n[3092]x2 -> real neuron with UID 3092, connection repeated twice (idx_map provided)
                     s[0]x1 -> virtual neuron(spike generator), connection repeated once
         :rtype: Tuple[TSEvent, List[str]]
         """
@@ -269,7 +261,7 @@ class Figure:
                 mask = mask * np.logical_and(mask, pre_mask)
 
             spikes_ts, labels = Figure.select_input_channels(
-                _ts, mask, virtual, idx_map, *args, **kwargs
+                _ts, mask, virtual, idx_map_dict, *args, **kwargs
             )
             return spikes_ts, labels
 
@@ -278,15 +270,17 @@ class Figure:
             _, syn_idx = Figure._decode_syn_type(syn_type, mod.SYN)
 
         # Resolve post-synaptic (and pre-synaptic if exist) neuron's matrix index
-        if idx_map is not None:
-            virtual_key, real_key = idx_map.keys()
-            post = Figure.get_idx_from_map(post, idx_map[real_key])
+        if idx_map_dict is not None:
+            virtual_key, real_key = idx_map_dict.keys()
+            post = Figure.get_idx_from_map(post, idx_map_dict[real_key])
 
             # Resolve pre-synaptic neuron's matrix index
             if pre is not None:
                 if virtual is None:
-                    pre_virtual = Figure.get_idx_from_map(pre, idx_map[virtual_key], 0)
-                    pre_real = Figure.get_idx_from_map(pre, idx_map[real_key], 0)
+                    pre_virtual = Figure.get_idx_from_map(
+                        pre, idx_map_dict[virtual_key], 0
+                    )
+                    pre_real = Figure.get_idx_from_map(pre, idx_map_dict[real_key], 0)
 
                     if pre_virtual is not None and pre_real is not None:
                         raise ValueError(
@@ -304,7 +298,7 @@ class Figure:
                         raise IndexError(f"Pre-synaptic neuron {pre} not found!")
                 else:
                     key = virtual_key if virtual else real_key
-                    pre_idx = Figure.get_idx_from_map(pre, idx_map[key], 1)
+                    pre_idx = Figure.get_idx_from_map(pre, idx_map_dict[key], 1)
 
         # Gather external AND recurrent input spike trains
         if virtual is None:
@@ -322,7 +316,7 @@ class Figure:
 
         # Gather external OR recurrent input spike trains
         else:
-            if idx_map is None:
+            if idx_map_dict is None:
                 pre_idx = pre
             _ts = input_ts if virtual else output_ts
             _weight = mod.w_in if virtual else mod.w_rec
@@ -333,7 +327,8 @@ class Figure:
     @staticmethod
     def plot_spikes_label(
         spikes_ts: TSEvent,
-        labels: List[str],
+        labels: Optional[List[str]] = None,
+        idx_map: Optional[Dict[int, NeuronKey]] = None,
         ax: Optional[matplotlib.axes.Axes] = None,
         cmap: Optional[str] = "rainbow",
         ylabel: Optional[str] = None,
@@ -345,8 +340,10 @@ class Figure:
 
         :param spikes_ts: spike train to be plotted
         :type spikes_ts: TSEvent
-        :param labels: Channel labels
-        :type labels: List[str]
+        :param labels: Channel labels, defaults to None
+        :type labels: Optional[List[str]], optional
+        :param idx_map: dictionary to map the matrix indexes of the neurons to a NeuronKey to be used in the label, defaults to None
+        :type idx_map: Optional[Dict[int, NeuronKey]]], optional
         :param ax: The sub-plot axis to plot the figure, defaults to None
         :type ax: Optional[matplotlib.axes.Axes], optional
         :param cmap: matplotlib color map. For full list, please check https://matplotlib.org/stable/tutorials/colors/colormaps.html, defaults to "rainbow"
@@ -357,6 +354,12 @@ class Figure:
         :return: `PathCollection` object returned by scatter plot
         :rtype: matplotlib.collections.PathCollection
         """
+        if labels is None:
+            labels = list(map(str, range(spikes_ts.num_channels)))
+
+        if idx_map is not None:
+            labels = list(map(str, idx_map.values()))
+
         if len(labels) > spikes_ts.num_channels:
             raise ValueError(
                 "`labels` should include as many elements as number of channels in the `spikes_ts`"
@@ -386,12 +389,13 @@ class Figure:
         Ithr: Optional[Union[float, np.ndarray]] = None,
         dt: float = 1e-3,
         name: Optional[str] = None,
+        idx_map: Optional[Dict[int, NeuronKey]] = None,
         margin: Optional[float] = 0.2,
         ax: Optional[matplotlib.axes.Axes] = None,
         line_ratio: float = 0.3,
         *args,
         **kwargs,
-    ) -> Union[TSContinuous, Tuple[TSContinuous, TSContinuous]]:
+    ) -> TSContinuous:
         """
         plot_Ix converts an `Ix_record` current measurements/recordings obtained from the record dictionary to a `TSContinuous` object and plot
 
@@ -403,16 +407,16 @@ class Figure:
         :type dt: float, optional
         :param name: title of the figure, name of the `TSContinuous` object, defaults to None
         :type name: str, optional
+        :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique neuron keys, defaults to None
+        :type idx_map: Optional[Dict[int, NeuronKey]], optional
         :param margin: The margin between the edges of the figure and edges of the lines, defaults to 0.2
         :type margin: Optional[float], optional
         :param ax: The sub-plot axis to plot the figure, defaults to None
         :type ax: Optional[matplotlib.axes.Axes], optional
         :param line_ratio: the ratio between Imem lines and the Ispkthr lines, defaults to 0.3
         :type line_ratio: float, optional
-        :return: Ix, Ithr
-            :Ix: Imem current in `TSContinuous` object format
-            :Ithr: Ithr threshold current in `TSContinuous` object format
-        :rtype: Union[TSContinuous, Tuple[TSContinuous, TSContinuous]]
+        :return: Imem current in `TSContinuous` object format
+        :rtype: TSContinuous
         """
         f_margin = 1.0 + margin if margin is not None else 1.0
 
@@ -422,7 +426,18 @@ class Figure:
         # Convert and plot
         Ix = TSContinuous.from_clocked(Ix_record, dt=dt, name=name)
         _lines = Ix.plot(stagger=np.float32(Ix.max * f_margin), *args, **kwargs)
-        plt.ylabel("Current(A)")
+        plt.ylabel(f"Current(A, +{np.float32(Ix.max * f_margin):.1e})")
+
+        if idx_map is not None:
+            ax = plt.gca()
+            handles, labels = ax.get_legend_handles_labels()
+            ax.legend(
+                handles[::-1],
+                [f"n[{n_key}]" for n_key in idx_map.values()][::-1],
+                bbox_to_anchor=(1.05, 1.05),
+            )
+
+        plt.tight_layout()
 
         # Upper threshold lines
         if Ithr is not None:
@@ -435,10 +450,6 @@ class Figure:
                 linewidth=linewidth,
             )
 
-            return Ix, Ithr
-
-        plt.tight_layout()
-
         return Ix
 
     @staticmethod
@@ -446,6 +457,8 @@ class Figure:
         spikes: np.ndarray,
         dt: float = 1e-3,
         name: Optional[str] = None,
+        idx_map: Optional[Dict[int, NeuronKey]] = None,
+        virtual: bool = False,
         ax: Optional[matplotlib.axes.Axes] = None,
         *args,
         **kwargs,
@@ -459,6 +472,8 @@ class Figure:
         :type dt: float, optional
         :param name: title of the figure, name of the `TSEvent` object, defaults to None
         :type name: str, optional
+        :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique neuron keys, defaults to None
+        :type idx_map: Optional[Dict[int, NeuronKey]], optional
         :param ax: The sub-plot axis to plot the figure, defaults to None
         :type ax: Optional[matplotlib.axes.Axes], optional
         :return: spikes in `TSEvent` object format
@@ -472,25 +487,30 @@ class Figure:
         spikes_ts = TSEvent.from_raster(spikes, dt=dt, name=name)
         spikes_ts.plot(*args, **kwargs)
 
+        if idx_map is not None:
+            plt.ylabel("Channels [ChipID, CoreID, NeuronID]")
+            prefix = "s" if virtual else "n"
+            plt.yticks(
+                list(idx_map.keys()),
+                [f"{prefix}[{n_key}]" for n_key in idx_map.values()],
+            )
         plt.tight_layout()
 
         return spikes_ts
 
     @staticmethod
     def get_idx_from_map(
-        neuron_id: Union[
-            List[Union[NeuronKey, np.uint16]], Union[NeuronKey, np.uint16]
-        ],
-        idx_map: Union[Dict[int, np.uint16], Dict[int, NeuronKey]],
+        neuron_id: Union[List[NeuronKey], NeuronKey],
+        idx_map: Dict[int, NeuronKey],
         verbose: bool = False,
     ) -> Union[List[int], int, None]:
         """
         get_idx_from_map finds the key or a list of keys given a value or list of values stored in the `idx_map` dictionary
 
-        :param neuron_id: a UID/NeuronKey describing the neuron or list of neuron UID/NeuronKeys to be converted to their related matrix indexes.
-        :type neuron_id: Union[List[Union[NeuronKey, np.uint16]], Union[NeuronKey, np.uint16]]
-        :param idx_map: dictionary to map the matrix indexes of the neurons to a NeuronKey or neuron UID to be used in the label
-        :type idx_map: Union[Dict[int, np.uint16], Dict[int, NeuronKey]]
+        :param neuron_id: a NeuronKey describing the neuron or list of NeuronKeys to be converted to their related matrix indexes.
+        :type neuron_id: Union[List[NeuronKey], NeuronKey]
+        :param idx_map: dictionary to map the matrix indexes of the neurons to a NeuronKey to be used in the label
+        :type idx_map: Dict[int, NeuronKey]
         :param verbose: log an error message if neuron_id cannot be found or not, defaults to False
         :type verbose: bool, optional
         :return: a list of neuron matrix indexes, a single neuron matrix index or None if nothing is found
@@ -498,18 +518,12 @@ class Figure:
         """
         reverse_map = dict(zip(idx_map.values(), idx_map.keys()))
 
-        # Get the map_type
-        map_type = type(list(idx_map.values())[0])
-
         # Format the pre-synaptic neruon ids in such a way that both single values and list of values work
-        if isinstance(map_type(), Iterable):
-            neuron_id = np.atleast_2d(neuron_id)
-        else:
-            neuron_id = np.atleast_1d(neuron_id)
+        neuron_id = np.atleast_2d(neuron_id)
 
         # Generate the decoded list
         try:
-            idx_list = list(map(lambda nid: reverse_map[map_type(nid)], neuron_id))
+            idx_list = list(map(lambda nid: reverse_map[tuple(nid)], neuron_id))
         except:
             if verbose:
                 print(f"Neuron ids {neuron_id} not be found in the dict {idx_map}")
@@ -600,15 +614,11 @@ class Figure:
     def plot_Isyn_trace(
         mod: DynapSE1NeuronSynapseJax,
         record_dict: Dict[str, np.ndarray],
-        post: Union[NeuronKey, np.uint16, int],
+        post: Union[NeuronKey, int],
         syn_type: Union[Dynapse1SynType, str, np.uint8],
-        pre: Optional[
-            Union[
-                List[Union[NeuronKey, np.uint16, int]], Union[NeuronKey, np.uint16, int]
-            ]
-        ] = None,
+        pre: Optional[Union[List[Union[NeuronKey, int]], Union[NeuronKey, int]]] = None,
         virtual: Optional[bool] = None,
-        idx_map: Optional[Union[Dict[int, np.uint16], Dict[int, NeuronKey]]] = None,
+        idx_map_dict: Optional[Dict[str, Dict[int, NeuronKey]]] = None,
         title: Optional[str] = None,
         ax: Optional[matplotlib.axes.Axes] = None,
         plot_guides: bool = True,
@@ -625,16 +635,16 @@ class Figure:
         :type mod: DynapSE1NeuronSynapseJax
         :param record_dict: is a dictionary containing the recorded state variables of `mod` during the evolution at each time step
         :type record_dict: Dict[str, np.ndarray]
-        :param post: matrix index(if idx_map absent) or UID/NeuronKey(if idx_map provided) of the post synaptic neuron defined inside the `mod`
-        :type post: Union[NeuronKey, np.uint16, int]
+        :param post: matrix index(if idx_map absent) or NeuronKey(if idx_map provided) of the post synaptic neuron defined inside the `mod`
+        :type post: Union[NeuronKey, int]
         :param syn_type: the listening synapse type of post-synaptic neuron of interest (e.g. "AMPA", "GABA_A", ...)
         :type syn_type: Union[Dynapse1SynType, str, np.uint8]
-        :param pre: matrix indexes(if idx_map absent) or UIDs/NeuronKeys(if idx_map provided) of the pre synaptic neurons defined inside the `mod` to constraint the sending neurons. If None, all the pre-synaptic connections are listed. , defaults to None
-        :type pre: Optional[ Union[ List[Union[NeuronKey, np.uint16, int]], Union[NeuronKey, np.uint16, int] ] ], optional
+        :param pre: matrix indexes(if idx_map absent) or NeuronKeys(if idx_map provided) of the pre synaptic neurons defined inside the `mod` to constraint the sending neurons. If None, all the pre-synaptic connections are listed. , defaults to None
+        :type pre: Optional[ Union[ List[Union[NeuronKey, int]], Union[NeuronKey, int] ] ], optional
         :param virtual: Gather only the virtual connections or not (if `pre` is None). Gather both if None. It's not optional in the case that pre-synaptic neuro is defined by the matrix index. Automatically found if both pre-synaptic neuron and index map is given. defaults to None
         :type virtual: Optional[bool], optional
-        :param idx_map: dictionary to map the matrix indexes of the neurons to a NeuronKey or neuron UID to be used in the label, defaults to None
-        :type idx_map: Optional[Union[Dict[int, np.uint16], Dict[int, NeuronKey]]], optional
+        :param idx_map_dict: dictionary to map the matrix indexes of the neurons to a NeuronKey to be used in the label, defaults to None
+        :type idx_map_dict: Optional[Dict[str, Dict[int, NeuronKey]]], optional
         :param title: The title of the resulting plot, name of the `Isyn` object returned, defaults to None
         :type title: Optional[str], optional
         :param ax: The sub-plot axis to plot the figure, defaults to None
@@ -656,7 +666,6 @@ class Figure:
                 :NeuronID: can be NeuronKey indicating chipID, coreID and neuronID of the neuron, can be universal neruon ID or matrix index.
                 :Repetition: represents the number of synapse indicated in the weighted mask
                     n[(3, 0, 20)]x3 -> real neuron in chip 3, core 0, with neuronID 20, connection repeated 3 times (idx_map provided)
-                    n[3092]x2 -> real neuron with UID 3092, connection repeated twice (idx_map provided)
                     s[0]x1 -> virtual neuron(spike generator), connection repeated once
         :rtype: Tuple[TSContinuous, TSEvent, List[str]]
         """
@@ -665,16 +674,10 @@ class Figure:
         ylabel = ""
 
         # Resolve post-synaptic neuron's matrix index
-        if idx_map is not None:
-            virtual_key, real_key = idx_map.keys()
-            post_idx = Figure.get_idx_from_map(post, idx_map[real_key])
-
-            # Determine the ylabel of the spikes axis
-            map_type = type(list(idx_map[real_key].values())[0])
-            if isinstance(map_type(), Iterable):
-                ylabel = " [ChipID, CoreID, NeuronID]"
-            else:
-                ylabel = " [Neuron UID]"
+        if idx_map_dict is not None:
+            virtual_key, real_key = idx_map_dict.keys()
+            post_idx = Figure.get_idx_from_map(post, idx_map_dict[real_key])
+            ylabel = " [ChipID, CoreID, NeuronID]"
 
         else:
             post_idx = post
@@ -706,7 +709,7 @@ class Figure:
                 syn_type,
                 pre,
                 virtual,
-                idx_map,
+                idx_map_dict,
                 title="",
             )
         else:
@@ -718,7 +721,11 @@ class Figure:
             weighted_mask = np.zeros(output_ts.num_channels)
             weighted_mask[post_idx] = 1
             spikes_ts, labels = Figure.select_input_channels(
-                output_ts, weighted_mask, virtual=False, idx_map=idx_map, title=""
+                output_ts,
+                weighted_mask,
+                virtual=False,
+                idx_map_dict=idx_map_dict,
+                title="",
             )
 
         scatter = Figure.plot_spikes_label(
