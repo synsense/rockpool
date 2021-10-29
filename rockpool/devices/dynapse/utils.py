@@ -8,7 +8,8 @@ E-mail : ugurcan.cakal@gmail.com
 """
 
 import numpy as np
-from rockpool import TSEvent, TSContinuous
+from rockpool.timeseries import TSEvent, TSContinuous
+from rockpool.devices.dynapse.router import Router
 
 from typing import (
     Callable,
@@ -26,17 +27,8 @@ from rockpool.parameters import Parameter, State, SimulationParameter
 from rockpool.typehints import JP_ndarray, P_float
 from rockpool.devices.dynapse.biasgen import BiasGen
 
-_SAMNA_AVAILABLE = True
+import matplotlib.pyplot as plt
 
-try:
-    from samna.dynapse1 import Dynapse1Parameter
-except ModuleNotFoundError as e:
-    print(
-        e,
-        "\nDynapSE1NeuronSynapseJax module can only be used for simulation purposes."
-        "Deployment utilities depends on samna!",
-    )
-    _SAMNA_AVAILABLE = False
 
 ArrayLike = Union[np.ndarray, List, Tuple]
 
@@ -172,8 +164,7 @@ def random_spike_train(
     rate: float,
     dt: float = 1e-3,
     name: Optional[str] = "Input Spikes",
-    channel_UID: Optional[ArrayLike] = None,
-    return_channel_UID: bool = False,
+    channel_labels: Optional[ArrayLike] = None,
 ) -> Union[TSEvent, Tuple[TSEvent, Dict[int, np.uint16]]]:
     """
     random_spike_train generate a Poisson frozen random spike train and
@@ -189,8 +180,8 @@ def random_spike_train(
     :type dt: float, optional
     :param name: The name of the resulting TSEvent object, defaults to "Input Spikes"
     :type name: Optional[str], optional
-    :param channel_UID: a list of universal neuron IDs to assign channels, defaults to None
-    :type channel_UID: Optional[ArrayLike], optional
+    :param channel_labels: a list of universal neuron keys to assign channels, defaults to None
+    :type channel_labels: Optional[ArrayLike], optional
     :param return_channel_UID: return channels UIDs together with TSEvent spike train or not, defaults to False
     :type return_channel_UID: bool, optional
     :raises ValueError: No spike generated due to low firing rate or very short simulation time]
@@ -215,7 +206,10 @@ def random_spike_train(
         )
     input_sp_ts = TSEvent.from_raster(input_sp_raster, name=name, periodic=True, dt=dt)
 
-    if channel_UID is not None:
+    if channel_labels is not None:
+
+        channel_UID = list(map(lambda key: Router.get_UID(*key), channel_labels))
+
         if len(channel_UID) != input_sp_ts.num_channels:
             raise ValueError(
                 "Channels UID list must have the same number of elements with the number of channels"
@@ -236,20 +230,10 @@ def random_spike_train(
                 f"Illegal UID : {channel_UID.min()}! It should be bigger than 0"
             )
 
-        channel_UID = channel_UID.astype(np.uint16)
+        plt.ylabel("Channels [ChipID, CoreID, NeuronID]")
+        plt.yticks(range(len(channel_labels)), [f"s[{key}]" for key in channel_labels])
 
-        return_channel_UID = True
-
-    elif return_channel_UID:
-        channel_UID = np.array(
-            list(range(1, input_sp_ts.num_channels + 1)), dtype=np.uint16
-        )
-
-    if return_channel_UID:
-        channel_UID_dict = dict(zip(range(input_sp_ts.num_channels), channel_UID))
-        return input_sp_ts, channel_UID_dict
-    else:
-        return input_sp_ts
+    return input_sp_ts
 
 
 def get_tau(
@@ -663,17 +647,4 @@ def set_param(
         )
 
 
-def get_Dynapse1Parameter(bias: float, name: str) -> Dynapse1Parameter:
-    """
-    get_Dynapse1Parameter constructs a samna DynapSE1Parameter object given the bias current desired
 
-    :param bias: bias current desired. It will be expressed by a coarse fine tuple which will generate the closest possible bias current.
-    :type bias: float
-    :param name: the name of the bias parameter
-    :type name: str
-    :return: samna DynapSE1Parameter object
-    :rtype: Dynapse1Parameter
-    """
-    coarse, fine = BiasGen.bias_to_coarse_fine(bias)
-    param = Dynapse1Parameter(name, coarse, fine)
-    return param
