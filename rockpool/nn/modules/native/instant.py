@@ -60,7 +60,7 @@ class Instant(InstantMixin, Module):
 
 
 try:
-    from rockpool.nn.modules import JaxModule
+    from rockpool.nn.modules.jax.jax_module import JaxModule
     from jax.tree_util import Partial
 
     class InstantJax(InstantMixin, JaxModule):

@@ -1,18 +1,13 @@
 import warnings
 
-
 # - Base Module classes
 from .module import *
 from .timed_module import *
 
 # - Native classes
-try:
-    from .native.linear import *
-    from .native.instant import *
-    from .native.filter_bank import *
-except (ImportError, ModuleNotFoundError) as err:
-    warnings.warn(f"Torch modules not available: {err}")
-
+from .native.linear import *
+from .native.instant import *
+from .native.filter_bank import *
 
 # - Torch modules
 try:

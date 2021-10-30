@@ -10,7 +10,7 @@ import numpy as np
 from scipy.signal import butter, sosfilt, sosfreqz
 
 from rockpool.nn.modules.module import Module
-from rockpool.parameters import ParameterBase, SimulationParameter
+from rockpool.parameters import SimulationParameter
 
 from typing import Optional
 from rockpool.typehints import P_int, P_float, P_bool
