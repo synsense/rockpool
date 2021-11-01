@@ -279,10 +279,11 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         _w_in, w_rec, idx_map_dict = Router.get_weight_from_config(
             config, virtual_connections, return_maps=True
         )
-        w_in = _w_in if w_in is None else w_in
 
         if w_in is not None:
             idx_map_dict["w_in"] = idx_map_in
+
+        w_in = _w_in if w_in is None else w_in
 
         shape = w_in.shape[0:2]
 
