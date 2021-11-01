@@ -269,7 +269,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     :type t_pulse: JP_ndarray
     :ivar t_pulse_ahp: Array of reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp`` with shape (Nrec,)
     :type t_pulse_ahp: JP_ndarray
-    :ivar t_ref: Array of refractory periods in seconds, limits maximum firing rate with shape (Nrec,)
+    :ivar t_ref: Array of refractory periods in seconds, limits maximum firing rate. In the refractory period the synaptic input current of the membrane is the dark current. with shape (Nrec,)
     :type t_ref: JP_ndarray
     :ivar Ispkthr: Array of spiking threshold current in with shape (Nrec,)
     :type Ispkthr: JP_ndarray

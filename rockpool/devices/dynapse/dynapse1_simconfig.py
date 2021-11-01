@@ -379,7 +379,7 @@ class MembraneParameters(DPIParameters):
     :type Imem: Optional[float], optional
     :param Iref: the bias current setting the `t_ref`, defaults to None
     :type Iref: Optional[float], optional
-    :param t_ref: refractory period in seconds, limits maximum firing rate. The value co-depends on `Iref` and `t_ref` definition has priority over `Iref`, defaults to 10e-3
+    :param t_ref: refractory period in seconds, limits maximum firing rate. In the refractory period the synaptic input current of the membrane is the dark current. The value co-depends on `Iref` and `t_ref` definition has priority over `Iref`, defaults to 10e-3
     :type t_ref: Optional[float], optional
     :param Ipulse: the bias current setting `t_pulse`, defaults to None
     :type Ipulse: Optional[float], optional
@@ -1074,7 +1074,7 @@ class DynapSE1SimCore:
     @property
     def f_t_ref(self) -> np.ndarray:
         """
-        f_t_ref is an array of the width of the pulse in seconds produced by virtue of a spike with shape (Nrec,)
+        f_t_ref is an array of the factor of conversion from the refractory period current to the refractory period shape (Nrec,)
         """
         return self.mem_property("f_ref")
 
@@ -1102,7 +1102,7 @@ class DynapSE1SimCore:
     @property
     def t_ref(self) -> np.ndarray:
         """
-        t_ref is an array of the refractory period in seconds, limits maximum firing rate with shape (Nrec,)
+        t_ref is an array of the refractory period in seconds, limits maximum firing rate. In the refractory period the synaptic input current of the membrane is the dark current. with shape (Nrec,)
         """
         return self.mem_property("t_ref")
 
