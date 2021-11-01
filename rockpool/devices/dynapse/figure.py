@@ -28,9 +28,7 @@ from typing import (
 
 from collections.abc import Iterable
 
-from rockpool.typehints import (
-    FloatVector,
-)
+from rockpool.typehints import FloatVector
 
 import numpy as np
 
@@ -117,6 +115,7 @@ class Figure:
         :param title: The name of the resulting input spike train, defaults to None
         :type title: Optional[str], optional
         :raises ValueError: Weighted mask should include as many elements as number of channels in the input_ts!
+        :raises ValueError: Index Map is empty in key={key}!
         :return: spikes_ts, labels
             :spikes_ts: selected spike trains
             :labels: list of string labels generated for the channels in the following format : `<NeuronType>[<NeuronID>]<Repetition>`
@@ -161,6 +160,8 @@ class Figure:
             # Map weight matric indices to NeuronKey
             if idx_map_dict is not None:
                 key = virtual_key if virtual else real_key
+                if idx_map_dict[key] is None:
+                    raise ValueError(f"Index Map is empty in key={key}! {idx_map_dict}")
                 name = list(
                     map(lambda idx: f"{n}{[idx_map_dict[key][idx]]}", nonzero_idx)
                 )
@@ -658,6 +659,7 @@ class Figure:
         :param s: spike dot size, defaults to 10
         :type s: float, optional
         :raises ValueError: AHP is a special synapse accepting recurrent (post->post) spikes, `pre` synaptic neuron cannot be defined!
+        :raises IndexError: "NeuronKey {post} is not defined in the index map!
         return: Isyn, spikes_ts, labels
             :Isyn: Isyn current in `TSContinuous` object format
             :spikes_ts: input spike trains to post-synaptic neuron
@@ -678,6 +680,10 @@ class Figure:
             virtual_key, real_key = idx_map_dict.keys()
             post_idx = Figure.get_idx_from_map(post, idx_map_dict[real_key])
             ylabel = " [ChipID, CoreID, NeuronID]"
+            if post_idx is None:
+                raise IndexError(
+                    f"NeuronKey {post} is not defined in the index map {idx_map_dict[real_key]}!"
+                )
 
         else:
             post_idx = post
