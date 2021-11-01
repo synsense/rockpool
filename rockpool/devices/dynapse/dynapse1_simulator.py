@@ -250,6 +250,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         virtual_connections: Optional[List[NeuronConnection]] = None,
         w_in: Optional[FloatVector] = None,
         idx_map_in: Optional[Dict[int, NeuronKey]] = None,
+        sim_config: Optional[DynapSE1SimBoard] = None,
         default_bias: bool = True,
         *args,
         **kwargs,
@@ -268,6 +269,8 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         :type w_in: Optional[FloatVector], optional
         :param idx_map_in: a dictionary of the mapping between matrix indexes of the FPGA-to-device input connections and their global unique neuron keys. Define when virtual connections is not defined but w_in is provided explicitly, defaults to None
         :type idx_map_in: Optional[Dict[int, NeuronKey]]
+        :param sim_config: Dynap-SE1 bias currents and simulation configuration parameters, it can be provided explicitly, or created using default settings, or can be extracted from the config bias currents. defaults to None
+        :type sim_config: Optional[DynapSE1SimBoard], optional
         :param default_bias: use default bias values or get the bias parameters from the netgen.config, defaults to True
         :type default_bias: bool
         :return: `DynapSE1Jax` simulator object
@@ -282,12 +285,14 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
             idx_map_dict["w_in"] = idx_map_in
 
         shape = w_in.shape[0:2]
+
+        if sim_config is None:
         if not default_bias:
-            simconfig = DynapSE1SimBoard.from_config(config, idx_map_dict["w_rec"])
+                sim_config = DynapSE1SimBoard.from_config(config, idx_map_dict["w_rec"])
 
         else:
-            simconfig = DynapSE1SimBoard.from_config(None, idx_map_dict["w_rec"])
-        mod = cls(shape, idx_map_dict, simconfig, w_in, w_rec, *args, **kwargs)
+                sim_config = DynapSE1SimBoard.from_config(None, idx_map_dict["w_rec"])
+        mod = cls(shape, idx_map_dict, sim_config, w_in, w_rec, *args, **kwargs)
         return mod
 
     @classmethod
