@@ -33,19 +33,21 @@ class StepPWL(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, data):
-        ctx.save_for_backward(data)
-        return torch.clamp(torch.floor(data + 1), 0)
+    def forward(ctx, data, threshold=1, window=0.5):
+        ctx.save_for_backward(data.clone())
+        ctx.threshold = threshold
+        ctx.window = window
+        return (data > 0) * torch.floor(data / threshold)
 
     @staticmethod
     def backward(ctx, grad_output):
         (data,) = ctx.saved_tensors
         grad_input = grad_output.clone()
-        grad_input[data < -0.5] = 0
-        return grad_input
+        grad_input[data < -ctx.window] = 0
+        return grad_input, None, None 
 
 
-class ThresholdSubtract(torch.autograd.Function):
+class PeriodicExponential(torch.autograd.Function):
     """
     Subtract from membrane potential on reaching threshold
     """
@@ -123,6 +125,7 @@ class LIFTorch(TorchModule):
         has_rec: P_bool = False,
         w_rec: torch.Tensor = None,
         noise_std: P_float = 0.0,
+        gradient_fn = StepPWL, 
         learning_window: P_float = 1.0,
         dt: P_float = 1e-3,
         device: P_str = "cuda",
@@ -259,6 +262,9 @@ class LIFTorch(TorchModule):
         self.beta: P_tensor = rp.SimulationParameter(
             torch.exp(-self.dt / self.tau_syn).unsqueeze(1).to(device)
         )
+
+        self.gradient_fn = gradient_fn().apply
+
         # placeholders for recordings
         self._record_Vmem = None
         self._record_Isyn = None
@@ -273,7 +279,12 @@ class LIFTorch(TorchModule):
         self._record = record
 
         # - Evolve with superclass evolution
-        output_data, states, _ = super().evolve(input_data, record)
+        output_data, _, _ = super().evolve(input_data, record)
+
+        states = {
+            "Isyn": self.isyn,
+            "Vmem": self.vmem,
+        }
 
         # - Build state record
         record_dict = (
@@ -286,6 +297,13 @@ class LIFTorch(TorchModule):
         )
 
         return output_data, states, record_dict
+
+    def decay_isyn(self, v):
+        return self.beta * v
+
+    def decay_vmem(self, v):
+        return self.alpha * v
+
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
@@ -317,9 +335,6 @@ class LIFTorch(TorchModule):
         isyn = torch.ones(n_batches, self.n_synapses, self.n_neurons).to(data.device) * self.isyn
         bias = torch.ones(n_batches, self.n_neurons).to(data.device) * self.bias
 
-        #step_pwl = StepPWL.apply
-        threshold_subtract = ThresholdSubtract().apply
-
         # - Set up state record and output
         self._vmem_rec = torch.zeros(n_batches, time_steps, self.n_neurons)
         self._isyn_rec = torch.zeros(n_batches, time_steps, self.n_synapses, self.n_neurons)
@@ -336,17 +351,23 @@ class LIFTorch(TorchModule):
         # - Loop over time
         for t in range(time_steps):
 
+            # Decay
+            isyn = self.decay_isyn(isyn)
+            vmem = self.decay_vmem(vmem)
+
             # Integrate input
             # - Apply spikes over the recurrent weights
             if hasattr(self, "w_rec"):
-                isyn = self.beta*isyn + F.linear(out_spikes[:, t-1, :], self.w_rec.T)
+                isyn = F.linear(out_spikes[:, t-1, :], self.w_rec.T)
             else:
-                isyn = self.beta * isyn + data[:, t]
+                isyn = isyn + data[:, t]
 
-            vmem = self.alpha * vmem + isyn.sum(1) + torch.randn(vmem.shape, device=vmem.device) * self.noise_std
+            if self.noise_std > 0:
+                vmem = vmem + isyn.sum(1) + torch.randn(vmem.shape, device=vmem.device) * self.noise_std
+            else:
+                vmem = vmem + isyn.sum(1)
 
-            out = threshold_subtract(vmem, self.threshold, self.learning_window)
-            #out = step_pwl(vmem - self.threshold)
+            out = self.gradient_fn(vmem, self.threshold, self.learning_window)
             out_spikes[:, t] = out 
 
             vmem = vmem - out * self.threshold
