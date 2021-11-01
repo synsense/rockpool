@@ -25,8 +25,6 @@ from rockpool.typehints import P_int, P_float, P_tensor, FloatVector, P_bool, P_
 
 __all__ = ["LIFBitshiftTorch"]
 
-
-
 class Bitshift(torch.autograd.Function):
     """
     Subtract from membrane potential on reaching threshold

@@ -358,14 +358,14 @@ class LIFTorch(TorchModule):
             # Integrate input
             # - Apply spikes over the recurrent weights
             if hasattr(self, "w_rec"):
-                isyn = F.linear(out_spikes[:, t-1, :], self.w_rec.T)
+                isyn += F.linear(out_spikes[:, t-1, :], self.w_rec.T)
             else:
-                isyn = isyn + data[:, t]
+                isyn += data[:, t]
 
             if self.noise_std > 0:
-                vmem = vmem + isyn.sum(1) + torch.randn(vmem.shape, device=vmem.device) * self.noise_std
+                vmem += isyn.sum(1) + torch.randn(vmem.shape, device=vmem.device) * self.noise_std
             else:
-                vmem = vmem + isyn.sum(1)
+                vmem += isyn.sum(1)
 
             out = self.gradient_fn(vmem, self.threshold, self.learning_window)
             out_spikes[:, t] = out 
