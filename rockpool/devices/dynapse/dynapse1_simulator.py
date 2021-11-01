@@ -423,119 +423,373 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         return self.f_t_pulse / self.t_pulse
 
     ## --- LOW LEVEL BIAS CURRENTS (SAMNA) -- ##
-    def IF_AHTAU_N(self, chipID: np.uint8, coreID: np.uint8):
+    def IF_AHTAU_N(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
         """
-        IF_AHTAU_N is the bias current controlling the AHP circuit time constant. Itau_ahp
+        IF_AHTAU_N controls the spike frequency adaptation(AHP) circuit time constant, reciprocal to `Itau_syn[AHP]`
+        The depended time constant can be calculated by using the formula :math:`\\tau = \\dfrac{U_T}{I_{\\tau} \\cdot \\kappa \\cdot C}`,
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
         """
         return self.bias_parameter(chipID, coreID, "Itau_syn", "IF_AHTAU_N", "AHP")
 
-    def IF_AHTHR_N(self, chipID: np.uint8, coreID: np.uint8):
+    def IF_AHTHR_N(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
+        """
+        IF_AHTHR_N controls the spike frequency adaptation(AHP) circuit gain current, reciprocal to `Ith_syn[AHP]`
+        It scales the steady state output current of the DPI circuit, :math:`I_{syn_{\\infty}} = \dfrac{I_{th}}{I_{\\tau}} \\cdot I_{w}`
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
+        """
         return self.bias_parameter(chipID, coreID, "Ith_syn", "IF_AHTHR_N", "AHP")
 
-    def IF_AHW_P(self, chipID: np.uint8, coreID: np.uint8):
+    def IF_AHW_P(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
+        """
+        IF_AHW_P controls the spike frequency adaptation(AHP) circuit base weight current, reciprocal to `Iw[AHP]`
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
+        """
         return self.bias_parameter(chipID, coreID, "Iw", "IF_AHW_P", "AHP")
 
-    def IF_BUF_P(self, chipID: np.uint8, coreID: np.uint8):
+    def IF_BUF_P(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
         """
-        IF_BUF_P Vm readout, use samna defaults.
+        IF_BUF_P has an effect on the membrane potential `Vm` readout, does not have a huge effect on simulation, use samna defaults.
+        !NON-PARAMETRIC! chipID and coreID has no effect for now but it might be changed, (keep them for the sake of convenience)
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
         """
         return Dynapse1Parameter("IF_BUF_P", 4, 80)
 
-    def IF_CASC_N(self, chipID: np.uint8, coreID: np.uint8):
+    def IF_CASC_N(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
         """
-        IF_CASC_N for AHP regularization, not so important, use samna defaults.
-        [] TODO: Check this
-        """
-        return self.bias_parameter(chipID, coreID, "Io", "IF_CASC_N")
+        IF_CASC_N for spike frequency current (AHP) regularization, does not have a huge effect on simulation, use samna defaults.
+        !NON-PARAMETRIC! chipID and coreID has no effect for now but it might be changed, (keep them for the sake of convenience)
 
-    def IF_DC_P(self, chipID: np.uint8, coreID: np.uint8):
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
+        """
+        return Dynapse1Parameter("IF_CASC_N", 0, 0)
+
+    def IF_DC_P(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
+        """
+        IF_DC_P controls the DC current added to the sum of the synaptic input currents of the membrane, reciprocal to `Idc`
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
+        """
         return self.bias_parameter(chipID, coreID, "Idc", "IF_DC_P")
 
-    def IF_NMDA_N(self, chipID: np.uint8, coreID: np.uint8):
+    def IF_NMDA_N(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
+        """
+        IF_NMDA_N controls the NMDA NMDA gate current in Amperes setting the NMDA gating voltage, reciprocal to `If_nmda`
+        If :math:`V_{mem} > V_{nmda}` : The :math:`I_{syn_{NMDA}}` current is added to the synaptic input currents of the membrane, else it cannot
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
+        """
         return self.bias_parameter(chipID, coreID, "If_nmda", "IF_NMDA_N")
 
-    def IF_RFR_N(self, chipID: np.uint8, coreID: np.uint8):
+    def IF_RFR_N(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
         """
-        # 4, 120 in Chenxi
-        # 0, 30 by Ugurcan
+        IF_RFR_N controls the refractory periof of the neruons. In the refractory period the synaptic input current of the membrane is the dark current. reciprocal to `Iref`
+        The depended time constant can be calculated by using the formula :math:`\\t_{ref} = \\dfrac{U_T}{I_{\\ref} \\cdot \\kappa \\cdot C}`,
+
+        # 4, 120 in Chenxi's master thesis
+        # 4, 3 by default in samna
+        # 0, 30 for 10 ms in rockpool
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
         """
         return self.bias_parameter(chipID, coreID, "Iref", "IF_RFR_N")
 
-    def IF_TAU1_N(self, chipID: np.uint8, coreID: np.uint8):
+    def IF_TAU1_N(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
+        """
+        IF_TAU1_N controls the membrane circuit time constant, reciprocal to `Itau_mem`
+        The depended time constant can be calculated by using the formula :math:`\\tau = \\dfrac{U_T}{I_{\\tau} \\cdot \\kappa \\cdot C}`,
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
+        """
         return self.bias_parameter(chipID, coreID, "Itau_mem", "IF_TAU1_N")
 
-    def IF_TAU2_N(self, chipID: np.uint8, coreID: np.uint8):
+    def IF_TAU2_N(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
         """
-        IF_TAU2_N Second refractory period. Generally max current. For deactivation of certain neruons.
+        IF_TAU2_N is te second refractory period. Generally max current, used for deactivation of certain neruons.
+        !NON-PARAMETRIC! chipID and coreID has no effect for now but it might be changed, (keep them for the sake of convenience)
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
         """
         return Dynapse1Parameter("IF_TAU2_N", 7, 255)
 
-    def IF_THR_N(self, chipID: np.uint8, coreID: np.uint8):
+    def IF_THR_N(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
+        """
+        IF_THR_N controls the membrane circuit gain current, reciprocal to `Ith_mem`
+        It scales the steady state output current of the DPI circuit, :math:`I_{syn_{\\infty}} = \dfrac{I_{th}}{I_{\\tau}} \\cdot I_{w}`
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
+        """
         return self.bias_parameter(chipID, coreID, "Ith_mem", "IF_THR_N")
 
-    def NPDPIE_TAU_F_P(self, chipID: np.uint8, coreID: np.uint8):
-        # FAST_EXC, AMPA
+    def NPDPIE_TAU_F_P(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
+        """
+        NPDPIE_TAU_F_P controls the FAST_EXC, AMPA circuit time constant, reciprocal to `Itau_syn[AMPA]`
+        The depended time constant can be calculated by using the formula :math:`\\tau = \\dfrac{U_T}{I_{\\tau} \\cdot \\kappa \\cdot C}`,
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
+        """
         return self.bias_parameter(chipID, coreID, "Itau_syn", "NPDPIE_TAU_F_P", "AMPA")
 
-    def NPDPIE_TAU_S_P(self, chipID: np.uint8, coreID: np.uint8):
-        # SLOW_EXC, NMDA
+    def NPDPIE_TAU_S_P(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
+        """
+        NPDPIE_TAU_S_P controls the SLOW_EXC, NMDA circuit time constant, reciprocal to `Itau_syn[NMDA]`
+        The depended time constant can be calculated by using the formula :math:`\\tau = \\dfrac{U_T}{I_{\\tau} \\cdot \\kappa \\cdot C}`,
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
+        """
         return self.bias_parameter(chipID, coreID, "Itau_syn", "NPDPIE_TAU_S_P", "NMDA")
 
-    def NPDPIE_THR_F_P(self, chipID: np.uint8, coreID: np.uint8):
-        # FAST_EXC, AMPA
+    def NPDPIE_THR_F_P(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
+        """
+        NPDPIE_THR_F_P controls the FAST_EXC, AMPA circuit gain current, reciprocal to `Ith_syn[AMPA]`
+        It scales the steady state output current of the DPI circuit, :math:`I_{syn_{\\infty}} = \dfrac{I_{th}}{I_{\\tau}} \\cdot I_{w}`
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
+        """
         return self.bias_parameter(chipID, coreID, "Ith_syn", "NPDPIE_THR_F_P", "AMPA")
 
-    def NPDPIE_THR_S_P(self, chipID: np.uint8, coreID: np.uint8):
-        # SLOW_EXC, NMDA
+    def NPDPIE_THR_S_P(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
+        """
+        NPDPIE_THR_S_P controls the SLOW_EXC, NMDA circuit gain current, reciprocal to `Ith_syn[NMDA]`
+        It scales the steady state output current of the DPI circuit, :math:`I_{syn_{\\infty}} = \dfrac{I_{th}}{I_{\\tau}} \\cdot I_{w}`
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
+        """
         return self.bias_parameter(chipID, coreID, "Ith_syn", "NPDPIE_THR_S_P", "NMDA")
 
-    def NPDPII_TAU_F_P(self, chipID: np.uint8, coreID: np.uint8):
-        # FAST_INH, GABA_A, shunting current, a mixture of subtractive and divisive
+    def NPDPII_TAU_F_P(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
+        """
+        NPDPII_TAU_F_P controls the FAST_INH, GABA_A, circuit time constant, reciprocal to `Itau_syn[GABA_A]`
+        The depended time constant can be calculated by using the formula :math:`\\tau = \\dfrac{U_T}{I_{\\tau} \\cdot \\kappa \\cdot C}`,
+        Shunting current: a mixture of subtractive and divisive
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
+        """
         return self.bias_parameter(
             chipID, coreID, "Itau_syn", "NPDPII_TAU_F_P", "GABA_A"
         )
 
-    def NPDPII_TAU_S_P(self, chipID: np.uint8, coreID: np.uint8):
-        # SLOW_INH, GABA_B, subtractive
+    def NPDPII_TAU_S_P(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
+        """
+        NPDPII_TAU_S_P controls the SLOW_INH, GABA_B circuit time constant, reciprocal to `Itau_syn[GABA_B]`
+        The depended time constant can be calculated by using the formula :math:`\\tau = \\dfrac{U_T}{I_{\\tau} \\cdot \\kappa \\cdot C}`,
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
+        """
         return self.bias_parameter(
             chipID, coreID, "Itau_syn", "NPDPII_TAU_S_P", "GABA_B"
         )
 
-    def NPDPII_THR_F_P(self, chipID: np.uint8, coreID: np.uint8):
-        # FAST_INH, GABA_A, shunting current, a mixture of subtractive and divisive
+    def NPDPII_THR_F_P(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
+        """
+        NPDPII_THR_F_P controls FAST_INH, GABA_A, circuit gain current, reciprocal to `Ith_syn[GABA_A]`
+        It scales the steady state output current of the DPI circuit, :math:`I_{syn_{\\infty}} = \dfrac{I_{th}}{I_{\\tau}} \\cdot I_{w}`
+        Shunting current: a mixture of subtractive and divisive
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
+        """
         return self.bias_parameter(
             chipID, coreID, "Ith_syn", "NPDPII_THR_F_P", "GABA_A"
         )
 
-    def NPDPII_THR_S_P(self, chipID: np.uint8, coreID: np.uint8):
-        # SLOW_INH, GABA_B, subtractive
+    def NPDPII_THR_S_P(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
+        """
+        NPDPII_THR_S_P controls the SLOW_INH, GABA_B circuit gain current, reciprocal to `Ith_syn[GABA_B]`
+        It scales the steady state output current of the DPI circuit, :math:`I_{syn_{\\infty}} = \dfrac{I_{th}}{I_{\\tau}} \\cdot I_{w}`
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
+        """
         return self.bias_parameter(
             chipID, coreID, "Ith_syn", "NPDPII_THR_S_P", "GABA_B"
         )
 
-    def PS_WEIGHT_EXC_F_N(self, chipID: np.uint8, coreID: np.uint8):
-        # FAST_EXC, AMPA
+    def PS_WEIGHT_EXC_F_N(
+        self, chipID: np.uint8, coreID: np.uint8
+    ) -> Dynapse1Parameter:
+        """
+        PS_WEIGHT_EXC_F_N controls the FAST_EXC, AMPA circuit base weight current, reciprocal to `Iw[AMPA]`
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
+        """
         return self.bias_parameter(chipID, coreID, "Iw", "PS_WEIGHT_EXC_F_N", "AMPA")
 
-    def PS_WEIGHT_EXC_S_N(self, chipID: np.uint8, coreID: np.uint8):
-        # SLOW_EXC, NMDA
+    def PS_WEIGHT_EXC_S_N(
+        self, chipID: np.uint8, coreID: np.uint8
+    ) -> Dynapse1Parameter:
+        """
+        PS_WEIGHT_EXC_S_N controls the SLOW_EXC, NMDA circuit base weight current, reciprocal to `Iw[NMDA]`
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
+        """
         return self.bias_parameter(chipID, coreID, "Iw", "PS_WEIGHT_EXC_S_N", "NMDA")
 
-    def PS_WEIGHT_INH_F_N(self, chipID: np.uint8, coreID: np.uint8):
-        # FAST_INH, GABA_A, shunting current, a mixture of subtractive and divisive
+    def PS_WEIGHT_INH_F_N(
+        self, chipID: np.uint8, coreID: np.uint8
+    ) -> Dynapse1Parameter:
+        """
+        PS_WEIGHT_INH_F_N controls the FAST_INH, GABA_A circuit base weight current, reciprocal to `Iw[GABA_A]`
+        Shunting current: a mixture of subtractive and divisive
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
+        """
         return self.bias_parameter(chipID, coreID, "Iw", "PS_WEIGHT_INH_F_N", "GABA_A")
 
-    def PS_WEIGHT_INH_S_N(self, chipID: np.uint8, coreID: np.uint8):
-        # SLOW_INH, GABA_B, subtractive
+    def PS_WEIGHT_INH_S_N(
+        self, chipID: np.uint8, coreID: np.uint8
+    ) -> Dynapse1Parameter:
+        """
+        PS_WEIGHT_INH_S_N controls the SLOW_INH, GABA_B circuit base weight current, reciprocal to `Iw[GABA_B]`
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
+        """
         return self.bias_parameter(chipID, coreID, "Iw", "PS_WEIGHT_INH_S_N", "GABA_B")
 
-    def PULSE_PWLK_P(self, chipID: np.uint8, coreID: np.uint8):
+    def PULSE_PWLK_P(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
         """
-        # 4, 160 by default
-        # 3, 70 for 10u by Ugurcan
+        PULSE_PWLK_P controls the the width of the pulse in seconds produced by virtue of a spikeö reciprocal to `Ipulse`
+        The depended time constant can be calculated by using the formula :math:`\\t_{pulse} = \\dfrac{U_T}{I_{\\pulse} \\cdot \\kappa \\cdot C}`,
+
+        # 4, 160 by default in samna
+        # 4, 106 in Chenxi's master thesis
+        # 3, 70 for 10us in rockpool
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
         """
         return self.bias_parameter(chipID, coreID, "Ipulse", "PULSE_PWLK_P")
 
-    def R2R_P(self, chipID: np.uint8, coreID: np.uint8):
-        # Use samna defaults
+    def R2R_P(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
+        """
+        R2R_P maybe something related to digital to analog converter(unsure), does not have a huge effect on simulation, use samna defaults.
+        !NON-PARAMETRIC! chipID and coreID has no effect for now but it might be changed, (keep them for the sake of convenience)
+
+        :param chipID: Unique chip ID
+        :type chipID: np.uint8
+        :param coreID: Non-unique core ID
+        :type coreID: np.uint8
+        :return: samna bias parameter object involving a coarse and fine value
+        :rtype: Dynapse1Parameter
+        """
         return Dynapse1Parameter("R2R_P", 3, 85)
