@@ -31,6 +31,7 @@ dModules = {
     ),
     ".dynapse1_simconfig": (
         "DynapSE1Layout",
+        "DynapSE1Capacitance",
         "DPIParameters",
         "SynapseParameters",
         "FeedbackParameters",
