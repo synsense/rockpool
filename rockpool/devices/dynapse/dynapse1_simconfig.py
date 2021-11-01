@@ -71,7 +71,7 @@ class DynapSE1Capacitance:
     ref: float = 1.0
     pulse: float = 1.0
     gaba_b: float = 50.0
-    gaba_a: float = 49.0
+    gaba_a: float = 49.0  # shunt
     nmda: float = 50.0
     ampa: float = 49.0
     ahp: float = 80.0
@@ -509,7 +509,7 @@ class GABABParameters(SynapseParameters):
 
     __doc__ += SynapseParameters.__doc__
 
-    tau: Optional[float] = 10e-3
+    tau: Optional[float] = 100e-3
 
     @classmethod
     def from_parameter_group(
@@ -549,7 +549,7 @@ class GABAAParameters(SynapseParameters):
 
     __doc__ += SynapseParameters.__doc__
 
-    tau: Optional[float] = 100e-3
+    tau: Optional[float] = 10e-3
 
     @classmethod
     def from_parameter_group(
@@ -726,9 +726,9 @@ class DynapSE1SimCore:
     :type nmda: Optional[SynapseParameters], optional
     :param ampa: AMPA synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
     :type ampa: Optional[SynapseParameters], optional
-    :param gaba_a: GABA_A synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
+    :param gaba_a: GABA_A (shunt) synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
     :type gaba_a: Optional[SynapseParameters], optional
-    :param gaba_b: GABA_B (shunt) synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
+    :param gaba_b: GABA_B synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
     :type gaba_b: Optional[SynapseParameters], optional
 
     :Instance Variables:

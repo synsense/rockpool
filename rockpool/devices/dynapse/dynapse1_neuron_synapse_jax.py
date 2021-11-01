@@ -533,7 +533,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             "spikes": spikes_ts,
             "Imem": Imem_ts,
             "Igaba_b": Isyn_ts[:, self.SYN["GABA_B"], :],
-            "Igaba_a": Isyn_ts[:, self.SYN["GABA_A"], :],
+            "Igaba_a": Isyn_ts[:, self.SYN["GABA_A"], :],  # Shunt
             "Inmda": Isyn_ts[:, self.SYN["NMDA"], :],
             "Iampa": Isyn_ts[:, self.SYN["AMPA"], :],
             "Iahp": Isyn_ts[:, self.SYN["AHP"], :],

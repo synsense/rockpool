@@ -287,10 +287,10 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         shape = w_in.shape[0:2]
 
         if sim_config is None:
-        if not default_bias:
+            if not default_bias:
                 sim_config = DynapSE1SimBoard.from_config(config, idx_map_dict["w_rec"])
 
-        else:
+            else:
                 sim_config = DynapSE1SimBoard.from_config(None, idx_map_dict["w_rec"])
         mod = cls(shape, idx_map_dict, sim_config, w_in, w_rec, *args, **kwargs)
         return mod
@@ -489,27 +489,27 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         return self.bias_parameter(chipID, coreID, "Ith_syn", "NPDPIE_THR_S_P", "NMDA")
 
     def NPDPII_TAU_F_P(self, chipID: np.uint8, coreID: np.uint8):
-        # FAST_INH, GABA_B, shunting current, a mixture of subtractive and divisive
+        # FAST_INH, GABA_A, shunting current, a mixture of subtractive and divisive
         return self.bias_parameter(
-            chipID, coreID, "Itau_syn", "NPDPII_TAU_F_P", "GABA_B"
+            chipID, coreID, "Itau_syn", "NPDPII_TAU_F_P", "GABA_A"
         )
 
     def NPDPII_TAU_S_P(self, chipID: np.uint8, coreID: np.uint8):
-        # SLOW_INH, GABA_A, subtractive
+        # SLOW_INH, GABA_B, subtractive
         return self.bias_parameter(
-            chipID, coreID, "Itau_syn", "NPDPII_TAU_S_P", "GABA_A"
+            chipID, coreID, "Itau_syn", "NPDPII_TAU_S_P", "GABA_B"
         )
 
     def NPDPII_THR_F_P(self, chipID: np.uint8, coreID: np.uint8):
-        # FAST_INH, GABA_B, shunting current, a mixture of subtractive and divisive
+        # FAST_INH, GABA_A, shunting current, a mixture of subtractive and divisive
         return self.bias_parameter(
-            chipID, coreID, "Ith_syn", "NPDPII_THR_F_P", "GABA_B"
+            chipID, coreID, "Ith_syn", "NPDPII_THR_F_P", "GABA_A"
         )
 
     def NPDPII_THR_S_P(self, chipID: np.uint8, coreID: np.uint8):
-        # SLOW_INH, GABA_A, subtractive
+        # SLOW_INH, GABA_B, subtractive
         return self.bias_parameter(
-            chipID, coreID, "Ith_syn", "NPDPII_THR_S_P", "GABA_A"
+            chipID, coreID, "Ith_syn", "NPDPII_THR_S_P", "GABA_B"
         )
 
     def PS_WEIGHT_EXC_F_N(self, chipID: np.uint8, coreID: np.uint8):
@@ -521,12 +521,12 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         return self.bias_parameter(chipID, coreID, "Iw", "PS_WEIGHT_EXC_S_N", "NMDA")
 
     def PS_WEIGHT_INH_F_N(self, chipID: np.uint8, coreID: np.uint8):
-        # FAST_INH, GABA_B, shunting current, a mixture of subtractive and divisive
-        return self.bias_parameter(chipID, coreID, "Iw", "PS_WEIGHT_INH_F_N", "GABA_B")
+        # FAST_INH, GABA_A, shunting current, a mixture of subtractive and divisive
+        return self.bias_parameter(chipID, coreID, "Iw", "PS_WEIGHT_INH_F_N", "GABA_A")
 
     def PS_WEIGHT_INH_S_N(self, chipID: np.uint8, coreID: np.uint8):
-        # SLOW_INH, GABA_A, subtractive
-        return self.bias_parameter(chipID, coreID, "Iw", "PS_WEIGHT_INH_S_N", "GABA_A")
+        # SLOW_INH, GABA_B, subtractive
+        return self.bias_parameter(chipID, coreID, "Iw", "PS_WEIGHT_INH_S_N", "GABA_B")
 
     def PULSE_PWLK_P(self, chipID: np.uint8, coreID: np.uint8):
         """
