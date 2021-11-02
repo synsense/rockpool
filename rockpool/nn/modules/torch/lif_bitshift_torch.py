@@ -32,15 +32,8 @@ class Bitshift(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, data, dash, tau):
-
-        scale = 10000 / torch.max(torch.abs(data))
-        if torch.isnan(scale) or torch.isinf(scale):
-            scale = 10000
-
-        data_ = (data * scale).float()
-        dv = torch.floor((data_ / 2 ** dash)).float()
-        dv[dv == 0] = 1 * torch.sign(data_[dv == 0])
-        v = (data_ - torch.floor(dv)) / scale
+        
+        v = data - (data / (2 ** dash))
         ctx.save_for_backward(tau)
 
         return v
@@ -131,8 +124,8 @@ class LIFBitshiftTorch(LIFTorch):
 
 
     def decay_isyn(self, v):
-        return bitshift_decay(v, self.dash_syn, self.beta) 
+        return self.bitshift_decay(v, self.dash_syn, self.beta) 
 
     def decay_vmem(self, v):
-        return bitshift_decay(v, self.dash_mem, self.alpha) 
+        return self.bitshift_decay(v, self.dash_mem, self.alpha) 
 

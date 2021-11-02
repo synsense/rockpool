@@ -3,8 +3,9 @@ Implements the WaveSense architecture from Weidel et al 2021 [1]
 [1] 
 """
 
-from rockpool.nn.modules import TorchModule, LinearTorch, LIFTorch, ExpSynTorch
+from rockpool.nn.modules.torch import TorchModule, LinearTorch, LIFTorch, ExpSynTorch
 from rockpool.parameters import Parameter, State, SimulationParameter
+from rockpool.nn.modules.torch.lif_torch import StepPWL, PeriodicExponential
 
 import torch
 
@@ -61,6 +62,7 @@ class WaveBlock(TorchModule):
         tau_mem: float = 10e-3,
         base_tau_syn: float = 10e-3,
         threshold: float = 0.0,
+        neuron_model = LIFTorch,
         dt: float = 1e-3,
         device: str = 'cuda',
         *args,
@@ -94,25 +96,34 @@ class WaveBlock(TorchModule):
         )
 
         # - Add parameters
+        self.neuron_model = neuron_model
 
         # - Dilation layers
         tau_syn = (
             torch.arange(0, dilation * kernel_size, dilation) * base_tau_syn
         )
         tau_syn = torch.clamp(tau_syn, base_tau_syn, tau_syn.max())
-        tau_syn = torch.cat(tuple([tau_syn] * Nchannels)).to(device)
+        #tau_syn = torch.cat(tuple([tau_syn] * Nchannels)).to(device)
 
-        self.lin1 = LinearTorch((Nchannels, Nchannels * kernel_size), has_bias=False, device=device)
+        self.lin1 = LinearTorch(shape=(Nchannels, Nchannels * kernel_size), 
+                                has_bias=False, 
+                                device=device)
+
         with torch.no_grad():
             # normalize for tau_syn
-            self.lin1.weight = self.lin1.weight / (tau_syn * 1000)
+            self.lin1.weight.data /= tau_syn.min().item() * 1000
 
-        self.spk1 = LIFTorch(
-            (Nchannels * kernel_size, Nchannels),
+        self.spk1 = self.neuron_model(
+            shape=(Nchannels * kernel_size, Nchannels),
             tau_mem=tau_mem,
             tau_syn=tau_syn,
             has_bias=has_bias,
             threshold=threshold,
+            has_rec=False,
+            w_rec=None,
+            noise_std=0,
+            gradient_fn=PeriodicExponential,
+            learning_window=0.5,
             dt=dt,
             device=device,
         )
@@ -128,29 +139,41 @@ class WaveBlock(TorchModule):
         ).T
 
         # - Remapping output layers
-        self.lin2_res = LinearTorch((Nchannels, Nchannels), has_bias=False, device=device)
+        self.lin2_res = LinearTorch(shape=(Nchannels, Nchannels), 
+                                    has_bias=False, 
+                                    device=device)
+
         with torch.no_grad():
             # normalize for tau_syn
-            self.lin2_res.weight = self.lin2_res.weight / (tau_syn.min().item() * 1000)
+            self.lin2_res.weight.data /= tau_syn.min().item() * 1000
 
-        self.spk2_res = LIFTorch(
-            (Nchannels,),
+        self.spk2_res = self.neuron_model(
+            shape=(Nchannels, Nchannels),
             tau_mem=tau_mem,
             tau_syn=tau_syn.min().item(),
             has_bias=has_bias,
             threshold=threshold,
+            has_rec=False,
+            w_rec=None,
+            noise_std=0,
+            gradient_fn=PeriodicExponential,
+            learning_window=0.5,
+
             dt=dt,
             device=device,
         )
 
         # - Skip output layers
-        self.lin2_skip = LinearTorch((Nchannels, Nskip), has_bias=False, device=device)
+        self.lin2_skip = LinearTorch(shape=(Nchannels, Nskip), 
+                                     has_bias=False, 
+                                     device=device)
+
         with torch.no_grad():
             # normalize for tau_syn
-            self.lin2_skip.weight = self.lin2_skip.weight / (tau_syn.min().item() * 1000)
+            self.lin2_skip.weight.data /= tau_syn.min().item() * 1000
 
         self.spk2_skip = LIFTorch(
-            (Nskip,),
+            shape=(Nskip, Nskip),
             tau_mem=tau_mem,
             tau_syn=tau_syn.min().item(),
             has_bias=has_bias,
@@ -269,6 +292,7 @@ class WaveSenseNet(TorchModule):
         base_tau_syn: float = 20e-3,
         tau_lp: float = 20e-3,
         threshold: float = 0.0,
+        neuron_model = LIFTorch,
         dt: float = 1e-3,
         device: str = 'cuda',
         *args,
@@ -290,6 +314,7 @@ class WaveSenseNet(TorchModule):
             base_tau_syn:
             tau_lp:
             threshold:
+            neuron_model: LIFTorch, LIFBitshiftTorch or LIFSlayer
             dt:
             *args:
             **kwargs:
@@ -300,18 +325,29 @@ class WaveSenseNet(TorchModule):
             shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs
         )
 
+        self.neuron_model = neuron_model
+
         # - Input mapping layers
-        self.lin1 = LinearTorch((n_channels_in, n_channels_res), has_bias=False, device=device)
+        self.lin1 = LinearTorch(shape=(n_channels_in, n_channels_res), 
+                                has_bias=False, 
+                                device=device)
+
         with torch.no_grad():
             # normalize for tau_syn
-            self.lin1.weight = self.lin1.weight / (base_tau_syn * 1000)
+            self.lin1.weight.data /= base_tau_syn * 1000
 
-        self.spk1 = LIFTorch(
-            n_channels_res,
+        self.spk1 = self.neuron_model(
+            shape=(n_channels_res, n_channels_res),
             tau_mem=tau_mem,
             tau_syn=base_tau_syn,
             has_bias=has_bias,
             threshold=threshold,
+            has_rec=False,
+            w_rec=None,
+            noise_std=0,
+            gradient_fn=PeriodicExponential,
+            learning_window=0.5,
+
             dt=dt,
             device=device,
         )
@@ -334,21 +370,32 @@ class WaveSenseNet(TorchModule):
             self.__setattr__(f"wave{i}", wave)
 
         # Dense readout layers
-        self.dense = LinearTorch((n_channels_skip, n_hidden), has_bias=False, device=device)
+        self.dense = LinearTorch(shape=(n_channels_skip, n_hidden), 
+                                 has_bias=False, 
+                                 device=device)
+
         with torch.no_grad():
             # normalize for tau_syn
-            self.dense.weight = self.dense.weight / (base_tau_syn * 1000)
+            self.dense.weight.data /= base_tau_syn * 1000
 
-        self.spk2 = LIFTorch(
-            n_hidden,
+        self.spk2 = self.neuron_model(
+            shape=(n_hidden, n_hidden),
             tau_mem=tau_mem,
             tau_syn=base_tau_syn,
             has_bias=has_bias,
             threshold=threshold,
+            has_rec=False,
+            w_rec=None,
+            noise_std=0,
+            gradient_fn=PeriodicExponential,
+            learning_window=0.5,
             dt=dt,
             device=device,
         )
-        self.readout = LinearTorch((n_hidden, n_classes), has_bias=False, device=device)
+
+        self.readout = LinearTorch(shape=(n_hidden, n_classes), 
+                                   has_bias=False, 
+                                   device=device)
 
         # Smoothing output
         self.smooth_output = SimulationParameter(smooth_output)
@@ -357,7 +404,7 @@ class WaveSenseNet(TorchModule):
         if smooth_output:
             with torch.no_grad():
                 # normalize for tau_syn
-                self.readout.weight = self.readout.weight / (tau_lp  * 1000)
+                self.readout.weight.data /= tau_lp  * 1000
             self.lp = ExpSynTorch(n_classes, tau_syn=tau_lp, dt=dt, device=device)
 
         # - Record dt
