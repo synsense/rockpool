@@ -19,7 +19,7 @@ try:
     from .iaf_cl import *
     from .iaf_digital import *
     from .updown import *
-    from filter_bank import *
+    from .filter_bank import *
 except (ImportError, ModuleNotFoundError) as err:
     print(f"Could not import package: {err}")
 
