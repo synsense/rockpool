@@ -1,5 +1,5 @@
 """
-Implement the `Sequential` combinator, with helper classes for Jax and Torch backends
+Implement the :py:class:`.Sequential` combinator, with helper classes for Jax and Torch backends
 """
 
 from rockpool.nn.modules.module import Module, ModuleBase
@@ -142,6 +142,10 @@ class SequentialMixin(ABC):
 
 
 class ModSequential(SequentialMixin, Module):
+    """
+    The :py:class:`.Sequential` combinator for native modules
+    """
+
     pass
 
 
@@ -150,6 +154,10 @@ try:
     from jax import numpy as jnp
 
     class JaxSequential(SequentialMixin, JaxModule):
+        """
+        The :py:class:`.Sequential` combinator for Jax modules
+        """
+
         @classmethod
         def tree_unflatten(cls, aux_data, children):
             """Unflatten a tree of modules from Jax to Rockpool"""
@@ -170,6 +178,10 @@ try:
 except:
 
     class JaxSequential:
+        """
+        The :py:class:`.Sequential` combinator for Jax modules
+        """
+
         def __init__(self):
             raise ImportError(
                 "'Jax' and 'Jaxlib' backend not found. Modules relying on Jax will not be available."
@@ -180,12 +192,20 @@ try:
     from rockpool.nn.modules.torch.torch_module import TorchModule
 
     class TorchSequential(SequentialMixin, TorchModule):
+        """
+        The :py:class:`.Sequential` combinator for torch modules
+        """
+
         pass
 
 
 except:
 
     class TorchSequential:
+        """
+        The :py:class:`.Sequential` combinator for torch modules
+        """
+
         def __init__(self):
             raise ImportError(
                 "'Torch' backend not found. Modules relying on PyTorch will not be available."

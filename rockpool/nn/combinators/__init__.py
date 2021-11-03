@@ -6,6 +6,7 @@ from warnings import warn
 dModules = {
     ".ffwd_stack": "FFwdStack",
     ".sequential": "Sequential",
+    ".residual": "Residual",
 }
 
 
@@ -13,7 +14,12 @@ dModules = {
 strBasePackage = "rockpool.nn.combinators"
 
 # - Define docstring for module
-__doc__ = """Defines classes for simulating layers of neurons"""
+__doc__ = """
+Defines classes for building networks by composing simpler modules.
+
+See Also:
+    See :ref:`/basics/getting_started.ipynb` for examples of using combinators.
+"""
 
 # - Initialise list of available modules
 __all__ = []

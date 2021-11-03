@@ -53,6 +53,7 @@ Combinator modules
 
     nn.combinators.FFwdStack
     nn.combinators.Sequential
+    nn.combinators.Residual
 
 
 Time series classes
