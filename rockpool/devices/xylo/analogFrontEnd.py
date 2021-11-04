@@ -492,7 +492,11 @@ class AFE(Module):
         # return sampled
 
     def evolve(
-        self, input: np.ndarray = None, record: bool = False, *args, **kwargs,
+        self,
+        input: np.ndarray = None,
+        record: bool = False,
+        *args,
+        **kwargs,
     ):
         # - Make sure input is 1D
         if np.ndim(input) > 1:

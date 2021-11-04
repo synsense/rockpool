@@ -4,9 +4,9 @@ def test_imports():
 
 def test_configure():
     # - Samna imports
-    from samna.pollen.configuration import ReservoirNeuron
-    from samna.pollen.configuration import PollenConfiguration as XyloConfiguration
-    from samna.pollen import validate_configuration
+    from samna.xylo.configuration import ReservoirNeuron
+    from samna.xylo.configuration import XyloConfiguration
+    from samna.xylo import validate_configuration
     from rockpool.devices import xylo
     import numpy as np
 
