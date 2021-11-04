@@ -228,14 +228,14 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
             }
             return serial
 
-        paramMap = [
+        param_map = [
             {"key": bias, "value": param_dict(bias_getter(bias))}
             for bias in self.biases
         ]
 
         group = {
             "value0": {
-                "paramMap": paramMap,
+                "paramMap": param_map,
                 "chipId": chipID,
                 "coreId": coreID,
             }

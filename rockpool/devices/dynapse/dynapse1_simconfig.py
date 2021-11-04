@@ -92,7 +92,7 @@ class DynapSE1Layout:
 
     :param kappa_n: Subthreshold slope factor (n-type transistor), defaults to 0.75
     :type kappa_n: float, optional
-    :param kappa_p: Subthreshold slope factor (n-type transistor), defaults to 0.66
+    :param kappa_p: Subthreshold slope factor (p-type transistor), defaults to 0.66
     :type kappa_p: float, optional
     :param Ut: Thermal voltage in Volts, defaults to 25e-3
     :type Ut: float, optional

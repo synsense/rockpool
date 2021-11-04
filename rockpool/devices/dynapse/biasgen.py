@@ -14,6 +14,8 @@ from typing import (
     Any,
 )
 
+from warnings import warn
+
 _SAMNA_AVAILABLE = True
 
 try:
@@ -174,7 +176,10 @@ class BiasGen:
         if couples:
             return couples[couple_idx]
         else:
-            return None
+            warn(
+                f"Desired linear value is out of limits! {linear} > 2400000000. Max returned!"
+            )
+            return np.uint8(7), np.uint8(255)
 
     @staticmethod
     def bias_to_coarse_fine(
