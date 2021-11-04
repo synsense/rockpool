@@ -275,5 +275,5 @@ class DynapSE1BiasGen(BiasGen):
         :rtype: float
         """
         raw = DynapSE1BiasGen.get_bias(param.coarse_value, param.fine_value)
-        corrected = raw * DynapSE1BiasGen.correction_factor[param.param_name] + Io
+        corrected = raw * DynapSE1BiasGen.correction_factor[param.param_name]
         return corrected
