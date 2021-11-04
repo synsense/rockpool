@@ -533,9 +533,9 @@ class GABABParameters(SynapseParameters):
         return cls._from_parameter_group(
             parameter_group,
             layout,
-            Itau_name="NPDPII_TAU_F_P",
-            Ithr_name="NPDPII_THR_F_P",
-            Iw_name="PS_WEIGHT_INH_F_N",
+            Itau_name="NPDPII_TAU_S_P",
+            Ithr_name="NPDPII_THR_S_P",
+            Iw_name="PS_WEIGHT_INH_S_N",
             *args,
             **kwargs,
         )
@@ -573,9 +573,9 @@ class GABAAParameters(SynapseParameters):
         return cls._from_parameter_group(
             parameter_group,
             layout,
-            Itau_name="NPDPII_TAU_S_P",
-            Ithr_name="NPDPII_THR_S_P",
-            Iw_name="PS_WEIGHT_INH_S_N",
+            Itau_name="NPDPII_TAU_F_P",
+            Ithr_name="NPDPII_THR_F_P",
+            Iw_name="PS_WEIGHT_INH_F_N",
             *args,
             **kwargs,
         )
