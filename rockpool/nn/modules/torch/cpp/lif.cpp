@@ -11,6 +11,7 @@ tensor_list lif_forward(torch::Tensor data,
                         torch::Tensor alpha_syn,
                         torch::Tensor tau_mem,
                         torch::Tensor tau_syn,
+                        torch::Tensor bias,
                         double threshold,
                         double window,
                         bool record)
@@ -67,7 +68,7 @@ tensor_list lif_forward(torch::Tensor data,
         isyn = BitshiftDecay::apply(isyn, dash_syn, tau_syn);
         
         // State propagation
-        vmem = vmem + isyn.sum(1);
+        vmem = vmem + isyn.sum(1) + bias;
     }                             
  
     if (!record)

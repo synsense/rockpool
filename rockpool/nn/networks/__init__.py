@@ -4,11 +4,9 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".network": "Network",
     ".net_deneve": "NetworkDeneve",
     ".net_ads": "NetworkADS",
-    # ".net_rate_reservoir": ("build_rate_reservoir", "build_random_reservoir"),
-    # ".stack_jax": "JaxStack",
+    ".wavesense": ["WaveBlock", "WaveSenseNet"],
 }
 
 # - Define current package
