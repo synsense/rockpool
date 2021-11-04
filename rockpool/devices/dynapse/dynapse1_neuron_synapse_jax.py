@@ -351,6 +351,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         ## Membrane
         self.Itau_mem = Parameter(sim_config.Itau_mem, shape=(self.size_out,))
+        self.Itau2_mem = Parameter(sim_config.Itau2_mem, shape=(self.size_out,))
         self.f_gain_mem = Parameter(sim_config.f_gain_mem, shape=(self.size_out,))
         self.Idc = Parameter(sim_config.Idc, shape=(self.size_out,))
         self.If_nmda = Parameter(sim_config.If_nmda, shape=(self.size_out,))

@@ -540,7 +540,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
     def IF_TAU1_N(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
         """
         IF_TAU1_N controls the membrane circuit time constant, reciprocal to `Itau_mem`
-        The depended time constant can be calculated by using the formula :math:`\\tau = \\dfrac{U_T}{I_{\\tau} \\cdot \\kappa \\cdot C}`,
+        The depended time constant can be calculated by using the formula :math:`\\tau = \\dfrac{U_T}{I_{\\tau} \\cdot \\kappa \\cdot C}`
 
         :param chipID: Unique chip ID
         :type chipID: np.uint8
@@ -553,8 +553,8 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
 
     def IF_TAU2_N(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
         """
-        IF_TAU2_N is te second refractory period. Generally max current, used for deactivation of certain neruons.
-        !NON-PARAMETRIC! chipID and coreID has no effect for now but it might be changed, (keep them for the sake of convenience)
+        IF_TAU2_N controls the membrane circuit time constant, reciprocal to `Itau2_mem`. Generally max current, used for deactivation of certain neruons.
+        The depended time constant can be calculated by using the formula :math:`\\tau = \\dfrac{U_T}{I_{\\tau} \\cdot \\kappa \\cdot C}`
 
         :param chipID: Unique chip ID
         :type chipID: np.uint8
@@ -563,7 +563,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
         :return: samna bias parameter object involving a coarse and fine value
         :rtype: Dynapse1Parameter
         """
-        return Dynapse1Parameter("IF_TAU2_N", 7, 255)
+        return self.bias_parameter(chipID, coreID, "Itau2_mem", "IF_TAU2_N")
 
     def IF_THR_N(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
         """

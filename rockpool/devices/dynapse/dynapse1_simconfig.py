@@ -377,6 +377,10 @@ class MembraneParameters(DPIParameters):
     :type Cpulse: float
     :param Imem: The sub-threshold current that represents the real neuron’s membrane potential variable, defaults to Io
     :type Imem: Optional[float], optional
+    :param tau2: Secondary membrane time constant, co-depended to Itau2. In the case its provided, Itau2 is infered from tau. A neuron's time constant can be switched to tau or tau2. defaults to None
+    :type tau2: Optional[float], optional
+    :param Itau2: Secondary membrane time constant current in Amperes. A neuron's time constant can be switched to tau or tau2. defaults to 2.4e-5
+    :type Itau2: float, optional
     :param Iref: the bias current setting the `t_ref`, defaults to None
     :type Iref: Optional[float], optional
     :param t_ref: refractory period in seconds, limits maximum firing rate. In the refractory period the synaptic input current of the membrane is the dark current. The value co-depends on `Iref` and `t_ref` definition has priority over `Iref`, defaults to 10e-3
@@ -403,6 +407,8 @@ class MembraneParameters(DPIParameters):
     Cref: float = 5e-13
     Cpulse: float = 5e-13
     tau: Optional[float] = 20e-3
+    tau2: Optional[float] = None
+    Itau2: Optional[float] = 2.4e-5  # Max bias current possible
     Imem: Optional[float] = None
     Iref: Optional[float] = None
     t_ref: Optional[float] = 10e-3
@@ -435,6 +441,10 @@ class MembraneParameters(DPIParameters):
             raise ValueError(
                 f"Illegal Imem : {self.Imem}A. It should be greater than Io : {self.layout.Io}"
             )
+
+        self.tau2, self.Itau2 = self.time_current_dependence(
+            self.tau2, self.Itau2, self.f_tau
+        )
 
         self.t_ref, self.Iref = self.time_current_dependence(
             self.t_ref, self.Iref, self.f_ref
@@ -473,6 +483,8 @@ class MembraneParameters(DPIParameters):
             Itau=bias("IF_TAU1_N"),
             Ith=bias("IF_THR_N"),
             tau=None,  # deduced from Itau
+            tau2=None,  # deduced from Itau2
+            Itau2=bias("IF_TAU2_N"),
             f_gain=None,  # deduced from Ith/Itau
             Iref=bias("IF_RFR_N"),
             t_ref=None,  # deduced from Iref
@@ -995,6 +1007,13 @@ class DynapSE1SimCore:
         return self.mem_property("Itau")
 
     @property
+    def Itau2_mem(self) -> np.ndarray:
+        """
+        Itau2_mem is an array of secondary membrane leakage currents of the neurons with shape = (Nrec,)
+        """
+        return self.mem_property("Itau2")
+
+    @property
     def f_gain_mem(self) -> np.ndarray:
         """
         f_gain_mem is an array of membrane gain parameter of the neurons with shape = (Nrec,)
@@ -1199,6 +1218,7 @@ class DynapSE1SimBoard:
         attr_list = [
             "Imem",
             "Itau_mem",
+            "Itau2_mem",
             "f_gain_mem",
             "Ip_gain",
             "Ip_th",
