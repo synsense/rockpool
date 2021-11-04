@@ -12,15 +12,11 @@ import numpy as np
 import copy
 
 from rockpool.graph import (
-    GraphModule,
-    GraphNode,
     GraphModuleBase,
     GenericNeurons,
     AliasConnection,
     LinearWeights,
-    LIFNeuronWithSynsRealValue,
     SetList,
-    replace_module,
     bag_graph,
     find_modules_of_subclass,
     find_recurrent_modules,
@@ -28,7 +24,7 @@ from rockpool.graph import (
 from rockpool.devices.xylo import XyloHiddenNeurons, XyloOutputNeurons, XyloNeurons
 
 
-from typing import List, Callable, Set, Optional
+from typing import List, Callable, Set, Optional, Union
 
 __all__ = ["mapper", "DRCError"]
 
@@ -163,7 +159,9 @@ def check_drc(
             )
 
 
-def assign_ids_to_class(graph: GraphModule, cls, available_ids: List[int]) -> List[int]:
+def assign_ids_to_class(
+    graph: GraphModuleBase, cls, available_ids: List[int]
+) -> List[int]:
     """
     Assign IDs from a list to a class of graph module
 
@@ -179,7 +177,7 @@ def assign_ids_to_class(graph: GraphModule, cls, available_ids: List[int]) -> Li
         [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
     Args:
-        graph (GraphModule):
+        graph (GraphModuleBase): The graph to search over
         cls: The :py:class:`~.graph.GraphModule` subclass to search for, to assign IDs to
         available_ids (List[int]): A list of integer unique HW IDs that can be allocated from. These IDs will be allocated to the graph modules.
 
@@ -208,7 +206,12 @@ def assign_ids_to_class(graph: GraphModule, cls, available_ids: List[int]) -> Li
     return allocated_ids
 
 
-def mapper(graph: GraphModuleBase) -> dict:
+def mapper(
+    graph: GraphModuleBase,
+    weight_dtype: Union[np.dtype, str] = "int8",
+    threshold_dtype: Union[np.dtype, str] = "int16",
+    dash_dtype: Union[np.dtype, str] = "uint8",
+) -> dict:
     """
     Map a computational graph onto the Xylo v1 architecture
 
@@ -218,6 +221,9 @@ def mapper(graph: GraphModuleBase) -> dict:
 
     Args:
         graph (GraphModuleBase): The graph to map
+        weight_dtype (Union[np.dtype, str]): Data type for mapped weight parameters. Default: ``"int8"``
+        threshold_dtype (Union[np.dtype, str]): Data type for mapped threshold parameters. Default: ``"int16"``
+        dash_dtype (Union[np.dtype, str]): Data type for mapped dash (bitshift time constant) parameters. Default: ``"uint8"``
 
     Returns:
         dict: A dictionary of specifications for Xylo v1, containing the mapped computational graph
@@ -303,7 +309,7 @@ def mapper(graph: GraphModuleBase) -> dict:
     # - Allocate and assign the input weights
     w_in = np.zeros(
         (len(input_channels), len(allocated_hidden_neurons), num_hidden_synapses),
-        "int16",
+        weight_dtype,
     )
     w_in[
         np.ix_(input_channels, these_dest_indices, list(range(weight_num_synapses)))
@@ -318,14 +324,14 @@ def mapper(graph: GraphModuleBase) -> dict:
             len(allocated_hidden_neurons),
             num_hidden_synapses,
         ),
-        "int16",
+        weight_dtype,
     )
     w_rec_source_ids = allocated_hidden_neurons
     w_rec_dest_ids = allocated_hidden_neurons
 
     # - Build an output weight matrix
     w_out = np.zeros(
-        (len(allocated_hidden_neurons), len(allocated_output_neurons)), "int16"
+        (len(allocated_hidden_neurons), len(allocated_output_neurons)), weight_dtype
     )
     w_out_source_ids = allocated_hidden_neurons
     w_out_dest_ids = allocated_output_neurons
@@ -400,22 +406,22 @@ def mapper(graph: GraphModuleBase) -> dict:
 
     # --- Extract parameters from nodes ---
 
-    hidden_neurons: Set[XyloHiddenNeurons] = find_modules_of_subclass(
+    hidden_neurons: SetList[XyloHiddenNeurons] = find_modules_of_subclass(
         graph, XyloHiddenNeurons
     )
-    output_neurons: Set[XyloOutputNeurons] = find_modules_of_subclass(
+    output_neurons: SetList[XyloOutputNeurons] = find_modules_of_subclass(
         graph, XyloOutputNeurons
     )
     num_hidden_neurons = len(allocated_hidden_neurons)
     num_output_neurons = len(allocated_output_neurons)
 
-    dash_mem = np.zeros(num_hidden_neurons, "int8")
-    dash_mem_out = np.zeros(num_output_neurons, "int8")
-    dash_syn = np.zeros(num_hidden_neurons, "int8")
-    dash_syn_2 = np.zeros(num_hidden_neurons, "int8")
-    dash_syn_out = np.zeros(num_output_neurons, "int16")
-    threshold = np.zeros(num_hidden_neurons, "int16")
-    threshold_out = np.zeros(num_output_neurons, "int16")
+    dash_mem = np.zeros(num_hidden_neurons, dash_dtype)
+    dash_mem_out = np.zeros(num_output_neurons, dash_dtype)
+    dash_syn = np.zeros(num_hidden_neurons, dash_dtype)
+    dash_syn_2 = np.zeros(num_hidden_neurons, dash_dtype)
+    dash_syn_out = np.zeros(num_output_neurons, dash_dtype)
+    threshold = np.zeros(num_hidden_neurons, threshold_dtype)
+    threshold_out = np.zeros(num_output_neurons, threshold_dtype)
 
     for n in hidden_neurons:
         these_indices = n.hw_ids
@@ -435,7 +441,7 @@ def mapper(graph: GraphModuleBase) -> dict:
         dash_syn_out[these_indices] = n.dash_syn
         threshold_out[these_indices] = n.threshold
 
-    neurons: Set[XyloNeurons] = find_modules_of_subclass(graph, XyloNeurons)
+    neurons: SetList[XyloNeurons] = find_modules_of_subclass(graph, XyloNeurons)
     dt = None
     for n in neurons:
         dt = n.dt if dt is None else dt
@@ -450,7 +456,7 @@ def mapper(graph: GraphModuleBase) -> dict:
         sm = SetList(
             [
                 sm
-                for n in w.input_nodes
+                for n in a.input_nodes
                 for sm in n.source_modules
                 if isinstance(sm, XyloNeurons)
             ]
@@ -461,7 +467,7 @@ def mapper(graph: GraphModuleBase) -> dict:
         sm = SetList(
             [
                 sm
-                for n in w.output_nodes
+                for n in a.output_nodes
                 for sm in n.sink_modules
                 if isinstance(sm, XyloNeurons)
             ]
