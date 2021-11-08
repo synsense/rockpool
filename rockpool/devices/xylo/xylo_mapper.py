@@ -124,6 +124,30 @@ def no_consecutive_weights(graph: GraphModuleBase) -> None:
                     )
 
 
+def alias_inputs_must_be_neurons(graph: GraphModuleBase) -> None:
+    all_aliases = find_modules_of_subclass(graph, AliasConnection)
+
+    for a in all_aliases:
+        for i_n in a.input_nodes:
+            for source in i_n.source_modules:
+                if not isinstance(source, GenericNeurons):
+                    raise DRCError(
+                        f"Inputs to alias connections must be neurons.\nFound source module {source} as source -> to aliases {a}."
+                    )
+
+
+def alias_output_nodes_must_have_neurons_as_input(graph: GraphModuleBase) -> None:
+    all_aliases = find_modules_of_subclass(graph, AliasConnection)
+
+    for a in all_aliases:
+        for o_n in a.output_nodes:
+            for source in o_n.source_modules:
+                if not isinstance(source, (GenericNeurons, AliasConnection)):
+                    raise DRCError(
+                        f"Alias connections must have neurons as the last block before the output.\nFound aliases {a} with module {source} as the last module in the graph."
+                    )
+
+
 xylo_drc: List[Callable[[GraphModuleBase], None]] = [
     output_nodes_have_neurons_as_source,
     input_to_neurons_is_a_weight,
@@ -132,6 +156,8 @@ xylo_drc: List[Callable[[GraphModuleBase], None]] = [
     all_neurons_have_same_dt,
     output_neurons_cannot_be_recurrent,
     no_consecutive_weights,
+    alias_inputs_must_be_neurons,
+    alias_output_nodes_must_have_neurons_as_input,
 ]
 """ List[Callable[[GraphModuleBase], None]]: The collection of design rules for Xylo """
 
@@ -450,7 +476,7 @@ def mapper(
 
     aliases = find_modules_of_subclass(graph, AliasConnection)
 
-    list_aliases = [[]] * num_hidden_neurons
+    list_aliases = [[] for _ in range(num_hidden_neurons)]
     for a in aliases:
         # - Find the source neurons
         sm = SetList(
@@ -468,7 +494,7 @@ def mapper(
             [
                 sm
                 for n in a.output_nodes
-                for sm in n.sink_modules
+                for sm in n.source_modules
                 if isinstance(sm, XyloNeurons)
             ]
         )

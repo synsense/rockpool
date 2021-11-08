@@ -62,7 +62,10 @@ class AliasConnection(GraphModule):
     A :py:class:`.GraphModule` that encapsulates a set of alias connections
     """
 
-    def __post_init__(self):
+    def __post_init__(self, *args, **kwargs):
+        # - Call super-class
+        super().__post_init__(*args, **kwargs)
+
         # - Check size
         if len(self.input_nodes) != len(self.output_nodes):
             raise ValueError(
