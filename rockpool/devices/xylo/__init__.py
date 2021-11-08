@@ -10,18 +10,18 @@ import warnings
 
 try:
     from .xylo_cimulator import *
-except Exception as inst:
-    warnings.warn(inst.msg)
+except Exception as e:
+    warnings.warn(str(e))
 
 try:
     from .xylo_samna import *
-except Exception as inst:
-    warnings.warn(inst.msg)
+except Exception as e:
+    warnings.warn(str(e))
 
 try:
     from .analogFrontEnd import *
-except Exception as inst:
-    warnings.warn(inst.msg)
+except Exception as e:
+    warnings.warn(str(e))
 
 try:
     from .xylo_divisive_normalisation import *
@@ -29,5 +29,5 @@ try:
         DivisiveNormalisation as DivisiveNormalization,
         DivisiveNormalisationNoLFSR as DivisiveNormalizationNoLFSR,
     )
-except Exception as inst:
-    warnings.warn(inst.msg)
+except Exception as e:
+    warnings.warn(str(e))
