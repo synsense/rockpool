@@ -14,7 +14,7 @@ from rockpool.graph.graph_base import (
 
 import copy
 
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 __all__ = [
     "connect_modules",
@@ -25,7 +25,12 @@ __all__ = [
 ]
 
 
-def connect_modules(source: GraphModuleBase, dest: GraphModuleBase) -> None:
+def connect_modules(
+        source: GraphModuleBase,
+        dest: GraphModuleBase,
+        source_index: Optional[list] = None,
+        dest_index: Optional[list] = None,
+        ) -> None:
     """
     Connect two :py:class:`.GraphModule` s together
 
@@ -36,7 +41,16 @@ def connect_modules(source: GraphModuleBase, dest: GraphModuleBase) -> None:
     Args:
         source (GraphModule): The source graph module to connect
         dest (GraphModule): The destination graph module to connect
+        source_index (Optional): The source output nodes index list
+        dest_index (Optional): the dest input nodes index list
     """
+    # - If specified input_nodes and output_nodes indexes:
+
+    if source_index is not None:
+        source.output_nodes = [source.output_nodes[i] for i in source_index]
+    if dest_index is not None:
+        dest.input_nodes = [dest.input_nodes[i] for i in dest_index]
+
     # - Check channel dimensions
     if len(source.output_nodes) != len(dest.input_nodes):
         raise ValueError(

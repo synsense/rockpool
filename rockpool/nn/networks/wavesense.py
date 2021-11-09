@@ -462,3 +462,8 @@ class WaveSenseNet(TorchModule):
 
     def trainable_parameters(self):
         return [p for p in list(self.parameters().astorch()) if p.requires_grad]
+
+
+Net = WaveSenseNet([2,4])
+
+print('yes')

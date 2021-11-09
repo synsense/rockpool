@@ -13,6 +13,7 @@ from typing import Optional
 from rockpool.typehints import FloatVector
 
 import numpy as np
+import torch
 
 __all__ = [
     "LinearWeights",
@@ -42,7 +43,10 @@ class LinearWeights(GraphModule):
         super().__post_init__(*args, **kwargs)
 
         # - Convert weights to numpy array
-        self.weights = np.array(self.weights)
+        if torch.is_tensor(self.weights):
+            self.weights = np.array(self.weights.detach().numpy())  # for torch backend
+        else:
+            self.weights = np.array(self.weights)
 
 
 @dataclass(eq=False, repr=False)
@@ -67,6 +71,9 @@ class AliasConnection(GraphModule):
         super().__post_init__(*args, **kwargs)
 
         # - Check size
+        print('-----')
+        print('inp', self.input_nodes)
+        print('out', self.output_nodes)
         if len(self.input_nodes) != len(self.output_nodes):
             raise ValueError(
                 f"For an alias connection, the number of inputs and outputs must be identical.\nGot {len(self.input_nodes)} and {len(self.output_nodes)}."

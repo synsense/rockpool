@@ -188,17 +188,20 @@ class LIFTorch(TorchModule):
         factory_kwargs = {"device": device}
 
         # - Initialise recurrent weights
-        if weight_init_func is None:
-            weight_init_func = lambda s: init.kaiming_uniform_(
-                torch.empty(s, **factory_kwargs)
-            )
+        # if weight_init_func is None:
+        #     weight_init_func = lambda s: init.kaiming_uniform_(
+        #         torch.empty(s, **factory_kwargs)
+        #     )
 
         w_rec_shape = (self.size_out, self.size_in)
         if has_rec:
             self.w_rec: P_tensor = rp.Parameter(
                 w_rec,
                 shape=w_rec_shape,
-                init_func=weight_init_func,
+                init_func=lambda s: init.kaiming_uniform_(
+                    torch.empty(s, **factory_kwargs)
+                ),
+
                 family="weights",
             )
             """ (Tensor) Recurrent weights `(Nout, Nin)` """
