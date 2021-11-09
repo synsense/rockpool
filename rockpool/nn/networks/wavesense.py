@@ -172,7 +172,7 @@ class WaveBlock(TorchModule):
             # normalize for tau_syn
             self.lin2_skip.weight.data /= tau_syn.min().item() * 1000
 
-        self.spk2_skip = LIFTorch(
+        self.spk2_skip = self.neuron_model(
             shape=(Nskip, Nskip),
             tau_mem=tau_mem,
             tau_syn=tau_syn.min().item(),

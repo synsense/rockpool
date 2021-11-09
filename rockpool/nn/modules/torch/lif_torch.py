@@ -289,8 +289,8 @@ class LIFTorch(TorchModule):
         # - Build state record
         record_dict = (
             {
-                "isyn": self._isyn_rec,
-                "vmem": self._vmem_rec,
+                "isyn": self._record_Vmem,
+                "vmem": self._record_Isyn,
             }
             if record
             else {}
@@ -336,8 +336,8 @@ class LIFTorch(TorchModule):
         bias = torch.ones(n_batches, self.n_neurons).to(data.device) * self.bias
 
         # - Set up state record and output
-        self._vmem_rec = torch.zeros(n_batches, time_steps, self.n_neurons)
-        self._isyn_rec = torch.zeros(n_batches, time_steps, self.n_synapses, self.n_neurons)
+        self._record_Vmem = torch.zeros(n_batches, time_steps, self.n_neurons)
+        self._record_Isyn = torch.zeros(n_batches, time_steps, self.n_synapses, self.n_neurons)
         out_spikes = torch.zeros(n_batches, time_steps, self.n_neurons, device=data.device)
 
         if self._record:
@@ -380,7 +380,7 @@ class LIFTorch(TorchModule):
         self.vmem = vmem[0].detach()
         self.isyn = isyn[0].detach()
 
-        self._vmem_rec.detach()
-        self._isyn_rec.detach()
+        self._record_Vmem.detach()
+        self._record_Isyn.detach()
 
         return out_spikes
