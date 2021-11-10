@@ -343,7 +343,7 @@ class ButterFilter(FilterBankBase):
 
         if np.size(frequency) != np.size(bandwidth):
             raise ValueError(
-                "`bandwidth` must be either a scalar or of the same size than `frequency`"
+                f"`bandwidth` must be either a scalar or of the same size than `frequency`. Got {np.size(frequency)} and {np.size(bandwidth)}"
             )
 
         if np.any(frequency - bandwidth / 2 <= 0.0):
