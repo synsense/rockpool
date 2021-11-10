@@ -1,0 +1,11 @@
+channels:
+  - pytorch
+  - conda-forge
+dependencies:
+  - brian2
+  - cudatoolkit
+  - openblas
+  - nest-simulator
+  - pytorch>=1.9
+  - torchvision>=0.9
+  - nbsphinx

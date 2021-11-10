@@ -103,7 +103,7 @@ class XyloCim(Module):
         dt: float
             Timestep for simulation, in seconds. Default: 1ms
         config: XyloConfiguration
-            ``samna.pollen.PollenConfiguration`` object to specify all parameters. See samna documentation for details.
+            ``samna.xylo.XyloConfiguration`` object to specify all parameters. See samna documentation for details.
 
         """
         # - Instantiate the class
