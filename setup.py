@@ -47,6 +47,7 @@ setup_args = {
         "Documentation": "https://rockpool.ai",
         "Bug Tracker": "https://github.com/SynSense/rockpool/issues",
     },
+    "include_package_data": True,
 }
 
 try:
