@@ -1,12 +1,15 @@
 def test_imports():
     from rockpool.devices import xylo
+    import rockpool.devices.xylo.xylo_cimulator
+    import rockpool.devices.xylo.xylo_samna
+    from rockpool.devices.xylo import XyloCim, XyloSamna
 
 
 def test_configure():
     # - Samna imports
-    from samna.pollen.configuration import ReservoirNeuron
-    from samna.pollen.configuration import PollenConfiguration as XyloConfiguration
-    from samna.pollen import validate_configuration
+    from samna.xylo.configuration import ReservoirNeuron
+    from samna.xylo.configuration import XyloConfiguration
+    from samna.xylo import validate_configuration
     from rockpool.devices import xylo
     import numpy as np
 
