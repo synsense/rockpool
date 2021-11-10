@@ -1,5 +1,6 @@
 def test_imports():
     from rockpool.devices import xylo
+    from rockpool.devices.xylo import XyloCim, XyloSamna
 
 
 def test_configure():
