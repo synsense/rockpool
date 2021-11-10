@@ -1,5 +1,7 @@
 def test_imports():
     from rockpool.devices import xylo
+    import rockpool.devices.xylo.xylo_cimulator
+    import rockpool.devices.xylo.xylo_samna
     from rockpool.devices.xylo import XyloCim, XyloSamna
 
 
