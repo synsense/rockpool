@@ -1,6 +1,3 @@
-import pytest
-
-
 def test_LIFTorch():
     from rockpool.nn.modules.torch.lif_torch import LIFTorch
     import torch

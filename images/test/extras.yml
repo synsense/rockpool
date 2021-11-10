@@ -6,6 +6,6 @@ dependencies:
   - cudatoolkit
   - openblas
   - nest-simulator
-  - pytorch
-  - torchvision
+  - pytorch>=1.9
+  - torchvision>=0.9
   - nbsphinx
