@@ -5,15 +5,14 @@ def test_butter_mel_filter():
     from rockpool.timeseries import TSContinuous
     import numpy as np
     import pytest
+    import scipy
     from tempfile import mkstemp
     import os
 
     base_path = "/".join(os.path.realpath(__file__).split("/")[:-1])
-    signal = np.reshape(
-        np.load(base_path + "/files/increasing_frequency_signal.npy"), (-1, 1)
-    )
     fs, f_max, duration = (10e3, 5e3, 10.0)
     times = np.arange(0.0, duration, 1 / fs)
+    signal = np.reshape(scipy.signal.chirp(times, 0.0, duration, f_max), (-1, 1))
 
     ## ARGUMENTS ##
     # Sampling frequency fs
@@ -60,14 +59,13 @@ def test_butter_filter():
     from rockpool.timeseries import TSContinuous
     import numpy as np
     import pytest
+    import scipy
     import os
 
     base_path = "/".join(os.path.realpath(__file__).split("/")[:-1])
-    signal = np.reshape(
-        np.load(base_path + "/files/increasing_frequency_signal.npy"), (-1, 1)
-    )
     fs, f_max, duration = (10e3, 5e3, 10.0)
     times = np.arange(0.0, duration, 1 / fs)
+    signal = np.reshape(scipy.signal.chirp(times, 0.0, duration, f_max), (-1, 1))
     ts_input = TSContinuous(times=times, samples=signal)
     frequency = np.linspace(1000, 4000, 16, endpoint=True)
     bandwidth = 200
