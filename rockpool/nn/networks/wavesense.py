@@ -69,17 +69,20 @@ class WaveBlock(TorchModule):
         **kwargs,
     ):
         """
+        Implementation of the WaveBlock as used in the WaveSense model. It received (Nchannels) input channels and outputs (Nchannels, Nskip) channels.
 
         Args:
-            Nchannels:
-            Nskip:
-            dilation:
-            kernel_size:
-            has_bias:
-            tau_mem:
-            base_tau_syn:
-            threshold:
-            dt:
+            :param int Nchannels:           Dimensionality of the residual connection
+            :param int Nskip:               Dimensionality of the skip connection
+            :param int dilation:            Determins the synaptic time constant of the dilation layer $dilation * base_tau_syn$ 
+            :param int kernel_size:         Number of synapses the time dilation layer in the WaveBlock
+            :param bool has_bias:           If the network can use biases to train
+            :param float tau_mem:           Membrane potential time constant of all neurons in WaveSense
+            :param float base_tau_syn:      Base synaptic time constant. Each synapse has this time constant, except the second synapse in the dilation layer which caclulates the time constant as $dilations * base_tau_syn$
+            :param float threshold:         Threshold of all neurons in WaveSense
+            :param NeuronType neuron_model: Neuronmodel to use. Either LIFTorch as standard LIF implementation, LIFBitshiftTorch for hardware compatibility or LIFSlayer for speedup
+            :param float dt:                Temporal resolution of the simulation
+            :param str device:              Torch device, cuda or cpu
             *args:
             **kwargs:
         """
@@ -103,15 +106,10 @@ class WaveBlock(TorchModule):
             torch.arange(0, dilation * kernel_size, dilation) * base_tau_syn
         )
         tau_syn = torch.clamp(tau_syn, base_tau_syn, tau_syn.max())
-        #tau_syn = torch.cat(tuple([tau_syn] * Nchannels)).to(device)
 
         self.lin1 = LinearTorch(shape=(Nchannels, Nchannels * kernel_size), 
                                 has_bias=False, 
                                 device=device)
-
-        with torch.no_grad():
-            # normalize for tau_syn
-            self.lin1.weight.data /= tau_syn.min().item() * 1000
 
         self.spk1 = self.neuron_model(
             shape=(Nchannels * kernel_size, Nchannels),
@@ -128,24 +126,10 @@ class WaveBlock(TorchModule):
             device=device,
         )
 
-        # - Build a synapse-to-neuron mapping matrix
-        self._w_syn_mapping = torch.tensor(
-            [
-                [0] * ind * kernel_size
-                + [1] * kernel_size
-                + [0] * (Nchannels - ind - 1) * kernel_size
-                for ind in range(Nchannels)
-            ]
-        ).T
-
         # - Remapping output layers
         self.lin2_res = LinearTorch(shape=(Nchannels, Nchannels), 
                                     has_bias=False, 
                                     device=device)
-
-        with torch.no_grad():
-            # normalize for tau_syn
-            self.lin2_res.weight.data /= tau_syn.min().item() * 1000
 
         self.spk2_res = self.neuron_model(
             shape=(Nchannels, Nchannels),
@@ -168,10 +152,6 @@ class WaveBlock(TorchModule):
                                      has_bias=False, 
                                      device=device)
 
-        with torch.no_grad():
-            # normalize for tau_syn
-            self.lin2_skip.weight.data /= tau_syn.min().item() * 1000
-
         self.spk2_skip = self.neuron_model(
             shape=(Nskip, Nskip),
             tau_mem=tau_mem,
@@ -186,21 +166,17 @@ class WaveBlock(TorchModule):
         self._record_dict = {}
 
     def forward(self, data: torch.tensor) -> (torch.tensor, dict, dict):
-        # Expecting data to be of the format (batch, time, n_neurons)
-        (n_batches, t_sim, n_neurons) = data.shape
+        # Expecting data to be of the format (batch, time, Nchannels)
+        (n_batches, t_sim, Nchannels) = data.shape
 
         # - Pass through dilated weight layer
         out, _, self._record_dict["lin1"] = self.lin1(data, record=True)
         self._record_dict["lin1_output"] = out
 
-        # TODO what's that?
-        # - Enforce the synapse-to-neuron mapping matrix for the dilation spiking layer
-        self.spk1.w_syn = self._w_syn_mapping
-
         # - Pass through dilated spiking layer
         hidden, _, self._record_dict["spk1"] = self.spk1(
             out, record=True
-        )  # (t_sim, n_batches, n_neurons)
+        )  # (t_sim, n_batches, Nchannels)
         self._record_dict["spk1_output"] = hidden
 
         # - Pass through output linear weights
@@ -299,23 +275,25 @@ class WaveSenseNet(TorchModule):
         **kwargs,
     ):
         """
+        Implementation of the WaveSense network as described in https://arxiv.org/abs/2111.01456.
 
         Args:
-            dilations:
-            n_classes:
-            n_channels_in:
-            n_channels_res:
-            n_channels_skip:
-            n_hidden:
-            kernel_size:
-            has_bias:
-            smooth_output:
-            tau_mem:
-            base_tau_syn:
-            tau_lp:
-            threshold:
-            neuron_model: LIFTorch, LIFBitshiftTorch or LIFSlayer
-            dt:
+            :param List dilations:          List of dilations which determines the number of WaveBlockes used and the synaptic time constant of the dilation layer $dilations * base_tau_syn$.
+            :param int n_classes:           Output dimensionality, usually one per class
+            :param int n_channels_in:       Input dimensionality / number of input features
+            :param int n_channels_res:      Dimensionality of the residual connection in each WaveBlock
+            :param int n_channels_skip:     Dimensionality of the skip connection
+            :param int n_hidden:            Number of neurons in the hidden layer of the readout
+            :param int kernel_size:         Number of synapses the dilated layer in the WaveBlock
+            :param bool has_bias:           If the network can use biases to train
+            :param bool smooth_output:      If the output of the network is smoothed with an exponential kernel
+            :param float tau_mem:           Membrane potential time constant of all neurons in WaveSense
+            :param float base_tau_syn:      Base synaptic time constant. Each synapse has this time constant, except the second synapse in the dilation layer which caclulates the time constant as $dilations * base_tau_syn$
+            :param float tau_lp:            Time constant of the smooth output
+            :param float threshold:         Threshold of all neurons in WaveSense
+            :param NeuronType neuron_model: Neuronmodel to use. Either LIFTorch as standard LIF implementation, LIFBitshiftTorch for hardware compatibility or LIFSlayer for speedup
+            :param float dt:                Temporal resolution of the simulation
+            :param str device:              Torch device, cuda or cpu
             *args:
             **kwargs:
         """
@@ -331,10 +309,6 @@ class WaveSenseNet(TorchModule):
         self.lin1 = LinearTorch(shape=(n_channels_in, n_channels_res), 
                                 has_bias=False, 
                                 device=device)
-
-        with torch.no_grad():
-            # normalize for tau_syn
-            self.lin1.weight.data /= base_tau_syn * 1000
 
         self.spk1 = self.neuron_model(
             shape=(n_channels_res, n_channels_res),
@@ -370,13 +344,9 @@ class WaveSenseNet(TorchModule):
             self.__setattr__(f"wave{i}", wave)
 
         # Dense readout layers
-        self.dense = LinearTorch(shape=(n_channels_skip, n_hidden), 
+        self.hidden = LinearTorch(shape=(n_channels_skip, n_hidden), 
                                  has_bias=False, 
                                  device=device)
-
-        with torch.no_grad():
-            # normalize for tau_syn
-            self.dense.weight.data /= base_tau_syn * 1000
 
         self.spk2 = self.neuron_model(
             shape=(n_hidden, n_hidden),
@@ -402,9 +372,6 @@ class WaveSenseNet(TorchModule):
         """ bool: Perform low-pass filtering of the readout """
 
         if smooth_output:
-            with torch.no_grad():
-                # normalize for tau_syn
-                self.readout.weight.data /= tau_lp  * 1000
             self.lp = ExpSynTorch(n_classes, tau_syn=tau_lp, dt=dt, device=device)
 
         # - Record dt
@@ -425,7 +392,7 @@ class WaveSenseNet(TorchModule):
         # Pass through spiking layer
         out, _, self._record_dict["spk1"] = self.spk1(
             out, record=True
-        )  # (t_sim, n_batches, n_neurons)
+        )  # (t_sim, n_batches, Nchannels)
         self._record_dict["spk1_output"] = out.detach()
 
         # Pass through each wave block in turn
@@ -438,8 +405,8 @@ class WaveSenseNet(TorchModule):
             skip = skip_new + skip
 
         # Dense layers
-        out, _, self._record_dict["dense"] = self.dense(skip, record=True)
-        self._record_dict["dense_output"] = out.detach()
+        out, _, self._record_dict["hidden"] = self.hidden(skip, record=True)
+        self._record_dict["hidden_output"] = out.detach()
         out, _, self._record_dict["spk2"] = self.spk2(out, record=True)
         self._record_dict["spk2_output"] = out.detach()
 
