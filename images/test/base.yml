@@ -1,0 +1,18 @@
+channels:
+  - defaults
+dependencies:
+  - matplotlib
+  - openblas
+  - numba
+  - numpy
+  - pandas
+  - python
+  - scipy
+  - tqdm
+  - sphinx
+  - recommonmark
+  - pandoc
+  - pytest
+  - pytest-xdist
+  - matplotlib
+  - pip
