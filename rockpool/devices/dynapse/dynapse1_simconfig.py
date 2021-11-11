@@ -1128,7 +1128,7 @@ class DynapSE1SimCore:
     @property
     def Ispkthr(self) -> np.ndarray:
         """
-        Ispkthr is an array of the refractory period in seconds, limits maximum firing rate with shape (Nrec,)
+        Ispkthr is an array of the spiking threshold current in Amperes with shape  shape (Nrec,)
         """
         return self.mem_property("Ispkthr")
 
