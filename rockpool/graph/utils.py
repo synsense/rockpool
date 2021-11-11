@@ -26,11 +26,11 @@ __all__ = [
 
 
 def connect_modules(
-        source: GraphModuleBase,
-        dest: GraphModuleBase,
-        source_index_list: Optional[list] = None,
-        dest_index_list: Optional[list] = None,
-        ) -> None:
+    source: GraphModuleBase,
+    dest: GraphModuleBase,
+    source_index_list: Optional[list] = None,
+    dest_index_list: Optional[list] = None,
+) -> None:
     """
     Connect two :py:class:`.GraphModule` s together
 
@@ -50,12 +50,16 @@ def connect_modules(
         len_source_nodes = len(source_index_list)
     else:
         len_source_nodes = len(source.output_nodes)  # full range
-        source_index_list = range(len_source_nodes)  # if no source_index_list, then we give it the full range
+        source_index_list = range(
+            len_source_nodes
+        )  # if no source_index_list, then we give it the full range
     if dest_index_list is not None:
         len_dest_nodes = len(dest_index_list)
     else:
         len_dest_nodes = len(dest.input_nodes)  # full range
-        dest_index_list = range(len_dest_nodes)  # if no dest_index_list, then we give it the full range
+        dest_index_list = range(
+            len_dest_nodes
+        )  # if no dest_index_list, then we give it the full range
 
     # - Check channel dimensions
     if len_source_nodes != len_dest_nodes:
@@ -82,24 +86,31 @@ def connect_modules(
         del d_i_node.sink_modules[:]
 
     # - Replace input node in all sink objects with the connected output nodes
-    dest_nodes = copy.copy(dest.input_nodes)  # we need full copy to get correct index, can not use '[dest.input_nodes[i] for i in dest_index]'
+    dest_nodes = copy.copy(
+        dest.input_nodes
+    )  # we need full copy to get correct index, can not use '[dest.input_nodes[i] for i in dest_index]'
+
     for num in range(len_dest_nodes):
         # - Get corresponding source and dest nodes index
         source_node_index = source_index_list[num]
         dest_node_index = dest_index_list[num]
+
         # - Get corresponding source and dest nodes
         s_o_node = source.output_nodes[source_node_index]
         d_i_node = dest_nodes[dest_node_index]
 
         # - For all source modules to this node, replace the node on the output
         for sm in s_o_node.source_modules:
-            sm.remove_output(d_i_node)
-            sm.add_output(s_o_node)
+            if d_i_node in sm.output_nodes:
+                this_source_node_index = sm.output_nodes.index(d_i_node)
+                sm.output_nodes[this_source_node_index] = s_o_node
 
         # - For all sink modules to this node, replace the node on the input
         for sink in s_o_node.sink_modules:
-            sink.remove_input(d_i_node)
-            sink.add_input(s_o_node)
+            if d_i_node in sink.input_nodes:
+                this_dest_node_index = sink.input_nodes.index(d_i_node)
+                sink.input_nodes[this_dest_node_index] = s_o_node
+
 
 def bag_graph(
     graph: GraphModuleBase,
