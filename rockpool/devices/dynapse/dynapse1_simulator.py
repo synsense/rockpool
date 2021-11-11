@@ -32,7 +32,7 @@ from typing import (
     Tuple,
 )
 
-import warnings
+import logging
 import jax.numpy as np
 from rockpool.typehints import FloatVector
 
@@ -357,7 +357,7 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
                 I_bias = float(I_base[idx].mean())
             else:
                 if len(I_base.shape) == 1:
-                    warnings.warn(
+                    logging.warning(
                         f"Bias: {attribute} is a a membrane current. Defined syn_type:{syn_type} has no effect!"
                     )
                     I_bias = float(I_base[idx].mean())

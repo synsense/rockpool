@@ -14,7 +14,7 @@ from typing import (
     Any,
 )
 
-from warnings import warn
+import logging
 
 _SAMNA_AVAILABLE = True
 
@@ -176,7 +176,7 @@ class BiasGen:
         if couples:
             return couples[couple_idx]
         else:
-            warn(
+            logging.warning(
                 f"Desired linear value is out of limits! {linear} > 2400000000. Max returned!"
             )
             return np.uint8(7), np.uint8(255)

@@ -57,7 +57,7 @@ from rockpool.typehints import (
 
 from rockpool.devices.dynapse.dynapse1_simconfig import DynapSE1SimCore
 
-from warnings import warn
+import logging
 
 DynapSE1State = Tuple[JP_ndarray, JP_ndarray, JP_ndarray, Optional[Any]]
 
@@ -409,7 +409,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             :type mask: Optional[np.ndarray], optional
             :param keyword: the keyword to be used in the warning like MEMBRANE, GABA_B or so., defaults to ""
             :type keyword: str, optional
-            """        
+            """
             # tau's that are beyond the theoretical boundaries
             danger_mask = 10 * self.dt > tau
 
@@ -420,16 +420,14 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             _tau = np.unique(tau[danger_mask])
 
             if _tau.size != 0:
-                warn(
-                    f"Chosen simulation time step {self.dt:.2e} is incapable of simulating the {keyword} dynamics properly. dt should be < {_tau.min()/10:.2e}",
-                    stacklevel=2,
+                logging.warning(
+                    f"Chosen simulation time step {self.dt:.2e} is incapable of simulating the {keyword} dynamics properly. dt should be < {_tau.min()/10:.2e}"
                 )
 
         # Pulse width bigger than dt. It's not crucial but theoretical calculations are done thinking t_pulse<dt
         if self.t_pulse.max() > self.dt:
-            warn(
+            logging.warning(
                 f"Pulse width: {self.t_pulse.max():.2e} is greater than simulation time step {self.dt:.2e}!",
-                stacklevel=2,
             )
 
         check_tau(self.tau_mem, keyword="MEMBRANE")
