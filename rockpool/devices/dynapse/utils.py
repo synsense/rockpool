@@ -647,4 +647,152 @@ def set_param(
         )
 
 
+def bias_current_table(
+    mod: DynapSE1Jax,
+    chipID: np.uint8,
+    coreID: np.uint8,
+    reciprocals: List[Tuple[str]],
+    default_mod: Optional[DynapSE1Jax] = None,
+) -> Dict[str, List[Union[str, Tuple[int], float]]]:
+    """
+    bias_current_table creates a table in the form of a dictionary. It includes the bias parameters, coarse and fine values,
+    corresponding simulation currents, ampere values and nominal simulation values for comparison purposes.
+    The dicionary can easily be converted to a pandas dataframe if desired.
 
+    :param mod: the module to be investigated
+    :type mod: DynapSE1Jax
+    :param chipID: Unique chip ID to of the simulation module to examine
+    :type chipID: np.uint8
+    :param coreID: Non-unique core ID to of the simulation module to examine
+    :type coreID: np.uint8
+    :param reciprocals: a mapping from bias parameters to simualtion currents. Looks like [("PS_WEIGHT_INH_S_N", "Iw_gaba_b")]
+    :type reciprocals: List[Tuple[str]]
+    :param default_mod: a default simulation module to extract nominal simulation values, defaults to None
+    :type default_mod: Optional[DynapSE1Jax], optional
+    :return: a dictionary encapsulating all the bias current simulation current information extracted depending on reciprocal list
+
+    e.g. (The dictionary converted to a dataframe `pd.DataFrame(data)`)
+                        Bias Coarse,Fine    Current  Amperes  Nominal(A)
+        0  PS_WEIGHT_INH_S_N      (0, 0)  Iw_gaba_b 0.00e+00    1.00e-07
+        1  PS_WEIGHT_INH_F_N    (7, 255)  Iw_gaba_a 2.40e-05    1.00e-07
+        2  PS_WEIGHT_EXC_S_N     (6, 82)    Iw_nmda 1.03e-06    1.00e-07
+        3  PS_WEIGHT_EXC_F_N    (7, 219)    Iw_ampa 2.06e-05    1.00e-07
+        4           IF_AHW_P      (0, 0)     Iw_ahp 0.00e+00    1.00e-07
+        5            IF_DC_P    (1, 254)        Idc 1.05e-10    5.00e-13
+        6          IF_NMDA_N      (0, 0)    If_nmda 0.00e+00    5.00e-13
+
+    :rtype: Dict[str, List[Union[str, Tuple[int], float]]]
+    """
+    if default_mod is None:
+        default_mod = DynapSE1Jax((1, 1))
+
+    # Construct the dictionary
+    keys = ["Bias", "Coarse,Fine", "Current", "Amperes", "Nominal(A)"]
+    data = dict(zip(keys, [list() for i in keys]))
+    data["Bias"], data["Current"] = map(list, zip(*reciprocals))
+
+    # Fill bias coarse and fine values
+    for bias in data["Bias"]:
+        param = getattr(mod, bias)(chipID, coreID)
+        data["Coarse,Fine"].append((param.coarse_value, param.fine_value))
+
+    # Fill current values in amperes and also the nominal values
+    for sim_current in data["Current"]:
+        data["Amperes"].append(mod.get_bias(chipID, coreID, sim_current))
+        data["Nominal(A)"].append(default_mod.get_bias(0, 0, sim_current))
+
+    return data
+
+
+def high_level_parameter_table(
+    mod: DynapSE1Jax,
+    chipID: np.uint8,
+    coreID: np.uint8,
+    param_list: List[str],
+    default_mod: Optional[DynapSE1Jax] = None,
+) -> Dict[str, List[Union[str, Tuple[int], float]]]:
+    """
+    high_level_parameter_table creates a table in the form of a dictionary. It includes high level parameters, their values
+    and also the nominal simulation values for comparison purposes.
+    The dicionary can easily be converted to a pandas dataframe if desired.
+
+    :param mod: the module to be investigated
+    :type mod: DynapSE1Jax
+    :param chipID: Unique chip ID to of the simulation module to examine
+    :type chipID: np.uint8
+    :param coreID: Non-unique core ID to of the simulation module to examine
+    :type coreID: np.uint8
+    :param param_list: a list of high level parameters to be obtained from the module and stored in a table-compatible dictionary. e.g ["tau_mem", "tau_ampa"]
+    :type param_list: List[str]
+    :param default_mod: a default simulation module to extract nominal simulation values, defaults to None
+    :type default_mod: Optional[DynapSE1Jax], optional
+    :return: a dictionary encapsulating all the high level parameter information extracted depending on param list
+
+    e.g. (The dictionary converted to a dataframe `pd.DataFrame(data)`)
+            Parameter      Value  Nominal
+        0     tau_mem   1.26e-06 2.00e-02
+        1  tau_gaba_b   4.05e-03 1.00e-01
+        2  tau_gaba_a   3.62e-08 1.00e-02
+        3    tau_nmda   1.27e-02 1.00e-01
+        4    tau_ampa   5.40e-03 1.00e-02
+        5     tau_ahp   9.04e-05 5.00e-02
+        6       t_ref   3.55e-06 1.00e-02
+        7     t_pulse   2.96e-06 1.00e-05
+
+    :rtype: Dict[str, List[Union[str, Tuple[int], float]]]
+    """
+
+    if default_mod is None:
+        default_mod = DynapSE1Jax((1, 1))
+
+    # Construct the dictionary
+    keys = ["Parameter", "Value", "Nominal"]
+    data = dict(zip(keys, [list() for i in keys]))
+
+    data["Parameter"] = param_list
+
+    for param in data["Parameter"]:
+        data["Value"].append(mod.get_bias(chipID, coreID, param))
+        data["Nominal"].append(default_mod.get_bias(0, 0, param))
+
+    return data
+
+
+def merge_biases_high_level(
+    mod: DynapSE1Jax,
+    chipID: np.uint8,
+    coreID: np.uint8,
+    reciprocals: List[Tuple[str]],
+    default_mod: Optional[DynapSE1Jax] = None,
+) -> Dict[str, List[Union[str, Tuple[int], float]]]:
+    """
+    merge_biases_high_level merge the bias current&simulation currents table data and high level parameter data.
+    It can be considered as a wrapper for using  `bias_current_table()` and `high_level_parameter_table()` together.
+    The tuples in the reciprocal list should be like `("IF_TAU1_N", "Itau_mem", "tau_mem")`. First the bias param,
+    then corresponding simulation current, then the related high-level parameter.
+
+    :param mod: the module to be investigated
+    :type mod: DynapSE1Jax
+    :param chipID: Unique chip ID to of the simulation module to examine
+    :type chipID: np.uint8
+    :param coreID: Non-unique core ID to of the simulation module to examine
+    :type coreID: np.uint8
+    :param reciprocals: a mapping from bias parameters to simualtion currents. Looks like [("PS_WEIGHT_INH_S_N", "Iw_gaba_b")]
+    :type reciprocals: List[Tuple[str]]
+    :param default_mod: a default simulation module to extract nominal simulation values, defaults to None
+    :type default_mod: Optional[DynapSE1Jax], optional
+    :return: a dictionary encapsulating all the bias current simulation current information, and their related higher level parameter information extracted depending on reciprocal list
+    :rtype: Dict[str, List[Union[str, Tuple[int], float]]]
+    """
+
+    bias_current, parameter = map(
+        list, zip(*list(map(lambda t: ((t[0], t[1]), t[2]), reciprocals)))
+    )
+
+    # Obtain bias + high-level parameters table
+    data = bias_current_table(mod, chipID, coreID, bias_current, default_mod)
+    taus = high_level_parameter_table(mod, chipID, coreID, parameter, default_mod)
+
+    data.update(taus)
+
+    return data
