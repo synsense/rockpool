@@ -159,6 +159,8 @@ class DynapSE1Jax(DynapSE1NeuronSynapseJax):
                 sim_config = DynapSE1SimBoard.from_config(None, idx_map_dict["w_rec"])
             else:
                 sim_config = DynapSE1SimBoard(shape[-1])
+                idx_map_dict = {}
+                idx_map_dict["w_rec"] = sim_config.idx_map
 
         super().__init__(
             shape,
