@@ -1,23 +1,18 @@
-## __init__.py Smart importer for submodules
-import importlib
-from warnings import warn
+import warnings
 
-# - Dictionary {module file} -> {class name to import}
-dModules = {
-    ".property_arrays": (
-        "SetterArray",
-        "ImmutableArray",
-        "RefArray",
-        "RefProperty",
-    ),
-    ".type_handling": ("ArrayLike", "to_scalar"),
-    ".timedarray_shift": "TimedArray",
-}
+try:
+    from .property_arrays import *
+except (ImportError, ModuleNotFoundError) as err:
+    warnings.warn(f"Could not import modules: {err}")
 
+try:
+    from .jax_tree_utils import *
+except (ImportError, ModuleNotFoundError) as err:
+    warnings.warn(f"Could not import modules: {err}")
 
-# - Define current package
-strBasePackage = "rockpool.utilities"
+from .type_handling import *
 
+<<<<<<< HEAD
 __doc__ = """General utilities"""
 
 # - Initialise list of available modules
@@ -75,3 +70,9 @@ for strModule, classnames in dModules.items():
         # - Raise a warning if the package could not be imported for any other reason
         warn("Could not load package " + strModule)
         print(bcolors.FAIL + bcolors.BOLD + str(err) + bcolors.ENDC)
+=======
+try:
+    from .timedarray_shift import TimedArray
+except (ImportError, ModuleNotFoundError) as err:
+    warnings.warn(f"Could not import modules: {err}")
+>>>>>>> develop

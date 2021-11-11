@@ -1,3 +1,7 @@
+"""
+Provide a Dropout parameter transformation
+"""
+
 from rockpool.nn.modules.module import Module
 from rockpool.nn.modules.jax.jax_module import JaxModule
 
@@ -9,6 +13,8 @@ from rockpool.transform.param_transformer import (
 import jax.random as rand
 import jax.numpy as jnp
 import numpy as onp
+
+__all__ = ["Dropout"]
 
 
 class JaxDropout(JaxParameterTransformerMixin, JaxModule):

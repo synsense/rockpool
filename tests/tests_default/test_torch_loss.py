@@ -1,12 +1,3 @@
-"""
-Unit tests for jax training utilities, loss functions
-"""
-# - Ensure that NaNs in compiled functions are errors
-from jax.config import config
-
-config.update("jax_debug_nans", True)
-
-
 def test_imports():
     from rockpool.training.torch_loss import (
         ParameterBoundaryRegularizer,

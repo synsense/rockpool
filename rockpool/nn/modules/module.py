@@ -15,6 +15,8 @@ from collections import ChainMap
 from typing import Tuple, Any, Iterable, Dict, Optional, List, Union
 import numpy as np
 
+__all__ = ["Module"]
+
 
 class ModuleBase(ABC):
     """

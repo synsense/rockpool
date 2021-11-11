@@ -1,7 +1,8 @@
-## __init__.py Smart importer for submodules
-import importlib
-from warnings import warn
+"""
+Defines combinators for building networks
+"""
 
+<<<<<<< HEAD
 # - Dictionary {module file} -> {class name to import}
 dModules = {
     ".ffwd_stack": "FFwdStack",
@@ -76,3 +77,7 @@ for strModule, classnames in dModules.items():
         # - Raise a warning if the package could not be imported for any other reason
         warn("Could not load package " + strModule)
         print(bcolors.FAIL + bcolors.BOLD + str(err) + bcolors.ENDC)
+=======
+from .ffwd_stack import *
+from .sequential import *
+>>>>>>> develop
