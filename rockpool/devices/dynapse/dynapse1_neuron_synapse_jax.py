@@ -699,35 +699,35 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         """
         tau_gaba_b holds an array of time constants in seconds for GABA_B synapse of the neurons with shape = (Nrec,)
         """
-        return self.f_tau_syn[self.SYN["GABA_B"]] / self.Itau_syn[self.SYN["GABA_B"]]
+        return self.tau_syn[self.SYN["GABA_B"]]
 
     @property
     def tau_gaba_a(self) -> JP_ndarray:
         """
         tau_gaba_a holds an array of time constants in seconds for GABA_A synapse of the neurons with shape = (Nrec,)
         """
-        return self.f_tau_syn[self.SYN["GABA_A"]] / self.Itau_syn[self.SYN["GABA_A"]]
+        return self.tau_syn[self.SYN["GABA_A"]]
 
     @property
     def tau_nmda(self) -> JP_ndarray:
         """
         tau_nmda holds an array of time constants in seconds for NMDA synapse of the neurons with shape = (Nrec,)
         """
-        return self.f_tau_syn[self.SYN["NMDA"]] / self.Itau_syn[self.SYN["NMDA"]]
+        return self.tau_syn[self.SYN["NMDA"]]
 
     @property
     def tau_ampa(self) -> JP_ndarray:
         """
         tau_ampa holds an array of time constants in seconds for AMPA synapse of the neurons with shape = (Nrec,)
         """
-        return self.f_tau_syn[self.SYN["AMPA"]] / self.Itau_syn[self.SYN["AMPA"]]
+        return self.tau_syn[self.SYN["AMPA"]]
 
     @property
     def tau_ahp(self) -> JP_ndarray:
         """
         tau_ahp holds an array of time constants in seconds for AHP synapse of the neurons with shape = (Nrec,)
         """
-        return self.f_tau_syn[self.SYN["AHP"]] / self.Itau_syn[self.SYN["AHP"]]
+        return self.tau_syn[self.SYN["AHP"]]
 
     ## --- MID-LEVEL HIDDEN BIAS CURRENTS (JAX) -- ##
 
