@@ -40,6 +40,71 @@ def test_connect_modules():
     ), "GraphHolder module should have been discarded"
 
 
+def test_connect_modules_with_partial_nodes_connected():
+    from rockpool.graph import connect_modules, GraphModule, as_GraphHolder
+
+    # - 1 - Check the situation where part of source nodes connect
+    gm1 = GraphModule._factory(2, 4)
+    gm2 = GraphModule._factory(2, 4)
+    connect_modules(gm1, gm2, [1, 2], None)
+
+    # - Checking from source module output nodes
+    for i in range(4):
+        if gm1.output_nodes[i].sink_modules:
+            assert (
+                gm1.output_nodes[i].sink_modules[0] == gm2
+            ), f"Nodes {gm1.output_nodes[i]} not merged on dest module"
+
+    # - Checking from dest module input nodes
+    for i in range(2):
+        assert (
+            gm2.input_nodes[i].source_modules[0] == gm1
+        ), f"Nodes {gm2.input_nodes[i]} not merged on source module"
+
+    # no resort
+    assert [gm1.output_nodes[i] for i in [1, 2]] == gm2.input_nodes
+
+    # - 2 - Check the situation where part of dest nodes connect
+    gm1 = GraphModule._factory(2, 4)
+    gm2 = GraphModule._factory(8, 4)
+    connect_modules(gm1, gm2, None, [0, 2, 4, 6])
+
+    # - Checking from dest module output nodes
+    for i in range(4):
+        assert (
+            gm1.output_nodes[i].sink_modules[0] == gm2
+        ), f"Nodes {gm1.output_nodes[i]} not merged on dest module"
+
+    # - Checking from dest module input nodes
+    for i in range(8):
+        if gm2.input_nodes[i].source_modules:
+            assert (
+                gm2.input_nodes[i].source_modules[0] == gm1
+            ), f"Nodes {gm2.input_nodes[i]} not merged on source module"
+
+    # resort happened
+    assert gm1.output_nodes == [gm2.input_nodes[i] for i in [0, 2, 4, 6]]
+
+    # - 3 - Check the situation where part of source and part of dest nodes connect
+    gm1 = GraphModule._factory(2, 4)
+    gm2 = GraphModule._factory(4, 4)
+    connect_modules(gm1, gm2, [0, 3], [1, 2])
+
+    # - Checking from source module output nodes
+    for i in range(4):
+        if gm1.output_nodes[i].sink_modules:
+            assert (
+                gm1.output_nodes[i].sink_modules[0] == gm2
+            ), f"Nodes {gm1.output_nodes[i]} not merged on dest module"
+
+    # - Checking from dest module input nodes
+    for i in range(4):
+        if gm2.input_nodes[i].source_modules:
+            assert (
+                gm2.input_nodes[i].source_modules[0] == gm1
+            ), f"Nodes {gm2.input_nodes[i]} not merged on source module"
+
+
 def test_bag_graph():
     from rockpool.graph import (
         bag_graph,
