@@ -9,6 +9,8 @@ from warnings import warn
 
 from typing import Callable, Union
 
+__all__ = ["Instant", "InstantJax"]
+
 
 class InstantMixin:
     """
@@ -58,7 +60,7 @@ class Instant(InstantMixin, Module):
 
 
 try:
-    from rockpool.nn.modules import JaxModule
+    from rockpool.nn.modules.jax.jax_module import JaxModule
     from jax.tree_util import Partial
 
     class InstantJax(InstantMixin, JaxModule):
@@ -71,13 +73,13 @@ try:
             self.function = Partial(self.function)
 
 
-except:
+except (ImportError, ModuleNotFoundError) as err:
     warn(
-        "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available."
+        "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available.\n{err}"
     )
 
     class InstantJax:
-        def __init__(self):
+        def __init__(self, *_, **__):
             raise ImportError(
                 "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available."
             )

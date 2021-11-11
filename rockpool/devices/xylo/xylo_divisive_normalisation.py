@@ -358,7 +358,8 @@ class DivisiveNormalisation(Module):
             # now zero-pad each row containing a pulse modulated by local clock
             # although the results are 'uint', we use 'int' to avoid unsigned difference issue
             S_local = np.zeros(
-                (S_local_before_pad.shape[0], self.p_local), dtype="int",
+                (S_local_before_pad.shape[0], self.p_local),
+                dtype="int",
             )  # (frames * cycles_per_frame, p_local)
             S_local[:, : int(self.p_local / 2)] = S_local_before_pad
 
@@ -433,7 +434,11 @@ class DivisiveNormalisation(Module):
 
         # - Generate state record dictionary
         record_dict = (
-            {"E": E, "M": M, "IAF_state": np.array(IAF_state_saved).T,}
+            {
+                "E": E,
+                "M": M,
+                "IAF_state": np.array(IAF_state_saved).T,
+            }
             if record
             else {}
         )
@@ -471,7 +476,9 @@ class DivisiveNormalisationNoLFSR(DivisiveNormalisation):
         # - input : (N, self.size_in) -> N is units of 'dt'
         # - E: (n_frame, self.size_in) -> units of 'frame_dt'
         ts_input = TSEvent.from_raster(
-            input_spike, dt=self.dt, num_channels=self.size_in,
+            input_spike,
+            dt=self.dt,
+            num_channels=self.size_in,
         )
         E = ts_input.raster(dt=self.frame_dt, add_events=True)
 
@@ -641,7 +648,11 @@ class DivisiveNormalisationNoLFSR(DivisiveNormalisation):
 
         # - Generate state record dictionary
         record_dict = (
-            {"E": E, "M": M, "IAF_state": np.array(IAF_state_saved).T,}
+            {
+                "E": E,
+                "M": M,
+                "IAF_state": np.array(IAF_state_saved).T,
+            }
             if record
             else {}
         )

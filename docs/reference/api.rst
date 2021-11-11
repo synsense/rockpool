@@ -89,6 +89,9 @@ Time series classes
     nn.modules.SoftmaxJax
     nn.modules.LogSoftmaxJax
 
+    nn.modules.ButterMelFilter
+    nn.modules.ButterFilter
+
 :py:class:`Layer` subclasses from Rockpool v1
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

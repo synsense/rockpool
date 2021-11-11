@@ -5,6 +5,8 @@ Defines the `JaxModule` base class, for Jax support in Rockpool.
 # - Import Rockpool Module base class
 from rockpool.nn.modules.module import Module
 
+__all__ = ["JaxModule"]
+
 # - Check that jax is installed
 from importlib import util
 
