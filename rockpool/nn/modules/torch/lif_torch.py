@@ -148,7 +148,6 @@ class LIFTorch(TorchModule):
             tau_syn (Optional[FloatVector]): An optional array with concrete initialisation data for the synaptic time constants. If not provided, 50ms will be used by default.
             bias (Optional[FloatVector]): An optional array with concrete initialisation data for the neuron bias currents. If not provided, ``0.0`` will be used by default.
             has_bias (bool): When ``True`` the module provides a trainable bias. Default: ``True``
-            w_syn (torch.Tensor): Defines the weights between the synapse outputs and the LIF neuron inputs. Must have shape ``(Nin, Nout)``.
             w_rec (torch.Tensor): If the module is initialised in recurrent mode, you can provide a concrete initialisation for the recurrent weights, which must be a matrix with shape ``(Nout, Nin)``. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
             has_rec (bool): When ``True`` the module provides a trainable recurrent weight matrix. Default ``False``, module is feed-forward.
             threshold (FloatVector): An optional array specifying the firing threshold of each neuron. If not provided, ``0.`` will be used by default.
@@ -302,8 +301,8 @@ class LIFTorch(TorchModule):
         # - Build state record
         record_dict = (
             {
-                "isyn": self._isyn_rec,
-                "vmem": self._vmem_rec,
+                "isyn": self._record_Vmem,
+                "vmem": self._record_Isyn,
             }
             if record
             else {}
@@ -349,8 +348,8 @@ class LIFTorch(TorchModule):
         bias = torch.ones(n_batches, self.n_neurons).to(data.device) * self.bias
 
         # - Set up state record and output
-        self._vmem_rec = torch.zeros(n_batches, time_steps, self.n_neurons)
-        self._isyn_rec = torch.zeros(n_batches, time_steps, self.n_synapses, self.n_neurons)
+        self._record_Vmem = torch.zeros(n_batches, time_steps, self.n_neurons)
+        self._record_Isyn = torch.zeros(n_batches, time_steps, self.n_synapses, self.n_neurons)
         out_spikes = torch.zeros(n_batches, time_steps, self.n_neurons, device=data.device)
 
         if self._record:
@@ -393,8 +392,8 @@ class LIFTorch(TorchModule):
         self.vmem = vmem[0].detach()
         self.isyn = isyn[0].detach()
 
-        self._vmem_rec.detach()
-        self._isyn_rec.detach()
+        self._record_Vmem.detach()
+        self._record_Isyn.detach()
 
         return out_spikes
 
