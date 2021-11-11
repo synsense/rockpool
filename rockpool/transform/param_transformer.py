@@ -1,15 +1,14 @@
+"""
+Provide a Module wrapper that transforms parameters before evolution
+"""
+
 from rockpool.nn.modules.module import Module
-from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import SimulationParameter, State
 
 from typing import Union, List, Tuple, Iterable, Any, Callable, Optional
 
-import jax.tree_util as tu
-import jax.random as rand
-
 from copy import deepcopy
-
-import jax.numpy as jnp
+import warnings
 import numpy as onp
 
 from collections import abc
@@ -17,6 +16,8 @@ from collections import abc
 from abc import ABC, abstractmethod
 
 Tree = Union[abc.Iterable, abc.MutableMapping]
+
+__all__ = ["ParameterTransformerMixin", "JaxParameterTransformerMixin"]
 
 
 def deep_update(
@@ -142,46 +143,64 @@ class ParameterTransformerMixin(ABC):
             return func(tree)
 
 
-class JaxParameterTransformerMixin(ParameterTransformerMixin):
-    def __init__(
-        self,
-        module: JaxModule,
-        families: Optional[Union[Tuple, list, str]] = None,
-        transform_params: Optional[Union[Tuple, list, Any]] = None,
-        rng_key: Any = None,
-        *args,
-        **kwargs,
-    ):
-        # - Initialise superclass
-        super().__init__(module, families, transform_params, *args, **kwargs)
+try:
+    from rockpool.nn.modules.jax.jax_module import JaxModule
+    import jax.tree_util as tu
+    import jax.random as rand
+    import jax.numpy as jnp
 
-        # - Seed RNG
-        if rng_key is None:
-            rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
-        _, rng_key = rand.split(jnp.array(rng_key, dtype=jnp.uint32))
+    class JaxParameterTransformerMixin(ParameterTransformerMixin):
+        def __init__(
+            self,
+            module: JaxModule,
+            families: Optional[Union[Tuple, list, str]] = None,
+            transform_params: Optional[Union[Tuple, list, Any]] = None,
+            rng_key: Any = None,
+            *args,
+            **kwargs,
+        ):
+            # - Initialise superclass
+            super().__init__(module, families, transform_params, *args, **kwargs)
 
-        # - Initialise state
-        self.rng_key: jnp.ndarray = State(rng_key, init_func=lambda _: rng_key)
+            # - Seed RNG
+            if rng_key is None:
+                rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
+            _, rng_key = rand.split(jnp.array(rng_key, dtype=jnp.uint32))
 
-    @abstractmethod
-    def _transform(self, param: Any, tf_params: Any, *args, **kwargs) -> Any:
-        raise NotImplemented
+            # - Initialise state
+            self.rng_key: jnp.ndarray = State(rng_key, init_func=lambda _: rng_key)
 
-    def _tree_map(self, func: Callable[[Any], Any], tree: Tree) -> Tree:
-        return tu.tree_map(func, tree)
+        @abstractmethod
+        def _transform(self, param: Any, tf_params: Any, *args, **kwargs) -> Any:
+            raise NotImplemented
 
-    def evolve(self, input_data, record: bool = False):
-        # - Take a copy of the module
-        mod = deepcopy(self)
+        def _tree_map(self, func: Callable[[Any], Any], tree: Tree) -> Tree:
+            return tu.tree_map(func, tree)
 
-        # - Split rng key before evolve
-        mod.rng_key = rand.split(mod.rng_key)[0]
+        def evolve(self, input_data, record: bool = False):
+            # - Take a copy of the module
+            mod = deepcopy(self)
 
-        # - Call evolve
-        output_data, new_state, record_dict = ParameterTransformerMixin.evolve(
-            mod, input_data, record
-        )
+            # - Split rng key before evolve
+            mod.rng_key = rand.split(mod.rng_key)[0]
 
-        # - Make sure we return the new rng key for self as well
-        new_state.update({"rng_key": mod.rng_key})
-        return output_data, new_state, record_dict
+            # - Call evolve
+            output_data, new_state, record_dict = ParameterTransformerMixin.evolve(
+                mod, input_data, record
+            )
+
+            # - Make sure we return the new rng key for self as well
+            new_state.update({"rng_key": mod.rng_key})
+            return output_data, new_state, record_dict
+
+
+except (ImportError, ModuleNotFoundError) as err:
+    warnings.warn(
+        f"Could not import Jax. Modules relying on Jax will not be available.\n{err}"
+    )
+
+    class JaxParameterTransformerMixin:
+        def __init__(self, *_, **__):
+            raise ImportError(
+                f"Required dependencies for {type(self).__name__} not available."
+            )

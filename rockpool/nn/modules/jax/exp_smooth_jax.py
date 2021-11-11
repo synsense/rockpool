@@ -11,6 +11,8 @@ from jax.tree_util import Partial
 
 from typing import Tuple, Union, Any, Callable, Optional
 
+__all__ = ["ExpSmoothJax"]
+
 
 class ExpSmoothJax(JaxModule):
     """

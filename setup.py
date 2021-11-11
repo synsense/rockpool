@@ -29,6 +29,7 @@ setup_args = {
             "sphinx-rtd-theme",
             "recommonmark",
             "pandoc",
+            "samna>=0.9.27.0",
         ]
     },
     "description": "A Python package for developing, simulating and training spiking neural networks, and deploying on neuromorphic hardware",
@@ -46,6 +47,7 @@ setup_args = {
         "Documentation": "https://rockpool.ai",
         "Bug Tracker": "https://github.com/SynSense/rockpool/issues",
     },
+    "include_package_data": True,
 }
 
 try:

@@ -73,7 +73,11 @@ class XyloCim(Module):
 
         # - Initialise the superclass
         super().__init__(
-            shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs,
+            shape=shape,
+            spiking_input=True,
+            spiking_output=True,
+            *args,
+            **kwargs,
         )
 
         # - Store the configuration
@@ -99,7 +103,7 @@ class XyloCim(Module):
         dt: float
             Timestep for simulation, in seconds. Default: 1ms
         config: XyloConfiguration
-            ``samna.pollen.PollenConfiguration`` object to specify all parameters. See samna documentation for details.
+            ``samna.xylo.XyloConfiguration`` object to specify all parameters. See samna documentation for details.
 
         """
         # - Instantiate the class
@@ -272,7 +276,11 @@ class XyloCim(Module):
         return cls.from_config(config, dt=dt)
 
     def evolve(
-        self, input_raster: np.ndarray = None, record: bool = False, *args, **kwargs,
+        self,
+        input_raster: np.ndarray = None,
+        record: bool = False,
+        *args,
+        **kwargs,
     ):
         # - Evolve using the xylo layer
         output = np.array(self._xylo_layer.evolve(input_raster))

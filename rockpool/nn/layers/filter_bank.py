@@ -10,6 +10,8 @@ from rockpool.timeseries import TSContinuous
 from rockpool.nn.layers.layer import Layer
 from rockpool.nn.modules.timed_module import astimedmodule
 
+__all__ = ["ButterMelFilterV1", "ButterFilterV1"]
+
 
 class FilterBank(Layer, ABC):
     """
@@ -456,36 +458,3 @@ class ButterFilterV1(FilterBank):
     def bandwidth(self) -> Union[float, np.array]:
         """ return filters bandwidth """
         return self._bandwidth
-
-
-ButterMelFilter = astimedmodule(
-    ButterMelFilterV1,
-    parameters=[],
-    simulation_parameters=[
-        "fs",
-        "cutoff_fs",
-        "num_filters",
-        "mean_subtraction",
-        "normalize",
-        "order",
-        "num_workers",
-        "name",
-    ],
-    states=[],
-)
-
-ButterFilter = astimedmodule(
-    ButterFilterV1,
-    parameters=[],
-    simulation_parameters=[
-        "fs",
-        "frequency",
-        "bandwidth",
-        "mean_subtraction",
-        "normalize",
-        "order",
-        "num_workers",
-        "name",
-    ],
-    states=[],
-)
