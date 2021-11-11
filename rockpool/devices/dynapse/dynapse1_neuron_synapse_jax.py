@@ -675,6 +675,45 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
     ## --- MID-LEVEL HIDDEN BIAS CURRENTS (JAX) -- ##
 
+    ### --- TAU(A.K.A LEAK) --- ###
+
+    @property
+    def Itau_gaba_b(self) -> JP_ndarray:
+        """
+        Itau_gaba_b holds an array of time constants bias current in Amperes for GABA_B synapse of the neurons with shape = (Nrec,)
+        """
+        return self.Itau_syn[self.SYN["GABA_B"]]
+
+    @property
+    def Itau_gaba_a(self) -> JP_ndarray:
+        """
+        Itau_gaba_a holds an array of time constants bias current in Amperes for GABA_A synapse of the neurons with shape = (Nrec,)
+        """
+        return self.Itau_syn[self.SYN["GABA_A"]]
+
+    @property
+    def Itau_nmda(self) -> JP_ndarray:
+        """
+        Itau_nmda holds an array of time constants bias current in Amperes for NMDA synapse of the neurons with shape = (Nrec,)
+        """
+        return self.Itau_syn[self.SYN["NMDA"]]
+
+    @property
+    def Itau_ampa(self) -> JP_ndarray:
+        """
+        Itau_ampa holds an array of time constants bias current in Amperes for AMPA synapse of the neurons with shape = (Nrec,)
+        """
+        return self.Itau_syn[self.SYN["AMPA"]]
+
+    @property
+    def Itau_ahp(self) -> JP_ndarray:
+        """
+        Itau_ahp holds an array of time constants bias current in Amperes for AHP synapse of the neurons with shape = (Nrec,)
+        """
+        return self.Itau_syn[self.SYN["AHP"]]
+
+    ### --- THRESHOLD(A.K.A GAIN) --- ###
+
     @property
     def Ith_mem(self) -> JP_ndarray:
         """
@@ -688,3 +727,75 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         Ith_syn create an array of synaptic threshold(a.k.a gain) currents in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
         """
         return self.Itau_syn * self.f_gain_syn
+
+    @property
+    def Ith_gaba_b(self) -> JP_ndarray:
+        """
+        Ith_gaba_b holds an array of gain bias current in Amperes for GABA_B synapse of the neurons with shape = (Nrec,)
+        """
+        return self.Ith_syn[self.SYN["GABA_B"]]
+
+    @property
+    def Ith_gaba_a(self) -> JP_ndarray:
+        """
+        Ith_gaba_a holds an array of gain bias current in Amperes for GABA_A synapse of the neurons with shape = (Nrec,)
+        """
+        return self.Ith_syn[self.SYN["GABA_A"]]
+
+    @property
+    def Ith_nmda(self) -> JP_ndarray:
+        """
+        Ith_nmda holds an array of gain bias current in Amperes for NMDA synapse of the neurons with shape = (Nrec,)
+        """
+        return self.Ith_syn[self.SYN["NMDA"]]
+
+    @property
+    def Ith_ampa(self) -> JP_ndarray:
+        """
+        Ith_ampa holds an array of gain bias current in Amperes for AMPA synapse of the neurons with shape = (Nrec,)
+        """
+        return self.Ith_syn[self.SYN["AMPA"]]
+
+    @property
+    def Ith_ahp(self) -> JP_ndarray:
+        """
+        Ith_ahp holds an array of gain bias current in Amperes for AHP synapse of the neurons with shape = (Nrec,)
+        """
+        return self.Ith_syn[self.SYN["AHP"]]
+
+    ### --- BASE WEIGHTS --- ###
+
+    @property
+    def Iw_gaba_b(self) -> JP_ndarray:
+        """
+        Iw_gaba_b holds an array of base weight bias current in Amperes for GABA_B synapse of the neurons with shape = (Nrec,)
+        """
+        return self.Iw[self.SYN["GABA_B"]]
+
+    @property
+    def Iw_gaba_a(self) -> JP_ndarray:
+        """
+        Iw_gaba_a holds an array of base weight bias current in Amperes for GABA_A synapse of the neurons with shape = (Nrec,)
+        """
+        return self.Iw[self.SYN["GABA_A"]]
+
+    @property
+    def Iw_nmda(self) -> JP_ndarray:
+        """
+        Iw_nmda holds an array of base weight bias current in Amperes for NMDA synapse of the neurons with shape = (Nrec,)
+        """
+        return self.Iw[self.SYN["NMDA"]]
+
+    @property
+    def Iw_ampa(self) -> JP_ndarray:
+        """
+        Iw_ampa holds an array of base weight bias current in Amperes for AMPA synapse of the neurons with shape = (Nrec,)
+        """
+        return self.Iw[self.SYN["AMPA"]]
+
+    @property
+    def Iw_ahp(self) -> JP_ndarray:
+        """
+        Iw_ahp holds an array of base weight bias current in Amperes for AHP synapse of the neurons with shape = (Nrec,)
+        """
+        return self.Iw[self.SYN["AHP"]]
