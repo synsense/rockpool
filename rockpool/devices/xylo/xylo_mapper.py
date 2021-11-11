@@ -130,9 +130,9 @@ def alias_inputs_must_be_neurons(graph: GraphModuleBase) -> None:
     for a in all_aliases:
         for i_n in a.input_nodes:
             for source in i_n.source_modules:
-                if not isinstance(source, GenericNeurons):
+                if not isinstance(source, (GenericNeurons, AliasConnection)):
                     raise DRCError(
-                        f"Inputs to alias connections must be neurons.\nFound source module {source} as source -> to aliases {a}."
+                        f"Inputs to alias connections must be neurons or another alias.\nFound source module {source} as source -> to aliases {a}."
                     )
 
 
