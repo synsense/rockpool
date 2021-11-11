@@ -4,10 +4,10 @@ Implement a LIF Module with Slayer backend
 
 from importlib import util
 
-if util.find_spec("sinabs.slayer") is None:
-    raise ModuleNotFoundError(
-        "'Sinabs-Slayer' backend not found. Modules that rely on Sinabs-Slayer will not be available."
-    )
+#if util.find_spec("sinabs.slayer") is None:
+#    raise ModuleNotFoundWarning(
+#        "'Sinabs-Slayer' backend not found. Modules that rely on Sinabs-Slayer will not be available."
+#    )
 
 from typing import Union, List, Tuple
 import numpy as np

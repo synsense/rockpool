@@ -290,6 +290,7 @@ class LIFTorch(TorchModule):
             {
                 "isyn": self._record_Vmem,
                 "vmem": self._record_Isyn,
+                "spikes": self._record_spikes
             }
             if record
             else {}
@@ -337,7 +338,7 @@ class LIFTorch(TorchModule):
         # - Set up state record and output
         self._record_Vmem = torch.zeros(n_batches, time_steps, self.n_neurons)
         self._record_Isyn = torch.zeros(n_batches, time_steps, self.n_synapses, self.n_neurons)
-        out_spikes = torch.zeros(n_batches, time_steps, self.n_neurons, device=data.device)
+        self._record_spikes = torch.zeros(n_batches, time_steps, self.n_neurons, device=data.device)
 
         if self._record:
             self._record_Vmem = torch.zeros(
@@ -357,9 +358,9 @@ class LIFTorch(TorchModule):
             # Integrate input
             # - Apply spikes over the recurrent weights
             if hasattr(self, "w_rec"):
-                isyn += F.linear(out_spikes[:, t-1, :], self.w_rec.T)
+                isyn += F.linear(self._record_spikes[:, t-1, :], self.w_rec.T) * self.dt / self.tau_syn.unsqueeze(-1)
             else:
-                isyn += data[:, t]
+                isyn += data[:, t] * self.dt / self.tau_syn.unsqueeze(-1)
 
             if self.noise_std > 0:
                 vmem += isyn.sum(1) + torch.randn(vmem.shape, device=vmem.device) * self.noise_std
@@ -367,7 +368,7 @@ class LIFTorch(TorchModule):
                 vmem += isyn.sum(1)
 
             out = self.gradient_fn(vmem, self.threshold, self.learning_window)
-            out_spikes[:, t] = out 
+            self._record_spikes[:, t] = out 
 
             vmem = vmem - out * self.threshold
 
@@ -382,4 +383,4 @@ class LIFTorch(TorchModule):
         self._record_Vmem.detach()
         self._record_Isyn.detach()
 
-        return out_spikes
+        return self._record_spikes
