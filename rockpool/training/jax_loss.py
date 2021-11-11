@@ -13,6 +13,8 @@ import jax.tree_util as tu
 
 from typing import Tuple
 
+from .ctc_loss import ctc_loss_jax
+
 
 def mse(output: np.array, target: np.array) -> float:
     """

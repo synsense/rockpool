@@ -18,9 +18,9 @@ from jax.tree_util import Partial
 import numpy as onp
 
 from typing import Optional, Union, Any, Callable, Tuple
+from rockpool.typehints import FloatVector
 
-FloatVector = Union[float, np.ndarray]
-
+__all__ = ["RateEulerJax", "H_tanh", "H_ReLU", "H_sigmoid"]
 
 # -- Define useful neuron transfer functions
 def H_ReLU(x: FloatVector) -> FloatVector:

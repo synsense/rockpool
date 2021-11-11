@@ -1,3 +1,7 @@
+"""
+Modules implementing filter banks
+"""
+
 from typing import Union, Iterable
 from itertools import product
 from multiprocessing import Pool
@@ -6,13 +10,12 @@ import numpy as np
 from scipy.signal import butter, sosfilt, sosfreqz
 
 from rockpool.nn.modules.module import Module
-from rockpool.parameters import ParameterBase, SimulationParameter
+from rockpool.parameters import SimulationParameter
 
 from typing import Optional
+from rockpool.typehints import P_int, P_float, P_bool
 
-P_int = Union[int, ParameterBase]
-P_float = Union[float, ParameterBase]
-P_bool = Union[bool, ParameterBase]
+__all__ = ["ButterFilter", "ButterMelFilter"]
 
 
 class FilterBankBase(Module):
@@ -340,7 +343,7 @@ class ButterFilter(FilterBankBase):
 
         if np.size(frequency) != np.size(bandwidth):
             raise ValueError(
-                "`bandwidth` must be either a scalar or of the same size than `frequency`"
+                f"`bandwidth` must be either a scalar or of the same size than `frequency`. Got {np.size(frequency)} and {np.size(bandwidth)}"
             )
 
         if np.any(frequency - bandwidth / 2 <= 0.0):
