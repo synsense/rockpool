@@ -110,7 +110,6 @@ def connect_modules(
                 sink.input_nodes[this_dest_node_index] = s_o_node
 
 
-
 def bag_graph(
     graph: GraphModuleBase,
     nodes_bag: Optional[SetList[GraphNode]] = None,
