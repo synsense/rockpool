@@ -12,7 +12,7 @@ if util.find_spec("torch") is None:
 from rockpool.nn.modules import TorchModule
 import torch
 
-__all__ = ["ParameterBoundaryRegularizer"]
+__all__ = ["summed_exp_boundary_loss", "ParameterBoundaryRegularizer"]
 
 
 def summed_exp_boundary_loss(data, lower_bound=None, upper_bound=None):
