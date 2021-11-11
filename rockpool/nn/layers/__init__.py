@@ -20,6 +20,7 @@ try:
     from .iaf_digital import *
     from .updown import *
     from .filter_bank import *
+    from .event_pass import *
 except (ImportError, ModuleNotFoundError) as err:
     print(f"Could not import package: {err}")
 
