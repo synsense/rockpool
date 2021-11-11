@@ -48,6 +48,11 @@ dModules = {
     ".utils": (
         "custom_spike_train",
         "random_spike_train",
+        "time_const_table",
+        "gain_table",
+        "synapse_table",
+        "bias_table",
+        "device_vs_simulation",
     ),
     ".biasgen": ("BiasGen", "DynapSE1BiasGen"),
     ".router": ("Router"),
