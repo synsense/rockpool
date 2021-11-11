@@ -740,7 +740,10 @@ class Figure:
 
         # Plot the synaptic current and the incoming spikes
         Isyn = Figure.plot_Ix(
-            record_dict[f"I{syn_name.lower()}"][:, post_idx], name=title, ax=ax_syn
+            record_dict[f"I{syn_name.lower()}"][:, post_idx],
+            dt=mod.dt,
+            name=title,
+            ax=ax_syn,
         )
 
         # Arrange the y limits so that plots won't intersect
