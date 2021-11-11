@@ -31,7 +31,6 @@ try:
         DivisiveNormalisation as DivisiveNormalization,
         DivisiveNormalisationNoLFSR as DivisiveNormalizationNoLFSR,
     )
-<<<<<<< HEAD
 except Exception as inst:
     warnings.warn(inst.msg)
 
@@ -40,12 +39,9 @@ try:
 except Exception as inst:
     warnings.warn(inst.msg)
 
-
 try:
     from .xylo_mapper import *
 except Exception as inst:
     warnings.warn(inst.msg)
-=======
 except (ImportError, ModuleNotFoundError) as err:
     warnings.warn(f"{err}")
->>>>>>> develop
