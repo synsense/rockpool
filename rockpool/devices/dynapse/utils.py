@@ -996,3 +996,76 @@ def synapse_table(
     pd.options.display.float_format = float_format
     return pd.DataFrame(data)
 
+
+def bias_table(
+    mod: DynapSE1Jax,
+    chipID: np.uint8,
+    coreID: np.uint8,
+    default_mod: Optional[DynapSE1Jax] = None,
+    float_format: str = "{:,.2e}".format,
+) -> pd.DataFrame:
+    """
+    bias_table merges `time_const_table`, `gain_table`, and `synapse_table` together in one table by
+    providing proper keys for each one and represent all the simulated biases within one core in categories.
+
+    :param mod: the module to be investigated
+    :type mod: DynapSE1Jax
+    :param chipID: Unique chip ID to of the simulation module to examine
+    :type chipID: np.uint8
+    :param coreID: Non-unique core ID to of the simulation module to examine
+    :type coreID: np.uint8
+    :param default_mod: a default simulation module to extract nominal simulation values, defaults to None
+    :type default_mod: Optional[DynapSE1Jax], optional
+    :param float_format: the float printing format used printing the dataframe, defaults to "{:,.2e}".format
+    :type float_format: str, optional
+    :return: a table for examining all the bias currents configuring the network on the device.
+    :rtype: pd.DataFrame
+    """
+
+    if default_mod is None:
+        default_mod = DynapSE1Jax((1, 1))
+
+    # Generate Tables
+    syn_tab = synapse_table(mod, chipID, coreID, default_mod, float_format)
+    time_tab = time_const_table(mod, chipID, coreID, default_mod, float_format)
+    gain_tab = gain_table(mod, chipID, coreID, default_mod, float_format)
+
+    bias_tab = pd.concat(
+        [time_tab, gain_tab, syn_tab], keys=["Time Const.", "Gain", "Synapses"]
+    )
+    return bias_tab
+
+
+def device_vs_simulation(
+    mod: DynapSE1Jax,
+    default_mod: Optional[DynapSE1Jax] = None,
+    float_format: str = "{:,.2e}".format,
+) -> pd.DataFrame:
+    """
+    device_vs_simulation merges `bias_table`s for each active core together in one table by
+    providing proper keys for each one and represent all the simulated biases in categories.
+
+    :param mod: the module to be investigated
+    :type mod: DynapSE1Jax
+    :param default_mod: a default simulation module to extract nominal simulation values, defaults to None
+    :type default_mod: Optional[DynapSE1Jax], optional
+    :param float_format: the float printing format used printing the dataframe, defaults to "{:,.2e}".format
+    :type float_format: str, optional
+    :return: [description]
+    :rtype: pd.DataFrame
+    """
+
+    if default_mod is None:
+        default_mod = DynapSE1Jax((1, 1))
+
+    tables = []
+    keys = []
+
+    # Iterate through the active cores
+    for chipID, coreID in list(mod.core_dict.keys()):
+        tables.append(bias_table(mod, chipID, coreID, default_mod, float_format))
+        keys.append(f"C{chipID}c{coreID}")
+
+    comp_tab = pd.concat(tables, keys=keys)
+
+    return comp_tab
