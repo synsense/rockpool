@@ -57,6 +57,7 @@ from rockpool.typehints import (
 
 from rockpool.devices.dynapse.dynapse1_simconfig import DynapSE1SimCore
 
+from warnings import warn
 
 DynapSE1State = Tuple[JP_ndarray, JP_ndarray, JP_ndarray, Optional[Any]]
 
@@ -385,6 +386,63 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         ## Policy
         self.Ispkthr = SimulationParameter(sim_config.Ispkthr, shape=(self.size_out,))
         self.Ireset = SimulationParameter(sim_config.Ireset, shape=(self.size_out,))
+
+        # Euler Solver Health Check
+        self.euler_health_check()
+
+    def euler_health_check(self) -> None:
+        """
+        euler_health_check checks if the simulation time step choosen is capable of simulating the dynamics properly.
+        The rule of thumb is that dt > 10*tau in general. It also checks if the pulse width is chosen smaller than the
+        time step. It's expected but not as crucial as dt > 10*tau.
+        """
+
+        def check_tau(
+            tau: np.ndarray, mask: Optional[np.ndarray] = None, keyword: str = ""
+        ) -> None:
+            """
+            check_tau checks if the dynamics of the subcircuit can be simulated properly by comparing a time constant and the simulation time step
+
+            :param tau: an array of time constants of each neruons in seconds with shape (Nrec,)
+            :type tau: np.ndarray
+            :param mask: a secondary mask to be applied alongside the danger mask. Useful when some of the parameters are defined but not used in the calculations, defaults to None
+            :type mask: Optional[np.ndarray], optional
+            :param keyword: the keyword to be used in the warning like MEMBRANE, GABA_B or so., defaults to ""
+            :type keyword: str, optional
+            """        
+            # tau's that are beyond the theoretical boundaries
+            danger_mask = 10 * self.dt > tau
+
+            ## Secondary mask if necessary
+            if mask is not None:
+                danger_mask = danger_mask & mask
+
+            _tau = np.unique(tau[danger_mask])
+
+            if _tau.size != 0:
+                warn(
+                    f"Chosen simulation time step {self.dt:.2e} is incapable of simulating the {keyword} dynamics properly. dt should be < {_tau.min()/10:.2e}",
+                    stacklevel=2,
+                )
+
+        # Pulse width bigger than dt. It's not crucial but theoretical calculations are done thinking t_pulse<dt
+        if self.t_pulse.max() > self.dt:
+            warn(
+                f"Pulse width: {self.t_pulse.max():.2e} is greater than simulation time step {self.dt:.2e}!",
+                stacklevel=2,
+            )
+
+        check_tau(self.tau_mem, keyword="MEMBRANE")
+
+        # Control each synapse separately in order to adress them properly
+        for syn_type in self.syn_types:
+            # Initialization
+            tau_syn = getattr(self, f"tau_{syn_type.lower()}")
+            Iw = getattr(self, f"Iw_{syn_type.lower()}")
+
+            ## synaptic taus used in the calculation
+            use_mask = (Iw * tau_syn).astype(bool)
+            check_tau(tau_syn, use_mask, syn_type)
 
     def evolve(
         self, input_data: np.ndarray, record: bool = True
