@@ -12,8 +12,7 @@ if util.find_spec("torch") is None:
 from typing import Union, List, Tuple
 import numpy as np
 
-from rockpool.nn.modules import LIFTorch
-from rockpool.nn.modules.torch.lif_torch import StepPWL, PeriodicExponential 
+from rockpool.nn.modules.torch.lif_torch import LIFTorch, StepPWL, PeriodicExponential 
 
 import torch
 
