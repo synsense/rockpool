@@ -334,7 +334,7 @@ class LIFTorch(TorchModule):
                 neurons.output_nodes,
                 neurons.input_nodes,
                 f"{type(self).__name__}_recurrent_{self.name}_{id(self)}",
-                self.w_rec,
+                self.w_rec.detach().numpy(),
             )
 
         # - Return a graph containing neurons and optional weights
