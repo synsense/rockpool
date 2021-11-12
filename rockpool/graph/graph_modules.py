@@ -21,7 +21,6 @@ __all__ = [
     "AliasConnection",
     "LIFNeuronWithSynsRealValue",
     "RateNeuronWithSynsRealValue",
-    "WaveSenseBlock",
 ]
 
 
@@ -114,14 +113,3 @@ class RateNeuronWithSynsRealValue(GenericNeurons):
 
     dt: Optional[float] = None
     """ float: The time-step used for these neurons in seconds, if present """
-
-
-@dataclass(eq=False, repr=False)
-class WaveSenseBlock(GraphModule):
-    """
-    A :py:class:`.GraphModule` that encapsulates a wavesense block
-    """
-
-    def __post_init__(self, *args, **kwargs):
-        # - Call super-class
-        super().__post_init__(*args, **kwargs)
