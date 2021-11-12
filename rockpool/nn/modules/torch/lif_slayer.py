@@ -36,7 +36,7 @@ class LIFSlayer(LIFTorch):
         tau_syn: FloatVector,
         threshold: FloatVector = 0.0,
         learning_window: P_float = 1.0,
-        scale_grads: P_float = 1.0, 
+        scale_grads: P_float = 1.0,
         dt: P_float = 0.001,
         device: P_str = "cuda",
         *args,
@@ -63,30 +63,32 @@ class LIFSlayer(LIFTorch):
         """
         # Initialize class variables
 
-        super().__init__(shape=shape, 
-                         tau_mem=tau_mem,
-                         tau_syn=tau_syn,
-                         threshold=threshold,
-                         learning_window=learning_window,
-                         dt=dt,
-                         device=device,
-                         *args, 
-                         **kwargs)
+        super().__init__(
+            shape=shape,
+            tau_mem=tau_mem,
+            tau_syn=tau_syn,
+            threshold=threshold,
+            learning_window=learning_window,
+            dt=dt,
+            device=device,
+            *args,
+            **kwargs,
+        )
 
-        
         self.scale_grads: P_float = rp.SimulationParameter(scale_grads)
         self.membrane_subtract: P_bool = rp.SimulationParameter(self.threshold)
 
-        alpha = torch.exp(-self.dt/ self.tau_syn).to(device)
-        self._exp_decay = ExpLeak(alpha=alpha).to(device) 
+        alpha = torch.exp(-self.dt / self.tau_syn).to(device)
+        self._exp_decay = ExpLeak(alpha=alpha).to(device)
 
-
-        self._lif_slayer = LIF(tau_mem=(self.tau_mem / self.dt).float(),
-                               threshold=float(self.threshold[0]),
-                               threshold_low=None,
-                               membrane_subtract=float(self.membrane_subtract[0]),
-                               window=self.learning_window,
-                               scale_grads=self.scale_grads).to(device)
+        self._lif_slayer = LIF(
+            tau_mem=(self.tau_mem / self.dt).float(),
+            threshold=float(self.threshold[0]),
+            threshold_low=None,
+            membrane_subtract=float(self.membrane_subtract[0]),
+            window=self.learning_window,
+            scale_grads=self.scale_grads,
+        ).to(device)
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
 
@@ -94,21 +96,21 @@ class LIFSlayer(LIFTorch):
 
         output_data, _, _ = super().evolve(input_data, record)
 
-        #states = {
+        # states = {
         #    "Isyn": self.isyn,
         #    "Vmem": self.vmem,
-        #}
+        # }
 
-        #record_dict = (
+        # record_dict = (
         #    {
         #        "Isyn": self._record_Isyn,
         #        "Vmem": self._record_Vmem,
         #    }
         #    if record
         #    else {}
-        #)
+        # )
 
-        return output_data, _, _ 
+        return output_data, _, _
 
     def detach(self):
         """
@@ -139,19 +141,16 @@ class LIFSlayer(LIFTorch):
 
         """
         (n_batches, time_steps, n_connections) = data.shape
-        #if n_connections != self.size_in:
+        # if n_connections != self.size_in:
         #    raise ValueError(
         #        "Input has wrong neuron dimension. It is {}, must be {}".format(
         #            self.size_in, self.size_out
         #        )
         #    )
 
-        #data = data.reshape(n_batches, time_steps, self.n_synapses, self.n_neurons)
-
-
+        # data = data.reshape(n_batches, time_steps, self.n_synapses, self.n_neurons)
 
         out_spikes = self._exp_decay(data)
         out_spikes = self._lif_slayer(out_spikes.sum(-1))
 
         return out_spikes
-

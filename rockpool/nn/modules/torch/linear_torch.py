@@ -126,6 +126,6 @@ class LinearTorch(TorchModule):
                 self.size_in,
                 self.size_out,
                 f"{type(self).__name__}_{self.name}_{id(self)}",
-                self.weight,
+                self.weight.detach().numpy(),
             )
         )

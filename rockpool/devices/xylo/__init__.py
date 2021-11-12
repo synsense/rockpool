@@ -12,18 +12,18 @@ import warnings
 
 try:
     from .xylo_cimulator import *
-except Exception as inst:
-    warnings.warn(inst.msg)
+except (ImportError, ModuleNotFoundError) as err:
+    warnings.warn(f"{err}")
 
 try:
     from .xylo_samna import *
-except Exception as inst:
-    warnings.warn(inst.msg)
+except (ImportError, ModuleNotFoundError) as err:
+    warnings.warn(f"{err}")
 
 try:
     from .analogFrontEnd import *
-except Exception as inst:
-    warnings.warn(inst.msg)
+except (ImportError, ModuleNotFoundError) as err:
+    warnings.warn(f"{err}")
 
 try:
     from .xylo_divisive_normalisation import *
@@ -39,8 +39,9 @@ try:
 except Exception as inst:
     warnings.warn(inst.msg)
 
-
 try:
     from .xylo_mapper import *
 except Exception as inst:
     warnings.warn(inst.msg)
+except (ImportError, ModuleNotFoundError) as err:
+    warnings.warn(f"{err}")

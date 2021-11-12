@@ -44,7 +44,9 @@ class LinearWeights(GraphModule):
 
         # - Convert weights to numpy array
         if torch.is_tensor(self.weights):
-            self.weights = np.array(self.weights.detach().cpu().numpy())  # for torch backend
+            self.weights = np.array(
+                self.weights.detach().cpu().numpy()
+            )  # for torch backend
         else:
             self.weights = np.array(self.weights)
 

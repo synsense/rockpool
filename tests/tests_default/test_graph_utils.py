@@ -62,7 +62,9 @@ def test_connect_modules_with_partial_nodes_connected():
         ), f"Nodes {gm2.input_nodes[i]} not merged on source module, GraphHolder module should have been discarded"
 
     # - Checking directly if nodes merge
-    assert [gm1.output_nodes[i] for i in [1, 2]] == gm2.input_nodes, "Nodes not merged on connection"
+    assert [
+        gm1.output_nodes[i] for i in [1, 2]
+    ] == gm2.input_nodes, "Nodes not merged on connection"
 
     # - 2 - Check the situation where part of dest nodes connect
     gm1 = GraphModule._factory(2, 4)
@@ -83,7 +85,9 @@ def test_connect_modules_with_partial_nodes_connected():
             ), f"Nodes {gm2.input_nodes[i]} not merged on source module, GraphHolder module should have been discarded"
 
     # - Checking directly if nodes merge
-    assert gm1.output_nodes == [gm2.input_nodes[i] for i in [0, 2, 4, 6]], "Nodes not merged on connection"
+    assert gm1.output_nodes == [
+        gm2.input_nodes[i] for i in [0, 2, 4, 6]
+    ], "Nodes not merged on connection"
 
     # - 3 - Check the situation where part of source and part of dest nodes connect
     gm1 = GraphModule._factory(2, 4)
@@ -105,7 +109,10 @@ def test_connect_modules_with_partial_nodes_connected():
             ), f"Nodes {gm2.input_nodes[i]} not merged on source module, GraphHolder module should have been discarded"
 
     # - Checking directly if nodes merge
-    assert [gm1.output_nodes[i] for i in [0, 3]] == [gm2.input_nodes[i] for i in [1, 2]], "Nodes not merged on connection"
+    assert [gm1.output_nodes[i] for i in [0, 3]] == [
+        gm2.input_nodes[i] for i in [1, 2]
+    ], "Nodes not merged on connection"
+
 
 def test_bag_graph():
     from rockpool.graph import (

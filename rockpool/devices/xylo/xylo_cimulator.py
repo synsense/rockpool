@@ -95,11 +95,13 @@ class XyloCim(Module):
         """ (XyloLayer) Handle to a Cimulator object """
 
     @classmethod
-    def from_config(cls, 
-                    config: XyloConfiguration, 
-                    bias: np.array,
-                    bias_out: np.array,
-                    dt: float = 1e-3):
+    def from_config(
+        cls,
+        config: XyloConfiguration,
+        bias: np.array,
+        bias_out: np.array,
+        dt: float = 1e-3,
+    ):
         """
         Creata a Cimulator based layer to simulate the Xylo hardware, from a configuration
 
@@ -107,7 +109,7 @@ class XyloCim(Module):
         dt: float
             Timestep for simulation, in seconds. Default: 1ms
         config: XyloConfiguration
-            ``samna.pollen.PollenConfiguration`` object to specify all parameters. See samna documentation for details.
+            ``samna.xylo.XyloConfiguration`` object to specify all parameters. See samna documentation for details.
 
         """
         # - Instantiate the class

@@ -18,7 +18,7 @@ if util.find_spec("samna") is None:
 
 # - `samna` imports
 import samna
-from samna.pollen.configuration import PollenConfiguration as XyloConfiguration
+from samna.xylo.configuration import XyloConfiguration
 
 # - Other imports
 from warnings import warn
@@ -33,8 +33,8 @@ from typing import Any, List, Iterable, Optional, NamedTuple, Union, Tuple
 
 XyloDaughterBoard = Any
 SamnaDeviceNode = Any
-XyloReadBuffer = samna.BufferSinkNode_pollen_event_output_event
-XyloNeuronStateBuffer = samna.pollen.NeuronStateSinkNode
+XyloReadBuffer = samna.BufferSinkNode_xylo_event_output_event
+XyloNeuronStateBuffer = samna.xylo.NeuronStateSinkNode
 
 
 class XyloState(NamedTuple):
@@ -347,7 +347,7 @@ def write_register(
         register (int): The address of the register to write to
         data (int): The data to write. Default: 0x0
     """
-    wwv_ev = samna.pollen.event.WriteRegisterValue()
+    wwv_ev = samna.xylo.event.WriteRegisterValue()
     wwv_ev.address = register
     wwv_ev.data = data
     daughterboard.get_model().write([wwv_ev])
@@ -372,7 +372,7 @@ def read_register(
         List[int]: A list of events returned from the read
     """
     # - Set up a register read
-    rrv_ev = samna.pollen.event.ReadRegisterValue()
+    rrv_ev = samna.xylo.event.ReadRegisterValue()
     rrv_ev.address = address
 
     # - Request read
@@ -423,12 +423,12 @@ def read_memory(
     read_events_list = []
 
     # - Insert an extra read to avoid zero data
-    rmv_ev = samna.pollen.event.ReadMemoryValue()
+    rmv_ev = samna.xylo.event.ReadMemoryValue()
     rmv_ev.address = start_address
     read_events_list.append(rmv_ev)
 
     for elem in range(count):
-        rmv_ev = samna.pollen.event.ReadMemoryValue()
+        rmv_ev = samna.xylo.event.ReadMemoryValue()
         rmv_ev.address = start_address + elem
         read_events_list.append(rmv_ev)
 
@@ -478,12 +478,12 @@ def generate_read_memory_events(
     read_events_list = []
 
     # - Insert an extra read to avoid zero data
-    rmv_ev = samna.pollen.event.ReadMemoryValue()
+    rmv_ev = samna.xylo.event.ReadMemoryValue()
     rmv_ev.address = start_address
     read_events_list.append(rmv_ev)
 
     for elem in range(count):
-        rmv_ev = samna.pollen.event.ReadMemoryValue()
+        rmv_ev = samna.xylo.event.ReadMemoryValue()
         rmv_ev.address = start_address + elem
         read_events_list.append(rmv_ev)
 
@@ -543,16 +543,14 @@ def verify_xylo_version(
     buffer.get_events()
 
     # - Read the version register
-    daughterboard.get_model().write([samna.pollen.event.ReadVersion()])
+    daughterboard.get_model().write([samna.xylo.event.ReadVersion()])
 
     # - Read events until timeout
     filtered_events = []
     t_end = time.time() + timeout
     while len(filtered_events) == 0:
         events = buffer.get_events()
-        filtered_events = [
-            e for e in events if isinstance(e, samna.pollen.event.Version)
-        ]
+        filtered_events = [e for e in events if isinstance(e, samna.xylo.event.Version)]
 
         # - Check timeout
         if time.time() > t_end:
@@ -597,7 +595,7 @@ def write_memory(
     # - Set up a list of write events
     write_event_list = []
     for elem in range(count):
-        wmv_ev = samna.pollen.event.WriteMemoryValue()
+        wmv_ev = samna.xylo.event.WriteMemoryValue()
         wmv_ev.address = start_address + elem
 
         if data is not None:
@@ -1035,12 +1033,12 @@ def decode_accel_mode_data(
     # - Loop over events and decode
     for e in events:
         # - Handle an output spike event
-        if isinstance(e, samna.pollen.event.Spike):
+        if isinstance(e, samna.xylo.event.Spike):
             # - Save this output event
             spikes_out_ts[e.timestamp - 1][e.neuron_id] = True
 
         # - Handle a memory value read event
-        if isinstance(e, samna.pollen.event.MemoryValue):
+        if isinstance(e, samna.xylo.event.MemoryValue):
             # - Find out which memory block this event corresponds to
             memory_block = [
                 block
@@ -1067,7 +1065,7 @@ def decode_accel_mode_data(
                     spikes_ts[-1][e.address - memory_table["rspkram"][0]] = e.data
 
         # - Handle the readout event, which signals the *end* of a time step
-        if isinstance(e, samna.pollen.event.Readout):
+        if isinstance(e, samna.xylo.event.Readout):
             # - Advance the timestep counter
             timestep = e.timestamp
             times.append(timestep)
@@ -1136,7 +1134,7 @@ def advance_time_step(daughterboard: XyloDaughterBoard) -> None:
     Args:
         daughterboard (XyloDaughterboard): The Xylo HDK to access
     """
-    e = samna.pollen.event.TriggerProcessing()
+    e = samna.xylo.event.TriggerProcessing()
     daughterboard.get_model().write([e])
 
 
@@ -1166,7 +1164,7 @@ def send_immediate_input_spikes(
     for input_channel, event in enumerate(spike_counts):
         if event:
             for _ in range(int(event)):
-                s_event = samna.pollen.event.Spike()
+                s_event = samna.xylo.event.Spike()
                 s_event.neuron_id = input_channel
                 events_list.append(s_event)
 
@@ -1519,7 +1517,7 @@ def get_current_timestamp(
     buffer.get_events()
 
     # - Trigger a readout event on Xylo
-    e = samna.pollen.event.TriggerReadout()
+    e = samna.xylo.event.TriggerReadout()
     daughterboard.get_model().write([e])
 
     # - Wait for the readout event to be sent back, and extract the timestamp
@@ -1528,9 +1526,7 @@ def get_current_timestamp(
     start_t = time.time()
     while continue_read:
         readout_events = buffer.get_events()
-        ev_filt = [
-            e for e in readout_events if isinstance(e, samna.pollen.event.Readout)
-        ]
+        ev_filt = [e for e in readout_events if isinstance(e, samna.xylo.event.Readout)]
         if ev_filt:
             timestamp = ev_filt[0].timestamp
             continue_read = False
@@ -1567,27 +1563,27 @@ def configure_accel_time_mode(
         (XyloConfiguration, XyloNeuronStateBuffer): `config` and `monitor_buffer`
     """
     # - Select accelerated time mode
-    config.operation_mode = samna.pollen.OperationMode.AcceleratedTime
+    config.operation_mode = samna.xylo.OperationMode.AcceleratedTime
 
     # - Configure reading out of neuron state during evolution
     perform_readout = monitor_Nhidden + monitor_Noutput > 0
     config.debug.monitor_neuron_i_syn = (
-        samna.pollen.configuration.NeuronRange(0, monitor_Nhidden + monitor_Noutput)
+        samna.xylo.configuration.NeuronRange(0, monitor_Nhidden + monitor_Noutput)
         if perform_readout
         else None
     )
     config.debug.monitor_neuron_i_syn2 = (
-        samna.pollen.configuration.NeuronRange(0, monitor_Nhidden)
+        samna.xylo.configuration.NeuronRange(0, monitor_Nhidden)
         if perform_readout
         else None
     )
     config.debug.monitor_neuron_spike = (
-        samna.pollen.configuration.NeuronRange(0, monitor_Nhidden)
+        samna.xylo.configuration.NeuronRange(0, monitor_Nhidden)
         if perform_readout
         else None
     )
     config.debug.monitor_neuron_v_mem = (
-        samna.pollen.configuration.NeuronRange(0, monitor_Nhidden + monitor_Noutput)
+        samna.xylo.configuration.NeuronRange(0, monitor_Nhidden + monitor_Noutput)
         if perform_readout
         else None
     )
@@ -1608,7 +1604,7 @@ def configure_single_step_time_mode(config: XyloConfiguration) -> XyloConfigurat
         config (XyloConfiguration): The desired Xylo configuration to use
     """
     # - Write the configuration
-    config.operation_mode = samna.pollen.OperationMode.Manual
+    config.operation_mode = samna.xylo.OperationMode.Manual
     return config
 
 
@@ -1849,7 +1845,7 @@ def export_config(
     # nbram
     mat = np.zeros(size_total, dtype=int)
     bias = np.array(bias).astype(int)
-    mat[: num_neurons] = bias
+    mat[:num_neurons] = bias
     bias_out = np.array(bias_out).astype(int)
     mat[num_neurons : num_neurons + bias_out.shape[0]] = bias_out
 
@@ -1858,7 +1854,6 @@ def export_config(
         for i_neur, val in enumerate(mat):
             f.write(to_hex(val, 4))
             f.write("\n")
-
 
     # basic config
     print("Writing basic_config.json", end="\r")
@@ -1906,8 +1901,7 @@ def export_config(
         if np.any(bias) or np.any(bias_out):
             conf["BIAS"] = True
         else:
-            conf["BIAS"] = False 
-
+            conf["BIAS"] = False
 
         json.dump(conf, f)
 

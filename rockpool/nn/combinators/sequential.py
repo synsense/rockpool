@@ -59,7 +59,11 @@ class SequentialMixin(ABC):
 
         # - Check that shapes are compatible
         for mod_index in range(len(submods) - 1):
-            if shape_out[mod_index] != shape_in[mod_index + 1]:
+            if (
+                shape_out[mod_index] is not None
+                and shape_in[mod_index + 1] is not None
+                and shape_out[mod_index] != shape_in[mod_index + 1]
+            ):
                 raise ValueError(
                     f"The output of submodule {mod_index} "
                     + f"({type(submods[mod_index]).__name__}) "
@@ -177,6 +181,9 @@ try:
 
 except:
 
+    class JaxModule:
+        pass
+
     class JaxSequential:
         """
         The :py:class:`.Sequential` combinator for Jax modules
@@ -190,16 +197,37 @@ except:
 
 try:
     from rockpool.nn.modules.torch.torch_module import TorchModule
+    import torch
+    from torch.nn import Module as torch_nn_module
 
     class TorchSequential(SequentialMixin, TorchModule):
         """
         The :py:class:`.Sequential` combinator for torch modules
         """
 
-        pass
+        def __init__(
+            self,
+            *args,
+            **kwargs,
+        ):
+            # - Convert torch modules to Rockpool TorchModules
+            for item in args:
+                if isinstance(item, torch_nn_module) and not isinstance(
+                    item, TorchModule
+                ):
+                    TorchModule.from_torch(item, retain_torch_api=True)
+
+            # - Call super-class constructor
+            super().__init__(*args, **kwargs)
 
 
 except:
+
+    class TorchModule:
+        pass
+
+    class torch_nn_module:
+        pass
 
     class TorchSequential:
         """
@@ -240,7 +268,7 @@ def Sequential(*args, **kwargs) -> ModuleBase:
     for item in args:
         if isinstance(item, JaxModule):
             return JaxSequential(*args, **kwargs)
-        if isinstance(item, TorchModule):
+        if isinstance(item, (TorchModule, torch_nn_module)):
             return TorchSequential(*args, **kwargs)
 
     # - Use ModSequential if no JaxModule or TorchModule is in the submodules

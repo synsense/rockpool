@@ -15,7 +15,6 @@ import torch
 from torch import nn
 
 import numpy as np
-import json
 
 import rockpool.parameters as rp
 
@@ -119,26 +118,31 @@ class TorchModule(Module, nn.Module):
     def __setattr__(self, key, value):
         if isinstance(value, nn.Parameter):
             # - Also register as a rockpool parameter
-            print("Setting a new Torch Parameter", value)
             self._register_attribute(key, rp.Parameter(value, None, None, value.shape))
 
-        if isinstance(value, (rp.Parameter, rp.State)):
+        if isinstance(value, rp.Parameter):
+            # - Register as a torch parameter
+            super().register_parameter(key, nn.Parameter(value.data))
+
+            # - Register as a Rockpool attribute
+            self._register_attribute(key, value)
+            return
+
+        if isinstance(value, rp.State):
             # - register as a torch buffer
             super().register_buffer(key, value.data)
 
             # - Register as a Rockpool attribute
             self._register_attribute(key, value)
-        else:
-            # - Call __setattr__
-            super().__setattr__(key, value)
+            return
 
         if isinstance(value, nn.Module) and not isinstance(value, TorchModule):
-            try:
-                # - Convert torch module to a Rockpool Module and assign
-                TorchModule.from_torch(value, retain_torch_api=True)
-            except:
-                pass
-            super().__setattr__(key, value)
+            # - Convert torch module to a Rockpool Module and assign
+            TorchModule.from_torch(value, retain_torch_api=True)
+            self._register_module(key, value)
+
+        # Assign attribute with setattr
+        super().__setattr__(key, value)
 
     def register_buffer(self, name: str, tensor: torch.Tensor, *args, **kwargs) -> None:
         self._register_attribute(name, rp.State(tensor, None, None, np.shape(tensor)))
@@ -235,70 +239,3 @@ class TorchModule(Module, nn.Module):
             # - Assign submodule to Rockpool module dictionary
             __modules[name] = [mod, type(mod).__name__]
             obj._submodulenames.append(name)
-
-
-    def json_to_param(self, jparam):
-
-        for k, param in jparam.items():
-
-            if isinstance(param, str):
-                param = json.loads(param)
-
-            if isinstance(param, dict):
-                self.modules()[k].json_to_param(param)
-            else:
-                my_params = self.parameters()
-                if isinstance(my_params[k], list):
-                    my_params[k] = param
-                elif isinstance(my_params[k], np.ndarray):
-                    my_params[k] = np.array(param)
-                elif isinstance(my_params[k], torch.Tensor):
-                    my_params[k].data = torch.Tensor(param)
-                elif isinstance(my_params[k], TorchModuleParameters):
-                    self.modules()[k].json_to_param(param)
-                else:
-                    raise NotImplementedError(f"{type(my_params[k])} not implemented to load. Please implement.")
-
-
-    def param_to_json(self, param):
-
-        if isinstance(param, torch.Tensor):
-            return json.dumps(param.detach().cpu().numpy().tolist())
-        elif isinstance(param, np.ndarray):
-            return json.dumps(param.tolist())
-        elif isinstance(param, dict):
-            try:
-                return json.dumps(param)
-            except:
-                return_dict = {}
-                for k, p in param.items():
-                    return_dict[k] = self.param_to_json(p)
-                return return_dict
-        else:
-            raise NotImplementedError(f"{type(param)} not implemented to save. Please implement.")
-
-    def to_json(self):
-        params = self.parameters()
-        
-        return self.param_to_json(params)
-
-    
-    def save(self, fn):
-        with open(fn, "w+") as f:
-            json.dump(self.to_json(), f)
-
-
-    def load(self, fn):
-
-        with open(fn, "r") as f:
-            params = json.load(f)
-
-        self.json_to_param(params)
-
-
-
-
-
-
-
-

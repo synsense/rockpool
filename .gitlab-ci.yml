@@ -15,6 +15,7 @@ unit_tests:
     - pip install ./cimulator_git/
     - conda install nest-simulator
     - pip install --upgrade .[all] --no-cache-dir
+    - python -c 'import samna'
 
   script:
     - pytest -v tests/tests_default -n 4

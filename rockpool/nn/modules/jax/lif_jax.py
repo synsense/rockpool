@@ -20,9 +20,10 @@ from jax.lax import scan
 import jax.random as rand
 
 from typing import Optional, Tuple, Union, Dict, Callable, Any
+from rockpool.typehints import FloatVector
 
-# - Define a float / array type
-FloatVector = Union[float, np.ndarray]
+__all__ = ["LIFJax"]
+
 
 # - Surrogate functions to use in learning
 def sigmoid(x: FloatVector) -> FloatVector:

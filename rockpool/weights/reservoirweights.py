@@ -1,5 +1,9 @@
 """
+<<<<<<< HEAD
 Utility functions for generating and manipulating reservoir networks
+=======
+Utility functions for generating and manipulating networks
+>>>>>>> develop
 """
 
 import copy

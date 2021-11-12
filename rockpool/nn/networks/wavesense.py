@@ -54,20 +54,20 @@ class WaveBlock(TorchModule):
     """
 
     def __init__(
-            self,
-            Nchannels: int = 16,
-            Nskip: int = 32,
-            dilation: int = None,
-            kernel_size: int = 2,
-            has_bias: bool = False,
-            tau_mem: float = 10e-3,
-            base_tau_syn: float = 10e-3,
-            threshold: float = 0.0,
-            neuron_model=LIFTorch,
-            dt: float = 1e-3,
-            device: str = 'cuda',
-            *args,
-            **kwargs,
+        self,
+        Nchannels: int = 16,
+        Nskip: int = 32,
+        dilation: int = None,
+        kernel_size: int = 2,
+        has_bias: bool = False,
+        tau_mem: float = 10e-3,
+        base_tau_syn: float = 10e-3,
+        threshold: float = 0.0,
+        neuron_model=LIFTorch,
+        dt: float = 1e-3,
+        device: str = "cuda",
+        *args,
+        **kwargs,
     ):
         """
         Implementation of the WaveBlock as used in the WaveSense model. It received (Nchannels) input channels and outputs (Nchannels, Nskip) channels.
@@ -75,7 +75,7 @@ class WaveBlock(TorchModule):
         Args:
             :param int Nchannels:           Dimensionality of the residual connection
             :param int Nskip:               Dimensionality of the skip connection
-            :param int dilation:            Determins the synaptic time constant of the dilation layer $dilation * base_tau_syn$ 
+            :param int dilation:            Determins the synaptic time constant of the dilation layer $dilation * base_tau_syn$
             :param int kernel_size:         Number of synapses the time dilation layer in the WaveBlock
             :param bool has_bias:           If the network can use biases to train
             :param float tau_mem:           Membrane potential time constant of all neurons in WaveSense
@@ -103,14 +103,12 @@ class WaveBlock(TorchModule):
         self.neuron_model = neuron_model
 
         # - Dilation layers
-        tau_syn = (
-                torch.arange(0, dilation * kernel_size, dilation) * base_tau_syn
-        )
+        tau_syn = torch.arange(0, dilation * kernel_size, dilation) * base_tau_syn
         tau_syn = torch.clamp(tau_syn, base_tau_syn, tau_syn.max())
 
-        self.lin1 = LinearTorch(shape=(Nchannels, Nchannels * kernel_size),
-                                has_bias=False,
-                                device=device)
+        self.lin1 = LinearTorch(
+            shape=(Nchannels, Nchannels * kernel_size), has_bias=False, device=device
+        )
 
         self.spk1 = self.neuron_model(
             shape=(Nchannels * kernel_size, Nchannels),
@@ -128,9 +126,9 @@ class WaveBlock(TorchModule):
         )
 
         # - Remapping output layers
-        self.lin2_res = LinearTorch(shape=(Nchannels, Nchannels),
-                                    has_bias=False,
-                                    device=device)
+        self.lin2_res = LinearTorch(
+            shape=(Nchannels, Nchannels), has_bias=False, device=device
+        )
 
         self.spk2_res = self.neuron_model(
             shape=(Nchannels, Nchannels),
@@ -143,15 +141,14 @@ class WaveBlock(TorchModule):
             noise_std=0,
             gradient_fn=PeriodicExponential,
             learning_window=0.5,
-
             dt=dt,
             device=device,
         )
 
         # - Skip output layers
-        self.lin2_skip = LinearTorch(shape=(Nchannels, Nskip),
-                                     has_bias=False,
-                                     device=device)
+        self.lin2_skip = LinearTorch(
+            shape=(Nchannels, Nskip), has_bias=False, device=device
+        )
 
         self.spk2_skip = self.neuron_model(
             shape=(Nskip, Nskip),
@@ -234,7 +231,9 @@ class WaveBlock(TorchModule):
         connect_modules(mod_graphs[1], mod_graphs[4])
         connect_modules(mod_graphs[4], mod_graphs[5])  # skip_add
 
-        AliasConnection(mod_graphs[0].input_nodes, mod_graphs[3].output_nodes, name=f"residual_loop")
+        AliasConnection(
+            mod_graphs[0].input_nodes, mod_graphs[3].output_nodes, name=f"residual_loop"
+        )
 
         multiple_out = mod_graphs[3].output_nodes
         multiple_out.extend(mod_graphs[5].output_nodes)
@@ -286,25 +285,25 @@ class WaveSenseNet(TorchModule):
     """
 
     def __init__(
-            self,
-            dilations: List,
-            n_classes: int = 2,
-            n_channels_in: int = 16,
-            n_channels_res: int = 16,
-            n_channels_skip: int = 32,
-            n_hidden: int = 32,
-            kernel_size: int = 2,
-            has_bias: bool = False,
-            smooth_output: bool = True,
-            tau_mem: float = 20e-3,
-            base_tau_syn: float = 20e-3,
-            tau_lp: float = 20e-3,
-            threshold: float = 0.0,
-            neuron_model=LIFTorch,
-            dt: float = 1e-3,
-            device: str = 'cuda',
-            *args,
-            **kwargs,
+        self,
+        dilations: List,
+        n_classes: int = 2,
+        n_channels_in: int = 16,
+        n_channels_res: int = 16,
+        n_channels_skip: int = 32,
+        n_hidden: int = 32,
+        kernel_size: int = 2,
+        has_bias: bool = False,
+        smooth_output: bool = True,
+        tau_mem: float = 20e-3,
+        base_tau_syn: float = 20e-3,
+        tau_lp: float = 20e-3,
+        threshold: float = 0.0,
+        neuron_model=LIFTorch,
+        dt: float = 1e-3,
+        device: str = None,
+        *args,
+        **kwargs,
     ):
         """
         Implementation of the WaveSense network as described in https://arxiv.org/abs/2111.01456.
@@ -340,9 +339,9 @@ class WaveSenseNet(TorchModule):
         self.neuron_model = neuron_model
 
         # - Input mapping layers
-        self.lin1 = LinearTorch(shape=(n_channels_in, n_channels_res),
-                                has_bias=False,
-                                device=device)
+        self.lin1 = LinearTorch(
+            shape=(n_channels_in, n_channels_res), has_bias=False, device=device
+        )
 
         self.spk1 = self.neuron_model(
             shape=(n_channels_res, n_channels_res),
@@ -355,7 +354,6 @@ class WaveSenseNet(TorchModule):
             noise_std=0,
             gradient_fn=PeriodicExponential,
             learning_window=0.5,
-
             dt=dt,
             device=device,
         )
@@ -378,9 +376,9 @@ class WaveSenseNet(TorchModule):
             self.__setattr__(f"wave{i}", wave)
 
         # Dense readout layers
-        self.hidden = LinearTorch(shape=(n_channels_skip, n_hidden),
-                                  has_bias=False,
-                                  device=device)
+        self.hidden = LinearTorch(
+            shape=(n_channels_skip, n_hidden), has_bias=False, device=device
+        )
 
         self.spk2 = self.neuron_model(
             shape=(n_hidden, n_hidden),
@@ -397,9 +395,9 @@ class WaveSenseNet(TorchModule):
             device=device,
         )
 
-        self.readout = LinearTorch(shape=(n_hidden, n_classes),
-                                   has_bias=False,
-                                   device=device)
+        self.readout = LinearTorch(
+            shape=(n_hidden, n_classes), has_bias=False, device=device
+        )
 
         # - low pass filter is not compatible with xylo unless we give tau_syn 0
         # Smoothing output
@@ -509,13 +507,24 @@ class WaveSenseNet(TorchModule):
         block_mod_start = 2
 
         for i in range(self._num_dilations - 1):
-            connect_modules(mod_graphs[block_mod_start + i], mod_graphs[block_mod_start + i + 1],
-                            range(self.n_channels_res), None)
-            AliasConnection(mod_graphs[block_mod_start + i].output_nodes[self.n_channels_res:],
-                            mod_graphs[block_mod_start + i + 1].output_nodes[self.n_channels_res:], name='skip_add')
+            connect_modules(
+                mod_graphs[block_mod_start + i],
+                mod_graphs[block_mod_start + i + 1],
+                range(self.n_channels_res),
+                None,
+            )
+            AliasConnection(
+                mod_graphs[block_mod_start + i].output_nodes[self.n_channels_res :],
+                mod_graphs[block_mod_start + i + 1].output_nodes[self.n_channels_res :],
+                name="skip_add",
+            )
 
-        connect_modules(mod_graphs[-5], mod_graphs[-4],
-                        range(self.n_channels_res, self.n_channels_res + self.n_channels_skip), None)
+        connect_modules(
+            mod_graphs[-5],
+            mod_graphs[-4],
+            range(self.n_channels_res, self.n_channels_res + self.n_channels_skip),
+            None,
+        )
         connect_modules(mod_graphs[-4], mod_graphs[-3])
         connect_modules(mod_graphs[-3], mod_graphs[-2])
         connect_modules(mod_graphs[-2], mod_graphs[-1])
@@ -537,11 +546,14 @@ class WaveSenseNet(TorchModule):
 #     n_hidden=32,
 #     kernel_size=2,
 # )
-
+#
 # from rockpool.devices.xylo import *
+#
 # WaveSense_graph = Net.as_graph()
-# WaveSense_specs = mapper(WaveSense_graph)
-# del WaveSense_specs['mapped_graph']
-# del WaveSense_specs['dt']
+# WaveSense_specs = mapper(
+#     WaveSense_graph, weight_dtype="float", threshold_dtype="float", dash_dtype="float"
+# )
+# del WaveSense_specs["mapped_graph"]
+# del WaveSense_specs["dt"]
 # xylo_conf, is_valid, message = config_from_specification(**WaveSense_specs)
-# print('Valid config: ', is_valid, message)
+# print("Valid config: ", is_valid, message)
