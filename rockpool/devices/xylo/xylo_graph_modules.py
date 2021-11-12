@@ -3,6 +3,8 @@ Xylo graph modules for use with tracing and mapping
 """
 import warnings
 
+import torch
+
 from rockpool.graph import (
     GenericNeurons,
     GraphModule,
@@ -56,15 +58,29 @@ class XyloNeurons(GenericNeurons):
                 )
 
             # - Convert TCs to dash parameters
-            dash_mem = (
-                np.round(np.log2(np.array(mod.tau_mem) / mod.dt)).astype(int).tolist()
-            )
-            dash_syn = (
-                np.round(np.log2(np.array(mod.tau_syn) / mod.dt)).astype(int).tolist()
-            )
+            if torch.is_tensor(mod.tau_mem):
+                dash_mem = (
+                    np.round(np.log2(np.array(mod.tau_mem.cpu()) / mod.dt)).astype(int).tolist()
+                )
+            else:
+                dash_mem = (
+                    np.round(np.log2(np.array(mod.tau_mem) / mod.dt)).astype(int).tolist()
+                )
+
+            if torch.is_tensor(mod.tau_syn):
+                dash_syn = (
+                    np.round(np.log2(np.array(mod.tau_syn.cpu()) / mod.dt)).astype(int).tolist()
+                )
+            else:
+                dash_syn = (
+                    np.round(np.log2(np.array(mod.tau_syn.cpu()) / mod.dt)).astype(int).tolist()
+                )
 
             # - Get thresholds
-            thresholds = np.round(np.array(mod.threshold)).astype(int).tolist()
+            if  torch.is_tensor(mod.threshold):
+                thresholds = np.round(np.array(mod.threshold.cpu())).astype(int).tolist()
+            else:
+                thresholds = np.round(np.array(mod.threshold)).astype(int).tolist()
 
             # - Build a new neurons module to insert into the graph
             neurons = cls._factory(
