@@ -2,16 +2,21 @@ import numpy as np
 import copy
 
 
-def global_quantize(model, fuzzy_scaling: bool = False):
+def global_quantize(
+    weights_in: np.ndarray,
+    weights_rec: np.ndarray,
+    weights_out: np.ndarray,
+    threshold: np.ndarray,
+    threshold_out: np.ndarray,
+    fuzzy_scaling: bool = False,
+    bits_per_weight: int = 8,
+    *_,
+    **__,
+):
     """
-    scale the weight matrix globally
+    Quantize a Xylo model for deployment, using global parameter scaling
 
-    Args:
-        model: mapper model dict
-        fuzzy_scaling: leave outliers
-
-    Returns:
-        quantized model_dict to be wrapped as XyloConfiguration()
+    The figure below illustrates the groups of weights which are considered for quantization. Under this global method, all weights in the network are considered together when scaling and quantizing weights and thresholds. Input and recurrent weights are considered together as a group; output weights are considered separately when quantizing.
 
                  target
            -------------------
@@ -22,16 +27,31 @@ def global_quantize(model, fuzzy_scaling: bool = False):
     c   -**- -**- -**- -**-  -
     e   -**- -**- -**- -**-  -
         -------------------
+
+    Examples:
+        specs = xylo.devices.mapper(net.as_graph(), weight_dtype="float", threshold_dtype="float")
+        specs.update(global_quantize(**specs, fuzzy_scaling = True))
+        xylo.devices.XyloCim.from_specifications(specs)
+
+    Args:
+        weights_in (np.ndarray): Input weight matrix
+        weights_rec (np.ndarray): Recurrent weight matrix
+        weights_out (np.ndarray): Output weight matrix
+        threshold (np.ndarray): Firing threshold for hidden neurons
+        threshold_out (np.ndarray): Firing threshold for output neurons
+        fuzzy_scaling (bool): If ``True``, scale and clip weights to 2*std dev. If ``False`` (default), scale and clip to maximum absolute weight.
+        bits_per_weight (int): Number of bits per integer signed weight. Default: ``8``
+
+    Returns:
+        dict: `model_quan` which can be used to update a Xylo specification dictionary
     """
 
-    global_model = copy.copy(model)
-    w_in = global_model['weights_in']
-    w_rec = global_model['weights_rec']
-    w_out = global_model['weights_out']
-    threshold = global_model['threshold']
-    threshold_out = global_model['threshold_out']
-    w_max_bit = 8
-    max_w_quan = 2 ** (w_max_bit - 1) - 1
+    w_in = copy.copy(weights_in)
+    w_rec = copy.copy(weights_rec)
+    w_out = copy.copy(weights_out)
+    threshold = copy.copy(threshold)
+    threshold_out = copy.copy(threshold_out)
+    max_w_quan = 2 ** (bits_per_weight - 1) - 1
 
     if fuzzy_scaling:
         # detect outliers
@@ -68,29 +88,31 @@ def global_quantize(model, fuzzy_scaling: bool = False):
     threshold = np.round(threshold * scaling).astype(int)
     threshold_out = np.round(threshold_out * scaling).astype(int)
 
-    model_quan = {'weights_in': weights_in,
-                  'weights_rec': weights_rec,
-                  'weights_out': weights_out,
-                  'threshold': threshold,
-                  'threshold_out': threshold_out}
+    model_quan = {
+        "weights_in": weights_in,
+        "weights_rec": weights_rec,
+        "weights_out": weights_out,
+        "threshold": threshold,
+        "threshold_out": threshold_out,
+    }
 
-    del global_model['dt']
-    del global_model['mapped_graph']
-    global_model.update(model_quan)
-
-    return global_model
+    return model_quan
 
 
-def channel_quantize(model):
+def channel_quantize(
+    weights_in: np.ndarray,
+    weights_rec: np.ndarray,
+    weights_out: np.ndarray,
+    threshold: np.ndarray,
+    threshold_out: np.ndarray,
+    bits_per_weight: int = 8,
+    *_,
+    **__,
+):
     """
-    scale the weight matrix per target neuron (per weight matrix column in weight matrix),
-    in Xylo each target neuron may receive events from up to 16*2 pre-synaptic neurons
+    Quantize a Xylo model for deployment, using per-channel parameter scaling
 
-    Args:
-        model: mapper model dict
-
-    Returns:
-        quantized model_dict to be wrapped as XyloConfiguration()
+    The figure below illustrates the groups of weights which are considered for quantization. Under this per-channel method, all input weights to a single target neuron are considered together when scaling and quantizing weights and thresholds. Input and recurrent weights are considered together as a group; output weights are considered separately when quantizing.
 
                  target
            -------------------
@@ -101,16 +123,30 @@ def channel_quantize(model):
     c   -++- -**- -##- -oo-  -
     e   -++- -**- -##- -oo-  -
         -------------------
+
+    Examples:
+        specs = xylo.devices.mapper(net.as_graph(), weight_dtype="float", threshold_dtype="float")
+        specs.update(channel_quantize(**specs, bits_per_weight = 12))
+        xylo.devices.XyloCim.from_specifications(specs)
+
+    Args:
+        weights_in (np.ndarray): Input weight matrix
+        weights_rec (np.ndarray): Recurrent weight matrix
+        weights_out (np.ndarray): Output weight matrix
+        threshold (np.ndarray): Firing threshold for hidden neurons
+        threshold_out (np.ndarray): Firing threshold for output neurons
+        bits_per_weight (int): Number of bits per integer signed weight. Default: ``8``
+
+    Returns:
+        dict: `model_quan` which can be used to update a Xylo specification dictionary
     """
 
-    channel_model = copy.copy(model)
-    w_in = channel_model['weights_in']
-    w_rec = channel_model['weights_rec']
-    w_out = channel_model['weights_out']
-    threshold = channel_model['threshold']
-    threshold_out = channel_model['threshold_out']
-    w_max_bit = 8
-    max_w_quan = 2 ** (w_max_bit - 1) - 1
+    w_in = copy.copy(weights_in)
+    w_rec = copy.copy(weights_rec)
+    w_out = copy.copy(weights_out)
+    threshold = copy.copy(threshold)
+    threshold_out = copy.copy(threshold_out)
+    max_w_quan = 2 ** (bits_per_weight - 1) - 1
 
     # quantize input weight, recurrent weight, threshold
     # two weight matrix need to be stack together to consider per-channel quantization
@@ -149,14 +185,12 @@ def channel_quantize(model):
     w_out_quan = w_out_quan.astype(int)
     threshold_out_quan = threshold_out_quan.astype(int)
 
-    model_quan = {'weights_in': w_in_quan,
-                  'weights_rec': w_rec_quan,
-                  'weights_out': w_out_quan,
-                  'threshold': threshold_quan,
-                  'threshold_out': threshold_out_quan}
+    model_quan = {
+        "weights_in": w_in_quan,
+        "weights_rec": w_rec_quan,
+        "weights_out": w_out_quan,
+        "threshold": threshold_quan,
+        "threshold_out": threshold_out_quan,
+    }
 
-    del channel_model['dt']
-    del channel_model['mapped_graph']
-    channel_model.update(model_quan)
-
-    return channel_model
+    return model_quan
