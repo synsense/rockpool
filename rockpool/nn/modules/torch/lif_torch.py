@@ -121,12 +121,12 @@ class LIFTorch(TorchModule):
         tau_syn: FloatVector,
         has_bias: P_bool = True,
         bias: FloatVector = 0.0,
-        threshold: FloatVector = 0.0,
+        threshold: FloatVector = 1.0,
         has_rec: P_bool = False,
         w_rec: torch.Tensor = None,
         noise_std: P_float = 0.0,
         gradient_fn = StepPWL, 
-        learning_window: P_float = 1.0,
+        learning_window: P_float = 0.5,
         dt: P_float = 1e-3,
         device: P_str = "cuda",
         *args,
@@ -264,7 +264,7 @@ class LIFTorch(TorchModule):
         """ (Tensor) Spikes `(Nin,)` """
 
         self.alpha: P_tensor = rp.SimulationParameter(
-            torch.exp(-self.dt / self.tau_mem).unsqueeze(1).to(device)
+            torch.exp(-self.dt / self.tau_mem).unsqueeze(1).T.to(device)
         )
         self.beta: P_tensor = rp.SimulationParameter(
             torch.exp(-self.dt / self.tau_syn).unsqueeze(1).to(device)
@@ -297,8 +297,8 @@ class LIFTorch(TorchModule):
         # - Build state record
         record_dict = (
             {
-                "isyn": self._record_Vmem,
-                "vmem": self._record_Isyn,
+                "Vmem": self._record_Vmem,
+                "Isyn": self._record_Isyn,
                 "spikes": self._record_spikes
             }
             if record
@@ -374,9 +374,9 @@ class LIFTorch(TorchModule):
                 isyn = isyn + data[:, t] * self.dt / self.tau_syn.unsqueeze(-1)
 
             if self.noise_std > 0:
-                vmem = vmem + isyn.sum(1) + torch.randn(vmem.shape, device=vmem.device) * self.noise_std
+                vmem = vmem + isyn.sum(1) + bias + torch.randn(vmem.shape, device=vmem.device) * self.noise_std
             else:
-                vmem = vmem + isyn.sum(1)
+                vmem = vmem + isyn.sum(1) + bias
 
             spikes = self.gradient_fn(vmem, self.threshold, self.learning_window)
 
