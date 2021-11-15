@@ -13,9 +13,9 @@ def test_single_neuron():
     N = 1
     Nsyn = 2
     tau_mem = [0.04]
-    tau_syn = [[0.02], [0.03]]
-    threshold = [10.0]
-    learning_window = [0.5]
+    tau_syn = [0.02, 0.03]]
+    threshold = 10.0
+    learning_window = 0.5
 
     lyr = LIFBitshiftTorch(
         n_neurons=N,
@@ -58,8 +58,8 @@ def test_backward():
     )
 
     inp = torch.rand(50, 1, Nsyn, N).cpu()
-
     inp.requires_grad = True
+
     out, states, recs = lyr(inp, record=True)
 
     out.sum().backward()

@@ -158,32 +158,30 @@ def test_LIFBitshiftTorch():
 
     N = 10
     Nsyn = 2
-    tau_mem = 2 * np.ones(
-        N,
-    )
-    tau_syn = torch.Tensor([2, 8])
-    tau_syn = tau_syn.view(1, Nsyn).T.repeat(1, N)
-    mod = LIFBitshiftTorch(
-        n_neurons=N,
-        n_synapses=Nsyn,
-        batch_size=1,
-        tau_mem=tau_mem,
-        tau_syn=tau_syn,
-        threshold=1.0,
-        learning_window=0.5,
-        device="cpu",
-    )
-
+    tau_mem = 0.01
+    tau_syn = torch.Tensor([0.005, 0.015])
+    mod = LIFBitshiftTorch(shape=(N * Nsyn, N),
+                           tau_mem=tau_mem,
+                           tau_syn=tau_syn,
+                           threshold=1.0,
+                           has_bias=True,
+                           has_rec=True,
+                           noise_std=0.1,
+                           learning_window=0.5,
+                           dt=0.001,
+                           device="cpu")
+    
     # - Generate some data
     T = 100
     num_batches = 1
-    input_data = torch.from_numpy(np.random.rand(T, num_batches, Nsyn, N)).cpu()
-
-    # - Test torch interface
-    out = mod.forward(input_data)
-
+    input_data = (torch.rand(num_batches, T, Nsyn * N).cpu() * 100)
+    input_data.requires_grad = True
+    
     # - Test Rockpool interface
     out, ns, rd = mod.evolve(input_data)
+    
+    # - Test backward
+    out.sum().backward()
 
 
 def test_lowpass():
@@ -217,23 +215,19 @@ def test_astorch():
     N = 1
     Nsyn = 2
     tau_mem = [0.04]
-    tau_syn = [[0.02]]
-    threshold = [10.0]
-    learning_window = [0.5]
+    tau_syn = [0.02, 0.05]
+    threshold = 10.0
+    learning_window = 0.5
 
-    lyr = LIFBitshiftTorch(
-        n_neurons=N,
-        n_synapses=Nsyn,
-        tau_mem=tau_mem,
-        tau_syn=tau_syn,
-        threshold=threshold,
-        learning_window=learning_window,
-        batch_size=1,
-        dt=0.01,
-        device="cpu",
-    )
+    lyr = LIFBitshiftTorch(shape=(N*Nsyn, N),
+                           tau_mem=tau_mem,
+                           tau_syn=tau_syn,
+                           threshold=threshold,
+                           learning_window=learning_window,
+                           dt=0.01,
+                           device="cpu")
 
-    inp = torch.rand(50, 1, Nsyn, N).cpu()
+    inp = torch.rand(1, 50, Nsyn * N).cpu()
 
     params = lyr.parameters()
     params_astorch = params.astorch()
