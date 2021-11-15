@@ -1,21 +1,29 @@
 """
-Implements a leaky integrate-and-fire neuron module with a Jax backend
+Implements a leaky integrate-and-fire neuron module with a numpy backend
 """
 
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import Parameter, State, SimulationParameter
 
-import numpy as onp
+import numpy as np
 
-from jax import numpy as np
-from jax import custom_gradient
-from jax.lax import scan
-import jax.random as rand
+from .linear import kaiming
 
 from typing import Optional, Tuple, Union, Dict, Callable, Any
 from rockpool.typehints import FloatVector, P_float, P_tensor
 
 __all__ = ["LIF"]
+
+# - Surrogate function
+def sigmoid(x: FloatVector) -> FloatVector:
+    """
+    Sigmoid function
+
+    :param FloatVector x: Input value
+
+    :return FloatVector: Output value
+    """
+    return np.tanh(x + 1) / 2 + 0.5
 
 
 class LIF(Module):
@@ -55,7 +63,9 @@ class LIF(Module):
         tau_mem: Optional[FloatVector] = None,
         tau_syn: Optional[FloatVector] = None,
         bias: Optional[FloatVector] = None,
+        threshold: Optional[FloatVector] = None,
         w_rec: Optional[FloatVector] = None,
+        weight_init_func: Callable = kaiming,
         dt: float = 1e-3,
         noise_std: float = 0.0,
         spiking_input: bool = True,
@@ -114,9 +124,7 @@ class LIF(Module):
             self.w_rec: Union[np.ndarray, Parameter] = Parameter(
                 w_rec,
                 family="weights",
-                init_func=lambda s: rand.normal(
-                    rand.split(self.rng_key)[0], shape=self.shape
-                ),
+                init_func=weight_init_func,
                 shape=self.shape,
             )
             """ (np.ndarray) Recurrent weights ``(N, N)`` """
@@ -130,8 +138,7 @@ class LIF(Module):
         )
         """ (np.ndarray) Membrane time constants for each neuron ``(N,)`` in seconds """
 
-        # - Set parameters
-        self.tau_syn: Union[np.ndarray, Parameter] = Parameter(
+        self.tau_syn: P_tensor = Parameter(
             tau_syn,
             "taus",
             init_func=lambda s: np.ones(s) * 50e-3,
@@ -139,7 +146,7 @@ class LIF(Module):
         )
         """ (np.ndarray) Synaptic time constants for each neuron ``(N,)`` in seconds """
 
-        self.bias: Union[np.ndarray, Parameter] = Parameter(
+        self.bias: P_tensor = Parameter(
             bias,
             "bias",
             init_func=lambda s: np.zeros(s),
@@ -147,24 +154,29 @@ class LIF(Module):
         )
         """ (np.ndarray) Bias current for each neuron ``(N,)`` """
 
-        self.dt: Union[float, SimulationParameter] = SimulationParameter(dt)
+        self.threshold: P_tensor = Parameter(
+            threshold,
+            "threshold",
+            init_func=lambda s: np.zeros(s),
+            shape=(self.size_out,),
+        )
+        """ (np.ndarray) Threshold for each neuron ``(N,)`` """
+
+        self.dt: P_float = SimulationParameter(dt)
         """ (float) Simulation time-step in seconds """
 
-        self.noise_std: Union[float, SimulationParameter] = SimulationParameter(
-            noise_std
-        )
+        self.noise_std: P_float = SimulationParameter(noise_std)
         """ (float) White noise std. dev. added at each time-step """
 
         # - Specify state
-        self.spikes: Union[np.ndarray, State] = State(
-            shape=(self.size_out,), init_func=np.zeros
-        )
-        self.Isyn: Union[np.ndarray, State] = State(
-            shape=(self.size_out,), init_func=np.zeros
-        )
-        self.Vmem: Union[np.ndarray, State] = State(
-            shape=(self.size_out,), init_func=np.zeros
-        )
+        self.spikes: P_tensor = State(shape=(self.size_out,), init_func=np.zeros)
+        """ (np.ndarray) Spiking status of each neuron ``(N,)`` """
+
+        self.Isyn: P_tensor = State(shape=(self.size_out,), init_func=np.zeros)
+        """ (np.ndarray) Synaptic current of each neuron ``(N,)`` """
+
+        self.Vmem: P_tensor = State(shape=(self.size_out,), init_func=np.zeros)
+        """ (np.ndarray) Membrane potential of each neuron ``(N,)`` """
 
     def evolve(
         self,
@@ -200,14 +212,6 @@ class LIF(Module):
 
         Neurons therefore share a common resting potential of ``0``, a firing threshold of ``0``, and a subtractive reset of ``-1``. Neurons each have an optional bias current `.bias` (default: ``-1``).
 
-        :Surrogate signals:
-
-        To facilitate gradient-based training, a surrogate :math:`U(t)` is generated from the membrane potentials of each neuron.
-
-        .. math ::
-
-            U_j = \\textrm{tanh}(20 * V_j + 1) / 2 + .5
-
         Args:
             input_data (np.ndarray): Input array of shape ``(T, Nin)`` to evolve over
             record (bool): If ``True``,
@@ -223,7 +227,7 @@ class LIF(Module):
 
         # - Single-step LIF dynamics
         def forward(
-            state: State, inputs_t: Tuple[np.ndarray, np.ndarray]
+            state: Tuple[Any, Any, Any], inputs_t: Tuple[np.ndarray, np.ndarray]
         ) -> (
             State,
             np.ndarray,
@@ -239,11 +243,9 @@ class LIF(Module):
             :param LayerState state:
             :param Tuple[np.ndarray, np.ndarray] inputs_t: (spike_inputs_ts, current_inputs_ts)
 
-            :return: (state, Irec_ts, output_ts, surrogate_ts, spikes_ts, Vmem_ts, Isyn_ts)
+            :return: (state), (Irec_ts, spikes_ts, Vmem_ts, Isyn_ts)
                 state:          (LayerState) Layer state at end of evolution
                 Irec_ts:        (np.ndarray) Recurrent input received at each neuron over time [T, N]
-                output_ts:      (np.ndarray) Weighted output surrogate over time [T, O]
-                surrogate_ts:   (np.ndarray) Surrogate time trace for each neuron [T, N]
                 spikes_ts:      (np.ndarray) Logical spiking raster for each neuron [T, N]
                 Vmem_ts:        (np.ndarray) Membrane voltage of each neuron over time [T, N]
                 Isyn_ts:        (np.ndarray) Synaptic input current received by each neuron over time [T, N]
@@ -267,45 +269,53 @@ class LIF(Module):
             dVmem = Isyn + Iin + self.bias - Vmem
             Vmem = Vmem + alpha * dVmem
 
-            # - Detect next spikes (with custom gradient)
-            spikes = step_pwl(Vmem)
+            # - Detect next spikes
+            spikes = Vmem > self.threshold
 
             # - Return state and outputs
             return (spikes, Isyn, Vmem), (Irec, spikes, Vmem, Isyn)
 
         # - Generate membrane noise trace
         num_timesteps = input_data.shape[0]
-        key1, subkey = rand.split(self.rng_key)
-        noise_ts = self.noise_std * rand.normal(
-            subkey, shape=(num_timesteps, self.size_out)
-        )
+        noise_ts = self.noise_std * np.random.normal((num_timesteps, self.size_out))
 
         # - Evolve over spiking inputs
-        state, (Irec_ts, spikes_ts, Vmem_ts, Isyn_ts) = scan(
-            forward,
-            (self.spikes, self.Isyn, self.Vmem),
-            (input_data, noise_ts),
-        )
+        Irec_ts = []
+        spikes_ts = []
+        Vmem_ts = []
+        Isyn_ts = []
+        for t in range(input_data.shape[0]):
+            _, (this_irec, self.spikes, self.Vmem, self.Isyn) = forward(
+                (self.spikes, self.Isyn, self.Vmem),
+                (input_data[t, :], noise_ts[t, :]),
+            )
+            Irec_ts.append(this_irec)
+            spikes_ts.append(self.spikes)
+            Vmem_ts.append(self.Vmem)
+            Isyn_ts.append(self.Isyn)
+
+        # state, (Irec_ts, spikes_ts, Vmem_ts, Isyn_ts) = scan(
+        #     forward,
+        #     (self.spikes, self.Isyn, self.Vmem),
+        #     (input_data, noise_ts),
+        # )
 
         # - Generate output surrogate
-        surrogate_ts = sigmoid(Vmem_ts * 20.0)
+        surrogate_ts = sigmoid(np.array(Vmem_ts) * 20.0)
 
         # - Generate return arguments
-        outputs = spikes_ts
-        states = {
-            "spikes": spikes_ts[-1],
-            "Isyn": Isyn_ts[-1],
-            "Vmem": Vmem_ts[-1],
-            "rng_key": key1,
-        }
-
-        record_dict = {
-            "Irec": Irec_ts,
-            "spikes": spikes_ts,
-            "Isyn": Isyn_ts,
-            "Vmem": Vmem_ts,
-            "U": surrogate_ts,
-        }
+        outputs = np.array(spikes_ts)
+        record_dict = (
+            {
+                "Irec": np.array(Irec_ts),
+                "spikes": np.array(spikes_ts),
+                "Isyn": np.array(Isyn_ts),
+                "Vmem": np.array(Vmem_ts),
+                "U": np.array(surrogate_ts),
+            }
+            if record
+            else {}
+        )
 
         # - Return outputs
-        return outputs, states, record_dict
+        return outputs, np.state(), record_dict

@@ -9,7 +9,7 @@ from warnings import warn
 
 from typing import Callable, Union
 
-__all__ = ["Instant", "InstantJax"]
+__all__ = ["Instant", "InstantJax", "InstantTorch"]
 
 
 class InstantMixin:
@@ -82,4 +82,23 @@ except (ImportError, ModuleNotFoundError) as err:
         def __init__(self, *_, **__):
             raise ImportError(
                 "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available."
+            )
+
+
+try:
+    from rockpool.nn.modules.torch.torch_module import TorchModule
+
+    class InstantTorch(InstantMixin, TorchModule):
+        """
+        Wrap a callable function as an instantaneous Rockpool module, with a Torch backend
+        """
+
+
+except (ImportError, ModuleNotFoundError) as err:
+    warn("'torch' backend not found. Modules that rely on Torch will not be available.")
+
+    class InstantTorch:
+        def __init__(self, *_, **__):
+            raise ImportError(
+                "'torch' backend not found. Modules that rely on Torch will not be available."
             )
