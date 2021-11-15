@@ -275,6 +275,7 @@ class LIFTorch(TorchModule):
         # placeholders for recordings
         self._record_Vmem = None
         self._record_Isyn = None
+        self._record_spikes = None
 
         self._record_dict = {}
         self._record = False
