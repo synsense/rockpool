@@ -652,6 +652,9 @@ class AFE(Module):
             "BPF": TSContinuous.from_clocked(state_dict["BPF"], name="BPF", **args),
             "rect": TSContinuous.from_clocked(state_dict["rect"], name="Rect", **args),
             "spks_out": TSEvent.from_raster(
-                state_dict["spks_out"], name="Spikes", **args
+                state_dict["spks_out"],
+                name="Spikes",
+                num_channels=self.size_out,
+                **args,
             ),
         }

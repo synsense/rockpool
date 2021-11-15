@@ -23,13 +23,13 @@ setup_args = {
             "torchvision",
             "jax>=0.2.13",
             "jaxlib>=0.1.66",
-            "samna",
             "sphinx",
             "nbsphinx",
             "sphinx-autobuild",
             "sphinx-rtd-theme",
             "recommonmark",
             "pandoc",
+            "samna>=0.9.27.0",
         ]
     },
     "description": "A Python package for developing, simulating and training spiking neural networks, and deploying on neuromorphic hardware",
@@ -43,10 +43,11 @@ setup_args = {
     "keywords": "spiking neural network SNN neuromorphic",
     "python_requires": ">=3.6",
     "project_urls": {
-        "Source Code": "https://gitlab.com/SynSense/rockpool",
+        "Source Code": "https://github.com/SynSense/rockpool",
         "Documentation": "https://rockpool.ai",
-        "Bug Tracker": "https://gitlab.com/SynSense/rockpool/-/issues",
+        "Bug Tracker": "https://github.com/SynSense/rockpool/issues",
     },
+    "include_package_data": True,
 }
 
 try:

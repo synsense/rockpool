@@ -1,6 +1,6 @@
-###
-# weights.py -- Utility functions for generating and manipulating networks
-###
+"""
+Utility functions for generating and manipulating networks
+"""
 
 from typing import Callable, Optional, Tuple, Union
 from mpmath import mp

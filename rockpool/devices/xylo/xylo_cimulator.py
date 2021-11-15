@@ -10,6 +10,11 @@ if util.find_spec("cimulator") is None:
         "'Cimulator' not found. Modules that rely on Cimulator will not be available."
     )
 
+if util.find_spec("samna") is None:
+    raise ModuleNotFoundError(
+        "'samna' not found. Modules that rely on Samna will not be available."
+    )
+
 # - Rockpool imports
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import Parameter, State, SimulationParameter
@@ -98,7 +103,7 @@ class XyloCim(Module):
         dt: float
             Timestep for simulation, in seconds. Default: 1ms
         config: XyloConfiguration
-            ``samna.pollen.PollenConfiguration`` object to specify all parameters. See samna documentation for details.
+            ``samna.xylo.XyloConfiguration`` object to specify all parameters. See samna documentation for details.
 
         """
         # - Instantiate the class

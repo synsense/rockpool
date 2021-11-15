@@ -89,6 +89,9 @@ Time series classes
     nn.modules.SoftmaxJax
     nn.modules.LogSoftmaxJax
 
+    nn.modules.ButterMelFilter
+    nn.modules.ButterFilter
+
 :py:class:`Layer` subclasses from Rockpool v1
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -206,9 +209,15 @@ Hardware support and simulation
     devices.xylo.XyloCim
     devices.xylo.XyloSamna
     devices.xylo.AFE
+    devices.xylo.DivisiveNormalisation
 
 .. autosummary::
     :toctree: _autosummary
     :template: module.rst
 
+    .. autosummary::
+    :toctree: _autosummary
+    :template: module.rst
+
+    devices.xylo
     devices.xylo.xylo_devkit_utils
