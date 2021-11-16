@@ -14,7 +14,7 @@ from rockpool.graph.graph_base import (
 
 import copy
 
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, Iterable
 
 __all__ = [
     "connect_modules",
@@ -28,8 +28,8 @@ __all__ = [
 def connect_modules(
     source: GraphModuleBase,
     dest: GraphModuleBase,
-    source_index_list: Optional[list] = None,
-    dest_index_list: Optional[list] = None,
+    source_indices: Optional[Iterable[int]] = None,
+    dest_indices: Optional[Iterable[int]] = None,
 ) -> None:
     """
     Connect two :py:class:`.GraphModule` s together
@@ -38,28 +38,29 @@ def connect_modules(
 
     If ``source`` or ``dest`` are :py:class:`.GraphHolder` s, then the internal subgraphs will be connected, and the :py:class:`.GraphHolder` s may be discarded.
 
+    Examples:
+        # Modules are connected in place, from all output node to all input nodes
+        connect_modules(mod1, mod2)
+
+        # Connect a subset of source output nodes to the destination module
+        connect_modules(mod1, mod2, range(5))
+
     Args:
         source (GraphModule): The source graph module to connect
         dest (GraphModule): The destination graph module to connect
-        source_index_list (Optional): The source output nodes index list
-        dest_index_list (Optional): the dest input nodes index list
+        source_indices (Optional[Iterable[int]]): The indices of the ``source`` output nodes to connect over. Default: ``None``, use all output nodes
+        dest_indices (Optional[Iterable[int]]): The indices of ``dest`` input nodes to connect over. Default: ``None``, use all input nodes
     """
-    # - If specified input_nodes and output_nodes indexes:
+    # - Get indices for source and destination nodes
+    source_indices = (
+        range(len(source.output_nodes)) if source_indices is None else source_indices
+    )
+    len_source_nodes = len(source_indices)
 
-    if source_index_list is not None:
-        len_source_nodes = len(source_index_list)
-    else:
-        len_source_nodes = len(source.output_nodes)  # full range
-        source_index_list = range(
-            len_source_nodes
-        )  # if no source_index_list, then we give it the full range
-    if dest_index_list is not None:
-        len_dest_nodes = len(dest_index_list)
-    else:
-        len_dest_nodes = len(dest.input_nodes)  # full range
-        dest_index_list = range(
-            len_dest_nodes
-        )  # if no dest_index_list, then we give it the full range
+    dest_indices = (
+        range(len(dest.input_nodes)) if dest_indices is None else dest_indices
+    )
+    len_dest_nodes = len(dest_indices)
 
     # - Check channel dimensions
     if len_source_nodes != len_dest_nodes:
@@ -70,8 +71,8 @@ def connect_modules(
     # - Wire up modules over nodes. Keep only the output nodes from the source module.
     for num in range(len_source_nodes):
         # - Get corresponding source and dest nodes index
-        source_node_index = source_index_list[num]
-        dest_node_index = dest_index_list[num]
+        source_node_index = source_indices[num]
+        dest_node_index = dest_indices[num]
 
         # - Get corresponding source and dest nodes to merge
         s_o_node = source.output_nodes[source_node_index]
@@ -86,14 +87,13 @@ def connect_modules(
         del d_i_node.sink_modules[:]
 
     # - Replace input node in all sink objects with the connected output nodes
-    dest_nodes = copy.copy(
-        dest.input_nodes
-    )  # we need full copy to get correct index, can not use '[dest.input_nodes[i] for i in dest_index]'
+    #   We need to use a copy to get the correct index; cannot use `[dest.input_nodes[i] for i in dest_index]` since we are modifying `dest.input_nodes`
+    dest_nodes = copy.copy(dest.input_nodes)
 
     for num in range(len_dest_nodes):
         # - Get corresponding source and dest nodes index
-        source_node_index = source_index_list[num]
-        dest_node_index = dest_index_list[num]
+        source_node_index = source_indices[num]
+        dest_node_index = dest_indices[num]
 
         # - Get corresponding source and dest nodes
         s_o_node = source.output_nodes[source_node_index]
