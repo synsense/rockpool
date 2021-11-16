@@ -1,3 +1,12 @@
+"""
+Base package for all Rockpool modules.
+
+Contains :py:class:`.Module` subclasses.
+
+See Also:
+    See :ref:`/basics/getting_started.ipynb` for an introductory tutorial.
+"""
+
 import warnings
 
 # - Base Module classes
