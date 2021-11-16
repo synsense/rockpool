@@ -32,7 +32,6 @@ class Bitshift(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, data, dash, tau):
-
         v = data - (data / (2 ** dash))
         ctx.save_for_backward(tau)
 

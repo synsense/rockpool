@@ -7,6 +7,7 @@ from .lowpass import *
 from .lif_torch import *
 from .lif_bitshift_torch import *
 from .lif_neuron_torch import *
+<<<<<<< HEAD
 
 # from .lif_slayer import *
 from .exp_syn_torch import *

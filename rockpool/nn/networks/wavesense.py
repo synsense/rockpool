@@ -177,33 +177,27 @@ class WaveBlock(TorchModule):
 
         # - Pass through dilated weight layer
         out, _, self._record_dict["lin1"] = self.lin1(data, record=True)
-        self._record_dict["lin1_output"] = out
 
         # - Pass through dilated spiking layer
         hidden, _, self._record_dict["spk1"] = self.spk1(
             out, record=True
         )  # (t_sim, n_batches, Nchannels)
-        self._record_dict["spk1_output"] = hidden
 
         # - Pass through output linear weights
         out_res, _, self._record_dict["lin2_res"] = self.lin2_res(hidden, record=True)
-        self._record_dict["lin2_res_output"] = out_res
 
         # - Pass through output spiking layer
         out_res, _, self._record_dict["spk2_res"] = self.spk2_res(out_res, record=True)
-        self._record_dict["spk2_res_output"] = out_res
 
         # - Hidden -> skip outputs
         out_skip, _, self._record_dict["lin2_skip"] = self.lin2_skip(
             hidden, record=True
         )
-        self._record_dict["lin2_skip_output"] = out_skip
 
         # - Pass through skip output spiking layer
         out_skip, _, self._record_dict["spk2_skip"] = self.spk2_skip(
             out_skip, record=True
         )
-        self._record_dict["spk2_skip_output"] = out_skip
 
         # - Combine output and residual connections (pass-through)
         res_out = out_res + data
@@ -448,13 +442,11 @@ class WaveSenseNet(TorchModule):
 
         # - Input mapping layers
         out, _, self._record_dict["lin1"] = self.lin1(data, record=True)
-        self._record_dict["lin1_output"] = out.detach()
 
         # Pass through spiking layer
         out, _, self._record_dict["spk1"] = self.spk1(
             out, record=True
         )  # (t_sim, n_batches, Nchannels)
-        self._record_dict["spk1_output"] = out.detach()
 
         # Pass through each wave block in turn
         skip = 0
@@ -467,13 +459,10 @@ class WaveSenseNet(TorchModule):
 
         # Dense layers
         out, _, self._record_dict["hidden"] = self.hidden(skip, record=True)
-        self._record_dict["hidden_output"] = out.detach()
         out, _, self._record_dict["spk2"] = self.spk2(out, record=True)
-        self._record_dict["spk2_output"] = out.detach()
 
         # Final readout layer
         out, _, self._record_dict["readout"] = self.readout(out, record=True)
-        self._record_dict["readout_output"] = out.detach()
 
         # - low pass filter is not compatible with xylo unless we give tau_syn 0
         # # Smooth the output if requested
@@ -482,7 +471,6 @@ class WaveSenseNet(TorchModule):
         #     self._record_dict["lp_output"] = out.detach()
 
         out, _, self._record_dict["spk_out"] = self.spk_out(out, record=True)
-        self._record_dict["spk_out_output"] = out.detach()
 
         return out
 

@@ -44,7 +44,7 @@ class StepPWL(torch.autograd.Function):
         ctx.save_for_backward(data.clone())
         ctx.threshold = threshold
         ctx.window = window
-        return (data > 0) * torch.floor(data / threshold)
+        return ((data > 0) * torch.floor(data / threshold)).float()
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -64,7 +64,7 @@ class PeriodicExponential(torch.autograd.Function):
         ctx.save_for_backward(data.clone())
         ctx.threshold = threshold
         ctx.window = window
-        return (data > 0) * torch.floor(data / threshold)
+        return ((data > 0) * torch.floor(data / threshold)).float()
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -129,12 +129,12 @@ class LIFTorch(TorchModule):
         tau_syn: FloatVector,
         has_bias: P_bool = True,
         bias: FloatVector = 0.0,
-        threshold: FloatVector = 0.0,
+        threshold: FloatVector = 1.0,
         has_rec: P_bool = False,
         w_rec: torch.Tensor = None,
         noise_std: P_float = 0.0,
-        gradient_fn=StepPWL,
-        learning_window: P_float = 1.0,
+        gradient_fn = StepPWL, 
+        learning_window: P_float = 0.5,
         dt: P_float = 1e-3,
         device: P_str = "cuda",
         *args,
@@ -264,8 +264,13 @@ class LIFTorch(TorchModule):
         )
         """ (Tensor) Synaptic currents `(Nin,)` """
 
+        self.spikes : P_tensor = rp.State(
+            torch.zeros((self.n_neurons)).to(device)
+        )
+        """ (Tensor) Spikes `(Nin,)` """
+
         self.alpha: P_tensor = rp.SimulationParameter(
-            torch.exp(-self.dt / self.tau_mem).unsqueeze(1).to(device)
+            torch.exp(-self.dt / self.tau_mem).unsqueeze(1).T.to(device)
         )
         self.beta: P_tensor = rp.SimulationParameter(
             torch.exp(-self.dt / self.tau_syn).unsqueeze(1).to(device)
@@ -276,6 +281,7 @@ class LIFTorch(TorchModule):
         # placeholders for recordings
         self._record_Vmem = None
         self._record_Isyn = None
+        self._record_spikes = None
 
         self._record_dict = {}
         self._record = False
@@ -297,8 +303,9 @@ class LIFTorch(TorchModule):
         # - Build state record
         record_dict = (
             {
-                "isyn": self._record_Vmem,
-                "vmem": self._record_Isyn,
+                "Vmem": self._record_Vmem,
+                "Isyn": self._record_Isyn,
+                "spikes": self._record_spikes
             }
             if record
             else {}
@@ -344,15 +351,12 @@ class LIFTorch(TorchModule):
             * self.isyn
         )
         bias = torch.ones(n_batches, self.n_neurons).to(data.device) * self.bias
+        spikes = torch.zeros(n_batches, self.n_neurons).to(data.device) * self.spikes 
 
         # - Set up state record and output
         self._record_Vmem = torch.zeros(n_batches, time_steps, self.n_neurons)
-        self._record_Isyn = torch.zeros(
-            n_batches, time_steps, self.n_synapses, self.n_neurons
-        )
-        out_spikes = torch.zeros(
-            n_batches, time_steps, self.n_neurons, device=data.device
-        )
+        self._record_Isyn = torch.zeros(n_batches, time_steps, self.n_synapses, self.n_neurons)
+        self._record_spikes = torch.zeros(n_batches, time_steps, self.n_neurons, device=data.device)
 
         if self._record:
             self._record_Vmem = torch.zeros(
@@ -373,35 +377,37 @@ class LIFTorch(TorchModule):
             # Integrate input
             # - Apply spikes over the recurrent weights
             if hasattr(self, "w_rec"):
-                isyn += F.linear(out_spikes[:, t - 1, :], self.w_rec.T)
+                rec_inp = F.linear(spikes, self.w_rec.T).reshape(n_batches, self.n_synapses, self.n_neurons) 
+                isyn = isyn + (data[:, t] + rec_inp) * self.dt / self.tau_syn.unsqueeze(-1)
             else:
-                isyn += data[:, t]
+                isyn = isyn + data[:, t] * self.dt / self.tau_syn.unsqueeze(-1)
 
             if self.noise_std > 0:
-                vmem += (
-                    isyn.sum(1)
-                    + torch.randn(vmem.shape, device=vmem.device) * self.noise_std
-                )
+                vmem = vmem + isyn.sum(1) + bias + torch.randn(vmem.shape, device=vmem.device) * self.noise_std
             else:
-                vmem += isyn.sum(1)
+                vmem = vmem + isyn.sum(1) + bias
 
-            out = self.gradient_fn(vmem, self.threshold, self.learning_window)
-            out_spikes[:, t] = out
+            spikes = self.gradient_fn(vmem, self.threshold, self.learning_window)
 
-            vmem = vmem - out * self.threshold
+            vmem = vmem - spikes * self.threshold
 
             if self._record:
                 # recording
                 self._record_Vmem[:, t] = vmem.detach()
                 self._record_Isyn[:, t] = isyn.detach()
 
+            self._record_spikes[:, t] = spikes
+
+
         self.vmem = vmem[0].detach()
         self.isyn = isyn[0].detach()
+        self.spikes = spikes[0].detach()
 
         self._record_Vmem.detach()
         self._record_Isyn.detach()
+        self._record_spikes
 
-        return out_spikes
+        return self._record_spikes
 
     def as_graph(self) -> GraphModuleBase:
         # - Generate a GraphModule for the neurons
