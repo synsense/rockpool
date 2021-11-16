@@ -6,6 +6,8 @@ def test_pipeline():
     from rockpool.nn.networks import WaveSenseNet
     from rockpool.devices.xylo import mapper, config_from_specification
     from rockpool.devices.xylo.xylo_cimulator import XyloCim
+    import warnings
+    warnings.filterwarnings('ignore')
 
     Net = WaveSenseNet(
         dilations=[2, 4, 8],
@@ -43,15 +45,15 @@ def test_pipeline():
     T = 100
     Nin = 16
     batch = 1
-    inp = torch.Tensor(np.random.randint(low=0, high=2, size=(batch, T, Nin)))
+    inp = torch.Tensor(np.random.randint(low=1, high=10, size=(batch, T, Nin)))
 
     output_f, _, rec_rockpool_f = Net(inp, record=True)
 
-    cim_g = XyloCim.from_config(xylo_conf_global, bias=np.zeros(float_specs["weights_in"].shape[1]), bias_out=np.zeros(float_specs["weights_out"].shape[1]), dt=dt)
+    cim_g = XyloCim.from_config(xylo_conf_global, dt=dt)
     cim_g.reset_state()
     output_g, _, rec_cim_g = cim_g(inp.cpu().numpy(), record=True)
 
-    cim_c = XyloCim.from_config(xylo_conf_channel, bias=np.zeros(float_specs["weights_in"].shape[1]), bias_out=np.zeros(float_specs["weights_out"].shape[1]), dt=dt)
+    cim_c = XyloCim.from_config(xylo_conf_channel, dt=dt)
     cim_c.reset_state()
     output_c, _, rec_cim_c = cim_c(inp.cpu().numpy(), record=True)
 
