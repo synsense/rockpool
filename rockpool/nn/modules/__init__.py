@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 """
 Base package for all Rockpool modules.
 
