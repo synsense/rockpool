@@ -40,20 +40,20 @@ def test_pipeline():
     xylo_conf_channel, is_valid, message = config_from_specification(**channel_specs)
     print('Channel valid config: ', is_valid, message)
 
-    # T = 10
-    # Nin = 16
-    # batch = 1
-    # inp = torch.Tensor(np.random.randint(low=0, high=2, size=(batch, T, Nin)))
-    #
-    # output_f, _, rec_rockpool_f = Net(inp, record=True)
-    #
-    # cim_g = XyloCim.from_config(xylo_conf_global, bias=np.zeros(float_specs["weights_in"].shape[1]), bias_out=np.zeros(float_specs["weights_out"].shape[1]), dt=dt)
-    # cim_g.reset_state()
-    # output_g, _, rec_cim_g = cim_g(inp.cpu().numpy(), record=True)
-    #
-    # cim_c = XyloCim.from_config(xylo_conf_channel, bias=np.zeros(float_specs["weights_in"].shape[1]), bias_out=np.zeros(float_specs["weights_out"].shape[1]), dt=dt)
-    # cim_c.reset_state()
-    # output_c, _, rec_cim_c = cim_c(inp.cpu().numpy(), record=True)
+    T = 100
+    Nin = 16
+    batch = 1
+    inp = torch.Tensor(np.random.randint(low=0, high=2, size=(batch, T, Nin)))
+
+    output_f, _, rec_rockpool_f = Net(inp, record=True)
+
+    cim_g = XyloCim.from_config(xylo_conf_global, bias=np.zeros(float_specs["weights_in"].shape[1]), bias_out=np.zeros(float_specs["weights_out"].shape[1]), dt=dt)
+    cim_g.reset_state()
+    output_g, _, rec_cim_g = cim_g(inp.cpu().numpy(), record=True)
+
+    cim_c = XyloCim.from_config(xylo_conf_channel, bias=np.zeros(float_specs["weights_in"].shape[1]), bias_out=np.zeros(float_specs["weights_out"].shape[1]), dt=dt)
+    cim_c.reset_state()
+    output_c, _, rec_cim_c = cim_c(inp.cpu().numpy(), record=True)
 
 
 

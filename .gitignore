@@ -18,6 +18,11 @@ test.json
 requirements.yml
 **/.vscode
 *.so
-/test_dev.py
+/cim_test.py
 /test_graph.py
 /test_wavesense_graph.py
+/tests/tests_default/test_quan_test.py
+/samna.log
+/tests/tests_default/samna.log
+/rockpool/transform/quantize_compare.py
+/rockpool/transform/quantize_test_mark.py
