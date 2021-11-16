@@ -10,7 +10,7 @@ from rockpool.graph import AliasConnection, GraphHolder, connect_modules
 
 import torch
 
-from typing import List
+from typing import List, Callable, Union
 
 __all__ = ["WaveBlock", "WaveSenseNet"]
 
@@ -100,7 +100,10 @@ class WaveBlock(TorchModule):
         )
 
         # - Add parameters
-        self.neuron_model = neuron_model
+        self.neuron_model: Union[Callable, SimulationParameter] = SimulationParameter(
+            neuron_model
+        )
+        """ Neuron model used by this WaveSense network """
 
         # - Dilation layers
         tau_syn = torch.arange(0, dilation * kernel_size, dilation) * base_tau_syn
@@ -401,26 +404,11 @@ class WaveSenseNet(TorchModule):
 
         # - low pass filter is not compatible with xylo unless we give tau_syn 0
         # Smoothing output
-        # self.smooth_output = SimulationParameter(smooth_output)
-        # """ bool: Perform low-pass filtering of the readout """
-        #
-        # if smooth_output:
-        #     self.lp = ExpSynTorch(n_classes, tau_syn=tau_lp, dt=dt, device=device)
+        self.smooth_output = SimulationParameter(smooth_output)
+        """ bool: Perform low-pass filtering of the readout """
 
-        self.spk_out = self.neuron_model(
-            shape=(n_classes, n_classes),
-            tau_mem=tau_lp,
-            tau_syn=tau_lp,
-            has_bias=has_bias,
-            threshold=threshold,
-            has_rec=False,
-            w_rec=None,
-            noise_std=0,
-            gradient_fn=PeriodicExponential,
-            learning_window=0.5,
-            dt=dt,
-            device=device,
-        )
+        if smooth_output:
+            self.lp = ExpSynTorch(n_classes, tau_syn=tau_lp, dt=dt, device=device)
 
         # - Record dt
         self.dt = SimulationParameter(dt)
@@ -429,18 +417,17 @@ class WaveSenseNet(TorchModule):
         # Dictionary for recording state
         self._record_dict = {}
 
-        self.submods = []
-        self.submods.append(self.lin1)
-        self.submods.append(self.spk1)
-
-        for index in range(self._num_dilations):
-            wave = self.modules()[f"wave{index}"]
-            self.submods.append(wave)
-
-        self.submods.append(self.hidden)
-        self.submods.append(self.spk2)
-        self.submods.append(self.readout)
-        self.submods.append(self.spk_out)
+        # self.submods = []
+        # self.submods.append(self.lin1)
+        # self.submods.append(self.spk1)
+        #
+        # for index in range(self._num_dilations):
+        #     wave = self.modules()[f"wave{index}"]
+        #     self.submods.append(wave)
+        #
+        # self.submods.append(self.hidden)
+        # self.submods.append(self.spk2)
+        # self.submods.append(self.readout)
 
     def forward(self, data: torch.Tensor):
         # Expected data shape
@@ -475,14 +462,9 @@ class WaveSenseNet(TorchModule):
         out, _, self._record_dict["readout"] = self.readout(out, record=True)
         self._record_dict["readout_output"] = out.detach()
 
-        # - low pass filter is not compatible with xylo unless we give tau_syn 0
-        # # Smooth the output if requested
-        # if self.smooth_output:
-        #     out, _, self._record_dict["lp"] = self.lp(out, record=True)
-        #     self._record_dict["lp_output"] = out.detach()
-
-        out, _, self._record_dict["spk_out"] = self.spk_out(out, record=True)
-        self._record_dict["spk_out_output"] = out.detach()
+        # Smooth the output if requested
+        if self.smooth_output:
+            out, _, self._record_dict["lp"] = self.lp(out, record=True)
 
         return out
 
@@ -496,23 +478,33 @@ class WaveSenseNet(TorchModule):
         return [p for p in list(self.parameters().astorch()) if p.requires_grad]
 
     def as_graph(self):
-        mod_graphs = []
+        # - Convert all modules to graph representation
+        mod_graphs = {k: m.as_graph() for k, m in self.modules().items()}
 
-        for mod in self.submods:
-            mod_graphs.append(mod.as_graph())
+        # for mod in self.submods:
+        #     mod_graphs.append(mod.as_graph())
 
-        connect_modules(mod_graphs[0], mod_graphs[1])
-        connect_modules(mod_graphs[1], mod_graphs[2])
+        # - Connect modules
+        # connect_modules(mod_graphs[0], mod_graphs[1])
+        # connect_modules(mod_graphs[1], mod_graphs[2])
+        connect_modules(mod_graphs["lin1"], mod_graphs["spk1"])
+        connect_modules(mod_graphs["spk1"], mod_graphs["wave0"])
 
         block_mod_start = 2
 
         for i in range(self._num_dilations - 1):
             connect_modules(
-                mod_graphs[block_mod_start + i],
-                mod_graphs[block_mod_start + i + 1],
+                mod_graphs[f"wave{i}"],
+                mod_graphs[f"wave{i+1}"],
                 range(self.n_channels_res),
-                None,
             )
+            # connect_modules(
+            #     mod_graphs[block_mod_start + i],
+            #     mod_graphs[block_mod_start + i + 1],
+            #     range(self.n_channels_res),
+            #     None,
+            # )
+
             AliasConnection(
                 mod_graphs[block_mod_start + i].output_nodes[self.n_channels_res :],
                 mod_graphs[block_mod_start + i + 1].output_nodes[self.n_channels_res :],
