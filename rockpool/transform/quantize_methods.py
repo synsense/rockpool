@@ -1,6 +1,7 @@
 import numpy as np
 import copy
 
+__all__ = ["global_quantize", "channel_quantize"]
 
 def global_quantize(
     weights_in: np.ndarray,
@@ -162,7 +163,7 @@ def channel_quantize(
             scaling = max_w_quan / max_w
             w_in_quan[:, i, :] = np.round(w_in[:, i, :] * scaling)
             w_rec_quan[:, i, :] = np.round(w_rec[:, i, :] * scaling)
-            threshold_quan[i] = np.round(threshold * scaling)
+            threshold_quan[i] = np.round(threshold[i] * scaling)
 
     # make sure matrix type is int
     w_in_quan = w_in_quan.astype(int)
@@ -179,7 +180,7 @@ def channel_quantize(
         if max_w != 0:
             scaling = max_w_quan / max_w
             w_out_quan[:, i] = np.round(w_out[:, i] * scaling)
-            threshold_out_quan[i] = np.round(threshold_out * scaling)
+            threshold_out_quan[i] = np.round(threshold_out[i] * scaling)
 
     # make sure matrix type is int
     w_out_quan = w_out_quan.astype(int)
