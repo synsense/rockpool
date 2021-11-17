@@ -102,7 +102,7 @@ from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
 
 crit = CrossEntropyLoss()
-opt = Adam(model.parameters().astorch(), lr=5e-4)
+opt = Adam(model.parameters().astorch(), lr=5e-3)
 
 from sklearn.metrics import accuracy_score
 

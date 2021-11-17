@@ -383,26 +383,26 @@ class WaveSenseNet(TorchModule):
 
         # - low pass filter is not compatible with xylo unless we give tau_syn 0
         # - Smoothing output
-        # self.smooth_output = SimulationParameter(smooth_output)
-        # """ bool: Perform low-pass filtering of the readout """
-        #
-        # if smooth_output:
-        #     self.lp = ExpSynTorch(n_classes, tau_syn=tau_lp, dt=dt, device=device)
+        self.smooth_output = SimulationParameter(smooth_output)
+        """ bool: Perform low-pass filtering of the readout """
 
-        self.spk_out = self.neuron_model(
-            shape=(n_classes, n_classes),
-            tau_mem=tau_lp,
-            tau_syn=tau_lp,
-            has_bias=has_bias,
-            threshold=threshold,
-            has_rec=False,
-            w_rec=None,
-            noise_std=0,
-            gradient_fn=PeriodicExponential,
-            learning_window=0.5,
-            dt=dt,
-            device=device,
-        )
+        if smooth_output:
+            self.lp = ExpSynTorch(n_classes, tau_syn=tau_lp, dt=dt, device=device)
+
+        # self.spk_out = self.neuron_model(
+        #     shape=(n_classes, n_classes),
+        #     tau_mem=tau_lp,
+        #     tau_syn=tau_lp,
+        #     has_bias=has_bias,
+        #     threshold=threshold,
+        #     has_rec=False,
+        #     w_rec=None,
+        #     noise_std=0,
+        #     gradient_fn=PeriodicExponential,
+        #     learning_window=0.5,
+        #     dt=dt,
+        #     device=device,
+        # )
 
         # - Record dt
         self.dt = SimulationParameter(dt)
@@ -422,7 +422,7 @@ class WaveSenseNet(TorchModule):
         self.submods.append(self.hidden)
         self.submods.append(self.spk2)
         self.submods.append(self.readout)
-        self.submods.append(self.spk_out)
+        # self.submods.append(self.spk_out)
 
     def forward(self, data: torch.Tensor):
         # Expected data shape
@@ -450,10 +450,10 @@ class WaveSenseNet(TorchModule):
 
         # - low pass filter is not compatible with xylo unless we give tau_syn 0
         # - Smooth the output if requested
-        # if self.smooth_output:
-        #     out, _, self._record_dict["lp"] = self.lp(out, record=True)
+        if self.smooth_output:
+            out, _, self._record_dict["lp"] = self.lp(out, record=True)
 
-        out, _, self._record_dict["spk_out"] = self.spk_out(out, record=True)
+        # out, _, self._record_dict["spk_out"] = self.spk_out(out, record=True)
 
         return out
 
