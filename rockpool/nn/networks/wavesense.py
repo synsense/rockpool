@@ -404,7 +404,7 @@ class WaveSenseNet(TorchModule):
         self.spk_out = self.neuron_model(
             shape=(n_classes, n_classes),
             tau_mem=tau_lp,
-            tau_syn=tau_lp,
+            tau_syn=0.0,
             has_bias=has_bias,
             threshold=threshold,
             has_rec=False,
