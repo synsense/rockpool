@@ -16,9 +16,16 @@ import torch
 import torch.nn.functional as F
 import torch.nn.init as init
 import rockpool.parameters as rp
-from typing import Optional, Tuple, Any
+from typing import Optional, Tuple, Any, Callable
 
-from rockpool.typehints import FloatVector, P_float, P_tensor, P_bool, P_str
+from rockpool.typehints import FloatVector, P_float, P_tensor, P_bool, P_str, P_int
+
+from rockpool.graph import (
+    GraphModuleBase,
+    as_GraphHolder,
+    LIFNeuronWithSynsRealValue,
+    LinearWeights,
+)
 
 __all__ = ["LIFTorch"]
 
@@ -74,6 +81,7 @@ class PeriodicExponential(torch.autograd.Function):
         )
 
         return grad_output * spikePdf, None, None
+
 
 class LIFTorch(TorchModule):
     """
@@ -146,6 +154,7 @@ class LIFTorch(TorchModule):
             threshold (FloatVector): An optional array specifying the firing threshold of each neuron. If not provided, ``0.`` will be used by default.
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
             noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: ``0.0``
+            weight_init_func (Optional[Callable[[Tuple], torch.tensor]): The initialisation function to use when generating weights. Default: ``None`` (Kaiming initialisation)
             device: Defines the device on which the model will be processed.
         """
         # - Check shape argument
@@ -179,7 +188,12 @@ class LIFTorch(TorchModule):
         factory_kwargs = {"device": device}
 
         # - Initialise recurrent weights
-        w_rec_shape = tuple(reversed(shape))
+        # if weight_init_func is None:
+        #     weight_init_func = lambda s: init.kaiming_uniform_(
+        #         torch.empty(s, **factory_kwargs)
+        #     )
+
+        w_rec_shape = (self.size_out, self.size_in)
         if has_rec:
             self.w_rec: P_tensor = rp.Parameter(
                 w_rec,
@@ -194,14 +208,8 @@ class LIFTorch(TorchModule):
             if w_rec is not None:
                 raise ValueError("`w_rec` may not be provided if `has_rec` is `False`")
 
-            """ (Tensor) Recurrent weights `(Nout, Nin)` """
-
-        if hasattr(self, "w_rec"):
-            self.w_rec.requires_grad = True
-
         self.noise_std: P_float = rp.SimulationParameter(noise_std)
         """ (float) Noise std.dev. injected onto the membrane of each neuron during evolution """
-
 
         """ (Tensor) Membrane time constants `(Nout,)` """
         if isinstance(tau_mem, float):
@@ -248,9 +256,7 @@ class LIFTorch(TorchModule):
         self.dt: P_float = rp.SimulationParameter(dt)
         """ (float) Euler simulator time-step in seconds"""
 
-        self.vmem: P_tensor = rp.State(
-            torch.zeros(self.n_neurons).to(device)
-        )
+        self.vmem: P_tensor = rp.State(torch.zeros(self.n_neurons).to(device))
         """ (Tensor) Membrane potentials `(Nout,)` """
 
         self.isyn: P_tensor = rp.State(
@@ -313,7 +319,6 @@ class LIFTorch(TorchModule):
     def decay_vmem(self, v):
         return self.alpha * v
 
-
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
         Forward method for processing data through this layer
@@ -341,7 +346,10 @@ class LIFTorch(TorchModule):
 
         # - Replicate states out by batches
         vmem = torch.ones(n_batches, self.n_neurons).to(data.device) * self.vmem
-        isyn = torch.ones(n_batches, self.n_synapses, self.n_neurons).to(data.device) * self.isyn
+        isyn = (
+            torch.ones(n_batches, self.n_synapses, self.n_neurons).to(data.device)
+            * self.isyn
+        )
         bias = torch.ones(n_batches, self.n_neurons).to(data.device) * self.bias
         spikes = torch.zeros(n_batches, self.n_neurons).to(data.device) * self.spikes
 
@@ -355,7 +363,8 @@ class LIFTorch(TorchModule):
                 (n_batches, time_steps, self.n_neurons), device=data.device
             )
             self._record_Isyn = torch.zeros(
-                (n_batches, time_steps, self.n_synapses, self.n_neurons), device=data.device
+                (n_batches, time_steps, self.n_synapses, self.n_neurons),
+                device=data.device,
             )
 
         # - Loop over time
@@ -399,3 +408,29 @@ class LIFTorch(TorchModule):
         self._record_spikes
 
         return self._record_spikes
+
+    def as_graph(self) -> GraphModuleBase:
+        # - Generate a GraphModule for the neurons
+        neurons = LIFNeuronWithSynsRealValue._factory(
+            self.size_in,
+            self.size_out,
+            f"{type(self).__name__}_{self.name}_{id(self)}",
+            self.tau_mem,
+            self.tau_syn,
+            self.bias,
+            0.0,
+            self.dt,
+        )
+
+        # - Include recurrent weights if present
+        if len(self.attributes_named("w_rec")) > 0:
+            # - Weights are connected over the existing input and output nodes
+            w_rec_graph = LinearWeights(
+                neurons.output_nodes,
+                neurons.input_nodes,
+                f"{type(self).__name__}_recurrent_{self.name}_{id(self)}",
+                self.w_rec.detach().numpy(),
+            )
+
+        # - Return a graph containing neurons and optional weights
+        return as_GraphHolder(neurons)
