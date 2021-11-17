@@ -70,7 +70,7 @@ class ExpSynTorch(TorchModule):
         if np.size(tau_syn) == 1:
             tau_syn = torch.ones(self.size_out, **factory_kwargs) * tau_syn
 
-        self.tau_syn: rt.P_tensor = rp.Parameter(
+        self.tau_syn: rt.P_tensor = rp.SimulationParameter(
             tau_syn, shape=(self.size_out,), family="taus"
         )
         """ (torch.Tensor) Time constants of each synapse in seconds ``(N,)`` """
