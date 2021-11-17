@@ -75,7 +75,7 @@ def test_LIFTorch_bias():
    assert torch.all(rd["Vmem"][:, 1] == 0.1 * torch.exp(-dt / tau_mem) + 0.1) # decay one timestep + bias 
 
    # bias has gradients
-   assert not torch.all(mod.bias == 0)
+   assert not torch.all(mod.bias.grad == 0)
 
 
 

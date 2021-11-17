@@ -227,6 +227,8 @@ class LIFTorch(TorchModule):
             if np.size(bias) == 1:
                 bias = torch.ones(self.size_out, **factory_kwargs) * bias
 
+            bias.requires_grad = True
+
             self.bias: P_tensor = rp.Parameter(
                 bias, shape=(self.size_out,), family="bias"
             )
