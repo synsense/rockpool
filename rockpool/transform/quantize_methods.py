@@ -156,14 +156,26 @@ def channel_quantize(
     threshold_quan = np.zeros(shape=threshold.shape)
 
     for i in range(w_in.shape[1]):
-        max_w = 0
-        max_w = np.max([max_w, np.max(np.abs(w_in[:, i, :]))])
-        max_w = np.max([max_w, np.max(np.abs(w_rec[:, i, :]))])
-        if max_w != 0:
-            scaling = max_w_quan / max_w
-            w_in_quan[:, i, :] = np.round(w_in[:, i, :] * scaling)
-            w_rec_quan[:, i, :] = np.round(w_rec[:, i, :] * scaling)
-            threshold_quan[i] = np.round(threshold[i] * scaling)
+        # if two synaptic connection is used
+        if len(w_in.shape) == 3:
+            max_w = 0
+            max_w = np.max([max_w, np.max(np.abs(w_in[:, i, :]))])
+            max_w = np.max([max_w, np.max(np.abs(w_rec[:, i, :]))])
+            if max_w != 0:
+                scaling = max_w_quan / max_w
+                w_in_quan[:, i, :] = np.round(w_in[:, i, :] * scaling)
+                w_rec_quan[:, i, :] = np.round(w_rec[:, i, :] * scaling)
+                threshold_quan[i] = np.round(threshold[i] * scaling)
+        # if only one synaptic connection is used
+        elif len(w_in.shape) == 2:
+            max_w = 0
+            max_w = np.max([max_w, np.max(np.abs(w_in[:, i]))])
+            max_w = np.max([max_w, np.max(np.abs(w_rec[:, i]))])
+            if max_w != 0:
+                scaling = max_w_quan / max_w
+                w_in_quan[:, i] = np.round(w_in[:, i] * scaling)
+                w_rec_quan[:, i] = np.round(w_rec[:, i] * scaling)
+                threshold_quan[i] = np.round(threshold[i] * scaling)
 
     # make sure matrix type is int
     w_in_quan = w_in_quan.astype(int)
