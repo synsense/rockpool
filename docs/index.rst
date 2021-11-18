@@ -70,6 +70,8 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    :maxdepth: 1
    :caption: Advanced topics
 
+   advanced/graph_overview.ipynb
+   advanced/graph_mapping.ipynb
    reference/api
    advanced/developers_notes
    advanced/CHANGELOG

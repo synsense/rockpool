@@ -1,8 +1,10 @@
 """
-Xylo-family device simulations and deployment support
+Xylo-family device simulations, deployment and HDK support
 
 See Also:
-    :py:class:`XyloCim`, :py:class:`XyloSamna`, :py:class:`AFE`, :py:class:`DivisiveNormalisation`, :py:class:`DivisiveNormalisationNoLFSR`
+    See :ref:`/devices/xylo-overview.ipynb`, :ref:`/devices/torch-training-spiking-for-xylo.ipynb` and :ref:`/devices/analog-frontend-example.ipynb` for documentation of this module.
+
+    Defines the classes :py:class:`XyloCim`, :py:class:`XyloSamna`, :py:class:`AFE`, :py:class:`DivisiveNormalisation`, :py:class:`DivisiveNormalisationNoLFSR`.
 """
 
 # - Import submodules to make them available
@@ -29,5 +31,17 @@ try:
         DivisiveNormalisation as DivisiveNormalization,
         DivisiveNormalisationNoLFSR as DivisiveNormalizationNoLFSR,
     )
+except Exception as inst:
+    warnings.warn(inst.msg)
+
+try:
+    from .xylo_graph_modules import *
+except Exception as inst:
+    warnings.warn(inst.msg)
+
+try:
+    from .xylo_mapper import *
+except Exception as inst:
+    warnings.warn(inst.msg)
 except (ImportError, ModuleNotFoundError) as err:
     warnings.warn(f"{err}")
