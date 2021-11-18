@@ -51,11 +51,11 @@ def test_pipeline():
 
     cim_g = XyloCim.from_config(xylo_conf_global, dt=dt)
     cim_g.reset_state()
-    output_g, _, rec_cim_g = cim_g(inp.cpu().numpy(), record=True)
+    output_g, _, rec_cim_g = cim_g(inp[0].cpu().numpy(), record=True)
 
     cim_c = XyloCim.from_config(xylo_conf_channel, dt=dt)
     cim_c.reset_state()
-    output_c, _, rec_cim_c = cim_c(inp.cpu().numpy(), record=True)
+    output_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
 
 
 

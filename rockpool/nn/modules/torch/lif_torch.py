@@ -133,7 +133,7 @@ class LIFTorch(TorchModule):
         has_rec: P_bool = False,
         w_rec: torch.Tensor = None,
         noise_std: P_float = 0.0,
-        gradient_fn = StepPWL,
+        gradient_fn=StepPWL,
         learning_window: P_float = 0.5,
         dt: P_float = 1e-3,
         device: P_str = "cuda",
@@ -208,6 +208,11 @@ class LIFTorch(TorchModule):
             if w_rec is not None:
                 raise ValueError("`w_rec` may not be provided if `has_rec` is `False`")
 
+            """ (Tensor) Recurrent weights `(Nout, Nin)` """
+
+        if hasattr(self, "w_rec"):
+            self.w_rec.requires_grad = True
+
         self.noise_std: P_float = rp.SimulationParameter(noise_std)
         """ (float) Noise std.dev. injected onto the membrane of each neuron during evolution """
 
@@ -264,9 +269,7 @@ class LIFTorch(TorchModule):
         )
         """ (Tensor) Synaptic currents `(Nin,)` """
 
-        self.spikes : P_tensor = rp.State(
-            torch.zeros((self.n_neurons)).to(device)
-        )
+        self.spikes: P_tensor = rp.State(torch.zeros((self.n_neurons)).to(device))
         """ (Tensor) Spikes `(Nin,)` """
 
         self.alpha: P_tensor = rp.SimulationParameter(
@@ -305,7 +308,7 @@ class LIFTorch(TorchModule):
             {
                 "Vmem": self._record_Vmem,
                 "Isyn": self._record_Isyn,
-                "spikes": self._record_spikes
+                "spikes": self._record_spikes,
             }
             if record
             else {}
@@ -355,8 +358,12 @@ class LIFTorch(TorchModule):
 
         # - Set up state record and output
         self._record_Vmem = torch.zeros(n_batches, time_steps, self.n_neurons)
-        self._record_Isyn = torch.zeros(n_batches, time_steps, self.n_synapses, self.n_neurons)
-        self._record_spikes = torch.zeros(n_batches, time_steps, self.n_neurons, device=data.device)
+        self._record_Isyn = torch.zeros(
+            n_batches, time_steps, self.n_synapses, self.n_neurons
+        )
+        self._record_spikes = torch.zeros(
+            n_batches, time_steps, self.n_neurons, device=data.device
+        )
 
         if self._record:
             self._record_Vmem = torch.zeros(
@@ -377,13 +384,22 @@ class LIFTorch(TorchModule):
             # Integrate input
             # - Apply spikes over the recurrent weights
             if hasattr(self, "w_rec"):
-                rec_inp = F.linear(spikes, self.w_rec.T).reshape(n_batches, self.n_synapses, self.n_neurons)
-                isyn = isyn + (data[:, t] + rec_inp) * self.dt / self.tau_syn.unsqueeze(-1)
+                rec_inp = F.linear(spikes, self.w_rec.T).reshape(
+                    n_batches, self.n_synapses, self.n_neurons
+                )
+                isyn = isyn + (data[:, t] + rec_inp) * self.dt / self.tau_syn.unsqueeze(
+                    -1
+                )
             else:
                 isyn = isyn + data[:, t] * self.dt / self.tau_syn.unsqueeze(-1)
 
             if self.noise_std > 0:
-                vmem = vmem + isyn.sum(1) + bias + torch.randn(vmem.shape, device=vmem.device) * self.noise_std
+                vmem = (
+                    vmem
+                    + isyn.sum(1)
+                    + bias
+                    + torch.randn(vmem.shape, device=vmem.device) * self.noise_std
+                )
             else:
                 vmem = vmem + isyn.sum(1) + bias
 
@@ -398,16 +414,15 @@ class LIFTorch(TorchModule):
 
             self._record_spikes[:, t] = spikes
 
-
         self.vmem = vmem[0].detach()
         self.isyn = isyn[0].detach()
         self.spikes = spikes[0].detach()
 
         self._record_Vmem.detach()
         self._record_Isyn.detach()
-        self._record_spikes
 
         return self._record_spikes
+        return out_spikes
 
     def as_graph(self) -> GraphModuleBase:
         # - Generate a GraphModule for the neurons
