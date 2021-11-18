@@ -87,7 +87,7 @@ def global_quantize(
 
     # scale thresholds
     threshold = np.round(threshold * scaling).astype(int)
-    threshold_out = np.round(threshold_out * scaling).astype(int)
+    threshold_out = np.round(threshold_out * scaling_out).astype(int)
 
     model_quan = {
         "weights_in": weights_in,
@@ -150,7 +150,7 @@ def channel_quantize(
     max_w_quan = 2 ** (bits_per_weight - 1) - 1
 
     # quantize input weight, recurrent weight, threshold
-    # two weight matrix need to be stack together to consider per-channel quantization
+    # two weight matrix need to stack together to consider per-channel quantization
     w_in_quan = np.zeros(shape=w_in.shape)
     w_rec_quan = np.zeros(shape=w_rec.shape)
     threshold_quan = np.zeros(shape=threshold.shape)
@@ -166,6 +166,8 @@ def channel_quantize(
                 w_in_quan[:, i, :] = np.round(w_in[:, i, :] * scaling)
                 w_rec_quan[:, i, :] = np.round(w_rec[:, i, :] * scaling)
                 threshold_quan[i] = np.round(threshold[i] * scaling)
+            else:
+                threshold_quan[i] = np.round(threshold[i])
         # if only one synaptic connection is used
         elif len(w_in.shape) == 2:
             max_w = 0
@@ -176,6 +178,8 @@ def channel_quantize(
                 w_in_quan[:, i] = np.round(w_in[:, i] * scaling)
                 w_rec_quan[:, i] = np.round(w_rec[:, i] * scaling)
                 threshold_quan[i] = np.round(threshold[i] * scaling)
+            else:
+                threshold_quan[i] = np.round(threshold[i])
 
     # make sure matrix type is int
     w_in_quan = w_in_quan.astype(int)
@@ -193,6 +197,8 @@ def channel_quantize(
             scaling = max_w_quan / max_w
             w_out_quan[:, i] = np.round(w_out[:, i] * scaling)
             threshold_out_quan[i] = np.round(threshold_out[i] * scaling)
+        else:
+            threshold_out_quan[i] = np.round(threshold_out[i])
 
     # make sure matrix type is int
     w_out_quan = w_out_quan.astype(int)
