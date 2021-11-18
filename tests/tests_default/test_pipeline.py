@@ -58,7 +58,7 @@ def test_pipeline():
     output_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
 
 
-
+    # TODO: output_f is nan!
 
 
 
