@@ -1,6 +1,7 @@
 """
-Package for simulating and interacting with Dynap™SE hardware
+DynapSE-family device simulations, deployment and HDK support
 """
+
 
 from warnings import warn
 

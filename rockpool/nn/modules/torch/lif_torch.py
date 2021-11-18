@@ -16,9 +16,16 @@ import torch
 import torch.nn.functional as F
 import torch.nn.init as init
 import rockpool.parameters as rp
-from typing import Optional, Tuple, Any
+from typing import Optional, Tuple, Any, Callable
 
 from rockpool.typehints import FloatVector, P_float, P_tensor, P_bool, P_str
+
+from rockpool.graph import (
+    GraphModuleBase,
+    as_GraphHolder,
+    LIFNeuronWithSynsRealValue,
+    LinearWeights,
+)
 
 __all__ = ["LIFTorch"]
 
@@ -75,6 +82,9 @@ class PeriodicExponential(torch.autograd.Function):
 
         return grad_output * spikePdf, None, None
 
+
+
+
 class LIFTorch(TorchModule):
     """
     A leaky integrate-and-fire spiking neuron model
@@ -117,8 +127,8 @@ class LIFTorch(TorchModule):
     def __init__(
         self,
         shape: tuple,
-        tau_mem: FloatVector,
-        tau_syn: FloatVector,
+        tau_mem: FloatVector = 0.02,
+        tau_syn: FloatVector = 0.01,
         has_bias: P_bool = True,
         bias: FloatVector = 0.0,
         threshold: FloatVector = 1.0,
@@ -127,8 +137,9 @@ class LIFTorch(TorchModule):
         noise_std: P_float = 0.0,
         gradient_fn = StepPWL, 
         learning_window: P_float = 0.5,
+        weight_init_func: Optional[Callable[[Tuple], torch.tensor]] = None,
         dt: P_float = 1e-3,
-        device: P_str = "cuda",
+        device: P_str = "cpu",
         *args,
         **kwargs,
     ):
@@ -146,6 +157,7 @@ class LIFTorch(TorchModule):
             threshold (FloatVector): An optional array specifying the firing threshold of each neuron. If not provided, ``0.`` will be used by default.
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
             noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: ``0.0``
+            weight_init_func (Optional[Callable[[Tuple], torch.tensor]): The initialisation function to use when generating weights. Default: ``None`` (Kaiming initialisation)
             device: Defines the device on which the model will be processed.
         """
         # - Check shape argument
@@ -179,16 +191,22 @@ class LIFTorch(TorchModule):
         factory_kwargs = {"device": device}
 
         # - Initialise recurrent weights
-        w_rec_shape = tuple(reversed(shape))
-        if has_rec:
-            self.w_rec: P_tensor = rp.Parameter(
-                w_rec,
-                shape=w_rec_shape,
-                init_func=lambda s: init.kaiming_uniform_(
-                    torch.empty(s, **factory_kwargs)
-                ),
-                family="weights",
+        if weight_init_func is None:
+            weight_init_func = lambda s: init.kaiming_uniform_(
+                torch.empty(s, **factory_kwargs)
             )
+
+        w_rec_shape = (self.size_out, self.size_in)
+        if has_rec:
+            if w_rec is None:
+                self.w_rec: P_tensor = rp.Parameter(
+                    w_rec,
+                    shape=w_rec_shape,
+                    init_func=weight_init_func,
+                    family="weights",
+                )
+            else:
+                self.w_rec = w_rec
             """ (Tensor) Recurrent weights `(Nout, Nin)` """
         else:
             if w_rec is not None:
@@ -401,3 +419,32 @@ class LIFTorch(TorchModule):
         self._record_spikes
 
         return self._record_spikes
+
+
+
+    def as_graph(self) -> GraphModuleBase:
+        # - Generate a GraphModule for the neurons
+        neurons = LIFNeuronWithSynsRealValue._factory(
+            self.size_in,
+            self.size_out,
+            f"{type(self).__name__}_{self.name}_{id(self)}",
+            self.tau_mem,
+            self.tau_syn,
+            self.bias,
+            0.0,
+            self.dt,
+        )
+
+        # - Include recurrent weights if present
+        if len(self.attributes_named("w_rec")) > 0:
+            # - Weights are connected over the existing input and output nodes
+            w_rec_graph = LinearWeights(
+                neurons.output_nodes,
+                neurons.input_nodes,
+                f"{type(self).__name__}_recurrent_{self.name}_{id(self)}",
+                self.w_rec.detach().numpy(),
+            )
+
+        # - Return a graph containing neurons and optional weights
+        return as_GraphHolder(neurons)
+

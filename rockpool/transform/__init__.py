@@ -1,3 +1,7 @@
+"""
+Contains packages for transformaing parameters and networks
+"""
+
 import warnings
 
 try:

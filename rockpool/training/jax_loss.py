@@ -174,6 +174,9 @@ def l0_norm_approx(params: dict, sigma: float = 1e-4) -> float:
 
     where :math:`\\sigma`` is a small regularisation value (by default ``1e-4``).
 
+    References:
+        Wei et. al 2018. "Gradient Projection with Approximate L0 Norm Minimization for Sparse Reconstruction in Compressed Sensing", Sensors 18 (3373). doi: 10.3390/s18103373
+
     Args:
         params (dict): A parameter dictionary over which to compute the L_0 norm
         sigma (float): A small value to use as a regularisation parameter. Default: ``1e-4``.

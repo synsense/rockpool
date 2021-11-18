@@ -119,26 +119,31 @@ class TorchModule(Module, nn.Module):
     def __setattr__(self, key, value):
         if isinstance(value, nn.Parameter):
             # - Also register as a rockpool parameter
-            print("Setting a new Torch Parameter", value)
             self._register_attribute(key, rp.Parameter(value, None, None, value.shape))
 
-        if isinstance(value, (rp.Parameter, rp.State)):
+        if isinstance(value, rp.Parameter):
+            # - Register as a torch parameter
+            super().register_parameter(key, nn.Parameter(value.data))
+
+            # - Register as a Rockpool attribute
+            self._register_attribute(key, value)
+            return
+
+        if isinstance(value, rp.State):
             # - register as a torch buffer
             super().register_buffer(key, value.data)
 
             # - Register as a Rockpool attribute
             self._register_attribute(key, value)
-        else:
-            # - Call __setattr__
-            super().__setattr__(key, value)
+            return
 
         if isinstance(value, nn.Module) and not isinstance(value, TorchModule):
-            try:
-                # - Convert torch module to a Rockpool Module and assign
-                TorchModule.from_torch(value, retain_torch_api=True)
-            except:
-                pass
-            super().__setattr__(key, value)
+            # - Convert torch module to a Rockpool Module and assign
+            TorchModule.from_torch(value, retain_torch_api=True)
+            self._register_module(key, value)
+
+        # Assign attribute with setattr
+        super().__setattr__(key, value)
 
     def register_buffer(self, name: str, tensor: torch.Tensor, *args, **kwargs) -> None:
         self._register_attribute(name, rp.State(tensor, None, None, np.shape(tensor)))
@@ -294,11 +299,6 @@ class TorchModule(Module, nn.Module):
             params = json.load(f)
 
         self.json_to_param(params)
-
-
-
-
-
 
 
 
