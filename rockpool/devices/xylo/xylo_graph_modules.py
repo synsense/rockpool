@@ -73,13 +73,13 @@ class XyloNeurons(GenericNeurons):
 
             if torch.is_tensor(mod.tau_syn):
                 dash_syn = (
-                    np.round(np.log2(np.array(mod.tau_syn.cpu()) / mod.dt))  # TODO: graph module not handle cuda, cpu, tensor well?
+                    np.round(np.log2(np.array(mod.tau_syn.cpu()) / mod.dt))  # TODO: graph module not handle cuda, cpu, tensor, jax well
                     .astype(int)
                     .tolist()
                 )
             else:
                 dash_syn = (
-                    np.round(np.log2(np.array(mod.tau_syn.cpu()) / mod.dt))  # TODO: graph module not handle cuda, cpu, tensor well?
+                    np.round(np.log2(np.array(mod.tau_syn) / mod.dt))  # TODO: graph module not handle cuda, cpu, tensor, jax well
                     .astype(int)
                     .tolist()
                 )
@@ -87,7 +87,7 @@ class XyloNeurons(GenericNeurons):
             # - Get thresholds
             if torch.is_tensor(mod.threshold):
                 thresholds = (
-                    np.round(np.array(mod.threshold.detach().cpu().numpy())).astype(int).tolist()  # TODO: graph module not handle cuda, cpu, tensor well?
+                    np.round(np.array(mod.threshold.detach().cpu().numpy())).astype(int).tolist()  # TODO: graph module not handle cuda, cpu, tensor, jax well
                 )
             else:
                 thresholds = np.round(np.array(mod.threshold)).astype(int).tolist()

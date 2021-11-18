@@ -432,8 +432,8 @@ class LIFTorch(TorchModule):
             f"{type(self).__name__}_{self.name}_{id(self)}",
             self.tau_mem,
             self.tau_syn,
+            self.threshold,
             self.bias,
-            0.0,
             self.dt,
         )
 
