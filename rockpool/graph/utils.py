@@ -1,6 +1,9 @@
 """
 Utilities for generating and manipulating computational graphs
 
+See Also:
+    See :ref:`/advanced/graph_overview.ipynb` for an introduction to computational graphs.
+
 """
 
 
@@ -39,11 +42,18 @@ def connect_modules(
     If ``source`` or ``dest`` are :py:class:`.GraphHolder` s, then the internal subgraphs will be connected, and the :py:class:`.GraphHolder` s may be discarded.
 
     Examples:
+        >>> connect_modules(mod1, mod2)
         # Modules are connected in place, from all output node to all input nodes
-        connect_modules(mod1, mod2)
 
+        >>> connect_modules(mod1, mod2, range(5))
         # Connect a subset of source output nodes to the destination module
-        connect_modules(mod1, mod2, range(5))
+        # Output nodes `mod1.output_nodes[0:5]` are connected to all input nodes `mod2.input_nodes[:]`
+
+        >>> connect_modules(mod1, mod2, None, range(3))
+        # All output nodes `mod1.output_nodes[:]` are connected to input nodes `mod2.input_nodes[0:3]`
+
+        >>> connect_modules(mod1, mod2, [0, 2, 4], [1, 2, 5])
+        # `mod1` output nodes 0, 2 and 4 are connected to `mod2` input nodes 1, 2, 5
 
     Args:
         source (GraphModule): The source graph module to connect
