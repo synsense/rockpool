@@ -107,6 +107,7 @@ def channel_quantize(
     threshold: np.ndarray,
     threshold_out: np.ndarray,
     bits_per_weight: int = 8,
+    bits_per_threshold: int = 16,
     *_,
     **__,
 ):
@@ -148,6 +149,7 @@ def channel_quantize(
     threshold = copy.copy(threshold)
     threshold_out = copy.copy(threshold_out)
     max_w_quan = 2 ** (bits_per_weight - 1) - 1
+    max_th_quan = 2 ** (bits_per_threshold - 1) - 1
 
     # quantize input weight, recurrent weight, threshold
     # two weight matrix need to stack together to consider per-channel quantization
@@ -166,8 +168,15 @@ def channel_quantize(
                 w_in_quan[:, i, :] = np.round(w_in[:, i, :] * scaling)
                 w_rec_quan[:, i, :] = np.round(w_rec[:, i, :] * scaling)
                 threshold_quan[i] = np.round(threshold[i] * scaling)
+                # if the threshold exceed boundary
+                if np.abs(threshold[i]) > max_th_quan:
+                    limited_scaling = max_th_quan / threshold[i]
+                    threshold_quan[i] = np.round(threshold[i] * limited_scaling)
+                    w_in_quan[:, i, :] = np.round(w_in[:, i, :] * limited_scaling)
+                    w_rec_quan[:, i, :] = np.round(w_rec[:, i, :] * limited_scaling)
             else:
                 threshold_quan[i] = np.round(threshold[i])
+
         # if only one synaptic connection is used
         elif len(w_in.shape) == 2:
             max_w = 0
@@ -178,6 +187,12 @@ def channel_quantize(
                 w_in_quan[:, i] = np.round(w_in[:, i] * scaling)
                 w_rec_quan[:, i] = np.round(w_rec[:, i] * scaling)
                 threshold_quan[i] = np.round(threshold[i] * scaling)
+                # if the threshold exceed boundary
+                if np.abs(threshold_quan[i]) > max_th_quan:
+                    limited_scaling = max_th_quan / threshold[i]
+                    threshold_quan[i] = np.round(threshold[i] * limited_scaling)
+                    w_in_quan[:, i] = np.round(w_in[:, i] * limited_scaling)
+                    w_rec_quan[:, i] = np.round(w_rec[:, i] * limited_scaling)
             else:
                 threshold_quan[i] = np.round(threshold[i])
 
@@ -197,6 +212,11 @@ def channel_quantize(
             scaling = max_w_quan / max_w
             w_out_quan[:, i] = np.round(w_out[:, i] * scaling)
             threshold_out_quan[i] = np.round(threshold_out[i] * scaling)
+            # if the threshold exceed boundary
+            if np.abs(threshold_out_quan[i]) > max_th_quan:
+                limited_scaling = max_th_quan / threshold_out[i]
+                threshold_out_quan[i] = np.round(threshold_out[i] * limited_scaling)
+                w_out_quan[:, i] = np.round(w_out[:, i] * limited_scaling)
         else:
             threshold_out_quan[i] = np.round(threshold_out[i])
 
