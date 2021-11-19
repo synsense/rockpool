@@ -138,6 +138,7 @@ def channel_quantize(
         threshold (np.ndarray): Firing threshold for hidden neurons
         threshold_out (np.ndarray): Firing threshold for output neurons
         bits_per_weight (int): Number of bits per integer signed weight. Default: ``8``
+        bits_per_threshold (int): Number of bits per integer signed threshold. Default: ``16``
 
     Returns:
         dict: `model_quan` which can be used to update a Xylo specification dictionary
