@@ -24,15 +24,15 @@ def test_quantize_simple_network():
                      ):
             super().__init__(shape=(Nin, Nout), *args, **kwargs)
 
-            self.threshold = 40.0
-            self.learning_window = 0.5
+            self.threshold = 10.0
+            self.learning_window = 0.3
             self.Nin = Nin
             self.Nres = Nres
             self.Nout = Nout
             self.dt = dt
 
-            self.lin_hid = LinearTorch(shape=(self.Nin, self.Nres), has_bias=False)
-            self.spk_hid = LIFBitshiftTorch(
+            self.lin_res = LinearTorch(shape=(self.Nin, self.Nres), has_bias=False)
+            self.spk_res = LIFBitshiftTorch(
                 shape=(self.Nres, self.Nres),
                 tau_mem=0.002,
                 tau_syn=0.002,
@@ -42,8 +42,8 @@ def test_quantize_simple_network():
                 dt=self.dt,
                 device=device)
 
-            self.lin_res = LinearTorch(shape=(self.Nres, self.Nout), has_bias=False)
-            self.spk_res = LIFBitshiftTorch(
+            self.lin_out = LinearTorch(shape=(self.Nres, self.Nout), has_bias=False)
+            self.spk_out = LIFBitshiftTorch(
                 shape=(self.Nout, self.Nout),
                 tau_mem=0.002,
                 tau_syn=0.002,
@@ -56,21 +56,18 @@ def test_quantize_simple_network():
             self._record_dict = {}
 
             self.submods = []
-            self.submods.append(self.lin_hid)
-            self.submods.append(self.spk_hid)
             self.submods.append(self.lin_res)
             self.submods.append(self.spk_res)
+            self.submods.append(self.lin_out)
+            self.submods.append(self.spk_out)
 
         def forward(self, inp):
             #         (n_batches, t_sim, n_neurons) = inp.shape
 
-            out, _, self._record_dict["lin_hid"] = self.lin_hid(inp, record=True)
-
-            out, _, self._record_dict['spk_hid'] = self.spk_hid(out, record=True)
-
-            out, _, self._record_dict['lin_res'] = self.lin_res(out, record=True)
-
+            out, _, self._record_dict["lin_res"] = self.lin_res(inp, record=True)
             out, _, self._record_dict['spk_res'] = self.spk_res(out, record=True)
+            out, _, self._record_dict['lin_out'] = self.lin_out(out, record=True)
+            out, _, self._record_dict['spk_out'] = self.spk_out(out, record=True)
 
             return out
 
@@ -96,19 +93,19 @@ def test_quantize_simple_network():
             )
 
     Nin = 16
-    Nres = 64
+    Nres = 1000
     Nout = 8
     dt = 1e-3
 
     mod = SimpleBlock(Nin, Nres, Nout, dt)
 
-    w_in = np.random.exponential(2, [Nin, Nres])
-    w_in_torch = torch.tensor(w_in).float()
-    mod.lin_hid.weight.data = w_in_torch
+    w_res = np.random.exponential(4, [Nin, Nres])
+    w_res_torch = torch.tensor(w_res).float()
+    mod.lin_res.weight.data = w_res_torch
 
     w_out = np.random.exponential(0.1, [Nres, Nout])
     w_out_torch = torch.tensor(w_out).float()
-    mod.lin_res.weight.data = w_out_torch
+    mod.lin_out.weight.data = w_out_torch
 
     float_graph = mod.as_graph()
     float_specs = mapper(float_graph, weight_dtype="float", threshold_dtype="float", dash_dtype="float")
@@ -138,24 +135,22 @@ def test_quantize_simple_network():
     batch = 1
     inp = torch.Tensor(np.random.randint(low=0, high=3, size=(batch, T, Nin)))
 
-    output_f, _, recordings_f = mod(inp, record=True)
+    _, _, recordings_f = mod(inp, record=True)
 
     cim_g = XyloCim.from_config(xylo_conf_global, dt=dt)
     cim_g.reset_state()
-    output_g, _, rec_cim_g = cim_g(inp[0].cpu().numpy(), record=True)
+    spk_out_g, _, rec_cim_g = cim_g(inp[0].cpu().numpy(), record=True)
 
     cim_c = XyloCim.from_config(xylo_conf_channel, dt=dt)
     cim_c.reset_state()
-    output_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
+    spk_out_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
 
-    spk_in_f = recordings_f['spk_hid']['spikes'].squeeze(0).detach().numpy().astype(int)
-    spk_out_f = output_f.squeeze(0).detach().numpy().astype(int)
+    spk_in_f = recordings_f['spk_res']['spikes'].squeeze(0).detach().numpy().astype(int)
+    spk_out_f = recordings_f['spk_out']['spikes'].squeeze(0).detach().numpy().astype(int)
 
     spk_in_g = rec_cim_g['Spikes']
-    spk_out_g = output_g
 
     spk_in_c = rec_cim_c['Spikes']
-    spk_out_c = output_c
 
     in_point = (spk_in_f.shape[0] - 1) * spk_in_f.shape[1]
     out_point = (spk_out_f.shape[0]) * spk_out_f.shape[1]
@@ -315,7 +310,7 @@ def test_quantize_complex_network():
                      ):
             super().__init__(shape=(Nin, Nout), *args, **kwargs)
 
-            self.threshold = 40.0
+            self.threshold = 30.0
             self.learning_window = 0.5
             self.Nin = Nin
             self.Nres1 = Nres1
@@ -407,6 +402,7 @@ def test_quantize_complex_network():
             connect_modules(mod_graphs[2], mod_graphs[3])
             connect_modules(mod_graphs[3], mod_graphs[4])
             connect_modules(mod_graphs[4], mod_graphs[5])
+            connect_modules(mod_graphs[5], mod_graphs[6])
             connect_modules(mod_graphs[6], mod_graphs[7])
 
             return GraphHolder(
@@ -416,23 +412,23 @@ def test_quantize_complex_network():
             )
 
     Nin = 16
-    Nres1 = 100
-    Nres2 = 100
-    Nres3 = 100
+    Nres1 = 63
+    Nres2 = 63
+    Nres3 = 63
     Nout = 8
     dt = 1e-3
 
     mod = SequentialBlock(Nin, Nres1, Nres2, Nres3, Nout, dt)
 
-    w_res1 = np.random.exponential(2, [Nin, Nres1])
+    w_res1 = np.random.exponential(4, [Nin, Nres1])
     w_res1_torch = torch.tensor(w_res1).float()
     mod.lin_res1.weight.data = w_res1_torch
 
-    w_res2 = np.random.exponential(2, [Nres1, Nres2])
+    w_res2 = np.random.exponential(4, [Nres1, Nres2])
     w_res2_torch = torch.tensor(w_res2).float()
     mod.lin_res2.weight.data = w_res2_torch
 
-    w_res3 = np.random.exponential(2, [Nres2, Nres3])
+    w_res3 = np.random.exponential(4, [Nres2, Nres3])
     w_res3_torch = torch.tensor(w_res3).float()
     mod.lin_res3.weight.data = w_res3_torch
 
@@ -464,40 +460,37 @@ def test_quantize_complex_network():
     xylo_conf_channel, is_valid, message = config_from_specification(**channel_specs)
     print('Channel valid config: ', is_valid, message)
 
-    T = 100
+    T = 1000
     batch = 1
     inp = torch.Tensor(np.random.randint(low=0, high=3, size=(batch, T, Nin)))
 
-    output_f, _, recordings_f = mod(inp, record=True)
+    _, _, recordings_f = mod(inp, record=True)
 
     cim_g = XyloCim.from_config(xylo_conf_global, dt=dt)
     cim_g.reset_state()
-    output_g, _, rec_cim_g = cim_g(inp[0].cpu().numpy(), record=True)
+    spk_out_g, _, rec_cim_g = cim_g(inp[0].cpu().numpy(), record=True)
 
     cim_c = XyloCim.from_config(xylo_conf_channel, dt=dt)
     cim_c.reset_state()
-    output_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
+    spk_out_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
 
-    spk_in_f = recordings_f['spk_hid']['spikes'].squeeze(0).detach().numpy().astype(int)
-    spk_out_f = output_f.squeeze(0).detach().numpy().astype(int)
+    spk_res1 = recordings_f['spk_res1']['spikes'].squeeze(0).detach().numpy().astype(int)
+    spk_res2 = recordings_f['spk_res2']['spikes'].squeeze(0).detach().numpy().astype(int)
+    spk_res3 = recordings_f['spk_res3']['spikes'].squeeze(0).detach().numpy().astype(int)
+    spk_out_f = recordings_f['spk_out']['spikes'].squeeze(0).detach().numpy().astype(int)
 
-    spk_in_g = rec_cim_g['Spikes']
-    spk_out_g = output_g
+    spk_res_f = np.concatenate((spk_res1, spk_res2, spk_res3), axis=1)
+    spk_res_g = rec_cim_g['Spikes']
+    spk_res_c = rec_cim_c['Spikes']
 
-    spk_in_c = rec_cim_c['Spikes']
-    spk_out_c = output_c
+    in_point = spk_res_g.shape[0] * spk_res_g.shape[1]
+    out_point = spk_out_g.shape[0] * spk_out_g.shape[1]
 
-    in_point = (spk_in_f.shape[0] - 1) * spk_in_f.shape[1]
-    out_point = (spk_out_f.shape[0]) * spk_out_f.shape[1]
-
-    in_point = spk_in_f.shape[0] * spk_in_f.shape[1]
-    out_point = spk_out_f.shape[0] * spk_out_f.shape[1]
-
-    print(f'\nIn LIF spike global match float percent: {np.sum(spk_in_f == spk_in_g) / in_point * 100}')
+    print(f'\nIn LIF spike global match float percent: {np.sum(spk_res_f == spk_res_g) / in_point * 100}')
     print(f'Out LIF spike global match float percent: {np.sum(spk_out_f == spk_out_g) / out_point * 100}')
 
-    print(f'\nIn LIF spike channel match float percent: {np.sum(spk_in_f == spk_in_c) / in_point * 100}')
+    print(f'\nIn LIF spike channel match float percent: {np.sum(spk_res_f == spk_res_c) / in_point * 100}')
     print(f'Out LIF spike channel match float percent: {np.sum(spk_out_f == spk_out_c) / out_point * 100}')
 
-    print(f'\nIn LIF spike global match channel: {np.sum(spk_in_g == spk_in_c) / in_point * 100}')
+    print(f'\nIn LIF spike global match channel: {np.sum(spk_res_f == spk_res_c) / in_point * 100}')
     print(f'Out LIF spike global match channel: {np.sum(spk_out_g == spk_out_c) / out_point * 100}')
