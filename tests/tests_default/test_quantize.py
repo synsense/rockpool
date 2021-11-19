@@ -149,11 +149,7 @@ def test_quantize_simple_network():
     spk_out_f = recordings_f['spk_out']['spikes'].squeeze(0).detach().numpy().astype(int)
 
     spk_in_g = rec_cim_g['Spikes']
-
     spk_in_c = rec_cim_c['Spikes']
-
-    in_point = (spk_in_f.shape[0] - 1) * spk_in_f.shape[1]
-    out_point = (spk_out_f.shape[0]) * spk_out_f.shape[1]
 
     in_point = spk_in_f.shape[0] * spk_in_f.shape[1]
     out_point = spk_out_f.shape[0] * spk_out_f.shape[1]
@@ -250,24 +246,21 @@ def test_quantize_sequential_function():
     batch = 1
     inp = torch.Tensor(np.random.randint(low=0, high=3, size=(batch, T, Nin)))
 
-    output_f, _, recordings_f = mod(inp, record=True)
+    _, _, recordings_f = mod(inp, record=True)
 
     cim_g = XyloCim.from_config(xylo_conf_global, dt=dt)
     cim_g.reset_state()
-    output_g, _, rec_cim_g = cim_g(inp[0].cpu().numpy(), record=True)
+    spk_out_g, _, rec_cim_g = cim_g(inp[0].cpu().numpy(), record=True)
 
     cim_c = XyloCim.from_config(xylo_conf_channel, dt=dt)
     cim_c.reset_state()
-    output_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
+    spk_out_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
 
-    spk_in_f = recordings_f['1_LIFBitshiftTorch_output'].squeeze(0).detach().numpy().astype(int)
-    spk_out_f = output_f.squeeze(0).detach().numpy().astype(int)
+    spk_in_f = recordings_f['1_LIFBitshiftTorch']['spikes'].squeeze(0).detach().numpy().astype(int)
+    spk_out_f = recordings_f['3_LIFBitshiftTorch']['spikes'].squeeze(0).detach().numpy().astype(int)
 
     spk_in_g = rec_cim_g['Spikes']
-    spk_out_g = output_g
-
     spk_in_c = rec_cim_c['Spikes']
-    spk_out_c = output_c
 
     in_point = spk_in_f.shape[0] * spk_in_f.shape[1]
     out_point = spk_out_f.shape[0] * spk_out_f.shape[1]
