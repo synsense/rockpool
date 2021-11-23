@@ -11,6 +11,7 @@ def global_quantize(
     threshold_out: np.ndarray,
     fuzzy_scaling: bool = False,
     bits_per_weight: int = 8,
+    bits_per_threshold: int = 16,
     *_,
     **__,
 ):
@@ -42,6 +43,7 @@ def global_quantize(
         threshold_out (np.ndarray): Firing threshold for output neurons
         fuzzy_scaling (bool): If ``True``, scale and clip weights to 2*std dev. If ``False`` (default), scale and clip to maximum absolute weight.
         bits_per_weight (int): Number of bits per integer signed weight. Default: ``8``
+        bits_per_threshold (int): Number of bits per integer signed threshold. Default: ``16``
 
     Returns:
         dict: `model_quan` which can be used to update a Xylo specification dictionary
@@ -53,6 +55,7 @@ def global_quantize(
     threshold = copy.copy(threshold)
     threshold_out = copy.copy(threshold_out)
     max_w_quan = 2 ** (bits_per_weight - 1) - 1
+    max_th_quan = 2 ** (bits_per_threshold - 1) - 1
 
     if fuzzy_scaling:
         # detect outliers
@@ -81,13 +84,25 @@ def global_quantize(
 
     # scale weights
     weights_in = np.round(w_in * scaling).astype(int)
-    weights_in = weights_in.astype(int)
     weights_rec = np.round(w_rec * scaling).astype(int)
     weights_out = np.round(w_out * scaling_out).astype(int)
 
     # scale thresholds
     threshold = np.round(threshold * scaling).astype(int)
     threshold_out = np.round(threshold_out * scaling_out).astype(int)
+
+    # if the threshold exceed boundary
+    if np.abs(np.max(threshold)) > max_th_quan:
+        limited_scaling = max_th_quan / np.max(threshold)
+        threshold = np.round(threshold * limited_scaling).astype(int)
+        weights_in = np.round(w_in * limited_scaling).astype(int)
+        weights_rec = np.round(w_rec * limited_scaling).astype(int)
+
+    if np.abs(np.max(threshold_out)) > max_th_quan:
+        limited_scaling = max_th_quan / np.max(threshold_out)
+        threshold_out = np.round(threshold_out * limited_scaling).astype(int)
+        weights_out = np.round(w_out * limited_scaling).astype(int)
+        weights_rec = np.round(w_rec * limited_scaling).astype(int)
 
     model_quan = {
         "weights_in": weights_in,
