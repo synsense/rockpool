@@ -414,6 +414,3 @@ class WaveSenseNet(TorchModule):
 
         record_dict = self._record_dict if record else {}
         return output, new_state, record_dict
-
-    def trainable_parameters(self):
-        return [p for p in list(self.parameters().astorch()) if p.requires_grad]
