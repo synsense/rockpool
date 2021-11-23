@@ -422,7 +422,6 @@ class LIFTorch(TorchModule):
         self._record_Isyn.detach()
 
         return self._record_spikes
-        return out_spikes
 
     def as_graph(self) -> GraphModuleBase:
         # - Generate a GraphModule for the neurons
@@ -430,6 +429,7 @@ class LIFTorch(TorchModule):
             self.size_in,
             self.size_out,
             f"{type(self).__name__}_{self.name}_{id(self)}",
+            self,
             self.tau_mem,
             self.tau_syn,
             self.threshold,
@@ -444,6 +444,7 @@ class LIFTorch(TorchModule):
                 neurons.output_nodes,
                 neurons.input_nodes,
                 f"{type(self).__name__}_recurrent_{self.name}_{id(self)}",
+                self,
                 self.w_rec.detach().numpy(),
             )
 

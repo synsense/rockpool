@@ -359,6 +359,7 @@ class LIFJax(JaxModule):
             self.size_in,
             self.size_out,
             f"{type(self).__name__}_{self.name}_{id(self)}",
+            self,
             self.tau_mem,
             self.tau_syn,
             self.bias,
@@ -373,6 +374,7 @@ class LIFJax(JaxModule):
                 neurons.output_nodes,
                 neurons.input_nodes,
                 f"{type(self).__name__}_recurrent_{self.name}_{id(self)}",
+                self,
                 self.w_rec,
             )
 

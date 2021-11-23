@@ -1840,7 +1840,6 @@ def export_config(
             )
             f.write("\n")
 
-
     # basic config
     print("Writing basic_config.json", end="\r")
     with open(path / "basic_config.json", "w+") as f:
@@ -1883,7 +1882,6 @@ def export_config(
             conf["RA"] = True
         else:
             conf["RA"] = False
-
 
         json.dump(conf, f)
 

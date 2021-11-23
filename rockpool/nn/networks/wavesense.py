@@ -179,7 +179,9 @@ class WaveBlock(TorchModule):
         out, _, self._record_dict["lin1"] = self.lin1(data, record=True)
 
         # - Pass through dilated spiking layer
-        hidden, _, self._record_dict["spk1"] = self.spk1(out, record=True)  # (t_sim, n_batches, Nchannels)
+        hidden, _, self._record_dict["spk1"] = self.spk1(
+            out, record=True
+        )  # (t_sim, n_batches, Nchannels)
 
         # - Pass through output linear weights
         out_res, _, self._record_dict["lin2_res"] = self.lin2_res(hidden, record=True)
@@ -188,10 +190,14 @@ class WaveBlock(TorchModule):
         out_res, _, self._record_dict["spk2_res"] = self.spk2_res(out_res, record=True)
 
         # - Hidden -> skip outputs
-        out_skip, _, self._record_dict["lin2_skip"] = self.lin2_skip(hidden, record=True)
+        out_skip, _, self._record_dict["lin2_skip"] = self.lin2_skip(
+            hidden, record=True
+        )
 
         # - Pass through skip output spiking layer
-        out_skip, _, self._record_dict["spk2_skip"] = self.spk2_skip(out_skip, record=True)
+        out_skip, _, self._record_dict["spk2_skip"] = self.spk2_skip(
+            out_skip, record=True
+        )
 
         # - Combine output and residual connections (pass-through)
         res_out = out_res + data
@@ -230,6 +236,7 @@ class WaveBlock(TorchModule):
             mod_graphs[0].input_nodes,
             multiple_out,
             f"{type(self).__name__}_{self.name}_{id(self)}",
+            self,
         )
 
 
@@ -327,7 +334,9 @@ class WaveSenseNet(TorchModule):
         self.neuron_model = neuron_model
 
         # - Input mapping layers
-        self.lin1 = LinearTorch(shape=(n_channels_in, n_channels_res), has_bias=False, device=device)
+        self.lin1 = LinearTorch(
+            shape=(n_channels_in, n_channels_res), has_bias=False, device=device
+        )
 
         self.spk1 = self.neuron_model(
             shape=(n_channels_res, n_channels_res),
@@ -363,7 +372,9 @@ class WaveSenseNet(TorchModule):
             self.__setattr__(f"wave{i}", wave)
 
         # Dense readout layers
-        self.hidden = LinearTorch(shape=(n_channels_skip, n_hidden), has_bias=False, device=device)
+        self.hidden = LinearTorch(
+            shape=(n_channels_skip, n_hidden), has_bias=False, device=device
+        )
 
         self.spk2 = self.neuron_model(
             shape=(n_hidden, n_hidden),
@@ -380,7 +391,9 @@ class WaveSenseNet(TorchModule):
             device=device,
         )
 
-        self.readout = LinearTorch(shape=(n_hidden, n_classes), has_bias=False, device=device)
+        self.readout = LinearTorch(
+            shape=(n_hidden, n_classes), has_bias=False, device=device
+        )
 
         # - low pass filter is not compatible with xylo unless we give tau_syn 0
         # - Smoothing output
@@ -433,13 +446,17 @@ class WaveSenseNet(TorchModule):
         out, _, self._record_dict["lin1"] = self.lin1(data, record=True)
 
         # Pass through spiking layer
-        out, _, self._record_dict["spk1"] = self.spk1(out, record=True)  # (t_sim, n_batches, Nchannels)
+        out, _, self._record_dict["spk1"] = self.spk1(
+            out, record=True
+        )  # (t_sim, n_batches, Nchannels)
 
         # Pass through each wave block in turn
         skip = 0
         for wave_index in range(self._num_dilations):
             wave_block = self.modules()[f"wave{wave_index}"]
-            (out, skip_new), _, self._record_dict[f"wave{wave_index}"] = wave_block(out, record=True)
+            (out, skip_new), _, self._record_dict[f"wave{wave_index}"] = wave_block(
+                out, record=True
+            )
             skip = skip_new + skip
 
         # Dense layers
@@ -505,6 +522,7 @@ class WaveSenseNet(TorchModule):
             mod_graphs[0].input_nodes,
             mod_graphs[-1].output_nodes,
             f"{type(self).__name__}_{self.name}_{id(self)}",
+            self,
         )
 
 

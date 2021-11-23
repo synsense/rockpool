@@ -4,11 +4,17 @@ def test_pipeline():
     import copy
     from rockpool.transform import global_quantize, channel_quantize
     from rockpool.nn.networks import WaveSenseNet
-    from rockpool.nn.modules.torch import TorchModule, LinearTorch, LIFTorch, LIFBitshiftTorch
+    from rockpool.nn.modules.torch import (
+        TorchModule,
+        LinearTorch,
+        LIFTorch,
+        LIFBitshiftTorch,
+    )
     from rockpool.devices.xylo import mapper, config_from_specification
     from rockpool.devices.xylo.xylo_cimulator import XyloCim
     import warnings
-    warnings.filterwarnings('ignore')
+
+    warnings.filterwarnings("ignore")
 
     dilations = [2, 4]
     Nin = 16
@@ -22,7 +28,7 @@ def test_pipeline():
     tau_lp = 0.01
     threshold = 1.0
     dt = 0.001
-    device = 'cpu'
+    device = "cpu"
 
     mod = WaveSenseNet(
         dilations=dilations,
@@ -44,13 +50,19 @@ def test_pipeline():
     )
 
     w_1_torch = torch.nn.init.normal_(mod.submods[0].weight, mean=0.0, std=5.0)
-    w_w0_1_torch = torch.nn.init.normal_(mod.submods[2].submods[0].weight, mean=0.0, std=5.0)
-    w_w1_1_torch = torch.nn.init.normal_(mod.submods[3].submods[0].weight, mean=0.0, std=5.0)
+    w_w0_1_torch = torch.nn.init.normal_(
+        mod.submods[2].submods[0].weight, mean=0.0, std=5.0
+    )
+    w_w1_1_torch = torch.nn.init.normal_(
+        mod.submods[3].submods[0].weight, mean=0.0, std=5.0
+    )
     w_hid_torch = torch.nn.init.normal_(mod.submods[4].weight, mean=0.0, std=5.0)
     w_out_torch = torch.nn.init.normal_(mod.submods[6].weight, mean=0.0, std=5.0)
 
     float_graph = mod.as_graph()
-    float_specs = mapper(float_graph, weight_dtype="float", threshold_dtype="float", dash_dtype="float")
+    float_specs = mapper(
+        float_graph, weight_dtype="float", threshold_dtype="float", dash_dtype="float"
+    )
     dt = float_specs["dt"]
     global_specs = copy.copy(float_specs)
     channel_specs = copy.copy(float_specs)
@@ -64,13 +76,13 @@ def test_pipeline():
     del global_specs["mapped_graph"]
     del global_specs["dt"]
     xylo_conf_global, is_valid, message = config_from_specification(**global_specs)
-    print('Global valid config: ', is_valid, message)
+    print("Global valid config: ", is_valid, message)
 
     channel_specs.update(channel_quantize(**channel_specs))
     del channel_specs["mapped_graph"]
     del channel_specs["dt"]
     xylo_conf_channel, is_valid, message = config_from_specification(**channel_specs)
-    print('Channel valid config: ', is_valid, message)
+    print("Channel valid config: ", is_valid, message)
 
     T = 1000
     Nin = 16
@@ -87,8 +99,3 @@ def test_pipeline():
     cim_c = XyloCim.from_config(xylo_conf_channel, dt=dt)
     cim_c.reset_state()
     spk_out_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
-
-
-
-
-

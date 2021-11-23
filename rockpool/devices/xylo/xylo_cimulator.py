@@ -95,7 +95,6 @@ class XyloCim(Module):
         """ (XyloLayer) Handle to a Cimulator object """
 
     @classmethod
-
     def from_config(cls, config: XyloConfiguration, dt: float = 1e-3):
         """
         Creata a Cimulator based layer to simulate the Xylo hardware, from a configuration

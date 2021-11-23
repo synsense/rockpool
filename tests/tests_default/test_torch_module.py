@@ -186,13 +186,15 @@ def test_astorch():
     threshold = 10.0
     learning_window = 0.5
 
-    lyr = LIFBitshiftTorch(shape=(N*Nsyn, N),
-                           tau_mem=tau_mem,
-                           tau_syn=tau_syn,
-                           threshold=threshold,
-                           learning_window=learning_window,
-                           dt=0.01,
-                           device="cpu")
+    lyr = LIFBitshiftTorch(
+        shape=(N * Nsyn, N),
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        threshold=threshold,
+        learning_window=learning_window,
+        dt=0.01,
+        device="cpu",
+    )
 
     inp = torch.rand(1, 50, Nsyn * N).cpu()
 
@@ -203,5 +205,3 @@ def test_astorch():
 
     for (r_param, t_param) in zip(params_astorch, torch_params):
         assert r_param is t_param, "Rockpool and torch parameters do not match."
-
-

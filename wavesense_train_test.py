@@ -7,14 +7,15 @@ import numpy as np
 
 
 class TemporalXOR(Dataset):
-
-    def __init__(self,
-                 T_total=100,
-                 T_stim=20,
-                 T_delay=40,
-                 T_randomize=20,
-                 max_num_spikes=15,
-                 num_channels=16):
+    def __init__(
+        self,
+        T_total=100,
+        T_stim=20,
+        T_delay=40,
+        T_randomize=20,
+        max_num_spikes=15,
+        num_channels=16,
+    ):
         self.T_total = T_total
         self.T_stim = T_stim
         self.T_delay = T_delay
@@ -23,30 +24,37 @@ class TemporalXOR(Dataset):
         self.num_channels = num_channels
 
         # two different stimuli
-        self.inp_A = torch.randint(0, self.max_num_spikes + 1, (self.T_stim, self.num_channels))
-        self.inp_A[:, :self.num_channels // 2] = 0
-        self.inp_B = torch.randint(0, self.max_num_spikes + 1, (self.T_stim, self.num_channels))
-        self.inp_B[:, self.num_channels // 2:] = 0
+        self.inp_A = torch.randint(
+            0, self.max_num_spikes + 1, (self.T_stim, self.num_channels)
+        )
+        self.inp_A[:, : self.num_channels // 2] = 0
+        self.inp_B = torch.randint(
+            0, self.max_num_spikes + 1, (self.T_stim, self.num_channels)
+        )
+        self.inp_B[:, self.num_channels // 2 :] = 0
 
         # stimuli sequence for logical XOR
-        self.key_stim_map = {0: [self.inp_A, self.inp_A],
-                             1: [self.inp_A, self.inp_B],
-                             2: [self.inp_B, self.inp_A],
-                             3: [self.inp_B, self.inp_B]}
+        self.key_stim_map = {
+            0: [self.inp_A, self.inp_A],
+            1: [self.inp_A, self.inp_B],
+            2: [self.inp_B, self.inp_A],
+            3: [self.inp_B, self.inp_B],
+        }
 
         # supervision signal for logical XOR
-        self.key_target_map = {0: 0,
-                               1: 1,
-                               2: 1,
-                               3: 0}
+        self.key_target_map = {0: 0, 1: 1, 2: 1, 3: 0}
 
     def __getitem__(self, key):
         # generate input sample as
         # [FIRST STIM, ... silence ..., SECOND STIM, ... silence ...]
         inp = torch.zeros(self.T_total, self.num_channels)
-        inp[:self.T_stim] = self.key_stim_map[key][0]
-        T_second_stim = self.T_stim + self.T_delay - np.random.randint(-self.T_randomize, self.T_randomize)
-        inp[T_second_stim:T_second_stim + self.T_stim] = self.key_stim_map[key][1]
+        inp[: self.T_stim] = self.key_stim_map[key][0]
+        T_second_stim = (
+            self.T_stim
+            + self.T_delay
+            - np.random.randint(-self.T_randomize, self.T_randomize)
+        )
+        inp[T_second_stim : T_second_stim + self.T_stim] = self.key_stim_map[key][1]
 
         # supervision signal
         tgt = torch.Tensor([self.key_target_map[key]]).long()
@@ -56,14 +64,17 @@ class TemporalXOR(Dataset):
     def __len__(self):
         return len(self.key_stim_map)
 
+
 from torch.utils.data import DataLoader
 
-data = TemporalXOR(T_total=100,
-                   T_stim=20,
-                   T_delay=30,
-                   T_randomize=20,
-                   max_num_spikes=15,
-                   num_channels=16)
+data = TemporalXOR(
+    T_total=100,
+    T_stim=20,
+    T_delay=30,
+    T_randomize=20,
+    max_num_spikes=15,
+    num_channels=16,
+)
 dataloader = DataLoader(data, batch_size=len(data), shuffle=True)
 
 from rockpool.nn.modules import LIFBitshiftTorch, LIFTorch
@@ -79,24 +90,26 @@ base_tau_syn = 0.002
 tau_lp = 0.01
 threshold = 1.0
 dt = 0.001
-device = "cpu" # feel free to use cuda if you have a GPU
+device = "cpu"  # feel free to use cuda if you have a GPU
 
-model = WaveSenseNet(dilations=dilations,
-                     n_classes=n_out_neurons,
-                     n_channels_in=n_inp_neurons,
-                     n_channels_res=n_neurons,
-                     n_channels_skip=n_neurons,
-                     n_hidden=n_neurons,
-                     kernel_size=kernel_size,
-                     has_bias=True,
-                     smooth_output=True,
-                     tau_mem=tau_mem,
-                     base_tau_syn=base_tau_syn,
-                     tau_lp=tau_lp,
-                     threshold=threshold,
-                     neuron_model=LIFTorch,
-                     dt=dt,
-                     device=device)
+model = WaveSenseNet(
+    dilations=dilations,
+    n_classes=n_out_neurons,
+    n_channels_in=n_inp_neurons,
+    n_channels_res=n_neurons,
+    n_channels_skip=n_neurons,
+    n_hidden=n_neurons,
+    kernel_size=kernel_size,
+    has_bias=True,
+    smooth_output=True,
+    tau_mem=tau_mem,
+    base_tau_syn=base_tau_syn,
+    tau_lp=tau_lp,
+    threshold=threshold,
+    neuron_model=LIFTorch,
+    dt=dt,
+    device=device,
+)
 
 from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
