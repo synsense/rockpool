@@ -3,6 +3,7 @@ import copy
 
 __all__ = ["global_quantize", "channel_quantize"]
 
+
 def global_quantize(
     weights_in: np.ndarray,
     weights_rec: np.ndarray,
@@ -75,12 +76,12 @@ def global_quantize(
     if max_w != 0:
         scaling = max_w_quan / max_w
     else:
-        scaling = 0
+        scaling = 1
 
     if max_w_out != 0:
         scaling_out = max_w_quan / max_w_out
     else:
-        scaling_out = 0
+        scaling_out = 1
 
     # scale weights
     weights_in = np.round(w_in * scaling).astype(int)
