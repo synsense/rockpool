@@ -1,4 +1,4 @@
-def test_quantize_simple_network():
+def test_simple_network():
     import numpy as np
     import torch
     import copy
@@ -164,118 +164,7 @@ def test_quantize_simple_network():
     print(f'Out LIF spike global match channel: {np.sum(spk_out_g == spk_out_c) / out_point * 100}')
 
 
-def test_quantize_sequential_function():
-    import numpy as np
-    import torch
-    import copy
-    from rockpool.transform.quantize_methods import global_quantize, channel_quantize
-    # from rockpool.nn.modules import LIFJax, LinearJax, JaxModule
-    from rockpool.nn.combinators import Sequential, Residual
-    from rockpool.nn.modules.torch import TorchModule, LinearTorch, LIFTorch, LIFBitshiftTorch
-    from rockpool.devices.xylo import mapper
-    from rockpool.devices.xylo import config_from_specification
-    from rockpool.devices.xylo import XyloCim
-    from rockpool.graph import AliasConnection, GraphHolder, as_GraphHolder, connect_modules, find_modules_of_subclass
-    import warnings
-    warnings.filterwarnings('ignore')
-
-    Nin = 2  # TODO: if it is 1, error?
-    Nres = 3  # TODO: if it is 1, error?
-    Nout = 2  # TODO: if it is 1, error?
-
-    mod = Sequential(
-        LinearTorch((Nin, Nres)),
-        LIFBitshiftTorch(
-            shape=(Nres, Nres),
-            tau_mem=0.02,
-            tau_syn=0.02,
-            has_bias=False,
-            threshold=10.0,
-            learning_window=0.5,
-            dt=0.001,
-            device='cpu'),
-        LinearTorch((Nres, Nout)),
-        LIFBitshiftTorch(
-            shape=(Nout, Nout),
-            tau_mem=0.02,
-            tau_syn=0.02,
-            has_bias=False,
-            threshold=10.0,
-            learning_window=0.5,
-            dt=0.001,
-            device='cpu'),
-    )
-
-    submods = mod._submodule_names
-    mod0 = mod.get_submodule(submods[0])
-    mod2 = mod.get_submodule(submods[2])
-
-    w_in = np.random.exponential(2, [Nin, Nres])
-    w_in_torch = torch.tensor(w_in).float()
-    mod0.weight.data = w_in_torch
-
-    w_out = np.random.exponential(0.1, [Nres, Nout])
-    w_out_torch = torch.tensor(w_out).float()
-    mod2.weight.data = w_out_torch
-
-    float_graph = mod.as_graph()
-    float_specs = mapper(float_graph, weight_dtype="float", threshold_dtype="float", dash_dtype="float")
-    dt = float_specs["dt"]
-
-    global_specs = copy.copy(float_specs)
-    channel_specs = copy.copy(float_specs)
-
-    del float_specs["mapped_graph"]
-    del float_specs["dt"]
-    xylo_conf_float, is_valid, message = config_from_specification(**float_specs)
-    print("Float valid config: ", is_valid, message)
-
-    global_specs.update(global_quantize(**global_specs, fuzzy_scaling=False))
-    del global_specs["mapped_graph"]
-    del global_specs["dt"]
-    xylo_conf_global, is_valid, message = config_from_specification(**global_specs)
-    print('Global valid config: ', is_valid, message)
-
-    channel_specs.update(channel_quantize(**channel_specs))
-    del channel_specs["mapped_graph"]
-    del channel_specs["dt"]
-    xylo_conf_channel, is_valid, message = config_from_specification(**channel_specs)
-    print('Channel valid config: ', is_valid, message)
-
-    T = 100
-    batch = 1
-    inp = torch.Tensor(np.random.randint(low=0, high=3, size=(batch, T, Nin)))
-
-    _, _, recordings_f = mod(inp, record=True)
-
-    cim_g = XyloCim.from_config(xylo_conf_global, dt=dt)
-    cim_g.reset_state()
-    spk_out_g, _, rec_cim_g = cim_g(inp[0].cpu().numpy(), record=True)
-
-    cim_c = XyloCim.from_config(xylo_conf_channel, dt=dt)
-    cim_c.reset_state()
-    spk_out_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
-
-    spk_in_f = recordings_f['1_LIFBitshiftTorch']['spikes'].squeeze(0).detach().numpy().astype(int)
-    spk_out_f = recordings_f['3_LIFBitshiftTorch']['spikes'].squeeze(0).detach().numpy().astype(int)
-
-    spk_in_g = rec_cim_g['Spikes']
-    spk_in_c = rec_cim_c['Spikes']
-
-    in_point = spk_in_f.shape[0] * spk_in_f.shape[1]
-    out_point = spk_out_f.shape[0] * spk_out_f.shape[1]
-
-    print(f'\nIn LIF spike global match float percent: {np.sum(spk_in_f == spk_in_g) / in_point * 100}')
-    print(f'Out LIF spike global match float percent: {np.sum(spk_out_f == spk_out_g) / out_point * 100}')
-
-    print(f'\nIn LIF spike channel match float percent: {np.sum(spk_in_f == spk_in_c) / in_point * 100}')
-    print(f'Out LIF spike channel match float percent: {np.sum(spk_out_f == spk_out_c) / out_point * 100}')
-
-    print(f'\nIn LIF spike global match channel: {np.sum(spk_in_g == spk_in_c) / in_point * 100}')
-    print(f'Out LIF spike global match channel: {np.sum(spk_out_g == spk_out_c) / out_point * 100}')
-
-
-def test_quantize_complex_network():
+def test_complex_network():
     import numpy as np
     import torch
     import copy
@@ -486,4 +375,240 @@ def test_quantize_complex_network():
     print(f'Out LIF spike channel match float percent: {np.sum(spk_out_f == spk_out_c) / out_point * 100}')
 
     print(f'\nIn LIF spike global match channel: {np.sum(spk_res_f == spk_res_c) / in_point * 100}')
+    print(f'Out LIF spike global match channel: {np.sum(spk_out_g == spk_out_c) / out_point * 100}')
+
+
+def test_sequential_combinator():
+    import numpy as np
+    import torch
+    import copy
+    from rockpool.transform.quantize_methods import global_quantize, channel_quantize
+    # from rockpool.nn.modules import LIFJax, LinearJax, JaxModule
+    from rockpool.nn.combinators import Sequential, Residual
+    from rockpool.nn.modules.torch import TorchModule, LinearTorch, LIFTorch, LIFBitshiftTorch
+    from rockpool.devices.xylo import mapper
+    from rockpool.devices.xylo import config_from_specification
+    from rockpool.devices.xylo import XyloCim
+    from rockpool.graph import AliasConnection, GraphHolder, as_GraphHolder, connect_modules, find_modules_of_subclass
+    import warnings
+    warnings.filterwarnings('ignore')
+
+    Nin = 2  # TODO: if it is 1, error?
+    Nres = 100  # TODO: if it is 1, error?
+    Nout = 2  # TODO: if it is 1, error?
+
+    mod = Sequential(
+        LinearTorch((Nin, Nres), has_bias=False),
+        LIFBitshiftTorch(
+            shape=(Nres, Nres),
+            tau_mem=0.002,
+            tau_syn=0.002,
+            has_bias=False,
+            threshold=1.0,
+            learning_window=0.5,
+            dt=0.001,
+            device='cpu'),
+        LinearTorch((Nres, Nout), has_bias=False),
+        LIFBitshiftTorch(
+            shape=(Nout, Nout),
+            tau_mem=0.02,
+            tau_syn=0.02,
+            has_bias=False,
+            threshold=1.0,
+            learning_window=0.5,
+            dt=0.001,
+            device='cpu'),
+    )
+
+    w_in = np.random.exponential(2, [Nin, Nres])
+    w_in_torch = torch.tensor(w_in).float()
+    mod[0].weight.data = w_in_torch
+
+    w_out = np.random.exponential(0.1, [Nres, Nout])
+    w_out_torch = torch.tensor(w_out).float()
+    mod[2].weight.data = w_out_torch
+
+    float_graph = mod.as_graph()
+    float_specs = mapper(float_graph, weight_dtype="float", threshold_dtype="float", dash_dtype="float")
+    dt = float_specs["dt"]
+
+    global_specs = copy.copy(float_specs)
+    channel_specs = copy.copy(float_specs)
+
+    del float_specs["mapped_graph"]
+    del float_specs["dt"]
+    xylo_conf_float, is_valid, message = config_from_specification(**float_specs)
+    print("Float valid config: ", is_valid, "message")
+
+    global_specs.update(global_quantize(**global_specs, fuzzy_scaling=False))
+    del global_specs["mapped_graph"]
+    del global_specs["dt"]
+    xylo_conf_global, is_valid, message = config_from_specification(**global_specs)
+    print('Global valid config: ', is_valid, message)
+
+    channel_specs.update(channel_quantize(**channel_specs))
+    del channel_specs["mapped_graph"]
+    del channel_specs["dt"]
+    xylo_conf_channel, is_valid, message = config_from_specification(**channel_specs)
+    print('Channel valid config: ', is_valid, message)
+
+    T = 1000
+    batch = 1
+    inp = torch.Tensor(np.random.randint(low=0, high=3, size=(batch, T, Nin)))
+
+    mod.reset_state()
+    _, _, recordings_f = mod(inp, record=True)
+
+    cim_g = XyloCim.from_config(xylo_conf_global, dt=dt)
+    cim_g.reset_state()
+    spk_out_g, _, rec_cim_g = cim_g(inp[0].cpu().numpy(), record=True)
+
+    cim_c = XyloCim.from_config(xylo_conf_channel, dt=dt)
+    cim_c.reset_state()
+    spk_out_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
+
+    spk_in_f = recordings_f['1_LIFBitshiftTorch']['spikes'].squeeze(0).detach().numpy().astype(int)
+    spk_out_f = recordings_f['3_LIFBitshiftTorch']['spikes'].squeeze(0).detach().numpy().astype(int)
+
+    spk_in_g = rec_cim_g['Spikes']
+    spk_in_c = rec_cim_c['Spikes']
+
+    in_point = spk_in_f.shape[0] * spk_in_f.shape[1]
+    out_point = spk_out_f.shape[0] * spk_out_f.shape[1]
+
+    print(f'\nIn LIF spike global match float percent: {np.sum(spk_in_f == spk_in_g) / in_point * 100}')
+    print(f'Out LIF spike global match float percent: {np.sum(spk_out_f == spk_out_g) / out_point * 100}')
+
+    print(f'\nIn LIF spike channel match float percent: {np.sum(spk_in_f == spk_in_c) / in_point * 100}')
+    print(f'Out LIF spike channel match float percent: {np.sum(spk_out_f == spk_out_c) / out_point * 100}')
+
+    print(f'\nIn LIF spike global match channel: {np.sum(spk_in_g == spk_in_c) / in_point * 100}')
+    print(f'Out LIF spike global match channel: {np.sum(spk_out_g == spk_out_c) / out_point * 100}')
+
+
+def test_residual_combinator():
+    import numpy as np
+    import torch
+    import copy
+    from rockpool.transform.quantize_methods import global_quantize, channel_quantize
+    # from rockpool.nn.modules import LIFJax, LinearJax, JaxModule
+    from rockpool.nn.combinators import Sequential, Residual
+    from rockpool.nn.modules.torch import TorchModule, LinearTorch, LIFTorch, LIFBitshiftTorch
+    from rockpool.devices.xylo import mapper
+    from rockpool.devices.xylo import config_from_specification
+    from rockpool.devices.xylo import XyloCim
+    import warnings
+    warnings.filterwarnings('ignore')
+
+    Nin = 16
+    Nres1 = 63
+    Nres2 = 63
+    Nout = 8
+    threshold = 20
+
+    mod = Sequential(
+        LinearTorch((Nin, Nres1), has_bias=False),
+        LIFBitshiftTorch(
+            shape=(Nres1, Nres1),
+            tau_mem=0.002,
+            tau_syn=0.002,
+            has_bias=False,
+            threshold=threshold,
+            learning_window=0.5,
+            dt=0.001,
+            device='cpu'),
+        Residual(
+            LinearTorch((Nres1, Nres2)),
+            LIFBitshiftTorch(
+                shape=(Nres2, Nres2),
+                tau_mem=0.002,
+                tau_syn=0.002,
+                has_bias=False,
+                threshold=threshold,
+                learning_window=0.5,
+                dt=0.001,
+                device='cpu'),
+        ),
+        LinearTorch((Nres2, Nout), has_bias=False),
+        LIFBitshiftTorch(
+            shape=(Nout, Nout),
+            tau_mem=0.02,
+            tau_syn=0.02,
+            has_bias=False,
+            threshold=threshold,
+            learning_window=0.5,
+            dt=0.001,
+            device='cpu'),
+    )
+
+    w_res1 = np.random.exponential(0.8, [Nin, Nres1])
+    w_res1_torch = torch.tensor(w_res1).float()
+    mod[0].weight.data = w_res1_torch
+
+    w_res2 = np.random.exponential(0.8, [Nres1, Nres2])
+    w_res2_torch = torch.tensor(w_res2).float()
+    mod[2][0].weight.data = w_res2_torch
+
+    w_out = np.random.exponential(0.1, [Nres2, Nout])
+    w_out_torch = torch.tensor(w_out).float()
+    mod[3].weight.data = w_out_torch
+
+    float_graph = mod.as_graph()
+    float_specs = mapper(float_graph, weight_dtype="float", threshold_dtype="float", dash_dtype="float")
+    dt = float_specs["dt"]
+
+    global_specs = copy.copy(float_specs)
+    channel_specs = copy.copy(float_specs)
+
+    del float_specs["mapped_graph"]
+    del float_specs["dt"]
+    xylo_conf_float, is_valid, message = config_from_specification(**float_specs)
+    print("Float valid config: ", is_valid, "message")
+
+    global_specs.update(global_quantize(**global_specs, fuzzy_scaling=False))
+    del global_specs["mapped_graph"]
+    del global_specs["dt"]
+    xylo_conf_global, is_valid, message = config_from_specification(**global_specs)
+    print('Global valid config: ', is_valid, message)
+
+    channel_specs.update(channel_quantize(**channel_specs))
+    del channel_specs["mapped_graph"]
+    del channel_specs["dt"]
+    xylo_conf_channel, is_valid, message = config_from_specification(**channel_specs)
+    print('Channel valid config: ', is_valid, message)
+
+    T = 1000
+    batch = 1
+    inp = torch.Tensor(np.random.randint(low=0, high=3, size=(batch, T, Nin)))
+
+    mod.reset_state()
+    _, _, recordings_f = mod(inp, record=True)
+
+    cim_g = XyloCim.from_config(xylo_conf_global, dt=dt)
+    cim_g.reset_state()
+    spk_out_g, _, rec_cim_g = cim_g(inp[0].cpu().numpy(), record=True)
+
+    cim_c = XyloCim.from_config(xylo_conf_channel, dt=dt)
+    cim_c.reset_state()
+    spk_out_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
+
+    spk_res1_f = recordings_f['1_LIFBitshiftTorch']['spikes'].squeeze(0).detach().numpy().astype(int)
+    spk_res2_f = recordings_f['2_TorchResidual']['1_LIFBitshiftTorch']['spikes'].squeeze(0).detach().numpy().astype(int)
+    spk_in_f = np.concatenate((spk_res1_f, spk_res2_f), axis=1)
+
+    spk_out_f = recordings_f['4_LIFBitshiftTorch']['spikes'].squeeze(0).detach().numpy().astype(int)
+
+    spk_in_g = rec_cim_g['Spikes']
+    spk_in_c = rec_cim_c['Spikes']
+
+    in_point = spk_in_f.shape[0] * spk_in_f.shape[1]
+    out_point = spk_out_f.shape[0] * spk_out_f.shape[1]
+
+    print(f'\nIn LIF spike global match float percent: {np.sum(spk_in_f == spk_in_g) / in_point * 100}')
+    print(f'Out LIF spike global match float percent: {np.sum(spk_out_f == spk_out_g) / out_point * 100}')
+
+    print(f'\nIn LIF spike channel match float percent: {np.sum(spk_in_f == spk_in_c) / in_point * 100}')
+    print(f'Out LIF spike channel match float percent: {np.sum(spk_out_f == spk_out_c) / out_point * 100}')
+
+    print(f'\nIn LIF spike global match channel: {np.sum(spk_in_g == spk_in_c) / in_point * 100}')
     print(f'Out LIF spike global match channel: {np.sum(spk_out_g == spk_out_c) / out_point * 100}')
