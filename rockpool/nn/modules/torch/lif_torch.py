@@ -9,16 +9,15 @@ if util.find_spec("torch") is None:
         "'Torch' backend not found. Modules that rely on Torch will not be available."
     )
 
-from typing import Union, List, Tuple
+from typing import Union, List, Tuple, Callable, Optional, Any
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
 import torch
 import torch.nn.functional as F
 import torch.nn.init as init
 import rockpool.parameters as rp
-from typing import Optional, Tuple, Any, Callable
 
-from rockpool.typehints import FloatVector, P_float, P_tensor, P_bool, P_str, P_int
+from rockpool.typehints import *
 
 from rockpool.graph import (
     GraphModuleBase,
@@ -133,7 +132,7 @@ class LIFTorch(TorchModule):
         has_rec: bool = False,
         w_rec: torch.Tensor = None,
         noise_std: float = 0.0,
-        gradient_fn: Callable[[float], float] = StepPWL,
+        spike_generation_fn: Callable[[float], float] = StepPWL,
         learning_window: float = 0.5,
         weight_init_func: Optional[Callable[[Tuple], torch.tensor]] = None,
         dt: float = 1e-3,
@@ -148,14 +147,16 @@ class LIFTorch(TorchModule):
             shape (tuple): Either a single dimension ``(Nout,)``, which defines a feed-forward layer of LIF modules with equal amounts of synapses and neurons, or two dimensions ``(Nin, Nout)``, which defines a layer of ``Nin`` synapses and ``Nout`` LIF neurons.
             tau_mem (Optional[FloatVector]): An optional array with concrete initialisation data for the membrane time constants. If not provided, 100ms will be used by default.
             tau_syn (Optional[FloatVector]): An optional array with concrete initialisation data for the synaptic time constants. If not provided, 50ms will be used by default.
-            bias (Optional[FloatVector]): An optional array with concrete initialisation data for the neuron bias currents. If not provided, ``0.0`` will be used by default.
             has_bias (bool): When ``True`` the module provides a trainable bias. Default: ``True``
-            w_rec (torch.Tensor): If the module is initialised in recurrent mode, you can provide a concrete initialisation for the recurrent weights, which must be a matrix with shape ``(Nout, Nin)``. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
-            has_rec (bool): When ``True`` the module provides a trainable recurrent weight matrix. Default ``False``, module is feed-forward.
+            bias (Optional[FloatVector]): An optional array with concrete initialisation data for the neuron bias currents. If not provided, ``0.0`` will be used by default.
             threshold (FloatVector): An optional array specifying the firing threshold of each neuron. If not provided, ``0.`` will be used by default.
-            dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
+            has_rec (bool): When ``True`` the module provides a trainable recurrent weight matrix. Default ``False``, module is feed-forward.
+            w_rec (torch.Tensor): If the module is initialised in recurrent mode, you can provide a concrete initialisation for the recurrent weights, which must be a matrix with shape ``(Nout, Nin)``. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
             noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: ``0.0``
+            spike_generation_fn (Callable): Function to call for spike production. Usually simple threshold crossing. Implements the suroogate gradient function in the backward call. (StepPWL or PeriodicExponential).
+            learning_window (float): Cutoff value for the surrogate gradient. 
             weight_init_func (Optional[Callable[[Tuple], torch.tensor]): The initialisation function to use when generating weights. Default: ``None`` (Kaiming initialisation)
+            dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
             device: Defines the device on which the model will be processed.
         """
         # - Check shape argument
@@ -279,7 +280,7 @@ class LIFTorch(TorchModule):
             torch.exp(-self.dt / self.tau_syn).unsqueeze(1).to(device)
         )
 
-        self.gradient_fn = gradient_fn().apply
+        self.spike_generation_fn = spike_generation_fn().apply
 
         # placeholders for recordings
         self._record_Vmem = None
@@ -316,10 +317,10 @@ class LIFTorch(TorchModule):
 
         return output_data, states, record_dict
 
-    def decay_isyn(self, v):
+    def _decay_isyn(self, v):
         return self.beta * v
 
-    def decay_vmem(self, v):
+    def _decay_vmem(self, v):
         return self.alpha * v
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
@@ -378,8 +379,8 @@ class LIFTorch(TorchModule):
         for t in range(time_steps):
 
             # Decay
-            isyn = self.decay_isyn(isyn)
-            vmem = self.decay_vmem(vmem)
+            isyn = self._decay_isyn(isyn)
+            vmem = self._decay_vmem(vmem)
 
             # Integrate input
             # - Apply spikes over the recurrent weights
@@ -403,7 +404,7 @@ class LIFTorch(TorchModule):
             else:
                 vmem = vmem + isyn.sum(1) + bias
 
-            spikes = self.gradient_fn(vmem, self.threshold, self.learning_window)
+            spikes = self.spike_generation_fn(vmem, self.threshold, self.learning_window)
 
             vmem = vmem - spikes * self.threshold
 
@@ -433,7 +434,7 @@ class LIFTorch(TorchModule):
             self.tau_mem,
             self.tau_syn,
             self.bias,
-            0.0,
+            self.threshold,
             self.dt,
         )
 
