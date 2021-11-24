@@ -14,13 +14,13 @@ from typing import List
 __all__ = ["WaveBlock", "WaveSenseNet"]
 
 
-class WaveBlock(TorchModule):
+class WaveSenseBlock(TorchModule):
     """
-    Implements a single WaveBlock
+    Implements a single WaveSenseBlock
                           ▲
-           To next block  │            ┌────────────┐
-       ┌──────────────────┼────────────┤ WaveBlock  ├───┐
-       │                  │            └────────────┘   │
+           To next block  │       ┌─────────────────┐
+       ┌──────────────────┼───────┤ WaveSenseBlock  ├───┐
+       │                  │       └─────────────────┘   │
        │ Residual path   .─.                            │
        │    ─ ─ ─ ─ ─ ─▶( + )                           │
        │    │            `─'                            │
@@ -227,7 +227,7 @@ class WaveSenseNet(TorchModule):
                                                 ( Spike )
     ┌──────────────────────┐         Skip        `─────'
     │                      ├┐      outputs          ▲
-    │   WaveBlock stack    │├┬───┐                  │
+    │ WaveSenseBlock stack │├┬───┐                  │
     │                      ││├┬──┤      .─.   ┌──────────┐
     └┬─────────────────────┘││├──┴┬───▶( + )─▶│  Linear  │
      └┬─────────────────────┘││───┘     `─'   └──────────┘
@@ -323,7 +323,7 @@ class WaveSenseNet(TorchModule):
         # - WaveBlock layers
         self._num_dilations = len(dilations)
         for i, dilation in enumerate(dilations):
-            wave = WaveBlock(
+            wave = WaveSenseBlock(
                 n_channels_res,
                 n_channels_skip,
                 dilation=dilation,
@@ -415,5 +415,144 @@ class WaveSenseNet(TorchModule):
         record_dict = self._record_dict if record else {}
         return output, new_state, record_dict
 
-    def trainable_parameters(self):
-        return [p for p in list(self.parameters().astorch()) if p.requires_grad]
+
+
+import torch.nn as nn
+from torch.nn.functional import pad
+
+# Define model
+class WaveBlock(nn.Module):
+    def __init__(self, 
+                 n_channels_res, 
+                 n_channels_skip, 
+                 kernel_size, 
+                 dilation, 
+                 bias=False):
+        super().__init__()
+
+        self.dilation = dilation
+
+        # Dilation layer
+        self.conv1_tanh = nn.Conv1d(
+            n_channels_res,
+            n_channels_res,
+            kernel_size=kernel_size,
+            stride=1,
+            padding=0,
+            dilation=dilation,
+            bias=bias,
+        )
+        self.tanh1 = nn.Tanh()
+        
+        self.conv1_sig = nn.Conv1d(
+            n_channels_res,
+            n_channels_res,
+            kernel_size=kernel_size,
+            stride=1,
+            padding=0,
+            dilation=dilation,
+            bias=bias,
+        )
+        self.sig1 = nn.Sigmoid()
+
+        # 1x1 projection layer
+        self.conv2 = nn.Conv1d(
+            n_channels_res, 
+            n_channels_res, 
+            kernel_size=1, 
+            stride=1, 
+            padding=0, 
+            dilation=1, 
+            bias=bias,
+        )
+        self.relu2 = nn.ReLU()
+
+        self.conv_skip = nn.Conv1d(
+            n_channels_res, 
+            n_channels_skip, 
+            kernel_size=1, 
+            stride=1, 
+            padding=0, 
+            dilation=1, 
+            bias=bias,
+        )
+
+        self.relu_skip = nn.ReLU()
+
+    def forward(self, data):
+
+        tanh = self.tanh1(self.conv1_tanh(pad(data, [self.dilation, 0])))
+        sig = self.sig1(self.conv1_sig(pad(data, [self.dilation, 0])))
+        out1 = tanh * sig 
+        out2 = self.conv2(out1)
+
+        skip_out = self.conv_skip(out1)
+
+        res_out = data + out2 
+        return res_out, skip_out
+
+
+class WaveNet(nn.Module):
+    def __init__(self, 
+                 n_classes=2,
+                 n_channels_in = 64,
+                 n_channels_res = 16,
+                 n_channels_skip = 32,
+                 n_hidden = 128,
+                 bias=True,
+                 dilations = [1, 2, 4, 8, 16, 1, 2 ,4, 8, 16], 
+                 kernel_size = 2,
+                 ):
+
+        super().__init__()
+
+        self.conv1 = nn.Conv1d(n_channels_in, n_channels_res, kernel_size=1, bias=bias)
+        self.relu1 = nn.ReLU()
+
+        self.wavelayers = []
+        for i, d in enumerate(dilations):
+            self.wavelayers.append(WaveBlock(n_channels_res, 
+                                              n_channels_skip, 
+                                              kernel_size=kernel_size, 
+                                              dilation=d, 
+                                              bias=bias))
+            self.add_module(f"wave{i}", self.wavelayers[-1])
+
+        # DNN
+        self.dense = nn.Conv1d(n_channels_skip, n_hidden, kernel_size=1, bias=bias)
+        self.relu_dense = nn.ReLU()
+
+        self.readout = nn.Conv1d(n_hidden, n_classes, kernel_size=1, bias=bias)
+
+        TorchModule.from_torch(self)
+
+
+    def forward(self, data):
+
+        # move dimensions such that Torch conv layers understand them correctly
+        data = data.movedim(1, 2)
+        #data = data.transpose(1, 2)
+
+
+        out = self.relu1(self.conv1(data))
+
+        skip = None 
+        for i, layer in enumerate(self.wavelayers):
+            if skip is None:
+                out, skip = layer(out)
+            else:
+                out, skip_new = layer(out)
+                skip = skip + skip_new
+
+        # Dense readout
+        out = self.relu_dense(self.dense(skip))
+        out = self.readout(out)
+
+        # revert order of data back to rockpool standard
+        out = out.movedim(2, 1)
+        #out = out.transpose(2, 1)
+
+        return out
+
+
+
