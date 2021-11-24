@@ -226,7 +226,7 @@ class WaveBlock(TorchModule):
         connect_modules(mod_graphs[4], mod_graphs[5])  # skip_add
 
         AliasConnection(
-            mod_graphs[0].input_nodes, mod_graphs[3].output_nodes, name=f"residual_loop"
+            mod_graphs[0].input_nodes, mod_graphs[3].output_nodes, name=f"residual_loop", computational_module=None
         )
 
         multiple_out = mod_graphs[3].output_nodes
@@ -503,9 +503,10 @@ class WaveSenseNet(TorchModule):
                 None,
             )
             AliasConnection(
-                mod_graphs[block_mod_start + i].output_nodes[self.n_channels_res :],
-                mod_graphs[block_mod_start + i + 1].output_nodes[self.n_channels_res :],
+                mod_graphs[block_mod_start + i].output_nodes[self.n_channels_res:],
+                mod_graphs[block_mod_start + i + 1].output_nodes[self.n_channels_res:],
                 name="skip_add",
+                computational_module = None,
             )
 
         connect_modules(
