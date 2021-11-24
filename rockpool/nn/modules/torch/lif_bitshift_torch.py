@@ -30,8 +30,8 @@ class LIFBitshiftTorch(LIFTorch):
     def __init__(
         self,
         shape: tuple,
-        tau_mem: FloatVector,
-        tau_syn: FloatVector,
+        tau_mem: [FloatVector, P_float] = 0.02,
+        tau_syn: [FloatVector, P_float] = 0.01,
         has_bias: P_bool = True,
         bias: FloatVector = 0.0,
         threshold: FloatVector = 1.0,

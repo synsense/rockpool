@@ -124,19 +124,19 @@ class LIFTorch(TorchModule):
     def __init__(
         self,
         shape: tuple,
-        tau_mem: FloatVector = 0.02,
-        tau_syn: FloatVector = 0.01,
-        has_bias: bool = True,
+        tau_mem: [FloatVector, P_float] = 0.02,
+        tau_syn: [FloatVector, P_float] = 0.01,
+        has_bias: P_bool = True,
         bias: FloatVector = 0.0,
         threshold: FloatVector = 1.0,
-        has_rec: bool = False,
+        has_rec: P_bool = False,
         w_rec: torch.Tensor = None,
-        noise_std: float = 0.0,
-        spike_generation_fn: Callable[[float], float] = StepPWL,
-        learning_window: float = 0.5,
+        noise_std: P_float = 0.0,
+        spike_generation_fn: Callable = StepPWL, 
+        learning_window: P_float = 0.5,
         weight_init_func: Optional[Callable[[Tuple], torch.tensor]] = None,
-        dt: float = 1e-3,
-        device: str = None,
+        dt: P_float = 1e-3,
+        device: P_str = None,
         *args,
         **kwargs,
     ):
@@ -450,3 +450,6 @@ class LIFTorch(TorchModule):
 
         # - Return a graph containing neurons and optional weights
         return as_GraphHolder(neurons)
+
+
+
