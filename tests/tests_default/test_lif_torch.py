@@ -209,8 +209,8 @@ def test_LIFTorch_tau_syn_shape_1():
     
     out.sum().backward()
     
-    # no input but vmem not zero due to noise
-    assert not torch.all(rd["Vmem"] == 0)
+    # assert correct shape 
+    assert mod.tau_syn.shape == (n_synapses, n_neurons) 
     
 
 def test_LIFTorch_tau_syn_shape_2():
@@ -237,6 +237,42 @@ def test_LIFTorch_tau_syn_shape_2():
     )
     
     # - Generate some data
+    input_data = torch.ones(n_batches, T, n_synapses * n_neurons, requires_grad=True)
+    
+    # - Test Rockpool interface
+    out, ns, rd = mod(input_data, record=True)
+    
+    out.sum().backward()
+    
+    # assert correct shape 
+    assert mod.tau_syn.shape == (n_synapses, n_neurons) 
+
+def test_LIFTorch_threshold_shape_1():
+    from rockpool.nn.modules.torch.lif_torch import LIFTorch
+    import torch
+    
+    n_synapses = 5
+    n_neurons = 10
+    n_batches = 3
+    T = 20
+    tau_mem = torch.rand(n_neurons)
+    tau_syn = 0.03 
+    threshold = 0.5
+    dt = 1e-3
+    
+    # - Test maximal initialisation
+    mod = LIFTorch(
+        shape=(n_synapses * n_neurons, n_neurons),
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        has_bias=False,
+        dt=dt,
+        threshold=threshold,
+        noise_std=0.1,
+        device="cpu",
+    )
+    
+    # - Generate some data
     input_data = torch.zeros(n_batches, T, n_synapses * n_neurons, requires_grad=True)
     
     # - Test Rockpool interface
@@ -244,5 +280,49 @@ def test_LIFTorch_tau_syn_shape_2():
     
     out.sum().backward()
     
-    # no input but vmem not zero due to noise
-    assert not torch.all(rd["Vmem"] == 0)
+    # assert correct shape 
+    assert mod.threshold.shape == (n_neurons, ) 
+
+
+def test_LIFTorch_threshold_shape_2():
+    from rockpool.nn.modules.torch.lif_torch import LIFTorch
+    import torch
+    
+    n_synapses = 5
+    n_neurons = 2
+    n_batches = 3
+    T = 20
+    tau_mem = torch.ones(n_neurons) * 0.05
+    tau_syn = 0.03 
+    threshold = torch.Tensor([0.5, 1.0])
+    dt = 1e-3
+    
+    # - Test maximal initialisation
+    mod = LIFTorch(
+        shape=(n_synapses * n_neurons, n_neurons),
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        has_bias=False,
+        dt=dt,
+        threshold=threshold,
+        noise_std=0.1,
+        device="cpu",
+    )
+    
+    # - Generate some data
+    input_data = torch.ones(n_batches, T, n_synapses * n_neurons, requires_grad=True)
+    
+    # - Test Rockpool interface
+    out, ns, rd = mod(input_data, record=True)
+    
+    out.sum().backward()
+    
+    # assert correct shape 
+    assert mod.threshold.shape == (n_neurons, ) 
+    
+    # assert output makes sense (low threshold produces higher activity)
+    assert torch.all(out[:, :, 0] >= out[:, :, 1])
+    assert not torch.any(out[:, :, 0] < out[:, :, 1])
+
+
+

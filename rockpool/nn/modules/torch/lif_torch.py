@@ -358,22 +358,23 @@ class LIFTorch(TorchModule):
         spikes = torch.zeros(n_batches, self.n_neurons).to(data.device) * self.spikes
 
         # - Set up state record and output
-        self._record_Vmem = torch.zeros(n_batches, time_steps, self.n_neurons)
-        self._record_Isyn = torch.zeros(
-            n_batches, time_steps, self.n_synapses, self.n_neurons
-        )
+        if self._record:
+            self._record_Vmem = torch.zeros(n_batches, time_steps, self.n_neurons)
+            self._record_Isyn = torch.zeros(
+                n_batches, time_steps, self.n_synapses, self.n_neurons
+            )
+
         self._record_spikes = torch.zeros(
             n_batches, time_steps, self.n_neurons, device=data.device
         )
 
-        if self._record:
-            self._record_Vmem = torch.zeros(
-                (n_batches, time_steps, self.n_neurons), device=data.device
-            )
-            self._record_Isyn = torch.zeros(
-                (n_batches, time_steps, self.n_synapses, self.n_neurons),
-                device=data.device,
-            )
+        # normalize input by time constant
+        data = data * self.dt / self.tau_syn
+
+        # normalize recurrent weight by time constant
+        if hasattr(self, "w_rec"):
+            w_rec_normalized = self.w_rec.reshape(self.n_neurons, self.n_synapses, self.n_neurons) * self.dt / self.tau_syn 
+            w_rec_normalized = w_rec_normalized.reshape(self.n_neurons, self.n_synapses * self.n_neurons)
 
         # - Loop over time
         for t in range(time_steps):
@@ -383,14 +384,14 @@ class LIFTorch(TorchModule):
             vmem = self._decay_vmem(vmem)
 
             # Integrate input
+            isyn = isyn + data[:, t]
+
             # - Apply spikes over the recurrent weights
             if hasattr(self, "w_rec"):
-                rec_inp = F.linear(spikes, self.w_rec.T).reshape(
+                rec_inp = F.linear(spikes, w_rec_normalized.T).reshape(
                     n_batches, self.n_synapses, self.n_neurons
                 )
-                isyn = isyn + (data[:, t] + rec_inp) * self.dt / self.tau_syn
-            else:
-                isyn = isyn + data[:, t] * self.dt / self.tau_syn
+                isyn = isyn + rec_inp
 
             if self.noise_std > 0:
                 vmem = (
@@ -417,8 +418,6 @@ class LIFTorch(TorchModule):
         self.isyn = isyn[0].detach()
         self.spikes = spikes[0].detach()
 
-        self._record_Vmem.detach()
-        self._record_Isyn.detach()
         self._record_spikes
 
         return self._record_spikes
@@ -448,6 +447,4 @@ class LIFTorch(TorchModule):
 
         # - Return a graph containing neurons and optional weights
         return as_GraphHolder(neurons)
-
-
 
