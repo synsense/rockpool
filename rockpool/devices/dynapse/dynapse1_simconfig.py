@@ -67,8 +67,8 @@ class DynapSE1Capacitance:
     """
 
     Co: float = 5e-13
-    mem: float = 10.0
-    ref: float = 1.0
+    mem: float = 5.0
+    ref: float = 2.0
     pulse: float = 1.0
     gaba_b: float = 50.0
     gaba_a: float = 49.0  # shunt
@@ -109,6 +109,7 @@ class DynapSE1Layout:
     kappa_p: float = 0.66
     Ut: float = 25e-3
     Io: float = 5e-13
+    Von: float = 5e-1
 
     def __post_init__(self) -> None:
         """
@@ -411,7 +412,7 @@ class MembraneParameters(DPIParameters):
     Itau2: Optional[float] = 2.4e-5  # Max bias current possible
     Imem: Optional[float] = None
     Iref: Optional[float] = None
-    t_ref: Optional[float] = 10e-3
+    t_ref: Optional[float] = 2e-3
     Ipulse: Optional[float] = None
     t_pulse: Optional[float] = 10e-6
     feedback: Optional[FeedbackParameters] = None
@@ -501,16 +502,16 @@ class MembraneParameters(DPIParameters):
     @property
     def f_ref(self) -> float:
         """
-        f_ref is a the recractory period factor for DPI circuit. :math:`f_{ref} = \\dfrac{U_T}{\\kappa \\cdot C_{ref}}`, :math:`f_{ref} = I_{ref} \\cdot \\t_{ref}`
+        f_ref is a the recractory period factor for DPI circuit. :math:`f_{ref} = V_{on} \\cdot C_{ref}`, :math:`f_{ref} = I_{ref} \\cdot \\t_{ref}`
         """
-        return (self.layout.Ut / self.layout.kappa) * self.Cref
+        return self.layout.Von * self.Cref
 
     @property
     def f_pulse(self) -> float:
         """
-        f_pulse is a the pulse width factor for DPI circuit. :math:`f_{pulse} = \\dfrac{U_T}{\\kappa \\cdot C_{pulse}}`, :math:`f_{pulse} = I_{pulse} \\cdot \\t_{pulse}`
+        f_pulse is a the pulse width factor for DPI circuit. :math:`f_{pulse} = V_{on} \\cdot C_{pulse}`, :math:`f_{pulse} = I_{pulse} \\cdot \\t_{pulse}`
         """
-        return (self.layout.Ut / self.layout.kappa) * self.Cpulse
+        return self.layout.Von * self.Cpulse
 
 
 @dataclass
