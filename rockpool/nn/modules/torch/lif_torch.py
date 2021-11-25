@@ -179,6 +179,9 @@ class LIFTorch(TorchModule):
         # - Default tensor construction parameters
         factory_kwargs = {"device": device}
 
+        self.dt: P_float = rp.SimulationParameter(dt)
+        """ (float) Euler simulator time-step in seconds"""
+
         # - Initialise recurrent weights
         if weight_init_func is None:
             weight_init_func = lambda s: init.kaiming_uniform_(
@@ -258,9 +261,6 @@ class LIFTorch(TorchModule):
         self.learning_window: P_tensor = rp.SimulationParameter(
             torch.Tensor([learning_window]).to(device)
         )
-
-        self.dt: P_float = rp.SimulationParameter(dt)
-        """ (float) Euler simulator time-step in seconds"""
 
         self.vmem: P_tensor = rp.State(torch.zeros(self.n_neurons).to(device))
         """ (Tensor) Membrane potentials `(Nout,)` """
@@ -447,4 +447,26 @@ class LIFTorch(TorchModule):
 
         # - Return a graph containing neurons and optional weights
         return as_GraphHolder(neurons)
+
+    @property
+    def tau_mem(self):
+        return self._tau_mem
+
+    @tau_mem.setter
+    def tau_mem(self, val):
+        self._tau_mem = val
+        if hasattr(self, "alpha"):
+            self.alpha.data = torch.exp(-self.dt / self._tau_mem).unsqueeze(1).T.to(self._tau_mem.device)
+
+    @property
+    def tau_syn(self):
+        return self._tau_syn
+
+    @tau_syn.setter
+    def tau_syn(self, val):
+        self._tau_syn = val
+        if hasattr(self, "beta"):
+            self.beta.data = torch.exp(-self.dt / self._tau_syn).to(self._tau_syn.device)
+
+
 

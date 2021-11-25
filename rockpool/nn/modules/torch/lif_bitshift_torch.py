@@ -98,4 +98,26 @@ class LIFBitshiftTorch(LIFTorch):
 
     def _decay_vmem(self, v):
         return v - (v / (2 ** self.dash_mem))
+    
+    @property
+    def tau_mem(self):
+        return self._tau_mem
+
+    @tau_mem.setter
+    def tau_mem(self, val):
+        self._tau_mem = val
+        if hasattr(self, "dash_mem"):
+            self.dash_mem.data = calc_bitshift_decay(self.tau_mem, self.dt).to(self._tau_mem.device)
+
+    @property
+    def tau_syn(self):
+        return self._tau_syn
+
+    @tau_syn.setter
+    def tau_syn(self, val):
+        self._tau_syn = val
+        if hasattr(self, "dash_syn"):
+            self.dash_syn.data = calc_bitshift_decay(self.tau_syn, self.dt).to(self._tau_syn.device)
+
+
 
