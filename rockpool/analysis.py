@@ -1,6 +1,8 @@
-##########
-# analysis.py - Helpful functions for performing analysis on layer outputs
-##########
+"""
+Helpful functions for performing analysis on spiking outputs
+"""
+
+
 import numpy as np
 from typing import List
 

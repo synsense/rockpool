@@ -1,3 +1,7 @@
+"""
+Modules using Torch as a backend
+"""
+
 from .torch_module import *
 from .lowpass import *
 from .lif_torch import *

@@ -16,9 +16,16 @@ import torch
 import torch.nn.functional as F
 import torch.nn.init as init
 import rockpool.parameters as rp
-from typing import Optional, Tuple, Any
+from typing import Optional, Tuple, Any, Callable
 
 from rockpool.typehints import FloatVector, P_float, P_tensor
+
+from rockpool.graph import (
+    GraphModuleBase,
+    as_GraphHolder,
+    LIFNeuronWithSynsRealValue,
+    LinearWeights,
+)
 
 __all__ = ["LIFTorch"]
 
@@ -96,6 +103,7 @@ class LIFTorch(TorchModule):
         has_rec: bool = False,
         dt: float = 1e-3,
         noise_std: float = 0.0,
+        weight_init_func: Optional[Callable[[Tuple], torch.tensor]] = None,
         device=None,
         dtype=None,
         *args,
@@ -115,6 +123,7 @@ class LIFTorch(TorchModule):
             has_rec (bool): When ``True`` the module provides a trainable recurrent weight matrix. Default ``False``, module is feed-forward.
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
             noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: ``0.0``
+            weight_init_func (Optional[Callable[[Tuple], torch.tensor]): The initialisation function to use when generating weights. Default: ``None`` (Kaiming initialisation)
             device: Defines the device on which the model will be processed.
             dtype: Defines the data type of the tensors saved as attributes.
         """
@@ -140,14 +149,17 @@ class LIFTorch(TorchModule):
         factory_kwargs = {"device": device, "dtype": dtype}
 
         # - Initialise recurrent weights
-        w_rec_shape = tuple(reversed(shape))
+        if weight_init_func is None:
+            weight_init_func = lambda s: init.kaiming_uniform_(
+                torch.empty(s, **factory_kwargs)
+            )
+
+        w_rec_shape = (self.size_out, self.size_in)
         if has_rec:
             self.w_rec: P_tensor = rp.Parameter(
                 w_rec,
                 shape=w_rec_shape,
-                init_func=lambda s: init.kaiming_uniform_(
-                    torch.empty(s, **factory_kwargs)
-                ),
+                init_func=weight_init_func,
                 family="weights",
             )
             """ (Tensor) Recurrent weights `(Nout, Nin)` """
@@ -194,9 +206,7 @@ class LIFTorch(TorchModule):
             self.w_syn = rp.Parameter(
                 w_syn,
                 shape=shape,
-                init_func=lambda s: init.kaiming_uniform_(
-                    torch.empty(s, **factory_kwargs)
-                ),
+                init_func=weight_init_func,
                 family="weights",
             )
             """ (Tensor) Input weights `(Nin, Nout)` """
@@ -303,3 +313,29 @@ class LIFTorch(TorchModule):
         self._isyn_rec.detach_()
 
         return out_spikes
+
+    def as_graph(self) -> GraphModuleBase:
+        # - Generate a GraphModule for the neurons
+        neurons = LIFNeuronWithSynsRealValue._factory(
+            self.size_in,
+            self.size_out,
+            f"{type(self).__name__}_{self.name}_{id(self)}",
+            self.tau_mem,
+            self.tau_syn,
+            self.bias,
+            0.0,
+            self.dt,
+        )
+
+        # - Include recurrent weights if present
+        if len(self.attributes_named("w_rec")) > 0:
+            # - Weights are connected over the existing input and output nodes
+            w_rec_graph = LinearWeights(
+                neurons.output_nodes,
+                neurons.input_nodes,
+                f"{type(self).__name__}_recurrent_{self.name}_{id(self)}",
+                self.w_rec.detach().numpy(),
+            )
+
+        # - Return a graph containing neurons and optional weights
+        return as_GraphHolder(neurons)

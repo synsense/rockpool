@@ -6,7 +6,7 @@
 .. autoclass:: {{ objname }}
    :members:
    :private-members:
-   :no-undoc-members:
+   :undoc-members:
    :inherited-members:
    :show-inheritance:
 

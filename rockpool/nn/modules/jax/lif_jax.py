@@ -4,6 +4,13 @@ Implements a leaky integrate-and-fire neuron module with a Jax backend
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
+from rockpool.graph import (
+    GraphModuleBase,
+    as_GraphHolder,
+    LIFNeuronWithSynsRealValue,
+    LinearWeights,
+)
+
 
 import numpy as onp
 
@@ -345,3 +352,29 @@ class LIFJax(JaxModule):
 
         # - Return outputs
         return outputs, states, record_dict
+
+    def as_graph(self) -> GraphModuleBase:
+        # - Generate a GraphModule for the neurons
+        neurons = LIFNeuronWithSynsRealValue._factory(
+            self.size_in,
+            self.size_out,
+            f"{type(self).__name__}_{self.name}_{id(self)}",
+            self.tau_mem,
+            self.tau_syn,
+            self.bias,
+            0.0,
+            self.dt,
+        )
+
+        # - Include recurrent weights if present
+        if len(self.attributes_named("w_rec")) > 0:
+            # - Weights are connected over the existing input and output nodes
+            w_rec_graph = LinearWeights(
+                neurons.output_nodes,
+                neurons.input_nodes,
+                f"{type(self).__name__}_recurrent_{self.name}_{id(self)}",
+                self.w_rec,
+            )
+
+        # - Return a graph containing neurons and optional weights
+        return as_GraphHolder(neurons)

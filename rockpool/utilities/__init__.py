@@ -1,3 +1,7 @@
+"""
+General utilities
+"""
+
 import warnings
 
 try:

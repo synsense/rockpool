@@ -2,8 +2,11 @@
 Contains the module base classes for Rockpool
 """
 # - Rockpool imports
+import collections
+
 from rockpool.parameters import ParameterBase
 from rockpool.timeseries import TimeSeries
+from rockpool.graph import GraphModuleBase
 
 # - Other imports
 from abc import ABC, abstractmethod
@@ -430,7 +433,7 @@ class ModuleBase(ABC):
         # - Get attribute registry
         __registered_attributes, __modules = self._get_attribute_registry()
 
-        return {k: m[0] for (k, m) in __modules.items()}
+        return collections.OrderedDict([(k, m[0]) for (k, m) in __modules.items()])
 
     def _reset_attribute(self, name: str) -> "ModuleBase":
         """
@@ -501,7 +504,7 @@ class ModuleBase(ABC):
         Reset all parameters in this module
 
         Returns:
-            Module: The updated module is returned for compatibility with the funcitonal API
+            Module: The updated module is returned for compatibility with the functional API
         """
         # - Get attribute registry
         __registered_attributes, __modules = self._get_attribute_registry()
@@ -632,6 +635,20 @@ class ModuleBase(ABC):
             Dict[str, TimeSeries]: The mapped recorded state dictionary, wrapped as :py:class:`TimeSeries` objects
         """
         return recorded_dict
+
+    def as_graph(self) -> GraphModuleBase:
+        """
+        Convert this module to a computational graph
+
+        Returns:
+            GraphModuleBase: The computational graph corresponding to this module
+
+        Raises:
+            NotImplementedError: If :py:meth:`.as_graph` is not implemented for this subclass
+        """
+        raise NotImplementedError(
+            f"The Module class '{type(self).__name__}' used by module [{self}] does not implement the graph serialisation API"
+        )
 
 
 class PostInitMetaMixin(type(ModuleBase)):

@@ -1,5 +1,5 @@
 """
-timeseries.py - Classes to manage time series
+Classes to manage time series data
 """
 
 ## -- Import statements

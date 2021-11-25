@@ -3,6 +3,13 @@ Full API summary for |project|
 
 .. py:currentmodule::rockpool
 
+.. autosummary::
+    :toctree: _autosummary
+    :recursive:
+
+    rockpool
+
+
 Base classes
 ------------
 
@@ -46,6 +53,7 @@ Combinator modules
 
     nn.combinators.FFwdStack
     nn.combinators.Sequential
+    nn.combinators.Residual
 
 
 Time series classes
@@ -192,8 +200,8 @@ Conversion utilities
 
     training.torch_loss
 
-Hardware support and simulation
--------------------------------
+Xylo hardware support and simulation
+------------------------------------
 
 .. autosummary::
     :toctree: _autosummary
@@ -215,15 +223,54 @@ Hardware support and simulation
     :toctree: _autosummary
     :template: module.rst
 
-    .. autosummary::
-    :toctree: _autosummary
-    :template: module.rst
-
     devices.xylo
     devices.xylo.xylo_devkit_utils
 
 .. autosummary::
     :toctree: _autosummary
-    :templte: module.rst
 
-    devices.dynapse.DynapSE1NeuronSynapseJax
+    devices.xylo.mapper
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    devices.xylo.XyloHiddenNeurons
+    devices.xylo.XyloOutputNeurons
+
+Graph tracing and mapping
+-------------------------
+
+Base modules
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    graph.GraphModuleBase
+    graph.GraphModule
+    graph.GraphNode
+    graph.GraphHolder
+
+.. autosummary::
+    :toctree: _autosummary
+
+    graph.graph_base.as_GraphHolder
+
+Computational graph modules
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    graph.LinearWeights
+    graph.GenericNeurons
+    graph.AliasConnection
+    graph.LIFNeuronWithSynsRealValue
+    graph.RateNeuronWithSynsRealValue
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: module.rst
+
+    graph.utils

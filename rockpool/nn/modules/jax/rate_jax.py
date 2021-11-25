@@ -5,6 +5,12 @@ Contains an implementation of a non-spiking rate module, with a Jax backend
 # - Rockpool imports
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
+from rockpool.graph import (
+    RateNeuronWithSynsRealValue,
+    LinearWeights,
+    GraphModuleBase,
+    as_GraphHolder,
+)
 
 # -- Imports
 from importlib import util
@@ -270,3 +276,27 @@ class RateEulerJax(JaxModule):
         }
 
         return outputs, new_state, record_dict
+
+    def as_graph(self) -> GraphModuleBase:
+        # - Generate a GraphModule for the neurons
+        neurons = RateNeuronWithSynsRealValue._factory(
+            self.size_in,
+            self.size_out,
+            f"{type(self).__name__}_{self.name}_{id(self)}",
+            self.tau,
+            self.bias,
+            self.dt,
+        )
+
+        # - Include recurrent weights if present
+        if len(self.attributes_named("w_rec")) > 0:
+            # - Weights are connected over the existing input and output nodes
+            w_rec_graph = LinearWeights(
+                neurons.output_nodes,
+                neurons.input_nodes,
+                f"{type(self).__name__}_recurrent_{self.name}_{id(self)}",
+                self.w_rec,
+            )
+
+        # - Return a graph containing neurons and optional weights
+        return as_GraphHolder(neurons)
