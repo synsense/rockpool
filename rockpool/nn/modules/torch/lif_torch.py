@@ -161,7 +161,7 @@ class LIFTorch(TorchModule):
         """
         # - Check shape argument
         if np.size(shape) == 1:
-            shape = (np.array(shape).item(),)
+            shape = (shape[0], shape[0])
 
         if np.size(shape) > 2:
             raise ValueError(
@@ -173,14 +173,8 @@ class LIFTorch(TorchModule):
             shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs,
         )
 
-        # Initialize class variables
-        if isinstance(tau_syn, float):
-            n_synapses = 1
-        else:
-            n_synapses = len(tau_syn)
-
-        self.n_synapses: P_int = rp.SimulationParameter(n_synapses)
-        self.n_neurons: P_int = rp.SimulationParameter(shape[0] // n_synapses)
+        self.n_synapses: P_int = rp.SimulationParameter(shape[0] // shape[1])
+        self.n_neurons: P_int = rp.SimulationParameter(shape[1])
 
         # - Default tensor construction parameters
         factory_kwargs = {"device": device}
@@ -218,9 +212,12 @@ class LIFTorch(TorchModule):
         """ (Tensor) Membrane time constants `(Nout,)` """
         if isinstance(tau_mem, float):
             self.tau_mem: P_tensor = rp.SimulationParameter(
-                torch.from_numpy(np.array([tau_mem])).to(device), "taus"
+                (torch.ones(self.n_neurons) * tau_mem).to(device), "taus"
             )
         else:
+            if not tau_mem.shape == (self.n_neurons, ):
+                raise ValueError("tau_mem must be in shape (n_neurons) or a single float")
+
             self.tau_mem: P_tensor = rp.SimulationParameter(
                 torch.from_numpy(np.array(tau_mem)).to(device), "taus"
             )
@@ -228,11 +225,14 @@ class LIFTorch(TorchModule):
         """ (Tensor) Synaptic time constants `(Nout,)` """
         if isinstance(tau_syn, float):
             self.tau_syn: P_tensor = rp.SimulationParameter(
-                torch.from_numpy(np.array([tau_syn])).to(device), "taus"
+                (torch.ones(self.n_synapses, self.n_neurons) * tau_syn).to(device), "taus"
             )
         else:
+            if not tau_syn.shape == (self.n_synapses, self.n_neurons):
+                raise ValueError("tau_syn must be in shape (n_neurons, n_synapses) or a single float")
+
             self.tau_syn: P_tensor = rp.SimulationParameter(
-                torch.from_numpy(np.array(tau_syn)).to(device), "taus"
+                torch.Tensor(tau_syn).to(device), "taus"
             )
 
         if has_bias:
@@ -277,7 +277,7 @@ class LIFTorch(TorchModule):
             torch.exp(-self.dt / self.tau_mem).unsqueeze(1).T.to(device)
         )
         self.beta: P_tensor = rp.SimulationParameter(
-            torch.exp(-self.dt / self.tau_syn).unsqueeze(1).to(device)
+            torch.exp(-self.dt / self.tau_syn).to(device)
         )
 
         self.spike_generation_fn = spike_generation_fn().apply
@@ -388,11 +388,9 @@ class LIFTorch(TorchModule):
                 rec_inp = F.linear(spikes, self.w_rec.T).reshape(
                     n_batches, self.n_synapses, self.n_neurons
                 )
-                isyn = isyn + (data[:, t] + rec_inp) * self.dt / self.tau_syn.unsqueeze(
-                    -1
-                )
+                isyn = isyn + (data[:, t] + rec_inp) * self.dt / self.tau_syn
             else:
-                isyn = isyn + data[:, t] * self.dt / self.tau_syn.unsqueeze(-1)
+                isyn = isyn + data[:, t] * self.dt / self.tau_syn
 
             if self.noise_std > 0:
                 vmem = (

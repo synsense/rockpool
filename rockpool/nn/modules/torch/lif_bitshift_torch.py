@@ -86,10 +86,10 @@ class LIFBitshiftTorch(LIFTorch):
                          **kwargs)
 
         self.dash_mem: P_tensor = rp.SimulationParameter(
-            calc_bitshift_decay(self.tau_mem, self.dt).unsqueeze(1).to(device)
+            calc_bitshift_decay(self.tau_mem, self.dt).to(device)
         )
         self.dash_syn: P_tensor = rp.SimulationParameter(
-            calc_bitshift_decay(self.tau_syn, self.dt).unsqueeze(1).to(device)
+            calc_bitshift_decay(self.tau_syn, self.dt).to(device)
         )
 
 

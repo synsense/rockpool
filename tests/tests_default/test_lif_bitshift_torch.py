@@ -10,11 +10,11 @@ def test_LIFBitshiftTorch_Forward_Backward():
     from rockpool.nn.modules.torch.lif_bitshift_torch import LIFBitshiftTorch
     import numpy as np
     import torch
-
+    
     N = 10
     Nsyn = 2
     tau_mem = 0.01
-    tau_syn = torch.Tensor([0.005, 0.015])
+    tau_syn = torch.from_numpy(np.repeat([[0.005, 0.015]], N, axis=0)).float().T
     mod = LIFBitshiftTorch(shape=(N * Nsyn, N),
                            tau_mem=tau_mem,
                            tau_syn=tau_syn,
@@ -47,7 +47,7 @@ def test_LIFBitshiftTorch_single_neuron():
     N = 1
     Nsyn = 2
     tau_mem = 0.01
-    tau_syn = torch.Tensor([0.002, 0.004])
+    tau_syn = torch.Tensor([[0.002], [0.004]])
     mod = LIFBitshiftTorch(shape=(N * Nsyn, N),
                            tau_mem=tau_mem,
                            tau_syn=tau_syn,
@@ -63,7 +63,7 @@ def test_LIFBitshiftTorch_single_neuron():
     T = 10
     num_batches = 1
     input_data = torch.zeros(1, T, Nsyn * N).cpu()
-    input_data[:, 0, :] = mod.tau_syn / mod.dt
+    input_data[:, 0, :] = mod.tau_syn.T / mod.dt
     
     # - Test Rockpool interface
     out, state, rec = mod.evolve(input_data, record = True)

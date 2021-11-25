@@ -105,7 +105,8 @@ class WaveSenseBlock(TorchModule):
         tau_syn = (
             torch.arange(0, dilation * kernel_size, dilation) * base_tau_syn
         )
-        tau_syn = torch.clamp(tau_syn, base_tau_syn, tau_syn.max())
+        tau_syn = torch.clamp(tau_syn, base_tau_syn, tau_syn.max()).repeat(Nchannels, 1).T
+
 
         self.lin1 = LinearTorch(shape=(Nchannels, Nchannels * kernel_size), 
                                 has_bias=False, 

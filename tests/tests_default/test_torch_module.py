@@ -181,8 +181,8 @@ def test_astorch():
 
     N = 1
     Nsyn = 2
-    tau_mem = [0.04]
-    tau_syn = [0.02, 0.05]
+    tau_mem = 0.04
+    tau_syn = torch.Tensor([[0.02], [0.05]])
     threshold = 10.0
     learning_window = 0.5
 
