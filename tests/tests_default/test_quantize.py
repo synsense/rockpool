@@ -131,7 +131,7 @@ def test_simple_network():
     )
     dt = float_specs["dt"]
 
-    print(mod.spk_res._hw_ids)
+    assert mod.spk_res._hw_ids == list(range(1000)), "hardware id is not assigned correctly"
 
     global_specs = copy.copy(float_specs)
     channel_specs = copy.copy(float_specs)
