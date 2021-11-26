@@ -37,44 +37,45 @@ def test_LIFTorch_shapes():
 
 
 def test_LIFTorch_bias():
-    from rockpool.nn.modules.torch.lif_torch import LIFTorch
-    import torch
+   from rockpool.nn.modules.torch.lif_torch import LIFTorch
+   import torch
+   
+   n_synapses = 5
+   n_neurons = 10
+   n_batches = 3
+   T = 20
+   tau_mem = torch.rand(n_neurons)
+   tau_syn = torch.rand(n_synapses)
+   bias = torch.ones(n_neurons) * 0.1
+   dt = 1e-3
+   
+   # - Test maximal initialisation
+   mod = LIFTorch(
+       shape=(n_synapses*n_neurons, n_neurons),
+       tau_mem=tau_mem,
+       tau_syn=tau_syn,
+       bias=bias,
+       has_bias=True,
+       dt=dt,
+       noise_std=0.0,
+       device="cpu",
+   )
+   
+   # - Generate some data
+   input_data = torch.zeros(n_batches, T, n_synapses * n_neurons, requires_grad=True)
+   
+   # - Test Rockpool interface
+   out, ns, rd = mod(input_data, record=True)
+   
+   out.sum().backward()
+   
+   assert torch.all(ns["Isyn"] == 0)
+   assert torch.all(rd["Isyn"] == 0)
+   assert torch.all(rd["Vmem"][:, 0] == 0.1) # match bias in the fist timestep 
+   assert torch.all(rd["Vmem"][:, 1] == 0.1 * torch.exp(-dt / tau_mem) + 0.1) # decay one timestep + bias 
 
-    n_synapses = 5
-    n_neurons = 10
-    n_batches = 3
-    T = 20
-    tau_mem = torch.rand(n_neurons)
-    tau_syn = torch.rand(n_synapses)
-    bias = torch.ones(n_neurons) * 0.1
-    dt = 1e-3
-
-    # - Test maximal initialisation
-    mod = LIFTorch(
-        shape=(n_synapses * n_neurons, n_neurons),
-        tau_mem=tau_mem,
-        tau_syn=tau_syn,
-        bias=bias,
-        has_bias=True,
-        dt=dt,
-        noise_std=0.0,
-        device="cpu",
-    )
-
-    # - Generate some data
-    input_data = torch.zeros(n_batches, T, n_synapses * n_neurons, requires_grad=True)
-
-    # - Test Rockpool interface
-    out, ns, rd = mod(input_data, record=True)
-
-    out.sum().backward()
-
-    assert torch.all(ns["Isyn"] == 0)
-    assert torch.all(rd["Isyn"] == 0)
-    assert torch.all(rd["Vmem"][:, 0] == 0.1)  # match bias in the fist timestep
-    assert torch.all(
-        rd["Vmem"][:, 1] == 0.1 * torch.exp(-dt / tau_mem) + 0.1
-    )  # decay one timestep + bias
+   # bias has gradients
+   assert not torch.all(mod.bias.grad == 0)
 
     # bias has gradients
     assert not torch.all(mod.bias == 0)

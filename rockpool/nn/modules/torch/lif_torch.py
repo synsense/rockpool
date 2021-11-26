@@ -125,18 +125,19 @@ class LIFTorch(TorchModule):
     def __init__(
         self,
         shape: tuple,
-        tau_mem: FloatVector,
-        tau_syn: FloatVector,
-        has_bias: P_bool = True,
+        tau_mem: FloatVector = 0.02,
+        tau_syn: FloatVector = 0.01,
+        has_bias: bool = True,
         bias: FloatVector = 0.0,
         threshold: FloatVector = 1.0,
-        has_rec: P_bool = False,
+        has_rec: bool = False,
         w_rec: torch.Tensor = None,
-        noise_std: P_float = 0.0,
-        gradient_fn=StepPWL,
-        learning_window: P_float = 0.5,
-        dt: P_float = 1e-3,
-        device: P_str = "cuda",
+        noise_std: float = 0.0,
+        gradient_fn: Callable[[float], float] = StepPWL,
+        learning_window: float = 0.5,
+        weight_init_func: Optional[Callable[[Tuple], torch.tensor]] = None,
+        dt: float = 1e-3,
+        device: str = None,
         *args,
         **kwargs,
     ):
@@ -168,11 +169,7 @@ class LIFTorch(TorchModule):
 
         # - Initialise superclass
         super().__init__(
-            shape=shape,
-            spiking_input=True,
-            spiking_output=True,
-            *args,
-            **kwargs,
+            shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs,
         )
 
         # Initialize class variables
@@ -195,15 +192,17 @@ class LIFTorch(TorchModule):
 
         w_rec_shape = (self.size_out, self.size_in)
         if has_rec:
-            self.w_rec: P_tensor = rp.Parameter(
-                w_rec,
-                shape=w_rec_shape,
-                init_func=lambda s: init.kaiming_uniform_(
-                    torch.empty(s, **factory_kwargs)
-                ),
-                family="weights",
-            )
-            """ (Tensor) Recurrent weights `(Nout, Nin)` """
+            if w_rec is None:
+                self.w_rec: P_tensor = rp.Parameter(
+                    w_rec,
+                    shape=w_rec_shape,
+                    init_func=weight_init_func,
+                    family="weights",
+                )
+                """ (Tensor) Recurrent weights `(Nout, Nin)` """
+            else:
+                self.w_rec = w_rec
+
         else:
             if w_rec is not None:
                 raise ValueError("`w_rec` may not be provided if `has_rec` is `False`")
@@ -239,6 +238,8 @@ class LIFTorch(TorchModule):
         if has_bias:
             if np.size(bias) == 1:
                 bias = torch.ones(self.size_out, **factory_kwargs) * bias
+
+            bias.requires_grad = True
 
             self.bias: P_tensor = rp.Parameter(
                 bias, shape=(self.size_out,), family="bias"

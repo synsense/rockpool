@@ -294,7 +294,7 @@ class WaveSenseNet(TorchModule):
         base_tau_syn: float = 20e-3,
         tau_lp: float = 20e-3,
         threshold: float = 1.0,
-        neuron_model=LIFTorch,
+        neuron_model = LIFTorch,
         dt: float = 1e-3,
         device: str = None,
         *args,
