@@ -981,6 +981,17 @@ class DynapSE1SimCore:
             self.size, self.mem.feedback.__getattribute__(attr), dtype=np.float32
         )
 
+    def layout_property(self, attr: str) -> np.ndarray:
+        """
+        layout_property fetches an attribute from the circuit layout and create a property array covering all the neurons allocated
+
+        :param attr: the target attribute
+        :type attr: str
+        :return: 1D an array full of the value of the target attribute (`size`,)
+        :rtype: np.ndarray
+        """
+        return np.full(self.size, self.layout.__getattribute__(attr), dtype=np.float32)
+
     def syn_property(self, attr: str) -> np.ndarray:
         """
         syn_property fetches a attributes from the synaptic gate subcircuits in [GABA_B, GABA_A, NMDA, AMPA, AHP] order and create a property array covering all the neurons allocated
@@ -1072,11 +1083,25 @@ class DynapSE1SimCore:
         return self.syn_property("Iw")
 
     @property
+    def kappa(self) -> np.ndarray:
+        """
+        kappa is the mean subthreshold slope factor of the transistors with shape (Nrec,)
+        """
+        return self.layout_property("kappa")
+
+    @property
+    def Ut(self) -> np.ndarray:
+        """
+        Ut is the thermal voltage in Volts with shape (Nrec,)
+        """
+        return self.layout_property("Ut")
+
+    @property
     def Io(self) -> np.ndarray:
         """
         Io is the dark current in Amperes that flows through the transistors even at the idle state with shape (Nrec,)
         """
-        return np.full(self.size, self.layout.Io, dtype=np.float32)
+        return self.layout_property("Io")
 
     @property
     def f_tau_mem(self) -> np.ndarray:
@@ -1229,6 +1254,8 @@ class DynapSE1SimBoard:
             "Itau_syn",
             "f_gain_syn",
             "Iw",
+            "kappa",
+            "Ut",
             "Io",
             "f_tau_mem",
             "f_tau_syn",
