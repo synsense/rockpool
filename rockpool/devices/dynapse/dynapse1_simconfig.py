@@ -67,8 +67,8 @@ class DynapSE1Capacitance:
     """
 
     Co: float = 5e-13
-    mem: float = 5.0
-    ref: float = 2.0
+    mem: float = 6.0
+    ref: float = 3.0
     pulse: float = 1.0
     gaba_b: float = 50.0
     gaba_a: float = 49.0  # shunt
@@ -280,7 +280,7 @@ class SynapseParameters(DPIParameters):
 
     __doc__ += DPIParameters.__doc__
 
-    Iw: float = 1e-7
+    Iw: float = 1e-6
     Isyn: Optional[float] = None
 
     def __post_init__(self):
@@ -410,13 +410,14 @@ class MembraneParameters(DPIParameters):
     tau: Optional[float] = 20e-3
     tau2: Optional[float] = None
     Itau2: Optional[float] = 2.4e-5  # Max bias current possible
+    f_gain: float = 1e-1
     Imem: Optional[float] = None
     Iref: Optional[float] = None
     t_ref: Optional[float] = 2e-3
     Ipulse: Optional[float] = None
     t_pulse: Optional[float] = 10e-6
     feedback: Optional[FeedbackParameters] = None
-    Ispkthr: float = 1e-9
+    Ispkthr: float = 1e-8
     Ireset: Optional[float] = None
     Idc: Optional[float] = None
     If_nmda: Optional[float] = None
@@ -836,7 +837,7 @@ class DynapSE1SimCore:
         core_key: Tuple[np.uint8] = (0, 0),
         neuron_idx_map: Optional[Dict[np.uint8, np.uint16]] = None,
         fpulse_ahp: float = 0.1,
-        Ispkthr: float = 1e-9,
+        Ispkthr: float = 1e-8,
         Ireset: Optional[float] = None,
         layout: Optional[DynapSE1Layout] = None,
         capacitance: Optional[DynapSE1Capacitance] = None,
