@@ -392,7 +392,7 @@ class MembraneParameters(DPIParameters):
     t_ref: Optional[float] = 2e-3
     Ipulse: Optional[float] = None
     t_pulse: Optional[float] = 10e-6
-    Ispkthr: float = 1e-8
+    Ispkthr: float = 5e-5
     Ireset: Optional[float] = None
     Idc: Optional[float] = None
     If_nmda: Optional[float] = None
@@ -809,7 +809,7 @@ class DynapSE1SimCore:
         core_key: Tuple[np.uint8] = (0, 0),
         neuron_idx_map: Optional[Dict[np.uint8, np.uint16]] = None,
         fpulse_ahp: float = 0.1,
-        Ispkthr: float = 1e-8,
+        Ispkthr: float = 5e-5,
         Ireset: Optional[float] = None,
         layout: Optional[DynapSE1Layout] = None,
         capacitance: Optional[DynapSE1Capacitance] = None,

@@ -497,11 +497,15 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             # We might have division by 0 if we allow this to happen!
             Itau_mem_clip = np.clip(self.Itau_mem, self.Io)
             Itau_syn_clip = np.clip(self.Itau_syn, self.Io)
+            Ith_syn_clip = self.f_gain_syn * Itau_syn_clip
+            Ith_mem_clip = self.f_gain_mem * Itau_mem_clip
 
             # --- Implicit parameters  --- #  # 5xNrec
             tau_mem = self.f_tau_mem / Itau_mem_clip
-            tau_syn = self.f_tau_syn / Itau_syn_clip
-            Isyn_inf = self.f_gain_syn * self.Iw
+            tau_syn_prime = (self.f_tau_syn / Itau_syn_clip) * (
+                1 + (Ith_syn_clip / Isyn)
+            )
+            Isyn_inf = (self.f_gain_syn * self.Iw) - Ith_syn_clip
 
             # --- Forward step: DPI SYNAPSES --- #
             ## spike input for 4 synapses: GABA_B, GABA_A, NMDA, AMPA; spike output for 1 synapse: AHP
@@ -518,8 +522,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             t_pw = np.vstack((t_pw_in, t_pw_out))
 
             ## Exponential charge, discharge positive feedback factor arrays
-            f_charge = 1 - np.exp(-t_pw / tau_syn)  # 5xNrec
-            f_discharge = np.exp(-self.dt / tau_syn)  # 5xNrec
+            f_charge = 1 - np.exp(-t_pw / tau_syn_prime)  # 5xNrec
+            f_discharge = np.exp(-self.dt / tau_syn_prime)  # 5xNrec
             f_feedback = np.exp(
                 (self.kappa ** 2 / (self.kappa + 1)) * (Vmem / self.Ut)
             )  # 5xNrec
@@ -546,7 +550,6 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
             ## Steady state current
             Imem_inf = self.f_gain_mem * (Iin - (Iahp + Igaba_a) - Itau_mem_clip)
-            Ith_mem_clip = self.f_gain_mem * Itau_mem_clip
 
             ## Positive feedback
             Ifb = self.Io * f_feedback
