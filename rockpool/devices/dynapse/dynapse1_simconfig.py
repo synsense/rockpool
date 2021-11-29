@@ -346,28 +346,6 @@ class SynapseParameters(DPIParameters):
 
 
 @dataclass
-class FeedbackParameters:
-    """
-    FeedbackParameters contains the positive feedback circuit heuristic parameters of Dynap-SE1 membrane.
-    Parameters are used to calculate positive feedback current with respect to the formula below.
-
-    .. math ::
-        I_{a} = \\dfrac{I_{a_{gain}}}{1+ exp\\left(-\\dfrac{I_{mem}+I_{a_{th}}}{I_{a_{norm}}}\\right)}
-
-    :param Igain: Feedback gain current, heuristic parameter, defaults to 5e-11
-    :type Igain: float, optional
-    :param Ith: Feedback threshold current, typically a fraction of Ispk_th, defaults to 5e-10
-    :type Ith: float, optional
-    :param Inorm: Feedback normalization current, heuristic parameter, defaults to 1e-11
-    :type Inorm: float, optional
-    """
-
-    Igain: float = 5e-11
-    Ith: float = 5e-10
-    Inorm: float = 1e-11
-
-
-@dataclass
 class MembraneParameters(DPIParameters):
     """
     MembraneParameters contains membrane specific parameters and state variables
@@ -390,8 +368,6 @@ class MembraneParameters(DPIParameters):
     :type Ipulse: Optional[float], optional
     :param t_pulse: the width of the pulse in seconds produced by virtue of a spike, The value co-depends on `Ipulse` and `t_pulse` definition has priority over `Ipulse`, defaults to 10e-6
     :type t_pulse: Optional[float], optional
-    :param feedback: positive feedback circuit heuristic parameters:Ia_gain, Ia_th, and Ia_norm, defaults to None
-    :type feedback: Optional[FeedbackParameters], optional
     :param Ispkthr: Spiking threshold current in Amperes, depends on layout (see chip for details), defaults to 1e-9
     :type Ispkthr: float, optional
     :param Ireset: Reset current after spike generation in Amperes, defaults to Io
@@ -416,7 +392,6 @@ class MembraneParameters(DPIParameters):
     t_ref: Optional[float] = 2e-3
     Ipulse: Optional[float] = None
     t_pulse: Optional[float] = 10e-6
-    feedback: Optional[FeedbackParameters] = None
     Ispkthr: float = 1e-8
     Ireset: Optional[float] = None
     Idc: Optional[float] = None
@@ -424,7 +399,7 @@ class MembraneParameters(DPIParameters):
 
     def __post_init__(self) -> None:
         """
-        __post_init__ runs after __init__ and initializes the feedback block with default values in the case that it's not specified, check if Imem value is in legal bounds.
+        __post_init__ runs after __init__ and initializes the with default values in the case that it's not specified, check if Imem value is in legal bounds.
 
         :raises ValueError: Illegal Imem value desired. It cannot be less than Io
         """
@@ -454,9 +429,6 @@ class MembraneParameters(DPIParameters):
         self.t_pulse, self.Ipulse = self.time_current_dependence(
             self.t_pulse, self.Ipulse, self.f_pulse
         )
-
-        if self.feedback is None:
-            self.feedback = FeedbackParameters()
 
     @classmethod
     def from_parameter_group(
@@ -732,7 +704,7 @@ class DynapSE1SimCore:
     :type layout: Optional[DynapSE1Layout], optional
     :param capacitance: subcircuit capacitance values that are related to each other and depended on exact silicon layout of a chip, defaults to None
     :type capacitance: Optional[DynapSE1Capacitance], optional
-    :param mem: Membrane block parameters (Imem, Itau, Ith, feedback(Igain, Ith, Inorm)), defaults to None
+    :param mem: Membrane block parameters (Imem, Itau, Ith), defaults to None
     :type mem: Optional[MembraneParameters], optional
     :param ahp: Spike frequency adaptation block parameters (Isyn, Itau, Ith, Iw), defaults to None
     :type ahp: Optional[SynapseParameters], optional
@@ -968,19 +940,6 @@ class DynapSE1SimCore:
         """
         return np.full(self.size, self.mem.__getattribute__(attr), dtype=np.float32)
 
-    def feedback_property(self, attr: str) -> np.ndarray:
-        """
-        feedback_property fetches an attribute from the membrane positive feedback subcircuit and create a property array covering all the neurons allocated
-
-        :param attr: the target attribute
-        :type attr: str
-        :return: 1D an array full of the value of the target attribute (`size`,)
-        :rtype: np.ndarray
-        """
-        return np.full(
-            self.size, self.mem.feedback.__getattribute__(attr), dtype=np.float32
-        )
-
     def layout_property(self, attr: str) -> np.ndarray:
         """
         layout_property fetches an attribute from the circuit layout and create a property array covering all the neurons allocated
@@ -1032,27 +991,6 @@ class DynapSE1SimCore:
         f_gain_mem is an array of membrane gain parameter of the neurons with shape = (Nrec,)
         """
         return self.mem_property("f_gain")
-
-    @property
-    def Ip_gain(self) -> np.ndarray:
-        """
-        Ip_gain is an array of positive feedback gain current, heuristic parameter = (Nrec,)
-        """
-        return self.feedback_property("Igain")
-
-    @property
-    def Ip_th(self) -> np.ndarray:
-        """
-        Ip_th is an array of positive feedback threshold current, typically a fraction of Ispk_th with shape (Nrec,)
-        """
-        return self.feedback_property("Ith")
-
-    @property
-    def Ip_norm(self) -> np.ndarray:
-        """
-        Ip_norm is an array of positive feedback normalization current, heuristic parameter with shape (Nrec,)
-        """
-        return self.feedback_property("Inorm")
 
     @property
     def Isyn(self) -> np.ndarray:
@@ -1247,9 +1185,6 @@ class DynapSE1SimBoard:
             "Itau_mem",
             "Itau2_mem",
             "f_gain_mem",
-            "Ip_gain",
-            "Ip_th",
-            "Ip_norm",
             "Isyn",
             "Itau_syn",
             "f_gain_syn",
