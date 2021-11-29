@@ -343,3 +343,51 @@ def test_wavesense_reset():
     # assert first spk layers state of first wave block is reset
     assert(torch.all(state['wave0']['spk1']['vmem'] == 0))
     
+
+
+def test_wavenet():
+    from rockpool.nn.networks.wavesense import WaveNet
+    import torch
+
+
+    dilations = [2]
+    n_neurons = 64 
+    kernel_size = 2
+    device = "cpu"
+    
+    T_total = 10
+    T_stim = 3
+    N_batch = 2
+    
+    model = WaveNet(dilations=dilations,
+                    n_classes=n_neurons,
+                    n_channels_in=n_neurons,
+                    n_channels_res=n_neurons,
+                    n_channels_skip=n_neurons,
+                    n_hidden = n_neurons,
+                    kernel_size = kernel_size,
+                    bias=False,
+                    ).to(device)
+    
+    inp = torch.zeros(N_batch, T_total, n_neurons)
+    inp[:, T_stim, 0] = 1
+    
+    out, _, _ = model(inp)
+    
+    # assert correct shape
+    assert out.shape == inp.shape
+    
+    # assert output at time T_stim
+    assert not any(out[:, T_stim, :].detach().numpy().ravel() == 0)
+    
+    # assert output at time T_stim + dilation
+    assert not any(out[:, T_stim + dilations[0], :].detach().numpy().ravel() == 0)
+    
+    # assert other outputs to be zero
+    assert all(out[:, T_stim + dilations[0] + 1, :].detach().numpy().ravel() == 0)
+    assert all(out[:, T_stim + dilations[0] - 1, :].detach().numpy().ravel() == 0)
+    assert all(out[:, 0, :].detach().numpy().ravel() == 0)
+    assert all(out[:, 1, :].detach().numpy().ravel() == 0)
+
+
+
