@@ -319,7 +319,6 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
 
         _, rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
-        self._rng_key: JP_ndarray = State(rng_key, init_func=lambda _: rng_key)
 
         super().__init__(
             shape=shape,
@@ -337,16 +336,18 @@ class DynapSE1NeuronSynapseJax(JaxModule):
                 f"The simulation configuration object size {len(sim_config)} and number of device neruons {self.size_out} does not match!"
             )
 
-        # Check the network size and initialize the input and recurrent weight vector accordingly
-        self.w_in, self.w_rec = self._init_weights(w_in, w_rec)
-
         # --- Parameters & States --- #
 
         # --- States --- #
-        self.Isyn = State(sim_config.Isyn, shape=(5, self.size_out))
-        self.Imem = State(sim_config.Imem, shape=(self.size_out,))
         self.spikes = State(shape=(self.size_out,), init_func=np.zeros)
+        self.Vmem = State(init_func=np.zeros, shape=(self.size_out,))
+        self.Imem = State(sim_config.Imem, shape=(self.size_out,))
+        self.Isyn = State(sim_config.Isyn, shape=(5, self.size_out))
         self.timer_ref = State(shape=(self.size_out,), init_func=np.zeros)
+        self._rng_key: JP_ndarray = State(rng_key, init_func=lambda _: rng_key)
+
+        # Check the network size and initialize the input and recurrent weight vector accordingly
+        self.w_in, self.w_rec = self._init_weights(w_in, w_rec)
 
         # --- Parameters --- #
         ## Synapse
@@ -363,6 +364,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         # --- Simulation Parameters --- #
         self.dt = SimulationParameter(dt, shape=())
+        self.kappa = SimulationParameter(sim_config.kappa, shape=(self.size_out,))
+        self.Ut = SimulationParameter(sim_config.Ut, shape=(self.size_out,))
         self.Io = SimulationParameter(sim_config.Io, shape=(self.size_out,))
 
         ## Positive Feedback
@@ -487,7 +490,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             """
             # [] TODO : Would you allow currents to go below Io or not?!!!!
 
-            spikes, Imem, Isyn, key, timer_ref = state
+            spikes, Vmem, Imem, Isyn, timer_ref, key = state
 
             # Reset Imem depending on spiking activity
             Imem = (1 - spikes) * Imem + spikes * self.Ireset
@@ -561,37 +564,49 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             Imem = Imem + del_Imem * self.dt
             Imem = np.clip(Imem, self.Io)
 
+            ## Membrane Potential
+            Vmem = (self.Ut / self.kappa) * np.log(Imem / self.Io)
+
             # --- Spike Generation Logic --- #
             ## Detect next spikes (with custom gradient)
             spikes = step_pwl(Imem, self.Ispkthr, self.Ireset)
 
-            state = (spikes, Imem, Isyn, key, timer_ref)
-            return state, (spikes, Imem, Isyn)
+            state = (spikes, Vmem, Imem, Isyn, timer_ref, key)
+            return state, (spikes, Vmem, Imem, Isyn)
 
         # --- Evolve over spiking inputs --- #
-        state, (spikes_ts, Imem_ts, Isyn_ts) = scan(
+        state, (spikes_ts, Vmem_ts, Imem_ts, Isyn_ts) = scan(
             forward,
-            (self.spikes, self.Imem, self.Isyn, self._rng_key, self.timer_ref),
+            (
+                self.spikes,
+                self.Vmem,
+                self.Imem,
+                self.Isyn,
+                self.timer_ref,
+                self._rng_key,
+            ),
             input_data,
         )
 
-        new_spikes, new_Imem, new_Isyn, new_rng_key, new_timer_ref = state
+        new_spikes, new_Vmem, new_Imem, new_Isyn, new_timer_ref, new_rng_key = state
 
         # --- RETURN ARGUMENTS --- #
         outputs = spikes_ts
 
         ## the state returned should be in the same shape with the state dictionary given
         states = {
-            "_rng_key": new_rng_key,
+            "spikes": new_spikes,
+            "Vmem": new_Vmem,
             "Imem": new_Imem,
             "Isyn": new_Isyn,
-            "spikes": new_spikes,
             "timer_ref": new_timer_ref,
+            "_rng_key": new_rng_key,
         }
 
         record_dict = {
             "input_data": input_data,
             "spikes": spikes_ts,
+            "Vmem": Vmem_ts,
             "Imem": Imem_ts,
             "Igaba_b": Isyn_ts[:, self.SYN["GABA_B"], :],
             "Igaba_a": Isyn_ts[:, self.SYN["GABA_A"], :],  # Shunt
