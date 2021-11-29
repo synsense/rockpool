@@ -370,12 +370,13 @@ class LIFTorch(TorchModule):
         )
 
         # normalize input by time constant
-        data = data * self.dt / self.tau_syn
+        # data = data * self.dt / self.tau_syn
 
         # normalize recurrent weight by time constant
         if hasattr(self, "w_rec"):
-            w_rec_normalized = self.w_rec.reshape(self.n_neurons, self.n_synapses, self.n_neurons) * self.dt / self.tau_syn 
-            w_rec_normalized = w_rec_normalized.reshape(self.n_neurons, self.n_synapses * self.n_neurons)
+            # w_rec_normalized = self.w_rec.reshape(self.n_neurons, self.n_synapses, self.n_neurons) * self.dt / self.tau_syn
+            # w_rec_normalized = w_rec_normalized.reshape(self.n_neurons, self.n_synapses * self.n_neurons)
+            w_rec = self.w_rec.reshape(self.n_neurons, self.n_synapses * self.n_neurons)
 
         # - Loop over time
         for t in range(time_steps):
@@ -389,7 +390,8 @@ class LIFTorch(TorchModule):
 
             # - Apply spikes over the recurrent weights
             if hasattr(self, "w_rec"):
-                rec_inp = F.linear(spikes, w_rec_normalized.T).reshape(
+                # rec_inp = F.linear(spikes, w_rec_normalized.T).reshape(
+                rec_inp = F.linear(spikes, w_rec.T).reshape(
                     n_batches, self.n_synapses, self.n_neurons
                 )
                 isyn = isyn + rec_inp
@@ -429,9 +431,9 @@ class LIFTorch(TorchModule):
             self.size_out,
             f"{type(self).__name__}_{self.name}_{id(self)}",
             self,
-            self.tau_mem,
-            self.tau_syn,
-            self.threshold,
+            self.tau_mem.cpu(),
+            self.tau_syn.cpu(),
+            self.threshold.cpu(),
             self.bias,
             self.dt,
         )

@@ -58,45 +58,20 @@ class XyloNeurons(GenericNeurons):
                 )
 
             # - Convert TCs to dash parameters
-            if torch.is_tensor(mod.tau_mem):
-                dash_mem = (
-                    np.round(np.log2(np.array(mod.tau_mem.cpu()) / mod.dt))
-                    .astype(int)
-                    .tolist()
-                )
-            else:
-                dash_mem = (
-                    np.round(np.log2(np.array(mod.tau_mem) / mod.dt))
-                    .astype(int)
-                    .tolist()
-                )
+            dash_mem = (
+                np.round(np.log2(np.array(mod.tau_mem) / mod.dt))
+                .astype(int)
+                .tolist()
+            )
 
-            if torch.is_tensor(mod.tau_syn):
-                dash_syn = (
-                    np.round(
-                        np.log2(np.array(mod.tau_syn.cpu()) / mod.dt)
-                    )  # TODO: graph module not handle cuda, cpu, tensor, jax well
-                    .astype(int)
-                    .tolist()
-                )
-            else:
-                dash_syn = (
-                    np.round(
-                        np.log2(np.array(mod.tau_syn) / mod.dt)
-                    )  # TODO: graph module not handle cuda, cpu, tensor, jax well
-                    .astype(int)
-                    .tolist()
-                )
+            dash_syn = (
+                np.round(np.log2(np.array(mod.tau_syn) / mod.dt))
+                .astype(int)
+                .tolist()
+            )
 
             # - Get thresholds
-            if torch.is_tensor(mod.threshold):
-                thresholds = (
-                    np.round(np.array(mod.threshold.detach().cpu().numpy()))
-                    .astype(int)
-                    .tolist()  # TODO: graph module not handle cuda, cpu, tensor, jax well
-                )
-            else:
-                thresholds = np.round(np.array(mod.threshold)).astype(int).tolist()
+            thresholds = np.array(mod.threshold).tolist()
 
             # - Build a new neurons module to insert into the graph
             neurons = cls._factory(
@@ -104,7 +79,7 @@ class XyloNeurons(GenericNeurons):
                 len(mod.output_nodes),
                 mod.name,
                 mod.computational_module,
-                [],
+                [], # TODO: what [] means?
                 thresholds,
                 dash_mem,
                 dash_syn,
