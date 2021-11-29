@@ -132,7 +132,7 @@ class LIFTorch(TorchModule):
         has_rec: P_bool = False,
         w_rec: torch.Tensor = None,
         noise_std: P_float = 0.0,
-        spike_generation_fn: Callable = StepPWL, 
+        spike_generation_fn: Callable = StepPWL,
         learning_window: P_float = 0.5,
         weight_init_func: Optional[Callable[[Tuple], torch.tensor]] = None,
         dt: P_float = 1e-3,
@@ -153,12 +153,8 @@ class LIFTorch(TorchModule):
             has_rec (bool): When ``True`` the module provides a trainable recurrent weight matrix. Default ``False``, module is feed-forward.
             w_rec (torch.Tensor): If the module is initialised in recurrent mode, you can provide a concrete initialisation for the recurrent weights, which must be a matrix with shape ``(Nout, Nin)``. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
             noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: ``0.0``
-<<<<<<< HEAD
-            learning_window (float): XXX
-=======
             spike_generation_fn (Callable): Function to call for spike production. Usually simple threshold crossing. Implements the suroogate gradient function in the backward call. (StepPWL or PeriodicExponential).
             learning_window (float): Cutoff value for the surrogate gradient. 
->>>>>>> adcb056df9194e0220a0032b8465e3b5e609584b
             weight_init_func (Optional[Callable[[Tuple], torch.tensor]): The initialisation function to use when generating weights. Default: ``None`` (Kaiming initialisation)
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
             device: Defines the device on which the model will be processed.
@@ -222,8 +218,10 @@ class LIFTorch(TorchModule):
                 (torch.ones(self.n_neurons) * tau_mem).to(device), "taus"
             )
         else:
-            if not tau_mem.shape == (self.n_neurons, ):
-                raise ValueError("tau_mem must be in shape (n_neurons) or a single float")
+            if not tau_mem.shape == (self.n_neurons,):
+                raise ValueError(
+                    "tau_mem must be in shape (n_neurons) or a single float"
+                )
 
             self.tau_mem: P_tensor = rp.SimulationParameter(
                 torch.from_numpy(np.array(tau_mem)).to(device), "taus"
@@ -232,11 +230,14 @@ class LIFTorch(TorchModule):
         """ (Tensor) Synaptic time constants `(Nout,)` """
         if isinstance(tau_syn, float):
             self.tau_syn: P_tensor = rp.SimulationParameter(
-                (torch.ones(self.n_synapses, self.n_neurons) * tau_syn).to(device), "taus"
+                (torch.ones(self.n_synapses, self.n_neurons) * tau_syn).to(device),
+                "taus",
             )
         else:
             if not tau_syn.shape == (self.n_synapses, self.n_neurons):
-                raise ValueError("tau_syn must be in shape (n_neurons, n_synapses) or a single float")
+                raise ValueError(
+                    "tau_syn must be in shape (n_neurons, n_synapses) or a single float"
+                )
 
             self.tau_syn: P_tensor = rp.SimulationParameter(
                 torch.Tensor(tau_syn).to(device), "taus"
@@ -378,8 +379,14 @@ class LIFTorch(TorchModule):
 
         # normalize recurrent weight by time constant
         if hasattr(self, "w_rec"):
-            w_rec_normalized = self.w_rec.reshape(self.n_neurons, self.n_synapses, self.n_neurons) * self.dt / self.tau_syn 
-            w_rec_normalized = w_rec_normalized.reshape(self.n_neurons, self.n_synapses * self.n_neurons)
+            w_rec_normalized = (
+                self.w_rec.reshape(self.n_neurons, self.n_synapses, self.n_neurons)
+                * self.dt
+                / self.tau_syn
+            )
+            w_rec_normalized = w_rec_normalized.reshape(
+                self.n_neurons, self.n_synapses * self.n_neurons
+            )
 
         # - Loop over time
         for t in range(time_steps):
@@ -408,7 +415,9 @@ class LIFTorch(TorchModule):
             else:
                 vmem = vmem + isyn.sum(1) + bias
 
-            spikes = self.spike_generation_fn(vmem, self.threshold, self.learning_window)
+            spikes = self.spike_generation_fn(
+                vmem, self.threshold, self.learning_window
+            )
 
             vmem = vmem - spikes * self.threshold
 
@@ -437,10 +446,6 @@ class LIFTorch(TorchModule):
             self.tau_syn,
             self.threshold,
             self.bias,
-<<<<<<< HEAD
-=======
-            self.threshold,
->>>>>>> adcb056df9194e0220a0032b8465e3b5e609584b
             self.dt,
         )
 
@@ -465,7 +470,11 @@ class LIFTorch(TorchModule):
     def tau_mem(self, val):
         self._tau_mem = val
         if hasattr(self, "alpha"):
-            self.alpha.data = torch.exp(-self.dt / self._tau_mem).unsqueeze(1).T.to(self._tau_mem.device)
+            self.alpha.data = (
+                torch.exp(-self.dt / self._tau_mem)
+                .unsqueeze(1)
+                .T.to(self._tau_mem.device)
+            )
 
     @property
     def tau_syn(self):
@@ -475,7 +484,6 @@ class LIFTorch(TorchModule):
     def tau_syn(self, val):
         self._tau_syn = val
         if hasattr(self, "beta"):
-            self.beta.data = torch.exp(-self.dt / self._tau_syn).to(self._tau_syn.device)
-
-
-
+            self.beta.data = torch.exp(-self.dt / self._tau_syn).to(
+                self._tau_syn.device
+            )
