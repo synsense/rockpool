@@ -370,7 +370,7 @@ class LIFTorch(TorchModule):
         )
 
         # normalize input by time constant
-        # data = data * self.dt / self.tau_syn
+        data = data * self.dt / self.tau_syn
 
         # normalize recurrent weight by time constant
         if hasattr(self, "w_rec"):
