@@ -258,14 +258,12 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     :type Idc: JP_ndarray
     :ivar If_nmda: Array of the NMDA gate current in Amperes setting the NMDA gating voltage. If :math:`V_{mem} > V_{nmda}` : The :math:`I_{syn_{NMDA}}` current is added up to the input current, else it cannot with shape (Nrec,)
     :type If_nmda: JP_ndarray
+    :ivar kappa: Array of mean subthreshold slope factor of the transistors with shape (Nrec,)
+    :type kappa: JP_ndarray
+    :ivar Ut: Array of thermal voltage in Volts with shape (Nrec,)
+    :type Ut: JP_ndarray
     :ivar Io: Array of Dark current in Amperes that flows through the transistors even at the idle state with shape (Nrec,)
     :type Io: JP_ndarray
-    :ivar Ip_gain: Array of positive feedback gain current, heuristic parameter with shape (Nrec,)
-    :type Ip_gain: JP_ndarray
-    :ivar Ip_th: Array of positive feedback threshold current, typically a fraction of Ispk_th with shape (Nrec,)
-    :type Ip_th: JP_ndarray
-    :ivar Ip_norm: Array of positive feedback normalization current, heuristic parameter with shape (Nrec,)
-    :type Ip_norm: JP_ndarray
     :ivar f_tau_mem: Array of tau factor for membrane circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau` with shape (Nrec,)
     :type f_tau_mem: JP_ndarray
     :ivar f_tau_syn: Array of tau factors in the following order: [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape (5,Nrec)
@@ -367,11 +365,6 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         self.kappa = SimulationParameter(sim_config.kappa, shape=(self.size_out,))
         self.Ut = SimulationParameter(sim_config.Ut, shape=(self.size_out,))
         self.Io = SimulationParameter(sim_config.Io, shape=(self.size_out,))
-
-        ## Positive Feedback
-        self.Ip_gain = SimulationParameter(sim_config.Ip_gain, shape=(self.size_out,))
-        self.Ip_th = SimulationParameter(sim_config.Ip_th, shape=(self.size_out,))
-        self.Ip_norm = SimulationParameter(sim_config.Ip_norm, shape=(self.size_out,))
 
         ## Time -> Current conversion
         self.f_tau_mem = SimulationParameter(
@@ -524,9 +517,12 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             t_pw_out = self.t_pulse_ahp * spikes  # 1xNrec [AHP]
             t_pw = np.vstack((t_pw_in, t_pw_out))
 
-            ## Exponential charge and discharge factor arrays
+            ## Exponential charge, discharge positive feedback factor arrays
             f_charge = 1 - np.exp(-t_pw / tau_syn)  # 5xNrec
             f_discharge = np.exp(-self.dt / tau_syn)  # 5xNrec
+            f_feedback = np.exp(
+                (self.kappa ** 2 / (self.kappa + 1)) * (Vmem / self.Ut)
+            )  # 5xNrec
 
             ## DISCHARGE in any case
             Isyn = f_discharge * Isyn
@@ -553,9 +549,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             Ith_mem_clip = self.f_gain_mem * Itau_mem_clip
 
             ## Positive feedback
-            Ia = self.Ip_gain / (1 + np.exp(-(Imem - self.Ip_th) / self.Ip_norm))
-            Ia = np.clip(Ia, self.Io)
-            f_Imem = ((Ia) / (Itau_mem_clip)) * (Imem + Ith_mem_clip)
+            Ifb = self.Io * f_feedback
+            f_Imem = ((Ifb) / (Itau_mem_clip)) * (Imem + Ith_mem_clip)
 
             ## Forward Euler Update
             del_Imem = (Imem / (tau_mem * (Ith_mem_clip + Imem))) * (
