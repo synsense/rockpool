@@ -155,6 +155,7 @@ class LIFTorch(TorchModule):
             threshold (FloatVector): An optional array specifying the firing threshold of each neuron. If not provided, ``0.`` will be used by default.
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
             noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: ``0.0``
+            learning_window (float): XXX
             weight_init_func (Optional[Callable[[Tuple], torch.tensor]): The initialisation function to use when generating weights. Default: ``None`` (Kaiming initialisation)
             device: Defines the device on which the model will be processed.
         """
@@ -238,15 +239,15 @@ class LIFTorch(TorchModule):
             if np.size(bias) == 1:
                 bias = torch.ones(self.size_out, **factory_kwargs) * bias
 
-            bias.requires_grad = True
+            # bias.requires_grad = True
 
             self.bias: P_tensor = rp.Parameter(
                 bias, shape=(self.size_out,), family="bias"
             )
-            """ (Tensor) Neuron biases `(Nout)` """
+            """ (Tensor) Neuron biases `(Nout,)` """
         else:
             self.bias: float = 0.0
-            """ (Tensor) Neuron biases `(Nout)` """
+            """ (Tensor) Neuron biases `(Nout,)` """
 
         if np.size(threshold) == 1:
             threshold = torch.ones(self.size_out, **factory_kwargs) * threshold
@@ -257,6 +258,7 @@ class LIFTorch(TorchModule):
         self.learning_window: P_tensor = rp.SimulationParameter(
             torch.Tensor([learning_window]).to(device)
         )
+        """ (float) XXX"""
 
         self.dt: P_float = rp.SimulationParameter(dt)
         """ (float) Euler simulator time-step in seconds"""
@@ -432,8 +434,8 @@ class LIFTorch(TorchModule):
             f"{type(self).__name__}_{self.name}_{id(self)}",
             self.tau_mem,
             self.tau_syn,
+            self.threshold,
             self.bias,
-            0.0,
             self.dt,
         )
 
