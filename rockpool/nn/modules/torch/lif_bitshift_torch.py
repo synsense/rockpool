@@ -21,9 +21,12 @@ __all__ = ["LIFBitshiftTorch"]
 
 # helper functions
 def calc_bitshift_decay(tau, dt):
-    bitsh = torch.log2(tau / dt)
+    bitsh = torch.round(torch.log2(tau / dt)).int()
     bitsh[bitsh < 0] = 0
     return bitsh
+
+def inv_calc_bitshift_decay(dash, dt):
+    return dt * torch.exp2(dash)
 
 
 class LIFBitshiftTorch(LIFTorch):
@@ -100,24 +103,22 @@ class LIFBitshiftTorch(LIFTorch):
         return v - (v / (2 ** self.dash_mem))
     
     @property
-    def tau_mem(self):
-        return self._tau_mem
+    def dash_mem(self):
+        return self._dash_mem
 
-    @tau_mem.setter
-    def tau_mem(self, val):
-        self._tau_mem = val
-        if hasattr(self, "dash_mem"):
-            self.dash_mem.data = calc_bitshift_decay(self.tau_mem, self.dt).to(self._tau_mem.device)
+    @dash_mem.setter
+    def dash_mem(self, val):
+        self._dash_mem = val
+        self.tau_mem.data = inv_calc_bitshift_decay(self.dash_mem, self.dt).to(self._dash_mem.device)
 
     @property
-    def tau_syn(self):
-        return self._tau_syn
+    def dash_syn(self):
+        return self._dash_syn
 
-    @tau_syn.setter
-    def tau_syn(self, val):
-        self._tau_syn = val
-        if hasattr(self, "dash_syn"):
-            self.dash_syn.data = calc_bitshift_decay(self.tau_syn, self.dt).to(self._tau_syn.device)
+    @dash_syn.setter
+    def dash_syn(self, val):
+        self._dash_syn = val
+        self.tau_syn.data = inv_calc_bitshift_decay(self.dash_syn, self.dt).to(self._dash_syn.device)
 
 
 

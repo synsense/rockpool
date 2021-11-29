@@ -325,4 +325,40 @@ def test_LIFTorch_threshold_shape_2():
     assert not torch.any(out[:, :, 0] < out[:, :, 1])
 
 
+def test_LIFTorch_set_alpha_beta():
+    from rockpool.nn.modules.torch.lif_torch import LIFTorch
+    import numpy as np
+    import torch
+    
+    N = 10
+    Nsyn = 2
+    tau_mem = 0.01
+    tau_syn = torch.Tensor([[0.002], [0.004]]).repeat(1, N)
+    dt = 1e-3
+    mod = LIFTorch(shape=(N * Nsyn, N),
+                   tau_mem=tau_mem,
+                   tau_syn=tau_syn,
+                   threshold=1000.0,
+                   has_bias=False,
+                   has_rec=False,
+                   noise_std=0.0,
+                   learning_window=0.5,
+                   dt=dt,
+                   device="cpu")
+       
+    
+    new_alpha = torch.Tensor(list(range(1, N+1))) / (N + 1)
+    mod.alpha = new_alpha 
+    
+    new_beta = torch.Tensor([list(range(1, N+1)), 
+                             list(range(N+1, 2*N+1))]) / (2*N+1)
+    mod.beta = new_beta 
+    
+    assert torch.all(mod.alpha == new_alpha)
+    assert torch.all(mod.beta == new_beta)
+    
+    assert torch.all(torch.abs(new_alpha - torch.exp(-dt / mod.tau_mem)) < 1e-6)
+    assert torch.all(torch.abs(new_beta - torch.exp(-dt / mod.tau_syn)) < 1e-6)
+
+
 

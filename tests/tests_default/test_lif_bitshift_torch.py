@@ -63,7 +63,7 @@ def test_LIFBitshiftTorch_single_neuron():
     T = 10
     num_batches = 1
     input_data = torch.zeros(1, T, Nsyn * N).cpu()
-    input_data[:, 0, :] = mod.tau_syn.T / mod.dt
+    input_data[:, 0, :] = 1 #mod.tau_syn.T / mod.dt
     
     # - Test Rockpool interface
     out, state, rec = mod.evolve(input_data, record = True)
@@ -76,4 +76,41 @@ def test_LIFBitshiftTorch_single_neuron():
     assert(rec['Isyn'][0, 2, 1, 0] == 0.5625)
     
     
+def test_LIFBitshiftTorch_set_dash():
+    from rockpool.nn.modules.torch.lif_bitshift_torch import LIFBitshiftTorch
+    import numpy as np
+    import torch
     
+    N = 10
+    Nsyn = 2
+    tau_mem = 0.01
+    tau_syn = torch.Tensor([[0.002], [0.004]]).repeat(1, N)
+    dt = 1e-3
+    mod = LIFBitshiftTorch(shape=(N * Nsyn, N),
+                           tau_mem=tau_mem,
+                           tau_syn=tau_syn,
+                           threshold=1000.0,
+                           has_bias=False,
+                           has_rec=False,
+                           noise_std=0.0,
+                           learning_window=0.5,
+                           dt=dt,
+                           device="cpu")
+       
+    
+    new_dash_mem = torch.Tensor(list(range(1, N+1)))
+    mod.dash_mem = new_dash_mem 
+    
+    new_dash_syn = torch.Tensor([list(range(1, N+1)), 
+                                 list(range(N+1, 2*N+1))])
+    mod.dash_syn = new_dash_syn 
+    
+    assert torch.all(mod.dash_mem == new_dash_mem)
+    assert torch.all(mod.dash_syn == new_dash_syn)
+    
+    assert mod.tau_mem[0] == 2 * dt
+
+
+
+
+

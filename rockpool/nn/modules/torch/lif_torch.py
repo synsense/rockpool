@@ -222,7 +222,7 @@ class LIFTorch(TorchModule):
                 raise ValueError("tau_mem must be in shape (n_neurons) or a single float")
 
             self.tau_mem: P_tensor = rp.SimulationParameter(
-                torch.from_numpy(np.array(tau_mem)).to(device), "taus"
+                torch.Tensor(tau_mem).to(device), "taus"
             )
 
         """ (Tensor) Synaptic time constants `(Nout,)` """
@@ -274,7 +274,7 @@ class LIFTorch(TorchModule):
         """ (Tensor) Spikes `(Nin,)` """
 
         self.alpha: P_tensor = rp.SimulationParameter(
-            torch.exp(-self.dt / self.tau_mem).unsqueeze(1).T.to(device)
+            torch.exp(-self.dt / self.tau_mem).to(device)
         )
         self.beta: P_tensor = rp.SimulationParameter(
             torch.exp(-self.dt / self.tau_syn).to(device)
@@ -368,14 +368,6 @@ class LIFTorch(TorchModule):
             n_batches, time_steps, self.n_neurons, device=data.device
         )
 
-        # normalize input by time constant
-        data = data * self.dt / self.tau_syn
-
-        # normalize recurrent weight by time constant
-        if hasattr(self, "w_rec"):
-            w_rec_normalized = self.w_rec.reshape(self.n_neurons, self.n_synapses, self.n_neurons) * self.dt / self.tau_syn 
-            w_rec_normalized = w_rec_normalized.reshape(self.n_neurons, self.n_synapses * self.n_neurons)
-
         # - Loop over time
         for t in range(time_steps):
 
@@ -388,7 +380,7 @@ class LIFTorch(TorchModule):
 
             # - Apply spikes over the recurrent weights
             if hasattr(self, "w_rec"):
-                rec_inp = F.linear(spikes, w_rec_normalized.T).reshape(
+                rec_inp = F.linear(spikes, self.w_rec.T).reshape(
                     n_batches, self.n_synapses, self.n_neurons
                 )
                 isyn = isyn + rec_inp
@@ -449,24 +441,22 @@ class LIFTorch(TorchModule):
         return as_GraphHolder(neurons)
 
     @property
-    def tau_mem(self):
-        return self._tau_mem
+    def alpha(self):
+        return self._alpha
 
-    @tau_mem.setter
-    def tau_mem(self, val):
-        self._tau_mem = val
-        if hasattr(self, "alpha"):
-            self.alpha.data = torch.exp(-self.dt / self._tau_mem).unsqueeze(1).T.to(self._tau_mem.device)
+    @alpha.setter
+    def alpha(self, val):
+        self._alpha = val
+        self.tau_mem = (-self.dt / torch.log(self._alpha)).to(self._alpha.device)
 
     @property
-    def tau_syn(self):
-        return self._tau_syn
+    def beta(self):
+        return self._beta
 
-    @tau_syn.setter
-    def tau_syn(self, val):
-        self._tau_syn = val
-        if hasattr(self, "beta"):
-            self.beta.data = torch.exp(-self.dt / self._tau_syn).to(self._tau_syn.device)
+    @beta.setter
+    def beta(self, val):
+        self._beta = val
+        self.tau_syn = (-self.dt / torch.log(self._beta)).to(self._alpha.device)
 
 
 
