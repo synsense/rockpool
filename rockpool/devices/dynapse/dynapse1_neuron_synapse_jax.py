@@ -13,14 +13,18 @@ References:
     Comput., vol. 19, no. 10, p. 2581–2603, Oct. 2007. [Online]. Available:
     https://doi.org/10.1162/neco.2007.19.10.2581
 
-[3] Dynap-SE1 Neuromorphic Chip Simulator for NICE Workshop 2021
+[3] P. Livi and G. Indiveri, “A current-mode conductance-based silicon neuron for
+    address-event neuromorphic systems,” in 2009 IEEE International Symposium on
+    Circuits and Systems, May 2009, pp. 2898–2901
+
+[4] Dynap-SE1 Neuromorphic Chip Simulator for NICE Workshop 2021
     https://code.ini.uzh.ch/yigit/NICE-workshop-2021
 
-[4] Course: Neurormophic Engineering 1
+[5] Course: Neurormophic Engineering 1
     Tobi Delbruck, Shih-Chii Liu, Giacomo Indiveri
     https://tube.switch.ch/channels/88df64b6
 
-[5] Course: 21FS INI508 Neuromorphic Intelligence
+[6] Course: 21FS INI508 Neuromorphic Intelligence
     Giacomo Indiveri
     https://tube.switch.ch/switchcast/uzh.ch/series/5ee1d666-25d2-4c4d-aeb9-4b754b880345?order=newest-first
 
