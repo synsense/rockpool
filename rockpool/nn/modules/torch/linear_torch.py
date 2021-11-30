@@ -85,6 +85,7 @@ class LinearTorch(TorchModule):
             ),
             family="weights",
         )
+        self.weight.requires_grad = True
         """ (torch.Tensor) Weight matrix with shape ``(Nin, Nout)`` """
 
         if has_bias:
@@ -99,18 +100,19 @@ class LinearTorch(TorchModule):
                 family="biases",
             )
             """ (torch.Tensor) Bias vector with shape ``(Nout,)`` """
+            self.bias.requires_grad = True
         else:
             self.bias = None
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         return (
             F.linear(
-                input.type(torch.double),
-                self.weight.type(torch.double).T,
-                self.bias.type(torch.double),
+                input,
+                self.weight.T,
+                self.bias,
             )
             if self.bias is not None
-            else F.linear(input.type(torch.double), self.weight.type(torch.double).T)
+            else F.linear(input, self.weight.T)
         )
 
     def _extra_repr(self) -> str:
