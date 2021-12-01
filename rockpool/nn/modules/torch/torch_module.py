@@ -20,6 +20,8 @@ import rockpool.parameters as rp
 
 from typing import Tuple, Any, Generator, Union, List
 
+import json
+
 __all__ = ["TorchModule", "TorchModuleParameters"]
 
 
