@@ -414,7 +414,7 @@ class WaveSenseNet(TorchModule):
             has_rec=False,
             w_rec=None,
             noise_std=0,
-            gradient_fn=PeriodicExponential,
+            spike_generation_fn=PeriodicExponential,
             learning_window=0.5,
             dt=dt,
             device=device,
