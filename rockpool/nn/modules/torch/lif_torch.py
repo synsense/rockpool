@@ -132,7 +132,7 @@ class LIFTorch(TorchModule):
         has_rec: P_bool = False,
         w_rec: torch.Tensor = None,
         noise_std: P_float = 0.0,
-        spike_generation_fn: Callable = StepPWL,
+        spike_generation_fn: torch.autograd.Function = StepPWL,
         learning_window: P_float = 0.5,
         weight_init_func: Optional[Callable[[Tuple], torch.tensor]] = None,
         dt: P_float = 1e-3,
@@ -153,7 +153,7 @@ class LIFTorch(TorchModule):
             has_rec (bool): When ``True`` the module provides a trainable recurrent weight matrix. Default ``False``, module is feed-forward.
             w_rec (torch.Tensor): If the module is initialised in recurrent mode, you can provide a concrete initialisation for the recurrent weights, which must be a matrix with shape ``(Nout, Nin)``. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
             noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: ``0.0``
-            spike_generation_fn (Callable): Function to call for spike production. Usually simple threshold crossing. Implements the suroogate gradient function in the backward call. (StepPWL or PeriodicExponential).
+            spike_generation_fn (torch.autograd.Function): Function to call for spike production. Usually simple threshold crossing. Implements the suroogate gradient function in the backward call. (e.g. StepPWL or PeriodicExponential). Default: ``StepPWL``
             learning_window (float): Cutoff value for the surrogate gradient. 
             weight_init_func (Optional[Callable[[Tuple], torch.tensor]): The initialisation function to use when generating weights. Default: ``None`` (Kaiming initialisation)
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
