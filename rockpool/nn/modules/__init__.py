@@ -22,6 +22,7 @@ from .native.filter_bank import *
 try:
     from .torch.torch_module import *
     from .torch.lif_torch import *
+    from .torch.lif_slayer import *
     from .torch.lif_bitshift_torch import *
     from .torch.lowpass import *
     from .torch.exp_syn_torch import *
