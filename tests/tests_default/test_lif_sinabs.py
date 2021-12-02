@@ -1,13 +1,67 @@
 
-def test_FF_equality():
+#def test_FF_equality():
+#    import torch
+#    
+#    # - parameter
+#    n_synapses = 1
+#    n_neurons = 10
+#    n_batches = 3
+#    T = 20
+#    tau_mem = torch.rand(n_neurons)
+#    tau_syn = 0.05
+#    
+#    # - init LIFTorch 
+#    
+#    from rockpool.nn.modules.torch.lif_torch import LIFTorch
+#    lif_torch  = LIFTorch(
+#        shape=(n_synapses * n_neurons, n_neurons),
+#        tau_mem=tau_mem,
+#        tau_syn=tau_syn,
+#        has_bias=False,
+#        has_rec=False,
+#        dt=1e-3,
+#        noise_std=0.0,
+#        device="cpu",
+#    )
+#    
+#    
+#    # - init LIFSinabs
+#    
+#    from rockpool.nn.modules.torch.lif_sinabs import LIFSinabs
+#    lif_sinabs = LIFSinabs(
+#        shape=(n_synapses * n_neurons, n_neurons),
+#        tau_mem=tau_mem,
+#        tau_syn=tau_syn,
+#        has_bias=False,
+#        has_rec=False,
+#        dt=1e-3,
+#        noise_std=0.0,
+#        device="cpu",
+#    )
+#    
+#    
+#    # - Generate some data
+#    input_data = torch.rand(n_batches, T, n_synapses * n_neurons, requires_grad=True)
+#    
+#    # - run LIFTorch and LIFSinabs
+#    out_torch, ns_torch, rd_torch = lif_torch(input_data, record=True)
+#    out_sinabs, ns_sinabs, rd_sinabs = lif_sinabs(input_data, record=True)
+#    
+#    assert torch.all(out_torch == out_sinabs)
+#    assert torch.all(ns_torch == ns_sinabs)
+#    assert torch.all(rd_torch == rd_sinabs)
+
+
+def test_FF_equality_slayer():
     import torch
+    import numpy as np
     
     # - parameter
     n_synapses = 1
     n_neurons = 10
     n_batches = 3
     T = 20
-    tau_mem = torch.rand(n_neurons)
+    tau_mem = 0.01 
     tau_syn = 0.05
     
     # - init LIFTorch 
@@ -21,14 +75,14 @@ def test_FF_equality():
         has_rec=False,
         dt=1e-3,
         noise_std=0.0,
-        device="cpu",
+        device="cuda",
     )
     
     
-    # - init LIFSinabs
+    # - init LIFSlayer
     
-    from rockpool.nn.modules.torch.lif_sinabs import LIFSinabs
-    lif_sinabs = LIFSinabs(
+    from rockpool.nn.modules.torch.lif_slayer import LIFSlayer
+    lif_sinabs = LIFSlayer(
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
@@ -36,70 +90,83 @@ def test_FF_equality():
         has_rec=False,
         dt=1e-3,
         noise_std=0.0,
-        device="cpu",
+        device="cuda",
     )
     
     
     # - Generate some data
-    input_data = torch.rand(n_batches, T, n_synapses * n_neurons, requires_grad=True)
+    input_data = torch.rand(n_batches, T, n_synapses * n_neurons, requires_grad=True).cuda() * 0.1
     
-    # - run LIFTorch and LIFSinabs
+    # - run LIFTorch and LIFSlayer
     out_torch, ns_torch, rd_torch = lif_torch(input_data, record=True)
     out_sinabs, ns_sinabs, rd_sinabs = lif_sinabs(input_data, record=True)
     
-    assert torch.all(out_torch == out_sinabs)
-    assert torch.all(ns_torch == ns_sinabs)
-    assert torch.all(rd_torch == rd_sinabs)
+    
+    assert np.allclose(out_torch.detach().cpu(), out_sinabs.detach().cpu())
+    
+    for key in ns_torch.keys():
+        assert np.allclose(ns_torch[key].detach().cpu(), ns_sinabs[key].detach().cpu())
+    
+    for key in rd_torch.keys():
+        assert np.allclose(rd_torch[key].detach().cpu(), rd_sinabs[key].detach().cpu(), atol=1e-6, rtol=1e-6)
 
 
-def test_FF_equality_slayer():
-import torch
-
-# - parameter
-n_synapses = 1
-n_neurons = 10
-n_batches = 3
-T = 20
-tau_mem = torch.rand(n_neurons)
-tau_syn = 0.05
-
-# - init LIFTorch 
-
-from rockpool.nn.modules.torch.lif_torch import LIFTorch
-lif_torch  = LIFTorch(
-    shape=(n_synapses * n_neurons, n_neurons),
-    tau_mem=tau_mem,
-    tau_syn=tau_syn,
-    has_bias=False,
-    has_rec=False,
-    dt=1e-3,
-    noise_std=0.0,
-    device="cpu",
-)
 
 
-# - init LIFSinabs
-
-from rockpool.nn.modules.torch.lif_sinabs import LIFSlayer
-lif_sinabs = LIFSinabs(
-    shape=(n_synapses * n_neurons, n_neurons),
-    tau_mem=tau_mem,
-    tau_syn=tau_syn,
-    has_bias=False,
-    has_rec=False,
-    dt=1e-3,
-    noise_std=0.0,
-    device="cpu",
-)
-
-
-# - Generate some data
-input_data = torch.rand(n_batches, T, n_synapses * n_neurons, requires_grad=True)
-
-# - run LIFTorch and LIFSinabs
-out_torch, ns_torch, rd_torch = lif_torch(input_data, record=True)
-out_sinabs, ns_sinabs, rd_sinabs = lif_sinabs(input_data, record=True)
-
-assert torch.all(out_torch == out_sinabs)
-assert torch.all(ns_torch == ns_sinabs)
-assert torch.all(rd_torch == rd_sinabs)
+def test_FF_multisyn_equality_slayer():
+    import torch
+    import numpy as np
+    
+    # - parameter
+    n_synapses = 2
+    n_neurons = 10
+    n_batches = 3
+    T = 20
+    tau_mem = 0.01 
+    tau_syn = torch.rand((n_synapses, n_neurons)) * 0.1 
+    
+    # - init LIFTorch 
+    
+    from rockpool.nn.modules.torch.lif_torch import LIFTorch
+    lif_torch  = LIFTorch(
+        shape=(n_synapses * n_neurons, n_neurons),
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        has_bias=False,
+        has_rec=False,
+        dt=1e-3,
+        noise_std=0.0,
+        device="cuda",
+    )
+    
+    
+    # - init LIFSlayer
+    
+    from rockpool.nn.modules.torch.lif_slayer import LIFSlayer
+    lif_sinabs = LIFSlayer(
+        shape=(n_synapses * n_neurons, n_neurons),
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        has_bias=False,
+        has_rec=False,
+        dt=1e-3,
+        noise_std=0.0,
+        device="cuda",
+    )
+    
+    
+    # - Generate some data
+    input_data = torch.rand(n_batches, T, n_synapses * n_neurons, requires_grad=True).cuda() * 0.1
+    
+    # - run LIFTorch and LIFSlayer
+    out_torch, ns_torch, rd_torch = lif_torch(input_data, record=True)
+    out_sinabs, ns_sinabs, rd_sinabs = lif_sinabs(input_data, record=True)
+    
+    
+    assert np.allclose(out_torch.detach().cpu(), out_sinabs.detach().cpu())
+    
+    for key in ns_torch.keys():
+        assert np.allclose(ns_torch[key].detach().cpu(), ns_sinabs[key].detach().cpu())
+    
+    for key in rd_torch.keys():
+        assert np.allclose(rd_torch[key].detach().cpu(), rd_sinabs[key].detach().cpu(), atol=1e-6, rtol=1e-6)
