@@ -11,7 +11,7 @@ if util.find_spec("sinabs.slayer") is None:
 
 from typing import Union, List, Tuple, Callable, Optional, Any
 import numpy as np
-from rockpool.nn.modules.torch.lif_torch import LIFTorch 
+from rockpool.nn.modules.torch.lif_torch import LIFBaseTorch 
 import torch
 import torch.nn.functional as F
 import torch.nn.init as init
@@ -27,13 +27,13 @@ from rockpool.graph import (
 )
 
 from sinabs.slayer.spike import SpikeFunctionIterForward
-from sinabs.layers import ExpLeak
+from sinabs.slayer.leaky import LeakyIntegrator
 
 __all__ = ["LIFSlayer"]
 
 
 
-class LIFSlayer(LIFTorch):
+class LIFSlayer(LIFBaseTorch):
 
     def __init__(
         self,
@@ -47,7 +47,7 @@ class LIFSlayer(LIFTorch):
         **kwargs,
     ):
         """
-        Instantiate an LIF module
+        Instantiate an LIF module using the Slayer backend
 
         Args:
             tau_mem (float): An optional array with concrete initialisation data for the membrane time constants. If not provided, 20ms will be used by default.
@@ -55,7 +55,7 @@ class LIFSlayer(LIFTorch):
             has_bias (bool): Must be False
             has_rec (bool): Must be False
             noise_std (float): Must be 0
-            device: Must be cuda 
+            device (str): Must be cuda 
         """
 
         assert device == "cuda"
@@ -79,14 +79,10 @@ class LIFSlayer(LIFTorch):
     
     def forward_leak(self, inp: torch.Tensor, alpha, state):
 
-        time_steps = inp.shape[1]
-
-        out_state = torch.zeros_like(inp).to(inp.device)
-        for step in range(time_steps):
-            state = alpha * state  # leak state
-            state = state + inp[:, step]  # Add input
-            out_state[:, step] = state
-
+        out_state = LeakyIntegrator.apply(
+            inp, state.flatten().contiguous(), alpha
+        )
+    
         return out_state 
 
 
@@ -141,12 +137,16 @@ class LIFSlayer(LIFTorch):
 
         # leak
         data = data.reshape(n_batches, time_steps, self.n_synapses, self.n_neurons)
-        isyn = self.forward_leak(data, self.beta, isyn)
+#        .movedim(-1, 1).reshape(n_batches * n_connections, time_steps)
+        inp = torch.zeros(n_batches * self.n_neurons, self.n_synapses, time_steps).to(data.device)
 
-        inp = isyn.sum(2).movedim(-1, 1).reshape(n_batches * self.n_neurons, time_steps)
+        for syn in range(self.n_synapses):
+            inp[:, syn] = self.forward_leak(data[:, :, syn].movedim(-1, 1).reshape(n_batches * self.n_neurons, time_steps), 
+                                            self.beta[syn][0], 
+                                            isyn[:, syn])
 
         output_spikes, vmem = SpikeFunctionIterForward.apply(
-                inp, # input
+                inp.sum(1), # input
                 self.threshold[0], #membrane subtract
                 self.alpha[0].item(), # alpha
                 vmem, # init state
@@ -160,17 +160,18 @@ class LIFSlayer(LIFTorch):
         vmem = vmem.reshape(n_batches, self.n_neurons, time_steps).movedim(1, -1)
         spikes = output_spikes.reshape(n_batches, self.n_neurons, time_steps).movedim(1, -1)
 
-        vmem = vmem - spikes
+        vmem = vmem - spikes * self.threshold[0]
+        inp = inp.reshape(n_batches, self.n_neurons, self.n_synapses, time_steps).movedim(1, 2).movedim(-1, 1)
 
         if self._record:
             # recording
             self._record_Vmem = vmem.detach()
-            self._record_Isyn = isyn.detach()
+            self._record_Isyn = inp.detach()
 
         self._record_spikes = spikes
 
         self.vmem = vmem[0, -1].detach()
-        self.isyn = isyn[0, -1].detach()
+        self.isyn = inp[0, -1].detach()
         self.spikes = spikes[0, -1].detach()
 
         self._record_spikes

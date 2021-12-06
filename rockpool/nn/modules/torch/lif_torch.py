@@ -82,7 +82,7 @@ class PeriodicExponential(torch.autograd.Function):
         return grad_output * spikePdf, None, None
 
 
-class LIFTorch(TorchModule):
+class LIFBaseTorch(TorchModule):
     """
     A leaky integrate-and-fire spiking neuron model
 
@@ -308,6 +308,51 @@ class LIFTorch(TorchModule):
 
         return output_data, states, record_dict
 
+    def as_graph(self) -> GraphModuleBase:
+        # - Generate a GraphModule for the neurons
+        neurons = LIFNeuronWithSynsRealValue._factory(
+            self.size_in,
+            self.size_out,
+            f"{type(self).__name__}_{self.name}_{id(self)}",
+            self.tau_mem,
+            self.tau_syn,
+            self.threshold,
+            self.bias,
+            self.dt,
+        )
+
+        # - Include recurrent weights if present
+        if len(self.attributes_named("w_rec")) > 0:
+            # - Weights are connected over the existing input and output nodes
+            w_rec_graph = LinearWeights(
+                neurons.output_nodes,
+                neurons.input_nodes,
+                f"{type(self).__name__}_recurrent_{self.name}_{id(self)}",
+                self.w_rec.detach().numpy(),
+            )
+
+        # - Return a graph containing neurons and optional weights
+        return as_GraphHolder(neurons)
+
+    @property
+    def alpha(self):
+        return torch.exp(-self.dt / self.tau_mem).to(self.tau_mem.device)
+
+    @alpha.setter
+    def alpha(self, val):
+        self.tau_mem = (-self.dt / torch.log(val)).to(self.tau_mem.device)
+
+    @property
+    def beta(self):
+        return torch.exp(-self.dt / self.tau_syn).to(self.tau_syn.device)
+
+    @beta.setter
+    def beta(self, val):
+        self.tau_syn = (-self.dt / torch.log(val)).to(self.tau_syn.device)
+
+
+class LIFTorch(LIFBaseTorch):
+
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
         Forward method for processing data through this layer
@@ -405,44 +450,3 @@ class LIFTorch(TorchModule):
 
         return self._record_spikes
 
-    def as_graph(self) -> GraphModuleBase:
-        # - Generate a GraphModule for the neurons
-        neurons = LIFNeuronWithSynsRealValue._factory(
-            self.size_in,
-            self.size_out,
-            f"{type(self).__name__}_{self.name}_{id(self)}",
-            self.tau_mem,
-            self.tau_syn,
-            self.threshold,
-            self.bias,
-            self.dt,
-        )
-
-        # - Include recurrent weights if present
-        if len(self.attributes_named("w_rec")) > 0:
-            # - Weights are connected over the existing input and output nodes
-            w_rec_graph = LinearWeights(
-                neurons.output_nodes,
-                neurons.input_nodes,
-                f"{type(self).__name__}_recurrent_{self.name}_{id(self)}",
-                self.w_rec.detach().numpy(),
-            )
-
-        # - Return a graph containing neurons and optional weights
-        return as_GraphHolder(neurons)
-
-    @property
-    def alpha(self):
-        return torch.exp(-self.dt / self.tau_mem).to(self.tau_mem.device)
-
-    @alpha.setter
-    def alpha(self, val):
-        self.tau_mem = (-self.dt / torch.log(val)).to(self.tau_mem.device)
-
-    @property
-    def beta(self):
-        return torch.exp(-self.dt / self.tau_syn).to(self.tau_syn.device)
-
-    @beta.setter
-    def beta(self, val):
-        self.tau_syn = (-self.dt / torch.log(val)).to(self.tau_syn.device)
