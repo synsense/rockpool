@@ -639,7 +639,9 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         """
 
         def get_weight_matrix(
-            weight_matrix: Optional[FloatVector], shape: Tuple[int]
+            weight_matrix: Optional[FloatVector],
+            shape: Tuple[int],
+            fill_rate=[0.04, 0.06, 0.15, 0.25],
         ) -> JP_ndarray:
             """
             get_weight_matrix Create a weight matrix parameter for w_in or w_rec given a shape.
@@ -650,15 +652,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             :type shape: Tuple[int]
             :return: a trainable weight matrix
             :rtype: JP_ndarray
-
-            [] TODO: More realistic, sparse weight matrix initialization. Make multiple connections possible in the initialization with non-uniform selection
             """
-            weight_init = lambda s: rand.randint(
-                rand.split(self._rng_key)[0],
-                shape=shape,
-                minval=0,
-                maxval=2,
-            )
+            weight_init = lambda s: self.poisson_weight_matrix(s, fill_rate)
 
             # Values between 0,64
             weight_matrix: JP_ndarray = Parameter(
@@ -698,6 +693,49 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         w_in = get_weight_matrix(w_in, (self.size_in, self.size_out, 4))
 
         return w_in, w_rec
+
+    @staticmethod
+    def poisson_weight_matrix(
+        shape: Tuple[int], fill_rate: Union[float, List[float]]
+    ) -> np.ndarray:
+        """
+        poisson_weight_matrix creates a 3D weight matrix using a poisson distribution
+        The function takes desired fill rates of the matrices and converts it to a poisson lambda.
+        The analytical solution is here:
+
+        .. math ::
+            f(X=x) = \\dfrac{\\lambda^{x}\\cdot e^{-\\lambda}}{x!}
+            f(X=0) = e^{-\\lambda}
+            p = 1 - f(X=0) = 1 - e^{-\\lambda}
+            e^{-\\lambda} = 1-p
+            \\lambda = -ln(1-p) ; 0<p<1
+
+        :param shape: the 3D shape of the weight matrix
+        :type shape: Tuple[int]
+        :param fill_rate: the fill rates desired to be converted to a list of posisson rates of the weights specific to synaptic-gates (3rd dimension)
+        :type lambda_list: Union[float, List[float]]
+        :raises ValueError: The possion rate list given does not have the same shape with the 3rd dimension
+        :return: 3D numpy array representing a Dynap-SE connectivity matrix
+        :rtype: np.ndarray
+        """
+        if isinstance(fill_rate, float):
+            fill_rate = [fill_rate] * shape[2]
+
+        if len(fill_rate) != shape[2]:
+            raise ValueError(
+                "The possion rate list given does not have the same shape with the 3rd dimension"
+            )
+
+        lambda_list = -onp.log(1 - onp.array(fill_rate))
+
+        # First create a base weight matrix
+        columns = []
+        for l in lambda_list:
+            w = onp.random.poisson(l, (*shape[0:2], 1))
+            columns.append(w)
+
+        weight = onp.concatenate(columns, axis=2, dtype=onp.float32)
+        return weight
 
     ## --- HIGH LEVEL TIME CONSTANTS -- ##
 
