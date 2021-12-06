@@ -374,9 +374,9 @@ class LIFTorch(TorchModule):
 
         # normalize recurrent weight by time constant
         if hasattr(self, "w_rec"):
-            # w_rec_normalized = self.w_rec.reshape(self.n_neurons, self.n_synapses, self.n_neurons) * self.dt / self.tau_syn
-            # w_rec_normalized = w_rec_normalized.reshape(self.n_neurons, self.n_synapses * self.n_neurons)
-            w_rec = self.w_rec.reshape(self.n_neurons, self.n_synapses * self.n_neurons)
+            w_rec_normalized = self.w_rec.reshape(self.n_neurons, self.n_synapses, self.n_neurons) * self.dt / self.tau_syn
+            w_rec_normalized = w_rec_normalized.reshape(self.n_neurons, self.n_synapses * self.n_neurons)
+            # w_rec = self.w_rec.reshape(self.n_neurons, self.n_synapses * self.n_neurons)
 
         # - Loop over time
         for t in range(time_steps):
@@ -390,8 +390,8 @@ class LIFTorch(TorchModule):
 
             # - Apply spikes over the recurrent weights
             if hasattr(self, "w_rec"):
-                # rec_inp = F.linear(spikes, w_rec_normalized.T).reshape(
-                rec_inp = F.linear(spikes, w_rec.T).reshape(
+                rec_inp = F.linear(spikes, w_rec_normalized.T).reshape(
+                # rec_inp = F.linear(spikes, w_rec.T).reshape(
                     n_batches, self.n_synapses, self.n_neurons
                 )
                 isyn = isyn + rec_inp
