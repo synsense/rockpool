@@ -52,6 +52,7 @@ from typing import (
     Tuple,
     Any,
     Callable,
+    List,
 )
 
 from rockpool.typehints import (
@@ -335,12 +336,17 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             )
 
         # --- Parameters & States --- #
+        init_current = lambda s: np.full(s, sim_config.Io)
 
         # --- States --- #
+        self.Imem = State(
+            sim_config.Imem, shape=(self.size_out,), init_func=init_current
+        )
+        self.Isyn = State(
+            sim_config.Isyn, shape=(5, self.size_out), init_func=init_current
+        )
         self.spikes = State(shape=(self.size_out,), init_func=np.zeros)
-        self.Vmem = State(init_func=np.zeros, shape=(self.size_out,))
-        self.Imem = State(sim_config.Imem, shape=(self.size_out,))
-        self.Isyn = State(sim_config.Isyn, shape=(5, self.size_out))
+        self.Vmem = State(shape=(self.size_out,), init_func=np.zeros)
         self.timer_ref = State(shape=(self.size_out,), init_func=np.zeros)
         self._rng_key: JP_ndarray = State(rng_key, init_func=lambda _: rng_key)
 
