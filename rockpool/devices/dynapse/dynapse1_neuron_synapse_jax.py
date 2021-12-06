@@ -493,21 +493,20 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             timer_ref = np.clip(timer_ref, 0)
             timer_ref = (1 - spikes) * timer_ref + spikes * self.t_ref
 
+            # --- Forward step: DPI SYNAPSES --- #
             ## ATTENTION : Optimization can make Itau_mem and I_tau_syn < Io
             # We might have division by 0 if we allow this to happen!
-            Itau_mem_clip = np.clip(self.Itau_mem, self.Io)
+
             Itau_syn_clip = np.clip(self.Itau_syn, self.Io)
             Ith_syn_clip = self.f_gain_syn * Itau_syn_clip
-            Ith_mem_clip = self.f_gain_mem * Itau_mem_clip
 
             # --- Implicit parameters  --- #  # 5xNrec
-            tau_mem = self.f_tau_mem / Itau_mem_clip
             tau_syn_prime = (self.f_tau_syn / Itau_syn_clip) * (
                 1 + (Ith_syn_clip / Isyn)
             )
             Isyn_inf = (self.f_gain_syn * self.Iw) - Ith_syn_clip
 
-            # --- Forward step: DPI SYNAPSES --- #
+            # --- Pulse Extension  --- #
             ## spike input for 4 synapses: GABA_B, GABA_A, NMDA, AMPA; spike output for 1 synapse: AHP
             ## w_in.shape = NinxNrecx4 [pre,post,syn]
             ## w_rec.shape = NrecxNrecx4 [pre,post,syn]
@@ -536,6 +535,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             Isyn = np.clip(Isyn, self.Io)  # 5xNrec
 
             # --- Forward step: MEMBRANE --- #
+            Itau_mem_clip = np.clip(self.Itau_mem, self.Io)
+            Ith_mem_clip = self.f_gain_mem * Itau_mem_clip
 
             ## Decouple synaptic currents and calculate membrane input
             Igaba_b, Igaba_a, Inmda, Iampa, Iahp = Isyn
@@ -548,16 +549,20 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             Iin *= np.logical_not(timer_ref.astype(bool))
             Iin = np.clip(Iin, self.Io)
 
+            # Igaba_a (shunting) contributes to the membrane leak instead of subtracting from Iin
+            Ileak = Itau_mem_clip + Igaba_a
+            tau_mem_prime = self.f_tau_mem / Ileak * (1 + (Ith_mem_clip / Imem))
+
             ## Steady state current
-            Imem_inf = self.f_gain_mem * (Iin - (Iahp + Igaba_a) - Itau_mem_clip)
+            Imem_inf = self.f_gain_mem * (Iin - Iahp - Ileak)
 
             ## Positive feedback
             Ifb = self.Io * f_feedback
-            f_Imem = ((Ifb) / (Itau_mem_clip)) * (Imem + Ith_mem_clip)
+            f_Imem = ((Ifb) / (Ileak)) * (Imem + Ith_mem_clip)
 
             ## Forward Euler Update
-            del_Imem = (Imem / (tau_mem * (Ith_mem_clip + Imem))) * (
-                Imem_inf + f_Imem - (Imem * (1 + ((Iahp + Igaba_a) / Itau_mem_clip)))
+            del_Imem = (1 / tau_mem_prime) * (
+                Imem_inf + f_Imem - (Imem * (1 + (Iahp / Ileak)))
             )
             Imem = Imem + del_Imem * self.dt
             Imem = np.clip(Imem, self.Io)
