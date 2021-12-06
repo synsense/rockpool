@@ -10,7 +10,7 @@ from rockpool.graph import AliasConnection, GraphHolder, connect_modules
 
 import torch
 
-from typing import List
+from typing import List, Callable, Union
 
 __all__ = ["WaveBlock", "WaveSenseNet"]
 
@@ -100,14 +100,29 @@ class WaveSenseBlock(TorchModule):
         )
 
         # - Add parameters
-        self.neuron_model = neuron_model
+        self.neuron_model: Union[Callable, SimulationParameter] = SimulationParameter(
+            neuron_model
+        )
+        """ Neuron model used by this WaveSense network """
 
         # - Dilation layers
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+        tau_syn = torch.arange(0, dilation * kernel_size, dilation) * base_tau_syn
+        tau_syn = torch.clamp(tau_syn, base_tau_syn, tau_syn.max())
+=======
+>>>>>>> dev/wavesense_graph
         tau_syn = (
             torch.arange(0, dilation * kernel_size, dilation) * base_tau_syn
         )
         tau_syn = torch.clamp(tau_syn, base_tau_syn, tau_syn.max()).repeat(Nchannels, 1).T
 
+<<<<<<< HEAD
+=======
+>>>>>>> develop
+
+>>>>>>> dev/wavesense_graph
         self.lin1 = LinearTorch(
             shape=(Nchannels, Nchannels * kernel_size), has_bias=False, device=device
         )
@@ -179,27 +194,33 @@ class WaveSenseBlock(TorchModule):
 
         # - Pass through dilated weight layer
         out, _, self._record_dict["lin1"] = self.lin1(data, record=True)
+        self._record_dict["lin1_output"] = out
 
         # - Pass through dilated spiking layer
         hidden, _, self._record_dict["spk1"] = self.spk1(
             out, record=True
         )  # (t_sim, n_batches, Nchannels)
+        self._record_dict["spk1_output"] = hidden
 
         # - Pass through output linear weights
         out_res, _, self._record_dict["lin2_res"] = self.lin2_res(hidden, record=True)
+        self._record_dict["lin2_res_output"] = out_res
 
         # - Pass through output spiking layer
         out_res, _, self._record_dict["spk2_res"] = self.spk2_res(out_res, record=True)
+        self._record_dict["spk2_res_output"] = out_res
 
         # - Hidden -> skip outputs
         out_skip, _, self._record_dict["lin2_skip"] = self.lin2_skip(
             hidden, record=True
         )
+        self._record_dict["lin2_skip_output"] = out_skip
 
         # - Pass through skip output spiking layer
         out_skip, _, self._record_dict["spk2_skip"] = self.spk2_skip(
             out_skip, record=True
         )
+        self._record_dict["spk2_skip_output"] = out_skip
 
         # - Combine output and residual connections (pass-through)
         res_out = out_res + data
@@ -295,8 +316,18 @@ class WaveSenseNet(TorchModule):
         tau_mem: float = 20e-3,
         base_tau_syn: float = 20e-3,
         tau_lp: float = 20e-3,
+<<<<<<< HEAD
         threshold: float = 1.0,
         neuron_model = LIFTorch,
+=======
+<<<<<<< HEAD
+        threshold: float = 0.0,
+        neuron_model=LIFTorch,
+=======
+        threshold: float = 1.0,
+        neuron_model = LIFTorch,
+>>>>>>> develop
+>>>>>>> dev/wavesense_graph
         dt: float = 1e-3,
         device: str = None,
         *args,
@@ -398,6 +429,7 @@ class WaveSenseNet(TorchModule):
         )
 
         # - low pass filter is not compatible with xylo unless we give tau_syn 0
+<<<<<<< HEAD
         # - Smoothing output
         # self.smooth_output = SimulationParameter(smooth_output)
         # """ bool: Perform low-pass filtering of the readout """
@@ -419,6 +451,14 @@ class WaveSenseNet(TorchModule):
             dt=dt,
             device=device,
         )
+=======
+        # Smoothing output
+        self.smooth_output = SimulationParameter(smooth_output)
+        """ bool: Perform low-pass filtering of the readout """
+
+        if smooth_output:
+            self.lp = ExpSynTorch(n_classes, tau_syn=tau_lp, dt=dt, device=device)
+>>>>>>> dev/wavesense_graph
 
         # - Record dt
         self.dt = SimulationParameter(dt)
@@ -427,18 +467,17 @@ class WaveSenseNet(TorchModule):
         # Dictionary for recording state
         self._record_dict = {}
 
-        self.submods = []
-        self.submods.append(self.lin1)
-        self.submods.append(self.spk1)
-
-        for index in range(self._num_dilations):
-            wave = self.modules()[f"wave{index}"]
-            self.submods.append(wave)
-
-        self.submods.append(self.hidden)
-        self.submods.append(self.spk2)
-        self.submods.append(self.readout)
-        self.submods.append(self.spk_out)
+        # self.submods = []
+        # self.submods.append(self.lin1)
+        # self.submods.append(self.spk1)
+        #
+        # for index in range(self._num_dilations):
+        #     wave = self.modules()[f"wave{index}"]
+        #     self.submods.append(wave)
+        #
+        # self.submods.append(self.hidden)
+        # self.submods.append(self.spk2)
+        # self.submods.append(self.readout)
 
     def forward(self, data: torch.Tensor):
         # Expected data shape
@@ -446,11 +485,13 @@ class WaveSenseNet(TorchModule):
 
         # - Input mapping layers
         out, _, self._record_dict["lin1"] = self.lin1(data, record=True)
+        self._record_dict["lin1_output"] = out.detach()
 
         # Pass through spiking layer
         out, _, self._record_dict["spk1"] = self.spk1(
             out, record=True
         )  # (t_sim, n_batches, Nchannels)
+        self._record_dict["spk1_output"] = out.detach()
 
         # Pass through each wave block in turn
         skip = 0
@@ -463,17 +504,26 @@ class WaveSenseNet(TorchModule):
 
         # Dense layers
         out, _, self._record_dict["hidden"] = self.hidden(skip, record=True)
+        self._record_dict["hidden_output"] = out.detach()
         out, _, self._record_dict["spk2"] = self.spk2(out, record=True)
+        self._record_dict["spk2_output"] = out.detach()
 
         # Final readout layer
         out, _, self._record_dict["readout"] = self.readout(out, record=True)
+        self._record_dict["readout_output"] = out.detach()
 
+<<<<<<< HEAD
         # - low pass filter is not compatible with xylo unless we give tau_syn 0
         # - Smooth the output if requested
         # if self.smooth_output:
         #     out, _, self._record_dict["lp"] = self.lp(out, record=True)
 
         out, _, self._record_dict["spk_out"] = self.spk_out(out, record=True)
+=======
+        # Smooth the output if requested
+        if self.smooth_output:
+            out, _, self._record_dict["lp"] = self.lp(out, record=True)
+>>>>>>> dev/wavesense_graph
 
         return out
 
@@ -483,27 +533,41 @@ class WaveSenseNet(TorchModule):
         record_dict = self._record_dict if record else {}
         return output, new_state, record_dict
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> dev/wavesense_graph
     def trainable_parameters(self):
         return [p for p in list(self.parameters().astorch()) if p.requires_grad]
 
     def as_graph(self):
-        mod_graphs = []
+        # - Convert all modules to graph representation
+        mod_graphs = {k: m.as_graph() for k, m in self.modules().items()}
 
-        for mod in self.submods:
-            mod_graphs.append(mod.as_graph())
+        # for mod in self.submods:
+        #     mod_graphs.append(mod.as_graph())
 
-        connect_modules(mod_graphs[0], mod_graphs[1])
-        connect_modules(mod_graphs[1], mod_graphs[2])
+        # - Connect modules
+        # connect_modules(mod_graphs[0], mod_graphs[1])
+        # connect_modules(mod_graphs[1], mod_graphs[2])
+        connect_modules(mod_graphs["lin1"], mod_graphs["spk1"])
+        connect_modules(mod_graphs["spk1"], mod_graphs["wave0"])
 
         block_mod_start = 2
 
         for i in range(self._num_dilations - 1):
             connect_modules(
-                mod_graphs[block_mod_start + i],
-                mod_graphs[block_mod_start + i + 1],
+                mod_graphs[f"wave{i}"],
+                mod_graphs[f"wave{i+1}"],
                 range(self.n_channels_res),
-                None,
             )
+            # connect_modules(
+            #     mod_graphs[block_mod_start + i],
+            #     mod_graphs[block_mod_start + i + 1],
+            #     range(self.n_channels_res),
+            #     None,
+            # )
+
             AliasConnection(
                 mod_graphs[block_mod_start + i].output_nodes[self.n_channels_res:],
                 mod_graphs[block_mod_start + i + 1].output_nodes[self.n_channels_res:],
@@ -529,6 +593,33 @@ class WaveSenseNet(TorchModule):
         )
 
 
+<<<<<<< HEAD
+=======
+# - for quick test, just unmute these lines
+# Net = WaveSenseNet(
+#     dilations=[2, 4, 8],
+#     n_classes=2,
+#     n_channels_in=16,
+#     n_channels_res=16,
+#     n_channels_skip=32,
+#     n_hidden=32,
+#     kernel_size=2,
+# )
+#
+# from rockpool.devices.xylo import *
+#
+# WaveSense_graph = Net.as_graph()
+# WaveSense_specs = mapper(
+#     WaveSense_graph, weight_dtype="float", threshold_dtype="float", dash_dtype="float"
+# )
+# del WaveSense_specs["mapped_graph"]
+# del WaveSense_specs["dt"]
+# xylo_conf, is_valid, message = config_from_specification(**WaveSense_specs)
+# print("Valid config: ", is_valid, message)
+=======
+
+
+>>>>>>> dev/wavesense_graph
 import torch.nn as nn
 from torch.nn.functional import pad
 
@@ -665,3 +756,10 @@ class WaveNet(nn.Module):
         #out = out.transpose(2, 1)
 
         return out
+<<<<<<< HEAD
+=======
+
+
+
+>>>>>>> develop
+>>>>>>> dev/wavesense_graph

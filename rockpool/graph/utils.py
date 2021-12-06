@@ -58,10 +58,6 @@ def connect_modules(
     Args:
         source (GraphModule): The source graph module to connect
         dest (GraphModule): The destination graph module to connect
-<<<<<<< HEAD
-        source_index_list (Optional): The source output nodes index list
-        dest_index_list (Optional): the dest input nodes index list
-=======
         source_indices (Optional[Iterable[int]]): The indices of the ``source`` output nodes to connect over. Default: ``None``, use all output nodes
         dest_indices (Optional[Iterable[int]]): The indices of ``dest`` input nodes to connect over. Default: ``None``, use all input nodes
     """

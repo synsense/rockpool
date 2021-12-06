@@ -242,6 +242,7 @@ class TorchModule(Module, nn.Module):
             __modules[name] = [mod, type(mod).__name__]
             obj._submodulenames.append(name)
 
+
     def json_to_param(self, jparam):
 
         for k, param in jparam.items():
