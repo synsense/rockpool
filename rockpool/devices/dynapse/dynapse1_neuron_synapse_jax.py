@@ -466,6 +466,18 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :rtype: Tuple[np.ndarray, dict, dict]
         """
 
+        # --- Stateless Parameters --- #
+
+        ## --- Synapses --- ## 5xNrec
+        Itau_syn_clip = np.clip(self.Itau_syn, self.Io)
+        Ith_syn_clip = self.f_gain_syn * Itau_syn_clip
+        Isyn_inf = (self.f_gain_syn * self.Iw) - Ith_syn_clip  # [] TODO : Check this
+
+        # --- Implicit parameters  --- #
+        ## -- Membrane -- ## Nrec
+        Itau_mem_clip = np.clip(self.Itau_mem, self.Io)
+        Ith_mem_clip = self.f_gain_mem * Itau_mem_clip
+
         def forward(
             state: DynapSE1State, spike_inputs_ts: np.ndarray
         ) -> Tuple[DynapSE1State, Tuple[JP_ndarray, JP_ndarray, JP_ndarray]]:
@@ -500,17 +512,9 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             timer_ref = (1 - spikes) * timer_ref + spikes * self.t_ref
 
             # --- Forward step: DPI SYNAPSES --- #
-            ## ATTENTION : Optimization can make Itau_mem and I_tau_syn < Io
-            # We might have division by 0 if we allow this to happen!
-
-            Itau_syn_clip = np.clip(self.Itau_syn, self.Io)
-            Ith_syn_clip = self.f_gain_syn * Itau_syn_clip
-
-            # --- Implicit parameters  --- #  # 5xNrec
             tau_syn_prime = (self.f_tau_syn / Itau_syn_clip) * (
                 1 + (Ith_syn_clip / Isyn)
             )
-            Isyn_inf = (self.f_gain_syn * self.Iw) - Ith_syn_clip
 
             # --- Pulse Extension  --- #
             ## spike input for 4 synapses: GABA_B, GABA_A, NMDA, AMPA; spike output for 1 synapse: AHP
@@ -541,8 +545,6 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             Isyn = np.clip(Isyn, self.Io)  # 5xNrec
 
             # --- Forward step: MEMBRANE --- #
-            Itau_mem_clip = np.clip(self.Itau_mem, self.Io)
-            Ith_mem_clip = self.f_gain_mem * Itau_mem_clip
 
             ## Decouple synaptic currents and calculate membrane input
             Igaba_b, Igaba_a, Inmda, Iampa, Iahp = Isyn
