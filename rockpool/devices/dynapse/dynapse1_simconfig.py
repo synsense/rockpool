@@ -380,8 +380,8 @@ class MembraneParameters(DPIParameters):
 
     __doc__ += DPIParameters.__doc__
 
-    C: float = 3.2e-12
-    Cref: float = 5e-13
+    C: float = 3e-12
+    Cref: float = 1.5e-12
     Cpulse: float = 5e-13
     tau: Optional[float] = 20e-3
     tau2: Optional[float] = None
@@ -495,6 +495,7 @@ class GABABParameters(SynapseParameters):
 
     __doc__ += SynapseParameters.__doc__
 
+    C: float = 2.5e-11
     tau: Optional[float] = 100e-3
 
     @classmethod
@@ -535,6 +536,7 @@ class GABAAParameters(SynapseParameters):
 
     __doc__ += SynapseParameters.__doc__
 
+    C: float = 2.45e-11
     tau: Optional[float] = 10e-3
 
     @classmethod
@@ -575,6 +577,7 @@ class NMDAParameters(SynapseParameters):
 
     __doc__ += SynapseParameters.__doc__
 
+    C: float = 2.5e-11
     tau: Optional[float] = 100e-3
 
     @classmethod
@@ -615,6 +618,7 @@ class AMPAParameters(SynapseParameters):
 
     __doc__ += SynapseParameters.__doc__
 
+    C: float = 2.45e-11
     tau: Optional[float] = 10e-3
 
     @classmethod
@@ -655,6 +659,7 @@ class AHPParameters(SynapseParameters):
 
     __doc__ += SynapseParameters.__doc__
 
+    C: float = 4e-11
     tau: Optional[float] = 50e-3
 
     @classmethod
