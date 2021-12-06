@@ -1,7 +1,7 @@
 stages:
+  - test
   - docs
   - docs_deploy
-  - test
   - build
   - deploy
 
