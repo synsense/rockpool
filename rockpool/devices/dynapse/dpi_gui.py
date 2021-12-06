@@ -27,8 +27,8 @@ from IPython.display import display
 from rockpool import TSEvent, TSContinuous
 from rockpool.nn.modules import TimedModuleWrapper
 
-from rockpool.devices.dynapse.adexpif_jax import (
-    DynapSEAdExpIFJax,
+from rockpool.devices.dynapse.adexplif_jax import (
+    DynapSEAdExpLIFJax,
 )
 
 from rockpool.devices.dynapse.dynapse1_simconfig import (
@@ -459,7 +459,7 @@ class ResponseGUI:
 
         self.response_out.clear_output()
         tic = time.perf_counter()
-        # Create a new DynapSEAdExpIFJax Instance
+        # Create a new DynapSEAdExpLIFJax Instance
         layout = DynapSE1Layout(Io=self.Io.value)
         nmda = SynapseParameters(
             Itau=self.Itau.value,
@@ -470,7 +470,7 @@ class ResponseGUI:
         spiking_input = True if self.dt.value > self.pulse_width.value else False
 
         self.se1 = TimedModuleWrapper(
-            DynapSEAdExpIFJax(
+            DynapSEAdExpLIFJax(
                 shape=self.shape,
                 dt=self.dt.value,
                 sim_config=sim_config,

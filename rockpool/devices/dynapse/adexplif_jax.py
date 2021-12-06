@@ -89,9 +89,9 @@ def step_pwl(
     return spikes, grad_func
 
 
-class DynapSEAdExpIFJax(JaxModule):
+class DynapSEAdExpLIFJax(JaxModule):
     """
-    DynapSEAdExpIFJax Solves the chip dynamical equations for the DPI neuron and synapse models.
+    DynapSEAdExpLIFJax Solves the chip dynamical equations for the DPI neuron and synapse models.
     Receives configuration as bias currents and solves membrane and synapse dynamics using ``jax`` backend.
     One block has
         - 4 synapses receiving spikes from the other circuits,
@@ -280,8 +280,6 @@ class DynapSEAdExpIFJax(JaxModule):
     :ivar Ireset: Array of reset current after spike generation with shape (Nrec,)
     :type Ireset: JP_ndarray
 
-
-    [] TODO: ATTENTION Now, the implementation is only for one core, extend it for multiple cores
     [] TODO: all neurons cannot have the same parameters ideally however, they experience different parameters in practice because of device mismatch
     [] TODO: Provides mismatch simulation (as second step)
         -As a utility function that operates on a set of parameters?
@@ -307,7 +305,7 @@ class DynapSEAdExpIFJax(JaxModule):
         **kwargs,
     ) -> None:
         """
-        __init__ Initialize ``DynapSEAdExpIFJax`` module. Parameters are explained in the class docstring.
+        __init__ Initialize ``DynapSEAdExpLIFJax`` module. Parameters are explained in the class docstring.
         """
 
         # Check the parameters and initialize to default if necessary
@@ -452,8 +450,8 @@ class DynapSEAdExpIFJax(JaxModule):
         self, input_data: np.ndarray, record: bool = True
     ) -> Tuple[np.ndarray, dict, dict]:
         """
-        evolve implements raw JAX evolution function for a DynapSEAdExpIFJax module.
-        The function solves the dynamical equations introduced at the ``DynapSEAdExpIFJax`` module definition
+        evolve implements raw JAX evolution function for a DynapSEAdExpLIFJax module.
+        The function solves the dynamical equations introduced at the ``DynapSEAdExpLIFJax`` module definition
 
         :param input_data: Input array of shape ``(T, Nrec)`` to evolve over. Represents number of spikes at that timebin
         :type input_data: np.ndarray

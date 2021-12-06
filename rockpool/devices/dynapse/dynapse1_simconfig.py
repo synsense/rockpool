@@ -1,5 +1,5 @@
 """
-Dynap-SE1 Parameter classes to be used in initial configuration of DynapSEAdExpIFJax module
+Dynap-SE1 Parameter classes to be used in initial configuration of DynapSEAdExpLIFJax module
 
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
@@ -843,7 +843,7 @@ class DynapSE1SimCore:
         :type layout: Optional[DynapSE1Layout], optional
         :param capacitance: subcircuit capacitance values that are related to each other and depended on exact silicon layout of a chip, defaults to None
         :type capacitance: Optional[DynapSE1Capacitance], optional
-        :return: simulator config object to construct a `DynapSEAdExpIFJax` object
+        :return: simulator config object to construct a `DynapSEAdExpLIFJax` object
         :rtype: DynapSE1SimCore
         """
 

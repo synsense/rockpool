@@ -9,8 +9,8 @@ E-mail : ugurcan.cakal@gmail.com
 from __future__ import annotations
 import json
 
-from rockpool.devices.dynapse.adexpif_jax import (
-    DynapSEAdExpIFJax,
+from rockpool.devices.dynapse.adexplif_jax import (
+    DynapSEAdExpLIFJax,
 )
 
 from rockpool.devices.dynapse.dynapse1_simconfig import (
@@ -71,10 +71,10 @@ except ModuleNotFoundError as e:
     _NETGEN_AVAILABLE = False
 
 
-class DynapSE1Jax(DynapSEAdExpIFJax):
+class DynapSE1Jax(DynapSEAdExpLIFJax):
     """
-    DynapSE1Jax is an extension to DynapSEAdExpIFJax module with device specific deployment utilities.
-    The parameters and pipeline are explained in the superclass `DynapSEAdExpIFJax` doctring
+    DynapSE1Jax is an extension to DynapSEAdExpLIFJax module with device specific deployment utilities.
+    The parameters and pipeline are explained in the superclass `DynapSEAdExpLIFJax` doctring
 
     :Parameters:
     :param idx_map_dict: a dictionary of dictionaries (2 seperate dictionary for `w_in` and `w_rec`) of the mapping between matrix indexes of the neurons and their global unique neuron keys. if index map is in proper format, a core dictionary can be inferred without an error
@@ -105,7 +105,7 @@ class DynapSE1Jax(DynapSEAdExpIFJax):
     }
     """
 
-    __doc__ += DynapSEAdExpIFJax.__doc__
+    __doc__ += DynapSEAdExpLIFJax.__doc__
 
     biases = [
         "IF_AHTAU_N",

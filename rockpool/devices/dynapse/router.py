@@ -45,7 +45,7 @@ except ModuleNotFoundError as e:
 
     print(
         e,
-        "\DynapSEAdExpIFJax module can only be used for simulation purposes."
+        "\DynapSEAdExpLIFJax module can only be used for simulation purposes."
         "Deployment utilities depends on samna!",
     )
     _SAMNA_AVAILABLE = False
