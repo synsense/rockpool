@@ -364,10 +364,6 @@ class LIFTorch(TorchModule):
         # - Loop over time
         for t in range(time_steps):
 
-            # Decay
-            vmem = alpha * vmem
-            isyn = beta * isyn
-
             # Integrate input
             isyn = isyn + data[:, t]
 
@@ -377,6 +373,10 @@ class LIFTorch(TorchModule):
                     n_batches, self.n_synapses, self.n_neurons
                 )
                 isyn = isyn + rec_inp
+
+            # Decay
+            vmem = alpha * vmem
+            isyn = beta * isyn
 
             if self.noise_std > 0:
                 vmem = (
