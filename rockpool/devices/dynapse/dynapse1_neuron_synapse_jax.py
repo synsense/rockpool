@@ -393,10 +393,10 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         self.Ispkthr = SimulationParameter(sim_config.Ispkthr, shape=(self.size_out,))
         self.Ireset = SimulationParameter(sim_config.Ireset, shape=(self.size_out,))
 
-        # Euler Solver Health Check
-        self.euler_health_check()
+        # # --- Euler Solver Health Check --- #
+        # self.euler_health_check(sim_config)
 
-    def euler_health_check(self) -> None:
+    def euler_health_check(self, config) -> None:
         """
         euler_health_check checks if the simulation time step choosen is capable of simulating the dynamics properly.
         The rule of thumb is that dt > 10*tau in general. It also checks if the pulse width is chosen smaller than the
@@ -430,10 +430,10 @@ class DynapSE1NeuronSynapseJax(JaxModule):
                     f"Chosen simulation time step {self.dt:.2e} is incapable of simulating the {keyword} dynamics properly. dt should be < {_tau.min()/10:.2e}"
                 )
 
-        # Pulse width bigger than dt. It's not crucial but theoretical calculations are done thinking t_pulse<dt
-        if self.t_pulse.max() > self.dt:
+        # Pulse width bigger than dt. It might not be crucial but the theoretical analysis is done thinking t_pulse<dt
+        if config.t_pulse.max() > self.dt:
             logging.warning(
-                f"Pulse width: {self.t_pulse.max():.2e} is greater than simulation time step {self.dt:.2e}!",
+                f"Pulse width: {config.t_pulse.max():.2e} is greater than simulation time step {self.dt:.2e}!",
             )
 
         check_tau(self.tau_mem, keyword="MEMBRANE")
@@ -647,7 +647,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         def get_weight_matrix(
             weight_matrix: Optional[FloatVector],
             shape: Tuple[int],
-            fill_rate=[0.04, 0.06, 0.15, 0.25],
+            fill_rate=[0.04, 0.06, 0.2, 0.2],
         ) -> JP_ndarray:
             """
             get_weight_matrix Create a weight matrix parameter for w_in or w_rec given a shape.
