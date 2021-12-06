@@ -391,3 +391,82 @@ def test_wavenet():
 
 
 
+def test_wavesense_slayer():
+    import torch
+    if not torch.cuda.is_available():
+        # skip if cuda is not available
+        return
+    
+    from rockpool.nn.networks import WaveSenseNet
+    from rockpool.nn.modules import LIFSlayer, LIFTorch
+    import numpy as np
+    
+    # model params
+    dilations = [2, 16]
+    n_out_neurons = 2
+    n_inp_neurons = 3 
+    n_neurons = 4 
+    kernel_size = 2
+    tau_mem = 0.002
+    base_tau_syn = 0.002
+    tau_lp = 0.01
+    threshold = 1.0
+    dt = 0.001
+    device = "cuda"
+    
+    # model init
+    model_torch = WaveSenseNet(dilations=dilations,
+                               n_classes=n_out_neurons,
+                               n_channels_in=n_inp_neurons,
+                               n_channels_res=n_neurons,
+                               n_channels_skip=n_neurons,
+                               n_hidden=n_neurons,
+                               kernel_size=kernel_size,
+                               has_bias=False,
+                               smooth_output=False,
+                               tau_mem=tau_mem,
+                               base_tau_syn=base_tau_syn,
+                               tau_lp=tau_lp,
+                               threshold=threshold,
+                               neuron_model=LIFTorch,
+                               dt=dt,
+                               device=device)
+    
+    state = model_torch.to_json()
+    
+    # model init
+    model_slayer = WaveSenseNet(dilations=dilations,
+                                n_classes=n_out_neurons,
+                                n_channels_in=n_inp_neurons,
+                                n_channels_res=n_neurons,
+                                n_channels_skip=n_neurons,
+                                n_hidden=n_neurons,
+                                kernel_size=kernel_size,
+                                has_bias=False,
+                                smooth_output=False,
+                                tau_mem=tau_mem,
+                                base_tau_syn=base_tau_syn,
+                                tau_lp=tau_lp,
+                                threshold=threshold,
+                                neuron_model=LIFSlayer,
+                                dt=dt,
+                                device=device)
+    
+    model_slayer.json_to_param(state)
+    model_slayer.cuda()
+    
+    
+    # input params
+    n_batches = 2
+    T = 20
+    
+    # input 
+    inp = torch.ones(n_batches, T, n_inp_neurons).to(device) * 100 
+    
+    # forward
+    out_torch, state_torch, rec_torch = model_torch(inp)
+    out_slayer, state_slayer, rec_slayer = model_slayer(inp)
+    
+    assert np.allclose(out_torch.detach().cpu(), out_slayer.detach().cpu())
+    
+    
