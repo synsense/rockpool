@@ -106,23 +106,11 @@ class WaveSenseBlock(TorchModule):
         """ Neuron model used by this WaveSense network """
 
         # - Dilation layers
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
         tau_syn = torch.arange(0, dilation * kernel_size, dilation) * base_tau_syn
-        tau_syn = torch.clamp(tau_syn, base_tau_syn, tau_syn.max())
-=======
->>>>>>> dev/wavesense_graph
         tau_syn = (
-            torch.arange(0, dilation * kernel_size, dilation) * base_tau_syn
+            torch.clamp(tau_syn, base_tau_syn, tau_syn.max()).repeat(Nchannels, 1).T
         )
-        tau_syn = torch.clamp(tau_syn, base_tau_syn, tau_syn.max()).repeat(Nchannels, 1).T
 
-<<<<<<< HEAD
-=======
->>>>>>> develop
-
->>>>>>> dev/wavesense_graph
         self.lin1 = LinearTorch(
             shape=(Nchannels, Nchannels * kernel_size), has_bias=False, device=device
         )
@@ -249,7 +237,10 @@ class WaveSenseBlock(TorchModule):
         connect_modules(mod_graphs[4], mod_graphs[5])  # skip_add
 
         AliasConnection(
-            mod_graphs[0].input_nodes, mod_graphs[3].output_nodes, name=f"residual_loop", computational_module=None
+            mod_graphs[0].input_nodes,
+            mod_graphs[3].output_nodes,
+            name=f"residual_loop",
+            computational_module=None,
         )
 
         multiple_out = mod_graphs[3].output_nodes
@@ -316,18 +307,8 @@ class WaveSenseNet(TorchModule):
         tau_mem: float = 20e-3,
         base_tau_syn: float = 20e-3,
         tau_lp: float = 20e-3,
-<<<<<<< HEAD
         threshold: float = 1.0,
-        neuron_model = LIFTorch,
-=======
-<<<<<<< HEAD
-        threshold: float = 0.0,
-        neuron_model=LIFTorch,
-=======
-        threshold: float = 1.0,
-        neuron_model = LIFTorch,
->>>>>>> develop
->>>>>>> dev/wavesense_graph
+        neuron_model: TorchModule = LIFTorch,
         dt: float = 1e-3,
         device: str = None,
         *args,
@@ -429,13 +410,12 @@ class WaveSenseNet(TorchModule):
         )
 
         # - low pass filter is not compatible with xylo unless we give tau_syn 0
-<<<<<<< HEAD
         # - Smoothing output
-        # self.smooth_output = SimulationParameter(smooth_output)
-        # """ bool: Perform low-pass filtering of the readout """
-        #
-        # if smooth_output:
-        #     self.lp = ExpSynTorch(n_classes, tau_syn=tau_lp, dt=dt, device=device)
+        self.smooth_output = SimulationParameter(smooth_output)
+        """ bool: Perform low-pass filtering of the readout """
+
+        if smooth_output:
+            self.lp = ExpSynTorch(n_classes, tau_syn=tau_lp, dt=dt, device=device)
 
         self.spk_out = self.neuron_model(
             shape=(n_classes, n_classes),
@@ -451,14 +431,6 @@ class WaveSenseNet(TorchModule):
             dt=dt,
             device=device,
         )
-=======
-        # Smoothing output
-        self.smooth_output = SimulationParameter(smooth_output)
-        """ bool: Perform low-pass filtering of the readout """
-
-        if smooth_output:
-            self.lp = ExpSynTorch(n_classes, tau_syn=tau_lp, dt=dt, device=device)
->>>>>>> dev/wavesense_graph
 
         # - Record dt
         self.dt = SimulationParameter(dt)
@@ -512,18 +484,12 @@ class WaveSenseNet(TorchModule):
         out, _, self._record_dict["readout"] = self.readout(out, record=True)
         self._record_dict["readout_output"] = out.detach()
 
-<<<<<<< HEAD
+        out, _, self._record_dict["spk_out"] = self.spk_out(out, record=True)
+
         # - low pass filter is not compatible with xylo unless we give tau_syn 0
         # - Smooth the output if requested
-        # if self.smooth_output:
-        #     out, _, self._record_dict["lp"] = self.lp(out, record=True)
-
-        out, _, self._record_dict["spk_out"] = self.spk_out(out, record=True)
-=======
-        # Smooth the output if requested
         if self.smooth_output:
             out, _, self._record_dict["lp"] = self.lp(out, record=True)
->>>>>>> dev/wavesense_graph
 
         return out
 
@@ -533,10 +499,6 @@ class WaveSenseNet(TorchModule):
         record_dict = self._record_dict if record else {}
         return output, new_state, record_dict
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> dev/wavesense_graph
     def trainable_parameters(self):
         return [p for p in list(self.parameters().astorch()) if p.requires_grad]
 
@@ -569,10 +531,10 @@ class WaveSenseNet(TorchModule):
             # )
 
             AliasConnection(
-                mod_graphs[block_mod_start + i].output_nodes[self.n_channels_res:],
-                mod_graphs[block_mod_start + i + 1].output_nodes[self.n_channels_res:],
+                mod_graphs[block_mod_start + i].output_nodes[self.n_channels_res :],
+                mod_graphs[block_mod_start + i + 1].output_nodes[self.n_channels_res :],
                 name="skip_add",
-                computational_module = None,
+                computational_module=None,
             )
 
         connect_modules(
@@ -593,8 +555,6 @@ class WaveSenseNet(TorchModule):
         )
 
 
-<<<<<<< HEAD
-=======
 # - for quick test, just unmute these lines
 # Net = WaveSenseNet(
 #     dilations=[2, 4, 8],
@@ -616,21 +576,15 @@ class WaveSenseNet(TorchModule):
 # del WaveSense_specs["dt"]
 # xylo_conf, is_valid, message = config_from_specification(**WaveSense_specs)
 # print("Valid config: ", is_valid, message)
-=======
 
-
->>>>>>> dev/wavesense_graph
 import torch.nn as nn
 from torch.nn.functional import pad
 
 # Define model
 class WaveBlock(nn.Module):
-    def __init__(self, 
-                 n_channels_res, 
-                 n_channels_skip, 
-                 kernel_size, 
-                 dilation, 
-                 bias=False):
+    def __init__(
+        self, n_channels_res, n_channels_skip, kernel_size, dilation, bias=False
+    ):
         super().__init__()
 
         self.dilation = dilation
@@ -646,7 +600,7 @@ class WaveBlock(nn.Module):
             bias=bias,
         )
         self.tanh1 = nn.Tanh()
-        
+
         self.conv1_sig = nn.Conv1d(
             n_channels_res,
             n_channels_res,
@@ -660,23 +614,23 @@ class WaveBlock(nn.Module):
 
         # 1x1 projection layer
         self.conv2 = nn.Conv1d(
-            n_channels_res, 
-            n_channels_res, 
-            kernel_size=1, 
-            stride=1, 
-            padding=0, 
-            dilation=1, 
+            n_channels_res,
+            n_channels_res,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+            dilation=1,
             bias=bias,
         )
         self.relu2 = nn.ReLU()
 
         self.conv_skip = nn.Conv1d(
-            n_channels_res, 
-            n_channels_skip, 
-            kernel_size=1, 
-            stride=1, 
-            padding=0, 
-            dilation=1, 
+            n_channels_res,
+            n_channels_skip,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+            dilation=1,
             bias=bias,
         )
 
@@ -686,26 +640,27 @@ class WaveBlock(nn.Module):
 
         tanh = self.tanh1(self.conv1_tanh(pad(data, [self.dilation, 0])))
         sig = self.sig1(self.conv1_sig(pad(data, [self.dilation, 0])))
-        out1 = tanh * sig 
+        out1 = tanh * sig
         out2 = self.conv2(out1)
 
         skip_out = self.conv_skip(out1)
 
-        res_out = data + out2 
+        res_out = data + out2
         return res_out, skip_out
 
 
 class WaveNet(nn.Module):
-    def __init__(self, 
-                 n_classes=2,
-                 n_channels_in = 64,
-                 n_channels_res = 16,
-                 n_channels_skip = 32,
-                 n_hidden = 128,
-                 bias=True,
-                 dilations = [1, 2, 4, 8, 16, 1, 2 ,4, 8, 16], 
-                 kernel_size = 2,
-                 ):
+    def __init__(
+        self,
+        n_classes=2,
+        n_channels_in=64,
+        n_channels_res=16,
+        n_channels_skip=32,
+        n_hidden=128,
+        bias=True,
+        dilations=[1, 2, 4, 8, 16, 1, 2, 4, 8, 16],
+        kernel_size=2,
+    ):
 
         super().__init__()
 
@@ -714,11 +669,15 @@ class WaveNet(nn.Module):
 
         self.wavelayers = []
         for i, d in enumerate(dilations):
-            self.wavelayers.append(WaveBlock(n_channels_res, 
-                                              n_channels_skip, 
-                                              kernel_size=kernel_size, 
-                                              dilation=d, 
-                                              bias=bias))
+            self.wavelayers.append(
+                WaveBlock(
+                    n_channels_res,
+                    n_channels_skip,
+                    kernel_size=kernel_size,
+                    dilation=d,
+                    bias=bias,
+                )
+            )
             self.add_module(f"wave{i}", self.wavelayers[-1])
 
         # DNN
@@ -729,17 +688,15 @@ class WaveNet(nn.Module):
 
         TorchModule.from_torch(self)
 
-
     def forward(self, data):
 
         # move dimensions such that Torch conv layers understand them correctly
         data = data.movedim(1, 2)
-        #data = data.transpose(1, 2)
-
+        # data = data.transpose(1, 2)
 
         out = self.relu1(self.conv1(data))
 
-        skip = None 
+        skip = None
         for i, layer in enumerate(self.wavelayers):
             if skip is None:
                 out, skip = layer(out)
@@ -753,13 +710,6 @@ class WaveNet(nn.Module):
 
         # revert order of data back to rockpool standard
         out = out.movedim(2, 1)
-        #out = out.transpose(2, 1)
+        # out = out.transpose(2, 1)
 
         return out
-<<<<<<< HEAD
-=======
-
-
-
->>>>>>> develop
->>>>>>> dev/wavesense_graph
