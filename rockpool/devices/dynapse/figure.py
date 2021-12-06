@@ -9,8 +9,8 @@ E-mail : ugurcan.cakal@gmail.com
 
 import matplotlib
 import matplotlib.pyplot as plt
-from rockpool.devices.dynapse.dynapse1_neuron_synapse_jax import (
-    DynapSE1NeuronSynapseJax,
+from rockpool.devices.dynapse.adexpif_jax import (
+    DynapSEAdExpIFJax,
 )
 
 from rockpool.timeseries import TSEvent, TSContinuous
@@ -181,7 +181,7 @@ class Figure:
 
     @staticmethod
     def spike_input_post(
-        mod: DynapSE1NeuronSynapseJax,
+        mod: DynapSEAdExpIFJax,
         input_ts: TSEvent,
         output_ts: TSEvent,
         post: Union[NeuronKey, int],
@@ -202,10 +202,10 @@ class Figure:
         the pre-synaptic neurons should also obey the same format in the `idx_map`.
 
         :param mod: The module to investigate
-        :type mod: DynapSE1NeuronSynapseJax
-        :param input_ts: Input spike trains fed to DynapSE1NeuronSynapseJax object
+        :type mod: DynapSEAdExpIFJax
+        :param input_ts: Input spike trains fed to DynapSEAdExpIFJax object
         :type input_ts: TSEvent
-        :param output_ts: Output spike trains of DynapSE1NeuronSynapseJax object
+        :param output_ts: Output spike trains of DynapSEAdExpIFJax object
         :type output_ts: TSEvent
         :param post: matrix index(if idx_map absent) or NeuronKey(if idx_map provided) of the post synaptic neuron defined inside the `mod`
         :type post: Union[NeuronKey, int]
@@ -613,7 +613,7 @@ class Figure:
 
     @staticmethod
     def plot_Isyn_trace(
-        mod: DynapSE1NeuronSynapseJax,
+        mod: DynapSEAdExpIFJax,
         record_dict: Dict[str, np.ndarray],
         post: Union[NeuronKey, int],
         syn_type: Union[Dynapse1SynType, str, np.uint8],
@@ -633,7 +633,7 @@ class Figure:
         guide lines from the spikes to increments on the synaptic current can be drawn.
 
         :param mod: The module to investigate
-        :type mod: DynapSE1NeuronSynapseJax
+        :type mod: DynapSEAdExpIFJax
         :param record_dict: is a dictionary containing the recorded state variables of `mod` during the evolution at each time step
         :type record_dict: Dict[str, np.ndarray]
         :param post: matrix index(if idx_map absent) or NeuronKey(if idx_map provided) of the post synaptic neuron defined inside the `mod`

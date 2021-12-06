@@ -1,5 +1,5 @@
 """
-Dynap-SE1 Parameter classes to be used in initial configuration of DynapSE1NeuronSynapseJax module
+Dynap-SE1 Parameter classes to be used in initial configuration of DynapSEAdExpIFJax module
 
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
@@ -109,7 +109,7 @@ class DynapSE1Layout:
     kappa_p: float = 0.66
     Ut: float = 25e-3
     Io: float = 5e-13
-    Von: float = 5e-1
+    Von: float = 7e-1
 
     def __post_init__(self) -> None:
         """
@@ -281,7 +281,7 @@ class SynapseParameters(DPIParameters):
     __doc__ += DPIParameters.__doc__
 
     Iw: float = 1e-6
-    Isyn: Optional[float] = None
+    Isyn: Optional[float] = 1e-10
 
     def __post_init__(self):
         """
@@ -386,13 +386,13 @@ class MembraneParameters(DPIParameters):
     tau: Optional[float] = 20e-3
     tau2: Optional[float] = None
     Itau2: Optional[float] = 2.4e-5  # Max bias current possible
-    f_gain: float = 1e-1
+    f_gain: float = 2
     Imem: Optional[float] = None
     Iref: Optional[float] = None
     t_ref: Optional[float] = 2e-3
     Ipulse: Optional[float] = None
     t_pulse: Optional[float] = 10e-6
-    Ispkthr: float = 5e-5
+    Ispkthr: float = 1e-6
     Ireset: Optional[float] = None
     Idc: Optional[float] = None
     If_nmda: Optional[float] = None
@@ -843,7 +843,7 @@ class DynapSE1SimCore:
         :type layout: Optional[DynapSE1Layout], optional
         :param capacitance: subcircuit capacitance values that are related to each other and depended on exact silicon layout of a chip, defaults to None
         :type capacitance: Optional[DynapSE1Capacitance], optional
-        :return: simulator config object to construct a `DynapSE1NeuronSynapseJax` object
+        :return: simulator config object to construct a `DynapSEAdExpIFJax` object
         :rtype: DynapSE1SimCore
         """
 

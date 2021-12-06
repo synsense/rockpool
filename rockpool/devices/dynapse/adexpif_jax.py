@@ -1,5 +1,5 @@
 """
-Low level DynapSE1 simulator.
+Low level DynapSE simulator.
 Solves the characteristic equations to simulate the circuits.
 Trainable parameters
 
@@ -89,9 +89,9 @@ def step_pwl(
     return spikes, grad_func
 
 
-class DynapSE1NeuronSynapseJax(JaxModule):
+class DynapSEAdExpIFJax(JaxModule):
     """
-    DynapSE1NeuronSynapseJax Solves the chip dynamical equations for the DPI neuron and synapse models.
+    DynapSEAdExpIFJax Solves the chip dynamical equations for the DPI neuron and synapse models.
     Receives configuration as bias currents and solves membrane and synapse dynamics using ``jax`` backend.
     One block has
         - 4 synapses receiving spikes from the other circuits,
@@ -149,7 +149,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
     :Parameters:
 
-    :param shape: The number of neruons to employ, defaults to None
+    :param shape: Either a single dimension ``N``, which defines a feed-forward layer of DynapSE AdExpIF neurons, or two dimensions ``(N, N)``, which defines a recurrent layer of DynapSE AdExpIF neurons.
     :type shape: tuple, optional
     :param sim_config: Dynap-SE1 bias currents and simulation configuration parameters, defaults to None
     :type sim_config: Optional[DynapSE1SimCore], optional
@@ -307,7 +307,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         **kwargs,
     ) -> None:
         """
-        __init__ Initialize ``DynapSE1NeuronSynapseJax`` module. Parameters are explained in the class docstring.
+        __init__ Initialize ``DynapSEAdExpIFJax`` module. Parameters are explained in the class docstring.
         """
 
         # Check the parameters and initialize to default if necessary
@@ -452,8 +452,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         self, input_data: np.ndarray, record: bool = True
     ) -> Tuple[np.ndarray, dict, dict]:
         """
-        evolve implements raw JAX evolution function for a DynapSE1NeuronSynapseJax module.
-        The function solves the dynamical equations introduced at the ``DynapSE1NeuronSynapseJax`` module definition
+        evolve implements raw JAX evolution function for a DynapSEAdExpIFJax module.
+        The function solves the dynamical equations introduced at the ``DynapSEAdExpIFJax`` module definition
 
         :param input_data: Input array of shape ``(T, Nrec)`` to evolve over. Represents number of spikes at that timebin
         :type input_data: np.ndarray
