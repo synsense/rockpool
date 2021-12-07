@@ -161,8 +161,7 @@ class LIFTorch(TorchModule):
         """
         # - Check shape argument
         if np.size(shape) == 1:
-            shape = np.array(shape).item()
-            shape = (shape, shape)
+            shape = (np.array(shape).item(), np.array(shape).item())
 
         if np.size(shape) > 2:
             raise ValueError(
