@@ -208,7 +208,17 @@ class TorchModule(Module, nn.Module):
         # - Register the module
         super()._register_module(name, mod)
 
-    def to_torch(self, replace_call: bool = True):
+    def to_torch(self, use_torch_call: bool = True):
+        """
+        Convert the module to use the torch.nn.Module API
+
+        Args:
+            use_torch_call (bool): Use the torch-stype ``__call__()`` method for this object
+
+        Returns:
+            The converted object
+        """
+
         def parameters(self, *args, **kwargs):
             return nn.Module.parameters(self, *args, **kwargs)
 
@@ -219,11 +229,11 @@ class TorchModule(Module, nn.Module):
 
         self._repr = types.MethodType(repr, self)
 
-        for mod in self.modules().items():
+        for name, mod in self.modules().items():
             if isinstance(mod, TorchModule):
-                mod.to_torch(replace_call=False)
+                setattr(self, name, mod.to_torch(use_torch_call=False))
 
-        if replace_call:
+        if use_torch_call:
 
             def call(self, *args, **kwargs):
                 return nn.Module.__call__(self, *args, **kwargs)
