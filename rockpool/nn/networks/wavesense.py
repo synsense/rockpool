@@ -333,6 +333,7 @@ class WaveSenseNet(TorchModule):
                 tau_mem=tau_mem,
                 base_tau_syn=base_tau_syn,
                 threshold=threshold,
+                neuron_model=neuron_model,
                 dt=dt,
                 device=device,
             )
