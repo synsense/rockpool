@@ -498,8 +498,6 @@ class WaveSenseNet(TorchModule):
         connect_modules(mod_graphs["lin1"], mod_graphs["spk1"])
         connect_modules(mod_graphs["spk1"], mod_graphs["wave0"])
 
-        block_mod_start = 2
-
         for i in range(self._num_dilations - 1):
             connect_modules(
                 mod_graphs[f"wave{i}"],
@@ -513,12 +511,20 @@ class WaveSenseNet(TorchModule):
                 name="skip_add",
                 computational_module = None,
             )
-        connect_modules(
-            mod_graphs[f'wave{i+1}'],
-            mod_graphs['hidden'],
-            range(self.n_channels_res, self.n_channels_res + self.n_channels_skip),
-            None,
-        )
+        if self._num_dilations == 1:
+            connect_modules(
+                mod_graphs[f'wave{0}'],
+                mod_graphs['hidden'],
+                range(self.n_channels_res, self.n_channels_res + self.n_channels_skip),
+                None,
+            )
+        else:
+            connect_modules(
+                mod_graphs[f'wave{i+1}'],
+                mod_graphs['hidden'],
+                range(self.n_channels_res, self.n_channels_res + self.n_channels_skip),
+                None,
+            )
         connect_modules(mod_graphs['hidden'], mod_graphs['spk2'])
         connect_modules(mod_graphs['spk2'], mod_graphs['readout'])
         connect_modules(mod_graphs['readout'], mod_graphs['spk_out'])
