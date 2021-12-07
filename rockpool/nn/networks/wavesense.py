@@ -411,11 +411,11 @@ class WaveSenseNet(TorchModule):
 
         # - low pass filter is not compatible with xylo unless we give tau_syn 0
         # - Smoothing output
-        self.smooth_output = SimulationParameter(smooth_output)
-        """ bool: Perform low-pass filtering of the readout """
-
-        if smooth_output:
-            self.lp = ExpSynTorch(n_classes, tau_syn=tau_lp, dt=dt, device=device)
+        # self.smooth_output = SimulationParameter(smooth_output)
+        # """ bool: Perform low-pass filtering of the readout """
+        #
+        # if smooth_output:
+        #     self.lp = ExpSynTorch(n_classes, tau_syn=tau_lp, dt=dt, device=device)
 
         self.spk_out = self.neuron_model(
             shape=(n_classes, n_classes),
@@ -438,18 +438,6 @@ class WaveSenseNet(TorchModule):
 
         # Dictionary for recording state
         self._record_dict = {}
-
-        # self.submods = []
-        # self.submods.append(self.lin1)
-        # self.submods.append(self.spk1)
-        #
-        # for index in range(self._num_dilations):
-        #     wave = self.modules()[f"wave{index}"]
-        #     self.submods.append(wave)
-        #
-        # self.submods.append(self.hidden)
-        # self.submods.append(self.spk2)
-        # self.submods.append(self.readout)
 
     def forward(self, data: torch.Tensor):
         # Expected data shape
@@ -488,8 +476,8 @@ class WaveSenseNet(TorchModule):
 
         # - low pass filter is not compatible with xylo unless we give tau_syn 0
         # - Smooth the output if requested
-        if self.smooth_output:
-            out, _, self._record_dict["lp"] = self.lp(out, record=True)
+        # if self.smooth_output:
+        #     out, _, self._record_dict["lp"] = self.lp(out, record=True)
 
         return out
 
@@ -506,16 +494,9 @@ class WaveSenseNet(TorchModule):
         # - Convert all modules to graph representation
         mod_graphs = {k: m.as_graph() for k, m in self.modules().items()}
 
-        # for mod in self.submods:
-        #     mod_graphs.append(mod.as_graph())
-
         # - Connect modules
-        # connect_modules(mod_graphs[0], mod_graphs[1])
-        # connect_modules(mod_graphs[1], mod_graphs[2])
         connect_modules(mod_graphs["lin1"], mod_graphs["spk1"])
         connect_modules(mod_graphs["spk1"], mod_graphs["wave0"])
-
-        block_mod_start = 2
 
         for i in range(self._num_dilations - 1):
             connect_modules(
@@ -523,59 +504,38 @@ class WaveSenseNet(TorchModule):
                 mod_graphs[f"wave{i+1}"],
                 range(self.n_channels_res),
             )
-            # connect_modules(
-            #     mod_graphs[block_mod_start + i],
-            #     mod_graphs[block_mod_start + i + 1],
-            #     range(self.n_channels_res),
-            #     None,
-            # )
 
             AliasConnection(
-                mod_graphs[block_mod_start + i].output_nodes[self.n_channels_res :],
-                mod_graphs[block_mod_start + i + 1].output_nodes[self.n_channels_res :],
+                mod_graphs[f"wave{i}"].output_nodes[self.n_channels_res:],
+                mod_graphs[f"wave{i+1}"].output_nodes[self.n_channels_res:],
                 name="skip_add",
                 computational_module=None,
             )
-
-        connect_modules(
-            mod_graphs[-5],
-            mod_graphs[-4],
-            range(self.n_channels_res, self.n_channels_res + self.n_channels_skip),
-            None,
-        )
-        connect_modules(mod_graphs[-4], mod_graphs[-3])
-        connect_modules(mod_graphs[-3], mod_graphs[-2])
-        connect_modules(mod_graphs[-2], mod_graphs[-1])
+        if self._num_dilations == 1:
+            connect_modules(
+                mod_graphs[f'wave{0}'],
+                mod_graphs['hidden'],
+                range(self.n_channels_res, self.n_channels_res + self.n_channels_skip),
+                None,
+            )
+        else:
+            connect_modules(
+                mod_graphs[f'wave{i+1}'],
+                mod_graphs['hidden'],
+                range(self.n_channels_res, self.n_channels_res + self.n_channels_skip),
+                None,
+            )
+        connect_modules(mod_graphs['hidden'], mod_graphs['spk2'])
+        connect_modules(mod_graphs['spk2'], mod_graphs['readout'])
+        connect_modules(mod_graphs['readout'], mod_graphs['spk_out'])
 
         return GraphHolder(
-            mod_graphs[0].input_nodes,
-            mod_graphs[-1].output_nodes,
+            mod_graphs['lin1'].input_nodes,
+            mod_graphs['spk_out'].output_nodes,
             f"{type(self).__name__}_{self.name}_{id(self)}",
             self,
         )
 
-
-# - for quick test, just unmute these lines
-# Net = WaveSenseNet(
-#     dilations=[2, 4, 8],
-#     n_classes=2,
-#     n_channels_in=16,
-#     n_channels_res=16,
-#     n_channels_skip=32,
-#     n_hidden=32,
-#     kernel_size=2,
-# )
-#
-# from rockpool.devices.xylo import *
-#
-# WaveSense_graph = Net.as_graph()
-# WaveSense_specs = mapper(
-#     WaveSense_graph, weight_dtype="float", threshold_dtype="float", dash_dtype="float"
-# )
-# del WaveSense_specs["mapped_graph"]
-# del WaveSense_specs["dt"]
-# xylo_conf, is_valid, message = config_from_specification(**WaveSense_specs)
-# print("Valid config: ", is_valid, message)
 
 import torch.nn as nn
 from torch.nn.functional import pad
