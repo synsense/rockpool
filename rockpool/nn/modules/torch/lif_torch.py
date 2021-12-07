@@ -336,6 +336,8 @@ class LIFTorch(TorchModule):
             )
 
         data = data.reshape(n_batches, time_steps, self.n_synapses, self.n_neurons)
+        dum = torch.zeros(n_batches, 1, self.n_synapses, self.n_neurons)
+        data = torch.cat((dum, data), 1)
 
         # - Replicate states out by batches
         vmem = torch.ones(n_batches, self.n_neurons).to(data.device) * self.vmem
