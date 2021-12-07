@@ -65,6 +65,7 @@ class ParameterBase:
                 f"The `init_func` for a {class_name} must be a callable that accepts a shape tuple."
             )
 
+        # - Force object to be a SimulationParameter, if training should be disabled
         if isinstance(self.data, Constant):
             self.__class__ = SimulationParameter
             self.data = self.data.data
