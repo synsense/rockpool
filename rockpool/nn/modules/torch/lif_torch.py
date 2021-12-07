@@ -368,10 +368,6 @@ class LIFTorch(TorchModule):
         # - Loop over time
         for t in range(time_steps):
 
-            # Decay
-            vmem = alpha * vmem
-            isyn = beta * isyn
-
             # Integrate input
             isyn = isyn + data[:, t]
 
@@ -381,6 +377,10 @@ class LIFTorch(TorchModule):
                     n_batches, self.n_synapses, self.n_neurons
                 )
                 isyn = isyn + rec_inp
+
+            # Decay
+            vmem = alpha * vmem
+            isyn = beta * isyn
 
             if self.noise_std > 0:
                 vmem = (
@@ -408,8 +408,7 @@ class LIFTorch(TorchModule):
         self.vmem = vmem[0].detach()
         self.isyn = isyn[0].detach()
         self.spikes = spikes[0].detach()
-
-        self._record_spikes
+        # self._record_spikes
 
         return self._record_spikes
 
@@ -419,9 +418,10 @@ class LIFTorch(TorchModule):
             self.size_in,
             self.size_out,
             f"{type(self).__name__}_{self.name}_{id(self)}",
-            self.tau_mem,
-            self.tau_syn,
-            self.threshold,
+            self,
+            self.tau_mem.cpu(),
+            self.tau_syn.cpu(),
+            self.threshold.cpu(),
             self.bias,
             self.dt,
         )
@@ -433,6 +433,7 @@ class LIFTorch(TorchModule):
                 neurons.output_nodes,
                 neurons.input_nodes,
                 f"{type(self).__name__}_recurrent_{self.name}_{id(self)}",
+                self,
                 self.w_rec.detach().numpy(),
             )
 

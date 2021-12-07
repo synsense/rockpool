@@ -7,9 +7,17 @@ from copy import deepcopy
 
 from collections import abc
 
+from dataclasses import dataclass
+
 import numpy as np
 
-__all__ = ["Parameter", "State", "SimulationParameter"]
+__all__ = ["Parameter", "State", "SimulationParameter", "Constant"]
+
+
+@dataclass
+class Constant:
+    data: Any
+
 
 # -- Parameter classes
 class ParameterBase:
@@ -56,6 +64,10 @@ class ParameterBase:
             raise ValueError(
                 f"The `init_func` for a {class_name} must be a callable that accepts a shape tuple."
             )
+
+        if isinstance(self.data, Constant):
+            self.__class__ = SimulationParameter
+            self.data = self.data.data
 
         # - Get the shape from the data, if not provided explicitly
         if self.data is not None:
