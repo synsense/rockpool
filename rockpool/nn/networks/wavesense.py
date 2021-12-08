@@ -584,12 +584,12 @@ class WaveBlock(nn.Module):
 
     def forward(self, data):
 
-        tanh, _, _ = self.tanh1(self.conv1_tanh(pad(data, [self.dilation, 0])))
-        sig, _, _ = self.sig1(self.conv1_sig(pad(data, [self.dilation, 0])))
+        tanh = self.tanh1(self.conv1_tanh(pad(data, [self.dilation, 0])))
+        sig = self.sig1(self.conv1_sig(pad(data, [self.dilation, 0])))
         out1 = tanh * sig
-        out2, _, _ = self.conv2(out1)
+        out2 = self.conv2(out1)
 
-        skip_out, _, _ = self.conv_skip(out1)
+        skip_out = self.conv_skip(out1)
 
         res_out = data + out2
         return res_out, skip_out
@@ -639,19 +639,19 @@ class WaveNet(nn.Module):
         # move dimensions such that Torch conv layers understand them correctly
         data = data.movedim(1, 2)
 
-        out = self.relu1(self.conv1(data)[0])[0]
+        out = self.relu1(self.conv1(data))
 
         skip = None
         for i, layer in enumerate(self.wavelayers):
             if skip is None:
-                out, skip = layer(out)[0]
+                out, skip = layer(out)
             else:
-                out, skip_new = layer(out)[0]
+                out, skip_new = layer(out)
                 skip = skip + skip_new
 
         # Dense readout
-        out = self.relu_dense(self.dense(skip)[0])[0]
-        out = self.readout(out)[0]
+        out = self.relu_dense(self.dense(skip))
+        out = self.readout(out)
 
         # revert order of data back to rockpool standard
         out = out.movedim(2, 1)

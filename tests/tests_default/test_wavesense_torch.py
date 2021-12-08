@@ -202,7 +202,7 @@ def test_wavesense_save_load():
     from rockpool.nn.modules import LIFTorch
     import torch
     import os
-
+    
     # model params
     dilations = [2, 16]
     n_out_neurons = 2
@@ -215,7 +215,7 @@ def test_wavesense_save_load():
     threshold = 1.0
     dt = 0.001
     device = "cpu"
-
+    
     # model init
     model = WaveSenseNet(
         dilations=dilations,
@@ -235,7 +235,7 @@ def test_wavesense_save_load():
         dt=dt,
         device=device,
     )
-
+    
     model2 = WaveSenseNet(
         dilations=dilations,
         n_classes=n_out_neurons,
@@ -254,37 +254,37 @@ def test_wavesense_save_load():
         dt=dt,
         device=device,
     )
-
+    
     # input params
     n_batches = 2
     T = 20
-
+    
     # input
     inp = torch.rand(n_batches, T, n_inp_neurons) * 10
     inp.requires_grad = True
-
+    
     # forward
-    out, _, _ = model(inp)
-
+    out, state, _ = model(inp)
+    
     # forward model 2
-    out2, _, _ = model2(inp)
-
+    out2, state2, _ = model2(inp)
+    
     # assert not all outputs are equal
-    assert not torch.all(out == out2)
-
+    assert not torch.all(state['spk_out']['vmem'] == state2['spk_out']['vmem'])
+    
     # save model
     model.save("tmp.json")
-
+    
     # load parameters to model2
     model2.load("tmp.json")
-
+    
     # forward model 2
     model2.reset_state()
-    out2, _, _ = model2(inp)
-
+    out2, state2, _ = model2(inp)
+    
     # assert all outputs are equal
-    assert torch.all(out == out2)
-
+    assert torch.all(state['spk_out']['vmem'] == state2['spk_out']['vmem'])
+    
     # cleanup
     os.remove("tmp.json")
 
