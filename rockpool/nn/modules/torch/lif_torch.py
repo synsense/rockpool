@@ -132,7 +132,7 @@ class LIFBaseTorch(TorchModule):
         has_rec: P_bool = False,
         w_rec: torch.Tensor = None,
         noise_std: P_float = 0.0,
-        spike_generation_fn: Callable = StepPWL,
+        spike_generation_fn: torch.autograd.Function = StepPWL,
         learning_window: P_float = 0.5,
         weight_init_func: Optional[Callable[[Tuple], torch.tensor]] = None,
         dt: P_float = 1e-3,
@@ -153,7 +153,7 @@ class LIFBaseTorch(TorchModule):
             has_rec (bool): When ``True`` the module provides a trainable recurrent weight matrix. Default ``False``, module is feed-forward.
             w_rec (torch.Tensor): If the module is initialised in recurrent mode, you can provide a concrete initialisation for the recurrent weights, which must be a matrix with shape ``(Nout, Nin)``. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
             noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: ``0.0``
-            spike_generation_fn (Callable): Function to call for spike production. Usually simple threshold crossing. Implements the suroogate gradient function in the backward call. (StepPWL or PeriodicExponential).
+            spike_generation_fn (Callable): Function to call for spike production. Usually simple threshold crossing. Implements the surrogate gradient function in the backward call. (StepPWL or PeriodicExponential).
             learning_window (float): Cutoff value for the surrogate gradient. 
             weight_init_func (Optional[Callable[[Tuple], torch.tensor]): The initialisation function to use when generating weights. Default: ``None`` (Kaiming initialisation)
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
@@ -161,7 +161,7 @@ class LIFBaseTorch(TorchModule):
         """
         # - Check shape argument
         if np.size(shape) == 1:
-            shape = (shape[0], shape[0])
+            shape = (np.array(shape).item(), np.array(shape).item())
 
         if np.size(shape) > 2:
             raise ValueError(
@@ -170,7 +170,11 @@ class LIFBaseTorch(TorchModule):
 
         # - Initialise superclass
         super().__init__(
-            shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs,
+            shape=shape,
+            spiking_input=True,
+            spiking_output=True,
+            *args,
+            **kwargs,
         )
 
         self.n_synapses: P_int = rp.SimulationParameter(shape[0] // shape[1])
@@ -191,7 +195,10 @@ class LIFBaseTorch(TorchModule):
         w_rec_shape = (self.size_out, self.size_in)
         if has_rec:
             self.w_rec: P_tensor = rp.Parameter(
-                w_rec, shape=w_rec_shape, init_func=weight_init_func, family="weights",
+                w_rec,
+                shape=w_rec_shape,
+                init_func=weight_init_func,
+                family="weights",
             )
             """ (Tensor) Recurrent weights `(Nout, Nin)` """
         else:
@@ -221,15 +228,12 @@ class LIFBaseTorch(TorchModule):
 
         if isinstance(tau_syn, float):
             self.tau_syn: P_tensor = rp.SimulationParameter(
-                (torch.ones(self.n_synapses, self.n_neurons) * tau_syn).to(device),
-                "taus",
+                (torch.ones(self.n_neurons, self.n_synapses) * tau_syn).to(device), "taus"
             )
             """ (Tensor) Synaptic time constants `(Nout,)` """
         else:
-            if not tau_syn.shape == (self.n_synapses, self.n_neurons):
-                raise ValueError(
-                    "tau_syn must be in shape (n_synapses, n_neurons) or a single float"
-                )
+            if not tau_syn.shape == (self.n_neurons, self.n_synapses):
+                raise ValueError("tau_syn must be in shape (n_neurons, n_synapses) or a single float")
 
             self.tau_syn: P_tensor = rp.SimulationParameter(
                 torch.Tensor(tau_syn).to(device), "taus"
@@ -263,7 +267,7 @@ class LIFBaseTorch(TorchModule):
         """ (Tensor) Membrane potentials `(Nout,)` """
 
         self.isyn: P_tensor = rp.State(
-            torch.zeros((self.n_synapses, self.n_neurons)).to(device)
+            torch.zeros((self.n_neurons, self.n_synapses)).to(device)
         )
         """ (Tensor) Synaptic currents `(Nin,)` """
 
@@ -376,12 +380,12 @@ class LIFTorch(LIFBaseTorch):
                 )
             )
 
-        data = data.reshape(n_batches, time_steps, self.n_synapses, self.n_neurons)
+        data = data.reshape(n_batches, time_steps, self.n_neurons, self.n_synapses)
 
         # - Replicate states out by batches
         vmem = torch.ones(n_batches, self.n_neurons).to(data.device) * self.vmem
         isyn = (
-            torch.ones(n_batches, self.n_synapses, self.n_neurons).to(data.device)
+            torch.ones(n_batches, self.n_neurons, self.n_synapses).to(data.device)
             * self.isyn
         )
         bias = torch.ones(n_batches, self.n_neurons).to(data.device) * self.bias
@@ -391,7 +395,7 @@ class LIFTorch(LIFBaseTorch):
         if self._record:
             self._record_Vmem = torch.zeros(n_batches, time_steps, self.n_neurons)
             self._record_Isyn = torch.zeros(
-                n_batches, time_steps, self.n_synapses, self.n_neurons
+                n_batches, time_steps, self.n_neurons, self.n_synapses
             )
 
         self._record_spikes = torch.zeros(
@@ -405,29 +409,29 @@ class LIFTorch(LIFBaseTorch):
         # - Loop over time
         for t in range(time_steps):
 
-            # Decay
-            vmem = alpha * vmem
-            isyn = beta * isyn
-
             # Integrate input
             isyn = isyn + data[:, t]
 
             # - Apply spikes over the recurrent weights
             if hasattr(self, "w_rec"):
                 rec_inp = F.linear(spikes, self.w_rec.T).reshape(
-                    n_batches, self.n_synapses, self.n_neurons
+                    n_batches, self.n_neurons, self.n_synapses
                 )
                 isyn = isyn + rec_inp
+
+            # Decay
+            vmem = alpha * vmem
+            isyn = beta * isyn
 
             if self.noise_std > 0:
                 vmem = (
                     vmem
-                    + isyn.sum(1)
+                    + isyn.sum(2)
                     + bias
                     + torch.randn(vmem.shape, device=vmem.device) * self.noise_std
                 )
             else:
-                vmem = vmem + isyn.sum(1) + bias
+                vmem = vmem + isyn.sum(2) + bias
 
             spikes = self.spike_generation_fn(
                 vmem, self.threshold, self.learning_window
@@ -445,8 +449,6 @@ class LIFTorch(LIFBaseTorch):
         self.vmem = vmem[0].detach()
         self.isyn = isyn[0].detach()
         self.spikes = spikes[0].detach()
-
-        self._record_spikes
 
         return self._record_spikes
 
