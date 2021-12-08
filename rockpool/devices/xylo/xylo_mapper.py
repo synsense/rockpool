@@ -462,23 +462,28 @@ def mapper(
     dash_syn_out = np.zeros(num_output_neurons, dash_dtype)
     threshold = np.zeros(num_hidden_neurons, threshold_dtype)
     threshold_out = np.zeros(num_output_neurons, threshold_dtype)
-
     for n in hidden_neurons:
         these_indices = n.hw_ids
         dash_mem[these_indices] = n.dash_mem
 
         if len(n.input_nodes) > len(n.output_nodes):
-            dash_syn[these_indices] = n.dash_syn[::2]
-            dash_syn_2[these_indices] = n.dash_syn[1::2]
+            # dash_syn[these_indices] = n.dash_syn[::2]
+            # dash_syn_2[these_indices] = n.dash_syn[1::2]
+            for i, index in enumerate(these_indices):
+                dash_syn[index] = n.dash_syn[i][0]
+                dash_syn_2[index] = n.dash_syn[i][1]
         else:
-            dash_syn[these_indices] = n.dash_syn
-
+            # dash_syn[these_indices] = n.dash_syn
+            for i, index in enumerate(these_indices):
+                dash_syn[index] = n.dash_syn[i][0]
         threshold[these_indices] = n.threshold
 
     for n in output_neurons:
         these_indices = [allocated_output_neurons.index(id) for id in n.hw_ids]
         dash_mem_out[these_indices] = n.dash_mem
-        dash_syn_out[these_indices] = n.dash_syn
+        # dash_syn_out[these_indices] = n.dash_syn
+        for i, index in enumerate(these_indices):
+            dash_syn_out[index] = n.dash_syn[i][0]
         threshold_out[these_indices] = n.threshold
 
     neurons: SetList[XyloNeurons] = find_modules_of_subclass(graph, XyloNeurons)

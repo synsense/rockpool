@@ -348,6 +348,7 @@ def test_complex_network():
                 mod_graphs[0].input_nodes,
                 mod_graphs[7].output_nodes,
                 f"{type(self).__name__}_{self.name}_{id(self)}",
+                self,
             )
 
     Nin = 16
