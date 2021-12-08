@@ -18,3 +18,4 @@ test.json
 requirements.yml
 **/.vscode
 *.so
+samna.log
