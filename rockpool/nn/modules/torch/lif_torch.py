@@ -161,7 +161,7 @@ class LIFTorch(TorchModule):
         """
         # - Check shape argument
         if np.size(shape) == 1:
-            shape = (np.array(shape).item(),)
+            shape = (np.array(shape).item(), np.array(shape).item())
 
         if np.size(shape) > 2:
             raise ValueError(
@@ -170,11 +170,7 @@ class LIFTorch(TorchModule):
 
         # - Initialise superclass
         super().__init__(
-            shape=shape,
-            spiking_input=True,
-            spiking_output=True,
-            *args,
-            **kwargs,
+            shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs,
         )
 
         self.n_synapses: P_int = rp.SimulationParameter(shape[0] // shape[1])
@@ -187,10 +183,10 @@ class LIFTorch(TorchModule):
         """ (float) Euler simulator time-step in seconds"""
 
         # - Initialise recurrent weights
-        # if weight_init_func is None:
-        #     weight_init_func = lambda s: init.kaiming_uniform_(
-        #         torch.empty(s, **factory_kwargs)
-        #     )
+        if weight_init_func is None:
+            weight_init_func = lambda s: init.kaiming_uniform_(
+                torch.empty(s, **factory_kwargs)
+            )
 
         w_rec_shape = (self.size_out, self.size_in)
         if has_rec:
