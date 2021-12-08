@@ -106,14 +106,21 @@ def test_rec_rockpool():
     import torch
     import copy
     from rockpool.transform.quantize_methods import global_quantize, channel_quantize
+
     # from rockpool.nn.modules import LIFJax, LinearJax, JaxModule
     from rockpool.nn.combinators import Sequential, Residual
-    from rockpool.nn.modules.torch import TorchModule, LinearTorch, LIFTorch, LIFBitshiftTorch
+    from rockpool.nn.modules.torch import (
+        TorchModule,
+        LinearTorch,
+        LIFTorch,
+        LIFBitshiftTorch,
+    )
     from rockpool.devices.xylo import mapper
     from rockpool.devices.xylo import config_from_specification
     from rockpool.devices.xylo import XyloCim
     import warnings
-    warnings.filterwarnings('ignore')
+
+    warnings.filterwarnings("ignore")
     from rockpool.graph import (
         AliasConnection,
         GraphHolder,
@@ -140,7 +147,8 @@ def test_rec_rockpool():
             threshold=threshold,
             learning_window=0.5,
             dt=0.001,
-            device='cpu'),
+            device="cpu",
+        ),
         LinearTorch((Nres1, Nres2), has_bias=False),
         LIFBitshiftTorch(
             shape=(Nres2, Nres2),
@@ -150,7 +158,8 @@ def test_rec_rockpool():
             threshold=threshold,
             learning_window=0.5,
             dt=0.001,
-            device='cpu'),
+            device="cpu",
+        ),
         LinearTorch((Nres2, Nres3), has_bias=False),
         LIFBitshiftTorch(
             shape=(Nres3, Nres3),
@@ -160,7 +169,8 @@ def test_rec_rockpool():
             threshold=threshold,
             learning_window=0.5,
             dt=0.001,
-            device='cpu'),
+            device="cpu",
+        ),
         LinearTorch((Nres3, Nres4), has_bias=False),
         LIFBitshiftTorch(
             shape=(Nres4, Nres4),
@@ -170,7 +180,8 @@ def test_rec_rockpool():
             threshold=threshold,
             learning_window=0.5,
             dt=0.001,
-            device='cpu'),
+            device="cpu",
+        ),
         LinearTorch((Nres4, Nout), has_bias=False),
         LIFBitshiftTorch(
             shape=(Nout, Nout),
@@ -180,7 +191,8 @@ def test_rec_rockpool():
             threshold=threshold,
             learning_window=0.5,
             dt=0.001,
-            device='cpu'),
+            device="cpu",
+        ),
     )
 
     w_res1_torch = torch.nn.init.normal_(mod[0].weight, mean=0.2, std=1.0)
@@ -190,7 +202,9 @@ def test_rec_rockpool():
     w_out_torch = torch.nn.init.normal_(mod[8].weight, mean=0.2, std=1.0)
 
     float_graph = mod.as_graph()
-    float_specs = mapper(float_graph, weight_dtype="float", threshold_dtype="float", dash_dtype="float")
+    float_specs = mapper(
+        float_graph, weight_dtype="float", threshold_dtype="float", dash_dtype="float"
+    )
     dt = float_specs["dt"]
 
     global_specs = copy.copy(float_specs)
@@ -205,13 +219,13 @@ def test_rec_rockpool():
     del global_specs["mapped_graph"]
     del global_specs["dt"]
     xylo_conf_global, is_valid, message = config_from_specification(**global_specs)
-    print('Global valid config: ', is_valid, message)
+    print("Global valid config: ", is_valid, message)
 
     channel_specs.update(channel_quantize(**channel_specs))
     del channel_specs["mapped_graph"]
     del channel_specs["dt"]
     xylo_conf_channel, is_valid, message = config_from_specification(**channel_specs)
-    print('Channel valid config: ', is_valid, message)
+    print("Channel valid config: ", is_valid, message)
 
     T = 10
     batch = 1
@@ -231,34 +245,34 @@ def test_rec_rockpool():
     spk_out_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
 
     class FloatRec(TorchModule):
-        def __init__(self,
-                     Nin: int,
-                     Nres: int,
-                     Nout: int,
-                     weights_in: torch.Tensor,
-                     weights_rec: torch.Tensor,
-                     weights_out: torch.Tensor,
-                     dash_mem: torch.Tensor,
-                     dash_mem_out: torch.Tensor,
-                     dash_syn: torch.Tensor,
-                     dash_syn_2: torch.Tensor,
-                     dash_syn_out: torch.Tensor,
-                     threshold: torch.Tensor,
-                     threshold_out: torch.Tensor,
-                     aliases: list,
-                     device: str = 'cpu',
-                     *args, **kwargs,
-                     ):
+        def __init__(
+            self,
+            Nin: int,
+            Nres: int,
+            Nout: int,
+            weights_in: torch.Tensor,
+            weights_rec: torch.Tensor,
+            weights_out: torch.Tensor,
+            dash_mem: torch.Tensor,
+            dash_mem_out: torch.Tensor,
+            dash_syn: torch.Tensor,
+            dash_syn_2: torch.Tensor,
+            dash_syn_out: torch.Tensor,
+            threshold: torch.Tensor,
+            threshold_out: torch.Tensor,
+            aliases: list,
+            device: str = "cpu",
+            *args,
+            **kwargs,
+        ):
             super().__init__(shape=(Nin, Nout), *args, **kwargs)
 
             learning_window = 0.5
             dt = 0.001
 
             self.lin_res = LinearTorch(
-                shape=(Nin, Nres),
-                weight=weights_in,
-                has_bias=False,
-                device=device)
+                shape=(Nin, Nres), weight=weights_in, has_bias=False, device=device
+            )
 
             self.spk_res = LIFBitshiftTorch(
                 shape=(Nres, Nres),  # TODO: test when Nres*2
@@ -270,13 +284,12 @@ def test_rec_rockpool():
                 w_rec=weights_rec,
                 learning_window=learning_window,
                 dt=dt,
-                device=device)
+                device=device,
+            )
 
             self.lin_out = LinearTorch(
-                shape=(Nres, Nout),
-                weight=weights_out,
-                has_bias=False,
-                device=device)
+                shape=(Nres, Nout), weight=weights_out, has_bias=False, device=device
+            )
 
             self.spk_out = LIFBitshiftTorch(
                 shape=(Nout, Nout),
@@ -286,7 +299,8 @@ def test_rec_rockpool():
                 threshold=threshold_out,
                 learning_window=learning_window,
                 dt=dt,
-                device=device)
+                device=device,
+            )
 
             self._record_dict = {}
 
@@ -300,9 +314,9 @@ def test_rec_rockpool():
             #         (n_batches, t_sim, n_neurons) = inp.shape
 
             out, _, self._record_dict["lin_res"] = self.lin_res(inp, record=True)
-            out, _, self._record_dict['spk_res'] = self.spk_res(out, record=True)
-            out, _, self._record_dict['lin_out'] = self.lin_out(out, record=True)
-            out, _, self._record_dict['spk_out'] = self.spk_out(out, record=True)
+            out, _, self._record_dict["spk_res"] = self.spk_res(out, record=True)
+            out, _, self._record_dict["lin_out"] = self.lin_out(out, record=True)
+            out, _, self._record_dict["spk_out"] = self.spk_out(out, record=True)
 
             return out
 
@@ -328,20 +342,21 @@ def test_rec_rockpool():
             )
 
     mod = FloatRec(
-        Nin=float_specs['weights_in'].shape[0],
-        Nres=float_specs['weights_rec'].shape[1],
-        Nout=float_specs['weights_out'].shape[1],
-        weights_in=torch.from_numpy(float_specs['weights_in']).to(torch.float32),
-        weights_rec=torch.from_numpy(float_specs['weights_rec']).to(torch.float32),
-        weights_out=torch.from_numpy(float_specs['weights_out']).to(torch.float32),
-        dash_mem=torch.from_numpy(float_specs['dash_mem']).to(torch.float32),
-        dash_mem_out=torch.from_numpy(float_specs['dash_mem_out']).to(torch.float32),
-        dash_syn=torch.from_numpy(float_specs['dash_syn']).to(torch.float32),
-        dash_syn_2=torch.from_numpy(float_specs['dash_syn_2']).to(torch.float32),
-        dash_syn_out=torch.from_numpy(float_specs['dash_syn_out']).to(torch.float32),
-        threshold=torch.from_numpy(float_specs['threshold']).to(torch.float32),
-        threshold_out=torch.from_numpy(float_specs['threshold_out']).to(torch.float32),
-        aliases=float_specs['aliases'])
+        Nin=float_specs["weights_in"].shape[0],
+        Nres=float_specs["weights_rec"].shape[1],
+        Nout=float_specs["weights_out"].shape[1],
+        weights_in=torch.from_numpy(float_specs["weights_in"]).to(torch.float32),
+        weights_rec=torch.from_numpy(float_specs["weights_rec"]).to(torch.float32),
+        weights_out=torch.from_numpy(float_specs["weights_out"]).to(torch.float32),
+        dash_mem=torch.from_numpy(float_specs["dash_mem"]).to(torch.float32),
+        dash_mem_out=torch.from_numpy(float_specs["dash_mem_out"]).to(torch.float32),
+        dash_syn=torch.from_numpy(float_specs["dash_syn"]).to(torch.float32),
+        dash_syn_2=torch.from_numpy(float_specs["dash_syn_2"]).to(torch.float32),
+        dash_syn_out=torch.from_numpy(float_specs["dash_syn_out"]).to(torch.float32),
+        threshold=torch.from_numpy(float_specs["threshold"]).to(torch.float32),
+        threshold_out=torch.from_numpy(float_specs["threshold_out"]).to(torch.float32),
+        aliases=float_specs["aliases"],
+    )
 
     mod.reset_state()
     _, _, recordings_f = mod(inp, record=True)

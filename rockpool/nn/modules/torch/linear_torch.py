@@ -52,6 +52,8 @@ class LinearTorch(TorchModule):
         has_bias: bool = True,
         device: Optional[str] = None,
         dtype: Optional[str] = None,
+        *args,
+        **kwargs,
     ) -> None:
         """
         Initialise a LinearTorch layer
@@ -65,7 +67,7 @@ class LinearTorch(TorchModule):
             dtype (Optional[str]): Initialise the tensors with the supplied dtype.
         """
         # - Initialise superclass
-        super().__init__(shape=shape)
+        super().__init__(shape=shape, *args, **kwargs)
 
         # - Check arguments
         if len(self.shape) != 2:

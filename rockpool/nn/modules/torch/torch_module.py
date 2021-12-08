@@ -15,12 +15,12 @@ import torch
 from torch import nn
 
 import numpy as np
+import json
+import types
 
 import rockpool.parameters as rp
 
 from typing import Tuple, Any, Generator, Union, List
-
-import json
 
 __all__ = ["TorchModule", "TorchModuleParameters"]
 
@@ -76,7 +76,7 @@ class TorchModule(Module, nn.Module):
 
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, retain_torch_api: bool = False, *args, **kwargs):
         """
         Initialise this module
 
@@ -88,6 +88,31 @@ class TorchModule(Module, nn.Module):
         """
         # - Ensure super-class initialisation ocurs
         super().__init__(*args, **kwargs)
+
+        if retain_torch_api:
+            self.to_torch()
+            #
+            # def parameters(self, *args, **kwargs):
+            #     return nn.Module.parameters(self, *args, **kwargs)
+            #
+            # self.parameters = types.MethodType(parameters, self)
+            #
+            # def call(self, *args, **kwargs):
+            #     return nn.Module.__call__(self, *args, **kwargs)
+            #
+            # self._call = types.MethodType(call, self)
+
+    def __call__(self, *args, **kwargs):
+        if hasattr(self, "_call"):
+            return self._call(*args, **kwargs)
+        else:
+            return super().__call__(*args, **kwargs)
+
+    def __repr__(self, *args, **kwargs):
+        if hasattr(self, "_repr"):
+            return self._repr(*args, **kwargs)
+        else:
+            return super().__repr__(*args, **kwargs)
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
         """
@@ -183,6 +208,40 @@ class TorchModule(Module, nn.Module):
         # - Register the module
         super()._register_module(name, mod)
 
+    def to_torch(self, use_torch_call: bool = True):
+        """
+        Convert the module to use the torch.nn.Module API
+
+        Args:
+            use_torch_call (bool): Use the torch-stype ``__call__()`` method for this object
+
+        Returns:
+            The converted object
+        """
+
+        def parameters(self, *args, **kwargs):
+            return nn.Module.parameters(self, *args, **kwargs)
+
+        self.parameters = types.MethodType(parameters, self)
+
+        def repr(self, *args, **kwargs):
+            return nn.Module.__repr__(self, *args, **kwargs)
+
+        self._repr = types.MethodType(repr, self)
+
+        for name, mod in self.modules().items():
+            if isinstance(mod, TorchModule):
+                setattr(self, name, mod.to_torch(use_torch_call=False))
+
+        if use_torch_call:
+
+            def call(self, *args, **kwargs):
+                return nn.Module.__call__(self, *args, **kwargs)
+
+            self._call = types.MethodType(call, self)
+
+        return self
+
     @classmethod
     def from_torch(cls: type, obj: nn.Module, retain_torch_api: bool = False) -> None:
         """
@@ -198,14 +257,25 @@ class TorchModule(Module, nn.Module):
 
         # - Patch a torch nn.Module to be a Rockpool TorchModule
         orig_call = obj.__call__
+        orig_parameters = obj.parameters
         old_class_name = obj.__class__.__name__
 
         class TorchModulePatch(obj.__class__, TorchModule):
-            def __call__(self, *args, **kwargs):
-                if retain_torch_api:
-                    return orig_call(*args, **kwargs)
-                else:
-                    return super().__call__(*args, **kwargs)
+            def __init__(self):
+                super().__init__(retain_torch_api=retain_torch_api)
+
+            #
+            # def __call__(self, *args, **kwargs):
+            #     if retain_torch_api:
+            #         return orig_call(*args, **kwargs)
+            #     else:
+            #         return super().__call__(*args, **kwargs)
+            #
+            # def parameters(self, *args, **kwargs):
+            #     if retain_torch_api:
+            #         return orig_parameters(*args, **kwargs)
+            #     else:
+            #         return super().parameters(*args, **kwargs)
 
             @property
             def class_name(self) -> str:
@@ -263,8 +333,9 @@ class TorchModule(Module, nn.Module):
                 elif isinstance(my_params[k], TorchModuleParameters):
                     self.modules()[k].json_to_param(param)
                 else:
-                    raise NotImplementedError(f"{type(my_params[k])} not implemented to load. Please implement.")
-
+                    raise NotImplementedError(
+                        f"{type(my_params[k])} not implemented to load. Please implement."
+                    )
 
     def param_to_json(self, param):
 
@@ -281,18 +352,18 @@ class TorchModule(Module, nn.Module):
                     return_dict[k] = self.param_to_json(p)
                 return return_dict
         else:
-            raise NotImplementedError(f"{type(param)} not implemented to save. Please implement.")
+            raise NotImplementedError(
+                f"{type(param)} not implemented to save. Please implement."
+            )
 
     def to_json(self):
         params = self.parameters()
-        
+
         return self.param_to_json(params)
 
-    
     def save(self, fn):
         with open(fn, "w+") as f:
             json.dump(self.to_json(), f)
-
 
     def load(self, fn):
 
@@ -300,4 +371,6 @@ class TorchModule(Module, nn.Module):
             params = json.load(f)
 
         self.json_to_param(params)
+
+
 

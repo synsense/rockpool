@@ -3,8 +3,6 @@ Xylo graph modules for use with tracing and mapping
 """
 import warnings
 
-import torch
-
 from rockpool.graph import (
     GenericNeurons,
     GraphModule,
@@ -59,19 +57,14 @@ class XyloNeurons(GenericNeurons):
 
             # - Convert TCs to dash parameters
             dash_mem = (
-                np.round(np.log2(np.array(mod.tau_mem) / mod.dt))
-                .astype(int)
-                .tolist()
+                np.round(np.log2(np.array(mod.tau_mem) / mod.dt)).astype(int).tolist()
             )
-
             dash_syn = (
-                np.round(np.log2(np.array(mod.tau_syn) / mod.dt))
-                .astype(int)
-                .tolist()
+                np.round(np.log2(np.array(mod.tau_syn) / mod.dt)).astype(int).tolist()
             )
 
             # - Get thresholds
-            thresholds = np.array(mod.threshold).tolist()
+            thresholds = np.round(np.array(mod.threshold)).astype(int).tolist()
 
             # - Build a new neurons module to insert into the graph
             neurons = cls._factory(
@@ -79,7 +72,7 @@ class XyloNeurons(GenericNeurons):
                 len(mod.output_nodes),
                 mod.name,
                 mod.computational_module,
-                [], # TODO: what [] means?
+                [],  # TODO: what [] means?
                 thresholds,
                 dash_mem,
                 dash_syn,

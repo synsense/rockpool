@@ -10,7 +10,7 @@ from rockpool.graph import AliasConnection, GraphHolder, connect_modules
 
 import torch
 
-from typing import List, Callable, Union
+from typing import List
 
 __all__ = ["WaveBlock", "WaveSenseNet"]
 
@@ -63,7 +63,7 @@ class WaveSenseBlock(TorchModule):
         tau_mem: float = 10e-3,
         base_tau_syn: float = 10e-3,
         threshold: float = 0.0,
-        neuron_model=LIFTorch,
+        neuron_model = LIFTorch,
         dt: float = 1e-3,
         device: str = "cuda",
         *args,
@@ -108,7 +108,7 @@ class WaveSenseBlock(TorchModule):
         # - Dilation layers
         tau_syn = torch.arange(0, dilation * kernel_size, dilation) * base_tau_syn
         tau_syn = (
-            torch.clamp(tau_syn, base_tau_syn, tau_syn.max()).repeat(Nchannels, 1).T
+            torch.clamp(tau_syn, base_tau_syn, tau_syn.max()).repeat(Nchannels, 1)
         )
 
         self.lin1 = LinearTorch(
@@ -182,33 +182,27 @@ class WaveSenseBlock(TorchModule):
 
         # - Pass through dilated weight layer
         out, _, self._record_dict["lin1"] = self.lin1(data, record=True)
-        self._record_dict["lin1_output"] = out
 
         # - Pass through dilated spiking layer
         hidden, _, self._record_dict["spk1"] = self.spk1(
             out, record=True
         )  # (t_sim, n_batches, Nchannels)
-        self._record_dict["spk1_output"] = hidden
 
         # - Pass through output linear weights
         out_res, _, self._record_dict["lin2_res"] = self.lin2_res(hidden, record=True)
-        self._record_dict["lin2_res_output"] = out_res
 
         # - Pass through output spiking layer
         out_res, _, self._record_dict["spk2_res"] = self.spk2_res(out_res, record=True)
-        self._record_dict["spk2_res_output"] = out_res
 
         # - Hidden -> skip outputs
         out_skip, _, self._record_dict["lin2_skip"] = self.lin2_skip(
             hidden, record=True
         )
-        self._record_dict["lin2_skip_output"] = out_skip
 
         # - Pass through skip output spiking layer
         out_skip, _, self._record_dict["spk2_skip"] = self.spk2_skip(
             out_skip, record=True
         )
-        self._record_dict["spk2_skip_output"] = out_skip
 
         # - Combine output and residual connections (pass-through)
         res_out = out_res + data
@@ -445,13 +439,11 @@ class WaveSenseNet(TorchModule):
 
         # - Input mapping layers
         out, _, self._record_dict["lin1"] = self.lin1(data, record=True)
-        self._record_dict["lin1_output"] = out.detach()
 
         # Pass through spiking layer
         out, _, self._record_dict["spk1"] = self.spk1(
             out, record=True
         )  # (t_sim, n_batches, Nchannels)
-        self._record_dict["spk1_output"] = out.detach()
 
         # Pass through each wave block in turn
         skip = 0
@@ -464,13 +456,10 @@ class WaveSenseNet(TorchModule):
 
         # Dense layers
         out, _, self._record_dict["hidden"] = self.hidden(skip, record=True)
-        self._record_dict["hidden_output"] = out.detach()
         out, _, self._record_dict["spk2"] = self.spk2(out, record=True)
-        self._record_dict["spk2_output"] = out.detach()
 
         # Final readout layer
         out, _, self._record_dict["readout"] = self.readout(out, record=True)
-        self._record_dict["readout_output"] = out.detach()
 
         out, _, self._record_dict["spk_out"] = self.spk_out(out, record=True)
 
@@ -486,9 +475,6 @@ class WaveSenseNet(TorchModule):
 
         record_dict = self._record_dict if record else {}
         return output, new_state, record_dict
-
-    def trainable_parameters(self):
-        return [p for p in list(self.parameters().astorch()) if p.requires_grad]
 
     def as_graph(self):
         # - Convert all modules to graph representation
@@ -598,12 +584,12 @@ class WaveBlock(nn.Module):
 
     def forward(self, data):
 
-        tanh = self.tanh1(self.conv1_tanh(pad(data, [self.dilation, 0])))
-        sig = self.sig1(self.conv1_sig(pad(data, [self.dilation, 0])))
+        tanh, _, _ = self.tanh1(self.conv1_tanh(pad(data, [self.dilation, 0])))
+        sig, _, _ = self.sig1(self.conv1_sig(pad(data, [self.dilation, 0])))
         out1 = tanh * sig
-        out2 = self.conv2(out1)
+        out2, _, _ = self.conv2(out1)
 
-        skip_out = self.conv_skip(out1)
+        skip_out, _, _ = self.conv_skip(out1)
 
         res_out = data + out2
         return res_out, skip_out
@@ -652,24 +638,22 @@ class WaveNet(nn.Module):
 
         # move dimensions such that Torch conv layers understand them correctly
         data = data.movedim(1, 2)
-        # data = data.transpose(1, 2)
 
-        out = self.relu1(self.conv1(data))
+        out = self.relu1(self.conv1(data)[0])[0]
 
         skip = None
         for i, layer in enumerate(self.wavelayers):
             if skip is None:
-                out, skip = layer(out)
+                out, skip = layer(out)[0]
             else:
-                out, skip_new = layer(out)
+                out, skip_new = layer(out)[0]
                 skip = skip + skip_new
 
         # Dense readout
-        out = self.relu_dense(self.dense(skip))
-        out = self.readout(out)
+        out = self.relu_dense(self.dense(skip)[0])[0]
+        out = self.readout(out)[0]
 
         # revert order of data back to rockpool standard
         out = out.movedim(2, 1)
-        # out = out.transpose(2, 1)
 
         return out
