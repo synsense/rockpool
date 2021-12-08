@@ -79,7 +79,7 @@ def test_LIFTorch_bias():
     assert not torch.all(mod.bias == 0)
 
 
-#def test_LIFTorch_recurrent():
+def test_LIFTorch_recurrent():
     from rockpool.nn.modules.torch.lif_torch import LIFTorch
     import torch
     
