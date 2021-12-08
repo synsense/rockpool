@@ -121,7 +121,7 @@ def test_FF_multisyn_equality_slayer():
     n_batches = 3
     T = 20
     tau_mem = 0.01 
-    tau_syn = torch.Tensor([[0.02], [0.03]]).repeat(1, n_neurons) 
+    tau_syn = torch.Tensor([[0.02, 0.03]]).repeat(n_neurons, 1) 
     
     # - init LIFTorch 
     from rockpool.nn.modules.torch.lif_torch import LIFTorch

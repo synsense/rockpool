@@ -115,7 +115,7 @@ class LIFSlayer(LIFBaseTorch):
         vmem = vmem.squeeze().repeat(1, time_steps)
 
         isyn = (
-            torch.ones(n_batches, self.n_synapses, self.n_neurons).to(data.device)
+            torch.ones(n_batches, self.n_neurons, self.n_synapses).to(data.device)
             * self.isyn
         )
 
@@ -127,7 +127,7 @@ class LIFSlayer(LIFBaseTorch):
         if self._record:
             self._record_Vmem = torch.zeros(n_batches, time_steps, self.n_neurons)
             self._record_Isyn = torch.zeros(
-                n_batches, time_steps, self.n_synapses, self.n_neurons
+                n_batches, time_steps, self.n_neurons, self.n_synapses
             )
 
         self._record_spikes = torch.zeros(
@@ -136,14 +136,14 @@ class LIFSlayer(LIFBaseTorch):
 
 
         # leak
-        data = data.reshape(n_batches, time_steps, self.n_synapses, self.n_neurons)
+        data = data.reshape(n_batches, time_steps, self.n_neurons, self.n_synapses)
 #        .movedim(-1, 1).reshape(n_batches * n_connections, time_steps)
         inp = torch.zeros(n_batches * self.n_neurons, self.n_synapses, time_steps).to(data.device)
 
         for syn in range(self.n_synapses):
-            inp[:, syn] = self.forward_leak(data[:, :, syn].movedim(-1, 1).reshape(n_batches * self.n_neurons, time_steps), 
-                                            self.beta[syn][0], 
-                                            isyn[:, syn])
+            inp[:, syn] = self.forward_leak(data[:, :, :, syn].movedim(1, -1).reshape(n_batches * self.n_neurons, time_steps), 
+                                            self.beta[0, syn], 
+                                            isyn[:, :, syn])
 
         output_spikes, vmem = SpikeFunctionIterForward.apply(
                 inp.sum(1), # input
@@ -161,7 +161,7 @@ class LIFSlayer(LIFBaseTorch):
         spikes = output_spikes.reshape(n_batches, self.n_neurons, time_steps).movedim(1, -1)
 
         vmem = vmem - spikes * self.threshold[0]
-        inp = inp.reshape(n_batches, self.n_neurons, self.n_synapses, time_steps).movedim(1, 2).movedim(-1, 1)
+        inp = inp.reshape(n_batches, self.n_neurons, self.n_synapses, time_steps).movedim(-1, 1)
 
         if self._record:
             # recording
