@@ -1160,50 +1160,84 @@ class Router:
 
         return neurons
 
+    @staticmethod
+    def w_in_from_config(
+        config: Dynapse1Configuration, return_maps: bool = False
+    ) -> Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]:
+        """
+        w_in_from_config Use `Router.synapses_from_config()` and `Router.w_in()` functions together to extract
+        the input weight matrix from a samna config object. `Router.synapses_from_config()` creates the
+        synapse dictionaries from a configuration object and `Router.w_in()` converts the dictionary to a weight matrix.
+        For details of the algorithms, please check the functions.
 
-                        # Get universal neuron ids
-                        pre_UID = Router.get_UID(
-                            pre.chip_id, pre.core_id, pre.neuron_id
-                        )
-                        post_UID = Router.get_UID(
-                            post.chip_id, post.core_id, post.neuron_id
-                        )
-
-                        conn = (
-                            (pre_UID, post_UID, syn_type.value)
-                            if append_syn_type
-                            else (pre_UID, post_UID)
-                        )
-
-                        connections.append(conn)
-
-        return connections
+        :param config: samna Dynapse1 configuration object used to configure a network on the chip
+        :type config: Dynapse1Configuration
+        :param return_maps: return the index-to-key map or not, defaults to True
+        :type return_maps: bool, optional
+        :return: w_in, in_idx
+            :w_in: input weight matrix (3D, NinxNrecx4)
+            :in_idx: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
+        :rtype: Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]
+        """
+        syn_dict = Router.synapses_from_config(config)
+        return Router.w_in(syn_dict["real"], syn_dict["virtual"], return_maps)
 
     @staticmethod
-    def get_weight_from_netgen(
-        netgen: NetworkGenerator, *args, **kwargs
-    ) -> Union[
-        np.ndarray,
-        Tuple[
-            np.ndarray,
-            Union[Dict[int, np.uint16], Dict[int, NeuronKey]],
-            Dict[int, str],
-        ],
-    ]:
+    def w_rec_from_config(
+        config: Dynapse1Configuration, return_maps: bool = False
+    ) -> Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]:
         """
-        get_weight_from_netgen a wrapper function which makes it easier to get a weight matrix using the `NetworkGenerator` object.
-        Extract the configuration and virtual connections from the network generator and then
-        runs the `Router.get_weight_from_config()` object with given parameter set.
+        w_rec_from_config Use `Router.synapses_from_config()` and `Router.w_rec()` functions together to extract
+        the input weight matrix from a samna config object. `Router.synapses_from_config()` creates the
+        synapse dictionaries from a configuration object and `Router.w_rec()` converts the dictionary to a weight matrix.
+        For details of the algorithms, please check the functions.
+
+        :param config: samna Dynapse1 configuration object used to configure a network on the chip
+        :type config: Dynapse1Configuration
+        :param return_maps: return the index-to-key map or not, defaults to True
+        :type return_maps: bool, optional
+        :return: w_rec, rec_idx
+            :w_rec: recurrent weight matrix (3D, NrecxNrecx4)
+            :rec_idx: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
+        :rtype: Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]
+        """
+        syn_dict = Router.synapses_from_config(config)
+        return Router.w_rec(syn_dict["real"], syn_dict["virtual"], return_maps)
+
+    @staticmethod
+    def weights_from_config(
+        config: Dynapse1Configuration,
+        return_maps: bool = False,
+    ) -> Dict[str, Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]]:
+        """
+        weights_from_config Use `Router.synapses_from_config()` and `Router.weight_matrix()` functions together to extract
+        the input and recurrent weight matrices from a samna config object. `Router.synapses_from_config()` creates the
+        synapse dictionaries from a configuration object and `Router.weight_matrix()` converts the dictionary to a weight matrix.
+        For details of the algorithms, please check the functions.
+
+        :param config: samna Dynapse1 configuration object used to configure a network on the chip
+        :type config: Dynapse1Configuration
+        :param return_maps: return the index-to-key map or not, defaults to True
+        :type return_maps: bool, optional
+        :return: a dictionary of tuples of input and recurrent dictionaries and their index maps. (For more detail, please look at Please look at `Router.w_in()` and `Router.w_rec()`)
+        :rtype: Dict[str, Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]]
+        """
+        syn_dict = Router.synapses_from_config(config)
+        return Router.weight_matrix(syn_dict["real"], syn_dict["virtual"], return_maps)
+
+    @staticmethod
+    def weights_from_netgen(
+        netgen: NetworkGenerator, *args, **kwargs
+    ) -> Dict[str, Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]]:
+        """
+        weights_from_netgen a wrapper function which makes it easier to get a weight matrix using the `NetworkGenerator` object.
+        Extract the configuration and from the network generator and then runs the `Router.weights_from_config()`
 
         :param netgen: network generator object defined in samna/ctxctl_contrib/netgen
         :type netgen: NetworkGenerator
-        :return: weight, idx_map_dict, syn_dict
-            w_in: input weight matrix (3D, NinxNrecx4)
-            w_rec: recurrent weight matrix (3D, NrecxNrecx4)
-            idx_map_dict: a dictionary of dictionaries (2 seperate dictionary for `w_in` and `w_rec`) of the mapping between matrix indexes of the neurons and their global unique keys
-        :rtype: Union[np.ndarray, Tuple[np.ndarray, Union[Dict[int, np.uint16], Dict[int, NeuronKey]] , Dict[int, str]]]
+        :return: a dictionary of tuples of input and recurrent dictionaries and their index maps. (For more detail, please look at Please look at `Router.w_in()` and `Router.w_rec()`)
+        :rtype: Dict[str, Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]]
         """
 
-        connections = Router.get_virtual_connections(netgen.network)
         config = netgen.make_dynapse1_configuration()
-        return Router.get_weight_from_config(config, connections, *args, **kwargs)
+        return Router.weights_from_config(config, *args, **kwargs)
