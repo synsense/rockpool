@@ -558,9 +558,9 @@ class Router:
 
         # If virtual neurons are given explicitly, any other neuron UID encountered will raise a ValueError
         if virtual_neurons is not None:
-            input_dict = dict.fromkeys(virtual_neurons)
+            target_dict = dict.fromkeys(virtual_neurons)
         else:
-            input_dict = {}
+            target_dict = {}
 
         # Traverse the virtual FPGA->device connections
         for pre, post in virtual_connections:
@@ -568,18 +568,18 @@ class Router:
             target_chip, target_core, _ = Router.decode_UID(post)
 
             # Illegal Key
-            if virtual_neurons is not None and pre not in input_dict:
+            if virtual_neurons is not None and pre not in target_dict:
                 raise ValueError(
                     f"Virtual neuron {pre} is not given in virtual_neurons : {virtual_neurons}!"
                 )
 
             # First occurance
-            elif pre not in input_dict or input_dict[pre] is None:
-                input_dict[pre] = (target_chip, update_core_mask(0, target_core))
+            elif pre not in target_dict or target_dict[pre] is None:
+                target_dict[pre] = (target_chip, update_core_mask(0, target_core))
 
             # Update the core mask
             else:
-                chipID, coreMask = input_dict[pre]
+                chipID, coreMask = target_dict[pre]
 
                 # ChipID is different than expected!
                 if chipID != target_chip:
@@ -591,12 +591,56 @@ class Router:
 
                 # Legal update
                 else:
-                    input_dict[pre] = (
+                    target_dict[pre] = (
                         chipID,
                         update_core_mask(coreMask, target_core),
                     )
 
-        return input_dict
+        return target_dict
+
+    @staticmethod
+    def virtual_broadcast(
+        target_dict: Optional[Dict[np.uint16, Tuple[np.uint8, np.uint8]]] = None,
+        virtual_connections: Optional[List[NeuronConnection]] = None,
+    ) -> List[NeuronConnection]:
+        """
+        virtual_broadcast produce a list of spike boardcasting connections specific for FPGA-to-device broadcast
+        given a target dictionary or a list of virtual connections. The target dictionary provides us with a virtual
+        pre-synaptic neurons and their target chip and core/cores to broadcast the events.
+        From device's point of view, in each SRAM(Static Random Access Memory) cell
+        the neuron can be set to broadcast it's spikes to one other chip. In the SRAM, one can also
+        set a core mask to narrow down the number of neruons receiving the spikes. However, there is no
+        space to set the neuronID. Therefore, a pre-synaptic neuron broadcast it's spike output
+        to all the neuron in the specified core. The neurons at the post-synaptic side decide on listening or not.
+
+        :param target_dict: a dictionary of targets of the virtual neurons pre_UID: (target_chip_ID, core_mask), defaults to None
+        :type target_dict: Optional[Dict[np.uint16, Tuple[np.uint8, np.uint8]]], optional
+        :param virtual_connections: [description], defaults to None
+        :type virtual_connections: Optional[List[NeuronConnection]], optional
+        :raises ValueError: Either target_dict or virtual_connections must be provided!
+        :return: List of unique IDs of all virtual-real neuron connection pairs in the (pre, post) order.
+        :rtype: List[NeuronConnection]
+        """
+        if target_dict is None and virtual_connections is None:
+            raise ValueError(
+                "Either target_dict or virtual_connections must be provided!"
+            )
+
+        fpga_out = []
+
+        # First get a dictionary for virtual input connections. pre_UID: (target_chip_ID, core_mask)
+        if target_dict is None:
+            target_dict = Router.connect_input(virtual_connections)
+
+        # Traverse the virtual connection dictionary
+        for virtual_UID, (chip_ID, core_mask) in target_dict.items():
+            fpga_out += Router.broadcasting_connections(
+                neuron_UID=virtual_UID,
+                target_chip_id=chip_ID,
+                core_mask=core_mask,
+            )
+
+        return fpga_out
 
     @staticmethod
     def real_synapses(
