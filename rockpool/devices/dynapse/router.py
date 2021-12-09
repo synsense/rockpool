@@ -1037,37 +1037,65 @@ class Router:
                             fan_out += Router.broadcasting_connections(neuron, dest)
 
         return fan_in, fan_out
-        :type return_maps: bool, optional
-        :return: weight, idx_map_dict, syn_dict
-            w_in: input weight matrix (3D, NinxNrecx4)
-            w_rec: recurrent weight matrix (3D, NrecxNrecx4)
-            idx_map_dict: a dictionary of dictionaries (2 seperate dictionary for `w_in` and `w_rec`) of the mapping between matrix indexes of the neurons and their global unique keys
-        :rtype: Union[np.ndarray, Tuple[np.ndarray, Union[Dict[int, np.uint16], Dict[int, NeuronKey]] , Dict[int, str]]]
-        """
-        syn_dict = Router.synapses_from_config(config, virtual_connections)
-
-        real = syn_dict["real"]
-        virtual = syn_dict["virtual"]
-
-        return Router.weight_matrix(real, virtual, return_maps)
 
     @staticmethod
-    def get_virtual_connections(
-        network: Network, append_syn_type: bool = False
-    ) -> Union[List[NeuronConnection], List[NeuronConnectionSynType]]:
+    def real_synapses_from_config(
+        config: Dynapse1Configuration,
+    ) -> Dict[NeuronConnectionSynType, int]:
         """
-        get_virtual_connections generates a neuron connection list between virtual FPGA neurons and real in-device neurons.
-        This list then can be used to provide the input_connections to `Router.weight_matrix()` method
+        real_synapses_from_config extracts the real(device-device) synapses from the samna config object
 
-        :param network: network object defined in samna/ctxctl_contrib/netgen
-        :type network: Network
-        :param append_syn_type: specify the synapse type of the connection or not, defaults to False
-        :type append_syn_type: bool, optional
-        :return: a list of virtual-real neuron connections in either specifying the synapse type or not.
-        :rtype: Union[List[NeuronConnection], List[NeuronConnectionSynType]]
+        :param config: samna Dynapse1 configuration object used to configure a network on the chip
+        :type config: Dynapse1Configuration
+        :return: a real synapse dictionary for number of occurances of each device-device synapses addressed by (preUID, postUID, syn_type) keys
+        :rtype: Dict[NeuronConnectionSynType, int]
         """
 
-        connections = []
+        fan_in, fan_out = Router.fan_from_config(config)
+        real_synapses = Router.real_synapses(fan_in, fan_out)
+
+        return real_synapses
+
+    @staticmethod
+    def virtual_synapses_from_config(
+        config: Dynapse1Configuration,
+    ) -> Dict[NeuronConnectionSynType, int]:
+        """
+        virtual_synapses_from_config extracts the virtual(FPGA-device) synapses from the samna config object
+
+        :param config: samna Dynapse1 configuration object used to configure a network on the chip
+        :type config: Dynapse1Configuration
+        :return: a virtual synapse dictionary for number of occurances of each FPGA-device synapses addressed by (preUID, postUID, syn_type) keys
+        :rtype: Dict[NeuronConnectionSynType, int]
+        """
+
+        fan_in, fan_out = Router.fan_from_config(config)
+        virtual_synapses = Router.virtual_synapses(fan_in=fan_in, fan_out=fan_out)
+        return virtual_synapses
+
+    @staticmethod
+    def synapses_from_config(
+        config: Dynapse1Configuration,
+    ) -> Dict[str, Dict[NeuronConnectionSynType, int]]:
+        """
+        synapses_from_config builts a synapse dictionary by traversing a samna DynapSE1 device configuration object
+
+        :param config: samna Dynapse1 configuration object used to configure a network on the chip
+        :type config: Dynapse1Configuration
+        :return: a super dictionary of `virtual` and `real` synapse dictionaries for number of occurances of each synapses addressed by (preUID, postUID, syn_type) keys
+        :rtype: Dict[str, Dict[NeuronConnectionSynType, int]]
+        """
+
+        fan_in, fan_out = Router.fan_from_config(config)
+        real_synapses = Router.real_synapses(fan_in, fan_out)
+        virtual_synapses = Router.virtual_synapses(real_synapses, fan_in)
+
+        synapses = {
+            "real": real_synapses,
+            "virtual": virtual_synapses,
+        }
+
+        return synapses
 
         # Traverse the post_neuron dictionary (1, 0): [C1c0n20, C1c0n36]
         for _, post_list in network.post_neuron_dict.items():
