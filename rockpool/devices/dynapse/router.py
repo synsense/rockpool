@@ -599,22 +599,12 @@ class Router:
         return input_dict
 
     @staticmethod
-    def synapse_dict(
+    def real_synapses(
         fan_in: List[NeuronConnectionSynType],
         fan_out: Optional[List[NeuronConnection]] = None,
     ) -> Dict[NeuronConnectionSynType, int]:
         """
-        synapse_dict [summary]
-
-        :param fan_in: [description]
-        :type fan_in: List[NeuronConnectionSynType]
-        :param fan_out: [description], defaults to None
-        :type fan_out: Optional[List[NeuronConnection]], optional
-        :return: [description]
-        :rtype: Dict[NeuronConnectionSynType, int]
-        """
-        """
-        synapse_dict produce a dictionary of synapses indicating the occurance of each synapses between
+        real_synapses produce a dictionary of synapses indicating the occurance of each synapses between
         the active neurons indicated in the active connection list. If only the fan_in is provided,
         then all the neurons in the fan_in list considered as active neurons.
 
@@ -622,7 +612,7 @@ class Router:
         :type fan_in: List[NeuronConnectionSynType]
         :param fan_out: Sending connection indicated in the sending side(SRAM cells). list consisting of tuples : (preUID, postUID, syn_type), defaults to None
         :type fan_out: Optional[List[NeuronConnection]], optional
-        :return: a dictionary for number of occurances of each synapses indicated with (preUID, postUID, syn_type) key
+        :return: a dictionary for number of occurances of each synapses addressed by (preUID, postUID, syn_type) key
         :rtype: Dict[NeuronConnectionSynType, int]
         """
 
@@ -639,10 +629,14 @@ class Router:
                 set(map(tuple, fan_in_no_type)) & set(map(tuple, fan_out))
             )
 
-        synapse_dict = {}
+        real_synapses = {}
         # key = preUID, postUID, syn_sype
         for i, key in enumerate(synapses):
             if fan_out is None or (key[0], key[1]) in connections:
+                real_synapses[tuple(key)] = s_count[i]
+
+        return real_synapses
+
     @staticmethod
     def virtual_synapses(
         fan_in: List[NeuronConnectionSynType],
