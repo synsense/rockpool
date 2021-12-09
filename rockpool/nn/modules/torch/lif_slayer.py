@@ -153,8 +153,8 @@ class LIFSlayer(LIFBaseTorch):
         # recording
         if self._record:
             # recording
-            self._record_Vmem = vmem_slayer.detach()
-            self._record_Isyn = isyn_slayer.detach()
+            self._record_Vmem = vmem_slayer
+            self._record_Isyn = isyn_slayer
 
         self._record_spikes = spikes
 

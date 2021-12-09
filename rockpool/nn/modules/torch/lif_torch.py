@@ -442,8 +442,8 @@ class LIFTorch(LIFBaseTorch):
 
             if self._record:
                 # recording
-                self._record_Vmem[:, t] = vmem.detach()
-                self._record_Isyn[:, t] = isyn.detach()
+                self._record_Vmem[:, t] = vmem
+                self._record_Isyn[:, t] = isyn
 
             self._record_spikes[:, t] = spikes
 
