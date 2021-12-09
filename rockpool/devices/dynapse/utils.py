@@ -8,7 +8,7 @@ E-mail : ugurcan.cakal@gmail.com
 """
 
 import numpy as np
-from rockpool.devices.dynapse.dynapse1_simulator import DynapSE1Jax
+from rockpool.devices.dynapse.dynapse1_jax import DynapSE1Jax
 from rockpool.timeseries import TSEvent, TSContinuous
 from rockpool.devices.dynapse.router import Router
 

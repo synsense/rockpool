@@ -31,7 +31,7 @@ from rockpool.devices.dynapse.adexplif_jax import (
     DynapSEAdExpLIFJax,
 )
 
-from rockpool.devices.dynapse.dynapse1_simconfig import (
+from rockpool.devices.dynapse.simconfig import (
     DynapSE1Layout,
     DynapSE1SimCore,
     SynapseParameters,
