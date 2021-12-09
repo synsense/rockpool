@@ -91,16 +91,6 @@ class TorchModule(Module, nn.Module):
 
         if retain_torch_api:
             self.to_torch()
-            #
-            # def parameters(self, *args, **kwargs):
-            #     return nn.Module.parameters(self, *args, **kwargs)
-            #
-            # self.parameters = types.MethodType(parameters, self)
-            #
-            # def call(self, *args, **kwargs):
-            #     return nn.Module.__call__(self, *args, **kwargs)
-            #
-            # self._call = types.MethodType(call, self)
 
     def __call__(self, *args, **kwargs):
         if hasattr(self, "_call"):
@@ -261,13 +251,11 @@ class TorchModule(Module, nn.Module):
         old_class_name = obj.__class__.__name__
 
         class TorchModulePatch(obj.__class__, TorchModule):
-                       
             def __call__(self, *args, **kwargs):
                 if retain_torch_api:
                     return orig_call(*args, **kwargs)
                 else:
                     return super().__call__(*args, **kwargs)
-            
             def parameters(self, *args, **kwargs):
                 if retain_torch_api:
                     return orig_parameters(*args, **kwargs)
