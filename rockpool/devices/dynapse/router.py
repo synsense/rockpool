@@ -854,7 +854,7 @@ class Router:
                 :idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
         :rtype: Tuple[np.ndarray, Dict[int, NeuronKey]]
         """
-        pre_idx = dict(zip(pre_neurons, range(len(NeuronKey))))
+        pre_idx = dict(zip(pre_neurons, range(len(pre_neurons))))
 
         if post_neurons is None:
             # Then it's assumed that a recurrent weight matrix is demanded
@@ -1086,7 +1086,9 @@ class Router:
 
         fan_in, fan_out = Router.fan_from_config(config)
         real_synapses = Router.real_synapses(fan_in, fan_out)
-        virtual_synapses = Router.virtual_synapses(real_synapses, fan_in)
+        virtual_synapses = Router.virtual_synapses(
+            fan_in=fan_in, real_synapses=real_synapses
+        )
 
         synapses = {
             "real": real_synapses,
