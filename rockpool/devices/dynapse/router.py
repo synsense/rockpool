@@ -45,8 +45,8 @@ except ModuleNotFoundError as e:
 
     print(
         e,
-        "\DynapSEAdExpLIFJax module can only be used for simulation purposes."
-        "Deployment utilities depends on samna!",
+        "Router functions can only used manually."
+        "Automatic connection and weight matrix extraction from samna configuration utilities depends on samna!",
     )
     _SAMNA_AVAILABLE = False
 
@@ -54,9 +54,7 @@ _NETGEN_AVAILABLE = True
 
 try:
     from netgen import (
-        Network,
         NetworkGenerator,
-        convert_incoming_conns_dict2list,
     )
 except ModuleNotFoundError as e:
     Network = Any
@@ -599,12 +597,12 @@ class Router:
         return target_dict
 
     @staticmethod
-    def virtual_broadcast(
+    def virtual_fan_out(
         target_dict: Optional[Dict[np.uint16, Tuple[np.uint8, np.uint8]]] = None,
         virtual_connections: Optional[List[NeuronConnection]] = None,
     ) -> List[NeuronConnection]:
         """
-        virtual_broadcast produce a list of spike boardcasting connections specific for FPGA-to-device broadcast
+        virtual_fan_out produce a list of spike boardcasting connections specific for FPGA-to-device broadcast
         given a target dictionary or a list of virtual connections. The target dictionary provides us with a virtual
         pre-synaptic neurons and their target chip and core/cores to broadcast the events.
         From device's point of view, in each SRAM(Static Random Access Memory) cell
@@ -912,9 +910,9 @@ class Router:
         )
 
         fpga_neurons = Router.fpga_neurons(input_synapses, decode_UID=False)
-            w_in, in_idx = Router.get_weight_matrix(
+        w_in, in_idx = Router.get_weight_matrix(
             input_synapses, fpga_neurons, device_neurons
-            )
+        )
 
         # Return
         if not return_maps:
@@ -1043,7 +1041,7 @@ class Router:
         config: Dynapse1Configuration,
     ) -> Dict[NeuronConnectionSynType, int]:
         """
-        real_synapses_from_config extracts the real(device-device) synapses from the samna config object
+        real_synapses_from_config extracts the real(in-device) synapses from the samna config object
 
         :param config: samna Dynapse1 configuration object used to configure a network on the chip
         :type config: Dynapse1Configuration
@@ -1061,7 +1059,7 @@ class Router:
         config: Dynapse1Configuration,
     ) -> Dict[NeuronConnectionSynType, int]:
         """
-        virtual_synapses_from_config extracts the virtual(FPGA-device) synapses from the samna config object
+        virtual_synapses_from_config extracts the virtual(FPGA-to-device) synapses from the samna config object
 
         :param config: samna Dynapse1 configuration object used to configure a network on the chip
         :type config: Dynapse1Configuration
@@ -1150,7 +1148,7 @@ class Router:
 
         device_neurons = Router.device_neurons(
             synapses["real"], synapses["virtual"], decode_UID
-                )
+        )
         fpga_neurons = Router.fpga_neurons(synapses["virtual"], decode_UID)
 
         neurons = {
