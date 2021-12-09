@@ -1097,19 +1097,69 @@ class Router:
 
         return synapses
 
-        # Traverse the post_neuron dictionary (1, 0): [C1c0n20, C1c0n36]
-        for _, post_list in network.post_neuron_dict.items():
+    @staticmethod
+    def device_neurons_from_config(
+        config: Dynapse1Configuration, decode_UID: bool = True
+    ) -> List[Union[NeuronKey, np.uint16]]:
+        """
+        device_neurons_from_config extracts the device neruon ids from the samna configuraiton object. Also look at `Router.device_neurons()`
 
-            for post in post_list:  # [C1c0n20, C1c0n36]
-                incoming_list, _ = convert_incoming_conns_dict2list(
-                    post.incoming_connections
+        :param config: samna Dynapse1 configuration object used to configure a network on the chip
+        :type config: Dynapse1Configuration
+        :param decode_UID: return a list of NeuronKey (chipID, coreID, neuronID) if true, return a list of NeuronUID (np.uint16) if false, defaults to True
+        :type decode_UID: bool, optional
+        :return: a unique list of active neurons in device (either sending or receiving events)
+        :rtype: List[Union[NeuronKey, np.uint16]]
+        """
+        synapses = Router.synapses_from_config(config)
+        return Router.device_neurons(synapses["real"], synapses["virtual"], decode_UID)
+
+    @staticmethod
+    def fpga_neurons_from_config(
+        config: Dynapse1Configuration, decode_UID: bool = True
+    ) -> List[Union[NeuronKey, np.uint16]]:
+        """
+        fpga_neurons_from_config extracts the virtual FPGA neruon ids from the samna configuraiton object. Also look at `Router.fpga_neurons()`
+
+        :param config: samna Dynapse1 configuration object used to configure a network on the chip
+        :type config: Dynapse1Configuration
+        :param decode_UID: return a list of NeuronKey (chipID, coreID, neuronID) if true, return a list of NeuronUID (np.uint16) if false, defaults to True
+        :type decode_UID: bool, optional
+        :return: a unique list of active virtual neurons (which are sending events to in-device neurons)
+        :rtype: List[Union[NeuronKey, np.uint16]]
+        """
+        virtual_synapses = Router.virtual_synapses_from_config(config)
+        return Router.fpga_neurons(virtual_synapses, decode_UID)
+
+    @staticmethod
+    def neurons_from_config(
+        config: Dynapse1Configuration, decode_UID: bool = True
+    ) -> Dict[str, List[Union[NeuronKey, np.uint16]]]:
+        """
+        neurons_from_config builts a neurons key dictionary by traversing a samna DynapSE1 device configuration object
+
+        :param config: samna Dynapse1 configuration object used to configure a network on the chip
+        :type config: Dynapse1Configuration
+        :param decode_UID: return a list of NeuronKey (chipID, coreID, neuronID) if true, return a list of NeuronUID (np.uint16) if false, defaults to True
+        :type decode_UID: bool, optional
+        :return: a unique list of active neurons in device (either sending or receiving events)
+        :rtype: Dict[str, List[Union[NeuronKey, np.uint16]]]
+        """
+
+        synapses = Router.synapses_from_config(config)
+
+        device_neurons = Router.device_neurons(
+            synapses["real"], synapses["virtual"], decode_UID
                 )
+        fpga_neurons = Router.fpga_neurons(synapses["virtual"], decode_UID)
 
-                # [(C0c0s50, <Dynapse1SynType.AMPA: 3>), (C3c0n60, <Dynapse1SynType.GABA_B: 0>)]
-                for pre, syn_type in incoming_list:
+        neurons = {
+            "real": device_neurons,
+            "virtual": fpga_neurons,
+        }
 
-                    # In a virtual connection, the pre-synaptic neurons is a spike-gen on the FPGA
-                    if pre.is_spike_gen:
+        return neurons
+
 
                         # Get universal neuron ids
                         pre_UID = Router.get_UID(
