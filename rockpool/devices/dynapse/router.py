@@ -755,72 +755,85 @@ class Router:
         return dict(map(type_convert, range(4)))
 
     @staticmethod
-    def synapses_from_config(
-        config: Dynapse1Configuration,
-        virtual_connections: Optional[List[NeuronConnection]] = None,
-    ) -> Union[
-        Dict[NeuronConnectionSynType, int],
-        Tuple[Dict[NeuronConnectionSynType, int], Dict[int, str]],
-    ]:
+    def device_neurons(
+        real_synapses: Dict[NeuronConnectionSynType, int],
+        virtual_synapses: Optional[Dict[NeuronConnectionSynType, int]] = None,
+        decode_UID: bool = True,
+    ) -> List[Union[NeuronKey, np.uint16]]:
         """
-        synapses_from_config builts a synapse dictionary by traversing a samna DynapSE1 device configuration object
+        device_neurons finds the active neurons, that are either sending events to other neurons or accepting an events from others.
+        It uses the real synapse and virtual synapse dictionaries for searching. Virtual synapse dictionary is optional but recommended
+        because the post-synaptic neurons indicated there might refer to neurons which are missing in the real_synapse dictionary.
+        These neurons are the ones whose only accept events from virtual(FPGA) neurons and does not have any incoming or outgoing connections with the other in-device neurons.
 
-        :param config: samna Dynapse1 configuration object used to configure a network on the chip
-        :type config: Dynapse1Configuration
-        :param virtual_connections: A list of tuples of universal neuron IDs defining the input connections from the FPGA to device neurons, defaults to None
-            e.g : [(50,1044),(50,1045)]
-        :type virtual_connections: Optional[List[NeuronConnection]], optional
-        :return: synapses, synapse_type_map
-            synapses: a super dictionary of `virtual` and `real` synapse dictionaries for number of occurances of each synapses indicated with (preUID, postUID, syn_type) keys
-            synapse_type_map : a dictionary of integer synapse type index keys and their names
-        :rtype: Union[Dict[str,Dict[NeuronConnectionSynType, int]], Tuple[Dict[str,Dict[NeuronConnectionSynType, int]], Dict[int,str]]]
+        :param real_synapses: a dictionary for number of occurances of each in-device synapse addressed by (preUID, postUID, syn_type) key
+        :type real_synapses: Dict[NeuronConnectionSynType, int]
+        :param virtual_synapses: a dictionary for number of occurances of each fpga-to-device synapse addressed by (preUID, postUID, syn_type) key, defaults to None
+        :type virtual_synapses: Optional[Dict[NeuronConnectionSynType, int]], optional
+        :param decode_UID: return a list of NeuronKey (chipID, coreID, neuronID) if true, return a list of NeuronUID (np.uint16) if false, defaults to True
+        :type decode_UID: bool, optional
+        :return: a unique list of active neurons in device (either sending or receiving events)
+        :rtype: List[Union[NeuronKey, np.uint16]]
         """
 
-        fan_in = []
-        fan_out = []
-        fpga_out = []
+        device_pre_post = np.empty(0)
+        input_post = np.empty(0)
 
-        # Traverse the chip for neruon-neuron connections
-        for chip in config.chips:  # 4
-            for core in chip.cores:  # 4
-                for neuron in core.neurons:  # 256
+        # Extract the neurons from the synapse dictionaries
+        if real_synapses:
+            device_pre_post = np.array(list(real_synapses.keys()))[:, 0:2]
+            device_pre_post = device_pre_post.flatten()
 
-                    # FAN-IN (64)
-                    for syn in neuron.synapses:
-                        # An active synapse
-                        if syn.listen_neuron_id != 0:
-                            fan_in += Router.receiving_connections(neuron, syn)
+        # Destinations of the virtual synapses might indicate other neurons
+        if virtual_synapses is not None:
+            if virtual_synapses:
+                input_post = np.array(list(virtual_synapses.keys()))[:, 1]
 
-                    # FAN-OUT (4)
-                    for dest in neuron.destinations:
-                        # An active destination
-                        if dest.target_chip_id != 16 and dest.target_chip_id != 0:
-                            fan_out += Router.broadcasting_connections(neuron, dest)
+            device_neurons = np.unique(np.hstack((device_pre_post, input_post)))
+        else:
+            device_neurons = np.unique(device_pre_post)
 
-        # Get the virtual input synapses (FPGA neuron -> device neuron)
-        if virtual_connections is not None:
+        # Return
+        if decode_UID:
+            device_neurons = list(map(lambda t: Router.decode_UID(t), device_neurons))
 
-            # First create a dictionary for virtual input connections. pre_UID: (target_chip_ID, core_mask)
-            input_dict = Router.connect_input(virtual_connections)
+        else:
+            device_neurons = list(device_neurons)
 
-            # Traverse the virtual connection dictionary
-            for virtual_UID, (chip_ID, core_mask) in input_dict.items():
-                fpga_out += Router.broadcasting_connections(
-                    neuron_UID=virtual_UID,
-                    target_chip_id=chip_ID,
-                    core_mask=core_mask,
-                )
+        return device_neurons
 
-        # Need target chipID, core mask
-        real_synapses = Router.synapse_dict(fan_in, fan_out)
-        virtual_synapses = Router.synapse_dict(fan_in, fpga_out)
+    @staticmethod
+    def fpga_neurons(
+        virtual_synapses: Dict[NeuronConnectionSynType, int],
+        decode_UID: bool = True,
+    ) -> List[Union[NeuronKey, np.uint16]]:
+        """
+        fpga_neurons finds the active virtual neurons, that are sending events to other neurons. It uses the virtual synapse dictionary for searching.
 
-        synapses = {
-            "real": real_synapses,
-            "virtual": virtual_synapses,
-        }
+        :param virtual_synapses: a dictionary for number of occurances of each fpga-to-device synapse addressed by (preUID, postUID, syn_type) key
+        :type virtual_synapses: Dict[NeuronConnectionSynType, int]
+        :param decode_UID: return a list of NeuronKey (chipID, coreID, neuronID) if true, return a list of NeuronUID (np.uint16) if false, defaults to True
+        :type decode_UID: bool, optional
+        :return: a unique list of active virtual neurons (which are sending events to in-device neurons)
+        :rtype: List[Union[NeuronKey, np.uint16]]
+        """
 
-        return synapses
+        input_pre = np.empty(0)
+
+        if virtual_synapses:
+            input_pre = np.array(list(virtual_synapses.keys()))[:, 0]
+
+        # Obtain the neruons
+        fpga_neruons = np.unique(input_pre)
+
+        # Return
+        if decode_UID:
+            fpga_neruons = list(map(lambda t: Router.decode_UID(t), fpga_neruons))
+
+        else:
+            fpga_neruons = list(fpga_neruons)
+
+        return fpga_neruons
 
     @staticmethod
     def get_weight_matrix(
