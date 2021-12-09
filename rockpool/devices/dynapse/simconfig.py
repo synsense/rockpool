@@ -1,5 +1,7 @@
 """
-Dynap-SE1 Parameter classes to be used in initial configuration of DynapSEAdExpLIFJax module
+Dynap-SE Parameter classes to be used in initial configuration of DynapSEAdExpLIFJax module
+
+renamed : dynapse1_simconfig.py -> simconfig.py @ 211208
 
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
@@ -800,7 +802,7 @@ class DynapSE1SimCore:
         :type cls: DynapSE1SimCore
 
         Usage:
-        from rockpool.devices.dynapse.dynapse1_simconfig import DynapSE1SimCore as simcore
+        from rockpool.devices.dynapse.simconfig import DynapSE1SimCore as simcore
         simcore.reset(simcore)
         """
         cls.matrix_id_iter = itertools.count()
@@ -1411,22 +1413,33 @@ class DynapSE1SimBoard:
 
     @classmethod
     def from_config(
-        cls, config: Optional[Dynapse1Configuration], idx_map: Dict[int, NeuronKey]
+        cls,
+        config: Optional[Dynapse1Configuration],
+        idx_map: Optional[Dict[int, NeuronKey]] = None,
     ) -> DynapSE1SimBoard:
         """
         from_config is a class factory method for DynapSE1SimBoard object such that the parameters
         are obtained from a samna device configuration object.
 
+        If an idx_map is not given, then it's extracted from the config object. However, it's not recommended
+        because the index map should come along with the weight matrix. So, when costructing a configuration
+        object, Use the Router utilities and get the index map along with the recurrent weight matrix
+        extracted from the samna config object. Then provide it externally. Simulation board is responsible for
+        gathering the biases together. However, using the active neruon information inside the index map is
+        beneficial since we can know where to look at. For example if there is no neuron allocated in a core,
+        then we do not need to investigate the bias currents related that core.
+
         :param config: samna Dynapse1 configuration object used to configure a network on the chip
         :type config: Dynapse1Configuration, optional
-        :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique neuron keys
-        :type idx_map: Dict[int, NeuronKey]
+        :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique neuron keys, defaults to None
+        :type idx_map: Optional[Dict[int, NeuronKey]], optional
         :return: `DynapSE1SimBoard` object ready to configure a simulator
         :rtype: DynapSE1SimBoard
         """
 
         sim_cores = []
-
+        if idx_map is None:
+            _, idx_map = Router.w_rec_from_config(config, return_maps=True)
         core_dict = DynapSE1SimBoard.idx_map_to_core_dict(idx_map)
 
         # Gather `DynapSE1SimCore` objects
