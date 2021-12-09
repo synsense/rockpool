@@ -1414,7 +1414,7 @@ class DynapSE1SimBoard:
     @classmethod
     def from_config(
         cls,
-        config: Optional[Dynapse1Configuration],
+        config: Dynapse1Configuration,
         idx_map: Optional[Dict[int, NeuronKey]] = None,
     ) -> DynapSE1SimBoard:
         """
@@ -1445,15 +1445,40 @@ class DynapSE1SimBoard:
         # Gather `DynapSE1SimCore` objects
         for (chipID, coreID), neuron_map in core_dict.items():
             # Traverse the chip for core parameter group
-            if config is not None:
-                pg = config.chips[chipID].cores[coreID].parameter_group
-                sim_core = DynapSE1SimCore.from_samna_parameter_group(
-                    pg, len(neuron_map), (chipID, coreID), neuron_map
-                )
-            else:
-                sim_core = DynapSE1SimCore(
-                    len(neuron_map), (chipID, coreID), neuron_map
-                )
+            pg = config.chips[chipID].cores[coreID].parameter_group
+            sim_core = DynapSE1SimCore.from_samna_parameter_group(
+                pg, len(neuron_map), (chipID, coreID), neuron_map
+            )
+            sim_cores.append(sim_core)
+
+        # Helps to order the idx_map if it's not in proper format
+        idx_map = DynapSE1SimBoard.core_dict_to_idx_map(core_dict)
+        mod = cls(None, sim_cores, idx_map)
+        return mod
+
+    @classmethod
+    def from_idx_map(
+        cls,
+        idx_map: Dict[int, NeuronKey],
+    ) -> DynapSE1SimBoard:
+        """
+        from_idx_map is a class factory method for DynapSE1SimBoard object such that the default parameters
+        are used but the neurons ids and the shape is obtained from the idx_map.
+
+        :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique neuron keys, defaults to None
+        :type idx_map: Optional[Dict[int, NeuronKey]], optional
+        :return: `DynapSE1SimBoard` object ready to configure a simulator
+        :rtype: DynapSE1SimBoard
+        """
+
+        sim_cores = []
+
+        core_dict = DynapSE1SimBoard.idx_map_to_core_dict(idx_map)
+
+        # Gather `DynapSE1SimCore` objects
+        for (chipID, coreID), neuron_map in core_dict.items():
+            # Traverse the chip for core parameter group
+            sim_core = DynapSE1SimCore(len(neuron_map), (chipID, coreID), neuron_map)
             sim_cores.append(sim_core)
 
         # Helps to order the idx_map if it's not in proper format
