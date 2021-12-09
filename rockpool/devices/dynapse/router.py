@@ -996,28 +996,47 @@ class Router:
         # Return
         weight_dict = {"w_in": w_in, "w_rec": w_rec}
         return weight_dict
+
+    # --- FROM CONFIG METHODS --- #
+
+    @staticmethod
+    def fan_from_config(
         config: Dynapse1Configuration,
-        virtual_connections: Optional[List[NeuronConnection]] = None,
-        return_maps: bool = False,
-    ) -> Union[
-        np.ndarray,
-        Tuple[
-            np.ndarray,
-            Union[Dict[int, np.uint16], Dict[int, NeuronKey]],
-            Dict[int, str],
-        ],
-    ]:
+    ) -> Tuple[List[NeuronConnectionSynType], List[NeuronConnectionSynType]]:
         """
-        get_weight_from_config Use `synapses_from_config` and `weight_matrix` functions together to get a weight matrix
-        from a samna config object. `synapses_from_config` creates the synapse dictionaries from a configuration object
-        and `weight_matrix` converts the dictionary to a weight matrix. For details of the algorithms, please check the functions.
+        fan_from_config traverses the config object for neuron synapses and destinations.
+        Produces a fan_in list which consists of all the possible connections indicated by CAM. 4 possibile connections indicated by 1 entry.
+        Produces a fan_out list which consists of all the possible connections indicated by SRAM. 256 possible connections indicated by 1 entry.
 
         :param config: samna Dynapse1 configuration object used to configure a network on the chip
         :type config: Dynapse1Configuration
-        :param virtual_connections: A list of tuples of universal neuron IDs defining the input connections from the FPGA to device neurons, defaults to None
-            e.g : [(50,1044),(50,1045)]
-        :type virtual_connections: Optional[List[NeuronConnection]], optional
-        :param return_maps: return the index-to-UID, and syn-index-to-type maps or not, defaults to True
+        :return: fan_in, fan_out
+            :fan_in: Receving connection indicated in the listening side(CAM cells). list consisting of tuples : (preUID, postUID, syn_type)
+            :fan_out: Sending connection indicated in the sending side(SRAM cells). list consisting of tuples : (preUID, postUID, syn_type)
+        :rtype: Tuple[List[NeuronConnectionSynType], List[NeuronConnectionSynType]]
+        """
+
+        fan_in = []
+        fan_out = []
+
+        # Traverse the chip for neruon-neuron connections
+        for chip in config.chips:  # 4
+            for core in chip.cores:  # 4
+                for neuron in core.neurons:  # 256
+
+                    # FAN-IN (64 connections) CAM
+                    for syn in neuron.synapses:
+                        # An active synapse
+                        if syn.listen_neuron_id != 0:
+                            fan_in += Router.receiving_connections(neuron, syn)
+
+                    # FAN-OUT (4 chips) SRAM
+                    for dest in neuron.destinations:
+                        # An active destination
+                        if dest.target_chip_id != 16 and dest.target_chip_id != 0:
+                            fan_out += Router.broadcasting_connections(neuron, dest)
+
+        return fan_in, fan_out
         :type return_maps: bool, optional
         :return: weight, idx_map_dict, syn_dict
             w_in: input weight matrix (3D, NinxNrecx4)
