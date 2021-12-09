@@ -1,5 +1,5 @@
 """
-Dynap-SE1 router simulator. Create a weight matrix using SRAM and CAM content
+Dynap-SE router simulator. Create a weight matrix using SRAM and CAM content
 
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
@@ -643,9 +643,62 @@ class Router:
         # key = preUID, postUID, syn_sype
         for i, key in enumerate(synapses):
             if fan_out is None or (key[0], key[1]) in connections:
-                synapse_dict[tuple(key)] = s_count[i]
+    @staticmethod
+    def virtual_synapses(
+        fan_in: List[NeuronConnectionSynType],
+        fan_out: Optional[List[NeuronConnection]] = None,
+        real_synapses: Optional[Dict[NeuronConnectionSynType, int]] = None,
+    ) -> Dict[NeuronConnectionSynType, int]:
+        """
+        virtual_synapses finds the pure virtual neurons indicated in the samna configuration object. Pure virtual neurons
+        are the ones we can see in the fan_in list but we cannot see any of the 4 peers indicated by one CAM entry in the final connections list.
+        One can should provide a fan_in list and choose to provide one of synapse dictionary and fan_out to obtain the virtual synapses.
 
-        return synapse_dict
+        Please note that if a device neuron having the same ID with the virtual one is allocated, then this approach cannot find the implied virtual neuron
+
+        :param fan_in: Receving connection indicated in the listening side(CAM cells). list consisting of tuples : (preUID, postUID, syn_type), defaults to None
+        :type fan_in: List[NeuronConnectionSynType]
+        :param fan_out: Sending connection indicated in the sending side(SRAM cells). list consisting of tuples : (preUID, postUID, syn_type), defaults to None
+        :type fan_out: Optional[List[NeuronConnection]], optional
+        :param real_synapses: a dictionary for number of occurances of each real(device-device) synapses addressed by(preUID, postUID, syn_type) key, defaults to None
+        :type real_synapses: Optional[Dict[NeuronConnectionSynType, int]], optional
+        :raises ValueError: Either provide a synanpse_dict & fan_in list or provide a fan_in & fan_out lists
+        :return: a dictionary for number of occurances of each virtual(FPGA-DynapSE) synapses addressed by (preUID, postUID, syn_type) key
+        :rtype: Dict[NeuronConnectionSynType, int]
+        """
+
+        if real_synapses is not None:
+            connections = list(real_synapses.keys())
+        elif fan_in is not None and fan_out is not None:
+            connections = list(Router.real_synapses(fan_in, fan_out).keys())
+        else:
+            raise ValueError(
+                "Either provide a synanpse_dict & fan_in list or provide a fan_in & fan_out lists"
+            )
+
+        # Find the all four counterparts of one device-device connection indicated by CAM in the fan_in list
+        real_fan_in = []
+        for preUID, postUID, syn_type in connections:
+            _, coreID, neuronID = Router.decode_UID(preUID)
+            real_fan_in += Router.receiving_connections(
+                neuron_UID=postUID,
+                listen_core_id=coreID,
+                listen_neuron_id=neuronID,
+                syn_type=syn_type,
+            )
+
+        # Virtual connections are the connections exist in the full fan_in list but missing in the real list
+        virtual_fan_in = [vc for vc in fan_in if vc not in real_fan_in]
+
+        # Virtual neurons can only have a chipID = 0
+        virtual_connections = []
+        for connection in virtual_fan_in:
+            chipID, coreID, neuronID = Router.decode_UID(connection[0])
+            if chipID == 0:
+                virtual_connections.append(connection)
+
+        virtual_synapses = Router.real_synapses(virtual_connections)
+        return virtual_synapses
 
     @staticmethod
     def syn_type_map() -> Dict[int, str]:
