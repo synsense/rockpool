@@ -840,13 +840,12 @@ class Router:
         synapses: Dict[NeuronConnectionSynType, int],
         pre_neurons: np.ndarray,
         post_neurons: Optional[np.ndarray] = None,
-        dtype: type = np.uint8,
-    ) -> Tuple[np.ndarray, Dict[int, np.uint16]]:
+    ) -> Tuple[np.ndarray, Dict[int, NeuronKey]]:
         """
         get_weight_matrix generates and fills a weight matrix given the synapse dictionary, pre-synaptic neurons and the post-synaptic neurons.
         If post-synaptic neurons are not given, it's assumed that pre-synaptic and post-synaptic neurons are the same and connections are recurrent.
 
-        :param synapses: a dictionary for number of occurances of each synapses indicated with (preUID, postUID, syn_type) key
+        :param synapses: a dictionary for number of occurances of each synapses addressed by (preUID, postUID, syn_type) key
         :type synapses: Dict[NeuronConnectionSynType, int]
         :param pre_neurons: a unique list of pre-synaptic neuron UIDs
         :type pre_neurons: np.ndarray
@@ -854,10 +853,10 @@ class Router:
         :type post_neurons: Optional[np.ndarray], optional
         :return: weight_matrix, idx_map
                 :weight_matrix: weight matrix generated using the synapses dictionary
-                :idx_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique IDs
-        :rtype: Tuple[np.ndarray, Dict[int, np.uint16]]
+                :idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
+        :rtype: Tuple[np.ndarray, Dict[int, NeuronKey]]
         """
-        pre_idx = dict(zip(pre_neurons, range(len(pre_neurons))))
+        pre_idx = dict(zip(pre_neurons, range(len(NeuronKey))))
 
         if post_neurons is None:
             # Then it's assumed that a recurrent weight matrix is demanded
@@ -868,7 +867,7 @@ class Router:
             shape = (len(pre_neurons), len(post_neurons), 4)
             post_idx = dict(zip(post_neurons, range(len(post_neurons))))
 
-        weight_matrix = np.zeros(shape=shape, dtype=dtype)
+        weight_matrix = np.zeros(shape=shape, dtype=np.uint8)
 
         for (pre, post, syn_type), count in synapses.items():
             weight_matrix[pre_idx[pre]][post_idx[post]][syn_type] = count
@@ -878,23 +877,61 @@ class Router:
         return weight_matrix, idx_map
 
     @staticmethod
-    def weight_matrix(
+    def w_in(
+        device_synapses: Dict[NeuronConnectionSynType, int],
+        input_synapses: Dict[NeuronConnectionSynType, int],
+        return_maps: bool = True,
+    ) -> Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]:
+        """
+        w_in creates a 3D rectangular shaped input weight matrix given synapse dictionaries. The dictionary should
+        have the number of occurances of each synapses indicated with (preUID, postUID, syn_type) key.
+        The third dimension of the weight matrix holds the different synapse types. For example,
+        weight[:,:,0] stands for the GABA_B connections. weight[:,:,1] stands for the GABA_A connections and so on.
+        The first dimension of the weight matrix is for pre-synaptic neurons and the second dimension is for
+        the post-synaptic neurons. The numbers stored indicate the number of synapses between respected neurons.
+        If weight[1][2][0] == 5, that means that there are 5 GABA_B connections from neuron 1 to neuron 2.
+
+        :param device_synapses: a dictionary for number of occurances of each in-device synapses indicated with (preUID, postUID, syn_type) key
+        :type device_synapses: Dict[NeuronConnectionSynType, int]
+        :param input_synapses: a dictionary for number of occurances of each fpga-to-device synapses indicated with (preUID, postUID, syn_type) key
+        :type input_synapses: Dict[NeuronConnectionSynType, int]
+        :param return_maps: return the index-to-key map or not, defaults to True
+        :type return_maps: bool, optional
+        :return: w_in, in_idx
+            :w_in: input weight matrix (3D, NinxNrecx4)
+            :in_idx: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
+        :rtype: Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]
+        """
+
+        w_in = np.empty(0)
+        in_idx = {}
+
+        # Extract the neurons from the synapse dictionaries
+        device_neurons = Router.device_neurons(
+            device_synapses, input_synapses, decode_UID=False
+        )
+
+        fpga_neurons = Router.fpga_neurons(input_synapses, decode_UID=False)
+            w_in, in_idx = Router.get_weight_matrix(
+            input_synapses, fpga_neurons, device_neurons
+            )
+
+        # Return
+        if not return_maps:
+            return w_in
+
+        else:
+            return w_in, in_idx
+
+    @staticmethod
+    def w_rec(
         device_synapses: Dict[NeuronConnectionSynType, int],
         input_synapses: Optional[Dict[NeuronConnectionSynType, int]] = None,
-        return_maps: bool = True,
-    ) -> Union[
-        Tuple[np.ndarray, np.ndarray],
-        Tuple[
-            np.ndarray,
-            np.ndarray,
-            Union[Dict[int, np.uint16], Dict[int, NeuronKey]],
-            Dict[int, str],
-        ],
-    ]:
+        return_map: bool = True,
+    ) -> Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]:
         """
-        weight_matrix creates a 3D weight matrix given a synapse dictionary. The dictionary should
+        w_rec creates a 3D square shaped recurrent weight matrix given synapse dictionaries. The dictionary should
         have the number of occurances of each synapses indicated with (preUID, postUID, syn_type) key.
-        One can use `Router.synapses_from_config()` function to create this dictionary out of a samna config object.
         The third dimension of the weight matrix holds the different synapse types. For example,
         weight[:,:,0] stands for the GABA_B connections. weight[:,:,1] stands for the GABA_A connections and so on.
         The first dimension of the weight matrix is for pre-synaptic neurons and the second dimension is for
@@ -905,58 +942,60 @@ class Router:
         :type device_synapses: Dict[NeuronConnectionSynType, int]
         :param input_synapses: a dictionary for number of occurances of each fpga-to-device synapses indicated with (preUID, postUID, syn_type) key, defaults to None
         :type input_synapses: Optional[Dict[NeuronConnectionSynType, int]], optional
-        :param dtype: numeric type of the weight matrix. For Dynap-SE1, there are at most 64 connections between neurons so dtype defaults to np.uint8
-        :type dtype: type, optional
-        :param return_maps: return the index-to-UID, and syn-index-to-type maps or not, defaults to True
+        :param return_maps: return the index-to-key map or not, defaults to True
         :type return_maps: bool, optional
-        :return: weight, idx_map_dict
-            w_in: input weight matrix (3D, NinxNrecx4)
-            w_rec: recurrent weight matrix (3D, NrecxNrecx4)
-            idx_map_dict: a dictionary of dictionaries (2 seperate dictionary for `w_in` and `w_rec`) of the mapping between matrix indexes of the neurons and their global unique IDs (or keys)
-        :rtype: Union[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, Union[Dict[int, np.uint16], Dict[int, NeuronKey]] , Dict[int, str]]]
+        :return: w_rec, rec_idx
+            :w_rec: recurrent weight matrix (3D, NrecxNrecx4)
+            :rec_idx: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
+        :rtype: Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]
         """
 
-        device_pre_post = np.empty(0)
-        input_pre = np.empty(0)
-        input_post = np.empty(0)
-        w_in = np.empty(0)
         w_rec = np.empty(0)
-        in_idx = {}
         rec_idx = {}
 
         # Extract the neurons from the synapse dictionaries
-        if device_synapses:
-            device_pre_post = np.array(list(device_synapses.keys()))[:, 0:2]
-            device_pre_post = device_pre_post.flatten()
-
-        if input_synapses is not None:
-            if input_synapses:
-                input_pre = np.array(list(input_synapses.keys()))[:, 0]
-                input_post = np.array(list(input_synapses.keys()))[:, 1]
-
-            # Obtain the neruons
-            virtual_neurons = np.unique(input_pre)
-            device_neurons = np.unique(np.hstack((device_pre_post, input_post)))
-
-            # Get the weight matrices
-            w_in, in_idx = Router.get_weight_matrix(
-                input_synapses, virtual_neurons, device_neurons
-            )
-        else:
-            device_neurons = np.unique(device_pre_post)
+        device_neurons = Router.device_neurons(
+            device_synapses, input_synapses, decode_UID=False
+        )
 
         w_rec, rec_idx = Router.get_weight_matrix(device_synapses, device_neurons)
 
         # Return
-        if not return_maps:
-            return w_in, w_rec
+        if not return_map:
+            return w_rec
 
         else:
-            idx_map_dict = {"w_in": in_idx, "w_rec": rec_idx}
-            return w_in, w_rec, idx_map_dict
+            return w_rec, rec_idx
 
     @staticmethod
-    def get_weight_from_config(
+    def weight_matrix(
+        device_synapses: Dict[NeuronConnectionSynType, int],
+        input_synapses: Optional[Dict[NeuronConnectionSynType, int]] = None,
+        return_maps: bool = True,
+    ) -> Dict[str, Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]]:
+        """
+        weight_matrix runs `Router.w_in()` and `Router.w_rec()` together and creates a dictionary storing both the input
+        and the recurrent weight matrices. (For more detail, please look at Please look at `Router.w_in()` and `Router.w_rec()`)
+
+        :param device_synapses: a dictionary for number of occurances of each in-device synapses indicated with (preUID, postUID, syn_type) key
+        :type device_synapses: Dict[NeuronConnectionSynType, int]
+        :param input_synapses: a dictionary for number of occurances of each fpga-to-device synapses indicated with (preUID, postUID, syn_type) key, defaults to None
+        :type input_synapses: Optional[Dict[NeuronConnectionSynType, int]], optional
+        :param return_maps: return the index-to-key map or not, defaults to True
+        :type return_maps: bool, optional
+        :return: a dictionary of tuples of input and recurrent dictionaries and their index maps. (For more detail, please look at Please look at `Router.w_in()` and `Router.w_rec()`)
+        :rtype: Dict[str, Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]]
+        """
+        w_in = np.empty(0)
+
+        if input_synapses is not None:
+            w_in = Router.w_in(device_synapses, input_synapses, return_maps)
+
+        w_rec = Router.w_rec(device_synapses, input_synapses, return_maps)
+
+        # Return
+        weight_dict = {"w_in": w_in, "w_rec": w_rec}
+        return weight_dict
         config: Dynapse1Configuration,
         virtual_connections: Optional[List[NeuronConnection]] = None,
         return_maps: bool = False,
