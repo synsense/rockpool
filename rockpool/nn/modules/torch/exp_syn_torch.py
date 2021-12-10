@@ -130,9 +130,9 @@ class ExpSynTorch(TorchModule):
             )
 
         # - Expand state over batches
-        isyn = torch.ones(n_batches, 1, device=self.isyn.device).type(torch.double) @ self.isyn.type(
+        isyn = torch.ones(n_batches, 1, device=self.isyn.device).type(
             torch.double
-        )
+        ) @ self.isyn.type(torch.double)
 
         # - Build a tensor to compute and return internal state
         self._isyn_rec = torch.zeros(data.shape, device=data.device).type(torch.double)

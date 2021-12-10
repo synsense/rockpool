@@ -229,6 +229,10 @@ def assign_ids_to_class(
         allocated_ids.extend(m.hw_ids)
         del available_ids[:num_needed_ids]
 
+        # - Annotate the original computational module with the allocated hardware IDs, if possible
+        if m.computational_module is not None:
+            m.computational_module._hw_ids = m.hw_ids
+
     return allocated_ids
 
 
@@ -243,6 +247,9 @@ def mapper(
 
     This function performs a DRC of the computational graph to ensure it can be mapped onto the Xylo v1 architecture.
 
+    Warnings:
+        :py:func:`mapper` operates **in-place** on the graph, and may modify it. If you need the un-mapped graph, you may need to call :py:meth:`.Module.as_graph` again on your :py:class:`.Module`.
+
     It then allocates neurons and converts the network weights into a specification for Xylo. This specification can be used to create a config object with :py:func:`~rockpool.devices.xylo.config_from_specification`.
 
     Args:
@@ -255,7 +262,7 @@ def mapper(
         dict: A dictionary of specifications for Xylo v1, containing the mapped computational graph
     """
     # - Make a deep copy of the graph
-    graph = copy.deepcopy(graph)
+    # graph = copy.deepcopy(graph)
 
     # - Check design rules
     check_drc(graph, xylo_drc)
@@ -430,6 +437,13 @@ def mapper(
                 f"Unexpected target of weight graph module {w}. Expected XyloHiddenNeurons or XyloOutputNeurons."
             )
 
+    # - If we are not using synapse 2, we need to trim the weights
+    if num_hidden_synapses == 1:
+        w_in = np.reshape(w_in, (len(input_channels), len(allocated_hidden_neurons)))
+        w_rec = np.reshape(
+            w_rec, (len(allocated_hidden_neurons), len(allocated_hidden_neurons))
+        )
+
     # --- Extract parameters from nodes ---
 
     hidden_neurons: SetList[XyloHiddenNeurons] = find_modules_of_subclass(
@@ -448,23 +462,28 @@ def mapper(
     dash_syn_out = np.zeros(num_output_neurons, dash_dtype)
     threshold = np.zeros(num_hidden_neurons, threshold_dtype)
     threshold_out = np.zeros(num_output_neurons, threshold_dtype)
-
     for n in hidden_neurons:
         these_indices = n.hw_ids
         dash_mem[these_indices] = n.dash_mem
 
         if len(n.input_nodes) > len(n.output_nodes):
-            dash_syn[these_indices] = n.dash_syn[::2]
-            dash_syn_2[these_indices] = n.dash_syn[1::2]
+            # dash_syn[these_indices] = n.dash_syn[::2]
+            # dash_syn_2[these_indices] = n.dash_syn[1::2]
+            for i, index in enumerate(these_indices):
+                dash_syn[index] = n.dash_syn[i][0]
+                dash_syn_2[index] = n.dash_syn[i][1]
         else:
-            dash_syn[these_indices] = n.dash_syn
-
+            # dash_syn[these_indices] = n.dash_syn
+            for i, index in enumerate(these_indices):
+                dash_syn[index] = n.dash_syn[i][0]
         threshold[these_indices] = n.threshold
 
     for n in output_neurons:
         these_indices = [allocated_output_neurons.index(id) for id in n.hw_ids]
         dash_mem_out[these_indices] = n.dash_mem
-        dash_syn_out[these_indices] = n.dash_syn
+        # dash_syn_out[these_indices] = n.dash_syn
+        for i, index in enumerate(these_indices):
+            dash_syn_out[index] = n.dash_syn[i][0]
         threshold_out[these_indices] = n.threshold
 
     neurons: SetList[XyloNeurons] = find_modules_of_subclass(graph, XyloNeurons)
@@ -510,9 +529,9 @@ def mapper(
 
     return {
         "mapped_graph": graph,
-        "weights_in": np.squeeze(w_in),
-        "weights_out": np.squeeze(w_out),
-        "weights_rec": np.squeeze(w_rec),
+        "weights_in": w_in,
+        "weights_out": w_out,
+        "weights_rec": w_rec,
         "dash_mem": dash_mem,
         "dash_mem_out": dash_mem_out,
         "dash_syn": dash_syn,

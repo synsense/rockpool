@@ -3,9 +3,10 @@ Base classes and functionality for graph tracing
 """
 import copy
 from dataclasses import dataclass, field
-from typing import List, Any, TypeVar, Iterable, Hashable
+from typing import List, Any, TypeVar, Iterable, Hashable, Optional
 
 ArrayLike = Any
+Module = Any
 
 __all__ = [
     "GraphNode",
@@ -83,6 +84,9 @@ class GraphModuleBase:
     name: str
     """ str: An arbitrary name attached to this specific :py:class:`.GraphModule` """
 
+    computational_module: Module
+    """ Module: The computational module that acts as the source for this graph module """
+
     def __post_init__(self, *args, **kwargs):
         # - Ensure node lists are SetLists
         self.input_nodes = SetList(self.input_nodes)
@@ -132,7 +136,13 @@ class GraphModuleBase:
 
     @classmethod
     def _factory(
-        cls, size_in: int, size_out: int, name: str = None, *args, **kwargs
+        cls,
+        size_in: int,
+        size_out: int,
+        name: str = None,
+        computational_module: Optional[Module] = None,
+        *args,
+        **kwargs,
     ) -> "GraphModuleBase":
         """
         Build a new :py:class:`.GraphModule` or :py:class:`.GraphModule` subclass, with new input and output :py:class:`.GraphNode` s created automatically
@@ -143,6 +153,7 @@ class GraphModuleBase:
             size_in (int): The number of input :py:class:`.GraphNode` s to create and attach
             size_out (int):  The number of output :py:class:`.GraphNode` s to create and attach
             name (str): An arbitrary name to attach to this :py:class:`.GraphModule`
+            computational_module (Module): A rockpool computational module that forms the "generator" of this graph module
             *args, **kwargs: Any additional arguments to pass to the specific subclass constructor
 
         Returns:
@@ -153,7 +164,9 @@ class GraphModuleBase:
         output_nodes = SetList([GraphNode() for _ in range(size_out)])
 
         # - Build module
-        return cls(input_nodes, output_nodes, name, *args, **kwargs)
+        return cls(
+            input_nodes, output_nodes, name, computational_module, *args, **kwargs
+        )
 
 
 @dataclass(eq=False)
@@ -247,6 +260,7 @@ def as_GraphHolder(g: GraphModule) -> GraphHolder:
         input_nodes=g.input_nodes,
         output_nodes=g.output_nodes,
         name=g.name,
+        computational_module=None,
     )
 
 

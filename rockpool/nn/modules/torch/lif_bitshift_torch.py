@@ -19,6 +19,26 @@ from rockpool.typehints import *
 __all__ = ["LIFBitshiftTorch"]
 
 
+class Bitshift(torch.autograd.Function):
+    """
+    Subtract from membrane potential on reaching threshold
+    """
+
+    @staticmethod
+    def forward(ctx, data, dash, tau):
+        v = data - (data / (2 ** dash))
+        ctx.save_for_backward(tau)
+
+        return v
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        [tau] = ctx.saved_tensors
+        grad_input = grad_output * tau
+
+        return grad_input, None, None
+
+
 # helper functions
 def calc_bitshift_decay(tau, dt):
     bitsh = torch.round(torch.log2(tau / dt)).int()

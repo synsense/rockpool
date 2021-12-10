@@ -71,7 +71,8 @@ class XyloNeurons(GenericNeurons):
                 len(mod.input_nodes),
                 len(mod.output_nodes),
                 mod.name,
-                [],
+                mod.computational_module,
+                [],  # TODO: what [] means?
                 thresholds,
                 dash_mem,
                 dash_syn,

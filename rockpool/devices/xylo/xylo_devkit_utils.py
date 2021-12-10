@@ -181,19 +181,12 @@ def find_xylo_boards(device_node: SamnaDeviceNode) -> List[XyloDaughterBoard]:
 
     # - Search for a xylo dev kit
     xylo_hdk_list = [
-        getattr(device_node, d.name)
+        getattr(device_node, d[0])
         for d in device_list
-        if d.device_info.device_type_name == "PollenDevKit"
+        if d[1].device_type_name == "XyloTestBoard"
     ]
 
-    # - Search for xylo boards
-    xylo_daughterboard_list = []
-    for d in xylo_hdk_list:
-        daughterboard = d.get_daughter_board(0)
-        if "PollenDaughterBoard" in str(type(daughterboard)):
-            xylo_daughterboard_list.append(daughterboard)
-
-    return xylo_daughterboard_list
+    return xylo_hdk_list
 
 
 def new_xylo_read_buffer(

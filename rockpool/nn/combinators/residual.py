@@ -36,6 +36,7 @@ class ResidualMixin(SequentialMixin):
                 graph.input_nodes,
                 graph.output_nodes,
                 f"Residual_{self.name}_aliases",
+                None,
             )
         )
 

@@ -14,7 +14,7 @@ def test_LIFBitshiftTorch_Forward_Backward():
     N = 10
     Nsyn = 2
     tau_mem = 0.01
-    tau_syn = torch.from_numpy(np.repeat([[0.005, 0.015]], N, axis=0)).float().T
+    tau_syn = torch.Tensor([0.005, 0.015]).repeat(N, 1)
     mod = LIFBitshiftTorch(
         shape=(N * Nsyn, N),
         tau_mem=tau_mem,
@@ -49,7 +49,8 @@ def test_LIFBitshiftTorch_single_neuron():
     N = 1
     Nsyn = 2
     tau_mem = 0.01
-    tau_syn = torch.Tensor([[0.002], [0.004]])
+
+    tau_syn = torch.Tensor([[0.002, 0.004]])
     mod = LIFBitshiftTorch(
         shape=(N * Nsyn, N),
         tau_mem=tau_mem,
@@ -73,8 +74,8 @@ def test_LIFBitshiftTorch_single_neuron():
     out, state, rec = mod.evolve(input_data, record=True)
 
     # make sure the values decayed correctly
-    assert rec["Isyn"][0, 1, 0, 0] == 0.5
-    assert rec["Isyn"][0, 2, 0, 0] == 0.25
+    assert rec["Isyn"][0, 0, 0, 0] == 0.5
+    assert rec["Isyn"][0, 1, 0, 0] == 0.25
 
-    assert rec["Isyn"][0, 1, 1, 0] == 0.75
-    assert rec["Isyn"][0, 2, 1, 0] == 0.5625
+    assert rec["Isyn"][0, 0, 0, 1] == 0.75
+    assert rec["Isyn"][0, 1, 0, 1] == 0.5625
