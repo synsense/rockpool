@@ -134,7 +134,7 @@ def step_pwl(
 
 class DynapSEAdExpLIFJax(JaxModule):
     """
-    DynapSEAdExpLIFJax Solves the chip dynamical equations for the DPI neuron and synapse models.
+    DynapSEAdExpLIFJax solves dynamical chip equations for the DPI neuron and synapse models.
     Receives configuration as bias currents and solves membrane and synapse dynamics using ``jax`` backend.
     One block has
         - 4 synapses receiving spikes from the other circuits,
@@ -193,13 +193,13 @@ class DynapSEAdExpLIFJax(JaxModule):
     :Parameters:
 
     :param shape: Either a single dimension ``N``, which defines a feed-forward layer of DynapSE AdExpIF neurons, or two dimensions ``(N, N)``, which defines a recurrent layer of DynapSE AdExpIF neurons.
-    :type shape: tuple, optional
+    :type shape: Optional[Tuple], optional
     :param sim_config: Dynap-SE1 bias currents and simulation configuration parameters, defaults to None
     :type sim_config: Optional[Union[DynapSE1SimCore, DynapSE1SimBoard]], optional
     :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(Nrec, Nrec, 4)``. The last 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
     :type w_rec: Optional[FloatVector], optional
 
-        Let's say 5 device neuron and 3 virtual FPGA neurons initiated with w_rec
+        Let's say 5 neurons allocated
 
         #  Gb Ga N  A
         [[[0, 0, 0, 0],  # pre = 0 (device) post = 0 (device)
@@ -246,7 +246,11 @@ class DynapSEAdExpLIFJax(JaxModule):
     :type spiking_input: bool, optional
     :param spiking_output: Whether this module produces spiking output, defaults to True
     :type spiking_output: bool, optional
-    :raises ValueError: When the user does not provide a valid shape
+
+    :raises ValueError: Shape can be (N,) or (N,N,)
+    :raises ValueError: The simulation configuration object size and number of device neruons does not match!
+    :raises ValueError: If `shape` is unidimensional, then `w_rec` may not be provided as an argument.
+    :raises ValueError: `shape` may not specify more than two dimensions .
 
     :Instance Variables:
 
@@ -295,6 +299,7 @@ class DynapSEAdExpLIFJax(JaxModule):
     :ivar Ireset: Array of reset current after spike generation with shape (Nrec,)
     :type Ireset: JP_ndarray
 
+    [] TODO: parametric fill rate, different initialization methods
     [] TODO: all neurons cannot have the same parameters ideally however, they experience different parameters in practice because of device mismatch
     [] TODO: Provides mismatch simulation (as second step)
         -As a utility function that operates on a set of parameters?
@@ -324,7 +329,7 @@ class DynapSEAdExpLIFJax(JaxModule):
 
         # Check the parameters and initialize to default if necessary
         if shape is None:
-            raise ValueError("You must provide a ``shape`` tuple (N,) or (N,N,)")
+            raise ValueError("Shape can be (N,) or (N,N,)")
 
         if rng_key is None:
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
