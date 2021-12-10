@@ -594,7 +594,6 @@ class DynapSEAdExpLIFJax(JaxModule):
         new_spikes, new_Vmem, new_Imem, new_Isyn, new_timer_ref, new_rng_key = state
 
         # --- RETURN ARGUMENTS --- #
-        outputs = spikes_ts
 
         ## the state returned should be in the same shape with the state dictionary given
         states = {
@@ -606,19 +605,19 @@ class DynapSEAdExpLIFJax(JaxModule):
             "_rng_key": new_rng_key,
         }
 
-        record_dict = {
-            "input_data": input_data,
-            "spikes": spikes_ts,
-            "Vmem": Vmem_ts,
-            "Imem": Imem_ts,
-            "Igaba_b": Isyn_ts[:, self.SYN["GABA_B"], :],
-            "Igaba_a": Isyn_ts[:, self.SYN["GABA_A"], :],  # Shunt
-            "Inmda": Isyn_ts[:, self.SYN["NMDA"], :],
-            "Iampa": Isyn_ts[:, self.SYN["AMPA"], :],
-            "Iahp": Isyn_ts[:, self.SYN["AHP"], :],
-        }
+        record_dict = {}
+        if record:
+            record_dict = {
+                "Vmem": Vmem_ts,
+                "Imem": Imem_ts,
+                "Igaba_b": Isyn_ts[:, self.SYN["GABA_B"], :],
+                "Igaba_a": Isyn_ts[:, self.SYN["GABA_A"], :],  # Shunt
+                "Inmda": Isyn_ts[:, self.SYN["NMDA"], :],
+                "Iampa": Isyn_ts[:, self.SYN["AMPA"], :],
+                "Iahp": Isyn_ts[:, self.SYN["AHP"], :],
+            }
 
-        return outputs, states, record_dict
+        return spikes_ts, states, record_dict
 
     @property
     def tau_mem(self) -> JP_ndarray:
