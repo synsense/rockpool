@@ -193,35 +193,7 @@ class DynapSEAdExpLIFJax(JaxModule):
     :param shape: Either a single dimension ``N``, which defines a feed-forward layer of DynapSE AdExpIF neurons, or two dimensions ``(N, N)``, which defines a recurrent layer of DynapSE AdExpIF neurons.
     :type shape: tuple, optional
     :param sim_config: Dynap-SE1 bias currents and simulation configuration parameters, defaults to None
-    :type sim_config: Optional[DynapSE1SimCore], optional
-    :param w_in: Initial input weights defining the connections from virtual FPGA neurons to real device neurons. It must be a rectangular matrix with shape ``(Nin, Nrec, 4)``. The last 4 holds a weight matrix for 4 different synapse types.
-    :type w_in: Optional[FloatVector], optional
-
-        #  Gb Ga N  A
-         [[0, 0, 0, 1], # pre = 0 (virtual) post = 0 (device)
-          [0, 0, 0, 1],  #                  post = 1 (device)
-          [0, 0, 0, 0],  #                  post = 2 (device)
-          [0, 0, 0, 0],  #                  post = 3 (device)
-          [0, 0, 0, 1]], #                  post = 4 (device)
-
-         [[0, 0, 0, 0], # pre = 1 (virtual)
-          [0, 0, 0, 0],
-          [0, 0, 1, 0],
-          [0, 0, 1, 0],
-          [0, 0, 0, 1]],
-
-         [[0, 0, 0, 0], # pre = 3 (virtual)
-          [0, 0, 0, 0],
-          [0, 0, 0, 0],
-          [0, 0, 0, 0],
-          [0, 1, 0, 0]]],
-
-        Virtual(External Input)
-
-            AMPA : 1 from n5 to n0, 1 from n5 to n1 1 from n5 to n4
-            NMDA : 1 from n6 to n2, 1 from n6 to n3 1 from n6 to n4
-            GABA_A: 1 from n7 to n4
-
+    :type sim_config: Optional[Union[DynapSE1SimCore, DynapSE1SimBoard]], optional
     :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(Nrec, Nrec, 4)``. The last 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
     :type w_rec: Optional[FloatVector], optional
 
@@ -493,6 +465,9 @@ class DynapSEAdExpLIFJax(JaxModule):
         Itau_mem_clip = np.clip(self.Itau_mem, self.Io)
         Ith_mem_clip = self.f_gain_mem * Itau_mem_clip
 
+        # (T, Nrecx4) or (T, Nrec, 4)
+        input_data = np.reshape(input_data, (input_data.shape[0], -1, 4))
+
         def forward(
             state: DynapSE1State, spike_inputs_ts: np.ndarray
         ) -> Tuple[DynapSE1State, Tuple[JP_ndarray, JP_ndarray, JP_ndarray]]:
@@ -533,12 +508,11 @@ class DynapSEAdExpLIFJax(JaxModule):
 
             # --- Pulse Extension  --- #
             ## spike input for 4 synapses: GABA_B, GABA_A, NMDA, AMPA; spike output for 1 synapse: AHP
-            ## w_in.shape = NinxNrecx4 [pre,post,syn]
+            ## spike_inputs_ts.shape = Nrecx4
             ## w_rec.shape = NrecxNrecx4 [pre,post,syn]
 
-            spikes_external = np.dot(self.w_in.T, spike_inputs_ts)
             spikes_internal = np.dot(self.w_rec.T, spikes)
-            spike_inputs = np.add(spikes_external, spikes_internal)
+            spike_inputs = np.add(spike_inputs_ts.T, spikes_internal)
 
             ## Calculate the effective pulse width with a linear increase
             t_pw_in = self.t_pulse * spike_inputs  # 4xNrec [GABA_B, GABA_A, NMDA, AMPA]
