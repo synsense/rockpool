@@ -36,6 +36,10 @@ import logging
 import jax.numpy as np
 from rockpool.typehints import FloatVector
 
+from rockpool.nn.modules import TimedModuleWrapper
+from rockpool.nn.combinators import Sequential
+from rockpool.devices.dynapse.fpga_jax import DynapSEFPGA
+
 
 _SAMNA_AVAILABLE = True
 
@@ -297,6 +301,43 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
         config = netgen.make_dynapse1_configuration()
         mod = cls.from_config(config, *args, **kwargs)
         return mod
+
+    @staticmethod
+    def simulator_from_config(
+        config: Dynapse1Configuration, *args, **kwargs
+    ) -> TimedModuleWrapper:
+        """
+        simulator_from_config obtain a full DynapSE simulator from a samna config object.
+        Returns a sequentially combined input layer and device layer.
+
+        :param config: samna Dynapse1 configuration object used to configure a network on the chip
+        :type config: Dynapse1Configuration
+        :return: a `TimedModuleWrapper` sequentially combining the special FPGA input layer of the DyanpSE simulators.
+        :rtype: TimedModuleWrapper
+        """
+        se1 = DynapSE1Jax.from_config(config, *args, **kwargs)
+        simulator = TimedModuleWrapper(
+            Sequential(DynapSEFPGA.from_config(config), se1),
+            dt=se1.dt,
+        )
+        return simulator
+
+    @staticmethod
+    def simulator_from_netgen(
+        netgen: NetworkGenerator, *args, **kwargs
+    ) -> TimedModuleWrapper:
+        """
+        simulator_from_netgen a wrapper running the `DynapSE1Jax.simulator_from_config()` method with a samna config object
+        extracted from an INI `NetworkGenerator` object
+
+        :param netgen: network generator object defined in samna/ctxctl_contrib/netgen
+        :type netgen: NetworkGenerator
+        :return: a `TimedModuleWrapper` sequentially combining the special FPGA input layer of the DyanpSE simulators.
+        :rtype: TimedModuleWrapper
+        """
+        config = netgen.make_dynapse1_configuration()
+        simulator = DynapSE1Jax.simulator_from_config(config, *args, **kwargs)
+        return simulator
 
     def get_bias(
         self,
