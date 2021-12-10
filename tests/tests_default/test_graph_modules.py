@@ -15,15 +15,15 @@ def test_LinearWeights():
     from rockpool.graph import LinearWeights
     import numpy as np
 
-    lw = LinearWeights._factory(2, 3, "test", np.empty((2, 3)))
+    lw = LinearWeights._factory(2, 3, "test", None, np.empty((2, 3)))
 
     with pytest.raises(ValueError):
         # - Weight size must match I/O size
-        lw = LinearWeights._factory(2, 3, "test", np.empty((1, 1)))
+        lw = LinearWeights._factory(2, 3, "test", None, np.empty((1, 1)))
 
     with pytest.raises(TypeError):
         # - Weights are compulsory
-        lw = LinearWeights._factory(2, 3, "test")
+        lw = LinearWeights._factory(2, 3, "test", None)
 
 
 def test_GenericNeurons():
@@ -53,10 +53,5 @@ def test_RateNeuronWithSynsRealValue():
     from rockpool.graph import RateNeuronWithSynsRealValue
 
     gmod = RateNeuronWithSynsRealValue._factory(
-        size_in=2,
-        size_out=3,
-        name="test",
-        tau=[100e-3] * 3,
-        bias=[0.1] * 3,
-        dt=10e-3,
+        size_in=2, size_out=3, name="test", tau=[100e-3] * 3, bias=[0.1] * 3, dt=10e-3,
     )
