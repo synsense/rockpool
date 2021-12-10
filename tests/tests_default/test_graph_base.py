@@ -78,7 +78,10 @@ def test_GraphHolder():
 
     GraphHolder._factory(2, 3, "test")
     GraphHolder(
-        [GraphNode() for _ in range(2)], [GraphNode() for _ in range(3)], "test", None,
+        [GraphNode() for _ in range(2)],
+        [GraphNode() for _ in range(3)],
+        "test",
+        None,
     )
 
 

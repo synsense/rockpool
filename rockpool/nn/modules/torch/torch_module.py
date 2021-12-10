@@ -256,6 +256,7 @@ class TorchModule(Module, nn.Module):
                     return orig_call(*args, **kwargs)
                 else:
                     return super().__call__(*args, **kwargs)
+
             def parameters(self, *args, **kwargs):
                 if retain_torch_api:
                     return orig_parameters(*args, **kwargs)
@@ -296,7 +297,6 @@ class TorchModule(Module, nn.Module):
             # - Assign submodule to Rockpool module dictionary
             __modules[name] = [mod, type(mod).__name__]
             obj._submodulenames.append(name)
-
 
     def json_to_param(self, jparam):
 
@@ -356,6 +356,3 @@ class TorchModule(Module, nn.Module):
             params = json.load(f)
 
         self.json_to_param(params)
-
-
-

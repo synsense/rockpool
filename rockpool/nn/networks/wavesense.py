@@ -63,7 +63,7 @@ class WaveSenseBlock(TorchModule):
         tau_mem: float = 10e-3,
         base_tau_syn: float = 10e-3,
         threshold: float = 0.0,
-        neuron_model = LIFTorch,
+        neuron_model=LIFTorch,
         dt: float = 1e-3,
         device: str = "cuda",
         *args,

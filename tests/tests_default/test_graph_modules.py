@@ -53,5 +53,10 @@ def test_RateNeuronWithSynsRealValue():
     from rockpool.graph import RateNeuronWithSynsRealValue
 
     gmod = RateNeuronWithSynsRealValue._factory(
-        size_in=2, size_out=3, name="test", tau=[100e-3] * 3, bias=[0.1] * 3, dt=10e-3,
+        size_in=2,
+        size_out=3,
+        name="test",
+        tau=[100e-3] * 3,
+        bias=[0.1] * 3,
+        dt=10e-3,
     )

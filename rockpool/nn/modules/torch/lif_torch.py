@@ -170,7 +170,11 @@ class LIFTorch(TorchModule):
 
         # - Initialise superclass
         super().__init__(
-            shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs,
+            shape=shape,
+            spiking_input=True,
+            spiking_output=True,
+            *args,
+            **kwargs,
         )
 
         self.n_synapses: P_int = rp.SimulationParameter(shape[0] // shape[1])
@@ -212,27 +216,33 @@ class LIFTorch(TorchModule):
             )
             """ (Tensor) Membrane time constants `(Nout,)` """
         else:
-            if not tau_mem.shape == (self.n_neurons,):
+            if np.array(tau_mem).size != self.n_neurons:
                 raise ValueError(
                     "tau_mem must be in shape (n_neurons) or a single float"
                 )
 
             self.tau_mem: P_tensor = rp.SimulationParameter(
-                torch.Tensor(tau_mem).to(device), "taus"
+                torch.Tensor(tau_mem).reshape((self.n_neurons,)).to(device), "taus"
             )
         """ (Tensor) Membrane time constants `(Nout,)` """
 
         if isinstance(tau_syn, float):
             self.tau_syn: P_tensor = rp.SimulationParameter(
-                (torch.ones(self.n_neurons, self.n_synapses) * tau_syn).to(device), "taus"
+                (torch.ones(self.n_neurons, self.n_synapses) * tau_syn).to(device),
+                "taus",
             )
             """ (Tensor) Synaptic time constants `(Nout,)` """
         else:
-            if not tau_syn.shape == (self.n_neurons, self.n_synapses):
-                raise ValueError("tau_syn must be in shape (n_neurons, n_synapses) or a single float")
+            if np.array(tau_syn).size != self.n_neurons * self.n_synapses:
+                raise ValueError(
+                    "tau_syn must be have (`n_neurons * n_synapses`) elements or be a scalar float"
+                )
 
             self.tau_syn: P_tensor = rp.SimulationParameter(
-                torch.Tensor(tau_syn).to(device), "taus"
+                torch.Tensor(tau_syn)
+                .reshape(self.n_neurons, self.n_synapses)
+                .to(device),
+                "taus",
             )
         """ (Tensor) Synaptic time constants `(Nout,)` """
 

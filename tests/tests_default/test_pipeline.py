@@ -52,11 +52,11 @@ def test_pipeline():
         device=device,
     )
 
-    w_1_torch = torch.nn.init.normal_(mod[0].weight, mean=0.0, std=5.0)
-    w_w0_1_torch = torch.nn.init.normal_(mod[2][0].weight, mean=0.0, std=5.0)
-    w_w1_1_torch = torch.nn.init.normal_(mod[3][0].weight, mean=0.0, std=5.0)
-    w_hid_torch = torch.nn.init.normal_(mod[4].weight, mean=0.0, std=5.0)
-    w_out_torch = torch.nn.init.normal_(mod[6].weight, mean=0.0, std=5.0)
+    w_1_torch = torch.nn.init.normal_(mod.lin1.weight, mean=0.0, std=5.0)
+    w_w0_1_torch = torch.nn.init.normal_(mod.wave0.lin1.weight, mean=0.0, std=5.0)
+    w_w1_1_torch = torch.nn.init.normal_(mod.wave1.lin1.weight, mean=0.0, std=5.0)
+    w_hid_torch = torch.nn.init.normal_(mod.hidden.weight, mean=0.0, std=5.0)
+    w_out_torch = torch.nn.init.normal_(mod.readout.weight, mean=0.0, std=5.0)
 
     float_graph = mod.as_graph()
     float_specs = mapper(
