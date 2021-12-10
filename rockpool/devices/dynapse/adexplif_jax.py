@@ -306,6 +306,7 @@ class DynapSEAdExpLIFJax(JaxModule):
 
     def __init__(
         self,
+        shape: Optional[Tuple] = None,
         sim_config: Optional[Union[DynapSE1SimCore, DynapSE1SimBoard]] = None,
         w_rec: Optional[FloatVector] = None,
         dt: float = 1e-3,
@@ -321,7 +322,7 @@ class DynapSEAdExpLIFJax(JaxModule):
 
         # Check the parameters and initialize to default if necessary
         if shape is None:
-            raise ValueError("You must provide a ``shape`` tuple (N,) or (Nin,Nrec)")
+            raise ValueError("You must provide a ``shape`` tuple (N,) or (N,N,)")
 
         if rng_key is None:
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
