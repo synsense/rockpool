@@ -338,14 +338,14 @@ class DynapSEAdExpLIFJax(JaxModule):
 
         # --- States --- #
         self.Imem = State(
-            sim_config.Imem, shape=(self.size_out,), init_func=init_current
+            sim_config.Imem, init_func=init_current, shape=(self.size_out,)
         )
         self.Isyn = State(
-            sim_config.Isyn, shape=(5, self.size_out), init_func=init_current
+            sim_config.Isyn, init_func=init_current, shape=(5, self.size_out)
         )
-        self.spikes = State(shape=(self.size_out,), init_func=np.zeros)
-        self.Vmem = State(shape=(self.size_out,), init_func=np.zeros)
-        self.timer_ref = State(shape=(self.size_out,), init_func=np.zeros)
+        self.spikes = State(init_func=np.zeros, shape=(self.size_out,))
+        self.Vmem = State(init_func=np.zeros, shape=(self.size_out,))
+        self.timer_ref = State(init_func=np.zeros, shape=(self.size_out,))
         self._rng_key: JP_ndarray = State(rng_key, init_func=lambda _: rng_key)
 
         # Check the network size and initialize the input and recurrent weight vector accordingly
