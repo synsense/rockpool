@@ -248,9 +248,6 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
     def from_config(
         cls,
         config: Dynapse1Configuration,
-        virtual_connections: Optional[List[NeuronConnection]] = None,
-        w_in: Optional[FloatVector] = None,
-        idx_map_in: Optional[Dict[int, NeuronKey]] = None,
         sim_config: Optional[DynapSE1SimBoard] = None,
         default_bias: bool = True,
         *args,
@@ -258,18 +255,12 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
     ) -> DynapSE1Jax:
         """
         from_config is a class factory method depending on a samna device configuration object. Using this,
-        the virtual connections or input weights `w_in` should be provided explicitly. The reason is that
-        the config object does not have the FPGA -> device connections information
+        both the bias currents and the the neruon-neuron connections can be extracted easily.
+
+        e.g. modSE1 = DynapSE1Jax.from_config(config)
 
         :param config: samna Dynapse1 configuration object used to configure a network on the chip
         :type config: Dynapse1Configuration
-        :param virtual_connections: A list of tuples of universal neuron IDs defining the input connections from the FPGA to device neurons, defaults to None
-            e.g : [(50,1044),(50,1045)]
-        :type virtual_connections: Optional[List[NeuronConnection]], optional
-        :param w_in: input weight matrix (3D, NinxNrecx4), defaults to None
-        :type w_in: Optional[FloatVector], optional
-        :param idx_map_in: a dictionary of the mapping between matrix indexes of the FPGA-to-device input connections and their global unique neuron keys. Define when virtual connections is not defined but w_in is provided explicitly, defaults to None
-        :type idx_map_in: Optional[Dict[int, NeuronKey]]
         :param sim_config: Dynap-SE1 bias currents and simulation configuration parameters, it can be provided explicitly, or created using default settings, or can be extracted from the config bias currents. defaults to None
         :type sim_config: Optional[DynapSE1SimBoard], optional
         :param default_bias: use default bias values or get the bias parameters from the netgen.config, defaults to True
@@ -277,24 +268,17 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
         :return: `DynapSE1Jax` simulator object
         :rtype: DynapSE1Jax
         """
-        _w_in, w_rec, idx_map_dict = Router.get_weight_from_config(
-            config, virtual_connections, return_maps=True
-        )
+        w_rec, idx_map = Router.w_rec_from_config(config, return_maps=True)
 
-        if w_in is not None:
-            idx_map_dict["w_in"] = idx_map_in
-
-        w_in = _w_in if w_in is None else w_in
-
-        shape = w_in.shape[0:2]
+        shape = w_rec.shape[0:2] if np.sum(w_rec) > 0 else (w_rec.shape[0],)
 
         if sim_config is None:
             if not default_bias:
-                sim_config = DynapSE1SimBoard.from_config(config, idx_map_dict["w_rec"])
+                sim_config = DynapSE1SimBoard.from_config(config, idx_map)
 
             else:
-                sim_config = DynapSE1SimBoard.from_config(None, idx_map_dict["w_rec"])
-        mod = cls(shape, idx_map_dict, sim_config, w_in, w_rec, *args, **kwargs)
+                sim_config = DynapSE1SimBoard.from_idx_map(idx_map)
+        mod = cls(shape, sim_config, w_rec, idx_map, *args, **kwargs)
         return mod
 
     @classmethod
@@ -310,9 +294,8 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
         :return: `DynapSE1Jax` simulator object
         :rtype: DynapSE1Jax
         """
-        connections = Router.get_virtual_connections(netgen.network)
         config = netgen.make_dynapse1_configuration()
-        mod = cls.from_config(config, connections, *args, **kwargs)
+        mod = cls.from_config(config, *args, **kwargs)
         return mod
 
     def get_bias(
