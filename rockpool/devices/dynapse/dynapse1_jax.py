@@ -77,8 +77,8 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
     The parameters and pipeline are explained in the superclass `DynapSEAdExpLIFJax` doctring
 
     :Parameters:
-    :param idx_map_dict: a dictionary of dictionaries (2 seperate dictionary for `w_in` and `w_rec`) of the mapping between matrix indexes of the neurons and their global unique neuron keys. if index map is in proper format, a core dictionary can be inferred without an error
-    :type idx_map_dict: Dict[str, Dict[int, NeuronKey]]
+    :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique neuron keys. if index map is in proper format, a core dictionary can be inferred without an error
+    :type idx_map: Dict[int, NeuronKey]
 
     :Instance Variables:
 
@@ -138,10 +138,9 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
     def __init__(
         self,
         shape: tuple = None,
-        idx_map_dict: Optional[Dict[str, Dict[int, NeuronKey]]] = None,
         sim_config: Optional[DynapSE1SimBoard] = None,
-        w_in: Optional[FloatVector] = None,
         w_rec: Optional[FloatVector] = None,
+        idx_map: Optional[Dict[int, NeuronKey]] = None,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
         spiking_input: bool = True,
@@ -155,20 +154,17 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
 
         if sim_config is None:
             # Get a simulation board from an index map with default bias parameters
-            if idx_map_dict is not None:
-                sim_config = DynapSE1SimBoard.from_config(None, idx_map_dict["w_rec"])
+            if idx_map is not None:
+                sim_config = DynapSE1SimBoard.from_idx_map(idx_map)
             else:
                 sim_config = DynapSE1SimBoard(shape[-1])
 
-        if idx_map_dict is None:
-            idx_map_dict = {}
-            idx_map_dict["w_in"] = {}
-            idx_map_dict["w_rec"] = sim_config.idx_map
+        if idx_map is None:
+            idx_map = sim_config.idx_map
 
         super().__init__(
             shape,
             sim_config,
-            w_in,
             w_rec,
             dt,
             rng_key,
@@ -182,9 +178,9 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
         self.f_t_pulse = SimulationParameter(sim_config.f_t_pulse)
 
         # Check if index map is in proper format, if so, a core dictionary can be inferred without an error.
-        DynapSE1SimBoard.check_neuron_id_order(list(idx_map_dict["w_rec"].keys()))
-        self.core_dict = DynapSE1SimBoard.idx_map_to_core_dict(idx_map_dict["w_rec"])
-        self.idx_map_dict = idx_map_dict
+        DynapSE1SimBoard.check_neuron_id_order(list(idx_map.keys()))
+        self.core_dict = DynapSE1SimBoard.idx_map_to_core_dict(idx_map)
+        self.idx_map = idx_map
 
     def samna_param_group(
         self, chipID: np.uint8, coreID: np.uint8
