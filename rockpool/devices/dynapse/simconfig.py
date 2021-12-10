@@ -816,7 +816,7 @@ class DynapSE1SimCore:
         core_key: Tuple[np.uint8] = (0, 0),
         neuron_idx_map: Optional[Dict[np.uint8, np.uint16]] = None,
         fpulse_ahp: float = 0.1,
-        Ispkthr: float = 5e-5,
+        Ispkthr: float = 1e-6,
         Ireset: Optional[float] = None,
         layout: Optional[DynapSE1Layout] = None,
         capacitance: Optional[DynapSE1Capacitance] = None,

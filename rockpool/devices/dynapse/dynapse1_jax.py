@@ -1,5 +1,8 @@
 """
-Dynap-SE1 specific low level bias currents
+Dynap-SE1 simulator with bias parameter export facilities and samna configuration factory methods
+
+renamed: dynapse1_simulatorx.py -> dynase1_jax.py @ 211208
+
 
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
@@ -8,20 +11,9 @@ E-mail : ugurcan.cakal@gmail.com
 """
 from __future__ import annotations
 import json
+import logging
+import jax.numpy as np
 
-from rockpool.devices.dynapse.adexplif_jax import (
-    DynapSEAdExpLIFJax,
-)
-
-from rockpool.devices.dynapse.dynapse1_simconfig import (
-    DynapSE1SimBoard,
-    NeuronKey,
-)
-
-from rockpool.devices.dynapse.router import Router, NeuronConnection
-from rockpool.devices.dynapse.biasgen import BiasGen
-
-from rockpool.parameters import SimulationParameter
 
 from typing import (
     Optional,
@@ -31,14 +23,17 @@ from typing import (
     Any,
     Tuple,
 )
-
-import logging
-import jax.numpy as np
 from rockpool.typehints import FloatVector
 
 from rockpool.nn.modules import TimedModuleWrapper
 from rockpool.nn.combinators import Sequential
+from rockpool.parameters import SimulationParameter
+
+from rockpool.devices.dynapse.adexplif_jax import DynapSEAdExpLIFJax
 from rockpool.devices.dynapse.fpga_jax import DynapSEFPGA
+from rockpool.devices.dynapse.simconfig import DynapSE1SimBoard
+from rockpool.devices.dynapse.router import Router, NeuronKey
+from rockpool.devices.dynapse.biasgen import BiasGen
 
 
 _SAMNA_AVAILABLE = True
@@ -141,7 +136,7 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
 
     def __init__(
         self,
-        shape: tuple = None,
+        shape: Optional[Tuple] = None,
         sim_config: Optional[DynapSE1SimBoard] = None,
         w_rec: Optional[FloatVector] = None,
         idx_map: Optional[Dict[int, NeuronKey]] = None,
@@ -288,10 +283,7 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
     @classmethod
     def from_netgen(cls, netgen: NetworkGenerator, *args, **kwargs) -> DynapSE1Jax:
         """
-        from_netgen is a class factory which makes it easier to get a `DynapSE1Jax` object using the `NetworkGenerator` object
-        The reason that it became easier to construct a simulator object than `from_config` is that netgen object has also the
-        implicit input connections information and a samna config object. Therefore the `from_netgen()` method
-        extracts the virtual connections and device configuration object from the netgen object and calls `.from_config()` method
+        from_netgen is a class factory which makes it easier to get a `DynapSE1Jax` object using an INI `NetworkGenerator` object
 
         :param netgen: network generator object defined in samna/ctxctl_contrib/netgen
         :type netgen: NetworkGenerator

@@ -38,11 +38,6 @@ E-mail : ugurcan.cakal@gmail.com
 """
 
 import numpy as onp
-
-from rockpool.nn.modules.jax.jax_module import JaxModule
-from rockpool.parameters import Parameter, State, SimulationParameter
-
-
 import jax
 import jax.random as rand
 from jax.lax import scan
@@ -61,6 +56,10 @@ from rockpool.typehints import (
     JP_ndarray,
     FloatVector,
 )
+
+from rockpool.nn.modules.jax.jax_module import JaxModule
+from rockpool.parameters import Parameter, State, SimulationParameter
+
 
 from rockpool.devices.dynapse.simconfig import DynapSE1SimBoard, DynapSE1SimCore
 
@@ -450,14 +449,14 @@ class DynapSEAdExpLIFJax(JaxModule):
         evolve implements raw JAX evolution function for a DynapSEAdExpLIFJax module.
         The function solves the dynamical equations introduced at the ``DynapSEAdExpLIFJax`` module definition
 
-        :param input_data: Input array of shape ``(T, Nrec)`` to evolve over. Represents number of spikes at that timebin
+        :param input_data: Input array of shape ``(T, Nrec, 4)`` to evolve over. Represents number of spikes at that timebin for different synaptic gates
         :type input_data: np.ndarray
         :param record: record the each timestep of evolution or not, defaults to False
         :type record: bool, optional
-        :return: outputs, states, record_dict
-            :outputs: is an array with shape ``(T, Nout)`` containing the output data(spike raster) produced by this module.
+        :return: spikes_ts, states, record_dict
+            :spikes_ts: is an array with shape ``(T, Nrec)`` containing the output data(spike raster) produced by the module.
             :states: is a dictionary containing the updated module state following evolution.
-            :record_dict: is a dictionary containing the recorded state variables during the evolution at each time step, if the ``record`` argument is ``True``.
+            :record_dict: is a dictionary containing the recorded state variables during the evolution at each time step, if the ``record`` argument is ``True`` else empty dictionary {}
         :rtype: Tuple[np.ndarray, dict, dict]
         """
 
@@ -488,12 +487,13 @@ class DynapSEAdExpLIFJax(JaxModule):
                 Isyn: Synapse currents of each synapses[GABA_B, GABA_A, NMDA, AMPA, AHP] of each neuron [5xNrec]
                 key: The Jax RNG seed to be used for mismatch simulation
             :type state: DynapSE1State
-            :param spike_inputs_ts: incoming spike raster to be used as an axis [T, Nrec]
+            :param spike_inputs_ts: incoming spike raster to be used as an axis [Nrec, 4]
             :type spike_inputs_ts: np.ndarray
             :return: state, (spikes, Imem, Isyn)
                 state: Updated state at end of the forward steps
                 spikes: Logical spiking raster for each neuron over time [Nrec]
-                Imem: Updated membrane membrane currents of each neuron [Nrec]
+                Vmem: Updated membrane potentials of each neuron [Nrec]
+                Imem: Updated membrane currents of each neuron [Nrec]
                 Isyn: Updated synapse currents of each synapses[GABA_B, GABA_A, NMDA, AMPA, AHP] of each neuron [5xNrec]
             :rtype: Tuple[DynapSE1State, Tuple[JP_ndarray, JP_ndarray, JP_ndarray]]
             """
