@@ -387,8 +387,41 @@ class DynapSEAdExpLIFJax(JaxModule):
         self.timer_ref = State(init_func=np.zeros, shape=(self.size_out,))
         self._rng_key: JP_ndarray = State(rng_key, init_func=lambda _: rng_key)
 
-        # Check the network size and initialize the input and recurrent weight vector accordingly
-        self.w_in, self.w_rec = self._init_weights(w_in, w_rec)
+        # Check the network size the recurrent weight vector accordingly
+        ## Feed forward Mode
+        if len(self.shape) == 1:
+            if w_rec is not None:
+                raise ValueError(
+                    "If `shape` is unidimensional, then `w_rec` may not be provided as an argument."
+                )
+
+            # In order not to make the jax complain about w_rec
+            self.w_rec = np.zeros((self.size_out, self.size_out, 4))
+
+        ## Recurrent mode
+        else:
+            if len(self.shape) > 2:
+                raise ValueError(
+                    "`shape` can not specify more than two dimensions (Nin, Nrec)."
+                )
+
+            if self.size_out != self.size_in:
+                raise ValueError(
+                    "`shape[0]` and `shape[1]` must be equal for a recurrent module."
+                )
+
+            if w_rec is not None:
+                w_rec = np.array(w_rec, dtype=np.float32)
+
+            weight_init = lambda s: poisson_weight_matrix(s)
+
+            # Values between 0,64
+            self.w_rec: JP_ndarray = Parameter(
+                w_rec,
+                family="weights",
+                init_func=weight_init,
+                shape=(self.size_out, self.size_out, 4),
+            )
 
         # --- Parameters --- #
         ## Synapse
