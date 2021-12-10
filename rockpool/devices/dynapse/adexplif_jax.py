@@ -3,6 +3,8 @@ Low level DynapSE simulator.
 Solves the characteristic equations to simulate the circuits.
 Trainable parameters
 
+renamed: dynapse1_neuron_synapse_jax.py -> adexplif_jax.py @ 211206
+
 References:
 [1] E. Chicca, F. Stefanini, C. Bartolozzi and G. Indiveri,
     "Neuromorphic Electronic Circuits for Building Autonomous Cognitive Systems,"
@@ -617,125 +619,6 @@ class DynapSEAdExpLIFJax(JaxModule):
         }
 
         return outputs, states, record_dict
-
-    def _init_weights(
-        self,
-        w_in: Optional[FloatVector] = None,
-        w_rec: Optional[FloatVector] = None,
-    ) -> Union[JP_ndarray, float]:
-        """
-        _init_w_rec Intialize a recurrent weight matrix parameter given the network shape.
-
-        :param w_in: Initial input weights defining the connections from virtual FPGA neurons to real device neurons. It must be a rectangular matrix with shape ``(Nin, Nrec, 4)``. The last 4 holds a weight matrix for 4 different synapse types.
-        :type w_in: Optional[FloatVector], optional
-        :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(Nrec, Nrec, 4)``. The last 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
-        :type w_rec: Optional[FloatVector], optional
-        :raises ValueError: If `shape` is unidimensional, then `w_rec` may not be provided as an argument.
-        :raises ValueError: `shape` may not specify more than two dimensions (Nin, Nrec).
-        :return: Recurrent weight matrix parameter initialized randomly or depending on an initial weight vector.
-        :rtype: Union[JP_ndarray, float]
-        """
-
-        def get_weight_matrix(
-            weight_matrix: Optional[FloatVector],
-            shape: Tuple[int],
-            fill_rate=[0.04, 0.06, 0.2, 0.2],
-        ) -> JP_ndarray:
-            """
-            get_weight_matrix Create a weight matrix parameter for w_in or w_rec given a shape.
-
-            :param weight_matrix: initial matrix values. init_func runs to fill the matrix if None.
-            :type weight_matrix: Optional[FloatVector]
-            :param shape: A tuple (or list) specifying the permitted shape of the attribute. If not provided, the shape of the concrete initialisation data will be used as the attribute shape.
-            :type shape: Tuple[int]
-            :return: a trainable weight matrix
-            :rtype: JP_ndarray
-            """
-            weight_init = lambda s: self.poisson_weight_matrix(s, fill_rate)
-
-            # Values between 0,64
-            weight_matrix: JP_ndarray = Parameter(
-                weight_matrix,
-                family="weight",
-                init_func=weight_init,
-                shape=shape,
-            )
-
-            return weight_matrix
-
-        if w_in is not None:
-            w_in = np.array(w_in, dtype=np.float32)
-
-        # Feed forward Mode
-        if len(self.shape) == 1:
-            # - Feed-forward mode
-            if w_rec is not None:
-                raise ValueError(
-                    "If `shape` is unidimensional, then `w_rec` may not be provided as an argument."
-                )
-
-            w_rec = np.zeros((self.size_out, self.size_out, 4))
-
-        # Recurrent mode
-        else:
-            if len(self.shape) > 2:
-                raise ValueError(
-                    "`shape` can not specify more than two dimensions (Nin, Nrec)."
-                )
-
-            if w_rec is not None:
-                w_rec = np.array(w_rec, dtype=np.float32)
-
-            w_rec = get_weight_matrix(w_rec, (self.size_out, self.size_out, 4))
-
-        w_in = get_weight_matrix(w_in, (self.size_in, self.size_out, 4))
-
-        return w_in, w_rec
-
-    @staticmethod
-    def poisson_weight_matrix(
-        shape: Tuple[int], fill_rate: Union[float, List[float]]
-    ) -> np.ndarray:
-        """
-        poisson_weight_matrix creates a 3D weight matrix using a poisson distribution
-        The function takes desired fill rates of the matrices and converts it to a poisson lambda.
-        The analytical solution is here:
-
-        .. math ::
-            f(X=x) = \\dfrac{\\lambda^{x}\\cdot e^{-\\lambda}}{x!}
-            f(X=0) = e^{-\\lambda}
-            p = 1 - f(X=0) = 1 - e^{-\\lambda}
-            e^{-\\lambda} = 1-p
-            \\lambda = -ln(1-p) ; 0<p<1
-
-        :param shape: the 3D shape of the weight matrix
-        :type shape: Tuple[int]
-        :param fill_rate: the fill rates desired to be converted to a list of posisson rates of the weights specific to synaptic-gates (3rd dimension)
-        :type lambda_list: Union[float, List[float]]
-        :raises ValueError: The possion rate list given does not have the same shape with the 3rd dimension
-        :return: 3D numpy array representing a Dynap-SE connectivity matrix
-        :rtype: np.ndarray
-        """
-        if isinstance(fill_rate, float):
-            fill_rate = [fill_rate] * shape[2]
-
-        if len(fill_rate) != shape[2]:
-            raise ValueError(
-                "The possion rate list given does not have the same shape with the 3rd dimension"
-            )
-
-        lambda_list = -onp.log(1 - onp.array(fill_rate))
-
-        # First create a base weight matrix
-        columns = []
-        for l in lambda_list:
-            w = onp.random.poisson(l, (*shape[0:2], 1))
-            columns.append(w)
-
-        weight = onp.concatenate(columns, axis=2, dtype=onp.float32)
-        return weight
-
-    ## --- HIGH LEVEL TIME CONSTANTS -- ##
 
     @property
     def tau_mem(self) -> JP_ndarray:
