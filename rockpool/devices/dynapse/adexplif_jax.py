@@ -60,9 +60,7 @@ from rockpool.typehints import (
     FloatVector,
 )
 
-from rockpool.devices.dynapse.dynapse1_simconfig import DynapSE1SimCore
-
-import logging
+from rockpool.devices.dynapse.simconfig import DynapSE1SimBoard, DynapSE1SimCore
 
 DynapSE1State = Tuple[JP_ndarray, JP_ndarray, JP_ndarray, Optional[Any]]
 
@@ -336,9 +334,7 @@ class DynapSEAdExpLIFJax(JaxModule):
 
     def __init__(
         self,
-        shape: tuple = None,
-        sim_config: Optional[DynapSE1SimCore] = None,
-        w_in: Optional[FloatVector] = None,
+        sim_config: Optional[Union[DynapSE1SimCore, DynapSE1SimBoard]] = None,
         w_rec: Optional[FloatVector] = None,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
