@@ -100,6 +100,8 @@ class DynapSE1Layout:
     :type Ut: float, optional
     :param Io: Dark current in Amperes that flows through the transistors even at the idle state, defaults to 5e-13
     :type Io: float, optional
+    :param Von: The opening Vgs potential of the transistors (not type specific), defaults to 7e-1
+    :type Von: float, optional
 
     :Instance Variables:
 
@@ -699,8 +701,8 @@ class DynapSE1SimCore:
     """
     DynapSE1SimCore encapsulates the DynapSE1 circuit parameters and provides an easy access.
 
-    :param size: the number of neurons allocated in the simulation core, the length of the property arrays, defaults to 1
-    :type size: int
+    :param size: the number of neurons allocated in the simulation core, the length of the property arrays, defaults to None
+    :type size: Optional[int], optional
     :param core_key: the chip_id and core_id tuple uniquely defining the core, defaults to None
     :type core_key: Optional[Tuple[np.uint8]], optional
     :param neuron_idx_map: the neuron index map used in the case that the matrix indexes of the neurons and the device indexes are different.
@@ -732,7 +734,7 @@ class DynapSE1SimCore:
     :type chip_core_iter: itertools.count
     """
 
-    size: int = 1
+    size: Optional[int] = None
     core_key: Optional[Tuple[np.uint8]] = None
     neuron_idx_map: Dict[np.uint8, np.uint16] = None
     fpulse_ahp: float = 0.1
@@ -752,7 +754,15 @@ class DynapSE1SimCore:
     def __post_init__(self) -> None:
         """
         __post_init__ runs after __init__ and initializes the DPI and membrane blocks with default values in the case that they are not specified.
+
+        :raises ValueError: Either provide the size or neuron index map!
         """
+        if self.size is None:
+            if self.neuron_idx_map is not None:
+                self.size = len(self.neuron_idx_map)
+            else:
+                raise ValueError("Either provide the size or neuron index map!")
+
         if self.layout is None:
             self.layout = DynapSE1Layout()
 
@@ -1152,9 +1162,13 @@ class DynapSE1SimBoard:
         :raises ValueError: Core key in the index map and core key in the `DynapSE1SimCore` does not match!
         :raises ValueError: Neuron index map for core in the `idx_map`, and the neuron index map in `DynapSE1SimCore` does not match!
         :raises ValueError: The board configuration object size and number of device neruons indicated in idx_map does not match!
+        :raises ValueError: size is required for default construction!
         """
+
         if self.cores is None:
             # Default construction of the simulation cores given the size
+            if self.size is None:
+                raise ValueError("size is required for default construction!")
             split_list = DynapSE1SimBoard.split_across_cores(self.size)
             DynapSE1SimCore.reset(DynapSE1SimCore)
             self.cores = [DynapSE1SimCore(size) for size in split_list]
@@ -1163,6 +1177,9 @@ class DynapSE1SimBoard:
         if self.idx_map is None:
             # Collect the index map from the simulation cores
             self.idx_map = self.collect_idx_map_from_cores(self.cores)
+
+        if self.size is None:
+            self.size = len(self.idx_map)
 
         core_dict = DynapSE1SimBoard.idx_map_to_core_dict(self.idx_map)
         self.size = self.__len__()
