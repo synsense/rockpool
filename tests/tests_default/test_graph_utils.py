@@ -41,7 +41,7 @@ def test_connect_modules():
 
 
 def test_connect_modules_with_partial_nodes_connected():
-    from rockpool.graph import connect_modules, GraphModule, as_GraphHolder
+    from rockpool.graph import connect_modules, GraphModule
 
     # - 1 - Check the situation where part of source nodes connect
     gm1 = GraphModule._factory(2, 4)
@@ -53,16 +53,18 @@ def test_connect_modules_with_partial_nodes_connected():
         if gm1.output_nodes[i].sink_modules:
             assert (
                 gm1.output_nodes[i].sink_modules[0] == gm2
-            ), f"Nodes {gm1.output_nodes[i]} not merged on dest module"
+            ), f"Nodes {gm1.output_nodes[i]} not merged on dest module, GraphHolder module should have been discarded"
 
     # - Checking from dest module input nodes
     for i in range(2):
         assert (
             gm2.input_nodes[i].source_modules[0] == gm1
-        ), f"Nodes {gm2.input_nodes[i]} not merged on source module"
+        ), f"Nodes {gm2.input_nodes[i]} not merged on source module, GraphHolder module should have been discarded"
 
-    # no resort
-    assert [gm1.output_nodes[i] for i in [1, 2]] == gm2.input_nodes
+    # - Checking directly if nodes merge
+    assert [
+        gm1.output_nodes[i] for i in [1, 2]
+    ] == gm2.input_nodes, "Nodes not merged on connection"
 
     # - 2 - Check the situation where part of dest nodes connect
     gm1 = GraphModule._factory(2, 4)
@@ -73,17 +75,19 @@ def test_connect_modules_with_partial_nodes_connected():
     for i in range(4):
         assert (
             gm1.output_nodes[i].sink_modules[0] == gm2
-        ), f"Nodes {gm1.output_nodes[i]} not merged on dest module"
+        ), f"Nodes {gm1.output_nodes[i]} not merged on dest module, GraphHolder module should have been discarded"
 
     # - Checking from dest module input nodes
     for i in range(8):
         if gm2.input_nodes[i].source_modules:
             assert (
                 gm2.input_nodes[i].source_modules[0] == gm1
-            ), f"Nodes {gm2.input_nodes[i]} not merged on source module"
+            ), f"Nodes {gm2.input_nodes[i]} not merged on source module, GraphHolder module should have been discarded"
 
-    # resort happened
-    assert gm1.output_nodes == [gm2.input_nodes[i] for i in [0, 2, 4, 6]]
+    # - Checking directly if nodes merge
+    assert gm1.output_nodes == [
+        gm2.input_nodes[i] for i in [0, 2, 4, 6]
+    ], "Nodes not merged on connection"
 
     # - 3 - Check the situation where part of source and part of dest nodes connect
     gm1 = GraphModule._factory(2, 4)
@@ -95,14 +99,19 @@ def test_connect_modules_with_partial_nodes_connected():
         if gm1.output_nodes[i].sink_modules:
             assert (
                 gm1.output_nodes[i].sink_modules[0] == gm2
-            ), f"Nodes {gm1.output_nodes[i]} not merged on dest module"
+            ), f"Nodes {gm1.output_nodes[i]} not merged on dest module, GraphHolder module should have been discarded"
 
     # - Checking from dest module input nodes
     for i in range(4):
         if gm2.input_nodes[i].source_modules:
             assert (
                 gm2.input_nodes[i].source_modules[0] == gm1
-            ), f"Nodes {gm2.input_nodes[i]} not merged on source module"
+            ), f"Nodes {gm2.input_nodes[i]} not merged on source module, GraphHolder module should have been discarded"
+
+    # - Checking directly if nodes merge
+    assert [gm1.output_nodes[i] for i in [0, 3]] == [
+        gm2.input_nodes[i] for i in [1, 2]
+    ], "Nodes not merged on connection"
 
 
 def test_bag_graph():
@@ -122,7 +131,7 @@ def test_bag_graph():
     # - Make a linear graph
     connect_modules(gm1, gm2)
     connect_modules(gm2, gm3)
-    g = GraphHolder(gm1.input_nodes, gm3.output_nodes, "graph")
+    g = GraphHolder(gm1.input_nodes, gm3.output_nodes, "graph", None)
 
     # - test bagging
     nodes, mods = bag_graph(g)
@@ -148,14 +157,14 @@ def test_find_modules_of_subclass():
     )
     import numpy as np
 
-    gm1 = GraphModule._factory(2, 3, "mod1")
-    lw = LinearWeights._factory(3, 4, "linear", np.empty((3, 4)))
-    gm2 = GraphModule._factory(4, 5, "mod2")
+    gm1 = GraphModule._factory(2, 3, "mod1", None)
+    lw = LinearWeights._factory(3, 4, "linear", None, np.empty((3, 4)))
+    gm2 = GraphModule._factory(4, 5, "mod2", None)
 
     connect_modules(gm1, lw)
     connect_modules(lw, gm2)
 
-    g = GraphHolder(gm1.input_nodes, gm2.output_nodes, "graph")
+    g = GraphHolder(gm1.input_nodes, gm2.output_nodes, "graph", None)
 
     # - Search for linear weights
     mods = find_modules_of_subclass(g, LinearWeights)
@@ -185,7 +194,7 @@ def test_replace_module():
     connect_modules(gm1, gm2)
     connect_modules(gm2, gm3)
 
-    g = GraphHolder(gm1.input_nodes, gm3.output_nodes, "graph")
+    g = GraphHolder(gm1.input_nodes, gm3.output_nodes, "graph", None)
 
     replace_module(gm2, gm2_1)
 
@@ -209,14 +218,17 @@ def test_find_recurrent_modules():
     gm1 = GraphModule._factory(2, 3, "mod1")
     gm2_1 = GraphModule._factory(3, 3, "mod2_1")
     gm2_2 = GraphModule(
-        input_nodes=gm2_1.output_nodes, output_nodes=gm2_1.input_nodes, name="mod2_2"
+        input_nodes=gm2_1.output_nodes,
+        output_nodes=gm2_1.input_nodes,
+        name="mod2_2",
+        computational_module=None,
     )
     gm3 = GraphModule._factory(3, 4, "mod3")
 
     connect_modules(gm1, gm2_1)
     connect_modules(gm2_1, gm3)
 
-    g = GraphHolder(gm1.input_nodes, gm3.output_nodes, "graph")
+    g = GraphHolder(gm1.input_nodes, gm3.output_nodes, "graph", None)
 
     # - Search for the recurrent modules
     rec_mods = find_recurrent_modules(g)

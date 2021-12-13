@@ -70,7 +70,7 @@ class ExpSynTorch(TorchModule):
         if np.size(tau_syn) == 1:
             tau_syn = torch.ones(self.size_out, **factory_kwargs) * tau_syn
 
-        self.tau_syn: rt.P_tensor = rp.Parameter(
+        self.tau_syn: rt.P_tensor = rp.SimulationParameter(
             tau_syn, shape=(self.size_out,), family="taus"
         )
         """ (torch.Tensor) Time constants of each synapse in seconds ``(N,)`` """
@@ -82,6 +82,7 @@ class ExpSynTorch(TorchModule):
             ),
             init_func=lambda s: torch.zeros(*s, **factory_kwargs),
         )
+        self.isyn = self.isyn.to(device)
         """ (torch.tensor) Synaptic current state for each synapse ``(1, N)`` """
 
         self.dt: rt.P_float = rp.SimulationParameter(dt)
@@ -129,12 +130,12 @@ class ExpSynTorch(TorchModule):
             )
 
         # - Expand state over batches
-        isyn = torch.ones(n_batches, 1).type(torch.double) @ self.isyn.type(
+        isyn = torch.ones(n_batches, 1, device=self.isyn.device).type(
             torch.double
-        )
+        ) @ self.isyn.type(torch.double)
 
         # - Build a tensor to compute and return internal state
-        self._isyn_rec = torch.zeros(data.shape, device=data.device)
+        self._isyn_rec = torch.zeros(data.shape, device=data.device).type(torch.double)
 
         beta = torch.exp(-self.dt / self.tau_syn)
 

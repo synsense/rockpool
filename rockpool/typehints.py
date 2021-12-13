@@ -3,7 +3,7 @@ Module to provide useful types for Rockpool
 """
 
 import numpy as np
-from typing import Union, Any
+from typing import Union, Any, Callable
 from collections import abc
 from jax import numpy as jnp
 

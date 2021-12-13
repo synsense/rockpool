@@ -6,7 +6,7 @@ import collections
 
 from rockpool.parameters import ParameterBase
 from rockpool.timeseries import TimeSeries
-from rockpool.graph import GraphModuleBase
+from rockpool.graph.graph_base import GraphModuleBase
 
 # - Other imports
 from abc import ABC, abstractmethod
