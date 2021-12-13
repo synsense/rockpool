@@ -9,9 +9,8 @@ E-mail : ugurcan.cakal@gmail.com
 
 import matplotlib
 import matplotlib.pyplot as plt
-from rockpool.devices.dynapse.adexplif_jax import (
-    DynapSEAdExpLIFJax,
-)
+from rockpool.devices.dynapse.adexplif_jax import DynapSEAdExpLIFJax
+from rockpool.devices.dynapse.fpga_jax import DynapSEFPGA
 
 from rockpool.timeseries import TSEvent, TSContinuous
 
@@ -95,7 +94,7 @@ class Figure:
         input_ts: TSEvent,
         weighted_mask: Optional[ArrayLike] = None,
         virtual: bool = True,
-        idx_map_dict: Optional[Dict[str, Dict[int, NeuronKey]]] = None,
+        idx_map: Optional[Dict[str, Dict[int, NeuronKey]]] = None,
         title: Optional[str] = None,
     ) -> Tuple[TSEvent, List[str]]:
 
@@ -110,12 +109,11 @@ class Figure:
         :type weighted_mask: np.ndarray
         :param virtual: Indicates if the pre-synaptic neruon is spike-generator(virtual) or real in-device neuron, defaults to True
         :type virtual: bool, optional
-        :param idx_map_dict: a dictionary of dictionaries (2 seperate dictionary for `w_in` and `w_rec`) of the neurons to a NeuronKey to be used in the label, defaults to None
-        :type idx_map_dict: Optional[Dict[str, Dict[int, NeuronKey]]], optional
+        :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique neuron keys, defaults to None
+        :type idx_map: Optional[Dict[int, NeuronKey]], optional
         :param title: The name of the resulting input spike train, defaults to None
         :type title: Optional[str], optional
         :raises ValueError: Weighted mask should include as many elements as number of channels in the input_ts!
-        :raises ValueError: Index Map is empty in key={key}!
         :return: spikes_ts, labels
             :spikes_ts: selected spike trains
             :labels: list of string labels generated for the channels in the following format : `<NeuronType>[<NeuronID>]<Repetition>`
@@ -126,6 +124,8 @@ class Figure:
                     s[0]x1 -> virtual neuron(spike generator), connection repeated once
         :rtype: Tuple[TSEvent, List[str]]
         """
+        if weighted_mask is None:
+            weighted_mask = np.ones(input_ts.num_channels)
 
         if not isinstance(weighted_mask, np.ndarray):
             weighted_mask = np.array(weighted_mask)
@@ -138,10 +138,6 @@ class Figure:
         # Temporary storage lists
         spikes = []
         labels = []
-
-        # Get the index map keys depending on their relative order
-        if idx_map_dict is not None:
-            virtual_key, real_key = idx_map_dict.keys()
 
         # Create an empty TSEvent object to append channels
         spikes_ts = custom_spike_train(
@@ -158,13 +154,8 @@ class Figure:
             n = "s" if virtual else "n"
 
             # Map weight matric indices to NeuronKey
-            if idx_map_dict is not None:
-                key = virtual_key if virtual else real_key
-                if idx_map_dict[key] is None:
-                    raise ValueError(f"Index Map is empty in key={key}! {idx_map_dict}")
-                name = list(
-                    map(lambda idx: f"{n}{[idx_map_dict[key][idx]]}", nonzero_idx)
-                )
+            if idx_map is not None:
+                name = list(map(lambda idx: f"{n}{[idx_map[idx]]}", nonzero_idx))
 
             else:
                 name = list(map(lambda idx: f"{n}[{idx}]", nonzero_idx))
@@ -199,7 +190,7 @@ class Figure:
 
         :param modSE: The simulator module to investigate
         :type modSE: DynapSEAdExpLIFJax
-        :param input_ts: Input spike trains fed to DynapSEAdExpLIFJax object
+        :param input_ts: Input spike trains fed to DynapSEFPGA or DynapSEAdExpLIFJax object
         :type input_ts: TSEvent
         :param output_ts: Output spike trains of DynapSEAdExpLIFJax object
         :type output_ts: TSEvent
@@ -209,6 +200,7 @@ class Figure:
         :type syn_type: Union[Dynapse1SynType, str, np.uint8]
         :param modIn: the input layer sending events to the main simulator module. Required if one wants to see the external spike fed to the simulator alongside the internal activity, defaults to None
         :type modIn: Optional[DynapSEFPGA], optional
+        :raises IndexError: "NeuronKey {post} is not defined in the index map!
         return: spikes_ts, labels
             :spikes_ts: input spike trains to post-synaptic neuron
             :labels: list of string labels generated for the channels in the following format : `<NeuronType>[<NeuronID>]<Repetition>`
@@ -542,13 +534,12 @@ class Figure:
 
     @staticmethod
     def plot_Isyn_trace(
-        mod: DynapSEAdExpLIFJax,
+        modSE: DynapSEAdExpLIFJax,
+        input_ts: TSEvent,
         record_dict: Dict[str, np.ndarray],
         post: Union[NeuronKey, int],
         syn_type: Union[Dynapse1SynType, str, np.uint8],
-        pre: Optional[Union[List[Union[NeuronKey, int]], Union[NeuronKey, int]]] = None,
-        virtual: Optional[bool] = None,
-        idx_map_dict: Optional[Dict[str, Dict[int, NeuronKey]]] = None,
+        modIn: Optional[DynapSEFPGA] = None,
         title: Optional[str] = None,
         ax: Optional[matplotlib.axes.Axes] = None,
         plot_guides: bool = True,
@@ -561,20 +552,18 @@ class Figure:
         with the input spikes trains affecting the synaptic current. By making `plot_guides` = True,
         guide lines from the spikes to increments on the synaptic current can be drawn.
 
-        :param mod: The module to investigate
-        :type mod: DynapSEAdExpLIFJax
+        :param modSE: The simulator module to investigate
+        :type modSE: DynapSEAdExpLIFJax
+        :param input_ts: Input spike trains fed to DynapSEFPGA or DynapSEAdExpLIFJax object
+        :type input_ts: TSEvent
         :param record_dict: is a dictionary containing the recorded state variables of `mod` during the evolution at each time step
         :type record_dict: Dict[str, np.ndarray]
         :param post: matrix index(if idx_map absent) or NeuronKey(if idx_map provided) of the post synaptic neuron defined inside the `mod`
         :type post: Union[NeuronKey, int]
         :param syn_type: the listening synapse type of post-synaptic neuron of interest (e.g. "AMPA", "GABA_A", ...)
         :type syn_type: Union[Dynapse1SynType, str, np.uint8]
-        :param pre: matrix indexes(if idx_map absent) or NeuronKeys(if idx_map provided) of the pre synaptic neurons defined inside the `mod` to constraint the sending neurons. If None, all the pre-synaptic connections are listed. , defaults to None
-        :type pre: Optional[ Union[ List[Union[NeuronKey, int]], Union[NeuronKey, int] ] ], optional
-        :param virtual: Gather only the virtual connections or not (if `pre` is None). Gather both if None. It's not optional in the case that pre-synaptic neuro is defined by the matrix index. Automatically found if both pre-synaptic neuron and index map is given. defaults to None
-        :type virtual: Optional[bool], optional
-        :param idx_map_dict: dictionary to map the matrix indexes of the neurons to a NeuronKey to be used in the label, defaults to None
-        :type idx_map_dict: Optional[Dict[str, Dict[int, NeuronKey]]], optional
+        :param modIn: the input layer sending events to the main simulator module. Required if one wants to see the external spike fed to the simulator alongside the internal activity, defaults to None
+        :type modIn: Optional[DynapSEFPGA], optional
         :param title: The title of the resulting plot, name of the `Isyn` object returned, defaults to None
         :type title: Optional[str], optional
         :param ax: The sub-plot axis to plot the figure, defaults to None
@@ -587,7 +576,6 @@ class Figure:
         :type top_bottom_ratio: Tuple[float], optional
         :param s: spike dot size, defaults to 10
         :type s: float, optional
-        :raises ValueError: AHP is a special synapse accepting recurrent (post->post) spikes, `pre` synaptic neuron cannot be defined!
         :raises IndexError: "NeuronKey {post} is not defined in the index map!
         return: Isyn, spikes_ts, labels
             :Isyn: Isyn current in `TSContinuous` object format
@@ -605,13 +593,12 @@ class Figure:
         ylabel = ""
 
         # Resolve post-synaptic neuron's matrix index
-        if idx_map_dict is not None:
-            virtual_key, real_key = idx_map_dict.keys()
-            post_idx = Figure.get_idx_from_map(post, idx_map_dict[real_key])
+        if hasattr(modSE, "idx_map"):
+            post_idx = Figure.get_idx_from_map(post, modSE.idx_map)
             ylabel = " [ChipID, CoreID, NeuronID]"
             if post_idx is None:
                 raise IndexError(
-                    f"NeuronKey {post} is not defined in the index map {idx_map_dict[real_key]}!"
+                    f"NeuronKey {post} is not defined in the index map {modSE.idx_map}!"
                 )
 
         else:
@@ -631,35 +618,29 @@ class Figure:
             title = f"$I_{{{syn_name}}}$ n[{post}]"
 
         # Plot input spikes
-        input_ts = TSEvent.from_raster(record_dict["input_data"], dt=mod.dt)
-        output_ts = TSEvent.from_raster(record_dict["spikes"], dt=mod.dt)
+        output_ts = TSEvent.from_raster(record_dict["spikes"], dt=modSE.dt)
 
         # AHP handler
         if syn_name != "AHP":
             spikes_ts, labels = Figure.spike_input_post(
-                mod,
+                modSE,
                 input_ts,
                 output_ts,
                 post,
                 syn_type,
-                pre,
-                virtual,
-                idx_map_dict,
+                modIn,
                 title="",
             )
         else:
-            if pre is not None:
-                raise ValueError(
-                    "AHP is a special synapse accepting recurrent weights, `pre` synaptic neuron cannot be defined!"
-                )
-
             weighted_mask = np.zeros(output_ts.num_channels)
             weighted_mask[post_idx] = 1
+            idx_map = None if not hasattr(modSE, "idx_map") else modSE.idx_map
+
             spikes_ts, labels = Figure.select_input_channels(
                 output_ts,
                 weighted_mask,
                 virtual=False,
-                idx_map_dict=idx_map_dict,
+                idx_map=idx_map,
                 title="",
             )
 
@@ -670,7 +651,7 @@ class Figure:
         # Plot the synaptic current and the incoming spikes
         Isyn = Figure.plot_Ix(
             record_dict[f"I{syn_name.lower()}"][:, post_idx],
-            dt=mod.dt,
+            dt=modSE.dt,
             name=title,
             ax=ax_syn,
         )
@@ -683,7 +664,7 @@ class Figure:
 
             # x,y info is in the scatter object
             for x, y in scatter.get_offsets():
-                y_syn = Isyn.samples[int(x // mod.dt)][0]
+                y_syn = Isyn.samples[int(x // modSE.dt)][0]
                 linewidth = ax_syn.lines[0]._linewidth * line_ratio
 
                 # dashed lines, color can be obtained from the scatter object
