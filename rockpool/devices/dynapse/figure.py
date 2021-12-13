@@ -178,6 +178,8 @@ class Figure:
         post: Union[NeuronKey, int],
         syn_type: Union[Dynapse1SynType, str, np.uint8],
         modIn: Optional[DynapSEFPGA] = None,
+        *args,
+        **kwargs,
     ) -> Tuple[TSEvent, List[str]]:
         """
         spike_input_post gather together all the input spikes of a post-synaptic neuron.
@@ -228,7 +230,7 @@ class Figure:
         if modIn is not None:
             mask_in = modIn.w_in[:, post_idx, syn_idx]
             ext_ts, ext_labels = Figure.select_input_channels(
-                input_ts, mask_in, True, modIn.idx_map
+                input_ts, mask_in, True, modIn.idx_map, *args, **kwargs
             )
         else:
             ext_ts = custom_spike_train(np.array([]), None, input_ts.duration)
@@ -237,7 +239,7 @@ class Figure:
         # Gather recurrent input spike trains sending to post-synaptic neuron of interest
         mask = modSE.w_rec[:, post_idx, syn_idx]
         rec_ts, rec_labels = Figure.select_input_channels(
-            output_ts, mask, False, modSE.idx_map
+            output_ts, mask, False, modSE.idx_map, *args, **kwargs
         )
 
         # Merge external and recurrent inputs
@@ -536,6 +538,7 @@ class Figure:
     def plot_Isyn_trace(
         modSE: DynapSEAdExpLIFJax,
         input_ts: TSEvent,
+        output_ts: TSEvent,
         record_dict: Dict[str, np.ndarray],
         post: Union[NeuronKey, int],
         syn_type: Union[Dynapse1SynType, str, np.uint8],
@@ -556,6 +559,8 @@ class Figure:
         :type modSE: DynapSEAdExpLIFJax
         :param input_ts: Input spike trains fed to DynapSEFPGA or DynapSEAdExpLIFJax object
         :type input_ts: TSEvent
+        :param output_ts: Output spike trains of DynapSEAdExpLIFJax object
+        :type output_ts: TSEvent
         :param record_dict: is a dictionary containing the recorded state variables of `mod` during the evolution at each time step
         :type record_dict: Dict[str, np.ndarray]
         :param post: matrix index(if idx_map absent) or NeuronKey(if idx_map provided) of the post synaptic neuron defined inside the `mod`
@@ -618,7 +623,6 @@ class Figure:
             title = f"$I_{{{syn_name}}}$ n[{post}]"
 
         # Plot input spikes
-        output_ts = TSEvent.from_raster(record_dict["spikes"], dt=modSE.dt)
 
         # AHP handler
         if syn_name != "AHP":
