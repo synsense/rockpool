@@ -613,7 +613,6 @@ class DynapSEAdExpLIFJax(JaxModule):
         record_dict = {}
         if record:
             record_dict = {
-                "spikes": spikes_ts,
                 "Vmem": Vmem_ts,
                 "Imem": Imem_ts,
                 "Igaba_b": Isyn_ts[:, self.SYN["GABA_B"], :],

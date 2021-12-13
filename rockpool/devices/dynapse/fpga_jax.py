@@ -211,11 +211,6 @@ class DynapSEFPGA(JaxModule):
 
         record_dict = {}
 
-        if record:
-            record_dict = {
-                "spikes": spikes_ts,
-            }
-
         return spikes_ts, {}, record_dict
 
     @classmethod
