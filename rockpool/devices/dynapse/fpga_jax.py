@@ -142,6 +142,11 @@ class DynapSEFPGA(JaxModule):
                 "`shape` must specify input and output sizes (Nin,Nrec) for DynapSEFPGA."
             )
 
+        if idx_map is None:
+            idx_map = dict(
+                zip(range(self.size_in), map(Router.decode_UID, range(self.size_in)))
+            )
+
         weight_init = lambda s: poisson_weight_matrix(s)
 
         # - Specify weight parameter
@@ -153,13 +158,11 @@ class DynapSEFPGA(JaxModule):
         )
 
         # Check the index_map
-        if idx_map is not None:
-            if len(idx_map.keys()) != self.size_in:
-                raise ValueError(
-                    "The size of index map is different than number of virtual neurons defined"
-                )
-            DynapSE1SimBoard.check_neuron_id_order(list(idx_map.keys()))
-
+        if len(idx_map.keys()) != self.size_in:
+            raise ValueError(
+                "The size of index map is different than number of virtual neurons defined"
+            )
+        DynapSE1SimBoard.check_neuron_id_order(list(idx_map.keys()))
         self.idx_map = idx_map
 
     def evolve(
