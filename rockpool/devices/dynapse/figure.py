@@ -181,16 +181,12 @@ class Figure:
 
     @staticmethod
     def spike_input_post(
-        mod: DynapSEAdExpLIFJax,
+        modSE: DynapSEAdExpLIFJax,
         input_ts: TSEvent,
         output_ts: TSEvent,
         post: Union[NeuronKey, int],
         syn_type: Union[Dynapse1SynType, str, np.uint8],
-        pre: Optional[Union[List[Union[NeuronKey, int]], Union[NeuronKey, int]]] = None,
-        virtual: Optional[bool] = None,
-        idx_map_dict: Optional[Dict[str, Dict[int, NeuronKey]]] = None,
-        *args,
-        **kwargs,
+        modIn: Optional[DynapSEFPGA] = None,
     ) -> Tuple[TSEvent, List[str]]:
         """
         spike_input_post gather together all the input spikes of a post-synaptic neuron.
@@ -201,8 +197,8 @@ class Figure:
         a pre-synaptic neuron list to constrain the incoming connections to be listed. In this case,
         the pre-synaptic neurons should also obey the same format in the `idx_map`.
 
-        :param mod: The module to investigate
-        :type mod: DynapSEAdExpLIFJax
+        :param modSE: The simulator module to investigate
+        :type modSE: DynapSEAdExpLIFJax
         :param input_ts: Input spike trains fed to DynapSEAdExpLIFJax object
         :type input_ts: TSEvent
         :param output_ts: Output spike trains of DynapSEAdExpLIFJax object
@@ -211,15 +207,8 @@ class Figure:
         :type post: Union[NeuronKey, int]
         :param syn_type: the listening synapse type of post-synaptic neuron of interest (e.g. "AMPA", "GABA_A", ...)
         :type syn_type: Union[Dynapse1SynType, str, np.uint8]
-        :param pre: matrix indexes(if idx_map absent) or NeuronKeys(if idx_map provided) of the pre synaptic neurons defined inside the `mod` to constraint the sending neurons. If None, all the pre-synaptic connections are listed. , defaults to None
-        :type pre: Optional[ Union[ List[Union[NeuronKey, int]], Union[NeuronKey, int] ] ], optional
-        :param virtual: Gather only the virtual connections or not (if `pre` is None). Gather both if None. It's not optional in the case that pre-synaptic neuro is defined by the matrix index. Automatically found if both pre-synaptic neuron and index map is given. defaults to None
-        :type virtual: Optional[bool], optional
-        :param idx_map_dict: a dictionary of dictionaries (2 seperate dictionary for `w_in` and `w_rec`) of the neurons to a NeuronKey to be used in the label, defaults to None
-        :type idx_map_dict: Optional[Dict[str, Dict[int, NeuronKey]]], optional
-        :raises ValueError: Duplicate pre-synaptic neurons found in real and virtual maps!
-        :raises IndexError: Pre-synaptic neuron not found!
-        :raises ValueError: `virtual` flag should be set if pre-synaptic neuron is defined
+        :param modIn: the input layer sending events to the main simulator module. Required if one wants to see the external spike fed to the simulator alongside the internal activity, defaults to None
+        :type modIn: Optional[DynapSEFPGA], optional
         return: spikes_ts, labels
             :spikes_ts: input spike trains to post-synaptic neuron
             :labels: list of string labels generated for the channels in the following format : `<NeuronType>[<NeuronID>]<Repetition>`
@@ -231,97 +220,37 @@ class Figure:
         :rtype: Tuple[TSEvent, List[str]]
         """
 
-        def gather_st(
-            _ts: TSEvent,
-            weight: FloatVector,
-            virtual: bool,
-            pre_idx: Optional[int],
-        ) -> Tuple[TSEvent, List[str]]:
-            """
-            gather_st extracts input spike trains to post-synaptic neuron from the given
-            ts_event object depending on the weight matrix provided.
-            In the weight matrix the organization is as follows : w[pre][post][syn_type].
-
-            :param _ts: Input or output `TSEvent` object fed to or produced by the simulation module
-            :type _ts: TSEvent
-            :param weight: the weight matrix encoding the connectivity between the neruons w[pre][post][syn_type]
-            :type weight: FloatVector
-            :param virtual: Label the neurons as virtual or not.
-            :type virtual: bool
-            :param pre_idx: matrix index of the pre-synaptic neuron if pre is defined
-            :type pre_idx: int
-            :return: spikes_ts, labels (as the same as the encapsulating function)
-            :rtype: Tuple[TSEvent, List[str]]
-            """
-            mask = weight[:, post, syn_idx]
-
-            # Presynaptic neuron & neruons are nefines
-            if pre is not None:
-                pre_mask = np.zeros_like(mask)
-                pre_mask[pre_idx] = 1
-                mask = mask * np.logical_and(mask, pre_mask)
-
-            spikes_ts, labels = Figure.select_input_channels(
-                _ts, mask, virtual, idx_map_dict, *args, **kwargs
-            )
-            return spikes_ts, labels
-
-        pre_idx = None
-        if syn_type is not None:
-            _, syn_idx = Figure._decode_syn_type(syn_type, mod.SYN)
+        _, syn_idx = Figure._decode_syn_type(syn_type, modSE.SYN)
 
         # Resolve post-synaptic (and pre-synaptic if exist) neuron's matrix index
-        if idx_map_dict is not None:
-            virtual_key, real_key = idx_map_dict.keys()
-            post = Figure.get_idx_from_map(post, idx_map_dict[real_key])
-
-            # Resolve pre-synaptic neuron's matrix index
-            if pre is not None:
-                if virtual is None:
-                    pre_virtual = Figure.get_idx_from_map(
-                        pre, idx_map_dict[virtual_key], 0
-                    )
-                    pre_real = Figure.get_idx_from_map(pre, idx_map_dict[real_key], 0)
-
-                    if pre_virtual is not None and pre_real is not None:
-                        raise ValueError(
-                            f"Duplicate pre-synaptic neurons found in real and virtual maps!"
-                        )
-
-                    elif pre_virtual is not None and pre_real is None:
-                        virtual = True
-                        pre_idx = pre_virtual
-
-                    elif pre_virtual is None and pre_real is not None:
-                        virtual = False
-                        pre_idx = pre_real
-                    else:
-                        raise IndexError(f"Pre-synaptic neuron {pre} not found!")
-                else:
-                    key = virtual_key if virtual else real_key
-                    pre_idx = Figure.get_idx_from_map(pre, idx_map_dict[key], 1)
-
-        # Gather external AND recurrent input spike trains
-        if virtual is None:
-            if pre is not None:
-                raise ValueError(
-                    "`virtual` flag should be set if pre-synaptic neuron is defined!"
+        if hasattr(modSE, "idx_map"):
+            post_idx = Figure.get_idx_from_map(post, modSE.idx_map)
+            if post_idx is None:
+                raise IndexError(
+                    f"NeuronKey {post} is not defined in the index map {modSE.idx_map}!"
                 )
-
-            external_ts, external_labels = gather_st(input_ts, mod.w_in, 1, pre_idx)
-            recurrent_ts, recurrent_labels = gather_st(output_ts, mod.w_rec, 0, pre_idx)
-
-            # Merge external and recurrent inputs
-            spikes_ts = external_ts.append_c(recurrent_ts)
-            labels = external_labels + recurrent_labels
-
-        # Gather external OR recurrent input spike trains
         else:
-            if idx_map_dict is None:
-                pre_idx = pre
-            _ts = input_ts if virtual else output_ts
-            _weight = mod.w_in if virtual else mod.w_rec
-            spikes_ts, labels = gather_st(_ts, _weight, virtual, pre_idx)
+            post_idx = post
+
+        # Gather external spike trains sending to post-synaptic neuron of interest
+        if modIn is not None:
+            mask_in = modIn.w_in[:, post_idx, syn_idx]
+            ext_ts, ext_labels = Figure.select_input_channels(
+                input_ts, mask_in, True, modIn.idx_map
+            )
+        else:
+            ext_ts = custom_spike_train(np.array([]), None, input_ts.duration)
+            ext_labels = []
+
+        # Gather recurrent input spike trains sending to post-synaptic neuron of interest
+        mask = modSE.w_rec[:, post_idx, syn_idx]
+        rec_ts, rec_labels = Figure.select_input_channels(
+            output_ts, mask, False, modSE.idx_map
+        )
+
+        # Merge external and recurrent inputs
+        spikes_ts = ext_ts.append_c(rec_ts)
+        labels = ext_labels + rec_labels
 
         return spikes_ts, labels
 
