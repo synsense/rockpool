@@ -129,6 +129,25 @@ class DynapSEFPGA(JaxModule):
         __init__ Initialize ``DynapSEFPGA`` module. Parameters are explained in the superclass docstring.
         """
 
+        # Check the parameters and initialize to default if necessary
+        if shape is None or len(shape) != 2:
+            raise ValueError(
+                "`shape` must specify input and output sizes (Nin,Nrec*4) for DynapSEFPGA! shape={shape}"
+            )
+
+        # Check the network size and the recurrent weight vector accordingly
+        syn_size_check = lambda s: s == (s // 4) * 4  # 4 synapse per neuron for sure
+
+        # Check if input dimension meets the 4 synapse per neuron criteria
+        if not syn_size_check(shape[1]):
+            raise ValueError(
+                f"Output dimension ({shape[1]},..) should have been multiples of 4! (Go for {shape[1]//4}, {(shape[1]+4)//4}, or {shape[1]*4}) \n"
+                f"Each neuron holds 4 synaptic state, which means 4 input gates per neuron!\n"
+                f"i.e. ({(shape[1]//4)*4},..) means {shape[1]//4} neurons with 4 synapses\n"
+                f"i.e. ({((shape[1]+4)//4)*4},..) means {(shape[1]+4)//4} neurons with 4 synapses\n"
+                f"i.e. ({shape[1]*4},..) means {shape[1]} neurons with 4 synapses\n"
+            )
+
         super().__init__(
             shape=shape,
             spiking_input=spiking_input,
@@ -136,11 +155,6 @@ class DynapSEFPGA(JaxModule):
             *args,
             **kwargs,
         )
-
-        if len(self.shape) != 2:
-            raise ValueError(
-                "`shape` must specify input and output sizes (Nin,Nrec) for DynapSEFPGA."
-            )
 
         if idx_map is None:
             idx_map = dict(
@@ -152,7 +166,7 @@ class DynapSEFPGA(JaxModule):
         # - Specify weight parameter
         self.w_in = Parameter(
             w_in,
-            shape=(self.size_in, self.size_out, 4),
+            shape=(self.size_in, self.size_out // 4, 4),
             init_func=weight_init,
             family="weights",
         )
@@ -230,7 +244,8 @@ class DynapSEFPGA(JaxModule):
         :rtype: DynapSEFPGA
         """
         w_in, idx_map = Router.w_in_from_config(config, return_maps=True)
-        shape = w_in.shape[0:2]
+        in_shape = w_in.shape  # size_in, size_out // 4, 4
+        shape = (in_shape[0], in_shape[1] * in_shape[2])
         mod = cls(shape, w_in, idx_map, *args, **kwargs)
         return mod
 
