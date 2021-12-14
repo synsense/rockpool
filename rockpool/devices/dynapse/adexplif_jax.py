@@ -38,8 +38,11 @@ E-mail : ugurcan.cakal@gmail.com
 """
 
 import numpy as onp
+import logging
+
 import jax
 import jax.random as rand
+
 from jax.lax import scan
 from jax import numpy as np
 
@@ -59,8 +62,6 @@ from rockpool.typehints import (
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
-
-
 from rockpool.devices.dynapse.simconfig import DynapSE1SimBoard, DynapSE1SimCore
 
 DynapSE1State = Tuple[JP_ndarray, JP_ndarray, JP_ndarray, Optional[Any]]
@@ -195,6 +196,8 @@ class DynapSEAdExpLIFJax(JaxModule):
     :type shape: Optional[Tuple], optional
     :param sim_config: Dynap-SE1 bias currents and simulation configuration parameters, defaults to None
     :type sim_config: Optional[Union[DynapSE1SimCore, DynapSE1SimBoard]], optional
+    :param has_rec: When ``True`` the module provides a trainable recurrent weight matrix. ``False``, module is feed-forward, defaults to True
+    :type has_rec: bool, optional
     :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(Nrec, Nrec, 4)``. The last 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
     :type w_rec: Optional[FloatVector], optional
 
@@ -246,10 +249,10 @@ class DynapSEAdExpLIFJax(JaxModule):
     :param spiking_output: Whether this module produces spiking output, defaults to True
     :type spiking_output: bool, optional
 
-    :raises ValueError: Shape can be (N,) or (N,N,)
+    :raises ValueError: ``shape`` should be defined (N*4,N,)!
     :raises ValueError: The simulation configuration object size and number of device neruons does not match!
-    :raises ValueError: If `shape` is unidimensional, then `w_rec` may not be provided as an argument.
-    :raises ValueError: `shape` may not specify more than two dimensions .
+    :raises ValueError: If ``has_rec`` is False, then `w_rec` may not be provided as an argument or initialized by the module
+    :raises ValueError: `shape[0]` should be `shape[1]`*4 in the recurrent mode
 
     :Instance Variables:
 
@@ -314,6 +317,7 @@ class DynapSEAdExpLIFJax(JaxModule):
         self,
         shape: Optional[Tuple] = None,
         sim_config: Optional[Union[DynapSE1SimCore, DynapSE1SimBoard]] = None,
+        has_rec: bool = True,
         w_rec: Optional[FloatVector] = None,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
@@ -327,8 +331,25 @@ class DynapSEAdExpLIFJax(JaxModule):
         """
 
         # Check the parameters and initialize to default if necessary
-        if shape is None:
-            raise ValueError("Shape can be (N,) or (N,N,)")
+        if shape is None or len(shape) != 2:
+            raise ValueError(f"shape should be defined (N*4,N,)! shape={shape}")
+
+        # Check the network size and the recurrent weight vector accordingly
+        syn_size_check = lambda s: s == (s // 4) * 4  # 4 synapse per neuron for sure
+
+        # Check if input dimension meets the 4 synapse per neuron criteria
+        if not syn_size_check(shape[0]):
+            raise ValueError(
+                f"Input dimension ({shape[0]},..) should have been multiples of 4! (Go for {shape[0]//4}, {(shape[0]+4)//4}, or {shape[0]*4}) \n"
+                f"Each neuron holds 4 synaptic state, which means 4 input gates per neuron!\n"
+                f"i.e. ({(shape[0]//4)*4},..) means {shape[0]//4} neurons with 4 synapses\n"
+                f"i.e. ({((shape[0]+4)//4)*4},..) means {(shape[0]+4)//4} neurons with 4 synapses\n"
+                f"i.e. ({shape[0]*4},..) means {shape[0]} neurons with 4 synapses\n"
+            )
+
+        # Check if output dimension meets the 4 synapse per neuron criteria
+        if shape[1] != shape[0] // 4:
+            raise ValueError("`shape[0]` should be `shape[1]`*4")
 
         if rng_key is None:
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
@@ -366,29 +387,19 @@ class DynapSEAdExpLIFJax(JaxModule):
         self.timer_ref = State(init_func=np.zeros, shape=(self.size_out,))
         self._rng_key: JP_ndarray = State(rng_key, init_func=lambda _: rng_key)
 
-        # Check the network size the recurrent weight vector accordingly
         ## Feed forward Mode
-        if len(self.shape) == 1:
+        if not has_rec:
             if w_rec is not None:
                 raise ValueError(
-                    "If `shape` is unidimensional, then `w_rec` may not be provided as an argument."
+                    "If ``has_rec`` is False, then `w_rec` may not be provided as an argument or initialized by the module."
                 )
 
             # In order not to make the jax complain about w_rec
-            self.w_rec = np.zeros((self.size_out, self.size_out, 4))
+            self.w_rec = np.zeros((self.size_out, self.size_in // 4, 4))
+            logging.info(f"Module allocates {self.size_out} neurons with 4 synapses")
 
         ## Recurrent mode
         else:
-            if len(self.shape) > 2:
-                raise ValueError(
-                    "`shape` can not specify more than two dimensions (Nin, Nrec)."
-                )
-
-            if self.size_out != self.size_in:
-                raise ValueError(
-                    "`shape[0]` and `shape[1]` must be equal for a recurrent module."
-                )
-
             if w_rec is not None:
                 w_rec = np.array(w_rec, dtype=np.float32)
 
@@ -399,8 +410,9 @@ class DynapSEAdExpLIFJax(JaxModule):
                 w_rec,
                 family="weights",
                 init_func=weight_init,
-                shape=(self.size_out, self.size_out, 4),
+                shape=(self.size_out, self.size_in // 4, 4),
             )
+            logging.info(f"Module allocates {self.size_out} neurons with 4 synapses")
 
         # --- Parameters --- #
         ## Synapse
