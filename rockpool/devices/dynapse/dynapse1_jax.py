@@ -138,6 +138,7 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
         self,
         shape: Optional[Tuple] = None,
         sim_config: Optional[DynapSE1SimBoard] = None,
+        has_rec: bool = True,
         w_rec: Optional[FloatVector] = None,
         idx_map: Optional[Dict[int, NeuronKey]] = None,
         dt: float = 1e-3,
@@ -164,6 +165,7 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
         super().__init__(
             shape,
             sim_config,
+            has_rec,
             w_rec,
             dt,
             rng_key,
@@ -268,8 +270,9 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
         :rtype: DynapSE1Jax
         """
         w_rec, idx_map = Router.w_rec_from_config(config, return_maps=True)
-
-        shape = w_rec.shape[0:2] if np.sum(w_rec) > 0 else (w_rec.shape[0],)
+        rec_shape = w_rec.shape  # size_out, size_in // 4, 4
+        shape = (rec_shape[1] * rec_shape[2], rec_shape[0])
+        has_rec = True
 
         if sim_config is None:
             if not default_bias:
@@ -277,7 +280,8 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
 
             else:
                 sim_config = DynapSE1SimBoard.from_idx_map(idx_map)
-        mod = cls(shape, sim_config, w_rec, idx_map, *args, **kwargs)
+
+        mod = cls(shape, sim_config, has_rec, w_rec, idx_map, *args, **kwargs)
         return mod
 
     @classmethod

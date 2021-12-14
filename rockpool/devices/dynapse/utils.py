@@ -698,7 +698,7 @@ def bias_current_table(
     :rtype: Dict[str, List[Union[str, Tuple[int], float]]]
     """
     if default_mod is None:
-        default_mod = DynapSE1Jax((1, 1))
+        default_mod = DynapSE1Jax((4, 1))
 
     # Construct the dictionary
     keys = ["Bias", "Coarse,Fine", "Current", "Amperes", "Nominal(A)"]
@@ -757,7 +757,7 @@ def high_level_parameter_table(
     """
 
     if default_mod is None:
-        default_mod = DynapSE1Jax((1, 1))
+        default_mod = DynapSE1Jax((4, 1))
 
     # Construct the dictionary
     keys = ["Parameter", "Value", "Nominal"]
@@ -851,7 +851,7 @@ def time_const_table(
     """
 
     if default_mod is None:
-        default_mod = DynapSE1Jax((1, 1))
+        default_mod = DynapSE1Jax((4, 1))
 
     # Hard-coded reciprocal list
     reciprocals = [
@@ -908,7 +908,7 @@ def gain_table(
     """
 
     if default_mod is None:
-        default_mod = DynapSE1Jax((1, 1))
+        default_mod = DynapSE1Jax((4, 1))
 
     # Hard-coded reciprocal list
     reciprocals = [
@@ -977,7 +977,7 @@ def synapse_table(
     """
 
     if default_mod is None:
-        default_mod = DynapSE1Jax((1, 1))
+        default_mod = DynapSE1Jax((4, 1))
 
     # Hard-coded reciprocal list
     reciprocals = [
@@ -1022,7 +1022,7 @@ def bias_table(
     """
 
     if default_mod is None:
-        default_mod = DynapSE1Jax((1, 1))
+        default_mod = DynapSE1Jax((4, 1))
 
     # Generate Tables
     syn_tab = synapse_table(mod, chipID, coreID, default_mod, float_format)
@@ -1055,7 +1055,7 @@ def device_vs_simulation(
     """
 
     if default_mod is None:
-        default_mod = DynapSE1Jax((1, 1))
+        default_mod = DynapSE1Jax((4, 1))
 
     tables = []
     keys = []
