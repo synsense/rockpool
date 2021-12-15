@@ -110,6 +110,65 @@ def poisson_weight_matrix(
     return weight
 
 
+def dynapse_weights(
+    shape: Tuple[int],
+    log_range: Tuple[float] = (-12.0, -6.0),
+    fill_rate: Union[float, List[float]] = [0.04, 0.06, 0.2, 0.2],
+) -> np.ndarray:
+    """
+    dynapse_weights generates a random weight current matrix defining the connection strengths between
+    neurons inside a network. The values represented inside the matrix are the current values in Amperes
+    and the log range is the range of power of 10s allowed for this current to have.
+    The function takes desired fill rates of the matrices and converts it to a poisson lambda.
+    The analytical solution is here:
+
+    .. math ::
+        f(X=x) = \\dfrac{\\lambda^{x}\\cdot e^{-\\lambda}}{x!}
+        f(X=0) = e^{-\\lambda}
+        p = 1 - f(X=0) = 1 - e^{-\\lambda}
+        e^{-\\lambda} = 1-p
+        \\lambda = -ln(1-p) ; 0<p<1
+
+    :param shape: the 3D shape of the weight matrix
+    :type shape: Tuple[int]
+    :param log_range: the uniform range of power of 10s for the current values to fill the weight matrix, defaults to (-12.0, -5.0)
+    :type log_range: Tuple[float], optional
+    :param fill_rate: the fill rates desired to be converted to a list of posisson rates of the weights specific to synaptic-gates (3rd dimension)
+    :type fill_rate: Union[float, List[float]]
+    :raises ValueError: The possion rate list given does not have the same shape with the 3rd dimension
+    :return: 3D numpy array representing a Dynap-SE connectivity matrix
+    :rtype: np.ndarray
+    """
+
+    if isinstance(fill_rate, float):
+        fill_rate = [fill_rate] * shape[2]
+
+    if len(fill_rate) != shape[2]:
+        raise ValueError(
+            "The possion rate list given does not have the same shape with the 3rd dimension"
+        )
+
+    # Power Matrix
+    mean = onp.sum(log_range) / 2
+    sigma = (log_range[1] - log_range[0]) / 5  # 5 sigma -> 99.7%
+    power = onp.random.normal(mean, sigma, shape)
+
+    # Create a mask using poisson process, with fill rate is different for each synapse type
+    lambda_list = -onp.log(1 - onp.array(fill_rate))
+    columns = []
+    for l in lambda_list:
+        w = onp.random.poisson(l, (*shape[0:2], 1))
+        columns.append(w)
+
+    # convert this into a boolean array
+    mask = onp.concatenate(columns, axis=2).astype(bool)
+
+    # dense matrix
+    base = onp.full(shape, 10.0)
+    weight = onp.float_power(base, power) * mask
+    return weight.astype(onp.float32)
+
+
 @jax.custom_gradient
 def step_pwl(
     Imem: FloatVector, Ispkthr: FloatVector, Ireset: FloatVector
