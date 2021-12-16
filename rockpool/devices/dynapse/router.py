@@ -215,26 +215,26 @@ class Router:
         return id_list
 
     @staticmethod
-    def select_coreID_with_mask(core_mask: np.uint8) -> np.ndarray:
+    def bitmask_select(bitmask: np.uint8) -> np.ndarray:
         """
-        select_coreID_with_mask apply bit mask to select cores
-        0001 -> selected coreID: 0
-        1000 -> selected coreID: 3
-        0101 -> selected coreID 0 and 2
+        bitmask_select apply 8-bit mask to select bits (or coreIDs in coremask case)
+        00000001 -> selected bit: 0
+        00001000 -> selected bit: 3
+        00000101 -> selected bit 0 and 2
 
-        :param core_mask: Binary mask to select core IDs
-        :type core_mask: np.uint8
-        :return: an array of IDs of selected cores
+        :param bitmask: Binary mask to select core IDs
+        :type bitmask: np.uint8
+        :return: an array of indices of selected bits
         :rtype: np.ndarray
         """
 
-        coreID = range(Router.NUM_CORES)  # [3,2,1,0]
+        bits = range(8)  # [0,1,2,3,4,5,6,7]
         bit_pattern = lambda n: (1 << n)  # 2^n
 
-        # Indexes of the IDs to be selected in coreID list
-        idx = np.array([core_mask & bit_pattern(cid) for cid in coreID], dtype=bool)
-        coreID_selected = np.array(coreID, dtype=np.uint8)[idx]
-        return coreID_selected
+        # Indexes of the IDs to be selected in bits list
+        idx = np.array([bitmask & bit_pattern(bit) for bit in bits], dtype=bool)
+        idx_selected = np.array(bits, dtype=np.uint8)[idx]
+        return idx_selected
 
     @staticmethod
     def pair_uid_to_key(
@@ -393,7 +393,7 @@ class Router:
 
         # If there is no target core, there is no need to calculate the rest!
         core_mask = core_mask if destination is None else destination.core_mask
-        cores_to_send = Router.select_coreID_with_mask(core_mask)
+        cores_to_send = Router.bitmask_select(core_mask)
         if len(cores_to_send) == 0:
             return []
 
@@ -583,7 +583,7 @@ class Router:
                 if chipID != target_chip:
                     raise ValueError(
                         f"A virtual neuron cannot broadcast to more than one chips!\n"
-                        f"Virtual UID:{pre} -> Chip:{chipID}, cores:{Router.select_coreID_with_mask(coreMask)} (existing destination)\n"
+                        f"Virtual UID:{pre} -> Chip:{chipID}, cores:{Router.bitmask_select(coreMask)} (existing destination)\n"
                         f"Virtual UID:{pre} -> Chip:{target_chip}, core:{target_core}, (post-synaptic neuron:{post})"
                     )
 
