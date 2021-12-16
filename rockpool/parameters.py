@@ -18,6 +18,10 @@ __all__ = ["Parameter", "State", "SimulationParameter", "Constant"]
 class Constant:
     data: Any
 
+    @property
+    def shape(self):
+        return np.shape(self.data)
+
 
 # -- Parameter classes
 class ParameterBase:
