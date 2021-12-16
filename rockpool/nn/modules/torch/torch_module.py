@@ -73,6 +73,52 @@ class TorchModule(Module, nn.Module):
         Convert a ``torch`` module to a Rockpool :py:class:`.TorchModule`:
 
         >>> mod = TorchModule.from_torch(torch_mod)
+        >>> mod.parameters()
+        {
+            'weight', Torch.Tensor[...],    # Rockpool parameter dictionary
+            ...
+        }
+
+        >>> mod(data)
+        (
+            torch.Tensor[...],  # Network output
+            {},                 # State dictionary
+            {},                 # Record dictionary
+        )
+
+        Convert a ``torch`` module to Rockpool, while retaining the ``torch`` API
+
+        >>> mod = TorchModule.from_torch(torch_mod, retain_torch_api = True)
+        >>> mod.parameters()
+        <Generator of parameters>   # Torch parameter generator
+
+        >>> mod(data)
+        torch.Tensor[...]       # Network output
+
+
+        Convert a Rockpool ``TorchModule`` to use the ``torch`` API
+
+        >>> mod = SomeRockpoolTorchModule()
+        >>> tmod = mod.to_torch()
+        >>> tmod.parameters()
+        <generator of parameters>   # Torch parameter generator
+
+        >>> tmod(data)
+        torch.Tensor[...]       # Network output
+
+
+        Convert a Rockpool parameter dictionary to a torch parameter dictionary
+
+        >>> mod = SomeRockpoolTorchModule()
+        >>> mod.parameters()
+        {
+            'param0': value,   # Rockpool parameter dictionary
+            'param1': value,
+            ...
+        }
+
+        >>> mod.parameters().astorch()
+        <generator of parameters>   # Torch parameter generator
 
     """
 
@@ -202,8 +248,10 @@ class TorchModule(Module, nn.Module):
         """
         Convert the module to use the torch.nn.Module API
 
+        This method exposes the torch API for ``.__call__()``, ``.parameters()`` and ``.__repr__()`` methods, recursively. By default, ``.__call__()`` is only replaced on the top-level module. This is to ensure that the nested ``.forward()`` methods do not break.
+
         Args:
-            use_torch_call (bool): Use the torch-stype ``__call__()`` method for this object
+            use_torch_call (bool): Use the torch-type ``__call__()`` method for this object
 
         Returns:
             The converted object

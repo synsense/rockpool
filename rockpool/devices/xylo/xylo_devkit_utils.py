@@ -183,7 +183,8 @@ def find_xylo_boards(device_node: SamnaDeviceNode) -> List[XyloDaughterBoard]:
     xylo_hdk_list = [
         getattr(device_node, d[0])
         for d in device_list
-        if d[1].device_type_name == "XyloTestBoard"
+        if d[1].device_type_name == "XyloDevKit"
+        or d[1].device_type_name == "XyloTestBoard"
     ]
 
     return xylo_hdk_list

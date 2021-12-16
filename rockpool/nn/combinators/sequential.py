@@ -221,6 +221,9 @@ try:
             # - Call super-class constructor
             super().__init__(*args, **kwargs)
 
+        def forward(self, *args, **kwargs):
+            return self.evolve(*args, **kwargs)[0]
+
 
 except:
 

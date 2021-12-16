@@ -1,6 +1,13 @@
 """
-Implements the WaveSense architecture from Weidel et al 2021 [1]
-[1]
+Implements the WaveSense architecture for temporal signal processing
+
+The WaveSense architecture is described in Weidel et al 2021 [1]
+[1] https://arxiv.org/abs/2111.01456
+
+See Also
+
+    :ref:`/tutorials/wavesense_temporal_xor.ipynb`
+
 """
 
 from rockpool.nn.modules.torch import TorchModule, LinearTorch, LIFTorch, ExpSynTorch
@@ -10,7 +17,7 @@ from rockpool.graph import AliasConnection, GraphHolder, connect_modules
 
 import torch
 
-from typing import List, Union, Callable
+from typing import List, Union, Callable, Optional
 
 __all__ = ["WaveBlock", "WaveSenseNet"]
 
@@ -62,10 +69,10 @@ class WaveSenseBlock(TorchModule):
         has_bias: bool = False,
         tau_mem: float = 10e-3,
         base_tau_syn: float = 10e-3,
-        threshold: float = 0.0,
-        neuron_model=LIFTorch,
+        threshold: float = 1.0,
+        neuron_model: TorchModule = LIFTorch,
         dt: float = 1e-3,
-        device: str = "cuda",
+        device: Optional[str] = None,
         *args,
         **kwargs,
     ):
@@ -73,23 +80,18 @@ class WaveSenseBlock(TorchModule):
         Implementation of the WaveBlock as used in the WaveSense model. It received (Nchannels) input channels and outputs (Nchannels, Nskip) channels.
 
         Args:
-            :param int Nchannels:           Dimensionality of the residual connection
-            :param int Nskip:               Dimensionality of the skip connection
-            :param int dilation:            Determins the synaptic time constant of the dilation layer $dilation * base_tau_syn$
-            :param int kernel_size:         Number of synapses the time dilation layer in the WaveBlock
-            :param bool has_bias:           If the network can use biases to train
-            :param float tau_mem:           Membrane potential time constant of all neurons in WaveSense
-            :param float base_tau_syn:      Base synaptic time constant. Each synapse has this time constant, except the second synapse in the dilation layer which caclulates the time constant as $dilations * base_tau_syn$
-            :param float threshold:         Threshold of all neurons in WaveSense
-            :param NeuronType neuron_model: Neuronmodel to use. Either LIFTorch as standard LIF implementation, LIFBitshiftTorch for hardware compatibility or LIFSlayer for speedup
-            :param float dt:                Temporal resolution of the simulation
-            :param str device:              Torch device, cuda or cpu
-            *args:
-            **kwargs:
+            :param int Nchannels:           Dimensionality of the residual connection. Default: ``16``
+            :param int Nskip:               Dimensionality of the skip connection. Default: ``32``
+            :param int dilation:            Determines the synaptic time constant of the dilation layer $dilation * base_tau_syn$. Default: ``None``
+            :param int kernel_size:         Number of synapses the time dilation layer in the WaveBlock. Default: ``2``
+            :param bool has_bias:           If the network can use biases to train. Default: ``False``
+            :param float tau_mem:           Membrane potential time constant of all neurons in WaveSense. Default: 10ms
+            :param float base_tau_syn:      Base synaptic time constant. Each synapse has this time constant, except the second synapse in the dilation layer which caclulates the time constant as $dilations * base_tau_syn$. Default: 10ms
+            :param float threshold:         Threshold of all spiking neurons. Default: `0.`
+            :param TorchModule neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFSlayer` for speedup
+            :param float dt:                Temporal resolution of the simulation. Default: 1ms
+            :param Optional[str] device:    Torch device: 'cuda' or 'cpu'. Default: `None`, choose a device automatically
         """
-        # - Determine module shape
-        shape = (Nchannels, Nchannels)
-
         # - Initialise superclass
         super().__init__(
             shape=(Nchannels, Nchannels),
@@ -166,14 +168,6 @@ class WaveSenseBlock(TorchModule):
         # - Internal record dictionary
         self._record_dict = {}
 
-        self.submods = []
-        self.submods.append(self.lin1)
-        self.submods.append(self.spk1)
-        self.submods.append(self.lin2_res)
-        self.submods.append(self.spk2_res)
-        self.submods.append(self.lin2_skip)
-        self.submods.append(self.spk2_skip)
-
     def forward(self, data: torch.tensor) -> (torch.tensor, dict, dict):
         # Expecting data to be of the format (batch, time, Nchannels)
         (n_batches, t_sim, Nchannels) = data.shape
@@ -219,7 +213,7 @@ class WaveSenseBlock(TorchModule):
     def as_graph(self):
         mod_graphs = []
 
-        for mod in self.submods:
+        for mod in self.modules():
             mod_graphs.append(mod.as_graph())
 
         connect_modules(mod_graphs[0], mod_graphs[1])
@@ -302,7 +296,7 @@ class WaveSenseNet(TorchModule):
         threshold: float = 1.0,
         neuron_model: TorchModule = LIFTorch,
         dt: float = 1e-3,
-        device: str = None,
+        device: Optional[str] = None,
         *args,
         **kwargs,
     ):
@@ -311,21 +305,21 @@ class WaveSenseNet(TorchModule):
 
         Args:
             :param List dilations:          List of dilations which determines the number of WaveBlockes used and the synaptic time constant of the dilation layer $dilations * base_tau_syn$.
-            :param int n_classes:           Output dimensionality, usually one per class
-            :param int n_channels_in:       Input dimensionality / number of input features
-            :param int n_channels_res:      Dimensionality of the residual connection in each WaveBlock
-            :param int n_channels_skip:     Dimensionality of the skip connection
-            :param int n_hidden:            Number of neurons in the hidden layer of the readout
-            :param int kernel_size:         Number of synapses the dilated layer in the WaveBlock
-            :param bool has_bias:           If the network can use biases to train
-            :param bool smooth_output:      If the output of the network is smoothed with an exponential kernel
-            :param float tau_mem:           Membrane potential time constant of all neurons in WaveSense
-            :param float base_tau_syn:      Base synaptic time constant. Each synapse has this time constant, except the second synapse in the dilation layer which caclulates the time constant as $dilations * base_tau_syn$
-            :param float tau_lp:            Time constant of the smooth output
-            :param float threshold:         Threshold of all neurons in WaveSense
-            :param NeuronType neuron_model: Neuronmodel to use. Either LIFTorch as standard LIF implementation, LIFBitshiftTorch for hardware compatibility or LIFSlayer for speedup
-            :param float dt:                Temporal resolution of the simulation
-            :param str device:              Torch device, cuda or cpu
+            :param int n_classes:           Output dimensionality, usually one per class. Default: ``2``
+            :param int n_channels_in:       Input dimensionality / number of input features. Default: ``16``
+            :param int n_channels_res:      Dimensionality of the residual connection in each WaveBlock. Default: ``16``
+            :param int n_channels_skip:     Dimensionality of the skip connection. Default: ``32``
+            :param int n_hidden:            Number of neurons in the hidden layer of the readout. Default: ``32``
+            :param int kernel_size:         Number of synapses the dilated layer in the WaveBlock. Default: ``2``
+            :param bool has_bias:           If the network can use biases to train. Default: ``False``, do not use biases.
+            :param bool smooth_output:      If the output of the network is smoothed with an exponential kernel. Default: ``True``, use a low-pass filter on the output.
+            :param float tau_mem:           Membrane potential time constant of all neurons in WaveSense. Default: 20ms
+            :param float base_tau_syn:      Base synaptic time constant. Each synapse has this time constant, except the second synapse in the dilation layer which caclulates the time constant as $dilations * base_tau_syn$. Default: 20ms
+            :param float tau_lp:            Time constant of the smooth output. Default: 20ms
+            :param float threshold:         Threshold of all neurons in WaveSense. Default: `1.0`
+            :param TorchModule neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFSlayer` for speedup. Default: :py:class:`.LIFTorch`
+            :param float dt:                Temporal resolution of the simulation. Default: 1ms
+            :param Optional[str] device:    Torch device: 'cuda' or 'cpu'. Default: `None`, choose the device automatically
             *args:
             **kwargs:
         """

@@ -68,6 +68,8 @@ def config_from_specification(
     weight_shift_rec: int = 0,
     weight_shift_out: int = 0,
     aliases: Optional[List[List[int]]] = None,
+    *args,
+    **kwargs,
 ) -> (XyloConfiguration, bool, str):
     """
     Convert a full network specification to a xylo config and validate it
