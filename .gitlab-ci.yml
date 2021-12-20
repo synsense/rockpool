@@ -11,8 +11,8 @@ unit_tests:
 
   before_script:
     - pip install --upgrade pip
-    - git clone https://${GITLAB_USER}:${GITLAB_CLONE_API_KEY}@spinystellate.office.synsense.ai/research/cimulator.git cimulator_git
-    - pip install ./cimulator_git/
+    - git clone https://${GITLAB_USER}:${GITLAB_CLONE_API_KEY@spinystellate.office.synsense.ai:research/xylosim.git xylosim_git
+    - pip install ./xylosim_git/
     - conda install nest-simulator
     - pip install --upgrade .[all] --no-cache-dir
     - python -c 'import samna'
