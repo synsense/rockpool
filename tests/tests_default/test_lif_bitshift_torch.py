@@ -74,8 +74,8 @@ def test_LIFBitshiftTorch_single_neuron():
     out, state, rec = mod.evolve(input_data, record=True)
 
     # make sure the values decayed correctly
-    assert rec["Isyn"][0, 0, 0, 0] == 0.5
-    assert rec["Isyn"][0, 1, 0, 0] == 0.25
+    assert rec["isyn"][0, 0, 0, 0] == 0.5
+    assert rec["isyn"][0, 1, 0, 0] == 0.25
 
-    assert rec["Isyn"][0, 0, 0, 1] == 0.75
-    assert rec["Isyn"][0, 1, 0, 1] == 0.5625
+    assert rec["isyn"][0, 0, 0, 1] == 0.75
+    assert rec["isyn"][0, 1, 0, 1] == 0.5625

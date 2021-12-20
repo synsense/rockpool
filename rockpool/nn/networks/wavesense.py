@@ -213,7 +213,7 @@ class WaveSenseBlock(TorchModule):
     def as_graph(self):
         mod_graphs = []
 
-        for mod in self.modules():
+        for mod in self.modules().values():
             mod_graphs.append(mod.as_graph())
 
         connect_modules(mod_graphs[0], mod_graphs[1])

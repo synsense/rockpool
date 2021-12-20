@@ -165,7 +165,7 @@ def test_LIFTorch_noise():
     out.sum().backward()
 
     # no input but vmem not zero due to noise
-    assert not torch.all(rd["Vmem"] == 0)
+    assert not torch.all(rd["vmem"] == 0)
 
 
 def test_LIFTorch_tau_syn_shape_1():

@@ -82,7 +82,7 @@ class XyloCim(Module):
 
         # - Store the configuration
         self.config: Union[XyloConfiguration, Parameter] = Parameter(
-            init_func=lambda _: config
+            shape=(), init_func=lambda _: config
         )
         """ (XyloConfiguration) Configuration of the Xylo module """
 
