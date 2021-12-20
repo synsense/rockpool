@@ -2,7 +2,7 @@
 Classes to manage registered Module attributes in Rockpool
 """
 
-from typing import Callable, Iterable, Any
+from typing import Callable, Iterable, Any, Union, List, Tuple, Optional
 from copy import deepcopy
 
 from collections import abc
@@ -25,7 +25,7 @@ class ParameterBase:
         data: Any = None,
         family: str = None,
         init_func: Callable[[Iterable], Any] = None,
-        shape: Any = None,
+        shape: Optional[Union[List[Tuple], Tuple, int]] = None,
     ):
         """
         Instantiate a Rockpool registered attribute
@@ -34,14 +34,26 @@ class ParameterBase:
             data (Optional[Any]): Concrete initialisation data for this attribute. The shape of ``data`` will specify the allowable shape of the attribute data, unless the ``shape`` argument is provided.
             family (Optional[str]): An arbitrary string to specify the "family" of this attribute. You should use ``'weights'``, ``'taus'``, ``'biases'`` if you can; otherwise you can use whatever you like. These are used by the :py:meth:`.Module.parameters`, :py:meth:`.Module.state` and :py:meth:`.Module.simulation_parameters` methods to group and select attributes.
             init_func (Optional[Callable]): A function that initialises this attributed. Called by :py:meth:`.Module.reset_parameters` and :py:meth:`.Module.reset_state`. The signature is ``f(shape: tuple) -> np.ndarray``.
-            shape (Optional[tuple]): A tuple (or list) specifying the permitted shape of the attribute. If not provided, the shape of the concrete initialisation data will be used as the attribute shape.
+            shape (Optional[Union[List[Tuple], Tuple, int]]): A list of permisable shapes for the parameter, or a tuple specifying the permitted shape, or an integer specifying the number of elements. If not provided, the shape of the concrete initialisation data will be used as the attribute shape. The first item in the list will be used as the concrete shape, if ``data`` is not provided and ``init_func`` should be used.
         """
         # - Be generous if a scalar shape was provided instead of a tuple
-        if shape is not None:
-            if isinstance(shape, abc.Iterable):
-                shape = tuple(shape)
-            else:
-                shape = (shape,)
+        if not isinstance(shape, (List, Tuple, int)):
+            raise TypeError(
+                f"`shape` must be a list, a tuple or an integer. Instead `shape` was a {type(shape).__name__}."
+            )
+
+        if isinstance(shape, Tuple):
+            shape = [shape]
+
+        if isinstance(shape, int):
+            shape = [(shape,)]
+
+        for st in shape:
+            for elem in st:
+                if not isinstance(elem, int):
+                    raise TypeError(
+                        f"All elements in a shape tuple must be integers. Instead I found an elements of type {type(elem).__name__}."
+                    )
 
         # - Assign attributes
         self.family = family
