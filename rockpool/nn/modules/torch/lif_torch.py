@@ -170,11 +170,7 @@ class LIFTorch(TorchModule):
 
         # - Initialise superclass
         super().__init__(
-            shape=shape,
-            spiking_input=True,
-            spiking_output=True,
-            *args,
-            **kwargs,
+            shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs,
         )
 
         self.n_synapses: P_int = rp.SimulationParameter(shape[0] // shape[1])
@@ -195,10 +191,7 @@ class LIFTorch(TorchModule):
         w_rec_shape = (self.size_out, self.size_in)
         if has_rec:
             self.w_rec: P_tensor = rp.Parameter(
-                w_rec,
-                shape=w_rec_shape,
-                init_func=weight_init_func,
-                family="weights",
+                w_rec, shape=w_rec_shape, init_func=weight_init_func, family="weights",
             )
             """ (Tensor) Recurrent weights `(Nout, Nin)` """
         else:
@@ -308,8 +301,8 @@ class LIFTorch(TorchModule):
         # - Build state record
         record_dict = (
             {
-                "Vmem": self._record_Vmem,
-                "Isyn": self._record_Isyn,
+                "vmem": self._record_Vmem,
+                "isyn": self._record_Isyn,
                 "spikes": self._record_spikes,
             }
             if record
@@ -337,7 +330,7 @@ class LIFTorch(TorchModule):
         if n_connections != self.size_in:
             raise ValueError(
                 "Input has wrong neuron dimension. It is {}, must be {}".format(
-                    self.size_in, self.size_out
+                    n_connections, self.size_in
                 )
             )
 

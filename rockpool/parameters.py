@@ -14,13 +14,34 @@ import numpy as np
 __all__ = ["Parameter", "State", "SimulationParameter", "Constant"]
 
 
-@dataclass
-class Constant:
-    data: Any
+# @dataclass
+# class Constant:
+#     data: Any
+#
+#     @property
+#     def shape(self):
+#         return np.shape(self.data)
 
-    @property
-    def shape(self):
-        return np.shape(self.data)
+
+class RP_Constant:
+    pass
+
+
+def Constant(obj):
+    class ConstantPatch(obj.__class__, RP_Constant):
+        pass
+
+    ConstantPatch.__name__ = obj.__class__.__name__
+
+    try:
+        obj.__class__ = ConstantPatch
+    except TypeError:
+        if isinstance(obj, np.ndarray):
+            obj = obj.view(ConstantPatch)
+        else:
+            obj = ConstantPatch(obj)
+
+    return obj
 
 
 # -- Parameter classes
@@ -38,6 +59,7 @@ class ParameterBase:
         family: str = None,
         init_func: Callable[[Iterable], Any] = None,
         shape: Optional[Union[List[Tuple], Tuple, int]] = None,
+        cast_fn: Callable = None,
     ):
         """
         Instantiate a Rockpool registered attribute
@@ -47,31 +69,42 @@ class ParameterBase:
             family (Optional[str]): An arbitrary string to specify the "family" of this attribute. You should use ``'weights'``, ``'taus'``, ``'biases'`` if you can; otherwise you can use whatever you like. These are used by the :py:meth:`.Module.parameters`, :py:meth:`.Module.state` and :py:meth:`.Module.simulation_parameters` methods to group and select attributes.
             init_func (Optional[Callable]): A function that initialises this attributed. Called by :py:meth:`.Module.reset_parameters` and :py:meth:`.Module.reset_state`. The signature is ``f(shape: tuple) -> np.ndarray``.
             shape (Optional[Union[List[Tuple], Tuple, int]]): A list of permisable shapes for the parameter, or a tuple specifying the permitted shape, or an integer specifying the number of elements. If not provided, the shape of the concrete initialisation data will be used as the attribute shape. The first item in the list will be used as the concrete shape, if ``data`` is not provided and ``init_func`` should be used.
+            cast_fn (Optional[Callable]): A function to call to cast the data for this parameter. Will only be called once on initialisation.
         """
-        # - Be generous if a scalar shape was provided instead of a tuple
-        if not isinstance(shape, (List, Tuple, int)):
-            raise TypeError(
-                f"`shape` must be a list, a tuple or an integer. Instead `shape` was a {type(shape).__name__}."
-            )
+        if data is None and shape is None:
+            raise ValueError(f"One of `data` or `shape` must be provided.")
 
-        if isinstance(shape, Tuple):
-            shape = [shape]
+        # - Check type and configuration of `shape` argument
+        if shape is not None:
+            if not isinstance(shape, (List, Tuple, int)):
+                raise TypeError(
+                    f"`shape` must be a list, a tuple or an integer. Instead `shape` was a {type(shape).__name__}."
+                )
 
-        if isinstance(shape, int):
-            shape = [(shape,)]
+            # - Convert a single tuple to a list
+            if isinstance(shape, (Tuple, int)):
+                shape = [shape]
 
-        for st in shape:
-            for elem in st:
-                if not isinstance(elem, int):
-                    raise TypeError(
-                        f"All elements in a shape tuple must be integers. Instead I found an elements of type {type(elem).__name__}."
-                    )
+            # - Check each list element in turn
+            for i, st in enumerate(shape):
+                # - Convert non-tuples to tuples
+                if not isinstance(st, tuple):
+                    shape[i] = (st,)
+                    st = shape[i]
+
+                # - Check each element of each tuple
+                for elem in st:
+                    if not isinstance(elem, int):
+                        raise TypeError(
+                            f"All elements in a shape tuple must be integers. Instead I found an element of type {type(elem).__name__}."
+                        )
 
         # - Assign attributes
-        self.family = family
-        self.data = data
-        self.init_func = init_func
-        self.shape = shape
+        self.family: str = family
+        self.data: Union[np.ndarray, Iterable, float, int] = data
+        self.init_func: Callable = init_func
+        self.shape: Optional[List] = shape
+        self.cast_fn: Callable = cast_fn
 
         class_name = type(self).__name__
 
@@ -82,23 +115,30 @@ class ParameterBase:
             )
 
         # - Force object to be a SimulationParameter, if training should be disabled
-        if isinstance(self.data, Constant):
+        if isinstance(self.data, RP_Constant):
             self.__class__ = SimulationParameter
-            self.data = self.data.data
 
         # - Get the shape from the data, if not provided explicitly
         if self.data is not None:
-            if self.shape is not None and self.shape != np.shape(self.data):
-                raise ValueError(
-                    f"The shape provided for this {class_name} does not match the provided initialisation data.\n"
-                    + f"    self.shape = {self.shape}; data.shape = {np.shape(self.data)}"
-                )
+            if self.shape is not None:
+                # - Check that the concrete data matches the shape
+                if not any([np.shape(self.data) == st for st in self.shape]):
+                    raise ValueError(
+                        f"The shape provided for this {class_name} does not match the provided initialisation data.\n"
+                        + f"    self.shape = {self.shape}; data.shape = {np.shape(self.data)}"
+                    )
+
+                self.shape = None
 
             if self.shape is None:
+                # - Record the shape of the data as the concrete shape
                 self.shape = np.shape(self.data)
 
         # - Initialise data, if not provided
         if self.data is None:
+            # - Get the concrete shape to use (by default: first shape option in the list)
+            self.shape = self.shape[0]
+
             if self.init_func is None:
                 raise ValueError(
                     f"If concrete initialisation `data` is not provided for a {class_name} then `init_func` must be provided."
@@ -110,6 +150,10 @@ class ParameterBase:
             # - If concrete initialisation data is provided, then override the `init_func`
             data_copy = deepcopy(data)
             self.init_func = lambda _: data_copy
+
+        # - Cast the data using the cast function
+        if self.cast_fn is not None:
+            self.data = self.cast_fn(self.data)
 
     def __repr__(self):
         return f"{type(self).__name__}(data={self.data}, family={self.family}, init_func={self.init_func}, shape={self.shape})"

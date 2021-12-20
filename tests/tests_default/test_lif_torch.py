@@ -30,10 +30,10 @@ def test_LIFTorch_shapes():
     out.sum().backward()
 
     assert out.shape == (n_batches, T, n_neurons)
-    assert ns["Isyn"].shape == (n_neurons, n_synapses)
-    assert ns["Vmem"].shape == (n_neurons,)
-    assert rd["Isyn"].shape == (n_batches, T, n_neurons, n_synapses)
-    assert rd["Vmem"].shape == (n_batches, T, n_neurons)
+    assert ns["isyn"].shape == (n_neurons, n_synapses)
+    assert ns["vmem"].shape == (n_neurons,)
+    assert rd["isyn"].shape == (n_batches, T, n_neurons, n_synapses)
+    assert rd["vmem"].shape == (n_batches, T, n_neurons)
 
 
 def test_LIFTorch_bias():
@@ -68,11 +68,11 @@ def test_LIFTorch_bias():
 
     out.sum().backward()
 
-    assert torch.all(ns["Isyn"] == 0)
-    assert torch.all(rd["Isyn"] == 0)
-    assert torch.all(rd["Vmem"][:, 0] == 0.1)  # match bias in the fist timestep
+    assert torch.all(ns["isyn"] == 0)
+    assert torch.all(rd["isyn"] == 0)
+    assert torch.all(rd["vmem"][:, 0] == 0.1)  # match bias in the fist timestep
     assert torch.all(
-        rd["Vmem"][:, 1] == 0.1 * torch.exp(-dt / tau_mem) + 0.1
+        rd["vmem"][:, 1] == 0.1 * torch.exp(-dt / tau_mem) + 0.1
     )  # decay one timestep + bias
 
     # bias has gradients
