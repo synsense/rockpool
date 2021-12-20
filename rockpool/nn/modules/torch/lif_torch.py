@@ -300,10 +300,10 @@ class LIFTorch(TorchModule):
         # - Evolve with superclass evolution
         output_data, _, _ = super().evolve(input_data, record)
 
-        states = {
-            "Isyn": self.isyn,
-            "Vmem": self.vmem,
-        }
+        # states = {
+        #     "Isyn": self.isyn,
+        #     "Vmem": self.vmem,
+        # }
 
         # - Build state record
         record_dict = (
@@ -316,7 +316,7 @@ class LIFTorch(TorchModule):
             else {}
         )
 
-        return output_data, states, record_dict
+        return output_data, self.state(), record_dict
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
