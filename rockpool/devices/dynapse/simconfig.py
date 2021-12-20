@@ -1123,7 +1123,17 @@ class DynapSE1SimCore:
     @property
     def Iw(self) -> np.ndarray:
         """
-        Iw is a 1D array of connection base weight currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,)
+        Iw is 2D array of base weight currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
+        """
+        Iw_ahp = self.ahp.__getattribute__("Iw")
+        return np.full(
+            (self.size, 5), np.hstack((self.Iw_base, Iw_ahp)), dtype=np.float32
+        ).T
+
+    @property
+    def Iw_base(self) -> np.ndarray:
+        """
+        Iw_base is 1D array of connection base weight currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,)
         """
         return self.weights.get_vector()
 
@@ -1310,6 +1320,7 @@ class DynapSE1SimBoard:
             "Isyn",
             "Itau_syn",
             "f_gain_syn",
+            "Iw",
             "Iw_ahp",
             "kappa",
             "Ut",
@@ -1331,17 +1342,18 @@ class DynapSE1SimBoard:
             self.__setattr__(attr, self.merge_core_properties(attr))
 
     @property
-    def Iw(self) -> Dict[Tuple[np.uint8, np.uint8], float]:
+    def Iw_base(self) -> Dict[Tuple[np.uint8, np.uint8], float]:
         """
-        Iw creates a dictionary of base weight vectors of the different cores inside the board
+        Iw_base creates a dictionary of base weight vectors of the different cores inside the board
 
         :return: base weight vectors of the simulation cores
         :rtype: Dict[Tuple[np.uint8, np.uint8], float]
         """
-        Iw = {}
+        Iw_base = {}
         for core in self.cores:
-            Iw[core.core_key] = core.Iw
-        return Iw
+            Iw_base[core.core_key] = core.Iw_base
+        return Iw_base
+
 
     def __len__(self):
         size = 0
