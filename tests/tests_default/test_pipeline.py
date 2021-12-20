@@ -14,7 +14,7 @@ def test_pipeline():
         LIFBitshiftTorch,
     )
     from rockpool.devices.xylo import mapper, config_from_specification
-    from rockpool.devices.xylo.xylo_cimulator import XyloCim
+    from rockpool.devices.xylo.xylo_sim import XyloSim
     import warnings
 
     warnings.filterwarnings("ignore")
@@ -91,11 +91,11 @@ def test_pipeline():
     mod.reset_state()
     _, _, recordings_f = mod(inp, record=True)
 
-    cim_g = XyloCim.from_config(xylo_conf_global, dt=dt)
+    cim_g = XyloSim.from_config(xylo_conf_global, dt=dt)
     cim_g.reset_state()
     spk_out_g, _, rec_cim_g = cim_g(inp[0].cpu().numpy(), record=True)
 
-    cim_c = XyloCim.from_config(xylo_conf_channel, dt=dt)
+    cim_c = XyloSim.from_config(xylo_conf_channel, dt=dt)
     cim_c.reset_state()
     spk_out_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
 
@@ -116,7 +116,7 @@ def test_rec_rockpool():
     )
     from rockpool.devices.xylo import mapper
     from rockpool.devices.xylo import config_from_specification
-    from rockpool.devices.xylo import XyloCim
+    from rockpool.devices.xylo import XyloSim
     import warnings
 
     warnings.filterwarnings("ignore")
@@ -235,11 +235,11 @@ def test_rec_rockpool():
     mod.reset_state()
     _, _, recordings_f = mod(inp, record=True)
 
-    cim_g = XyloCim.from_config(xylo_conf_global, dt=dt)
+    cim_g = XyloSim.from_config(xylo_conf_global, dt=dt)
     cim_g.reset_state()
     spk_out_g, _, rec_cim_g = cim_g(inp[0].cpu().numpy(), record=True)
 
-    cim_c = XyloCim.from_config(xylo_conf_channel, dt=dt)
+    cim_c = XyloSim.from_config(xylo_conf_channel, dt=dt)
     cim_c.reset_state()
     spk_out_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
 
