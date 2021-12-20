@@ -11,7 +11,7 @@ See Also:
 import warnings
 
 try:
-    from .xylo_cimulator import *
+    from .xylo_sim import *
 except (ImportError, ModuleNotFoundError) as err:
     warnings.warn(f"{err}")
 
