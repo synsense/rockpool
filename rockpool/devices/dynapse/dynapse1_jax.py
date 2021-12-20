@@ -332,9 +332,11 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
         :return: `DynapSE1Jax` simulator object
         :rtype: DynapSE1Jax
         """
-        w_rec, idx_map = Router.w_rec_from_config(config, return_maps=True)
-        rec_shape = w_rec.shape  # size_out, size_in // 4, 4
-        shape = (rec_shape[1] * rec_shape[2], rec_shape[0])
+        CAM_rec, idx_map = Router.CAM_rec_from_config(config, return_maps=True)
+
+        # CAM_shape: size_out, size_in // 4, 4
+        CAM_shape = CAM_rec.shape  # N_pre, N_post, 4(syn_type)
+        mod_shape = (CAM_shape[2] * CAM_shape[1], CAM_shape[0])
         has_rec = True
 
         if sim_config is None:
@@ -344,7 +346,9 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
             else:
                 sim_config = DynapSE1SimBoard.from_idx_map(idx_map)
 
-        mod = cls(shape, sim_config, has_rec, w_rec, idx_map, *args, **kwargs)
+        w_rec = cls.weight_matrix_from_CAM(CAM_rec, idx_map, sim_config.Iw_base)
+        mod = cls(mod_shape, sim_config, has_rec, w_rec, idx_map, *args, **kwargs)
+
         return mod
 
     @classmethod
