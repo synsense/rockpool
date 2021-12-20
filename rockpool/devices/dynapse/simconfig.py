@@ -1310,7 +1310,7 @@ class DynapSE1SimBoard:
             "Isyn",
             "Itau_syn",
             "f_gain_syn",
-            "Iw",
+            "Iw_ahp",
             "kappa",
             "Ut",
             "Io",
@@ -1329,6 +1329,19 @@ class DynapSE1SimBoard:
 
         for attr in attr_list:
             self.__setattr__(attr, self.merge_core_properties(attr))
+
+    @property
+    def Iw(self) -> Dict[Tuple[np.uint8, np.uint8], float]:
+        """
+        Iw creates a dictionary of base weight vectors of the different cores inside the board
+
+        :return: base weight vectors of the simulation cores
+        :rtype: Dict[Tuple[np.uint8, np.uint8], float]
+        """
+        Iw = {}
+        for core in self.cores:
+            Iw[core.core_key] = core.Iw
+        return Iw
 
     def __len__(self):
         size = 0
@@ -1554,7 +1567,7 @@ class DynapSE1SimBoard:
 
         sim_cores = []
         if idx_map is None:
-            _, idx_map = Router.w_rec_from_config(config, return_maps=True)
+            _, idx_map = Router.CAM_rec_from_config(config, return_maps=True)
         core_dict = DynapSE1SimBoard.idx_map_to_core_dict(idx_map)
 
         # Gather `DynapSE1SimCore` objects
