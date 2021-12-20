@@ -263,6 +263,26 @@ class DPIParameters:
 
         return tx, Ix
 
+    @staticmethod
+    def bias(
+        layout: DynapSE1Layout, parameter_group: Dynapse1ParameterGroup, name: str
+    ) -> float:
+        """
+        extract and obtain the bias current from the samna parameter group using bias generator
+
+        :param layout: constant values that are related to the exact silicon layout of a chip
+        :type layout: DynapSE1Layout
+        :param parameter_group: samna config object for setting the parameter group within one core
+        :type parameter_group: Dynapse1ParameterGroup
+        :param name: the parameter name of the bias current
+        :type name: str
+        :return: biasgen corrected bias value by multiplying a correction factor
+        :rtype: float
+        """
+        return DynapSE1BiasGen.param_to_bias(
+            parameter_group.get_parameter_by_name(name), Io=layout.Io
+        )
+
     @property
     def f_tau(self) -> float:
         """
@@ -332,9 +352,7 @@ class SynapseParameters(DPIParameters):
         :rtype: SynapseParameters
         """
 
-        bias = lambda name: DynapSE1BiasGen.param_to_bias(
-            parameter_group.get_parameter_by_name(name), Io=layout.Io
-        )
+        bias = lambda name: cls.bias(layout, parameter_group, name)
 
         mod = cls(
             Itau=bias(Itau_name),
@@ -453,9 +471,7 @@ class MembraneParameters(DPIParameters):
         :rtype: MembraneParameters
         """
 
-        bias = lambda name: DynapSE1BiasGen.param_to_bias(
-            parameter_group.get_parameter_by_name(name), Io=layout.Io
-        )
+        bias = lambda name: cls.bias(layout, parameter_group, name)
 
         mod = cls(
             Itau=bias("IF_TAU1_N"),
