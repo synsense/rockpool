@@ -307,6 +307,7 @@ class WeightParameters:
     :param layout: constant values that are related to the exact silicon layout of a chip, defaults to None
     :type layout: Optional[DynapSE1Layout], optional
     """
+
     Iw_0: float = 1e-6  # GABA_B
     Iw_1: float = 2e-6  # GABA_A
     Iw_2: float = 4e-6  # NMDA
@@ -330,15 +331,15 @@ class WeightParameters:
         **kwargs,
     ) -> WeightParameters:
         """
-        from_parameter_group is a factory method to construct a `WeightParameters` object using a `Dynapse1ParameterGroup` object 
-        
+        from_parameter_group is a factory method to construct a `WeightParameters` object using a `Dynapse1ParameterGroup` object
+
         :param parameter_group: samna config object for setting the parameter group within one core
         :type parameter_group: Dynapse1ParameterGroup
         :param layout: constant values that are related to the exact silicon layout of a chip
         :type layout: DynapSE1Layout
         :return: a `WeightParameters` object, whose parameters obtained from the hardware configuration
         :rtype: WeightParameters
-        """    
+        """
 
         bias = lambda name: DynapSE1BiasGen.param_to_bias(
             parameter_group.get_parameter_by_name(name), Io=layout.Io
@@ -359,26 +360,23 @@ class WeightParameters:
         """
         get_vector gather the base weight currents together and creates a base weight vector
 
-        :return: a base weight vector each index representing the same index bit. i.e. Iw[0] = Iw_0, Iw[1] = Iw_1 etc.
+        :return: a base weight vector each index representing the same index bit. i.e. Iw[0] = Iw_0, Iw[1] = Iw_1 et
         :rtype: np.ndarray
-        """        
+        """
         weights = np.array([self.Iw_0, self.Iw_1, self.Iw_2, self.Iw_3])
         return weights
+
 
 @dataclass
 class SynapseParameters(DPIParameters):
     """
     SynapseParameters contains DPI specific parameter and state variables
-
-    :param Iw: Synaptic weight current in Amperes, determines how strong the response is in terms of amplitude, defaults to 1e-7
-    :type Iw: float, optional
     :param Isyn: DPI output current in Amperes (state variable), defaults to Io
     :type Isyn: Optional[float], optional
     """
 
     __doc__ += DPIParameters.__doc__
 
-    Iw: float = 1e-6
     Isyn: Optional[float] = 1e-10
 
     def __post_init__(self):
@@ -404,13 +402,12 @@ class SynapseParameters(DPIParameters):
         layout: DynapSE1Layout,
         Itau_name: str,
         Ithr_name: str,
-        Iw_name: str,
         *args,
         **kwargs,
     ) -> SynapseParameters:
         """
         _from_parameter_group is a common factory method to construct a `SynapseParameters` object using a `Dynapse1ParameterGroup` object
-        Each individual synapse is expected to provide their individual Itau, Ithr and Iw bias names
+        Each individual synapse is expected to provide their individual Itau and Ithr bias names
 
         :param parameter_group: samna config object for setting the parameter group within one core
         :type parameter_group: Dynapse1ParameterGroup
@@ -420,8 +417,6 @@ class SynapseParameters(DPIParameters):
         :type Itau_name: str
         :param Ithr_name: the name of the gain bias current
         :type Ithr_name: str
-        :param Iw_name: the name of the base weight bias current
-        :type Iw_name: str
         :return: a `SynapseParameters` object, whose parameters obtained from the hardware configuration
         :rtype: SynapseParameters
         """
@@ -434,7 +429,6 @@ class SynapseParameters(DPIParameters):
             f_gain=None,  # deduced from Ith/Itau
             tau=None,  # deduced from Itau
             layout=layout,
-            Iw=bias(Iw_name),
             *args,
             **kwargs,
         )
@@ -616,7 +610,6 @@ class GABABParameters(SynapseParameters):
             layout,
             Itau_name="NPDPII_TAU_S_P",
             Ithr_name="NPDPII_THR_S_P",
-            Iw_name="PS_WEIGHT_INH_S_N",
             *args,
             **kwargs,
         )
@@ -657,7 +650,6 @@ class GABAAParameters(SynapseParameters):
             layout,
             Itau_name="NPDPII_TAU_F_P",
             Ithr_name="NPDPII_THR_F_P",
-            Iw_name="PS_WEIGHT_INH_F_N",
             *args,
             **kwargs,
         )
@@ -698,7 +690,6 @@ class NMDAParameters(SynapseParameters):
             layout,
             Itau_name="NPDPIE_TAU_S_P",
             Ithr_name="NPDPIE_THR_S_P",
-            Iw_name="PS_WEIGHT_EXC_S_N",
             *args,
             **kwargs,
         )
@@ -739,7 +730,6 @@ class AMPAParameters(SynapseParameters):
             layout,
             Itau_name="NPDPIE_TAU_F_P",
             Ithr_name="NPDPIE_THR_F_P",
-            Iw_name="PS_WEIGHT_EXC_F_N",
             *args,
             **kwargs,
         )
