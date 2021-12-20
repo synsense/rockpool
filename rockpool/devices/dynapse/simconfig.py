@@ -745,6 +745,7 @@ class AHPParameters(SynapseParameters):
 
     C: float = 4e-11
     tau: Optional[float] = 50e-3
+    Iw: float = 1e-6
 
     @classmethod
     def from_parameter_group(
@@ -770,7 +771,7 @@ class AHPParameters(SynapseParameters):
             layout,
             Itau_name="IF_AHTAU_N",
             Ithr_name="IF_AHTHR_N",
-            Iw_name="IF_AHW_P",
+            Iw=cls.bias(layout, parameter_group, "IF_AHW_P"),
             *args,
             **kwargs,
         )
