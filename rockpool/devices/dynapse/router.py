@@ -1,5 +1,5 @@
 """
-Dynap-SE router simulator. Create a weight matrix using SRAM and CAM content
+Dynap-SE router simulator. Create a CAM matrix using SRAM and CAM content
 
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
@@ -46,7 +46,7 @@ except ModuleNotFoundError as e:
     print(
         e,
         "Router functions can only used manually."
-        "Automatic connection and weight matrix extraction from samna configuration utilities depends on samna!",
+        "Automatic connection and CAM matrix extraction from samna configuration utilities depends on samna!",
     )
     _SAMNA_AVAILABLE = False
 
@@ -227,6 +227,11 @@ class Router:
         :return: an array of indices of selected bits
         :rtype: np.ndarray
         """
+
+        if bitmask > 255 or bitmask < 0:
+            raise IndexError(
+                "Given bit mask is out of range! 8-bit mask are accepted (at max 255 as integer value)"
+            )
 
         bits = range(8)  # [0,1,2,3,4,5,6,7]
         bit_pattern = lambda n: (1 << n)  # 2^n
@@ -834,13 +839,13 @@ class Router:
         return fpga_neruons
 
     @staticmethod
-    def get_weight_matrix(
+    def get_CAM_matrix(
         synapses: Dict[NeuronConnectionSynType, int],
         pre_neurons: np.ndarray,
         post_neurons: Optional[np.ndarray] = None,
     ) -> Tuple[np.ndarray, Dict[int, NeuronKey]]:
         """
-        get_weight_matrix generates and fills a weight matrix given the synapse dictionary, pre-synaptic neurons and the post-synaptic neurons.
+        get_CAM_matrix generates and fills a CAM matrix, the number of CAM defined per connection given the synapse dictionary, pre-synaptic neurons and the post-synaptic neurons.
         If post-synaptic neurons are not given, it's assumed that pre-synaptic and post-synaptic neurons are the same and connections are recurrent.
 
         :param synapses: a dictionary for number of occurances of each synapses addressed by (preUID, postUID, syn_type) key
@@ -849,45 +854,52 @@ class Router:
         :type pre_neurons: np.ndarray
         :param post_neurons: a unique list of post-synaptic neuron UIDs, defaults to None
         :type post_neurons: Optional[np.ndarray], optional
-        :return: weight_matrix, idx_map
-                :weight_matrix: weight matrix generated using the synapses dictionary
+        :return: CAM_matrix, idx_map
+                :CAM_matrix: CAM matrix generated using the synapses dictionary
                 :idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
         :rtype: Tuple[np.ndarray, Dict[int, NeuronKey]]
         """
         pre_idx = dict(zip(pre_neurons, range(len(pre_neurons))))
 
         if post_neurons is None:
-            # Then it's assumed that a recurrent weight matrix is demanded
+            # Then it's assumed that a recurrent CAM matrix is demanded
             shape = (len(pre_neurons), len(pre_neurons), 4)
             post_idx = pre_idx
         else:
-            # Rectangular input weight matrix
+            # Rectangular input CAM matrix
             shape = (len(pre_neurons), len(post_neurons), 4)
             post_idx = dict(zip(post_neurons, range(len(post_neurons))))
 
-        weight_matrix = np.zeros(shape=shape, dtype=np.uint8)
+        CAM_matrix = np.zeros(shape=shape, dtype=np.uint8)
 
         for (pre, post, syn_type), count in synapses.items():
-            weight_matrix[pre_idx[pre]][post_idx[post]][syn_type] = count
+            CAM_matrix[pre_idx[pre]][post_idx[post]][syn_type] = count
 
         idx_map = {pre_idx[n]: Router.decode_UID(n) for n in pre_neurons}
 
-        return weight_matrix, idx_map
+        return CAM_matrix, idx_map
 
     @staticmethod
-    def w_in(
+    def core_matrix_from_idx_map(idx_map):
+        core_matrix = np.empty(len(idx_map), dtype=tuple)
+        for idx, (chipID, coreID, _) in idx_map.items():
+            core_matrix[idx] = (chipID, coreID)
+        return core_matrix
+
+    @staticmethod
+    def CAM_in(
         device_synapses: Dict[NeuronConnectionSynType, int],
         input_synapses: Dict[NeuronConnectionSynType, int],
         return_maps: bool = True,
     ) -> Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]:
         """
-        w_in creates a 3D rectangular shaped input weight matrix given synapse dictionaries. The dictionary should
+        CAM_in creates a 3D rectangular shaped input CAM matrix given synapse dictionaries. The dictionary should
         have the number of occurances of each synapses indicated with (preUID, postUID, syn_type) key.
-        The third dimension of the weight matrix holds the different synapse types. For example,
-        weight[:,:,0] stands for the GABA_B connections. weight[:,:,1] stands for the GABA_A connections and so on.
-        The first dimension of the weight matrix is for pre-synaptic neurons and the second dimension is for
+        The third dimension of the CAM matrix holds the different synapse types. For example,
+        CAM[:,:,0] stands for the GABA_B connections. CAM[:,:,1] stands for the GABA_A connections and so on.
+        The first dimension of the CAM matrix is for pre-synaptic neurons and the second dimension is for
         the post-synaptic neurons. The numbers stored indicate the number of synapses between respected neurons.
-        If weight[1][2][0] == 5, that means that there are 5 GABA_B connections from neuron 1 to neuron 2.
+        If CAM[1][2][0] == 5, that means that there are 5 GABA_B connections from neuron 1 to neuron 2.
 
         :param device_synapses: a dictionary for number of occurances of each in-device synapses indicated with (preUID, postUID, syn_type) key
         :type device_synapses: Dict[NeuronConnectionSynType, int]
@@ -895,13 +907,13 @@ class Router:
         :type input_synapses: Dict[NeuronConnectionSynType, int]
         :param return_maps: return the index-to-key map or not, defaults to True
         :type return_maps: bool, optional
-        :return: w_in, in_idx
-            :w_in: input weight matrix (3D, NinxNrecx4)
+        :return: CAM_in, in_idx
+            :CAM_in: input CAM matrix (3D, NinxNrecx4)
             :in_idx: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
         :rtype: Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]
         """
 
-        w_in = np.empty(0)
+        CAM_in = np.empty(0)
         in_idx = {}
 
         # Extract the neurons from the synapse dictionaries
@@ -910,31 +922,31 @@ class Router:
         )
 
         fpga_neurons = Router.fpga_neurons(input_synapses, decode_UID=False)
-        w_in, in_idx = Router.get_weight_matrix(
+        CAM_in, in_idx = Router.get_CAM_matrix(
             input_synapses, fpga_neurons, device_neurons
         )
 
         # Return
         if not return_maps:
-            return w_in
+            return CAM_in
 
         else:
-            return w_in, in_idx
+            return CAM_in, in_idx
 
     @staticmethod
-    def w_rec(
+    def CAM_rec(
         device_synapses: Dict[NeuronConnectionSynType, int],
         input_synapses: Optional[Dict[NeuronConnectionSynType, int]] = None,
         return_map: bool = True,
     ) -> Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]:
         """
-        w_rec creates a 3D square shaped recurrent weight matrix given synapse dictionaries. The dictionary should
+        CAM_rec creates a 3D square shaped recurrent CAM matrix given synapse dictionaries. The dictionary should
         have the number of occurances of each synapses indicated with (preUID, postUID, syn_type) key.
-        The third dimension of the weight matrix holds the different synapse types. For example,
-        weight[:,:,0] stands for the GABA_B connections. weight[:,:,1] stands for the GABA_A connections and so on.
-        The first dimension of the weight matrix is for pre-synaptic neurons and the second dimension is for
+        The third dimension of the CAM matrix holds the different synapse types. For example,
+        CAM[:,:,0] stands for the GABA_B connections. CAM[:,:,1] stands for the GABA_A connections and so on.
+        The first dimension of the CAM matrix is for pre-synaptic neurons and the second dimension is for
         the post-synaptic neurons. The numbers stored indicate the number of synapses between respected neurons.
-        If weight[1][2][0] == 5, that means that there are 5 GABA_B connections from neuron 1 to neuron 2.
+        If CAM[1][2][0] == 5, that means that there are 5 GABA_B connections from neuron 1 to neuron 2.
 
         :param device_synapses: a dictionary for number of occurances of each in-device synapses indicated with (preUID, postUID, syn_type) key
         :type device_synapses: Dict[NeuronConnectionSynType, int]
@@ -942,13 +954,13 @@ class Router:
         :type input_synapses: Optional[Dict[NeuronConnectionSynType, int]], optional
         :param return_maps: return the index-to-key map or not, defaults to True
         :type return_maps: bool, optional
-        :return: w_rec, rec_idx
-            :w_rec: recurrent weight matrix (3D, NrecxNrecx4)
+        :return: CAM_rec, rec_idx
+            :CAM_rec: recurrent CAM matrix (3D, NrecxNrecx4)
             :rec_idx: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
         :rtype: Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]
         """
 
-        w_rec = np.empty(0)
+        CAM_rec = np.empty(0)
         rec_idx = {}
 
         # Extract the neurons from the synapse dictionaries
@@ -956,24 +968,24 @@ class Router:
             device_synapses, input_synapses, decode_UID=False
         )
 
-        w_rec, rec_idx = Router.get_weight_matrix(device_synapses, device_neurons)
+        CAM_rec, rec_idx = Router.get_CAM_matrix(device_synapses, device_neurons)
 
         # Return
         if not return_map:
-            return w_rec
+            return CAM_rec
 
         else:
-            return w_rec, rec_idx
+            return CAM_rec, rec_idx
 
     @staticmethod
-    def weight_matrix(
+    def CAM_matrix(
         device_synapses: Dict[NeuronConnectionSynType, int],
         input_synapses: Optional[Dict[NeuronConnectionSynType, int]] = None,
         return_maps: bool = True,
     ) -> Dict[str, Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]]:
         """
-        weight_matrix runs `Router.w_in()` and `Router.w_rec()` together and creates a dictionary storing both the input
-        and the recurrent weight matrices. (For more detail, please look at Please look at `Router.w_in()` and `Router.w_rec()`)
+        CAM_matrix runs `Router.CAM_in()` and `Router.CAM_rec()` together and creates a dictionary storing both the input
+        and the recurrent CAM matrices. (For more detail, please look at `Router.CAM_in()` and `Router.CAM_rec()`)
 
         :param device_synapses: a dictionary for number of occurances of each in-device synapses indicated with (preUID, postUID, syn_type) key
         :type device_synapses: Dict[NeuronConnectionSynType, int]
@@ -981,19 +993,19 @@ class Router:
         :type input_synapses: Optional[Dict[NeuronConnectionSynType, int]], optional
         :param return_maps: return the index-to-key map or not, defaults to True
         :type return_maps: bool, optional
-        :return: a dictionary of tuples of input and recurrent dictionaries and their index maps. (For more detail, please look at Please look at `Router.w_in()` and `Router.w_rec()`)
+        :return: a dictionary of tuples of input and recurrent dictionaries and their index maps. (For more detail, please look at Please look at `Router.CAM_in()` and `Router.CAM_rec()`)
         :rtype: Dict[str, Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]]
         """
-        w_in = np.empty(0)
+        CAM_in = np.empty(0)
 
         if input_synapses is not None:
-            w_in = Router.w_in(device_synapses, input_synapses, return_maps)
+            CAM_in = Router.CAM_in(device_synapses, input_synapses, return_maps)
 
-        w_rec = Router.w_rec(device_synapses, input_synapses, return_maps)
+        CAM_rec = Router.CAM_rec(device_synapses, input_synapses, return_maps)
 
         # Return
-        weight_dict = {"w_in": w_in, "w_rec": w_rec}
-        return weight_dict
+        CAM_dict = {"CAM_in": CAM_in, "CAM_rec": CAM_rec}
+        return CAM_dict
 
     # --- FROM CONFIG METHODS --- #
 
@@ -1161,83 +1173,83 @@ class Router:
         return neurons
 
     @staticmethod
-    def w_in_from_config(
+    def CAM_in_from_config(
         config: Dynapse1Configuration, return_maps: bool = False
     ) -> Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]:
         """
-        w_in_from_config Use `Router.synapses_from_config()` and `Router.w_in()` functions together to extract
-        the input weight matrix from a samna config object. `Router.synapses_from_config()` creates the
-        synapse dictionaries from a configuration object and `Router.w_in()` converts the dictionary to a weight matrix.
+        CAM_in_from_config Use `Router.synapses_from_config()` and `Router.CAM_in()` functions together to extract
+        the input CAM matrix from a samna config object. `Router.synapses_from_config()` creates the
+        synapse dictionaries from a configuration object and `Router.CAM_in()` converts the dictionary to a CAM matrix.
         For details of the algorithms, please check the functions.
 
         :param config: samna Dynapse1 configuration object used to configure a network on the chip
         :type config: Dynapse1Configuration
         :param return_maps: return the index-to-key map or not, defaults to True
         :type return_maps: bool, optional
-        :return: w_in, in_idx
-            :w_in: input weight matrix (3D, NinxNrecx4)
+        :return: CAM_in, in_idx
+            :CAM_in: input CAM matrix (3D, NinxNrecx4)
             :in_idx: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
         :rtype: Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]
         """
         syn_dict = Router.synapses_from_config(config)
-        return Router.w_in(syn_dict["real"], syn_dict["virtual"], return_maps)
+        return Router.CAM_in(syn_dict["real"], syn_dict["virtual"], return_maps)
 
     @staticmethod
-    def w_rec_from_config(
+    def CAM_rec_from_config(
         config: Dynapse1Configuration, return_maps: bool = False
     ) -> Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]:
         """
-        w_rec_from_config Use `Router.synapses_from_config()` and `Router.w_rec()` functions together to extract
-        the input weight matrix from a samna config object. `Router.synapses_from_config()` creates the
-        synapse dictionaries from a configuration object and `Router.w_rec()` converts the dictionary to a weight matrix.
+        CAM_rec_from_config Use `Router.synapses_from_config()` and `Router.CAM_rec()` functions together to extract
+        the input CAM matrix from a samna config object. `Router.synapses_from_config()` creates the
+        synapse dictionaries from a configuration object and `Router.CAM_rec()` converts the dictionary to a CAM matrix.
         For details of the algorithms, please check the functions.
 
         :param config: samna Dynapse1 configuration object used to configure a network on the chip
         :type config: Dynapse1Configuration
         :param return_maps: return the index-to-key map or not, defaults to True
         :type return_maps: bool, optional
-        :return: w_rec, rec_idx
-            :w_rec: recurrent weight matrix (3D, NrecxNrecx4)
+        :return: CAM_rec, rec_idx
+            :CAM_rec: recurrent CAM matrix (3D, NrecxNrecx4)
             :rec_idx: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
         :rtype: Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]
         """
         syn_dict = Router.synapses_from_config(config)
-        return Router.w_rec(syn_dict["real"], syn_dict["virtual"], return_maps)
+        return Router.CAM_rec(syn_dict["real"], syn_dict["virtual"], return_maps)
 
     @staticmethod
-    def weights_from_config(
+    def CAMs_from_config(
         config: Dynapse1Configuration,
         return_maps: bool = False,
     ) -> Dict[str, Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]]:
         """
-        weights_from_config Use `Router.synapses_from_config()` and `Router.weight_matrix()` functions together to extract
-        the input and recurrent weight matrices from a samna config object. `Router.synapses_from_config()` creates the
-        synapse dictionaries from a configuration object and `Router.weight_matrix()` converts the dictionary to a weight matrix.
+        CAMs_from_config Use `Router.synapses_from_config()` and `Router.CAM_matrix()` functions together to extract
+        the input and recurrent CAM matrices from a samna config object. `Router.synapses_from_config()` creates the
+        synapse dictionaries from a configuration object and `Router.CAM_matrix()` converts the dictionary to a CAM matrix.
         For details of the algorithms, please check the functions.
 
         :param config: samna Dynapse1 configuration object used to configure a network on the chip
         :type config: Dynapse1Configuration
         :param return_maps: return the index-to-key map or not, defaults to True
         :type return_maps: bool, optional
-        :return: a dictionary of tuples of input and recurrent dictionaries and their index maps. (For more detail, please look at Please look at `Router.w_in()` and `Router.w_rec()`)
+        :return: a dictionary of tuples of input and recurrent dictionaries and their index maps. (For more detail, please look at Please look at `Router.CAM_in()` and `Router.CAM_rec()`)
         :rtype: Dict[str, Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]]
         """
         syn_dict = Router.synapses_from_config(config)
-        return Router.weight_matrix(syn_dict["real"], syn_dict["virtual"], return_maps)
+        return Router.CAM_matrix(syn_dict["real"], syn_dict["virtual"], return_maps)
 
     @staticmethod
-    def weights_from_netgen(
+    def CAMs_from_netgen(
         netgen: NetworkGenerator, *args, **kwargs
     ) -> Dict[str, Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]]:
         """
-        weights_from_netgen a wrapper function which makes it easier to get a weight matrix using the `NetworkGenerator` object.
-        Extract the configuration and from the network generator and then runs the `Router.weights_from_config()`
+        CAMs_from_netgen a wrapper function which makes it easier to get a CAM matrix using the `NetworkGenerator` object.
+        Extract the configuration and from the network generator and then runs the `Router.CAMs_from_config()`
 
         :param netgen: network generator object defined in samna/ctxctl_contrib/netgen
         :type netgen: NetworkGenerator
-        :return: a dictionary of tuples of input and recurrent dictionaries and their index maps. (For more detail, please look at Please look at `Router.w_in()` and `Router.w_rec()`)
+        :return: a dictionary of tuples of input and recurrent dictionaries and their index maps. (For more detail, please look at Please look at `Router.CAM_in()` and `Router.CAM_rec()`)
         :rtype: Dict[str, Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]]
         """
 
         config = netgen.make_dynapse1_configuration()
-        return Router.weights_from_config(config, *args, **kwargs)
+        return Router.CAMs_from_config(config, *args, **kwargs)
