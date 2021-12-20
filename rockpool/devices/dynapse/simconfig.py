@@ -796,16 +796,18 @@ class DynapSE1SimCore:
     :type capacitance: Optional[DynapSE1Capacitance], optional
     :param mem: Membrane block parameters (Imem, Itau, Ith), defaults to None
     :type mem: Optional[MembraneParameters], optional
+    :param gaba_b: GABA_B synapse paramters (Isyn, Itau, Ith), defaults to None
+    :type gaba_b: Optional[SynapseParameters], optional
+    :param gaba_a: GABA_A (shunt) synapse paramters (Isyn, Itau, Ith), defaults to None
+    :type gaba_a: Optional[SynapseParameters], optional
+    :param nmda: NMDA synapse paramters (Isyn, Itau, Ith), defaults to None
+    :type nmda: Optional[SynapseParameters], optional
+    :param ampa: AMPA synapse paramters (Isyn, Itau, Ith), defaults to None
+    :type ampa: Optional[SynapseParameters], optional
     :param ahp: Spike frequency adaptation block parameters (Isyn, Itau, Ith, Iw), defaults to None
     :type ahp: Optional[SynapseParameters], optional
-    :param nmda: NMDA synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
-    :type nmda: Optional[SynapseParameters], optional
-    :param ampa: AMPA synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
-    :type ampa: Optional[SynapseParameters], optional
-    :param gaba_a: GABA_A (shunt) synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
-    :type gaba_a: Optional[SynapseParameters], optional
-    :param gaba_b: GABA_B synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
-    :type gaba_b: Optional[SynapseParameters], optional
+    :param weights: Configurable connection base weight currents, defaults to None
+    :type weights: Optional[WeightParameters], optional
 
     :Instance Variables:
 
@@ -827,6 +829,7 @@ class DynapSE1SimCore:
     nmda: Optional[SynapseParameters] = None
     ampa: Optional[SynapseParameters] = None
     ahp: Optional[SynapseParameters] = None
+    weights: Optional[WeightParameters] = None
 
     # Static counters for default construction
     matrix_id_iter = itertools.count()
@@ -849,6 +852,9 @@ class DynapSE1SimCore:
 
         if self.capacitance is None:
             self.capacitance = DynapSE1Capacitance()
+
+        if self.weights is None:
+            self.weights = WeightParameters(layout=self.layout)
 
         if self.core_key is None:
             # Create a neuron key depending on the static chip_core counter then check if respective neuron ID is valid
@@ -956,14 +962,14 @@ class DynapSE1SimCore:
             Ireset=Ireset,
         )
 
-        # Fast inhibitory (shunt)
+        # Slow inhibitory
         gaba_b = GABABParameters.from_parameter_group(
             parameter_group,
             layout,
             C=capacitance.gaba_b,
         )
 
-        # Slow inhibitory
+        # Fast inhibitory (shunt)
         gaba_a = GABAAParameters.from_parameter_group(
             parameter_group,
             layout,
@@ -990,6 +996,8 @@ class DynapSE1SimCore:
             C=capacitance.ahp,
         )
 
+        weights = WeightParameters.from_parameter_group(parameter_group, layout)
+
         mod = cls(
             size=size,
             core_key=core_key,
@@ -1003,6 +1011,7 @@ class DynapSE1SimCore:
             nmda=nmda,
             ampa=ampa,
             ahp=ahp,
+            weights=weights,
         )
         return mod
 
@@ -1114,9 +1123,17 @@ class DynapSE1SimCore:
     @property
     def Iw(self) -> np.ndarray:
         """
-        Iw is a 2D array of synapse weight currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
+        Iw is a 1D array of connection base weight currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,)
         """
-        return self.syn_property("Iw")
+        return self.weights.get_vector()
+
+    @property
+    def Iw_ahp(self) -> np.ndarray:
+        """
+        Iw_ahp is 1D array of spike frequency adaptation currents of the neurons in Amperes with shape (Nrec,)
+        """
+        return np.full(self.size, self.ahp.__getattribute__("Iw"), dtype=np.float32)
+
 
     @property
     def kappa(self) -> np.ndarray:
