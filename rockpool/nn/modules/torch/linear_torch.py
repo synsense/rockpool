@@ -13,6 +13,7 @@ import math
 from typing import Union, Optional
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
+from rockpool.graph import GraphModuleBase, LinearWeights, as_GraphHolder
 import torch
 import torch.nn.init as init
 import torch.nn.functional as F
@@ -51,6 +52,8 @@ class LinearTorch(TorchModule):
         has_bias: bool = True,
         device: Optional[str] = None,
         dtype: Optional[str] = None,
+        *args,
+        **kwargs,
     ) -> None:
         """
         Initialise a LinearTorch layer
@@ -64,7 +67,7 @@ class LinearTorch(TorchModule):
             dtype (Optional[str]): Initialise the tensors with the supplied dtype.
         """
         # - Initialise superclass
-        super().__init__(shape=shape)
+        super().__init__(shape=shape, *args, **kwargs)
 
         # - Check arguments
         if len(self.shape) != 2:
@@ -84,6 +87,7 @@ class LinearTorch(TorchModule):
             ),
             family="weights",
         )
+        self.weight.requires_grad = True
         """ (torch.Tensor) Weight matrix with shape ``(Nin, Nout)`` """
 
         if has_bias:
@@ -98,21 +102,33 @@ class LinearTorch(TorchModule):
                 family="biases",
             )
             """ (torch.Tensor) Bias vector with shape ``(Nout,)`` """
+            self.bias.requires_grad = True
         else:
             self.bias = None
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         return (
             F.linear(
-                input.type(torch.double),
-                self.weight.type(torch.double).T,
-                self.bias.type(torch.double),
+                input,
+                self.weight.T,
+                self.bias,
             )
             if self.bias is not None
-            else F.linear(input.type(torch.double), self.weight.type(torch.double).T)
+            else F.linear(input, self.weight.T)
         )
 
     def _extra_repr(self) -> str:
         return "in_features={}, out_features={}, bias={}".format(
             self.shape[0], self.shape[1], self.bias is not None
+        )
+
+    def as_graph(self) -> GraphModuleBase:
+        return as_GraphHolder(
+            LinearWeights._factory(
+                self.size_in,
+                self.size_out,
+                f"{type(self).__name__}_{self.name}_{id(self)}",
+                self,
+                self.weight.detach().numpy(),
+            )
         )

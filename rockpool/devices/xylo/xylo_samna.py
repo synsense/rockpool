@@ -68,6 +68,8 @@ def config_from_specification(
     weight_shift_rec: int = 0,
     weight_shift_out: int = 0,
     aliases: Optional[List[List[int]]] = None,
+    *args,
+    **kwargs,
 ) -> (XyloConfiguration, bool, str):
     """
     Convert a full network specification to a xylo config and validate it
@@ -76,7 +78,7 @@ def config_from_specification(
         For detailed information about the networks supported on Xylo, see :ref:`/devices/xylo-overview.ipynb`
 
     Args:
-        weights_in (np.ndarray): A quantised 8-bit input weight matrix ``(Nin, Nin_res, 2)``. The third dimension specifies connections onto the second input synapse for each neuron. ``Nin_res`` indicates the number of hidfden-layer neurons that receive input from the input channels.
+        weights_in (np.ndarray): A quantised 8-bit input weight matrix ``(Nin, Nin_res, 2)``. The third dimension specifies connections onto the second input synapse for each neuron. ``Nin_res`` indicates the number of hidden-layer neurons that receive input from the input channels.
         weights_rec (np.ndarray): A quantised 8-bit recurrent weight matrix ``(Nhidden, Nhidden, 2)``. The third dimension specified connections onto the second input synapse for each neuron. Default: ``0``
         weights_out (np.ndarray): A quantised 8-bit output weight matrix ``(Nhidden, Nout)``.
         dash_mem (np.ndarray): A vector or list ``(Nhidden,)`` specifing decay bitshift for neuron state for each hidden layer neuron. Default: ``1``
@@ -99,7 +101,7 @@ def config_from_specification(
     # - Check input weights
     if weights_in.ndim < 2:
         raise ValueError(
-            "Input weights must be at least 2 dimensional `(Nhidden, Nout, [2])`"
+            f"Input weights must be at least 2 dimensional `(Nin, Nin_res, [2])`. Found {weights_in.shape}"
         )
 
     enable_isyn2 = True

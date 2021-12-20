@@ -1,11 +1,13 @@
 """
-Implement the `Sequential` combinator, with helper classes for Jax and Torch backends
+Implement the :py:class:`.Sequential` combinator, with helper classes for Jax and Torch backends
 """
 
 from rockpool.nn.modules.module import Module, ModuleBase
 from copy import copy
 from typing import Tuple, Any
 from abc import ABC
+
+import rockpool.graph as rg
 
 __all__ = ["Sequential"]
 
@@ -57,7 +59,11 @@ class SequentialMixin(ABC):
 
         # - Check that shapes are compatible
         for mod_index in range(len(submods) - 1):
-            if shape_out[mod_index] != shape_in[mod_index + 1]:
+            if (
+                shape_out[mod_index] is not None
+                and shape_in[mod_index + 1] is not None
+                and shape_out[mod_index] != shape_in[mod_index + 1]
+            ):
                 raise ValueError(
                     f"The output of submodule {mod_index} "
                     + f"({type(submods[mod_index]).__name__}) "
@@ -83,7 +89,7 @@ class SequentialMixin(ABC):
                 submod,
             )
 
-        # - Record module and weight lists
+        # - Record module list
         self._submodule_names = submod_names
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
@@ -123,8 +129,28 @@ class SequentialMixin(ABC):
         """
         return self.modules()[self._submodule_names[item]]
 
+    def as_graph(self):
+        mod_graphs = []
+
+        for mod in self:
+            mod_graphs.append(mod.as_graph())
+
+        for source, dest in zip(mod_graphs[:-1], mod_graphs[1:]):
+            rg.connect_modules(source, dest)
+
+        return rg.GraphHolder(
+            mod_graphs[0].input_nodes,
+            mod_graphs[-1].output_nodes,
+            f"{type(self).__name__}_{self.name}_{id(self)}",
+            self,
+        )
+
 
 class ModSequential(SequentialMixin, Module):
+    """
+    The :py:class:`.Sequential` combinator for native modules
+    """
+
     pass
 
 
@@ -133,6 +159,10 @@ try:
     from jax import numpy as jnp
 
     class JaxSequential(SequentialMixin, JaxModule):
+        """
+        The :py:class:`.Sequential` combinator for Jax modules
+        """
+
         @classmethod
         def tree_unflatten(cls, aux_data, children):
             """Unflatten a tree of modules from Jax to Rockpool"""
@@ -152,7 +182,14 @@ try:
 
 except:
 
+    class JaxModule:
+        pass
+
     class JaxSequential:
+        """
+        The :py:class:`.Sequential` combinator for Jax modules
+        """
+
         def __init__(self):
             raise ImportError(
                 "'Jax' and 'Jaxlib' backend not found. Modules relying on Jax will not be available."
@@ -161,14 +198,46 @@ except:
 
 try:
     from rockpool.nn.modules.torch.torch_module import TorchModule
+    import torch
+    from torch.nn import Module as torch_nn_module
 
     class TorchSequential(SequentialMixin, TorchModule):
-        pass
+        """
+        The :py:class:`.Sequential` combinator for torch modules
+        """
+
+        def __init__(
+            self,
+            *args,
+            **kwargs,
+        ):
+            # - Convert torch modules to Rockpool TorchModules
+            for item in args:
+                if isinstance(item, torch_nn_module) and not isinstance(
+                    item, TorchModule
+                ):
+                    TorchModule.from_torch(item, retain_torch_api=True)
+
+            # - Call super-class constructor
+            super().__init__(*args, **kwargs)
+
+        def forward(self, *args, **kwargs):
+            return self.evolve(*args, **kwargs)[0]
 
 
 except:
 
+    class TorchModule:
+        pass
+
+    class torch_nn_module:
+        pass
+
     class TorchSequential:
+        """
+        The :py:class:`.Sequential` combinator for torch modules
+        """
+
         def __init__(self):
             raise ImportError(
                 "'Torch' backend not found. Modules relying on PyTorch will not be available."
@@ -203,7 +272,7 @@ def Sequential(*args, **kwargs) -> ModuleBase:
     for item in args:
         if isinstance(item, JaxModule):
             return JaxSequential(*args, **kwargs)
-        if isinstance(item, TorchModule):
+        if isinstance(item, (TorchModule, torch_nn_module)):
             return TorchSequential(*args, **kwargs)
 
     # - Use ModSequential if no JaxModule or TorchModule is in the submodules
