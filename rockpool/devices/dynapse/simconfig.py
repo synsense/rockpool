@@ -292,6 +292,80 @@ class DPIParameters:
 
 
 @dataclass
+class WeightParameters:
+    """
+    WeightParameters encapsulates weight currents of the configurable synapses between neurons. It provides a general way of handling SE1 and SE2 base weight currents.
+
+    :param Iw_0: the first base weight current corresponding to the 0th bit of the bit-mask, in Amperes. In DynapSE1, it's GABA_B base weigth.
+    :type Iw_0: float
+    :param Iw_1: the second base weight current corresponding to the 1st bit of the bit-mask, in Amperes. In DynapSE1, it's GABA_A base weigth.
+    :type Iw_1: float
+    :param Iw_2: the third base weight current corresponding to the 2nd bit of the bit-mask, in Amperes. In DynapSE1, it's NMDA base weigth.
+    :type Iw_2: float
+    :param Iw_3: the fourth base weight current corresponding to the 3rd bit of the bit-mask, in Amperes. In DynapSE1, it's AMPA base weigth.
+    :type Iw_3: float
+    :param layout: constant values that are related to the exact silicon layout of a chip, defaults to None
+    :type layout: Optional[DynapSE1Layout], optional
+    """
+    Iw_0: float = 1e-6  # GABA_B
+    Iw_1: float = 2e-6  # GABA_A
+    Iw_2: float = 4e-6  # NMDA
+    Iw_3: float = 8e-6  # AMPA
+    layout: Optional[DynapSE1Layout] = None
+
+    def __post_init__(self) -> None:
+        """
+        __post_init__ runs after __init__ and initializes the WeightParameters block, checks if given values are in legal bounds.
+        """
+
+        if self.layout is None:
+            self.layout = DynapSE1Layout()
+
+    @classmethod
+    def from_parameter_group(
+        cls,
+        parameter_group: Dynapse1ParameterGroup,
+        layout: DynapSE1Layout,
+        *args,
+        **kwargs,
+    ) -> WeightParameters:
+        """
+        from_parameter_group is a factory method to construct a `WeightParameters` object using a `Dynapse1ParameterGroup` object 
+        
+        :param parameter_group: samna config object for setting the parameter group within one core
+        :type parameter_group: Dynapse1ParameterGroup
+        :param layout: constant values that are related to the exact silicon layout of a chip
+        :type layout: DynapSE1Layout
+        :return: a `WeightParameters` object, whose parameters obtained from the hardware configuration
+        :rtype: WeightParameters
+        """    
+
+        bias = lambda name: DynapSE1BiasGen.param_to_bias(
+            parameter_group.get_parameter_by_name(name), Io=layout.Io
+        )
+
+        mod = cls(
+            Iw_0=bias("PS_WEIGHT_INH_S_N"),  # GABA_B
+            Iw_1=bias("PS_WEIGHT_INH_F_N"),  # GABA_A
+            Iw_2=bias("PS_WEIGHT_EXC_S_N"),  # NMDA
+            Iw_3=bias("PS_WEIGHT_EXC_F_N"),  # AMPA
+            layout=layout,
+            *args,
+            **kwargs,
+        )
+        return mod
+
+    def get_vector(self) -> np.ndarray:
+        """
+        get_vector gather the base weight currents together and creates a base weight vector
+
+        :return: a base weight vector each index representing the same index bit. i.e. Iw[0] = Iw_0, Iw[1] = Iw_1 etc.
+        :rtype: np.ndarray
+        """        
+        weights = np.array([self.Iw_0, self.Iw_1, self.Iw_2, self.Iw_3])
+        return weights
+
+@dataclass
 class SynapseParameters(DPIParameters):
     """
     SynapseParameters contains DPI specific parameter and state variables
