@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_pipeline():
     import numpy as np
     import torch
@@ -49,15 +52,11 @@ def test_pipeline():
         device=device,
     )
 
-    w_1_torch = torch.nn.init.normal_(mod.submods[0].weight, mean=0.0, std=5.0)
-    w_w0_1_torch = torch.nn.init.normal_(
-        mod.submods[2].submods[0].weight, mean=0.0, std=5.0
-    )
-    w_w1_1_torch = torch.nn.init.normal_(
-        mod.submods[3].submods[0].weight, mean=0.0, std=5.0
-    )
-    w_hid_torch = torch.nn.init.normal_(mod.submods[4].weight, mean=0.0, std=5.0)
-    w_out_torch = torch.nn.init.normal_(mod.submods[6].weight, mean=0.0, std=5.0)
+    w_1_torch = torch.nn.init.normal_(mod.lin1.weight, mean=0.0, std=5.0)
+    w_w0_1_torch = torch.nn.init.normal_(mod.wave0.lin1.weight, mean=0.0, std=5.0)
+    w_w1_1_torch = torch.nn.init.normal_(mod.wave1.lin1.weight, mean=0.0, std=5.0)
+    w_hid_torch = torch.nn.init.normal_(mod.hidden.weight, mean=0.0, std=5.0)
+    w_out_torch = torch.nn.init.normal_(mod.readout.weight, mean=0.0, std=5.0)
 
     float_graph = mod.as_graph()
     float_specs = mapper(
@@ -304,11 +303,11 @@ def test_rec_rockpool():
 
             self._record_dict = {}
 
-            self.submods = []
-            self.submods.append(self.lin_res)
-            self.submods.append(self.spk_res)
-            self.submods.append(self.lin_out)
-            self.submods.append(self.spk_out)
+            # self.submods = []
+            # self.submods.append(self.lin_res)
+            # self.submods.append(self.spk_res)
+            # self.submods.append(self.lin_out)
+            # self.submods.append(self.spk_out)
 
         def forward(self, inp):
             #         (n_batches, t_sim, n_neurons) = inp.shape
@@ -328,7 +327,7 @@ def test_rec_rockpool():
         def as_graph(self):
             mod_graphs = []
 
-            for mod in self.submods:
+            for mod in self.modules():
                 mod_graphs.append(mod.as_graph())
 
             connect_modules(mod_graphs[0], mod_graphs[1])

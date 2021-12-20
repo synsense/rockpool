@@ -131,7 +131,7 @@ def test_bag_graph():
     # - Make a linear graph
     connect_modules(gm1, gm2)
     connect_modules(gm2, gm3)
-    g = GraphHolder(gm1.input_nodes, gm3.output_nodes, "graph")
+    g = GraphHolder(gm1.input_nodes, gm3.output_nodes, "graph", None)
 
     # - test bagging
     nodes, mods = bag_graph(g)
@@ -157,14 +157,14 @@ def test_find_modules_of_subclass():
     )
     import numpy as np
 
-    gm1 = GraphModule._factory(2, 3, "mod1")
-    lw = LinearWeights._factory(3, 4, "linear", np.empty((3, 4)))
-    gm2 = GraphModule._factory(4, 5, "mod2")
+    gm1 = GraphModule._factory(2, 3, "mod1", None)
+    lw = LinearWeights._factory(3, 4, "linear", None, np.empty((3, 4)))
+    gm2 = GraphModule._factory(4, 5, "mod2", None)
 
     connect_modules(gm1, lw)
     connect_modules(lw, gm2)
 
-    g = GraphHolder(gm1.input_nodes, gm2.output_nodes, "graph")
+    g = GraphHolder(gm1.input_nodes, gm2.output_nodes, "graph", None)
 
     # - Search for linear weights
     mods = find_modules_of_subclass(g, LinearWeights)
@@ -194,7 +194,7 @@ def test_replace_module():
     connect_modules(gm1, gm2)
     connect_modules(gm2, gm3)
 
-    g = GraphHolder(gm1.input_nodes, gm3.output_nodes, "graph")
+    g = GraphHolder(gm1.input_nodes, gm3.output_nodes, "graph", None)
 
     replace_module(gm2, gm2_1)
 
@@ -218,14 +218,17 @@ def test_find_recurrent_modules():
     gm1 = GraphModule._factory(2, 3, "mod1")
     gm2_1 = GraphModule._factory(3, 3, "mod2_1")
     gm2_2 = GraphModule(
-        input_nodes=gm2_1.output_nodes, output_nodes=gm2_1.input_nodes, name="mod2_2"
+        input_nodes=gm2_1.output_nodes,
+        output_nodes=gm2_1.input_nodes,
+        name="mod2_2",
+        computational_module=None,
     )
     gm3 = GraphModule._factory(3, 4, "mod3")
 
     connect_modules(gm1, gm2_1)
     connect_modules(gm2_1, gm3)
 
-    g = GraphHolder(gm1.input_nodes, gm3.output_nodes, "graph")
+    g = GraphHolder(gm1.input_nodes, gm3.output_nodes, "graph", None)
 
     # - Search for the recurrent modules
     rec_mods = find_recurrent_modules(g)

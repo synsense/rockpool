@@ -56,7 +56,7 @@ def test_GraphNode():
     from rockpool.graph import GraphNode, GraphModuleBase
 
     gn = GraphNode()
-    gmb = GraphModuleBase([], [], "test")
+    gmb = GraphModuleBase([], [], "test", None)
 
     gn.add_source(gmb)
     gn.add_sink(gmb)
@@ -81,6 +81,7 @@ def test_GraphHolder():
         [GraphNode() for _ in range(2)],
         [GraphNode() for _ in range(3)],
         "test",
+        None,
     )
 
 

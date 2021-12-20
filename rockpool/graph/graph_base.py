@@ -5,8 +5,6 @@ import copy
 from dataclasses import dataclass, field
 from typing import List, Any, TypeVar, Iterable, Hashable, Optional
 
-import rockpool.nn.modules
-
 ArrayLike = Any
 Module = Any
 

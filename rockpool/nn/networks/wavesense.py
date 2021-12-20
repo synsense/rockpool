@@ -10,7 +10,7 @@ from rockpool.graph import AliasConnection, GraphHolder, connect_modules
 
 import torch
 
-from typing import List
+from typing import List, Union, Callable
 
 __all__ = ["WaveBlock", "WaveSenseNet"]
 
@@ -63,7 +63,7 @@ class WaveSenseBlock(TorchModule):
         tau_mem: float = 10e-3,
         base_tau_syn: float = 10e-3,
         threshold: float = 0.0,
-        neuron_model = LIFTorch,
+        neuron_model=LIFTorch,
         dt: float = 1e-3,
         device: str = "cuda",
         *args,
@@ -107,9 +107,7 @@ class WaveSenseBlock(TorchModule):
 
         # - Dilation layers
         tau_syn = torch.arange(0, dilation * kernel_size, dilation) * base_tau_syn
-        tau_syn = (
-            torch.clamp(tau_syn, base_tau_syn, tau_syn.max()).repeat(Nchannels, 1)
-        )
+        tau_syn = torch.clamp(tau_syn, base_tau_syn, tau_syn.max()).repeat(Nchannels, 1)
 
         self.lin1 = LinearTorch(
             shape=(Nchannels, Nchannels * kernel_size), has_bias=False, device=device
@@ -492,32 +490,32 @@ class WaveSenseNet(TorchModule):
             )
 
             AliasConnection(
-                mod_graphs[f"wave{i}"].output_nodes[self.n_channels_res:],
-                mod_graphs[f"wave{i+1}"].output_nodes[self.n_channels_res:],
+                mod_graphs[f"wave{i}"].output_nodes[self.n_channels_res :],
+                mod_graphs[f"wave{i+1}"].output_nodes[self.n_channels_res :],
                 name="skip_add",
                 computational_module=None,
             )
         if self._num_dilations == 1:
             connect_modules(
-                mod_graphs[f'wave{0}'],
-                mod_graphs['hidden'],
+                mod_graphs[f"wave{0}"],
+                mod_graphs["hidden"],
                 range(self.n_channels_res, self.n_channels_res + self.n_channels_skip),
                 None,
             )
         else:
             connect_modules(
-                mod_graphs[f'wave{i+1}'],
-                mod_graphs['hidden'],
+                mod_graphs[f"wave{i+1}"],
+                mod_graphs["hidden"],
                 range(self.n_channels_res, self.n_channels_res + self.n_channels_skip),
                 None,
             )
-        connect_modules(mod_graphs['hidden'], mod_graphs['spk2'])
-        connect_modules(mod_graphs['spk2'], mod_graphs['readout'])
-        connect_modules(mod_graphs['readout'], mod_graphs['spk_out'])
+        connect_modules(mod_graphs["hidden"], mod_graphs["spk2"])
+        connect_modules(mod_graphs["spk2"], mod_graphs["readout"])
+        connect_modules(mod_graphs["readout"], mod_graphs["spk_out"])
 
         return GraphHolder(
-            mod_graphs['lin1'].input_nodes,
-            mod_graphs['spk_out'].output_nodes,
+            mod_graphs["lin1"].input_nodes,
+            mod_graphs["spk_out"].output_nodes,
             f"{type(self).__name__}_{self.name}_{id(self)}",
             self,
         )
