@@ -3,6 +3,7 @@ import pytest
 
 def test_ExpSynTorch():
     from rockpool.nn.modules.torch.exp_syn_torch import ExpSynTorch
+    from rockpool.parameters import Constant
     import torch
 
     n_synapses = 10
@@ -14,21 +15,10 @@ def test_ExpSynTorch():
     mod = ExpSynTorch(n_synapses)
 
     # - Test maximal initialisation
-    mod = ExpSynTorch(
-        shape=(n_synapses,),
-        tau_syn=tau_syn,
-        dt=1e-3,
-        device=None,
-        dtype=None,
-    )
+    mod = ExpSynTorch(shape=(n_synapses,), tau_syn=tau_syn, dt=1e-3)
 
     # - Generate some data
     input_data = torch.rand(n_batches, T, n_synapses, requires_grad=True)
-
-    # - Test torch interface
-    out = mod.forward(input_data)
-
-    out.sum().backward()
 
     # - Test Rockpool interface
     out, ns, rd = mod(input_data)
@@ -40,3 +30,23 @@ def test_ExpSynTorch():
 
     for _, obj in rd.items():
         assert obj.shape == input_data.shape
+
+    # - Test torch interface
+    mod = mod.to_torch()
+    out = mod(input_data)
+    out.sum().backward()
+
+    # - Test scalar tau_syn
+    tau_syn = 20e-3
+    mod = ExpSynTorch(n_synapses, tau_syn=tau_syn, dt=1e-3)
+
+    # - Test torch interface
+    mod = mod.to_torch()
+    out = mod(input_data)
+    out.sum().backward()
+
+    # - Test constant tau_syn
+    mod = ExpSynTorch(n_synapses, tau_syn=Constant(tau_syn), dt=1e-3)
+    mod = mod.to_torch()
+    out = mod(input_data)
+    out.sum().backward()

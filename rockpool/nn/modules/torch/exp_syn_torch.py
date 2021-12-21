@@ -9,7 +9,7 @@ if util.find_spec("torch") is None:
         "'Torch' backend not found. Modules that rely on Torch will not be available."
     )
 
-from typing import Optional, Tuple, Any
+from typing import Optional, Tuple, Any, Union
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
 import torch
@@ -37,11 +37,9 @@ class ExpSynTorch(TorchModule):
 
     def __init__(
         self,
-        shape: tuple = None,
+        shape: Union[tuple, int] = None,
         tau_syn: rt.FloatVector = 50e-3,
         dt: float = 1e-3,
-        device: str = None,
-        dtype=None,
         *args,
         **kwargs,
     ):
@@ -50,41 +48,30 @@ class ExpSynTorch(TorchModule):
 
         Args:
             shape (tuple): Number of synapses that will be created. Example: shape = (5,).
-            tau_syn (Optional[np.ndarray]): An optional array with concrete initialisation data for the synaptic time constants, in seconds. If not provided, 50ms will be used by default.
+            tau_syn (Optional[np.ndarray]): An optional array with concrete initialisation data for the synaptic time constants, in seconds. If not provided, a common trainable time-constant of 50ms will be used by default.
             dt (float): The time step for the forward-Euler ODE solver, in seconds. Default: 1ms
             noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: ``0.0``
             device (str): Defines the device on which the model will be processed. Default: ``None``, use the system default.
             dtype: Defines the torch data type of the tensors to use in this module. Default: ``None``.
         """
-        # Initialize class variables
-        factory_kwargs = {"device": device, "dtype": dtype}
+        # Initialize super class
         super().__init__(
-            shape=shape,
-            spiking_input=True,
-            spiking_output=False,
-            *args,
-            **kwargs,
+            shape=shape, spiking_input=True, spiking_output=False, *args, **kwargs,
         )
 
-        # - Permit a scalar tau_syn initialisation
-        if np.size(tau_syn) == 1:
-            tau_syn = torch.ones(self.size_out, **factory_kwargs) * tau_syn
-
-        self.tau_syn: rt.P_tensor = rp.SimulationParameter(
-            tau_syn, shape=(self.size_out,), family="taus"
+        # - Initialise tau_syn
+        self.tau_syn: rt.P_tensor = rp.Parameter(
+            tau_syn, shape=[(), (self.size_out,)], family="taus", cast_fn=torch.tensor
         )
-        """ (torch.Tensor) Time constants of each synapse in seconds ``(N,)`` """
+        """ (torch.Tensor) Time constants of each synapse in seconds ``() or (N,)`` """
 
+        # - Initialise state
         self.isyn: rt.P_tensor = rp.State(
-            shape=(
-                1,
-                self.size_out,
-            ),
-            init_func=lambda s: torch.zeros(*s, **factory_kwargs),
+            shape=(1, self.size_out,), init_func=lambda s: torch.zeros(*s),
         )
-        self.isyn = self.isyn.to(device)
         """ (torch.tensor) Synaptic current state for each synapse ``(1, N)`` """
 
+        # - Store dt
         self.dt: rt.P_float = rp.SimulationParameter(dt)
         """ (float) Simulation time-step in seconds """
 
@@ -96,12 +83,7 @@ class ExpSynTorch(TorchModule):
         output_data, states, _ = super().evolve(input_data, record)
 
         # - Build a record dictionary
-        if record:
-            record_dict = {
-                "Isyn": self._isyn_rec,
-            }
-        else:
-            record_dict = {}
+        record_dict = {"isyn": self._isyn_rec} if record else {}
 
         # - Return the result of evolution
         return output_data, states, record_dict
@@ -137,6 +119,7 @@ class ExpSynTorch(TorchModule):
         # - Build a tensor to compute and return internal state
         self._isyn_rec = torch.zeros(data.shape, device=data.device).type(torch.double)
 
+        # - Compute decay factor
         beta = torch.exp(-self.dt / self.tau_syn)
 
         # - Loop over time
