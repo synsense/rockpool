@@ -35,8 +35,7 @@ except ModuleNotFoundError as e:
     Dynapse1ParameterGroup = Any
 
     print(
-        e,
-        "\nDynapSE1SimCore object cannot be factored from a samna config object!",
+        e, "\nDynapSE1SimCore object cannot be factored from a samna config object!",
     )
     _SAMNA_AVAILABLE = False
 
@@ -964,36 +963,26 @@ class DynapSE1SimCore:
 
         # Slow inhibitory
         gaba_b = GABABParameters.from_parameter_group(
-            parameter_group,
-            layout,
-            C=capacitance.gaba_b,
+            parameter_group, layout, C=capacitance.gaba_b,
         )
 
         # Fast inhibitory (shunt)
         gaba_a = GABAAParameters.from_parameter_group(
-            parameter_group,
-            layout,
-            C=capacitance.gaba_a,
+            parameter_group, layout, C=capacitance.gaba_a,
         )
 
         # Slow Excitatory
         nmda = NMDAParameters.from_parameter_group(
-            parameter_group,
-            layout,
-            C=capacitance.nmda,
+            parameter_group, layout, C=capacitance.nmda,
         )
 
         # Fast Excitatory
         ampa = AMPAParameters.from_parameter_group(
-            parameter_group,
-            layout,
-            C=capacitance.ampa,
+            parameter_group, layout, C=capacitance.ampa,
         )
 
         ahp = AHPParameters.from_parameter_group(
-            parameter_group,
-            layout,
-            C=capacitance.ahp,
+            parameter_group, layout, C=capacitance.ahp,
         )
 
         weights = WeightParameters.from_parameter_group(parameter_group, layout)
@@ -1019,7 +1008,7 @@ class DynapSE1SimCore:
 
     def _get_syn_vector(self, target: str) -> np.ndarray:
         """
-        _get_syn_vector lists the parameters traversing the different object instances of the same class
+        _get_syn_vector lists the synaptic parameters traversing the different object instances of the same class
 
         :param target: target parameter to be extracted and listed in the order of object list
         :type target: str
@@ -1027,7 +1016,7 @@ class DynapSE1SimCore:
         :rtype: np.ndarray
         """
 
-        object_list = [self.gaba_b, self.gaba_a, self.nmda, self.ampa, self.ahp]
+        object_list = [self.gaba_b, self.gaba_a, self.nmda, self.ampa]
 
         param_list = [
             obj.__getattribute__(target) if obj is not None else None
@@ -1047,6 +1036,17 @@ class DynapSE1SimCore:
         """
         return np.full(self.size, self.mem.__getattribute__(attr), dtype=np.float32)
 
+    def ahp_property(self, attr: str) -> np.ndarray:
+        """
+        ahp_property fetches an attribute from the spike frequency adaptation subcircuit and create a property array covering all the neurons allocated
+
+        :param attr: the target attribute
+        :type attr: str
+        :return: 1D an array full of the value of the target attribute (`size`,)
+        :rtype: np.ndarray
+        """
+        return np.full(self.size, self.ahp.__getattribute__(attr), dtype=np.float32)
+
     def layout_property(self, attr: str) -> np.ndarray:
         """
         layout_property fetches an attribute from the circuit layout and create a property array covering all the neurons allocated
@@ -1060,14 +1060,14 @@ class DynapSE1SimCore:
 
     def syn_property(self, attr: str) -> np.ndarray:
         """
-        syn_property fetches a attributes from the synaptic gate subcircuits in [GABA_B, GABA_A, NMDA, AMPA, AHP] order and create a property array covering all the neurons allocated
+        syn_property fetches a attributes from the synaptic gate subcircuits in [GABA_B, GABA_A, NMDA, AMPA] order and create a property array covering all the neurons allocated
 
         :param attr: the target attribute
         :type attr: str
-        :return: 2D an array full of the values of the target attributes of all 5 synapses (`size`, 5)
+        :return: 2D an array full of the values of the target attributes of all 4 synapses (`size`, 4)
         :rtype: np.ndarray
         """
-        return np.full((self.size, 5), self._get_syn_vector(attr), dtype=np.float32).T
+        return np.full((self.size, 4), self._get_syn_vector(attr), dtype=np.float32).T
 
     ## -- Property Utils End -- ##
 
@@ -1102,33 +1102,51 @@ class DynapSE1SimCore:
     @property
     def Isyn(self) -> np.ndarray:
         """
-        Isyn is a 2D array of synapse currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
+        Isyn is a 2D array of synapse currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,Nrec)
         """
         return self.syn_property("Isyn")
 
     @property
     def Itau_syn(self) -> np.ndarray:
         """
-        Itau_syn is a 2D array of synapse leakage currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
+        Itau_syn is a 2D array of synapse leakage currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,Nrec)
         """
         return self.syn_property("Itau")
 
     @property
     def f_gain_syn(self) -> np.ndarray:
         """
-        f_gain_syn is a 2D array of synapse gain parameters of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
+        f_gain_syn is a 2D array of synapse gain parameters of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,Nrec)
         """
         return self.syn_property("f_gain")
 
     @property
+    def Iahp(self) -> np.ndarray:
+        """
+        Iahp is a 1D array of AHP synapse currents of the neurons with shape = (Nrec,)
+        """
+        return self.ahp_property("Isyn")
+
+    @property
+    def Itau_ahp(self) -> np.ndarray:
+        """
+        Itau_syn is a 1D array of AHP synapse leakage currents of the neurons with shape = (Nrec,)
+        """
+        return self.ahp_property("Itau")
+
+    @property
+    def f_gain_ahp(self) -> np.ndarray:
+        """
+        f_gain_syn is a 1D array of AHP synapse gain parameters of the neurons with shape = (Nrec,)
+        """
+        return self.ahp_property("f_gain")
+
+    @property
     def Iw(self) -> np.ndarray:
         """
-        Iw is 2D array of base weight currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape = (5,Nrec)
+        Iw is 2D array of base weight currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,Nrec)
         """
-        Iw_ahp = self.ahp.__getattribute__("Iw")
-        return np.full(
-            (self.size, 5), np.hstack((self.Iw_base, Iw_ahp)), dtype=np.float32
-        ).T
+        return np.full((self.size, 4), self.Iw_base, dtype=np.float32).T
 
     @property
     def Iw_base(self) -> np.ndarray:
@@ -1142,8 +1160,7 @@ class DynapSE1SimCore:
         """
         Iw_ahp is 1D array of spike frequency adaptation currents of the neurons in Amperes with shape (Nrec,)
         """
-        return np.full(self.size, self.ahp.__getattribute__("Iw"), dtype=np.float32)
-
+        return self.ahp_property("Iw")
 
     @property
     def kappa(self) -> np.ndarray:
@@ -1176,9 +1193,16 @@ class DynapSE1SimCore:
     @property
     def f_tau_syn(self) -> np.ndarray:
         """
-        f_tau_syn is a 2D array of tau factors in the following order: [GABA_B, GABA_A, NMDA, AMPA, AHP] with shape (5, Nrec)
+        f_tau_syn is a 2D array of tau factors in the following order: [GABA_B, GABA_A, NMDA, AMPA] with shape (4, Nrec)
         """
         return self.syn_property("f_tau")
+
+    @property
+    def f_tau_ahp(self) -> np.ndarray:
+        """
+        f_tau_ahp is is an array of tau factors for spike frequency adaptation circuit with shape (Nrec,)
+        """
+        return self.ahp_property("f_tau")
 
     @property
     def f_t_ref(self) -> np.ndarray:
@@ -1320,6 +1344,9 @@ class DynapSE1SimBoard:
             "Isyn",
             "Itau_syn",
             "f_gain_syn",
+            "Iahp",
+            "Itau_ahp",
+            "f_gain_ahp",
             "Iw",
             "Iw_ahp",
             "kappa",
@@ -1327,6 +1354,7 @@ class DynapSE1SimBoard:
             "Io",
             "f_tau_mem",
             "f_tau_syn",
+            "f_tau_ahp",
             "f_t_ref",
             "f_t_pulse",
             "t_pulse",
@@ -1353,7 +1381,6 @@ class DynapSE1SimBoard:
         for core in self.cores:
             Iw_base[core.core_key] = core.Iw_base
         return Iw_base
-
 
     def __len__(self):
         size = 0
@@ -1483,8 +1510,7 @@ class DynapSE1SimBoard:
         """
         # Find unique chip-core ID pairs
         chip_core = onp.unique(
-            list(map(lambda nid: nid[0:2], idx_map.values())),
-            axis=0,
+            list(map(lambda nid: nid[0:2], idx_map.values())), axis=0,
         )
         core_index = list(map(lambda t: tuple(t), chip_core))
 
@@ -1597,10 +1623,7 @@ class DynapSE1SimBoard:
         return mod
 
     @classmethod
-    def from_idx_map(
-        cls,
-        idx_map: Dict[int, NeuronKey],
-    ) -> DynapSE1SimBoard:
+    def from_idx_map(cls, idx_map: Dict[int, NeuronKey],) -> DynapSE1SimBoard:
         """
         from_idx_map is a class factory method for DynapSE1SimBoard object such that the default parameters
         are used but the neurons ids and the shape is obtained from the idx_map.
