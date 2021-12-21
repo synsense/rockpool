@@ -567,7 +567,6 @@ class DynapSEAdExpLIFJax(JaxModule):
         # Spike frequency adaptation
         Itau_ahp_clip = np.clip(self.Itau_ahp, self.Io)
         Ith_ahp_clip = self.f_gain_ahp * Itau_ahp_clip
-        Iahp_inf = (self.f_gain_ahp * self.Iw_ahp) - Ith_ahp_clip
 
         # --- Implicit parameters  --- #
         ## -- Membrane -- ## Nrec
@@ -646,21 +645,24 @@ class DynapSEAdExpLIFJax(JaxModule):
             Isyn += f_charge * Isyn_inf
             Isyn = np.clip(Isyn, self.Io)  # 4xNrec
 
-            # --- Forward step: Spike Frequency Adaptation --- #
+            # --- Forward step: AHP : Spike Frequency Adaptation --- #
+            Iws_ahp = self.Iw_ahp * spikes  # 0 if no spike, Iw_ahp if spike
+            Iahp_inf = (self.f_gain_ahp * Iws_ahp) - Ith_ahp_clip
 
             tau_ahp_prime = (self.f_tau_ahp / Itau_ahp_clip) * (
                 1 + (Ith_ahp_clip / Iahp)
             )
 
-            t_pw_out = self.t_pulse_ahp * spikes  # 1xNrec [AHP]
-
-            f_charge_ahp = 1 - np.exp(-t_pw_out / tau_ahp_prime)  # Nrec
+            # Calculate charge and discharge factors
+            f_charge_ahp = 1 - np.exp(-self.t_pulse_ahp / tau_ahp_prime)  # Nrec
             f_discharge_ahp = np.exp(-self.dt / tau_ahp_prime)  # Nrec
 
+            ## DISCHARGE in any case
             Iahp = f_discharge_ahp * Iahp
 
+            ## CHARGE if spike occurs -- UNDERSAMPLED -- dt >> t_pulse
             Iahp += f_charge_ahp * Iahp_inf
-            Iahp = np.clip(Iahp, self.Io)  # 4xNrec
+            Iahp = np.clip(Iahp, self.Io)  # Nrec
 
             # --- Forward step: MEMBRANE --- #
 
