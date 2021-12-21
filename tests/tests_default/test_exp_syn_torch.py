@@ -15,7 +15,7 @@ def test_ExpSynTorch():
     mod = ExpSynTorch(n_synapses)
 
     # - Test maximal initialisation
-    mod = ExpSynTorch(shape=(n_synapses,), tau_syn=tau_syn, dt=1e-3)
+    mod = ExpSynTorch(shape=(n_synapses,), tau=tau_syn, dt=1e-3)
 
     # - Generate some data
     input_data = torch.rand(n_batches, T, n_synapses, requires_grad=True)
@@ -38,7 +38,7 @@ def test_ExpSynTorch():
 
     # - Test scalar tau_syn
     tau_syn = 20e-3
-    mod = ExpSynTorch(n_synapses, tau_syn=tau_syn, dt=1e-3)
+    mod = ExpSynTorch(n_synapses, tau=tau_syn, dt=1e-3)
 
     # - Test torch interface
     mod = mod.to_torch()
@@ -46,7 +46,7 @@ def test_ExpSynTorch():
     out.sum().backward()
 
     # - Test constant tau_syn
-    mod = ExpSynTorch(n_synapses, tau_syn=Constant(tau_syn), dt=1e-3)
+    mod = ExpSynTorch(n_synapses, tau=Constant(tau_syn), dt=1e-3)
     mod = mod.to_torch()
     out = mod(input_data)
     out.sum().backward()

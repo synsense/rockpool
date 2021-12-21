@@ -43,7 +43,10 @@ class ModuleBase(ABC):
         """
         # - Set flag to specify that we are in the `__init__()` method
         self._in_Module_init = True
-        """(bool) If exists and ``True``, indicates that the module is in the ``__init__`` chain."""
+        """ (bool) If exists and ``True``, indicates that the module is in the ``__init__`` chain."""
+
+        self._force_set_attributes = False
+        """ (bool) If ``True``, do not sanity-check attributes when setting. """
 
         # - Initialise co-classes etc.
         super().__init__(*args, **kwargs)
@@ -145,13 +148,19 @@ class ModuleBase(ABC):
 
         # - Check if this is an already registered attribute
         if name in __registered_attributes:
-            # - Check that shapes are identical
             if hasattr(self, name):
                 (_, _, _, _, shape) = __registered_attributes[name]
-                if np.shape(val) != shape and val is not None:
-                    raise ValueError(
-                        f"The new value assigned to {name} must be of shape {shape} (got {np.shape(val)})."
-                    )
+
+                if val is not None:
+                    # - Should we force-set the attribute?
+                    if self._force_set_attributes:
+                        __registered_attributes[name][4] = np.shape(val)
+
+                    elif np.shape(val) != shape:
+                        # - Check that shapes are identical
+                        raise ValueError(
+                            f"The new value assigned to {name} must be of shape {shape} (got {np.shape(val)})."
+                        )
 
             # - Assign the value to the __registered_attributes dictionary
             __registered_attributes[name][0] = val

@@ -17,6 +17,7 @@ from .timed_module import *
 from .native.linear import *
 from .native.instant import *
 from .native.filter_bank import *
+from .native.exp_syn import *
 
 # - Torch modules
 try:
@@ -34,10 +35,13 @@ except (ImportError, ModuleNotFoundError) as err:
 # - Jax modules
 try:
     from .jax.jax_module import *
+    from .jax.exp_syn_jax import *
     from .jax.lif_jax import *
     from .jax.rate_jax import *
-    from .jax.exp_smooth_jax import *
     from .jax.softmax_jax import *
+
+    # from .jax.exp_smooth_jax import *
+
 except (ImportError, ModuleNotFoundError) as err:
     warnings.warn(f"Jax modules not available: {err}")
 

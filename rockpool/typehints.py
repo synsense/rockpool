@@ -16,6 +16,7 @@ __all__ = [
     "P_tree",
     "P_tensor",
     "P_ndarray",
+    "P_Callable",
     "Tree",
     "Leaf",
     "Value",
@@ -46,6 +47,8 @@ except:
     Tensor = Any
 
 P_tensor = Union[Tensor, ParameterBase]
+
+P_Callable = Union[Callable, ParameterBase]
 
 FloatVector = Union[float, np.ndarray, Tensor]
 IntVector = Union[int, np.ndarray, Tensor]

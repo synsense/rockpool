@@ -4,12 +4,16 @@ Spiking softmax modules, with Jax backends.
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.nn.modules.native.linear import LinearJax
-from rockpool.nn.modules.jax.exp_smooth_jax import ExpSmoothJax
+from rockpool.nn.modules.jax.exp_syn_jax import ExpSynJax
 from rockpool.training.jax_loss import softmax, logsoftmax
 
 import jax.numpy as np
+from jax.tree_util import Partial
+
+from rockpool.parameters import SimulationParameter
 
 from typing import Tuple, Any, Optional, Callable
+from rockpool.typehints import P_Callable
 
 __all__ = ["SoftmaxJax", "LogSoftmaxJax"]
 
@@ -60,9 +64,10 @@ class WeightedSmoothBase(JaxModule):
         self.linear = LinearJax(
             shape=shape, weight=weight, bias=bias, has_bias=has_bias
         )
-        self.smooth = ExpSmoothJax(
-            shape=(shape[-1],), tau=tau, dt=dt, activation_fun=activation_fun
-        )
+        self.smooth = ExpSynJax(shape=(shape[-1],), tau=tau, dt=dt,)
+
+        self.activation_fn: P_Callable = SimulationParameter(Partial(activation_fun))
+        """ (Callable) Activation function """
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
         # - Initialise return dictionaries
@@ -74,7 +79,7 @@ class WeightedSmoothBase(JaxModule):
         x, new_state["smooth"], record_dict["smooth"] = self.smooth(x, record)
 
         # - Return data
-        return x, new_state, record_dict
+        return self.activation_fn(x), new_state, record_dict
 
 
 class SoftmaxJax(WeightedSmoothBase):
