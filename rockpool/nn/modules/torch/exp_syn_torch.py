@@ -56,7 +56,11 @@ class ExpSynTorch(TorchModule):
         """
         # Initialize super class
         super().__init__(
-            shape=shape, spiking_input=True, spiking_output=False, *args, **kwargs,
+            shape=shape,
+            spiking_input=True,
+            spiking_output=False,
+            *args,
+            **kwargs,
         )
 
         # - Initialise tau
@@ -67,7 +71,11 @@ class ExpSynTorch(TorchModule):
 
         # - Initialise state
         self.isyn: rt.P_tensor = rp.State(
-            shape=(1, self.size_out,), init_func=lambda s: torch.zeros(*s),
+            shape=(
+                1,
+                self.size_out,
+            ),
+            init_func=lambda s: torch.zeros(*s),
         )
         """ (torch.tensor) Synaptic current state for each synapse ``(1, N)`` """
 

@@ -52,7 +52,10 @@ class JaxModule(Module, ABC):
     """The internal registry of registered `JaxModule` s"""
 
     def __init__(
-        self, shape: Optional[Union[int, Tuple]] = None, *args, **kwargs,
+        self,
+        shape: Optional[Union[int, Tuple]] = None,
+        *args,
+        **kwargs,
     ):
         """
 

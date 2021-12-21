@@ -63,12 +63,16 @@ class ExpSynJax(JaxModule):
         """ (np.ndarray) Time constant of each synapse """
 
         self.Isyn: Union[np.array, State] = State(
-            shape=self.size_out, init_func=np.zeros,
+            shape=self.size_out,
+            init_func=np.zeros,
         )
         """ (np.ndarray) Synaptic current state """
 
     def evolve(
-        self, input_data: np.array, *args, **kwargs,
+        self,
+        input_data: np.array,
+        *args,
+        **kwargs,
     ) -> (np.ndarray, dict, dict):
         # - Pre-compute synapse decay beta
         beta = np.exp(-self.dt / self.tau)
