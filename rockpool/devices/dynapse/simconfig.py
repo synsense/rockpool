@@ -1067,7 +1067,7 @@ class DynapSE1SimCore:
         :return: 2D an array full of the values of the target attributes of all 4 synapses (`size`, 4)
         :rtype: np.ndarray
         """
-        return np.full((self.size, 4), self._get_syn_vector(attr), dtype=np.float32).T
+        return np.full((self.size, 4), self._get_syn_vector(attr), dtype=np.float32)
 
     ## -- Property Utils End -- ##
 
@@ -1146,7 +1146,7 @@ class DynapSE1SimCore:
         """
         Iw is 2D array of base weight currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,Nrec)
         """
-        return np.full((self.size, 4), self.Iw_base, dtype=np.float32).T
+        return np.full((self.size, 4), self.Iw_base, dtype=np.float32)
 
     @property
     def Iw_base(self) -> np.ndarray:
@@ -1369,6 +1369,18 @@ class DynapSE1SimBoard:
         for attr in attr_list:
             self.__setattr__(attr, self.merge_core_properties(attr))
 
+    def __len__(self) -> int:
+        """
+        __len__ the size of the simulator board
+
+        :return: number of active neruons allocated
+        :rtype: int
+        """
+        size = 0
+        for core in self.cores:
+            size += len(core)
+        return size
+
     @property
     def Iw_base(self) -> Dict[Tuple[np.uint8, np.uint8], float]:
         """
@@ -1382,11 +1394,20 @@ class DynapSE1SimBoard:
             Iw_base[core.core_key] = core.Iw_base
         return Iw_base
 
-    def __len__(self):
-        size = 0
-        for core in self.cores:
-            size += len(core)
-        return size
+    def merge_core_properties(self, attr: str) -> np.ndarray:
+        """
+        merge_core_properties help merging property arrays of the cores given into one array.
+        In this way, the simulator runs in the neruon level and it only knows the location of the
+        neruon by looking at the index map. In this way, the simulator module can compute the evolution of
+        the currents and spikes efficiently.
+
+        :param attr: the target attribute to be merged
+        :type attr: str
+        :return: The parameter or state to be used in the simulation
+        :rtype: np.ndarray
+        """
+        prop = np.concatenate([core.__getattribute__(attr) for core in self.cores])
+        return prop
 
     @staticmethod
     def split_across_cores(
@@ -1422,24 +1443,6 @@ class DynapSE1SimBoard:
 
         split_list = [i for i in it(size)]
         return split_list
-
-    def merge_core_properties(self, attr: str) -> np.ndarray:
-        """
-        merge_core_properties help merging property arrays of the cores given into one array.
-        In this way, the simulator runs in the neruon level and it only knows the location of the
-        neruon by looking at the index map. In this way, the simulator module can compute the evolution of
-        the currents and spikes efficiently.
-
-        :param attr: the target attribute to be merged
-        :type attr: str
-        :return: The parameter or state to be used in the simulation
-        :rtype: np.ndarray
-        """
-
-        prop = np.empty((*self.cores[0].__getattribute__(attr).shape[0:-1], 0))
-        for core in self.cores:
-            prop = np.hstack((prop, core.__getattribute__(attr)))
-        return prop
 
     @staticmethod
     def collect_idx_map_from_cores(
