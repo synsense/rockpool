@@ -42,9 +42,7 @@ except ModuleNotFoundError as e:
 _NETGEN_AVAILABLE = True
 
 try:
-    from netgen import (
-        NetworkGenerator,
-    )
+    from netgen import NetworkGenerator
 except ModuleNotFoundError as e:
     NetworkGenerator = Any
     print(
@@ -121,7 +119,7 @@ class DynapSEFPGA(JaxModule):
         w_in: Optional[FloatVector] = None,
         idx_map: Optional[Dict[int, NeuronKey]] = None,
         spiking_input: bool = True,
-        spiking_output: bool = True,
+        spiking_output: bool = False,
         *args,
         **kwargs,
     ):
@@ -148,7 +146,7 @@ class DynapSEFPGA(JaxModule):
                 f"i.e. ({shape[1]*4},..) means {shape[1]} neurons with 4 synapses\n"
             )
 
-        super().__init__(
+        super(DynapSEFPGA, self).__init__(
             shape=shape,
             spiking_input=spiking_input,
             spiking_output=spiking_output,
@@ -200,10 +198,7 @@ class DynapSEFPGA(JaxModule):
         :rtype: Tuple[np.ndarray, None, None]
         """
 
-        def forward(
-            state: Any,
-            spike_inputs_ts: np.ndarray,
-        ) -> np.ndarray:
+        def forward(state: Any, spike_inputs_ts: np.ndarray,) -> np.ndarray:
             """
             forward implements single time-step delivery of input spikes to device neuron's synaptic gates
 
@@ -231,6 +226,8 @@ class DynapSEFPGA(JaxModule):
     def from_config(
         cls,
         config: Dynapse1Configuration,
+        sim_config: Optional[DynapSE1SimBoard] = None,
+        default_bias: bool = True,
         *args,
         **kwargs,
     ) -> DynapSEFPGA:
@@ -240,13 +237,29 @@ class DynapSEFPGA(JaxModule):
 
         :param config: samna Dynapse1 configuration object used to configure a network on the chip
         :type config: Dynapse1Configuration
+        :param sim_config: Dynap-SE1 bias currents and simulation configuration parameters, it can be provided explicitly, or created using default settings, or can be extracted from the config bias currents. defaults to None
+        :type sim_config: Optional[DynapSE1SimBoard], optional
+        :param default_bias: use default bias values or get the bias parameters from the netgen.config, defaults to True
+        :type default_bias: bool
         :return: `DynapSEFPGA` simulator input layer object
         :rtype: DynapSEFPGA
         """
-        w_in, idx_map = Router.w_in_from_config(config, return_maps=True)
-        in_shape = w_in.shape  # size_in, size_out // 4, 4
-        shape = (in_shape[0], in_shape[1] * in_shape[2])
-        mod = cls(shape, w_in, idx_map, *args, **kwargs)
+        CAM_in, idx_map = Router.CAM_in_from_config(config, return_maps=True)
+
+        # CAM_shape: size_in, size_out // 4, 4
+        CAM_shape = CAM_in.shape  # N_pre, N_post, 4(syn_type)
+        mod_shape = (CAM_shape[0], CAM_shape[1] * CAM_shape[2])
+
+        if sim_config is None:
+            _, idx_map_rec = Router.CAM_rec_from_config(config, return_maps=True)
+            if not default_bias:
+                sim_config = DynapSE1SimBoard.from_config(config, idx_map_rec)
+
+            else:
+                sim_config = DynapSE1SimBoard.from_idx_map(idx_map_rec)
+
+        w_in = sim_config.weight_matrix(CAM_in)
+        mod = cls(mod_shape, w_in, idx_map, *args, **kwargs)
         return mod
 
     @classmethod
