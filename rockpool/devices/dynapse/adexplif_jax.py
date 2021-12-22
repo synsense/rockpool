@@ -393,7 +393,7 @@ class DynapSEAdExpLIFJax(JaxModule):
         w_rec: Optional[FloatVector] = None,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
-        spiking_input: bool = True,
+        spiking_input: bool = False,
         spiking_output: bool = True,
         *args,
         **kwargs,
@@ -562,22 +562,20 @@ class DynapSEAdExpLIFJax(JaxModule):
         ## --- Synapses --- ## 4xNrec
         Itau_syn_clip = np.clip(self.Itau_syn, self.Io)
         Ith_syn_clip = self.f_gain_syn * Itau_syn_clip
-        Isyn_inf = (self.f_gain_syn * self.Iw) - Ith_syn_clip  # [] TODO : Check this
 
-        # Spike frequency adaptation
+        ## --- Spike frequency adaptation --- ## Nrec
         Itau_ahp_clip = np.clip(self.Itau_ahp, self.Io)
         Ith_ahp_clip = self.f_gain_ahp * Itau_ahp_clip
 
-        # --- Implicit parameters  --- #
         ## -- Membrane -- ## Nrec
         Itau_mem_clip = np.clip(self.Itau_mem, self.Io)
         Ith_mem_clip = self.f_gain_mem * Itau_mem_clip
 
-        # (T, Nrecx4) or (T, Nrec, 4)
+        # Both (T, Nrecx4), and (T, Nrec, 4) shape inputs are accepted
         input_data = np.reshape(input_data, (input_data.shape[0], -1, 4))
 
         def forward(
-            state: DynapSE1State, spike_inputs_ts: np.ndarray
+            state: DynapSE1State, Iw_input: np.ndarray
         ) -> Tuple[DynapSE1State, Tuple[JP_ndarray, JP_ndarray, JP_ndarray]]:
             """
             forward implements single time-step neuron and synapse dynamics
@@ -590,8 +588,8 @@ class DynapSEAdExpLIFJax(JaxModule):
                 timer_ref: Refractory timer of each neruon [Nrec]
                 key: The Jax RNG seed to be used for mismatch simulation
             :type state: DynapSE1State
-            :param spike_inputs_ts: incoming spike raster to be used as an axis [Nrec, 4]
-            :type spike_inputs_ts: np.ndarray
+            :param Iw_input: external weighted current matrix generated via input spikes [Nrec, 4]
+            :type Iw_input: np.ndarray
             :return: state, (spikes, Isyn, Iahp, Imem, Vmem)
                 state: Updated state at end of the forward steps
                 spikes: Logical spiking raster for each neuron over time [Nrec]
@@ -614,29 +612,22 @@ class DynapSEAdExpLIFJax(JaxModule):
             timer_ref = (1 - spikes) * timer_ref + spikes * self.t_ref
 
             # --- Forward step: DPI SYNAPSES --- #
+            ## Real time weight is 0 if no spike, w_rec if spike event occurs
+            Iws_internal = np.dot(self.w_rec.T, spikes)
+            Iws = np.add(Iws_internal, Iw_input.T)
+
+            # Isyn_inf is the current that a synapse current would reach with a sufficiently long pulse
+            Isyn_inf = (self.f_gain_syn * Iws) - Ith_syn_clip  # [] TODO : Check this
+            Isyn_inf = np.clip(Isyn_inf, 0)
+
+            # synaptic time constant is practically much more longer than expected when Isyn << Ith
             tau_syn_prime = (self.f_tau_syn / Itau_syn_clip) * (
                 1 + (Ith_syn_clip / Isyn)
             )
 
-            # --- Pulse Extension  --- #
-            ## spike input for 4 synapses: GABA_B, GABA_A, NMDA, AMPA; spike output for 1 synapse: AHP
-            ## spike_inputs_ts.shape = Nrecx4
-            ## w_rec.shape = NrecxNrecx4 [pre,post,syn]
-
-            spikes_internal = np.dot((self.w_rec.T > self.Io), spikes)
-            spike_inputs = np.add(spike_inputs_ts.T, spikes_internal)
-
-            ## Calculate the effective pulse width with a linear increase
-            t_pw_in = self.t_pulse * spike_inputs  # 4xNrec [GABA_B, GABA_A, NMDA, AMPA]
-            # t_pw = np.vstack((t_pw_in, t_pw_out))
-
             ## Exponential charge, discharge positive feedback factor arrays
-            f_charge = 1 - np.exp(-t_pw_in / tau_syn_prime)  # 4xNrec
+            f_charge = 1 - np.exp(-self.t_pulse / tau_syn_prime)  # 4xNrec
             f_discharge = np.exp(-self.dt / tau_syn_prime)  # 4xNrec
-
-            f_feedback = np.exp(
-                (self.kappa ** 2 / (self.kappa + 1)) * (Vmem / self.Ut)
-            )  # 4xNrec
 
             ## DISCHARGE in any case
             Isyn = f_discharge * Isyn
@@ -665,6 +656,10 @@ class DynapSEAdExpLIFJax(JaxModule):
             Iahp = np.clip(Iahp, self.Io)  # Nrec
 
             # --- Forward step: MEMBRANE --- #
+
+            f_feedback = np.exp(
+                (self.kappa ** 2 / (self.kappa + 1)) * (Vmem / self.Ut)
+            )  # 4xNrec
 
             ## Decouple synaptic currents and calculate membrane input
             Igaba_b, Igaba_a, Inmda, Iampa = Isyn
