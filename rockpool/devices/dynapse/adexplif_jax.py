@@ -451,7 +451,7 @@ class DynapSEAdExpLIFJax(JaxModule):
 
         self.spikes = State(init_func=np.zeros, shape=(self.size_out,))
         self.Isyn = State(
-            sim_config.Isyn, init_func=init_current, shape=(4, self.size_out)
+            sim_config.Isyn, init_func=init_current, shape=(self.size_out, 4)
         )
         self.Iahp = State(
             sim_config.Iahp, init_func=init_current, shape=(self.size_out,)
@@ -494,9 +494,9 @@ class DynapSEAdExpLIFJax(JaxModule):
 
         # --- Parameters --- #
         ## Synapse
-        self.Itau_syn = Parameter(sim_config.Itau_syn, shape=(4, self.size_out))
-        self.f_gain_syn = Parameter(sim_config.f_gain_syn, shape=(4, self.size_out))
-        self.Iw = Parameter(sim_config.Iw, shape=(4, self.size_out))
+        self.Itau_syn = Parameter(sim_config.Itau_syn, shape=(self.size_out, 4))
+        self.f_gain_syn = Parameter(sim_config.f_gain_syn, shape=(self.size_out, 4))
+        self.Iw = Parameter(sim_config.Iw, shape=(self.size_out, 4))
 
         ## Spike Frequency Adaptation
         self.Itau_ahp = Parameter(sim_config.Itau_ahp, shape=(self.size_out,))
@@ -518,7 +518,7 @@ class DynapSEAdExpLIFJax(JaxModule):
 
         ## Time -> Current conversion
         self.f_tau_syn = SimulationParameter(
-            sim_config.f_tau_syn, shape=(4, self.size_out)
+            sim_config.f_tau_syn, shape=(self.size_out, 4)
         )
         self.f_tau_ahp = SimulationParameter(
             sim_config.f_tau_ahp, shape=(self.size_out,)
@@ -559,8 +559,8 @@ class DynapSEAdExpLIFJax(JaxModule):
 
         # --- Stateless Parameters --- #
 
-        ## --- Synapses --- ## 4xNrec
-        Itau_syn_clip = np.clip(self.Itau_syn, self.Io)
+        ## --- Synapses --- ## Nrec, 4
+        Itau_syn_clip = np.clip(self.Itau_syn.T, self.Io).T
         Ith_syn_clip = self.f_gain_syn * Itau_syn_clip
 
         ## --- Spike frequency adaptation --- ## Nrec
@@ -571,7 +571,7 @@ class DynapSEAdExpLIFJax(JaxModule):
         Itau_mem_clip = np.clip(self.Itau_mem, self.Io)
         Ith_mem_clip = self.f_gain_mem * Itau_mem_clip
 
-        # Both (T, Nrecx4), and (T, Nrec, 4) shape inputs are accepted
+        # Both (T, Nrecx4), and (T, Nrec, 4) shaped inputs are accepted
         input_data = np.reshape(input_data, (input_data.shape[0], -1, 4))
 
         def forward(
@@ -613,11 +613,11 @@ class DynapSEAdExpLIFJax(JaxModule):
 
             # --- Forward step: DPI SYNAPSES --- #
             ## Real time weight is 0 if no spike, w_rec if spike event occurs
-            Iws_internal = np.dot(self.w_rec.T, spikes)
-            Iws = np.add(Iws_internal, Iw_input.T)
+            Iws_internal = np.dot(self.w_rec.T, spikes).T
+            Iws = np.add(Iws_internal, Iw_input)
 
             # Isyn_inf is the current that a synapse current would reach with a sufficiently long pulse
-            Isyn_inf = (self.f_gain_syn * Iws) - Ith_syn_clip  # [] TODO : Check this
+            Isyn_inf = (self.f_gain_syn * Iws) - Ith_syn_clip
             Isyn_inf = np.clip(Isyn_inf, 0)
 
             # synaptic time constant is practically much more longer than expected when Isyn << Ith
@@ -626,15 +626,15 @@ class DynapSEAdExpLIFJax(JaxModule):
             )
 
             ## Exponential charge, discharge positive feedback factor arrays
-            f_charge = 1 - np.exp(-self.t_pulse / tau_syn_prime)  # 4xNrec
-            f_discharge = np.exp(-self.dt / tau_syn_prime)  # 4xNrec
+            f_charge = 1 - np.exp(-self.t_pulse / tau_syn_prime.T).T  # Nrecx4
+            f_discharge = np.exp(-self.dt / tau_syn_prime)  # Nrecx4
 
             ## DISCHARGE in any case
             Isyn = f_discharge * Isyn
 
             ## CHARGE if spike occurs -- UNDERSAMPLED -- dt >> t_pulse
             Isyn += f_charge * Isyn_inf
-            Isyn = np.clip(Isyn, self.Io)  # 4xNrec
+            Isyn = np.clip(Isyn.T, self.Io).T  # Nrecx4
 
             # --- Forward step: AHP : Spike Frequency Adaptation --- #
             Iws_ahp = self.Iw_ahp * spikes  # 0 if no spike, Iw_ahp if spike
@@ -662,7 +662,7 @@ class DynapSEAdExpLIFJax(JaxModule):
             )  # 4xNrec
 
             ## Decouple synaptic currents and calculate membrane input
-            Igaba_b, Igaba_a, Inmda, Iampa = Isyn
+            Igaba_b, Igaba_a, Inmda, Iampa = Isyn.T
 
             # Inmda = 0 if Vmem < Vth_nmda else Inmda
             I_nmda_dp = Inmda / (1 + self.If_nmda / Imem)
@@ -741,10 +741,10 @@ class DynapSEAdExpLIFJax(JaxModule):
         record_dict = {}
         if record:
             record_dict = {
-                "Igaba_b": Isyn_ts[:, self.SYN["GABA_B"], :],
-                "Igaba_a": Isyn_ts[:, self.SYN["GABA_A"], :],  # Shunt
-                "Inmda": Isyn_ts[:, self.SYN["NMDA"], :],
-                "Iampa": Isyn_ts[:, self.SYN["AMPA"], :],
+                "Igaba_b": Isyn_ts[:, :, self.SYN["GABA_B"]],
+                "Igaba_a": Isyn_ts[:, :, self.SYN["GABA_A"]],  # Shunt
+                "Inmda": Isyn_ts[:, :, self.SYN["NMDA"]],
+                "Iampa": Isyn_ts[:, :, self.SYN["AMPA"]],
                 "Iahp": Iahp_ts,
                 "Imem": Imem_ts,
                 "Vmem": Vmem_ts,
