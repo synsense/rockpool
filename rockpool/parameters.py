@@ -141,7 +141,7 @@ class ParameterBase:
 
             if self.init_func is None:
                 raise ValueError(
-                    f"If concrete initialisation `data` is not provided for a {class_name} then `init_func` must be provided."
+                    f"If concrete initialisation `data` is not provided for a {class_name} then `init_func` must be provided.\nParameter was {self.data, self.family, self.init_func, self.shape, self.cast_fn}"
                 )
 
             # - Call the `init_func`

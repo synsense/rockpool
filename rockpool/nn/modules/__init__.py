@@ -24,11 +24,12 @@ try:
     from .torch.torch_module import *
     from .torch.lif_torch import *
     from .torch.lif_bitshift_torch import *
-    from .torch.lowpass import *
     from .torch.exp_syn_torch import *
     from .torch.lif_neuron_torch import *
     from .torch.linear_torch import *
     from .torch.updown_torch import *
+
+    # from .torch.lowpass import *
 except (ImportError, ModuleNotFoundError) as err:
     warnings.warn(f"Torch modules not available: {err}")
 

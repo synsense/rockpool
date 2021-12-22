@@ -362,7 +362,7 @@ class TorchModule(Module, nn.Module):
                 elif isinstance(my_params[k], np.ndarray):
                     my_params[k] = np.array(param)
                 elif isinstance(my_params[k], torch.Tensor):
-                    my_params[k].data = torch.Tensor(param)
+                    my_params[k].data = torch.tensor(param)
                 elif isinstance(my_params[k], TorchModuleParameters):
                     self.modules()[k].json_to_param(param)
                 else:

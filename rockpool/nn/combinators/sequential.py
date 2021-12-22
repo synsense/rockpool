@@ -18,9 +18,7 @@ class SequentialMixin(ABC):
     """
 
     def __init__(
-        self,
-        *args,
-        **kwargs,
+        self, *args, **kwargs,
     ):
         # - Check that `shape` wasn't provided as a keyword argument
         if "shape" in kwargs:
@@ -84,9 +82,7 @@ class SequentialMixin(ABC):
         # - Assign modules as submodules
         for (mod_name, submod) in zip(submod_names, submods):
             setattr(
-                self,
-                mod_name,
-                submod,
+                self, mod_name, submod,
             )
 
         # - Record module list
@@ -108,10 +104,7 @@ class SequentialMixin(ABC):
             x, substate, subrec = mod(x, record=record)
             new_state_dict.update({submod_name: substate})
             record_dict.update(
-                {
-                    submod_name: subrec,
-                    f"{submod_name}_output": copy(x),
-                }
+                {submod_name: subrec, f"{submod_name}_output": copy(x),}
             )
 
         # - Return output, state and record
@@ -166,7 +159,7 @@ try:
         @classmethod
         def tree_unflatten(cls, aux_data, children):
             """Unflatten a tree of modules from Jax to Rockpool"""
-            params, sim_params, state, modules = children
+            params, sim_params, state, modules, init_params = children
             _name, _shape, _submodulenames = aux_data
             modules = tuple(modules.values())
             obj = cls(*modules)
@@ -207,9 +200,7 @@ try:
         """
 
         def __init__(
-            self,
-            *args,
-            **kwargs,
+            self, *args, **kwargs,
         ):
             # - Convert torch modules to Rockpool TorchModules
             for item in args:

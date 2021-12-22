@@ -14,7 +14,6 @@ def test_LIFTorch_shapes():
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
-        has_bias=False,
         has_rec=False,
         dt=1e-3,
         noise_std=0.0,
@@ -54,7 +53,6 @@ def test_LIFTorch_bias():
         tau_mem=tau_mem,
         tau_syn=tau_syn,
         bias=bias,
-        has_bias=True,
         dt=dt,
         noise_std=0.0,
         device="cpu",
@@ -107,7 +105,6 @@ def test_LIFTorch_recurrent():
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
-        has_bias=False,
         has_rec=True,
         w_rec=w_rec,
         dt=dt,
@@ -150,7 +147,6 @@ def test_LIFTorch_noise():
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
-        has_bias=False,
         dt=dt,
         noise_std=0.1,
         device="cpu",
@@ -185,7 +181,6 @@ def test_LIFTorch_tau_syn_shape_1():
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
-        has_bias=False,
         dt=dt,
         noise_std=0.1,
         device="cpu",
@@ -212,7 +207,7 @@ def test_LIFTorch_tau_syn_shape_2():
     n_batches = 3
     T = 20
     tau_mem = torch.rand(n_neurons)
-    tau_syn = 0.03
+    tau_syn = torch.rand(n_neurons, n_synapses)
     dt = 1e-3
 
     # - Test maximal initialisation
@@ -220,7 +215,6 @@ def test_LIFTorch_tau_syn_shape_2():
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
-        has_bias=False,
         dt=dt,
         noise_std=0.1,
         device="cpu",
@@ -248,7 +242,7 @@ def test_LIFTorch_threshold_shape_1():
     T = 20
     tau_mem = torch.rand(n_neurons)
     tau_syn = 0.03
-    threshold = 0.5
+    threshold = 0.5 * torch.ones(n_neurons)
     dt = 1e-3
 
     # - Test maximal initialisation
@@ -256,7 +250,6 @@ def test_LIFTorch_threshold_shape_1():
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
-        has_bias=False,
         dt=dt,
         threshold=threshold,
         noise_std=0.1,
@@ -293,7 +286,6 @@ def test_LIFTorch_threshold_shape_2():
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
-        has_bias=False,
         dt=dt,
         threshold=threshold,
         noise_std=0.1,

@@ -52,10 +52,7 @@ class JaxModule(Module, ABC):
     """The internal registry of registered `JaxModule` s"""
 
     def __init__(
-        self,
-        shape: Optional[Union[int, Tuple]] = None,
-        *args,
-        **kwargs,
+        self, shape: Optional[Union[int, Tuple]] = None, *args, **kwargs,
     ):
         """
 
@@ -66,6 +63,9 @@ class JaxModule(Module, ABC):
         """
         # - Call the superclass initialiser
         super().__init__(shape, *args, **kwargs)
+
+        # - Initialise initialisation args
+        self._init_args = {}
 
         # - Register this class as a pytree for Jax
         cls = type(self)
@@ -83,6 +83,7 @@ class JaxModule(Module, ABC):
                 self.simulation_parameters(),
                 self.state(),
                 self.modules(),
+                self._init_args,
             ),
             (self._name, self._shape, self._submodulenames),
         )
@@ -90,9 +91,9 @@ class JaxModule(Module, ABC):
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Unflatten a tree of modules from Jax to Rockpool"""
-        params, sim_params, state, modules = children
+        params, sim_params, state, modules, init_args = children
         _name, _shape, _submodulenames = aux_data
-        obj = cls(shape=_shape)
+        obj = cls(shape=_shape, **init_args)
         obj._name = _name
 
         # - Assign modules if necessary
@@ -101,11 +102,9 @@ class JaxModule(Module, ABC):
                 setattr(obj, name, mod)
 
         # - Restore configuration
-        obj._force_set_attributes = True
         obj = obj.set_attributes(params)
         obj = obj.set_attributes(state)
         obj = obj.set_attributes(sim_params)
-        obj._force_set_attributes = False
 
         return obj
 

@@ -27,7 +27,7 @@ def test_tracing():
     # - Test the graph
     nodes, mods = bag_graph(g)
     print(mods)
-    assert len(mods) == 6, "Wrong number of modules found"
+    assert len(mods) == 5, "Wrong number of modules found"
 
     # - Sequential torch
     mod = Sequential(

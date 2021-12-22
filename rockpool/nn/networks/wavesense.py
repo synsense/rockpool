@@ -11,13 +11,14 @@ See Also
 """
 
 from rockpool.nn.modules.torch import TorchModule, LinearTorch, LIFTorch, ExpSynTorch
-from rockpool.parameters import Parameter, State, SimulationParameter
+from rockpool.parameters import Parameter, State, SimulationParameter, Constant
 from rockpool.nn.modules.torch.lif_torch import StepPWL, PeriodicExponential
 from rockpool.graph import AliasConnection, GraphHolder, connect_modules
 
 import torch
 
 from typing import List, Union, Callable, Optional
+from rockpool.typehints import P_tensor
 
 __all__ = ["WaveBlock", "WaveSenseNet"]
 
@@ -66,7 +67,7 @@ class WaveSenseBlock(TorchModule):
         Nskip: int = 32,
         dilation: int = None,
         kernel_size: int = 2,
-        has_bias: bool = False,
+        bias: P_tensor = Constant(0.0),
         tau_mem: float = 10e-3,
         base_tau_syn: float = 10e-3,
         threshold: float = 1.0,
@@ -84,7 +85,7 @@ class WaveSenseBlock(TorchModule):
             :param int Nskip:               Dimensionality of the skip connection. Default: ``32``
             :param int dilation:            Determines the synaptic time constant of the dilation layer $dilation * base_tau_syn$. Default: ``None``
             :param int kernel_size:         Number of synapses the time dilation layer in the WaveBlock. Default: ``2``
-            :param bool has_bias:           If the network can use biases to train. Default: ``False``
+            :param P_tensor bias:           Bias for the network to train. Default: No trainable bias
             :param float tau_mem:           Membrane potential time constant of all neurons in WaveSense. Default: 10ms
             :param float base_tau_syn:      Base synaptic time constant. Each synapse has this time constant, except the second synapse in the dilation layer which caclulates the time constant as $dilations * base_tau_syn$. Default: 10ms
             :param float threshold:         Threshold of all spiking neurons. Default: `0.`
@@ -119,7 +120,7 @@ class WaveSenseBlock(TorchModule):
             shape=(Nchannels * kernel_size, Nchannels),
             tau_mem=tau_mem,
             tau_syn=tau_syn,
-            has_bias=has_bias,
+            bias=bias,
             threshold=threshold,
             has_rec=False,
             w_rec=None,
@@ -139,7 +140,7 @@ class WaveSenseBlock(TorchModule):
             shape=(Nchannels, Nchannels),
             tau_mem=tau_mem,
             tau_syn=tau_syn.min().item(),
-            has_bias=has_bias,
+            bias=bias,
             threshold=threshold,
             has_rec=False,
             w_rec=None,
@@ -159,7 +160,7 @@ class WaveSenseBlock(TorchModule):
             shape=(Nskip, Nskip),
             tau_mem=tau_mem,
             tau_syn=tau_syn.min().item(),
-            has_bias=has_bias,
+            bias=bias,
             threshold=threshold,
             dt=dt,
             device=device,
@@ -288,7 +289,7 @@ class WaveSenseNet(TorchModule):
         n_channels_skip: int = 32,
         n_hidden: int = 32,
         kernel_size: int = 2,
-        has_bias: bool = False,
+        bias: P_tensor = Constant(0.0),
         smooth_output: bool = True,
         tau_mem: float = 20e-3,
         base_tau_syn: float = 20e-3,
@@ -311,7 +312,7 @@ class WaveSenseNet(TorchModule):
             :param int n_channels_skip:     Dimensionality of the skip connection. Default: ``32``
             :param int n_hidden:            Number of neurons in the hidden layer of the readout. Default: ``32``
             :param int kernel_size:         Number of synapses the dilated layer in the WaveBlock. Default: ``2``
-            :param bool has_bias:           If the network can use biases to train. Default: ``False``, do not use biases.
+            :param P_tensor bias:           Bias for the network to train. Default: No trainable bias
             :param bool smooth_output:      If the output of the network is smoothed with an exponential kernel. Default: ``True``, use a low-pass filter on the output.
             :param float tau_mem:           Membrane potential time constant of all neurons in WaveSense. Default: 20ms
             :param float base_tau_syn:      Base synaptic time constant. Each synapse has this time constant, except the second synapse in the dilation layer which caclulates the time constant as $dilations * base_tau_syn$. Default: 20ms
@@ -342,7 +343,7 @@ class WaveSenseNet(TorchModule):
             shape=(n_channels_res, n_channels_res),
             tau_mem=tau_mem,
             tau_syn=base_tau_syn,
-            has_bias=has_bias,
+            bias=bias,
             threshold=threshold,
             has_rec=False,
             w_rec=None,
@@ -361,7 +362,7 @@ class WaveSenseNet(TorchModule):
                 n_channels_skip,
                 dilation=dilation,
                 kernel_size=kernel_size,
-                has_bias=has_bias,
+                bias=bias,
                 tau_mem=tau_mem,
                 base_tau_syn=base_tau_syn,
                 threshold=threshold,
@@ -380,7 +381,7 @@ class WaveSenseNet(TorchModule):
             shape=(n_hidden, n_hidden),
             tau_mem=tau_mem,
             tau_syn=base_tau_syn,
-            has_bias=has_bias,
+            bias=bias,
             threshold=threshold,
             has_rec=False,
             w_rec=None,
@@ -407,7 +408,7 @@ class WaveSenseNet(TorchModule):
             shape=(n_classes, n_classes),
             tau_mem=tau_lp,
             tau_syn=tau_lp,
-            has_bias=has_bias,
+            bias=bias,
             threshold=threshold,
             has_rec=False,
             w_rec=None,
