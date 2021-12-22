@@ -59,9 +59,7 @@ except ModuleNotFoundError as e:
 _NETGEN_AVAILABLE = True
 
 try:
-    from netgen import (
-        NetworkGenerator,
-    )
+    from netgen import NetworkGenerator
 except ModuleNotFoundError as e:
     NetworkGenerator = Any
     print(
@@ -135,8 +133,6 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
         "R2R_P",
     ]
 
-    bit_mask = np.array([0b0001, 0b0010, 0b0100, 0b1000])
-
     def __init__(
         self,
         shape: Optional[Tuple] = None,
@@ -165,7 +161,7 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
         if idx_map is None:
             idx_map = sim_config.idx_map
 
-        super().__init__(
+        super(DynapSE1Jax, self).__init__(
             shape,
             sim_config,
             has_rec,
@@ -301,7 +297,9 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
 
     @staticmethod
     def simulator_from_config(
-        config: Dynapse1Configuration, *args, **kwargs
+        config: Dynapse1Configuration,
+        sim_config: Optional[DynapSE1SimBoard] = None,
+        default_bias: bool = True,
     ) -> TimedModuleWrapper:
         """
         simulator_from_config obtain a full DynapSE simulator from a samna config object.
@@ -309,14 +307,42 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
 
         :param config: samna Dynapse1 configuration object used to configure a network on the chip
         :type config: Dynapse1Configuration
+        :param sim_config: Dynap-SE1 bias currents and simulation configuration parameters, it can be provided explicitly, or created using default settings, or can be extracted from the config bias currents. defaults to None
+        :type sim_config: Optional[DynapSE1SimBoard], optional
+        :param default_bias: use default bias values or get the bias parameters from the netgen.config, defaults to True
+        :type default_bias: bool
         :return: a `TimedModuleWrapper` sequentially combining the special FPGA input layer of the DyanpSE simulators.
         :rtype: TimedModuleWrapper
+
+        [] TODO: Move this out and create a simulator class
         """
-        se1 = DynapSE1Jax.from_config(config, *args, **kwargs)
-        simulator = TimedModuleWrapper(
-            Sequential(DynapSEFPGA.from_config(config), se1),
-            dt=se1.dt,
-        )
+        CAM_in, idx_map_in = Router.CAM_in_from_config(config, return_maps=True)
+        CAM_rec, idx_map_rec = Router.CAM_rec_from_config(config, return_maps=True)
+
+        # CAM_shape: size_out, size_in // 4, 4
+        in_shape = CAM_in.shape  # size_in, size_out // 4, 4
+        rec_shape = CAM_rec.shape  # size_out, size_in // 4, 4
+
+        # 2D module shapes
+        fpga_shape = (in_shape[0], in_shape[1] * in_shape[2])
+        se1_shape = (rec_shape[2] * rec_shape[1], rec_shape[0])
+        has_rec = True
+
+        if sim_config is None:
+            if not default_bias:
+                sim_config = DynapSE1SimBoard.from_config(config, idx_map_rec)
+
+            else:
+                sim_config = DynapSE1SimBoard.from_idx_map(idx_map_rec)
+
+        w_in = sim_config.weight_matrix(CAM_in)
+        w_rec = sim_config.weight_matrix(CAM_rec)
+
+        # Obtain a TimedModuleWrapper and sequentially combine input layer with simulation layer
+        fpga = DynapSEFPGA(fpga_shape, w_in, idx_map_in)
+        se1 = DynapSE1Jax(se1_shape, sim_config, has_rec, w_rec, idx_map_rec)
+        simulator = TimedModuleWrapper(Sequential(fpga, se1), dt=se1.dt,)
+
         return simulator
 
     @staticmethod
