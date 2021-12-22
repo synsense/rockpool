@@ -64,7 +64,7 @@ from rockpool.typehints import (
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
 from rockpool.devices.dynapse.simconfig import DynapSE1SimBoard, DynapSE1SimCore
-from rockpool.devices.dynapse.router import Router
+from rockpool.devices.dynapse.dynapse import DynapSE
 
 DynapSE1State = Tuple[JP_ndarray, JP_ndarray, JP_ndarray, Optional[Any]]
 
@@ -193,7 +193,7 @@ def step_pwl(
     return spikes, grad_func
 
 
-class DynapSEAdExpLIFJax(JaxModule):
+class DynapSEAdExpLIFJax(JaxModule, DynapSE):
     """
     DynapSEAdExpLIFJax solves dynamical chip equations for the DPI neuron and synapse models.
     Receives configuration as bias currents and solves membrane and synapse dynamics using ``jax`` backend.
@@ -428,7 +428,7 @@ class DynapSEAdExpLIFJax(JaxModule):
 
         _, rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
 
-        super().__init__(
+        super(DynapSEAdExpLIFJax, self).__init__(
             shape=shape,
             spiking_input=spiking_input,
             spiking_output=spiking_output,
@@ -602,15 +602,10 @@ class DynapSEAdExpLIFJax(JaxModule):
 
             spikes, Isyn, Iahp, Imem, Vmem, timer_ref, key = state
 
-            # Reset Imem depending on spiking activity
-            Imem = (1 - spikes) * Imem + spikes * self.Ireset
-
-            # Set the refractrory timer
-            timer_ref -= self.dt
-            timer_ref = np.clip(timer_ref, 0)
-            timer_ref = (1 - spikes) * timer_ref + spikes * self.t_ref
-
+            # ---------------------------------- #
             # --- Forward step: DPI SYNAPSES --- #
+            # ---------------------------------- #
+
             ## Real time weight is 0 if no spike, w_rec if spike event occurs
             Iws_internal = np.dot(self.w_rec.T, spikes).T
             Iws = np.add(Iws_internal, Iw_input)
@@ -635,7 +630,14 @@ class DynapSEAdExpLIFJax(JaxModule):
             Isyn += f_charge * Isyn_inf
             Isyn = np.clip(Isyn.T, self.Io).T  # Nrecx4
 
+            # ---------------------------------- #
+            # ---------------------------------- #
+            # ---------------------------------- #
+
+            # ------------------------------------------------------ #
             # --- Forward step: AHP : Spike Frequency Adaptation --- #
+            # ------------------------------------------------------ #
+
             Iws_ahp = self.Iw_ahp * spikes  # 0 if no spike, Iw_ahp if spike
             Iahp_inf = (self.f_gain_ahp * Iws_ahp) - Ith_ahp_clip
 
@@ -654,7 +656,13 @@ class DynapSEAdExpLIFJax(JaxModule):
             Iahp += f_charge_ahp * Iahp_inf
             Iahp = np.clip(Iahp, self.Io)  # Nrec
 
+            # ------------------------------------------------------ #
+            # ------------------------------------------------------ #
+            # ------------------------------------------------------ #
+
+            # ------------------------------ #
             # --- Forward step: MEMBRANE --- #
+            # ------------------------------ #
 
             f_feedback = np.exp(
                 (self.kappa ** 2 / (self.kappa + 1)) * (Vmem / self.Ut)
@@ -692,9 +700,28 @@ class DynapSEAdExpLIFJax(JaxModule):
             ## Membrane Potential
             Vmem = (self.Ut / self.kappa) * np.log(Imem / self.Io)
 
+            # ------------------------------ #
+            # ------------------------------ #
+            # ------------------------------ #
+
+            # ------------------------------ #
             # --- Spike Generation Logic --- #
+            # ------------------------------ #
+
             ## Detect next spikes (with custom gradient)
             spikes = step_pwl(Imem, self.Ispkthr, self.Ireset)
+
+            ## Reset Imem depending on spiking activity
+            Imem = (1 - spikes) * Imem + spikes * self.Ireset
+
+            ## Set the refractrory timer
+            timer_ref -= self.dt
+            timer_ref = np.clip(timer_ref, 0)
+            timer_ref = (1 - spikes) * timer_ref + spikes * self.t_ref
+
+            # ------------------------------ #
+            # ------------------------------ #
+            # ------------------------------ #
 
             state = (spikes, Isyn, Iahp, Imem, Vmem, timer_ref, key)
             return state, (spikes, Isyn, Iahp, Imem, Vmem)
@@ -750,108 +777,6 @@ class DynapSEAdExpLIFJax(JaxModule):
             }
 
         return spikes_ts, states, record_dict
-
-    @staticmethod
-    def weight_matrix(
-        Iw_base: Union[Dict[Tuple[np.uint8, np.uint8], np.ndarray], np.ndarray],
-        core_vector: np.ndarray,
-        bit_mask_matrix: np.ndarray,
-    ) -> np.ndarray:
-        """
-        weight_matrix generates a weight matrix for `DynapSEAdExpLIFJax` modules using the base weight currents, a core vector and bit-masks.
-        In device, we have the opportunity to define 4 different base weight current. Then using a bit mask, we can compose a
-        weight current defining the strength of the connection between two neurons. The parameters and usage explained below.
-
-        :param Iw_base: base weight matrix dictionary, 4 base weights possible, therefore 4-bit bit-masks are defined
-        :type Iw_base: Union[Dict[Tuple[np.uint8, np.uint8], np.ndarray], np.ndarray]
-            Iw_base = {
-                (0,0) : [1e-6, 2e-6, 4e-6, 8e-6],
-                (0,1) : [1e-7, 2e-7, 4e-7, 8e-7],
-            }
-
-        :param core_vector: the core keys of the neurons, the index represent itself. Identifies which neuron belongs to which core
-            core_vector = [
-                (0,0), (0,0), (0,0), (0,1), (0,1), (0,1)
-            ]
-
-        :type core_vector: np.ndarray
-        :param bit_mask_matrix: the 4-bit bit masks to be used to dot product the base weight currents and obtain a weight matrix, (N_pre,N_post,4) pre, post, syn_type
-            0011 means : Iw[1] + Iw[0]
-            1101 means : Iw[3] + Iw[2] + Iw[0]
-            array([[[ 0,  1, 12,  0],
-                    [11, 10,  4,  1],
-                    [ 7,  0, 15, 15],
-                    [13, 15, 15,  7],
-                    [ 5,  3,  2, 12],
-                    [ 5,  8,  5,  9]],
-
-                   [[12, 13,  9,  0],
-                    [12, 12, 11,  2],
-                    [10, 15,  9, 14],
-                    [ 6,  8, 10,  8],
-                    [15,  1,  1,  9],
-                    [ 5,  2,  7, 13]],
-
-                   [[ 2, 12, 14, 10],
-                    [ 0,  3,  9,  0],
-                    [ 6,  1, 11,  5],
-                    [ 0,  2,  7,  1],
-                    [ 7, 15,  2,  6],
-                    [15, 11,  7,  7]],
-
-                   [[11, 13, 13, 12],
-                    [ 2,  9,  2,  3],
-                    [ 9,  2, 12,  1],
-                    [11, 11,  1,  4],
-                    [15,  7,  5,  7],
-                    [ 0, 13,  2,  3]],
-
-                   [[ 0,  6, 10,  3],
-                    [14, 10,  4, 10],
-                    [ 8, 10,  6,  6],
-                    [ 2,  3, 10,  6],
-                    [ 1,  8, 10, 15],
-                    [ 4,  3,  2, 12]],
-
-                   [[13,  5,  3,  6],
-                    [12, 14,  5,  3],
-                    [ 4,  4,  3, 14],
-                    [ 3, 13, 11, 10],
-                    [ 1, 13,  5, 13],
-                    [15,  2,  4,  2]]])
-
-        :type bit_mask_matrix: np.ndarray
-        :return: a Dynap-SE type weight vector generated by collecting the base weights via bit mask dot product (N_pre,N_post,4) pre, post, syn_type
-        :rtype: np.ndarray
-        """
-
-        def weight_collector(
-            core_key: Tuple[np.uint8, np.uint8], bitmask: np.uint8
-        ) -> float:
-            """
-            weight_collector collect weights from the base weights using the bit mask provided
-
-            :param core_key: used to select the weight base from the base weights dictionary
-            :type core_key: Tuple[np.uint8, np.uint8]
-            :param bitmask: bitmask to dot-product the base weights and get a connection specific weight
-            :type bitmask: np.uint8
-                0011 means : Iw[1] + Iw[0]
-                1101 means : Iw[3] + Iw[2] + Iw[0]
-            :return: a connection specifc weight found via bit-mask based dot product
-            :rtype: float
-            """
-            idx = Router.bitmask_select(bitmask)
-            return onp.sum(Iw_base[core_key][idx])
-
-        ws = onp.vectorize(weight_collector)
-
-        # To broadcast on the post-synaptic neurons : pre, post, gate -> gate, pre, post
-        bit_mask_trans = bit_mask_matrix.transpose(2, 0, 1)
-        W_trans = ws(core_vector, bit_mask_trans)
-
-        # Restore the shape
-        W = W_trans.transpose(1, 2, 0)  # gate, pre, post -> pre, post, gate
-        return W
 
     @property
     def tau_mem(self) -> JP_ndarray:
