@@ -496,7 +496,6 @@ class DynapSEAdExpLIFJax(JaxModule):
         ## Synapse
         self.Itau_syn = Parameter(sim_config.Itau_syn, shape=(self.size_out, 4))
         self.f_gain_syn = Parameter(sim_config.f_gain_syn, shape=(self.size_out, 4))
-        self.Iw = Parameter(sim_config.Iw, shape=(self.size_out, 4))
 
         ## Spike Frequency Adaptation
         self.Itau_ahp = Parameter(sim_config.Itau_ahp, shape=(self.size_out,))
@@ -986,33 +985,3 @@ class DynapSEAdExpLIFJax(JaxModule):
         Ith_ampa holds an array of gain bias current in Amperes for AMPA synapse of the neurons with shape = (Nrec,)
         """
         return self.Ith_syn[self.SYN["AMPA"]]
-
-    ### --- BASE WEIGHTS --- ###
-
-    @property
-    def Iw_gaba_b(self) -> JP_ndarray:
-        """
-        Iw_gaba_b holds an array of base weight bias current in Amperes for GABA_B synapse of the neurons with shape = (Nrec,)
-        """
-        return self.Iw[self.SYN["GABA_B"]]
-
-    @property
-    def Iw_gaba_a(self) -> JP_ndarray:
-        """
-        Iw_gaba_a holds an array of base weight bias current in Amperes for GABA_A synapse of the neurons with shape = (Nrec,)
-        """
-        return self.Iw[self.SYN["GABA_A"]]
-
-    @property
-    def Iw_nmda(self) -> JP_ndarray:
-        """
-        Iw_nmda holds an array of base weight bias current in Amperes for NMDA synapse of the neurons with shape = (Nrec,)
-        """
-        return self.Iw[self.SYN["NMDA"]]
-
-    @property
-    def Iw_ampa(self) -> JP_ndarray:
-        """
-        Iw_ampa holds an array of base weight bias current in Amperes for AMPA synapse of the neurons with shape = (Nrec,)
-        """
-        return self.Iw[self.SYN["AMPA"]]

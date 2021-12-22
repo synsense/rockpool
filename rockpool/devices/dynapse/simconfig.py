@@ -1142,13 +1142,6 @@ class DynapSE1SimCore:
         return self.ahp_property("f_gain")
 
     @property
-    def Iw(self) -> np.ndarray:
-        """
-        Iw is 2D array of base weight currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,Nrec)
-        """
-        return np.full((self.size, 4), self.Iw_base, dtype=np.float32)
-
-    @property
     def Iw_base(self) -> np.ndarray:
         """
         Iw_base is 1D array of connection base weight currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,)
@@ -1347,7 +1340,6 @@ class DynapSE1SimBoard:
             "Iahp",
             "Itau_ahp",
             "f_gain_ahp",
-            "Iw",
             "Iw_ahp",
             "kappa",
             "Ut",
@@ -1389,9 +1381,7 @@ class DynapSE1SimBoard:
         :return: base weight vectors of the simulation cores
         :rtype: Dict[Tuple[np.uint8, np.uint8], float]
         """
-        Iw_base = {}
-        for core in self.cores:
-            Iw_base[core.core_key] = core.Iw_base
+        Iw_base = {core.core_key: core.Iw_base for core in self.cores}
         return Iw_base
 
     def merge_core_properties(self, attr: str) -> np.ndarray:
