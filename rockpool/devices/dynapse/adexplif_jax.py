@@ -66,7 +66,10 @@ from rockpool.parameters import Parameter, State, SimulationParameter
 from rockpool.devices.dynapse.simconfig import DynapSE1SimBoard, DynapSE1SimCore
 from rockpool.devices.dynapse.dynapse import DynapSE
 
-DynapSE1State = Tuple[JP_ndarray, JP_ndarray, JP_ndarray, Optional[Any]]
+DynapSEState = Tuple[
+    JP_ndarray, JP_ndarray, JP_ndarray, JP_ndarray, JP_ndarray, Optional[Any]
+]
+DynapSERecord = Tuple[JP_ndarray, JP_ndarray, JP_ndarray, JP_ndarray, JP_ndarray]
 
 
 def poisson_weight_matrix(
@@ -540,7 +543,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
 
     def evolve(
         self, input_data: np.ndarray, record: bool = True
-    ) -> Tuple[np.ndarray, dict, dict]:
+    ) -> Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, np.ndarray]]:
         """
         evolve implements raw JAX evolution function for a DynapSEAdExpLIFJax module.
         The function solves the dynamical equations introduced at the ``DynapSEAdExpLIFJax`` module definition
@@ -553,7 +556,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             :spikes_ts: is an array with shape ``(T, Nrec)`` containing the output data(spike raster) produced by the module.
             :states: is a dictionary containing the updated module state following evolution.
             :record_dict: is a dictionary containing the recorded state variables during the evolution at each time step, if the ``record`` argument is ``True`` else empty dictionary {}
-        :rtype: Tuple[np.ndarray, dict, dict]
+        :rtype: Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, np.ndarray]]
         """
 
         # --- Stateless Parameters --- #
@@ -574,8 +577,8 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
         input_data = np.reshape(input_data, (input_data.shape[0], -1, 4))
 
         def forward(
-            state: DynapSE1State, Iw_input: np.ndarray
-        ) -> Tuple[DynapSE1State, Tuple[JP_ndarray, JP_ndarray, JP_ndarray]]:
+            state: DynapSEState, Iw_input: np.ndarray
+        ) -> Tuple[DynapSEState, DynapSERecord]:
             """
             forward implements single time-step neuron and synapse dynamics
 
@@ -586,7 +589,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
                 Imem: Membrane currents of each neuron [Nrec]
                 timer_ref: Refractory timer of each neruon [Nrec]
                 key: The Jax RNG seed to be used for mismatch simulation
-            :type state: DynapSE1State
+            :type state: DynapSEState
             :param Iw_input: external weighted current matrix generated via input spikes [Nrec, 4]
             :type Iw_input: np.ndarray
             :return: state, (spikes, Isyn, Iahp, Imem, Vmem)
@@ -596,7 +599,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
                 Iahp: Updated spike frequency adaptation currents of each neuron [Nrec]
                 Imem: Updated membrane currents of each neuron [Nrec]
                 Vmem: Updated membrane potentials of each neuron [Nrec]
-            :rtype: Tuple[DynapSE1State, Tuple[JP_ndarray, JP_ndarray, JP_ndarray]]
+            :rtype: Tuple[DynapSEState, DynapSERecord]
             """
             # [] TODO : Would you allow currents to go below Io or not?!!!!
 
