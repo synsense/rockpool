@@ -9,30 +9,11 @@ E-mail : ugurcan.cakal@gmail.com
 
 from dataclasses import dataclass
 import numpy as onp
-import logging
-
-import jax
-import jax.random as rand
 
 from jax.lax import scan
 from jax import numpy as np
 
-from typing import (
-    Union,
-    Optional,
-    Tuple,
-    Any,
-    Callable,
-    List,
-    Dict,
-)
-
-from rockpool.typehints import (
-    JP_ndarray,
-    FloatVector,
-)
-
-from rockpool.devices.dynapse.router import Router
+from typing import Union, Tuple, List, Dict
 
 
 @dataclass
@@ -111,32 +92,39 @@ class DynapSE:
         :rtype: np.ndarray
         """
 
-        def weight_collector(
-            core_key: Tuple[np.uint8, np.uint8], bitmask: np.uint8
-        ) -> float:
+        def bit_select(bitmask: np.ndarray) -> np.ndarray:
             """
-            weight_collector collect weights from the base weights using the bit mask provided
+            bit_select apply 4-bit mask to select bits
+                
+                0001 -> selected bit: 0
+                1000 -> selected bit: 3
+                0101 -> selected bit 0 and 2
 
-            :param core_key: used to select the weight base from the base weights dictionary
-            :type core_key: Tuple[np.uint8, np.uint8]
-            :param bitmask: bitmask to dot-product the base weights and get a connection specific weight
-            :type bitmask: np.uint8
-                0011 means : Iw[1] + Iw[0]
-                1101 means : Iw[3] + Iw[2] + Iw[0]
-            :return: a connection specifc weight found via bit-mask based dot product
-            :rtype: float
+            :param bitmask: Binary mask to select (shape,)
+            :type bitmask: np.ndarray
+            :return: an array of indices of selected bits (4,shape)
+            :rtype: np.ndarray
             """
-            idx = Router.bitmask_select(bitmask)
-            return onp.sum(Iw_base[core_key][idx])
+            bits = range(4)  # [0,1,2,3]
+            bit_pattern = lambda n: (1 << n)  # 2^n
 
-        ws = onp.vectorize(weight_collector)
+            # Indexes of the IDs to be selected in bits list
+            idx = np.array([bitmask & bit_pattern(bit) for bit in bits], dtype=bool)
+            return idx
 
-        # To broadcast on the post-synaptic neurons : pre, post, gate -> gate, pre, post
-        bit_mask_trans = bit_mask_matrix.transpose(2, 0, 1)
-        W_trans: np.ndarray = ws(core_vector, bit_mask_trans)
+        if isinstance(Iw_base, dict):
+            # For the sake of computational simplicity, convert the base weight dictionary to a 2D array
+            # At the same time, convert the core_key dictionary to an array of indices
+            key_dict = {key: i for i, key in enumerate(Iw_base.keys())}
+            Iw_base = np.vstack(np.array([list(Iw) for Iw in Iw_base.values()]))
+            core_vector = np.array(
+                [key_dict[tuple(core_key)] for core_key in core_vector]
+            )
 
-        # Restore the shape
-        W = W_trans.transpose(1, 2, 0)  # gate, pre, post -> pre, post, gate
+        # To broadcast on the post-synaptic neurons : pre, post, gate -> [(bits), post, pre, gate].T
+        bits_trans = bit_select(bit_mask_matrix.transpose(1, 0, 2)).T
+        # Restore the shape : (gate, pre, post) -> pre, post, gate
+        W = np.sum(bits_trans * Iw_base[core_vector], axis=-1).transpose(1, 2, 0)
         return W
 
     @staticmethod
