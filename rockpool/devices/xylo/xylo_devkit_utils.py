@@ -1,7 +1,7 @@
 """
 Utilities for working with the Xylo HDK.
 
-Ideally you should not need to use these utility functions. You should try using :py:class:`.XyloSamna` and :py:class:`.XyloCim` for high-level interfaces to Xylo.
+Ideally you should not need to use these utility functions. You should try using :py:class:`.XyloSamna` and :py:class:`.XyloSim` for high-level interfaces to Xylo.
 
 See Also:
     The tutorials in :ref:`/devices/xylo-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-xylo.ipynb`.
@@ -1635,11 +1635,11 @@ def export_config(
     if not path.exists():
         makedirs(path)
 
-    # - Generate a XyloCim module from the config
-    from rockpool.devices.xylo import XyloCim
+    # - Generate a XyloSim module from the config
+    from rockpool.devices.xylo import XyloSim
 
-    cim = XyloCim.from_config(config, dt=dt)
-    model = cim._xylo_layer
+    sim = XyloSim.from_config(config, dt=dt)
+    model = sim._xylo_layer
 
     inp_size = len(model.synapses_in)
     num_neurons = len(model.synapses_rec)
@@ -1857,7 +1857,7 @@ def export_config(
 
         # dt
         conf["time_resolution_wrap"] = config.time_resolution_wrap
-        conf["DT"] = cim.dt
+        conf["DT"] = sim.dt
 
         # number of synapses
         n_syns = 1
