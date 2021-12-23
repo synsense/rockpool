@@ -7,6 +7,7 @@ E-mail : ugurcan.cakal@gmail.com
 07/12/2021
 """
 from __future__ import annotations
+import logging
 
 from typing import (
     Optional,
@@ -23,8 +24,8 @@ from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter
 
 from rockpool.devices.dynapse.simconfig import DynapSE1SimBoard
-from rockpool.devices.dynapse.adexplif_jax import poisson_weight_matrix
 from rockpool.devices.dynapse.router import Router, NeuronKey
+from rockpool.devices.dynapse.dynapse import DynapSE
 
 _SAMNA_AVAILABLE = True
 
@@ -116,6 +117,7 @@ class DynapSEFPGA(JaxModule):
     def __init__(
         self,
         shape: Optional[Tuple] = None,
+        sim_config: Optional[DynapSE1SimBoard] = None,
         w_in: Optional[FloatVector] = None,
         idx_map: Optional[Dict[int, NeuronKey]] = None,
         spiking_input: bool = True,
@@ -154,12 +156,21 @@ class DynapSEFPGA(JaxModule):
             **kwargs,
         )
 
+        if sim_config is None:
+            logging.warning("A new simconfig object is created for FPGA input module!")
+            sim_config = DynapSE1SimBoard(size=self.size_out // 4)
+
+        if len(sim_config) != self.size_out // 4:
+            raise ValueError(
+                f"The simulation configuration object size {len(sim_config)} and number of device neruons {self.size_out} does not match!"
+            )
+
         if idx_map is None:
             idx_map = dict(
                 zip(range(self.size_in), map(Router.decode_UID, range(self.size_in)))
             )
 
-        weight_init = lambda s: poisson_weight_matrix(s)
+        weight_init = lambda s: sim_config.weight_matrix(DynapSE.poisson_CAM(s))
 
         # - Specify weight parameter
         self.w_in = Parameter(
@@ -259,7 +270,7 @@ class DynapSEFPGA(JaxModule):
                 sim_config = DynapSE1SimBoard.from_idx_map(idx_map_rec)
 
         w_in = sim_config.weight_matrix(CAM_in)
-        mod = cls(mod_shape, w_in, idx_map, *args, **kwargs)
+        mod = cls(mod_shape, sim_config, w_in, idx_map, *args, **kwargs)
         return mod
 
     @classmethod
