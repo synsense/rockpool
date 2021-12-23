@@ -138,3 +138,51 @@ class DynapSE:
         # Restore the shape
         W = W_trans.transpose(1, 2, 0)  # gate, pre, post -> pre, post, gate
         return W
+
+    @staticmethod
+    def poisson_CAM(
+        shape: Tuple[int],
+        fill_rate: Union[float, List[float]] = [0.04, 0.06, 0.2, 0.25],
+    ) -> np.ndarray:
+        """
+        poisson_weight_matrix creates a 3D weight matrix using a poisson distribution
+        The function takes desired fill rates of the matrices and converts it to a poisson lambda.
+        The analytical solution is here:
+
+        .. math ::
+            f(X=x) = \\dfrac{\\lambda^{x}\\cdot e^{-\\lambda}}{x!}
+            f(X=0) = e^{-\\lambda}
+            p = 1 - f(X=0) = 1 - e^{-\\lambda}
+            e^{-\\lambda} = 1-p
+            \\lambda = -ln(1-p) ; 0<p<1
+
+        :param shape: the 3D shape of the weight matrix
+        :type shape: Tuple[int]
+        :param fill_rate: the fill rates desired to be converted to a list of posisson rates of the weights specific to synaptic-gates (3rd dimension)
+        :type fill_rate: Union[float, List[float]]
+        :raises ValueError: The possion rate list given does not have the same shape with the 3rd dimension
+        :return: 3D numpy array representing a Dynap-SE connectivity matrix
+        :rtype: np.ndarray
+        """
+        if isinstance(shape, int):
+            shape = (shape,)
+
+        if isinstance(fill_rate, float):
+            fill_rate = [fill_rate] * shape[-1]
+
+        if len(fill_rate) != shape[-1]:
+            raise ValueError(
+                "The possion rate list given does not have the same shape with the last dimension"
+            )
+
+        lambda_list = -onp.log(1 - onp.array(fill_rate))
+
+        # First create a base weight matrix
+        w_shape = [s for s in shape]
+        w_shape[-1] = 1
+
+        columns = [onp.random.poisson(l, w_shape) for l in lambda_list]
+        weight = onp.concatenate(columns, axis=-1, dtype=onp.float32)
+
+        return weight
+
