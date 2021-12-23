@@ -339,7 +339,7 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
         w_rec = sim_config.weight_matrix(CAM_rec)
 
         # Obtain a TimedModuleWrapper and sequentially combine input layer with simulation layer
-        fpga = DynapSEFPGA(fpga_shape, w_in, idx_map_in)
+        fpga = DynapSEFPGA(fpga_shape, sim_config, w_in, idx_map_in)
         se1 = DynapSE1Jax(se1_shape, sim_config, has_rec, w_rec, idx_map_rec)
         simulator = TimedModuleWrapper(Sequential(fpga, se1), dt=se1.dt,)
 
