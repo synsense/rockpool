@@ -136,7 +136,6 @@ class LIFBaseTorch(TorchModule):
         learning_window: P_float = 0.5,
         weight_init_func: Optional[Callable[[Tuple], torch.tensor]] = None,
         dt: P_float = 1e-3,
-        device: P_str = None,
         *args,
         **kwargs,
     ):
@@ -177,19 +176,22 @@ class LIFBaseTorch(TorchModule):
             **kwargs,
         )
 
+        # self.n_synapses: P_int = shape[0] // shape[1]
+        # self.n_neurons: P_int = shape[1]
         self.n_synapses: P_int = rp.SimulationParameter(shape[0] // shape[1])
         self.n_neurons: P_int = rp.SimulationParameter(shape[1])
 
-        # - Default tensor construction parameters
-        factory_kwargs = {"device": device}
+        # # - Default tensor construction parameters
+        # factory_kwargs = {"device": device}
 
+        # self.dt: P_float = dt
         self.dt: P_float = rp.SimulationParameter(dt)
         """ (float) Euler simulator time-step in seconds"""
 
         # - Initialise recurrent weights
         if weight_init_func is None:
             weight_init_func = lambda s: init.kaiming_uniform_(
-                torch.empty(s, **factory_kwargs)
+                torch.empty(s)#, **factory_kwargs)
             )
 
         w_rec_shape = (self.size_out, self.size_in)
@@ -208,11 +210,13 @@ class LIFBaseTorch(TorchModule):
             """ (Tensor) Recurrent weights `(Nout, Nin)` """
 
         self.noise_std: P_float = rp.SimulationParameter(noise_std)
+        # self.noise_std: P_float = noise_std
         """ (float) Noise std.dev. injected onto the membrane of each neuron during evolution """
 
         if isinstance(tau_mem, float):
-            self.tau_mem: P_tensor = rp.SimulationParameter(
-                (torch.ones(self.n_neurons) * tau_mem).to(device), "taus"
+            self.tau_mem: P_tensor = rp.State(
+                (torch.ones(self.n_neurons) * tau_mem), "taus"
+                # (torch.ones(self.n_neurons) * tau_mem).to(device), "taus"
             )
             """ (Tensor) Membrane time constants `(Nout,)` """
         else:
@@ -221,28 +225,32 @@ class LIFBaseTorch(TorchModule):
                     "tau_mem must be in shape (n_neurons) or a single float"
                 )
 
-            self.tau_mem: P_tensor = rp.SimulationParameter(
-                torch.Tensor(tau_mem).to(device), "taus"
+            self.tau_mem: P_tensor = rp.State(
+                torch.Tensor(tau_mem), "taus"
+            # torch.Tensor(tau_mem).to(device), "taus"
             )
         """ (Tensor) Membrane time constants `(Nout,)` """
 
         if isinstance(tau_syn, float):
-            self.tau_syn: P_tensor = rp.SimulationParameter(
-                (torch.ones(self.n_neurons, self.n_synapses) * tau_syn).to(device), "taus"
+            self.tau_syn: P_tensor = rp.State(
+                (torch.ones(self.n_neurons, self.n_synapses) * tau_syn), "taus"
+                # (torch.ones(self.n_neurons, self.n_synapses) * tau_syn).to(device), "taus"
             )
             """ (Tensor) Synaptic time constants `(Nout,)` """
         else:
             if not tau_syn.shape == (self.n_neurons, self.n_synapses):
                 raise ValueError("tau_syn must be in shape (n_neurons, n_synapses) or a single float")
 
-            self.tau_syn: P_tensor = rp.SimulationParameter(
-                torch.Tensor(tau_syn).to(device), "taus"
+            self.tau_syn: P_tensor = rp.State(
+                torch.Tensor(tau_syn), "taus"
+            # torch.Tensor(tau_syn).to(device), "taus"
             )
         """ (Tensor) Synaptic time constants `(Nout,)` """
 
         if has_bias:
             if np.size(bias) == 1:
-                bias = torch.ones(self.size_out, **factory_kwargs) * bias
+                bias = torch.ones(self.size_out) * bias
+                # bias = torch.ones(self.size_out, **factory_kwargs) * bias
 
             self.bias: P_tensor = rp.Parameter(
                 bias, shape=(self.size_out,), family="bias"
@@ -253,28 +261,31 @@ class LIFBaseTorch(TorchModule):
             """ (Tensor) Neuron biases `(Nout,)` """
 
         if np.size(threshold) == 1:
-            threshold = torch.ones(self.size_out, **factory_kwargs) * threshold
+            threshold = torch.ones(self.size_out) * threshold
+            # threshold = torch.ones(self.size_out, **factory_kwargs) * threshold
 
-        self.threshold: P_tensor = rp.SimulationParameter(threshold)
+        self.threshold: P_tensor = rp.State(threshold)
         """ (Tensor) Firing threshold for each neuron `(Nout,)` """
 
         self.learning_window: P_tensor = rp.SimulationParameter(
-            torch.Tensor([learning_window]).to(device)
+            torch.Tensor([learning_window])#.to(device)
         )
         """ (float) Learning window cutoff for surrogate gradient function """
 
-        self.vmem: P_tensor = rp.State(torch.zeros(self.n_neurons).to(device))
+        self.vmem: P_tensor = rp.State(torch.zeros(self.n_neurons))
+        # self.vmem: P_tensor = rp.State(torch.zeros(self.n_neurons).to(device))
         """ (Tensor) Membrane potentials `(Nout,)` """
 
         self.isyn: P_tensor = rp.State(
-            torch.zeros((self.n_neurons, self.n_synapses)).to(device)
+            torch.zeros((self.n_neurons, self.n_synapses))#.to(device)
         )
         """ (Tensor) Synaptic currents `(Nin,)` """
 
-        self.spikes: P_tensor = rp.State(torch.zeros((self.n_neurons)).to(device))
+        self.spikes: P_tensor = rp.State(torch.zeros((self.n_neurons)))#.to(device))
         """ (Tensor) Spikes `(Nin,)` """
 
         self.spike_generation_fn = rp.SimulationParameter(spike_generation_fn().apply)
+        # self.spike_generation_fn = spike_generation_fn().apply
         """ (Callable) Spike generation function with surrograte gradient """
 
         # placeholders for recordings

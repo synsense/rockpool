@@ -42,7 +42,6 @@ class LIFSlayer(LIFBaseTorch):
         has_bias: bool = False,
         has_rec: bool = False,
         noise_std: P_float = 0.0,
-        device: P_str = None,
         *args,
         **kwargs,
     ):
@@ -55,10 +54,9 @@ class LIFSlayer(LIFBaseTorch):
             has_bias (bool): Must be False
             has_rec (bool): Must be False
             noise_std (float): Must be 0
-            device (str): Must be cuda 
         """
 
-        assert device == "cuda"
+        assert data.device == "cuda"
         assert isinstance(tau_mem, float)
         assert isinstance(threshold, float)
         assert has_bias == False
@@ -72,7 +70,6 @@ class LIFSlayer(LIFBaseTorch):
             has_bias=has_bias,
             has_rec=has_rec,
             noise_std=noise_std,
-            device=device,
             *args, **kwargs,
         )
 
@@ -109,6 +106,9 @@ class LIFSlayer(LIFBaseTorch):
         data = data.reshape(n_batches, time_steps, self.n_neurons, self.n_synapses)
 
         # Replicate states out by batches
+        self.vmem = self.vmem.to(data.device)
+        self.isyn = self.isyn.to(data.device)
+        self.spikes = self.spikes.to(data.device)
         vmem = torch.ones(n_batches, self.n_neurons).to(data.device) * self.vmem
         isyn = (
             torch.ones(n_batches, self.n_neurons, self.n_synapses).to(data.device)
@@ -144,9 +144,9 @@ class LIFSlayer(LIFBaseTorch):
                 )
         
         # Bring states to rockpool dimensions
-        isyn_slayer = isyn_slayer.reshape(n_batches, self.n_neurons, self.n_synapses, time_steps).movedim(-1, 1)
-        vmem_slayer = vmem_slayer.reshape(n_batches, self.n_neurons, time_steps).movedim(-1, 1)
-        spikes = spikes.reshape(n_batches, self.n_neurons, time_steps).movedim(-1, 1)
+        isyn_slayer = isyn_slayer.reshape(n_batches, self.n_neurons, self.n_synapses, time_steps).movedim(-1, 1).to(data.device)
+        vmem_slayer = vmem_slayer.reshape(n_batches, self.n_neurons, time_steps).movedim(-1, 1).to(data.device)
+        spikes = spikes.reshape(n_batches, self.n_neurons, time_steps).movedim(-1, 1).to(data.device)
 
         vmem_slayer = vmem_slayer - spikes * self.threshold[0]
 
