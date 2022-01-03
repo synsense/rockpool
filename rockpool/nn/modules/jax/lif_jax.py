@@ -39,10 +39,8 @@ def sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
     return np.tanh(x + 1 - threshold) / 2 + 0.5
 
 
-# @custom_gradient
-# def step_pwl(
-#     x: FloatVector, threshold: FloatVector
-# ) -> (FloatVector, Callable[[FloatVector], FloatVector]):
+# @jax.custom_gradient
+# def step_pwl(x: FloatVector) -> (FloatVector, Callable[[FloatVector], FloatVector]):
 #     """
 #     Heaviside step function with piece-wise linear derivative to use as spike-generation surrogate
 #
@@ -50,6 +48,7 @@ def sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
 #
 #     :return (FloatVector, Callable[[FloatVector], FloatVector]): output value and gradient function
 #     """
+#     threshold = 0.0
 #     s = np.clip(np.floor(x + 1.0 - threshold), 0.0)
 #     return s, lambda g: (g * (x > (threshold - 0.5)),)
 
@@ -74,8 +73,10 @@ def step_pwl_jvp(primals, tangents):
     x, threshold = primals
     (x_dot, threshold_dot) = tangents
     primal_out = step_pwl(*primals)
-    tanget_out = x_dot * (x > (threshold - 0.5))
-    return primal_out, tanget_out
+    tangent_out = x_dot * (x > (threshold - 0.5)) - threshold_dot * (
+        x > (threshold - 0.5)
+    )
+    return primal_out, tangent_out
 
 
 class LIFJax(JaxModule):
@@ -125,7 +126,7 @@ class LIFJax(JaxModule):
         bias: Optional[FloatVector] = None,
         has_rec: bool = False,
         w_rec: Optional[FloatVector] = None,
-        threshold: FloatVector = 1.0,
+        threshold: FloatVector = 0.0,
         dt: float = 1e-3,
         noise_std: float = 0.0,
         rng_key: Optional[Any] = None,
@@ -180,7 +181,6 @@ class LIFJax(JaxModule):
         )
 
         # - Should we be recurrent or FFwd?
-        print("has_rec", has_rec)
         if has_rec:
             self.w_rec: P_ndarray = Parameter(
                 w_rec,
@@ -304,7 +304,7 @@ class LIFJax(JaxModule):
         """
 
         # - Get evolution constants
-        alpha = self.dt / self.tau_mem
+        alpha = np.exp(-self.dt / self.tau_mem)
         beta = np.exp(-self.dt / self.tau_syn)
 
         # - Single-step LIF dynamics
@@ -350,8 +350,8 @@ class LIFJax(JaxModule):
             Vmem = Vmem - spikes
 
             # - Membrane potentials
-            dVmem = Isyn + Iin + self.bias - Vmem
-            Vmem = Vmem + alpha * dVmem
+            dVmem = Isyn + Iin + self.bias
+            Vmem = alpha * Vmem + dVmem
 
             # - Detect next spikes (with custom gradient)
             spikes = step_pwl(Vmem, self.threshold)

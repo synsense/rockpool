@@ -13,7 +13,6 @@ def test_simple_network():
         LIFBitshiftTorch,
     )
     from rockpool.devices.xylo import mapper
-    from rockpool.devices.xylo import config_from_specification
     from rockpool.devices.xylo import XyloCim
     from rockpool.graph import (
         AliasConnection,

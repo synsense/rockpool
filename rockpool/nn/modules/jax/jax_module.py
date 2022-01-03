@@ -52,7 +52,10 @@ class JaxModule(Module, ABC):
     """The internal registry of registered `JaxModule` s"""
 
     def __init__(
-        self, shape: Optional[Union[int, Tuple]] = None, *args, **kwargs,
+        self,
+        shape: Optional[Union[int, Tuple]] = None,
+        *args,
+        **kwargs,
     ):
         """
 
@@ -102,9 +105,11 @@ class JaxModule(Module, ABC):
                 setattr(obj, name, mod)
 
         # - Restore configuration
+        obj._force_set_attributes = True
         obj = obj.set_attributes(params)
         obj = obj.set_attributes(state)
         obj = obj.set_attributes(sim_params)
+        obj._force_set_attributes = False
 
         return obj
 

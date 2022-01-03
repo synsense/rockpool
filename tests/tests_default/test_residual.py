@@ -38,8 +38,8 @@ def test_JaxResidual():
 
     grad_fn = jax.value_and_grad(loss)
 
-    l_val = loss(mod.parameters(), mod, input, 0.0)
-    gl_val, g = grad_fn(mod.parameters(), mod, input, 0.0)
+    l_val = loss(mod.parameters(), mod, input, 10.0)
+    gl_val, g = grad_fn(mod.parameters(), mod, input, 10.0)
 
     assert np.allclose(
         l_val, gl_val
