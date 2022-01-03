@@ -189,12 +189,17 @@ class TorchModule(Module, nn.Module):
             raise KeyError(f"{name} is not a registered attribute.")
 
         # - Get the initialisation function from the registry
-        # TODO: information should be contained in first value, pass that to init_func
-        (_, _, family, init_func, shape) = __registered_attributes[name]
+        (value, _, family, init_func, shape) = __registered_attributes[name]
 
         # - Use the registered initialisation function, if present
         if init_func is not None:
-            setattr(self, name, init_func(shape))
+            new_value = init_func(shape)
+            new_value = (
+                new_value.to(value.device)
+                if isinstance(value, torch.Tensor)
+                else new_value
+            )
+            setattr(self, name, new_value)
 
         return self
 
@@ -288,13 +293,12 @@ class TorchModule(Module, nn.Module):
         old_class_name = obj.__class__.__name__
 
         class TorchModulePatch(obj.__class__, TorchModule):
-                       
             def __call__(self, *args, **kwargs):
                 if retain_torch_api:
                     return orig_call(*args, **kwargs)
                 else:
                     return super().__call__(*args, **kwargs)
-            
+
             def parameters(self, *args, **kwargs):
                 if retain_torch_api:
                     return orig_parameters(*args, **kwargs)
@@ -335,7 +339,6 @@ class TorchModule(Module, nn.Module):
             # - Assign submodule to Rockpool module dictionary
             __modules[name] = [mod, type(mod).__name__]
             obj._submodulenames.append(name)
-
 
     def json_to_param(self, jparam):
 
@@ -395,6 +398,3 @@ class TorchModule(Module, nn.Module):
             params = json.load(f)
 
         self.json_to_param(params)
-
-
-

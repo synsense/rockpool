@@ -11,7 +11,7 @@ if util.find_spec("sinabs.slayer") is None:
 
 from typing import Union, List, Tuple, Callable, Optional, Any
 import numpy as np
-from rockpool.nn.modules.torch.lif_torch import LIFBaseTorch 
+from rockpool.nn.modules.torch.lif_torch import LIFBaseTorch
 import torch
 import torch.nn.functional as F
 import torch.nn.init as init
@@ -32,13 +32,11 @@ from sinabs.slayer.leaky import LeakyIntegrator
 __all__ = ["LIFSlayer"]
 
 
-
 class LIFSlayer(LIFBaseTorch):
-
     def __init__(
         self,
         tau_mem: P_float = 0.02,
-        threshold: P_float = 1.,
+        threshold: P_float = 1.0,
         has_bias: bool = False,
         has_rec: bool = False,
         noise_std: P_float = 0.0,
@@ -56,12 +54,15 @@ class LIFSlayer(LIFBaseTorch):
             noise_std (float): Must be 0
         """
 
-        assert data.device == "cuda"
-        assert isinstance(tau_mem, float)
-        assert isinstance(threshold, float)
-        assert has_bias == False
-        assert has_rec == False
-        assert noise_std == 0.
+        assert isinstance(
+            tau_mem, float
+        ), "Slayer-backed LIF module must have a single membrane time cnostant"
+        assert isinstance(
+            threshold, float
+        ), "Slayer-backed LIF module must have a single threshold"
+        assert has_bias == False, "Slayer-backed LIF module may not have biases"
+        assert has_rec == False, "Slayer-backed LIF module does not support recurrence"
+        assert noise_std == 0.0, "Slayer-backed LIF module does not support noise"
 
         # - Initialise superclass
         super().__init__(
@@ -70,14 +71,13 @@ class LIFSlayer(LIFBaseTorch):
             has_bias=has_bias,
             has_rec=has_rec,
             noise_std=noise_std,
-            *args, **kwargs,
+            *args,
+            **kwargs,
         )
 
-    
-    def forward_leak(self, inp: torch.Tensor, alpha, state):
-    
-        return out_state 
-
+    # def forward_leak(self, inp: torch.Tensor, alpha, state):
+    #
+    #     return out_state
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
@@ -94,6 +94,7 @@ class LIFSlayer(LIFBaseTorch):
             Out of spikes with the shape (batch, time_steps, n_neurons)
 
         """
+        assert data.device == "cuda"
         (n_batches, time_steps, n_connections) = data.shape
         if n_connections != self.size_in:
             raise ValueError(
@@ -118,37 +119,52 @@ class LIFSlayer(LIFBaseTorch):
 
         # Exponential leak
         # Generate buffer for synaptic current
-        isyn_slayer = torch.zeros(n_batches * self.n_neurons, self.n_synapses, time_steps).to(data.device)
+        isyn_slayer = torch.zeros(
+            n_batches * self.n_neurons, self.n_synapses, time_steps
+        ).to(data.device)
 
         for syn in range(self.n_synapses):
             # bring data into format expected by slayer
-            inp = data[:, :, :, syn].movedim(1, -1).reshape(n_batches * self.n_neurons, time_steps)
+            inp = (
+                data[:, :, :, syn]
+                .movedim(1, -1)
+                .reshape(n_batches * self.n_neurons, time_steps)
+            )
 
-
-            isyn_slayer[:, syn] = LeakyIntegrator.apply(inp, 
-                                                        isyn[:, :, syn].flatten().contiguous(),
-                                                        self.beta[0, syn])
-
-
+            isyn_slayer[:, syn] = LeakyIntegrator.apply(
+                inp, isyn[:, :, syn].flatten().contiguous(), self.beta[0, syn]
+            )
 
         spikes, vmem_slayer = SpikeFunctionIterForward.apply(
-                isyn_slayer.sum(1), # input
-                self.threshold[0], #membrane subtract
-                self.alpha[0].item(), # alpha
-                vmem.squeeze(), # init state
-                spikes.squeeze(), # last activations
-                self.threshold[0], # threshold
-                None, # threshold low
-                self.learning_window, #learning window
-                1.0, #scale grads
-                )
-        
-        # Bring states to rockpool dimensions
-        isyn_slayer = isyn_slayer.reshape(n_batches, self.n_neurons, self.n_synapses, time_steps).movedim(-1, 1).to(data.device)
-        vmem_slayer = vmem_slayer.reshape(n_batches, self.n_neurons, time_steps).movedim(-1, 1).to(data.device)
-        spikes = spikes.reshape(n_batches, self.n_neurons, time_steps).movedim(-1, 1).to(data.device)
+            isyn_slayer.sum(1),  # input
+            self.threshold[0],  # membrane subtract
+            self.alpha[0].item(),  # alpha
+            vmem.squeeze(),  # init state
+            spikes.squeeze(),  # last activations
+            self.threshold[0],  # threshold
+            None,  # threshold low
+            self.learning_window,  # learning window
+            1.0,  # scale grads
+        )
 
-        vmem_slayer = vmem_slayer - spikes * self.threshold[0]
+        # Bring states to rockpool dimensions
+        isyn_slayer = (
+            isyn_slayer.reshape(n_batches, self.n_neurons, self.n_synapses, time_steps)
+            .movedim(-1, 1)
+            .to(data.device)
+        )
+        vmem_slayer = (
+            vmem_slayer.reshape(n_batches, self.n_neurons, time_steps)
+            .movedim(-1, 1)
+            .to(data.device)
+        )
+        spikes = (
+            spikes.reshape(n_batches, self.n_neurons, time_steps)
+            .movedim(-1, 1)
+            .to(data.device)
+        )
+
+        vmem_slayer = vmem_slayer - spikes
 
         # recording
         if self._record:
@@ -163,4 +179,3 @@ class LIFSlayer(LIFBaseTorch):
         self.spikes = spikes[0, -1].detach()
 
         return self._record_spikes
-
