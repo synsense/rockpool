@@ -207,6 +207,38 @@ class TorchModule(Module, nn.Module):
         # Assign attribute with setattr
         super().__setattr__(key, value)
 
+    def _reset_attribute(self, name: str) -> "ModuleBase":
+        """
+        Reset an attribute to its initialisation value
+
+        Args:
+            name (str): The name of the attribute to reset
+
+        Returns:
+            self (`Module`): For compatibility with the functional API
+        """
+        # - Get attribute registry
+        __registered_attributes, __modules = self._get_attribute_registry()
+
+        # - Check that the attribute is registered
+        if name not in __registered_attributes:
+            raise KeyError(f"{name} is not a registered attribute.")
+
+        # - Get the initialisation function from the registry
+        (value, _, family, init_func, shape) = __registered_attributes[name]
+
+        # - Use the registered initialisation function, if present
+        if init_func is not None:
+            new_value = init_func(shape)
+            new_value = (
+                new_value.to(value.device)
+                if isinstance(value, torch.Tensor)
+                else new_value
+            )
+            setattr(self, name, new_value)
+
+        return self
+
     def register_buffer(self, name: str, tensor: torch.Tensor, *args, **kwargs) -> None:
         self._register_attribute(name, rp.State(tensor, None, None, np.shape(tensor)))
         super().register_buffer(name, tensor, *args, **kwargs)

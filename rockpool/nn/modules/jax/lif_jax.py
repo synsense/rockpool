@@ -339,22 +339,25 @@ class LIFJax(JaxModule):
             sp_in_t = sp_in_t.reshape(-1)
             Iin = I_in_t.reshape(-1)
 
+            # - Unpack state
             spikes, Isyn, Vmem = state
 
-            # - Synaptic input
+            # - Apply synaptic and recurrent input
             Irec = np.dot(spikes, self.w_rec)
-            dIsyn = sp_in_t + Irec
-            Isyn = beta * Isyn + dIsyn
+            Isyn += sp_in_t + Irec
 
-            # - Apply subtractive reset
-            Vmem = Vmem - spikes
+            # - Decay synaptic and membrane state
+            Vmem *= alpha
+            Isyn *= beta
 
-            # - Membrane potentials
-            dVmem = Isyn + Iin + self.bias
-            Vmem = alpha * Vmem + dVmem
+            # - Integrate membrane potentials
+            Vmem += Isyn + Iin + self.bias
 
             # - Detect next spikes (with custom gradient)
             spikes = step_pwl(Vmem, self.threshold)
+
+            # - Apply subtractive membrane reset
+            Vmem = Vmem - spikes
 
             # - Return state and outputs
             return (spikes, Isyn, Vmem), (Irec, spikes, Vmem, Isyn)

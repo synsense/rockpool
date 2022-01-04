@@ -17,7 +17,6 @@ def test_wavesense_init():
     tau_lp = 0.01
     threshold = 1.0
     dt = 0.001
-    device = "cpu"
 
     # model init
     model = WaveSenseNet(
@@ -35,7 +34,6 @@ def test_wavesense_init():
         threshold=threshold,
         neuron_model=LIFTorch,
         dt=dt,
-        device=device,
     )
 
 
@@ -55,7 +53,6 @@ def test_wavesense_forward():
     tau_lp = 0.01
     threshold = 1.0
     dt = 0.001
-    device = "cpu"
 
     # model init
     model = WaveSenseNet(
@@ -73,7 +70,6 @@ def test_wavesense_forward():
         threshold=threshold,
         neuron_model=LIFTorch,
         dt=dt,
-        device=device,
     )
 
     # input params
@@ -105,7 +101,6 @@ def test_wavesense_record():
     tau_lp = 0.01
     threshold = 1.0
     dt = 0.001
-    device = "cpu"
 
     # model init
     model = WaveSenseNet(
@@ -123,7 +118,6 @@ def test_wavesense_record():
         threshold=threshold,
         neuron_model=LIFTorch,
         dt=dt,
-        device=device,
     )
 
     # input params
@@ -155,7 +149,6 @@ def test_wavesense_backward():
     tau_lp = 0.01
     threshold = 1.0
     dt = 0.001
-    device = "cpu"
 
     # model init
     model = WaveSenseNet(
@@ -173,7 +166,6 @@ def test_wavesense_backward():
         threshold=threshold,
         neuron_model=LIFTorch,
         dt=dt,
-        device=device,
     )
 
     # input params
@@ -210,7 +202,6 @@ def test_wavesense_save_load():
     tau_lp = 0.01
     threshold = 1.0
     dt = 0.001
-    device = "cpu"
 
     # model init
     model = WaveSenseNet(
@@ -228,7 +219,6 @@ def test_wavesense_save_load():
         threshold=threshold,
         neuron_model=LIFTorch,
         dt=dt,
-        device=device,
     )
 
     model2 = WaveSenseNet(
@@ -246,7 +236,6 @@ def test_wavesense_save_load():
         threshold=threshold,
         neuron_model=LIFTorch,
         dt=dt,
-        device=device,
     )
 
     # input params
@@ -299,7 +288,6 @@ def test_wavesense_reset():
     tau_lp = 0.01
     threshold = 1.0
     dt = 0.001
-    device = "cpu"
 
     # model init
     model = WaveSenseNet(
@@ -317,7 +305,6 @@ def test_wavesense_reset():
         threshold=threshold,
         neuron_model=LIFTorch,
         dt=dt,
-        device=device,
     )
 
     # input params
@@ -363,7 +350,6 @@ def test_wavesense_graph():
     tau_lp = 0.01
     threshold = 1.0
     dt = 0.001
-    device = "cpu"
 
     # model init
     model = WaveSenseNet(
@@ -381,7 +367,6 @@ def test_wavesense_graph():
         threshold=threshold,
         neuron_model=LIFTorch,
         dt=dt,
-        device=device,
     )
 
     model.as_graph()
@@ -394,7 +379,6 @@ def test_wavenet():
     dilations = [2]
     n_neurons = 64
     kernel_size = 2
-    device = "cpu"
 
     T_total = 10
     T_stim = 3
@@ -409,7 +393,7 @@ def test_wavenet():
         n_hidden=n_neurons,
         kernel_size=kernel_size,
         bias=False,
-    ).to(device)
+    )
 
     inp = torch.zeros(N_batch, T_total, n_neurons)
     inp[:, T_stim, 0] = 1

@@ -6,7 +6,7 @@ def test_simple_network():
 
     # from rockpool.nn.modules import LIFJax, LinearJax, JaxModule
     # from rockpool.nn.combinators import Sequential, Residual
-    from rockpool.nn.modules.torch import (
+    from rockpool.nn.modules import (
         TorchModule,
         LinearTorch,
         LIFTorch,
@@ -207,9 +207,7 @@ def test_complex_network():
     import copy
     from rockpool.transform.quantize_methods import global_quantize, channel_quantize
 
-    # from rockpool.nn.modules import LIFJax, LinearJax, JaxModule
-    # from rockpool.nn.combinators import Sequential, Residual
-    from rockpool.nn.modules.torch import (
+    from rockpool.nn.modules import (
         TorchModule,
         LinearTorch,
         LIFTorch,
@@ -465,7 +463,7 @@ def test_sequential_combinator():
 
     # from rockpool.nn.modules import LIFJax, LinearJax, JaxModule
     from rockpool.nn.combinators import Sequential, Residual
-    from rockpool.nn.modules.torch import (
+    from rockpool.nn.modules import (
         TorchModule,
         LinearTorch,
         LIFTorch,
@@ -615,7 +613,7 @@ def test_residual_combinator():
 
     # from rockpool.nn.modules import LIFJax, LinearJax, JaxModule
     from rockpool.nn.combinators import Sequential, Residual
-    from rockpool.nn.modules.torch import (
+    from rockpool.nn.modules import (
         TorchModule,
         LinearTorch,
         LIFTorch,

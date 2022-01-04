@@ -31,6 +31,7 @@ P_float = Union[float, ParameterBase]
 P_int = Union[int, ParameterBase]
 P_str = Union[str, ParameterBase]
 P_bool = Union[bool, ParameterBase]
+P_Callable = Union[Callable, ParameterBase]
 
 P_ndarray = Union[np.ndarray, ParameterBase]
 

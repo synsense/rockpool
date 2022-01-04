@@ -158,11 +158,7 @@ def test_lowpass():
     N = 3
     tau_mem = 0.04
 
-    lyr = LowPass(
-        n_neurons=N,
-        tau_mem=tau_mem,
-        dt=0.01,
-    )
+    lyr = LowPass(n_neurons=N, tau_mem=tau_mem, dt=0.01,)
 
     inp = torch.rand(50, 1, N).cpu()
 
@@ -175,7 +171,7 @@ def test_lowpass():
 
 
 def test_astorch():
-    from rockpool.nn.modules.torch import LIFBitshiftTorch
+    from rockpool.nn.modules import LIFBitshiftTorch
 
     import torch
 
@@ -193,7 +189,6 @@ def test_astorch():
         threshold=threshold,
         learning_window=learning_window,
         dt=0.01,
-        device="cpu",
     )
 
     inp = torch.rand(1, 50, Nsyn * N).cpu()

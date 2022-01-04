@@ -33,6 +33,16 @@ try:
 except (ImportError, ModuleNotFoundError) as err:
     warnings.warn(f"Torch modules not available: {err}")
 
+
+# - Sinabs modules
+try:
+    from .sinabs.lif_slayer import *
+    from .sinabs.lif_sinabs import *
+
+except (ImportError, ModuleNotFoundError) as err:
+    warnings.warn(f"Sinabs modules not available: {err}")
+
+
 # - Jax modules
 try:
     from .jax.jax_module import *

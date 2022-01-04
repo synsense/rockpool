@@ -7,7 +7,7 @@ def test_pipeline():
     import copy
     from rockpool.transform import global_quantize, channel_quantize
     from rockpool.nn.networks import WaveSenseNet
-    from rockpool.nn.modules.torch import (
+    from rockpool.nn.modules import (
         TorchModule,
         LinearTorch,
         LIFTorch,
@@ -108,7 +108,7 @@ def test_rec_rockpool():
 
     # from rockpool.nn.modules import LIFJax, LinearJax, JaxModule
     from rockpool.nn.combinators import Sequential, Residual
-    from rockpool.nn.modules.torch import (
+    from rockpool.nn.modules import (
         TorchModule,
         LinearTorch,
         LIFTorch,

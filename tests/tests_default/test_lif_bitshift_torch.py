@@ -24,7 +24,6 @@ def test_LIFBitshiftTorch_Forward_Backward():
         noise_std=0.1,
         learning_window=0.5,
         dt=0.001,
-        device="cpu",
     )
 
     # - Generate some data
@@ -59,7 +58,6 @@ def test_LIFBitshiftTorch_single_neuron():
         noise_std=0.0,
         learning_window=0.5,
         dt=0.001,
-        device="cpu",
     )
 
     # - Generate some data
@@ -70,6 +68,8 @@ def test_LIFBitshiftTorch_single_neuron():
 
     # - Test Rockpool interface
     out, state, rec = mod.evolve(input_data, record=True)
+
+    print(rec["isyn"])
 
     # make sure the values decayed correctly
     assert rec["isyn"][0, 0, 0, 0] == 0.5

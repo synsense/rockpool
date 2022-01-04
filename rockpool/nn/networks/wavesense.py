@@ -10,7 +10,7 @@ See Also
 
 """
 
-from rockpool.nn.modules.torch import TorchModule, LinearTorch, LIFTorch, ExpSynTorch
+from rockpool.nn.modules import TorchModule, LinearTorch, LIFTorch, ExpSynTorch
 from rockpool.parameters import Parameter, State, SimulationParameter, Constant
 from rockpool.nn.modules.torch.lif_torch import StepPWL, PeriodicExponential
 from rockpool.graph import AliasConnection, GraphHolder, connect_modules
@@ -73,7 +73,6 @@ class WaveSenseBlock(TorchModule):
         threshold: float = 1.0,
         neuron_model: TorchModule = LIFTorch,
         dt: float = 1e-3,
-        device: Optional[str] = None,
         *args,
         **kwargs,
     ):
@@ -91,7 +90,6 @@ class WaveSenseBlock(TorchModule):
             :param float threshold:         Threshold of all spiking neurons. Default: `0.`
             :param TorchModule neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFSlayer` for speedup
             :param float dt:                Temporal resolution of the simulation. Default: 1ms
-            :param Optional[str] device:    Torch device: 'cuda' or 'cpu'. Default: `None`, choose a device automatically
         """
         # - Initialise superclass
         super().__init__(
@@ -113,7 +111,7 @@ class WaveSenseBlock(TorchModule):
         tau_syn = torch.clamp(tau_syn, base_tau_syn, tau_syn.max()).repeat(Nchannels, 1)
 
         self.lin1 = LinearTorch(
-            shape=(Nchannels, Nchannels * kernel_size), has_bias=False, device=device
+            shape=(Nchannels, Nchannels * kernel_size), has_bias=False
         )
 
         self.spk1 = self.neuron_model(
@@ -128,13 +126,10 @@ class WaveSenseBlock(TorchModule):
             spike_generation_fn=PeriodicExponential,
             learning_window=0.5,
             dt=dt,
-            device=device,
         )
 
         # - Remapping output layers
-        self.lin2_res = LinearTorch(
-            shape=(Nchannels, Nchannels), has_bias=False, device=device
-        )
+        self.lin2_res = LinearTorch(shape=(Nchannels, Nchannels), has_bias=False)
 
         self.spk2_res = self.neuron_model(
             shape=(Nchannels, Nchannels),
@@ -148,13 +143,10 @@ class WaveSenseBlock(TorchModule):
             spike_generation_fn=PeriodicExponential,
             learning_window=0.5,
             dt=dt,
-            device=device,
         )
 
         # - Skip output layers
-        self.lin2_skip = LinearTorch(
-            shape=(Nchannels, Nskip), has_bias=False, device=device
-        )
+        self.lin2_skip = LinearTorch(shape=(Nchannels, Nskip), has_bias=False)
 
         self.spk2_skip = self.neuron_model(
             shape=(Nskip, Nskip),
@@ -163,7 +155,6 @@ class WaveSenseBlock(TorchModule):
             bias=bias,
             threshold=threshold,
             dt=dt,
-            device=device,
         )
 
         # - Internal record dictionary
@@ -297,7 +288,6 @@ class WaveSenseNet(TorchModule):
         threshold: float = 1.0,
         neuron_model: TorchModule = LIFTorch,
         dt: float = 1e-3,
-        device: Optional[str] = None,
         *args,
         **kwargs,
     ):
@@ -320,9 +310,6 @@ class WaveSenseNet(TorchModule):
             :param float threshold:         Threshold of all neurons in WaveSense. Default: `1.0`
             :param TorchModule neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFSlayer` for speedup. Default: :py:class:`.LIFTorch`
             :param float dt:                Temporal resolution of the simulation. Default: 1ms
-            :param Optional[str] device:    Torch device: 'cuda' or 'cpu'. Default: `None`, choose the device automatically
-            *args:
-            **kwargs:
         """
         # - Determine network shape and initialise
         shape = (n_channels_in, n_classes)
@@ -335,9 +322,7 @@ class WaveSenseNet(TorchModule):
         self.neuron_model = neuron_model
 
         # - Input mapping layers
-        self.lin1 = LinearTorch(
-            shape=(n_channels_in, n_channels_res), has_bias=False, device=device
-        )
+        self.lin1 = LinearTorch(shape=(n_channels_in, n_channels_res), has_bias=False)
 
         self.spk1 = self.neuron_model(
             shape=(n_channels_res, n_channels_res),
@@ -351,7 +336,6 @@ class WaveSenseNet(TorchModule):
             spike_generation_fn=PeriodicExponential,
             learning_window=0.5,
             dt=dt,
-            device=device,
         )
 
         # - WaveBlock layers
@@ -368,14 +352,11 @@ class WaveSenseNet(TorchModule):
                 threshold=threshold,
                 neuron_model=neuron_model,
                 dt=dt,
-                device=device,
             )
             self.__setattr__(f"wave{i}", wave)
 
         # Dense readout layers
-        self.hidden = LinearTorch(
-            shape=(n_channels_skip, n_hidden), has_bias=False, device=device
-        )
+        self.hidden = LinearTorch(shape=(n_channels_skip, n_hidden), has_bias=False)
 
         self.spk2 = self.neuron_model(
             shape=(n_hidden, n_hidden),
@@ -389,12 +370,9 @@ class WaveSenseNet(TorchModule):
             spike_generation_fn=PeriodicExponential,
             learning_window=0.5,
             dt=dt,
-            device=device,
         )
 
-        self.readout = LinearTorch(
-            shape=(n_hidden, n_classes), has_bias=False, device=device
-        )
+        self.readout = LinearTorch(shape=(n_hidden, n_classes), has_bias=False)
 
         # - low pass filter is not compatible with xylo unless we give tau_syn 0
         # - Smoothing output
@@ -402,7 +380,7 @@ class WaveSenseNet(TorchModule):
         # """ bool: Perform low-pass filtering of the readout """
         #
         # if smooth_output:
-        #     self.lp = ExpSynTorch(n_classes, tau_syn=tau_lp, dt=dt, device=device)
+        #     self.lp = ExpSynTorch(n_classes, tau_syn=tau_lp, dt=dt)
 
         self.spk_out = self.neuron_model(
             shape=(n_classes, n_classes),
@@ -416,7 +394,6 @@ class WaveSenseNet(TorchModule):
             spike_generation_fn=PeriodicExponential,
             learning_window=0.5,
             dt=dt,
-            device=device,
         )
 
         # - Record dt
