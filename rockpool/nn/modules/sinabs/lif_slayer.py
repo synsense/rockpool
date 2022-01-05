@@ -37,7 +37,7 @@ class LIFSlayer(LIFBaseTorch):
         self,
         tau_mem: P_float = 0.02,
         threshold: P_float = 1.0,
-        has_bias: bool = False,
+        # has_bias: bool = False,
         has_rec: bool = False,
         noise_std: P_float = 0.0,
         *args,
@@ -60,7 +60,7 @@ class LIFSlayer(LIFBaseTorch):
         assert isinstance(
             threshold, float
         ), "Slayer-backed LIF module must have a single threshold"
-        assert has_bias == False, "Slayer-backed LIF module may not have biases"
+        # assert has_bias == False, "Slayer-backed LIF module may not have biases"
         assert has_rec == False, "Slayer-backed LIF module does not support recurrence"
         assert noise_std == 0.0, "Slayer-backed LIF module does not support noise"
 
@@ -68,7 +68,7 @@ class LIFSlayer(LIFBaseTorch):
         super().__init__(
             tau_mem=tau_mem,
             threshold=threshold,
-            has_bias=has_bias,
+            # has_bias=has_bias,
             has_rec=has_rec,
             noise_std=noise_std,
             *args,
