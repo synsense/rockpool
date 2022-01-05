@@ -156,7 +156,7 @@ class LIFSinabs(TorchModule):
             w_rec (torch.Tensor): If the module is initialised in recurrent mode, you can provide a concrete initialisation for the recurrent weights, which must be a matrix with shape ``(Nout, Nin)``. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
             noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: ``0.0``
             spike_generation_fn (Callable): Function to call for spike production. Usually simple threshold crossing. Implements the suroogate gradient function in the backward call. (StepPWL or PeriodicExponential).
-            learning_window (float): Cutoff value for the surrogate gradient. 
+            learning_window (float): Cutoff value for the surrogate gradient.
             weight_init_func (Optional[Callable[[Tuple], torch.tensor]): The initialisation function to use when generating weights. Default: ``None`` (Kaiming initialisation)
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
             device: Defines the device on which the model will be processed.
@@ -172,7 +172,11 @@ class LIFSinabs(TorchModule):
 
         # - Initialise superclass
         super().__init__(
-            shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs,
+            shape=shape,
+            spiking_input=True,
+            spiking_output=True,
+            *args,
+            **kwargs,
         )
 
         self.n_synapses: P_int = rp.SimulationParameter(shape[0] // shape[1])

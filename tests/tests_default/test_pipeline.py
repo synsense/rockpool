@@ -15,6 +15,7 @@ def test_pipeline():
     )
     from rockpool.devices.xylo import mapper, config_from_specification
     from rockpool.devices.xylo.xylo_cimulator import XyloCim
+    from rockpool.parameters import Constant
     import warnings
 
     warnings.filterwarnings("ignore")
@@ -41,7 +42,7 @@ def test_pipeline():
         n_channels_skip=Nskip,
         n_hidden=Nhid,
         kernel_size=kernel_size,
-        has_bias=False,
+        bias=Constant(0.0),
         smooth_output=False,
         tau_mem=tau_mem,
         base_tau_syn=base_tau_syn,
@@ -49,7 +50,6 @@ def test_pipeline():
         threshold=threshold,
         neuron_model=LIFBitshiftTorch,
         dt=dt,
-        device=device,
     )
 
     w_1_torch = torch.nn.init.normal_(mod.lin1.weight, mean=0.0, std=5.0)
@@ -106,7 +106,7 @@ def test_rec_rockpool():
     import copy
     from rockpool.transform.quantize_methods import global_quantize, channel_quantize
 
-    # from rockpool.nn.modules import LIFJax, LinearJax, JaxModule
+    from rockpool.parameters import Constant
     from rockpool.nn.combinators import Sequential, Residual
     from rockpool.nn.modules import (
         TorchModule,
@@ -142,55 +142,50 @@ def test_rec_rockpool():
             shape=(Nres1, Nres1),
             tau_mem=0.002,
             tau_syn=0.002,
-            has_bias=False,
+            bias=Constant(0.0),
             threshold=threshold,
             learning_window=0.5,
             dt=0.001,
-            device="cpu",
         ),
         LinearTorch((Nres1, Nres2), has_bias=False),
         LIFBitshiftTorch(
             shape=(Nres2, Nres2),
             tau_mem=0.002,
             tau_syn=0.002,
-            has_bias=False,
+            bias=Constant(0.0),
             threshold=threshold,
             learning_window=0.5,
             dt=0.001,
-            device="cpu",
         ),
         LinearTorch((Nres2, Nres3), has_bias=False),
         LIFBitshiftTorch(
             shape=(Nres3, Nres3),
             tau_mem=0.002,
             tau_syn=0.002,
-            has_bias=False,
+            bias=Constant(0.0),
             threshold=threshold,
             learning_window=0.5,
             dt=0.001,
-            device="cpu",
         ),
         LinearTorch((Nres3, Nres4), has_bias=False),
         LIFBitshiftTorch(
             shape=(Nres4, Nres4),
             tau_mem=0.002,
             tau_syn=0.002,
-            has_bias=False,
+            bias=Constant(0.0),
             threshold=threshold,
             learning_window=0.5,
             dt=0.001,
-            device="cpu",
         ),
         LinearTorch((Nres4, Nout), has_bias=False),
         LIFBitshiftTorch(
             shape=(Nout, Nout),
             tau_mem=0.02,
             tau_syn=0.02,
-            has_bias=False,
+            bias=Constant(0.0),
             threshold=threshold,
             learning_window=0.5,
             dt=0.001,
-            device="cpu",
         ),
     )
 
@@ -270,35 +265,33 @@ def test_rec_rockpool():
             dt = 0.001
 
             self.lin_res = LinearTorch(
-                shape=(Nin, Nres), weight=weights_in, has_bias=False, device=device
+                shape=(Nin, Nres), weight=weights_in, has_bias=False
             )
 
             self.spk_res = LIFBitshiftTorch(
                 shape=(Nres, Nres),  # TODO: test when Nres*2
                 tau_mem=dash_mem,
                 tau_syn=dash_syn,
-                has_bias=False,
+                bias=Constant(0.0),
                 threshold=threshold,
                 has_rec=True,
                 w_rec=weights_rec,
                 learning_window=learning_window,
                 dt=dt,
-                device=device,
             )
 
             self.lin_out = LinearTorch(
-                shape=(Nres, Nout), weight=weights_out, has_bias=False, device=device
+                shape=(Nres, Nout), weight=weights_out, has_bias=False
             )
 
             self.spk_out = LIFBitshiftTorch(
                 shape=(Nout, Nout),
                 tau_mem=dash_mem_out,
                 tau_syn=dash_syn_out,
-                has_bias=False,
+                bias=Constant(0.0),
                 threshold=threshold_out,
                 learning_window=learning_window,
                 dt=dt,
-                device=device,
             )
 
             self._record_dict = {}
