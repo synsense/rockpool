@@ -226,7 +226,6 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
     :type Itau_syn: JP_ndarray
     :ivar Itau_ahp: Array of spike frequency adaptation leakage currents of the neurons with shape (Nrec,)
     :type Itau_ahp: JP_ndarray
-
     :ivar Itau_mem: Array of membrane leakage currents of the neurons with shape (Nrec,)
     :type Itau_mem: JP_ndarray
     :ivar f_gain_syn: 2D array of synapse gain parameters of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape (4,Nrec)
@@ -243,6 +242,12 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
     :type Idc: JP_ndarray
     :ivar If_nmda: Array of the NMDA gate current in Amperes setting the NMDA gating voltage. If :math:`V_{mem} > V_{nmda}` : The :math:`I_{syn_{NMDA}}` current is added up to the input current, else it cannot with shape (Nrec,)
     :type If_nmda: JP_ndarray
+    :ivar Iref: Array of the bias current setting the refractory period `t_ref` with shape (Nrec,)
+    :type Iref: JP_ndarray
+    :ivar Ipulse: Array of  the bias current setting the pulse width `t_pulse` with shape (Nrec,)
+    :type Ipulse: JP_ndarray
+    :ivar Ispkthr: Array of spiking threshold current with shape (Nrec,)
+    :type Ispkthr: JP_ndarray
     :ivar kappa: Array of mean subthreshold slope factor of the transistors with shape (Nrec,)
     :type kappa: JP_ndarray
     :ivar Ut: Array of thermal voltage in Volts with shape (Nrec,)
@@ -255,14 +260,12 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
     :type f_tau_ahp: JP_ndarray
     :ivar f_tau_mem: Array of tau factor for membrane circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau` with shape (Nrec,)
     :type f_tau_mem: JP_ndarray
-    :ivar t_pulse: Array of the width of the pulse in seconds produced by virtue of a spike with shape (Nrec,)
-    :type t_pulse: JP_ndarray
-    :ivar t_pulse_ahp: Array of reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp`` with shape (Nrec,)
-    :type t_pulse_ahp: JP_ndarray
-    :ivar t_ref: Array of refractory periods in seconds, limits maximum firing rate. In the refractory period the synaptic input current of the membrane is the dark current. with shape (Nrec,)
-    :type t_ref: JP_ndarray
-    :ivar Ispkthr: Array of spiking threshold current in with shape (Nrec,)
-    :type Ispkthr: JP_ndarray
+    :ivar f_pulse: Array of the pulse width factor produced by virtue of a spike with shape (Nrec,)
+    :type f_pulse: JP_ndarray
+    :ivar f_pulse_ahp: Array of the ratio of reduction of pulse width for AHP also look at ``t_pulse`` and ``fpulse_ahp`` with shape (Nrec,)
+    :type f_pulse_ahp: JP_ndarray
+    :ivar f_ref: Array of refractory periods factor, limits maximum firing rate. In the refractory period the synaptic input current of the membrane is the dark current. with shape (Nrec,)
+    :type f_ref: JP_ndarray
     :ivar Ireset: Array of reset current after spike generation with shape (Nrec,)
     :type Ireset: JP_ndarray
 
@@ -401,12 +404,16 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
         self.f_gain_mem = Parameter(sim_config.f_gain_mem, shape=(self.size_out,))
         self.Idc = Parameter(sim_config.Idc, shape=(self.size_out,))
         self.If_nmda = Parameter(sim_config.If_nmda, shape=(self.size_out,))
+        self.Iref = Parameter(sim_config.Iref, shape=(self.size_out,))
+        self.Ipulse = Parameter(sim_config.Ipulse, shape=(self.size_out,))
+        self.Ispkthr = Parameter(sim_config.Ispkthr, shape=(self.size_out,))
 
         # --- Simulation Parameters --- #
         self.dt = SimulationParameter(dt, shape=())
         self.kappa = SimulationParameter(sim_config.kappa, shape=(self.size_out,))
         self.Ut = SimulationParameter(sim_config.Ut, shape=(self.size_out,))
         self.Io = SimulationParameter(sim_config.Io, shape=(self.size_out,))
+        self.Ireset = SimulationParameter(sim_config.Ireset, shape=(self.size_out,))
 
         ## Time -> Current conversion
         self.f_tau_syn = SimulationParameter(
@@ -418,18 +425,11 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
         self.f_tau_mem = SimulationParameter(
             sim_config.f_tau_mem, shape=(self.size_out,)
         )
-        # Pulse width
-        self.t_pulse = SimulationParameter(sim_config.t_pulse, shape=(self.size_out,))
-        self.t_pulse_ahp = SimulationParameter(
-            sim_config.t_pulse_ahp, shape=(self.size_out,)
+        self.f_pulse_ahp = SimulationParameter(
+            sim_config.f_pulse_ahp, shape=(self.size_out,)
         )
-
-        ## Refractory Period
-        self.t_ref = SimulationParameter(sim_config.t_ref, shape=(self.size_out,))
-
-        ## Policy
-        self.Ispkthr = SimulationParameter(sim_config.Ispkthr, shape=(self.size_out,))
-        self.Ireset = SimulationParameter(sim_config.Ireset, shape=(self.size_out,))
+        self.f_ref = SimulationParameter(sim_config.f_ref)
+        self.f_pulse = SimulationParameter(sim_config.f_pulse)
 
     def evolve(
         self, input_data: np.ndarray, record: bool = True
@@ -670,6 +670,27 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             }
 
         return spikes_ts, states, record_dict
+
+    @property
+    def t_ref(self) -> JP_ndarray:
+        """
+        t_ref holds an array of refractory periods in seconds, limits maximum firing rate. In the refractory period the synaptic input current of the membrane is the dark current. with shape (Nrec,)
+        """
+        return self.f_ref / self.Iref
+
+    @property
+    def t_pulse(self) -> JP_ndarray:
+        """
+        t_pulse holds an array of the pulse widths in seconds produced by virtue of a spike with shape (Nrec,)
+        """
+        return self.f_pulse / self.Ipulse
+
+    @property
+    def t_pulse_ahp(self) -> JP_ndarray:
+        """
+        t_pulse_ahp holds an array of reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp`` with shape (Nrec,)
+        """
+        return self.t_pulse * self.f_pulse_ahp
 
     @property
     def tau_mem(self) -> JP_ndarray:
