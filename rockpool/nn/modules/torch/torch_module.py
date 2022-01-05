@@ -329,6 +329,7 @@ class TorchModule(Module, nn.Module):
         orig_call = obj.__call__
         orig_parameters = obj.parameters
         old_class_name = obj.__class__.__name__
+        orig_modules_call = obj.modules
 
         class TorchModulePatch(obj.__class__, TorchModule):
             def __call__(self, *args, **kwargs):
@@ -346,6 +347,13 @@ class TorchModule(Module, nn.Module):
             @property
             def class_name(self) -> str:
                 return old_class_name
+
+            def modules(self, *args, **kwargs):
+                if retain_torch_api:
+                    return orig_modules_call(*args, **kwargs)
+                else:
+                    return super().modules(*args, **kwargs)
+
 
         obj.__class__ = TorchModulePatch
         obj.__old_class_name = old_class_name
