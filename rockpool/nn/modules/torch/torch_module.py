@@ -297,11 +297,14 @@ class TorchModule(Module, nn.Module):
         def repr(self, *args, **kwargs):
             return nn.Module.__repr__(self, *args, **kwargs)
 
+        def modules(self, *args, **kwargs):
+            return nn.Module.modules(self, *args, **kwargs)
+
         self._repr = types.MethodType(repr, self)
 
-        for name, mod in self.modules().items():
+        for mod in self.modules():
             if isinstance(mod, TorchModule):
-                setattr(self, name, mod.to_torch(use_torch_call=False))
+                setattr(self, name.__class__, mod.to_torch(use_torch_call=False))
 
         if use_torch_call:
 
