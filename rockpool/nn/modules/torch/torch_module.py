@@ -184,19 +184,19 @@ class TorchModule(Module, nn.Module):
             self._register_attribute(key, rp.Parameter(value, None, None, value.shape))
 
         if isinstance(value, rp.Parameter):
-            # - Register as a torch parameter
-            super().register_parameter(key, nn.Parameter(value.data))
-
             # - Register as a Rockpool attribute
             self._register_attribute(key, value)
+
+            # - Register as a torch parameter
+            super().register_parameter(key, nn.Parameter(value.data))
             return
 
         if isinstance(value, rp.State):
-            # - register as a torch buffer
-            super().register_buffer(key, value.data)
-
             # - Register as a Rockpool attribute
             self._register_attribute(key, value)
+
+            # - register as a torch buffer
+            super().register_buffer(key, value.data)
             return
 
         if isinstance(value, nn.Module) and not isinstance(value, TorchModule):
