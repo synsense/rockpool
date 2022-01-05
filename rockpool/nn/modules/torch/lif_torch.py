@@ -206,6 +206,9 @@ class LIFBaseTorch(TorchModule):
 
         to_float_tensor = lambda x: torch.tensor(x).float()
 
+        if isinstance(tau_mem, float):
+            tau_mem = tau_mem * torch.ones(n_neurons)
+
         self.tau_mem: P_tensor = rp.Parameter(
             tau_mem,
             family="taus",
@@ -214,6 +217,9 @@ class LIFBaseTorch(TorchModule):
             cast_fn=to_float_tensor,
         )
         """ (Tensor) Membrane time constants `(Nout,)` or `()` """
+
+        if isinstance(tau_syn, float):
+            tau_syn = tau_syn * torch.ones(n_neurons, n_synapses)
 
         self.tau_syn: P_tensor = rp.Parameter(
             tau_syn,
@@ -234,6 +240,9 @@ class LIFBaseTorch(TorchModule):
         )
         """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
 
+        if isinstance(bias, float):
+            bias = bias * torch.ones(n_neurons)
+
         self.bias: P_tensor = rp.Parameter(
             bias,
             shape=[(self.size_out,), ()],
@@ -242,6 +251,9 @@ class LIFBaseTorch(TorchModule):
             cast_fn=to_float_tensor,
         )
         """ (Tensor) Neuron biases `(Nout,)` or `()` """
+
+        if isinstance(threshold, float):
+            threshold = threshold  * torch.ones(n_neurons)
 
         self.threshold: P_tensor = rp.Parameter(
             threshold,
