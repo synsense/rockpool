@@ -56,18 +56,6 @@ except ModuleNotFoundError as e:
     )
     _SAMNA_AVAILABLE = False
 
-_NETGEN_AVAILABLE = True
-
-try:
-    from netgen import NetworkGenerator
-except ModuleNotFoundError as e:
-    NetworkGenerator = Any
-    print(
-        e,
-        "\nSimulator object factory from the NetworkGenerator object is not possible!",
-    )
-    _NETGEN_AVAILABLE = False
-
 
 class DynapSE1Jax(DynapSEAdExpLIFJax):
     """
@@ -257,7 +245,7 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
         :type config: Dynapse1Configuration
         :param sim_config: Dynap-SE1 bias currents and simulation configuration parameters, it can be provided explicitly, or created using default settings, or can be extracted from the config bias currents. defaults to None
         :type sim_config: Optional[DynapSE1SimBoard], optional
-        :param default_bias: use default bias values or get the bias parameters from the netgen.config, defaults to True
+        :param default_bias: use default bias values or get the bias parameters from the config object, defaults to True
         :type default_bias: bool
         :return: `DynapSE1Jax` simulator object
         :rtype: DynapSE1Jax
@@ -281,20 +269,6 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
 
         return mod
 
-    @classmethod
-    def from_netgen(cls, netgen: NetworkGenerator, *args, **kwargs) -> DynapSE1Jax:
-        """
-        from_netgen is a class factory which makes it easier to get a `DynapSE1Jax` object using an INI `NetworkGenerator` object
-
-        :param netgen: network generator object defined in samna/ctxctl_contrib/netgen
-        :type netgen: NetworkGenerator
-        :return: `DynapSE1Jax` simulator object
-        :rtype: DynapSE1Jax
-        """
-        config = netgen.make_dynapse1_configuration()
-        mod = cls.from_config(config, *args, **kwargs)
-        return mod
-
     @staticmethod
     def simulator_from_config(
         config: Dynapse1Configuration,
@@ -309,7 +283,7 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
         :type config: Dynapse1Configuration
         :param sim_config: Dynap-SE1 bias currents and simulation configuration parameters, it can be provided explicitly, or created using default settings, or can be extracted from the config bias currents. defaults to None
         :type sim_config: Optional[DynapSE1SimBoard], optional
-        :param default_bias: use default bias values or get the bias parameters from the netgen.config, defaults to True
+        :param default_bias: use default bias values or get the bias parameters from the samna config, defaults to True
         :type default_bias: bool
         :return: a `TimedModuleWrapper` sequentially combining the special FPGA input layer of the DyanpSE simulators.
         :rtype: TimedModuleWrapper
@@ -343,23 +317,6 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
         se1 = DynapSE1Jax(se1_shape, sim_config, has_rec, w_rec, idx_map_rec)
         simulator = TimedModuleWrapper(Sequential(fpga, se1), dt=se1.dt,)
 
-        return simulator
-
-    @staticmethod
-    def simulator_from_netgen(
-        netgen: NetworkGenerator, *args, **kwargs
-    ) -> TimedModuleWrapper:
-        """
-        simulator_from_netgen a wrapper running the `DynapSE1Jax.simulator_from_config()` method with a samna config object
-        extracted from an INI `NetworkGenerator` object
-
-        :param netgen: network generator object defined in samna/ctxctl_contrib/netgen
-        :type netgen: NetworkGenerator
-        :return: a `TimedModuleWrapper` sequentially combining the special FPGA input layer of the DyanpSE simulators.
-        :rtype: TimedModuleWrapper
-        """
-        config = netgen.make_dynapse1_configuration()
-        simulator = DynapSE1Jax.simulator_from_config(config, *args, **kwargs)
         return simulator
 
     def get_bias(

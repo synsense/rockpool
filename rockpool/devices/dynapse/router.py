@@ -50,19 +50,6 @@ except ModuleNotFoundError as e:
     )
     _SAMNA_AVAILABLE = False
 
-_NETGEN_AVAILABLE = True
-
-try:
-    from netgen import NetworkGenerator
-except ModuleNotFoundError as e:
-    Network = Any
-    NetworkGenerator = Any
-    print(
-        e,
-        "\nRouter cannot extract the virtual connections from the network generator object!",
-    )
-    _NETGEN_AVAILABLE = False
-
 
 class Router:
     NUM_CHIPS = np.uint8(4)
@@ -1222,20 +1209,3 @@ class Router:
         """
         syn_dict = Router.synapses_from_config(config)
         return Router.CAM_matrix(syn_dict["real"], syn_dict["virtual"], return_maps)
-
-    @staticmethod
-    def CAMs_from_netgen(
-        netgen: NetworkGenerator, *args, **kwargs
-    ) -> Dict[str, Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]]:
-        """
-        CAMs_from_netgen a wrapper function which makes it easier to get a CAM matrix using the `NetworkGenerator` object.
-        Extract the configuration and from the network generator and then runs the `Router.CAMs_from_config()`
-
-        :param netgen: network generator object defined in samna/ctxctl_contrib/netgen
-        :type netgen: NetworkGenerator
-        :return: a dictionary of tuples of input and recurrent dictionaries and their index maps. (For more detail, please look at Please look at `Router.CAM_in()` and `Router.CAM_rec()`)
-        :rtype: Dict[str, Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]]
-        """
-
-        config = netgen.make_dynapse1_configuration()
-        return Router.CAMs_from_config(config, *args, **kwargs)

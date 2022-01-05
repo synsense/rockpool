@@ -40,24 +40,12 @@ except ModuleNotFoundError as e:
     )
     _SAMNA_AVAILABLE = False
 
-_NETGEN_AVAILABLE = True
-
-try:
-    from netgen import NetworkGenerator
-except ModuleNotFoundError as e:
-    NetworkGenerator = Any
-    print(
-        e,
-        "\nDynapSEFPGA object factory from the NetworkGenerator object is not possible!",
-    )
-    _NETGEN_AVAILABLE = False
-
 
 class DynapSEFPGA(JaxModule):
     """
     DynapSEFPGA implements the input layer for a `DynapSEAdExpLIFJax` module. It's similar to LinearJax module but since
     the DynapSEAdExpLIFJax modules have a specific requirement that each computational unit gets 4 input spikes,
-    The DynapSEFPGA is necessary. In addition, the input weights can be obtained from a samna configuration object or a INI netgen object.
+    The DynapSEFPGA is necessary.
 
     :param shape: Should be 2 dimensional first representing the number of virtual neurons and the second representing the real neurons in device (Nin,Nrec), defaults to None
     :type shape: Optional[Tuple], optional
@@ -250,7 +238,7 @@ class DynapSEFPGA(JaxModule):
         :type config: Dynapse1Configuration
         :param sim_config: Dynap-SE1 bias currents and simulation configuration parameters, it can be provided explicitly, or created using default settings, or can be extracted from the config bias currents. defaults to None
         :type sim_config: Optional[DynapSE1SimBoard], optional
-        :param default_bias: use default bias values or get the bias parameters from the netgen.config, defaults to True
+        :param default_bias: use default bias values or get the bias parameters from the samna config, defaults to True
         :type default_bias: bool
         :return: `DynapSEFPGA` simulator input layer object
         :rtype: DynapSEFPGA
@@ -271,18 +259,4 @@ class DynapSEFPGA(JaxModule):
 
         w_in = sim_config.weight_matrix(CAM_in)
         mod = cls(mod_shape, sim_config, w_in, idx_map, *args, **kwargs)
-        return mod
-
-    @classmethod
-    def from_netgen(cls, netgen: NetworkGenerator, *args, **kwargs) -> DynapSEFPGA:
-        """
-        from_netgen is a class factory which makes it easier to get a `DynapSEFPGA` object using the `NetworkGenerator` object
-
-        :param netgen: network generator object defined in samna/ctxctl_contrib/netgen
-        :type netgen: NetworkGenerator
-        :return: `DynapSEFPGA` simulator input layer object
-        :rtype: DynapSEFPGA
-        """
-        config = netgen.make_dynapse1_configuration()
-        mod = cls.from_config(config, *args, **kwargs)
         return mod
