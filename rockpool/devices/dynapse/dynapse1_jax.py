@@ -161,10 +161,6 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
             *args,
             **kwargs,
         )
-
-        self.f_t_ref = SimulationParameter(sim_config.f_t_ref)
-        self.f_t_pulse = SimulationParameter(sim_config.f_t_pulse)
-
         # Check if index map is in proper format, if so, a core dictionary can be inferred without an error.
         DynapSE1SimBoard.check_neuron_id_order(list(idx_map.keys()))
         self.core_dict = DynapSE1SimBoard.idx_map_to_core_dict(idx_map)
@@ -412,20 +408,6 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
         I_bias = self.get_bias(chipID, coreID, sim_name, syn_type)
         param = DynapSE1Jax.get_Dynapse1Parameter(bias=I_bias, name=dev_name)
         return param
-
-    @property
-    def Iref(self) -> FloatVector:
-        """
-        Iref is the device bias current (specific to neurons, not the core) setting the refractory period.
-        """
-        return self.f_t_ref / self.t_ref
-
-    @property
-    def Ipulse(self) -> FloatVector:
-        """
-        Ipulse is the device bias current (specific to neurons, not the core) setting the spike triggered pulse width period.
-        """
-        return self.f_t_pulse / self.t_pulse
 
     ## --- LOW LEVEL BIAS CURRENTS (SAMNA) -- ##
     def IF_AHTAU_N(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
