@@ -1199,39 +1199,39 @@ class DynapSE1SimCore:
         return self.ahp_property("f_tau")
 
     @property
-    def f_t_ref(self) -> np.ndarray:
+    def f_ref(self) -> np.ndarray:
         """
-        f_t_ref is an array of the factor of conversion from the refractory period current to the refractory period shape (Nrec,)
+        f_ref is an array of the factor of conversion from the refractory period current to the refractory period shape (Nrec,)
         """
         return self.mem_property("f_ref")
 
     @property
-    def f_t_pulse(self) -> np.ndarray:
+    def f_pulse(self) -> np.ndarray:
         """
-        f_t_pulse is an array of the factor of conversion from pulse width in seconds to pulse width bias current in Amperes with shape (Nrec,)
+        f_pulse is an array of the factor of conversion from pulse width in seconds to pulse width bias current in Amperes with shape (Nrec,)
         """
         return self.mem_property("f_pulse")
 
     @property
-    def t_pulse(self) -> np.ndarray:
+    def f_pulse_ahp(self) -> np.ndarray:
         """
-        t_pulse is an array of the width of the pulse in seconds produced by virtue of a spike with shape (Nrec,)
+        f_pulse_ahp is an array of ahp pulse width ratios of the neurons with shape = (Nrec,)
         """
-        return self.mem_property("t_pulse")
+        return np.full(self.size, self.fpulse_ahp, dtype=np.float32)
 
     @property
-    def t_pulse_ahp(self) -> np.ndarray:
+    def Iref(self) -> np.ndarray:
         """
-        t_pulse_ahp is an array of reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp`` with shape (Nrec,)
+        Iref is an array of the refractory period current in Amperes with shape  shape (Nrec,)
         """
-        return self.t_pulse * self.fpulse_ahp
+        return self.mem_property("Iref")
 
     @property
-    def t_ref(self) -> np.ndarray:
+    def Ipulse(self) -> np.ndarray:
         """
-        t_ref is an array of the refractory period in seconds, limits maximum firing rate. In the refractory period the synaptic input current of the membrane is the dark current. with shape (Nrec,)
+        Ipulse is an array of the pulse width current in Amperes with shape  shape (Nrec,)
         """
-        return self.mem_property("t_ref")
+        return self.mem_property("Ipulse")
 
     @property
     def Ispkthr(self) -> np.ndarray:
@@ -1349,11 +1349,11 @@ class DynapSE1SimBoard:
             "f_tau_mem",
             "f_tau_syn",
             "f_tau_ahp",
-            "f_t_ref",
-            "f_t_pulse",
-            "t_pulse",
-            "t_pulse_ahp",
-            "t_ref",
+            "f_ref",
+            "f_pulse",
+            "f_pulse_ahp",
+            "Iref",
+            "Ipulse",
             "Ispkthr",
             "Ireset",
             "Idc",
