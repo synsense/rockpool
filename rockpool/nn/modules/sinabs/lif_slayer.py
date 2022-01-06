@@ -120,7 +120,9 @@ class LIFSlayer(LIFBaseTorch):
             n_batches * self.n_neurons, self.n_synapses, time_steps
         ).to(data.device)
 
-        beta = torch.broadcast_to(beta, (self.n_neurons, self.n_synapses))
+        beta = torch.broadcast_to(self.beta, (self.n_neurons, self.n_synapses))
+        threshold = torch.broadcast_to(self.threshold, (self.n_neurons, ))
+        alpha = torch.broadcast_to(self.alpha, (self.n_neurons,))
 
         for syn in range(self.n_synapses):
             # bring data into format expected by slayer
@@ -136,11 +138,11 @@ class LIFSlayer(LIFBaseTorch):
 
         spikes, vmem_slayer = SpikeFunctionIterForward.apply(
             isyn_slayer.sum(1),  # input
-            self.threshold[0],  # membrane subtract
-            self.alpha[0].item(),  # alpha
+            threshold[0],  # membrane subtract
+            alpha[0],  # alpha
             vmem.squeeze(),  # init state
             spikes.squeeze(),  # last activations
-            self.threshold[0],  # threshold
+            threshold[0],  # threshold
             None,  # threshold low
             self.learning_window,  # learning window
             1.0,  # scale grads

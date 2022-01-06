@@ -303,7 +303,7 @@ class TorchModule(Module, nn.Module):
 
         self._repr = types.MethodType(repr, self)
 
-        for mod in self.modules():
+        for name, mod in self.modules().items():
             if isinstance(mod, TorchModule):
                 setattr(self, name.__class__, mod.to_torch(use_torch_call=False))
 
