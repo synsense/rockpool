@@ -150,6 +150,12 @@ class TorchModule(Module, nn.Module):
         else:
             return super().__repr__(*args, **kwargs)
 
+    def modules(self, *args, **kwargs):
+        if hasattr(self, "_modules_call"):
+            return self._modules_call(*args, **kwargs)
+        else:
+            return super().modules(*args, **kwargs)
+
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
         """
         Implement the Rockpool low-level evolution API
@@ -295,6 +301,10 @@ class TorchModule(Module, nn.Module):
 
         self.parameters = types.MethodType(parameters, self)
 
+        for name, mod in self.modules().items():
+            if isinstance(mod, TorchModule):
+                setattr(self, name, mod.to_torch(use_torch_call=False))
+
         def repr(self, *args, **kwargs):
             return nn.Module.__repr__(self, *args, **kwargs)
 
@@ -302,10 +312,7 @@ class TorchModule(Module, nn.Module):
             return nn.Module.modules(self, *args, **kwargs)
 
         self._repr = types.MethodType(repr, self)
-
-        for name, mod in self.modules().items():
-            if isinstance(mod, TorchModule):
-                setattr(self, name.__class__, mod.to_torch(use_torch_call=False))
+        self._modules_call = types.MethodType(modules, self)
 
         if use_torch_call:
 

@@ -72,28 +72,28 @@ class ModuleBase(ABC):
             self._shape = (shape,)
             """The shape of this module"""
 
-    #def __repr__(self, indent: str = "") -> str:
-    #    """
-    #    Produce a string representation of this module
+    def __repr__(self, indent: str = "") -> str:
+        """
+        Produce a string representation of this module
 
-    #    Args:
-    #        indent (str): The indent to prepend to each line of output
+        Args:
+            indent (str): The indent to prepend to each line of output
 
-    #    Returns:
-    #        str: A string representation of this module
-    #    """
-    #    # - String representation
-    #    repr = f"{indent}{self.full_name} with shape {self._shape}"
+        Returns:
+            str: A string representation of this module
+        """
+        # - String representation
+        repr = f"{indent}{self.full_name} with shape {self._shape}"
 
-    #    # - Add submodules
-    #    if self.modules():
-    #        repr += " {"
-    #        for mod in self.modules().values():
-    #            repr += "\n" + ModuleBase.__repr__(mod, indent=indent + "    ")
+        # - Add submodules
+        if self.modules():
+            repr += " {"
+            for mod in self.modules().values():
+                repr += "\n" + ModuleBase.__repr__(mod, indent=indent + "    ")
 
-    #        repr += f"\n{indent}" + "}"
+            repr += f"\n{indent}" + "}"
 
-    #    return repr
+        return repr
 
     def _get_attribute_registry(self) -> Tuple[Dict, Dict]:
         """
