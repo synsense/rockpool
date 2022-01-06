@@ -206,9 +206,6 @@ class LIFBaseTorch(TorchModule):
 
         to_float_tensor = lambda x: torch.tensor(x).float()
 
-        if isinstance(tau_mem, float):
-            tau_mem = tau_mem * torch.ones(self.n_neurons)
-
         self.tau_mem: P_tensor = rp.Parameter(
             tau_mem,
             family="taus",
@@ -217,9 +214,6 @@ class LIFBaseTorch(TorchModule):
             cast_fn=to_float_tensor,
         )
         """ (Tensor) Membrane time constants `(Nout,)` or `()` """
-
-        if isinstance(tau_syn, float):
-            tau_syn = tau_syn * torch.ones(self.n_neurons, self.n_synapses)
 
         self.tau_syn: P_tensor = rp.Parameter(
             tau_syn,
@@ -240,9 +234,6 @@ class LIFBaseTorch(TorchModule):
         )
         """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
 
-        if isinstance(bias, float):
-            bias = bias * torch.ones(self.n_neurons)
-
         self.bias: P_tensor = rp.Parameter(
             bias,
             shape=[(self.size_out,), ()],
@@ -251,9 +242,6 @@ class LIFBaseTorch(TorchModule):
             cast_fn=to_float_tensor,
         )
         """ (Tensor) Neuron biases `(Nout,)` or `()` """
-
-        if isinstance(threshold, float):
-            threshold = threshold  * torch.ones(self.n_neurons)
 
         self.threshold: P_tensor = rp.Parameter(
             threshold,
@@ -270,15 +258,15 @@ class LIFBaseTorch(TorchModule):
         )
         """ (float) Learning window cutoff for surrogate gradient function """
 
-        self.vmem: P_tensor = rp.SimulationParameter(shape=self.n_neurons, init_func=torch.zeros, cast_fn=to_float_tensor)
+        self.vmem: P_tensor = rp.State(shape=self.n_neurons, init_func=torch.zeros, cast_fn=to_float_tensor)
         """ (Tensor) Membrane potentials `(Nout,)` """
 
-        self.isyn: P_tensor = rp.SimulationParameter(
+        self.isyn: P_tensor = rp.State(
             shape=(self.n_neurons, self.n_synapses), init_func=torch.zeros, cast_fn=to_float_tensor
         )
         """ (Tensor) Synaptic currents `(Nin,)` """
 
-        self.spikes: P_tensor = rp.SimulationParameter(shape=self.n_neurons, init_func=torch.zeros, cast_fn=to_float_tensor)
+        self.spikes: P_tensor = rp.State(shape=self.n_neurons, init_func=torch.zeros, cast_fn=to_float_tensor)
         """ (Tensor) Spikes `(Nin,)` """
 
         self.spike_generation_fn: P_Callable = rp.SimulationParameter(

@@ -107,9 +107,6 @@ class LIFSlayer(LIFBaseTorch):
         data = data.reshape(n_batches, time_steps, self.n_neurons, self.n_synapses)
 
         # Replicate states out by batches
-        # self.vmem = self.vmem.to(data.device)
-        # self.isyn = self.isyn.to(data.device)
-        # self.spikes = self.spikes.to(data.device)
         vmem = torch.ones(n_batches, self.n_neurons).to(data.device) * self.vmem
         isyn = (
             torch.ones(n_batches, self.n_neurons, self.n_synapses).to(data.device)
@@ -123,6 +120,8 @@ class LIFSlayer(LIFBaseTorch):
             n_batches * self.n_neurons, self.n_synapses, time_steps
         ).to(data.device)
 
+        beta = torch.broadcast_to(beta, (self.n_neurons, self.n_synapses))
+
         for syn in range(self.n_synapses):
             # bring data into format expected by slayer
             inp = (
@@ -132,7 +131,7 @@ class LIFSlayer(LIFBaseTorch):
             )
 
             isyn_slayer[:, syn] = LeakyIntegrator.apply(
-                inp, isyn[:, :, syn].flatten().contiguous(), self.beta[0, syn]
+                inp, isyn[:, :, syn].flatten().contiguous(), beta[0, syn]
             )
 
         spikes, vmem_slayer = SpikeFunctionIterForward.apply(

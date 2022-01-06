@@ -225,7 +225,8 @@ class TorchModule(Module, nn.Module):
             raise KeyError(f"{name} is not a registered attribute.")
 
         # - Get the initialisation function from the registry
-        (value, _, family, init_func, shape) = __registered_attributes[name]
+        (_, _, family, init_func, shape) = __registered_attributes[name]
+        value = getattr(self, name)
 
         # - Use the registered initialisation function, if present
         if init_func is not None:
