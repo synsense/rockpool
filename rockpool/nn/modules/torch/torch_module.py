@@ -134,6 +134,7 @@ class TorchModule(Module, nn.Module):
         """
         # - Ensure super-class initialisation ocurs
         super().__init__(*args, **kwargs)
+        self._has_torch_api = False
 
         if retain_torch_api:
             self.to_torch()
@@ -302,7 +303,7 @@ class TorchModule(Module, nn.Module):
         self.parameters = types.MethodType(parameters, self)
 
         for name, mod in self.modules().items():
-            if isinstance(mod, TorchModule):
+            if isinstance(mod, TorchModule) and not mod._has_torch_api:
                 setattr(self, name, mod.to_torch(use_torch_call=False))
 
         def repr(self, *args, **kwargs):
@@ -320,6 +321,8 @@ class TorchModule(Module, nn.Module):
                 return nn.Module.__call__(self, *args, **kwargs)
 
             self._call = types.MethodType(call, self)
+
+        self._has_torch_api = True
 
         return self
 
@@ -365,9 +368,10 @@ class TorchModule(Module, nn.Module):
                 else:
                     return super().modules(*args, **kwargs)
 
-
         obj.__class__ = TorchModulePatch
         obj.__old_class_name = old_class_name
+
+        obj._has_torch_api = retain_torch_api
 
         assert isinstance(obj, TorchModule)
 
