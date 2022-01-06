@@ -86,10 +86,12 @@ class ModuleBase(ABC):
         repr = f"{indent}{self.full_name} with shape {self._shape}"
 
         # - Add submodules
-        if self.modules():
+        if self._submodulenames:
             repr += " {"
-            for mod in self.modules().values():
-                repr += "\n" + ModuleBase.__repr__(mod, indent=indent + "    ")
+            for mod_name in self._submodulenames:
+                repr += "\n" + ModuleBase.__repr__(
+                    getattr(self, mod_name), indent=indent + "    "
+                )
 
             repr += f"\n{indent}" + "}"
 
