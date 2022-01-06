@@ -307,7 +307,6 @@ def test_LIFTorch_threshold_shape_2():
 
 def test_LIFTorch_reset():
     from rockpool.nn.modules.torch.lif_torch import LIFTorch
-    import torch
 
     mod = LIFTorch(10).to("cuda")
     device = mod.isyn.device

@@ -191,7 +191,7 @@ def test_sgd():
     from tqdm.autonotebook import tqdm
 
     print("Testing training loop")
-    with tqdm(range(10)) as t:
+    with tqdm(range(2)) as t:
         for i in t:
             loss, grads = vgf(get_params(opt_state), net, inputs, target)
             opt_state = update_fun(i, grads, opt_state)

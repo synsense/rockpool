@@ -181,7 +181,7 @@ def bag_graph(
     return nodes_bag, modules_bag_to_return
 
 
-def find_modules_of_subclass(graph: GraphModuleBase, cls) -> SetList[GraphModuleBase]:
+def find_modules_of_subclass(graph: GraphModuleBase, cls) -> SetList[Any]:
     """
     Search a graph for all :py:class:`.GraphModule` s of a specific class or any subclass
 

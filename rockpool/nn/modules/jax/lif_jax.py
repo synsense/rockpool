@@ -216,7 +216,10 @@ class LIFJax(JaxModule):
         """ (np.ndarray) Synaptic time constants `(Nout,)` or `()` """
 
         self.bias: Union[np.ndarray, Parameter] = Parameter(
-            bias, "bias", init_func=lambda s: np.zeros(s), shape=[(self.size_out,), ()],
+            bias,
+            "bias",
+            init_func=lambda s: np.zeros(s),
+            shape=[(self.size_out,), ()],
         )
         """ (np.ndarray) Neuron bias currents `(Nout,)` or `()` """
 
@@ -255,7 +258,9 @@ class LIFJax(JaxModule):
         }
 
     def evolve(
-        self, input_data: np.ndarray, record: bool = False,
+        self,
+        input_data: np.ndarray,
+        record: bool = False,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
         Raw JAX evolution function for an LIF spiking layer
@@ -371,7 +376,9 @@ class LIFJax(JaxModule):
 
         # - Evolve over spiking inputs
         state, (Irec_ts, spikes_ts, Vmem_ts, Isyn_ts) = scan(
-            forward, (self.spikes, self.Isyn, self.Vmem), (input_data, noise_ts),
+            forward,
+            (self.spikes, self.Isyn, self.Vmem),
+            (input_data, noise_ts),
         )
 
         # - Generate output surrogate

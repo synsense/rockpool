@@ -18,7 +18,11 @@ class InstantMixin:
     """
 
     def __init__(
-        self, shape: tuple = None, function: Callable = lambda x: x, *args, **kwargs,
+        self,
+        shape: tuple = None,
+        function: Callable = lambda x: x,
+        *args,
+        **kwargs,
     ):
         """
         Wrap a callable function as an instantaneous Rockpool module
@@ -39,7 +43,11 @@ class InstantMixin:
             function
         )
 
-    def evolve(self, input, record: bool = False,) -> (tuple, tuple, tuple):
+    def evolve(
+        self,
+        input,
+        record: bool = False,
+    ) -> (tuple, tuple, tuple):
         return self.function(input), {}, {}
 
 

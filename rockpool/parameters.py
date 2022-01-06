@@ -5,22 +5,14 @@ Classes to manage registered Module attributes in Rockpool
 from typing import Callable, Iterable, Any, Union, List, Tuple, Optional
 from copy import deepcopy
 
-from collections import abc
-
-from dataclasses import dataclass
+from itertools import compress
 
 import numpy as np
 
 __all__ = ["Parameter", "State", "SimulationParameter", "Constant"]
 
 
-# @dataclass
-# class Constant:
-#     data: Any
-#
-#     @property
-#     def shape(self):
-#         return np.shape(self.data)
+import torch
 
 
 class RP_Constant:
@@ -57,9 +49,10 @@ class ParameterBase:
         self,
         data: Any = None,
         family: str = None,
-        init_func: Callable[[Iterable], Any] = None,
+        init_func: Callable[[Any], Any] = None,
         shape: Optional[Union[List[Tuple], Tuple, int]] = None,
-        cast_fn: Callable = None,
+        permit_reshape: bool = True,
+        cast_fn: Callable[[Any], Any] = None,
     ):
         """
         Instantiate a Rockpool registered attribute
@@ -69,6 +62,7 @@ class ParameterBase:
             family (Optional[str]): An arbitrary string to specify the "family" of this attribute. You should use ``'weights'``, ``'taus'``, ``'biases'`` if you can; otherwise you can use whatever you like. These are used by the :py:meth:`.Module.parameters`, :py:meth:`.Module.state` and :py:meth:`.Module.simulation_parameters` methods to group and select attributes.
             init_func (Optional[Callable]): A function that initialises this attributed. Called by :py:meth:`.Module.reset_parameters` and :py:meth:`.Module.reset_state`. The signature is ``f(shape: tuple) -> np.ndarray``.
             shape (Optional[Union[List[Tuple], Tuple, int]]): A list of permisable shapes for the parameter, or a tuple specifying the permitted shape, or an integer specifying the number of elements. If not provided, the shape of the concrete initialisation data will be used as the attribute shape. The first item in the list will be used as the concrete shape, if ``data`` is not provided and ``init_func`` should be used.
+            permit_reshape (bool): If ``True``, the input data will be reshaped to a matching permitted shape. If ``False``, then an error will be raised if the shapes do not match exactly.
             cast_fn (Optional[Callable]): A function to call to cast the data for this parameter. Will only be called once on initialisation.
         """
         if data is None and shape is None:
@@ -118,15 +112,34 @@ class ParameterBase:
         if isinstance(self.data, RP_Constant):
             self.__class__ = SimulationParameter
 
+        def numel(x):
+            if isinstance(x, np.ndarray):
+                return x.size()
+            elif isinstance(x, torch.Tensor):
+                return x.numel()
+            else:
+                return np.size(x)
+
         # - Get the shape from the data, if not provided explicitly
         if self.data is not None:
             if self.shape is not None:
                 # - Check that the concrete data matches the shape
                 if not any([np.shape(self.data) == st for st in self.shape]):
-                    raise ValueError(
-                        f"The shape provided for this {class_name} does not match the provided initialisation data.\n"
-                        + f"    self.shape = {self.shape}; data.shape = {np.shape(self.data)}"
-                    )
+                    # - Check if the concrete and desired sizes match for any permitted shape
+                    matching_sizes = [
+                        numel(self.data) == int(np.prod(st)) for st in self.shape
+                    ]
+
+                    # - Can we reshape the concrete data to match a shape?
+                    if not any(matching_sizes) or not permit_reshape:
+                        raise ValueError(
+                            f"The shape provided for this {class_name} does not match the provided initialisation data.\n"
+                            + f"    self.shape = {self.shape}; data.shape = {np.shape(self.data)}"
+                        )
+                    elif permit_reshape and any(matching_sizes):
+                        # - Reshape input data to first matching size
+                        target_shape = list(compress(self.shape, matching_sizes))[0]
+                        self.data = np.array(self.data).reshape(target_shape)
 
                 self.shape = None
 

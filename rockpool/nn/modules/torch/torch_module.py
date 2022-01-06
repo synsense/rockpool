@@ -184,19 +184,19 @@ class TorchModule(Module, nn.Module):
             self._register_attribute(key, rp.Parameter(value, None, None, value.shape))
 
         if isinstance(value, rp.Parameter):
-            # - Register as a torch parameter
-            super().register_parameter(key, nn.Parameter(value.data))
-
             # - Register as a Rockpool attribute
             self._register_attribute(key, value)
+
+            # - Register as a torch parameter
+            super().register_parameter(key, nn.Parameter(value.data))
             return
 
         if isinstance(value, rp.State):
-            # - register as a torch buffer
-            super().register_buffer(key, value.data)
-
             # - Register as a Rockpool attribute
             self._register_attribute(key, value)
+
+            # - register as a torch buffer
+            super().register_buffer(key, value.data)
             return
 
         if isinstance(value, nn.Module) and not isinstance(value, TorchModule):
@@ -297,11 +297,14 @@ class TorchModule(Module, nn.Module):
         def repr(self, *args, **kwargs):
             return nn.Module.__repr__(self, *args, **kwargs)
 
+        def modules(self, *args, **kwargs):
+            return nn.Module.modules(self, *args, **kwargs)
+
         self._repr = types.MethodType(repr, self)
 
-        for name, mod in self.modules().items():
+        for mod in self.modules():
             if isinstance(mod, TorchModule):
-                setattr(self, name, mod.to_torch(use_torch_call=False))
+                setattr(self, name.__class__, mod.to_torch(use_torch_call=False))
 
         if use_torch_call:
 
@@ -329,6 +332,7 @@ class TorchModule(Module, nn.Module):
         orig_call = obj.__call__
         orig_parameters = obj.parameters
         old_class_name = obj.__class__.__name__
+        orig_modules_call = obj.modules
 
         class TorchModulePatch(obj.__class__, TorchModule):
             def __call__(self, *args, **kwargs):
@@ -346,6 +350,13 @@ class TorchModule(Module, nn.Module):
             @property
             def class_name(self) -> str:
                 return old_class_name
+
+            def modules(self, *args, **kwargs):
+                if retain_torch_api:
+                    return orig_modules_call(*args, **kwargs)
+                else:
+                    return super().modules(*args, **kwargs)
+
 
         obj.__class__ = TorchModulePatch
         obj.__old_class_name = old_class_name

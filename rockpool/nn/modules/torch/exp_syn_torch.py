@@ -120,7 +120,8 @@ class ExpSynTorch(TorchModule):
             )
 
         # - Expand state over batches
-        isyn = torch.ones(n_batches, 1, device=self.isyn.device).type(
+        self.isyn = self.isyn.to(data.device)
+        isyn = torch.ones(n_batches, 1, device=data.device).type(
             torch.double
         ) @ self.isyn.type(torch.double)
 

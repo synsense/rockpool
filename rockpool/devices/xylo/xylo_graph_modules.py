@@ -60,7 +60,10 @@ class XyloNeurons(GenericNeurons):
                 np.round(np.log2(np.array(mod.tau_mem) / mod.dt)).astype(int).tolist()
             )
             dash_syn = (
-                np.round(np.log2(np.array(mod.tau_syn) / mod.dt)).astype(int).tolist()
+                np.round(np.log2(np.array(mod.tau_syn) / mod.dt))
+                .flatten()
+                .astype(int)
+                .tolist()
             )
 
             # - Get thresholds

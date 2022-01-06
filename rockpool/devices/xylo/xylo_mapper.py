@@ -467,23 +467,20 @@ def mapper(
         dash_mem[these_indices] = n.dash_mem
 
         if len(n.input_nodes) > len(n.output_nodes):
-            # dash_syn[these_indices] = n.dash_syn[::2]
-            # dash_syn_2[these_indices] = n.dash_syn[1::2]
+            dash_syn_reshape = np.array(n.dash_syn).reshape((-1, 2))
             for i, index in enumerate(these_indices):
-                dash_syn[index] = n.dash_syn[i][0]
-                dash_syn_2[index] = n.dash_syn[i][1]
+                dash_syn[index] = dash_syn_reshape[i][0]
+                dash_syn_2[index] = dash_syn_reshape[i][1]
         else:
-            # dash_syn[these_indices] = n.dash_syn
             for i, index in enumerate(these_indices):
-                dash_syn[index] = n.dash_syn[i][0]
+                dash_syn[index] = n.dash_syn[i]
         threshold[these_indices] = n.threshold
 
     for n in output_neurons:
         these_indices = [allocated_output_neurons.index(id) for id in n.hw_ids]
         dash_mem_out[these_indices] = n.dash_mem
-        # dash_syn_out[these_indices] = n.dash_syn
         for i, index in enumerate(these_indices):
-            dash_syn_out[index] = n.dash_syn[i][0]
+            dash_syn_out[index] = n.dash_syn[i]
         threshold_out[these_indices] = n.threshold
 
     neurons: SetList[XyloNeurons] = find_modules_of_subclass(graph, XyloNeurons)
