@@ -128,14 +128,22 @@ def test_wavesense_record():
     inp = torch.rand(n_batches, T, n_inp_neurons) * 10
 
     # forward
+    out, state, rec = model(inp, record=False)
+
+    assert len(rec) == 0
+    assert all([len(d) == 0 for d in model._record_dict.values()])
+
+    # forward
     out, state, rec = model(inp, record=True)
 
     assert len(rec) > 0
+    assert all([len(d) > 0 for d in model._record_dict.values()])
 
 
 def test_wavesense_backward():
     from rockpool.nn.networks import WaveSenseNet
     from rockpool.nn.modules import LIFTorch
+    from rockpool.parameters import Constant
     import torch
 
     # model params
@@ -183,6 +191,14 @@ def test_wavesense_backward():
     out.sum().backward()
 
     assert not torch.all(inp.grad == 0)
+    assert not torch.all(model.lin1.weight.grad == 0)
+    assert not torch.all(model.wave0.lin1.weight.grad == 0)
+
+    assert not model.wave0.spk1.tau_mem.grad
+    assert not model.wave0.spk1.tau_syn.grad
+
+    assert not model.spk1.tau_mem.grad
+    assert not model.spk1.tau_syn.grad
 
 
 def test_wavesense_save_load():
