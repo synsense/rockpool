@@ -214,7 +214,7 @@ Xylo hardware support and simulation
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.XyloCim
+    devices.xylo.XyloSim
     devices.xylo.XyloSamna
     devices.xylo.AFE
     devices.xylo.DivisiveNormalisation

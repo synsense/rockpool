@@ -158,7 +158,7 @@ def test_lowpass():
     N = 3
     tau_mem = 0.04
 
-    lyr = LowPass(n_neurons=N, tau_mem=tau_mem, dt=0.01,)
+    lyr = LowPass(n_neurons=N, tau_mem=tau_mem, dt=0.01)
 
     inp = torch.rand(50, 1, N).cpu()
 

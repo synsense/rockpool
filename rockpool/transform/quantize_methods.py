@@ -34,7 +34,7 @@ def global_quantize(
     Examples:
         specs = xylo.devices.mapper(net.as_graph(), weight_dtype="float", threshold_dtype="float")
         specs.update(global_quantize(**specs, fuzzy_scaling = True))
-        xylo.devices.XyloCim.from_specifications(specs)
+        xylo.devices.XyloSim.from_specifications(specs)
 
     Args:
         weights_in (np.ndarray): Input weight matrix
@@ -145,7 +145,7 @@ def channel_quantize(
     Examples:
         specs = xylo.devices.mapper(net.as_graph(), weight_dtype="float", threshold_dtype="float")
         specs.update(channel_quantize(**specs, bits_per_weight = 12))
-        xylo.devices.XyloCim.from_specifications(specs)
+        xylo.devices.XyloSim.from_specifications(specs)
 
     Args:
         weights_in (np.ndarray): Input weight matrix
