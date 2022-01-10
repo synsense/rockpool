@@ -137,6 +137,7 @@ def test_wavesense_record():
     out, state, rec = model(inp, record=True)
 
     assert len(rec) > 0
+    assert all([len(d) > 0 for d in model._record_dict.values()])
 
 
 def test_wavesense_backward():
@@ -429,5 +430,3 @@ def test_wavenet():
     assert all(out[:, T_stim + dilations[0] - 1, :].detach().numpy().ravel() == 0)
     assert all(out[:, 0, :].detach().numpy().ravel() == 0)
     assert all(out[:, 1, :].detach().numpy().ravel() == 0)
-
-
