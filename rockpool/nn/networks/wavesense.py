@@ -73,6 +73,7 @@ class WaveSenseBlock(TorchModule):
         threshold: float = 1.0,
         neuron_model: TorchModule = LIFTorch,
         dt: float = 1e-3,
+        record: bool = False,
         *args,
         **kwargs,
     ):
@@ -99,6 +100,8 @@ class WaveSenseBlock(TorchModule):
             *args,
             **kwargs,
         )
+
+        self.record = record
 
         # - Add parameters
         self.neuron_model: Union[Callable, SimulationParameter] = SimulationParameter(
@@ -165,27 +168,27 @@ class WaveSenseBlock(TorchModule):
         (n_batches, t_sim, Nchannels) = data.shape
 
         # - Pass through dilated weight layer
-        out, _, self._record_dict["lin1"] = self.lin1(data, record=True)
+        out, _, self._record_dict["lin1"] = self.lin1(data, record=self.record)
 
         # - Pass through dilated spiking layer
         hidden, _, self._record_dict["spk1"] = self.spk1(
-            out, record=True
+            out, record=self.record
         )  # (t_sim, n_batches, Nchannels)
 
         # - Pass through output linear weights
-        out_res, _, self._record_dict["lin2_res"] = self.lin2_res(hidden, record=True)
+        out_res, _, self._record_dict["lin2_res"] = self.lin2_res(hidden, record=self.record)
 
         # - Pass through output spiking layer
-        out_res, _, self._record_dict["spk2_res"] = self.spk2_res(out_res, record=True)
+        out_res, _, self._record_dict["spk2_res"] = self.spk2_res(out_res, record=self.record)
 
         # - Hidden -> skip outputs
         out_skip, _, self._record_dict["lin2_skip"] = self.lin2_skip(
-            hidden, record=True
+            hidden, record=self.record
         )
 
         # - Pass through skip output spiking layer
         out_skip, _, self._record_dict["spk2_skip"] = self.spk2_skip(
-            out_skip, record=True
+            out_skip, record=self.record
         )
 
         # - Combine output and residual connections (pass-through)
@@ -193,12 +196,12 @@ class WaveSenseBlock(TorchModule):
 
         return res_out, out_skip
 
-    def evolve(self, input, record: bool = False):
+    def evolve(self, input):
         # - Use super-class evolve
-        output, new_state, _ = super().evolve(input, record)
+        output, new_state, _ = super().evolve(input, self.record)
 
         # - Get state record from property
-        record_dict = self._record_dict if record else {}
+        record_dict = self._record_dict if self.record else {}
 
         return output, new_state, record_dict
 
@@ -288,6 +291,7 @@ class WaveSenseNet(TorchModule):
         threshold: float = 1.0,
         neuron_model: TorchModule = LIFTorch,
         dt: float = 1e-3,
+        record: bool = False,
         *args,
         **kwargs,
     ):
@@ -311,6 +315,7 @@ class WaveSenseNet(TorchModule):
             :param TorchModule neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFSlayer` for speedup. Default: :py:class:`.LIFTorch`
             :param float dt:                Temporal resolution of the simulation. Default: 1ms
         """
+        self.record = record
         # - Determine network shape and initialise
         shape = (n_channels_in, n_classes)
         super().__init__(
@@ -408,11 +413,11 @@ class WaveSenseNet(TorchModule):
         (n_batches, t_sim, n_channels_in) = data.shape
 
         # - Input mapping layers
-        out, _, self._record_dict["lin1"] = self.lin1(data, record=True)
+        out, _, self._record_dict["lin1"] = self.lin1(data, record=self.record)
 
         # Pass through spiking layer
         out, _, self._record_dict["spk1"] = self.spk1(
-            out, record=True
+            out, record=self.record
         )  # (t_sim, n_batches, Nchannels)
 
         # Pass through each wave block in turn
@@ -420,30 +425,30 @@ class WaveSenseNet(TorchModule):
         for wave_index in range(self._num_dilations):
             wave_block = self.modules()[f"wave{wave_index}"]
             (out, skip_new), _, self._record_dict[f"wave{wave_index}"] = wave_block(
-                out, record=True
+                out, record=self.record
             )
             skip = skip_new + skip
 
         # Dense layers
-        out, _, self._record_dict["hidden"] = self.hidden(skip, record=True)
-        out, _, self._record_dict["spk2"] = self.spk2(out, record=True)
+        out, _, self._record_dict["hidden"] = self.hidden(skip, record=self.record)
+        out, _, self._record_dict["spk2"] = self.spk2(out, record=self.record)
 
         # Final readout layer
-        out, _, self._record_dict["readout"] = self.readout(out, record=True)
+        out, _, self._record_dict["readout"] = self.readout(out, record=self.record)
 
-        out, _, self._record_dict["spk_out"] = self.spk_out(out, record=True)
+        out, _, self._record_dict["spk_out"] = self.spk_out(out, record=self.record)
 
         # - low pass filter is not compatible with xylo unless we give tau_syn 0
         # - Smooth the output if requested
         # if self.smooth_output:
-        #     out, _, self._record_dict["lp"] = self.lp(out, record=True)
+        #     out, _, self._record_dict["lp"] = self.lp(out, record=self.record)
 
         return out
 
-    def evolve(self, input_data, record: bool = False):
-        output, new_state, _ = super().evolve(input_data, record=record)
+    def evolve(self, input_data):
+        output, new_state, _ = super().evolve(input_data, record=self.record)
 
-        record_dict = self._record_dict if record else {}
+        record_dict = self._record_dict if self.record else {}
         return output, new_state, record_dict
 
     def as_graph(self):
