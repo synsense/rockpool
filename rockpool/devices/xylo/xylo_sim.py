@@ -1,13 +1,13 @@
 """
-Cimulator-backed module compatible with Xylo. Requires Cimulator
+XyloSim-backed module compatible with Xylo. Requires XyloSim
 """
 
-# - Check that Cimulator is installed
+# - Check that XyloSim is installed
 from importlib import util
 
-if util.find_spec("cimulator") is None:
+if util.find_spec("xylosim") is None:
     raise ModuleNotFoundError(
-        "'Cimulator' not found. Modules that rely on Cimulator will not be available."
+        "'XyloSim' not found. Modules that rely on XyloSim will not be available."
     )
 
 if util.find_spec("samna") is None:
@@ -21,8 +21,8 @@ from rockpool.parameters import Parameter, State, SimulationParameter
 from rockpool import TSContinuous, TSEvent
 
 
-# - Import Cimulator
-from cimulator.pollen import Synapse, PollenLayer as XyloLayer
+# - Import XyloSim
+from xylosim.v1 import XyloSynapse, XyloLayer
 
 # - Numpy
 import numpy as np
@@ -33,14 +33,14 @@ from typing import Optional, Union, Any, Dict
 XyloConfiguration = Union[Dict, Any]
 
 # - Define exports
-__all__ = ["XyloCim"]
+__all__ = ["XyloSim"]
 
 
-class XyloCim(Module):
+class XyloSim(Module):
     """
-    A :py:class:`.Module` simulating a digital SNN on Xylo, using Cimulator as a back-end.
+    A :py:class:`.Module` simulating a digital SNN on Xylo, using XyloSim as a back-end.
 
-    You should use the factory methods `.from_config` and `.from_specification` to build a concrete `.XyloCim` module.
+    You should use the factory methods `.from_config` and `.from_specification` to build a concrete `.XyloSim` module.
 
     See Also:
 
@@ -60,15 +60,15 @@ class XyloCim(Module):
         **kwargs,
     ):
         """
-        Private constructor for :py:class:`.XyloCim`
+        Private constructor for :py:class:`.XyloSim`
 
         Warnings:
-            Use the factory methods :py:meth:`.XyloCim.from_config` and :py:meth:`XyloCim.from_specfication` to construct a :py:class:`.XyloCim` module.
+            Use the factory methods :py:meth:`.XyloSim.from_config` and :py:meth:`XyloSim.from_specfication` to construct a :py:class:`.XyloSim` module.
         """
         # - Check that we are creating the object using a factory function
-        if create_key is not XyloCim.__create_key:
+        if create_key is not XyloSim.__create_key:
             raise NotImplementedError(
-                "XyloCim may only be instantiated using factory methods `from_config` or `from_weights`."
+                "XyloSim may only be instantiated using factory methods `from_config` or `from_weights`."
             )
 
         # - Initialise the superclass
@@ -92,12 +92,12 @@ class XyloCim(Module):
 
         # - Empty attribute for the Xylo layer
         self._xylo_layer: Optional[XyloLayer] = None
-        """ (XyloLayer) Handle to a Cimulator object """
+        """ (XyloLayer) Handle to a XyloSim object """
 
     @classmethod
     def from_config(cls, config: XyloConfiguration, dt: float = 1e-3):
         """
-        Creata a Cimulator based layer to simulate the Xylo hardware, from a configuration
+        Creata a XyloSim based layer to simulate the Xylo hardware, from a configuration
 
         Parameters:
         dt: float
@@ -113,93 +113,93 @@ class XyloCim(Module):
         class _(object):
             pass
 
-        _cim_params = _()
+        _xylo_sim_params = _()
 
-        # - Convert input weights to Synapse objects
-        _cim_params.synapses_in = []
+        # - Convert input weights to XyloSynapse objects
+        _xylo_sim_params.synapses_in = []
         for pre, w_pre in enumerate(config.input.weights):
             tmp = []
             for post in np.where(w_pre)[0]:
-                tmp.append(Synapse(post, 0, w_pre[post]))
+                tmp.append(XyloSynapse(post, 0, w_pre[post]))
 
             if config.synapse2_enable:
                 w2_pre = config.input.syn2_weights[pre]
                 for post in np.where(w2_pre)[0]:
-                    tmp.append(Synapse(post, 1, w2_pre[post]))
+                    tmp.append(XyloSynapse(post, 1, w2_pre[post]))
 
-            _cim_params.synapses_in.append(tmp)
+            _xylo_sim_params.synapses_in.append(tmp)
 
-        # - Convert recurrent weights to Synapse objects
-        _cim_params.synapses_rec = []
+        # - Convert recurrent weights to XyloSynapse objects
+        _xylo_sim_params.synapses_rec = []
         for pre, w_pre in enumerate(config.reservoir.weights):
             tmp = []
             for post in np.where(w_pre)[0]:
-                tmp.append(Synapse(post, 0, w_pre[post]))
+                tmp.append(XyloSynapse(post, 0, w_pre[post]))
 
             if config.synapse2_enable:
                 w2_pre = config.reservoir.syn2_weights[pre]
                 for post in np.where(w2_pre)[0]:
-                    tmp.append(Synapse(post, 1, w2_pre[post]))
+                    tmp.append(XyloSynapse(post, 1, w2_pre[post]))
 
-            _cim_params.synapses_rec.append(tmp)
+            _xylo_sim_params.synapses_rec.append(tmp)
 
-        # - Convert output weights to Synapse objects
-        _cim_params.synapses_out = []
+        # - Convert output weights to XyloSynapse objects
+        _xylo_sim_params.synapses_out = []
         for pre, w_pre in enumerate(config.readout.weights):
             tmp = []
             for post in np.where(w_pre)[0]:
-                tmp.append(Synapse(post, 0, w_pre[post]))
-            _cim_params.synapses_out.append(tmp)
+                tmp.append(XyloSynapse(post, 0, w_pre[post]))
+            _xylo_sim_params.synapses_out.append(tmp)
 
         # - Configure reservoir neurons
-        _cim_params.threshold = []
-        _cim_params.dash_syn = []
-        _cim_params.dash_mem = []
-        _cim_params.aliases = []
+        _xylo_sim_params.threshold = []
+        _xylo_sim_params.dash_syn = []
+        _xylo_sim_params.dash_mem = []
+        _xylo_sim_params.aliases = []
 
         for neuron in config.reservoir.neurons:
             if neuron.alias_target:
-                _cim_params.aliases.append([neuron.alias_target])
+                _xylo_sim_params.aliases.append([neuron.alias_target])
             else:
-                _cim_params.aliases.append([])
-            _cim_params.threshold.append(neuron.threshold)
-            _cim_params.dash_mem.append(neuron.v_mem_decay)
-            _cim_params.dash_syn.append([neuron.i_syn_decay, neuron.i_syn2_decay])
+                _xylo_sim_params.aliases.append([])
+            _xylo_sim_params.threshold.append(neuron.threshold)
+            _xylo_sim_params.dash_mem.append(neuron.v_mem_decay)
+            _xylo_sim_params.dash_syn.append([neuron.i_syn_decay, neuron.i_syn2_decay])
 
         # - Configure readout neurons
-        _cim_params.threshold_out = []
-        _cim_params.dash_syn_out = []
-        _cim_params.dash_mem_out = []
+        _xylo_sim_params.threshold_out = []
+        _xylo_sim_params.dash_syn_out = []
+        _xylo_sim_params.dash_mem_out = []
 
         for neuron in config.readout.neurons:
-            _cim_params.threshold_out.append(neuron.threshold)
-            _cim_params.dash_mem_out.append(neuron.v_mem_decay)
-            _cim_params.dash_syn_out.append([neuron.i_syn_decay])
+            _xylo_sim_params.threshold_out.append(neuron.threshold)
+            _xylo_sim_params.dash_mem_out.append(neuron.v_mem_decay)
+            _xylo_sim_params.dash_syn_out.append([neuron.i_syn_decay])
 
-        _cim_params.weight_shift_inp = config.input.weight_bit_shift
-        _cim_params.weight_shift_rec = config.reservoir.weight_bit_shift
-        _cim_params.weight_shift_out = config.readout.weight_bit_shift
+        _xylo_sim_params.weight_shift_inp = config.input.weight_bit_shift
+        _xylo_sim_params.weight_shift_rec = config.reservoir.weight_bit_shift
+        _xylo_sim_params.weight_shift_out = config.readout.weight_bit_shift
 
-        # - Instantiate a Xylo Cimulation layer
+        # - Instantiate a Xylo Simulation layer
         mod._xylo_layer = XyloLayer(
-            synapses_in=_cim_params.synapses_in,
-            synapses_rec=_cim_params.synapses_rec,
-            synapses_out=_cim_params.synapses_out,
-            aliases=_cim_params.aliases,
-            threshold=_cim_params.threshold,
-            threshold_out=_cim_params.threshold_out,
-            weight_shift_inp=_cim_params.weight_shift_inp,
-            weight_shift_rec=_cim_params.weight_shift_rec,
-            weight_shift_out=_cim_params.weight_shift_out,
-            dash_mem=_cim_params.dash_mem,
-            dash_mem_out=_cim_params.dash_mem_out,
-            dash_syns=_cim_params.dash_syn,
-            dash_syns_out=_cim_params.dash_syn_out,
-            name="XyloCim_XyloLayer",
+            synapses_in=_xylo_sim_params.synapses_in,
+            synapses_rec=_xylo_sim_params.synapses_rec,
+            synapses_out=_xylo_sim_params.synapses_out,
+            aliases=_xylo_sim_params.aliases,
+            threshold=_xylo_sim_params.threshold,
+            threshold_out=_xylo_sim_params.threshold_out,
+            weight_shift_inp=_xylo_sim_params.weight_shift_inp,
+            weight_shift_rec=_xylo_sim_params.weight_shift_rec,
+            weight_shift_out=_xylo_sim_params.weight_shift_out,
+            dash_mem=_xylo_sim_params.dash_mem,
+            dash_mem_out=_xylo_sim_params.dash_mem_out,
+            dash_syns=_xylo_sim_params.dash_syn,
+            dash_syns_out=_xylo_sim_params.dash_syn_out,
+            name="XyloSim_XyloLayer",
         )
 
         # - Store parameters and return
-        mod._cim_params = _cim_params
+        mod._xylo_sim_params = _xylo_sim_params
         return mod
 
     @classmethod
@@ -221,9 +221,9 @@ class XyloCim(Module):
         aliases: Optional[list] = None,
         dt: float = 1e-3,
         verify_config: bool = True,
-    ) -> "XyloCim":
+    ) -> "XyloSim":
         """
-        Instantiate a :py:class:`.XyloCim` module from a full set of parameters
+        Instantiate a :py:class:`.XyloSim` module from a full set of parameters
 
         Args:
             weights_in (np.ndarray): An int8 matrix ``(Nin, Nhidden, 2)``, specifying input to hidden neuron connections. The final dimension specifies the inputs to the two available synapses of the hidden neurons.
@@ -244,7 +244,7 @@ class XyloCim(Module):
             verify_config (bool): Check for a valid configuraiton before applying it. Default ``True``.
 
         Returns:
-            :py:class:`.XyloCim`: A :py:class:`.Module` that emulates the Xylo hardware.
+            :py:class:`.XyloSim`: A :py:class:`.Module` that emulates the Xylo hardware.
 
         Raises:
             ValueError: If ``verify_config`` is ``True`` and the configuration is not valid.
@@ -301,7 +301,7 @@ class XyloCim(Module):
         # - Return output, state and recording dictionary
         return output, {}, recording
 
-    def reset_state(self) -> "XyloCim":
+    def reset_state(self) -> "XyloSim":
         """ Reset the state of this module. """
         self._xylo_layer.reset_all()
         return self
