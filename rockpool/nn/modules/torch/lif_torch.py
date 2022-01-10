@@ -258,15 +258,21 @@ class LIFBaseTorch(TorchModule):
         )
         """ (float) Learning window cutoff for surrogate gradient function """
 
-        self.vmem: P_tensor = rp.State(shape=self.n_neurons, init_func=torch.zeros, cast_fn=to_float_tensor)
+        self.vmem: P_tensor = rp.State(
+            shape=self.n_neurons, init_func=torch.zeros, cast_fn=to_float_tensor
+        )
         """ (Tensor) Membrane potentials `(Nout,)` """
 
         self.isyn: P_tensor = rp.State(
-            shape=(self.n_neurons, self.n_synapses), init_func=torch.zeros, cast_fn=to_float_tensor
+            shape=(self.n_neurons, self.n_synapses),
+            init_func=torch.zeros,
+            cast_fn=to_float_tensor,
         )
         """ (Tensor) Synaptic currents `(Nin,)` """
 
-        self.spikes: P_tensor = rp.State(shape=self.n_neurons, init_func=torch.zeros, cast_fn=to_float_tensor)
+        self.spikes: P_tensor = rp.State(
+            shape=self.n_neurons, init_func=torch.zeros, cast_fn=to_float_tensor
+        )
         """ (Tensor) Spikes `(Nin,)` """
 
         self.spike_generation_fn: P_Callable = rp.SimulationParameter(
