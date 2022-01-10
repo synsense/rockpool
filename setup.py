@@ -29,7 +29,8 @@ setup_args = {
             "sphinx-rtd-theme",
             "recommonmark",
             "pandoc",
-            "samna>=0.9.27.0",
+            "xylosim",
+            "samna>=0.10.32.0",
         ]
     },
     "description": "A Python package for developing, simulating and training spiking neural networks, and deploying on neuromorphic hardware",
