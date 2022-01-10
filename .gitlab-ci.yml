@@ -11,8 +11,8 @@ unit_tests:
 
   before_script:
     - pip install --upgrade pip
-    - pip install --upgrade xylosim
     - conda install nest-simulator
+    - conda install cudatoolkit
     - pip install --upgrade .[all] --no-cache-dir
     - python -c 'import samna'
 
