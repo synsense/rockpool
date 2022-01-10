@@ -1,8 +1,8 @@
 def test_imports():
     from rockpool.devices import xylo
-    import rockpool.devices.xylo.xylo_cimulator
+    import rockpool.devices.xylo.xylo_sim
     import rockpool.devices.xylo.xylo_samna
-    from rockpool.devices.xylo import XyloCim, XyloSamna
+    from rockpool.devices.xylo import XyloSim, XyloSamna
 
 
 def test_configure():
@@ -42,13 +42,13 @@ def test_configure():
     print(validate_configuration(c))
 
     # - Build a simulated Xylo Module
-    mod_cimulator = xylo.XyloCim.from_config(c, dt=dt)
+    mod_xylo_sim = xylo.XyloSim.from_config(c, dt=dt)
 
     # - Simulate the evolution of the network on Xylo
     T = 1000
     input_rate = 0.01
     input_raster = np.random.rand(T, Nin) < input_rate
-    output_raster, _, _ = mod_cimulator(input_raster)
+    output_raster, _, _ = mod_xylo_sim(input_raster)
 
 
 def test_specification():
@@ -66,7 +66,7 @@ def test_specification():
         "weights_out": np.ones((Nhidden, Nout), "int"),
     }
 
-    mod_cimulator = xylo.XyloCim.from_specification(**spec)
+    mod_xylo_sim = xylo.XyloSim.from_specification(**spec)
 
     # - Test complete spec
     spec = {
@@ -86,13 +86,13 @@ def test_specification():
         "aliases": None,
     }
 
-    mod_cimulator = xylo.XyloCim.from_specification(**spec)
+    mod_xylo_sim = xylo.XyloSim.from_specification(**spec)
 
     # - Simulate the evolution of the network on Xylo
     T = 1000
     input_rate = 0.01
     input_raster = np.random.rand(T, Nin) < input_rate
-    output_raster, _, _ = mod_cimulator(input_raster)
+    output_raster, _, _ = mod_xylo_sim(input_raster)
 
 
 def test_from_config():
@@ -111,6 +111,6 @@ def test_from_config():
     }
 
     c, _, _ = xylo.config_from_specification(**spec)
-    mod_cimulator = xylo.XyloCim.from_config(c)
+    mod_xylo_sim = xylo.XyloSim.from_config(c)
 
-    mod_cimulator.timed()
+    mod_xylo_sim.timed()
