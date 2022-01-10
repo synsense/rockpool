@@ -137,8 +137,6 @@ def test_wavesense_record():
     out, state, rec = model(inp, record=True)
 
     assert len(rec) > 0
-    assert all([len(d) > 0 for d in model._record_dict.values()])
-
 
 def test_wavesense_backward():
     from rockpool.nn.networks import WaveSenseNet
