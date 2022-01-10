@@ -68,12 +68,11 @@ class WaveSenseBlock(TorchModule):
         dilation: int = None,
         kernel_size: int = 2,
         bias: P_tensor = Constant(0.0),
-        tau_mem: float = 10e-3,
-        base_tau_syn: float = 10e-3,
-        threshold: float = 1.0,
+        tau_mem: float = Constant(10e-3),
+        base_tau_syn: float = Constant(10e-3),
+        threshold: float = Constant(1.0),
         neuron_model: TorchModule = LIFTorch,
         dt: float = 1e-3,
-        record: bool = False,
         *args,
         **kwargs,
     ):
@@ -101,13 +100,14 @@ class WaveSenseBlock(TorchModule):
             **kwargs,
         )
 
-        self.record = record
-
         # - Add parameters
         self.neuron_model: Union[Callable, SimulationParameter] = SimulationParameter(
             neuron_model
         )
         """ Neuron model used by this WaveSense network """
+
+        self.record = SimulationParameter(False) 
+        """ Record states during evaluation """
 
         # - Dilation layers
         tau_syn = torch.arange(0, dilation * kernel_size, dilation) * base_tau_syn
@@ -119,10 +119,10 @@ class WaveSenseBlock(TorchModule):
 
         self.spk1 = self.neuron_model(
             shape=(Nchannels * kernel_size, Nchannels),
-            tau_mem=tau_mem,
-            tau_syn=tau_syn,
+            tau_mem=Constant(tau_mem),
+            tau_syn=Constant(tau_syn),
             bias=bias,
-            threshold=threshold,
+            threshold=Constant(threshold),
             has_rec=False,
             w_rec=None,
             noise_std=0,
@@ -136,10 +136,10 @@ class WaveSenseBlock(TorchModule):
 
         self.spk2_res = self.neuron_model(
             shape=(Nchannels, Nchannels),
-            tau_mem=tau_mem,
-            tau_syn=tau_syn.min().item(),
+            tau_mem=Constant(tau_mem),
+            tau_syn=Constant(tau_syn.min()),
             bias=bias,
-            threshold=threshold,
+            threshold=Constant(threshold),
             has_rec=False,
             w_rec=None,
             noise_std=0,
@@ -153,10 +153,10 @@ class WaveSenseBlock(TorchModule):
 
         self.spk2_skip = self.neuron_model(
             shape=(Nskip, Nskip),
-            tau_mem=tau_mem,
-            tau_syn=tau_syn.min().item(),
+            tau_mem=Constant(tau_mem),
+            tau_syn=Constant(tau_syn.min()),
             bias=bias,
-            threshold=threshold,
+            threshold=Constant(threshold),
             dt=dt,
         )
 
@@ -196,7 +196,10 @@ class WaveSenseBlock(TorchModule):
 
         return res_out, out_skip
 
-    def evolve(self, input):
+    def evolve(self, input, record: bool = False):
+
+        self.record = record
+
         # - Use super-class evolve
         output, new_state, _ = super().evolve(input, self.record)
 
@@ -285,13 +288,12 @@ class WaveSenseNet(TorchModule):
         kernel_size: int = 2,
         bias: P_tensor = Constant(0.0),
         smooth_output: bool = True,
-        tau_mem: float = 20e-3,
-        base_tau_syn: float = 20e-3,
-        tau_lp: float = 20e-3,
-        threshold: float = 1.0,
+        tau_mem: float = Constant(20e-3),
+        base_tau_syn: float = Constant(20e-3),
+        tau_lp: float = Constant(20e-3),
+        threshold: float = Constant(1.0),
         neuron_model: TorchModule = LIFTorch,
         dt: float = 1e-3,
-        record: bool = False,
         *args,
         **kwargs,
     ):
@@ -315,26 +317,31 @@ class WaveSenseNet(TorchModule):
             :param TorchModule neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFSlayer` for speedup. Default: :py:class:`.LIFTorch`
             :param float dt:                Temporal resolution of the simulation. Default: 1ms
         """
-        self.record = record
+
         # - Determine network shape and initialise
         shape = (n_channels_in, n_classes)
+
         super().__init__(
             shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs
         )
+
         self.n_channels_res = n_channels_res
         self.n_channels_skip = n_channels_skip
 
         self.neuron_model = neuron_model
+
+        self.record = SimulationParameter(False) 
+        """ Record states during evaluation """
 
         # - Input mapping layers
         self.lin1 = LinearTorch(shape=(n_channels_in, n_channels_res), has_bias=False)
 
         self.spk1 = self.neuron_model(
             shape=(n_channels_res, n_channels_res),
-            tau_mem=tau_mem,
-            tau_syn=base_tau_syn,
+            tau_mem=Constant(tau_mem),
+            tau_syn=Constant(base_tau_syn),
             bias=bias,
-            threshold=threshold,
+            threshold=Constant(threshold),
             has_rec=False,
             w_rec=None,
             noise_std=0,
@@ -352,9 +359,9 @@ class WaveSenseNet(TorchModule):
                 dilation=dilation,
                 kernel_size=kernel_size,
                 bias=bias,
-                tau_mem=tau_mem,
-                base_tau_syn=base_tau_syn,
-                threshold=threshold,
+                tau_mem=Constant(tau_mem),
+                base_tau_syn=Constant(base_tau_syn),
+                threshold=Constant(threshold),
                 neuron_model=neuron_model,
                 dt=dt,
             )
@@ -365,10 +372,10 @@ class WaveSenseNet(TorchModule):
 
         self.spk2 = self.neuron_model(
             shape=(n_hidden, n_hidden),
-            tau_mem=tau_mem,
-            tau_syn=base_tau_syn,
+            tau_mem=Constant(tau_mem),
+            tau_syn=Constant(base_tau_syn),
             bias=bias,
-            threshold=threshold,
+            threshold=Constant(threshold),
             has_rec=False,
             w_rec=None,
             noise_std=0,
@@ -379,20 +386,12 @@ class WaveSenseNet(TorchModule):
 
         self.readout = LinearTorch(shape=(n_hidden, n_classes), has_bias=False)
 
-        # - low pass filter is not compatible with xylo unless we give tau_syn 0
-        # - Smoothing output
-        # self.smooth_output = SimulationParameter(smooth_output)
-        # """ bool: Perform low-pass filtering of the readout """
-        #
-        # if smooth_output:
-        #     self.lp = ExpSynTorch(n_classes, tau_syn=tau_lp, dt=dt)
-
         self.spk_out = self.neuron_model(
             shape=(n_classes, n_classes),
-            tau_mem=tau_lp,
-            tau_syn=tau_lp,
+            tau_mem=Constant(tau_lp),
+            tau_syn=Constant(tau_lp),
             bias=bias,
-            threshold=threshold,
+            threshold=Constant(threshold),
             has_rec=False,
             w_rec=None,
             noise_std=0,
@@ -445,10 +444,14 @@ class WaveSenseNet(TorchModule):
 
         return out
 
-    def evolve(self, input_data):
+    def evolve(self, input_data, record: bool = False):
+
+        self.record = record
+
         output, new_state, _ = super().evolve(input_data, record=self.record)
 
         record_dict = self._record_dict if self.record else {}
+
         return output, new_state, record_dict
 
     def as_graph(self):
