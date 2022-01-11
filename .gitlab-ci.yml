@@ -15,8 +15,8 @@ unit_tests:
     - conda install cudatoolkit
     - pip install --upgrade .[all] --no-cache-dir
     - python -c 'import samna'
-    - pip install git+https://dylan.muir@spinystellate.office.synsense.ai/research/SCNN/sinabs.git@06ede3955c9d8dfe3bee981423f005a7dcade0f3
-    - pip install git+https://dylan.muir@spinystellate.office.synsense.ai/research/SCNN/sinabs-slayer.git
+    - pip install git+https://gitlab-ci-token:${CI-JOB-TOKEN}@spinystellate.office.synsense.ai/research/SCNN/sinabs.git@06ede3955c9d8dfe3bee981423f005a7dcade0f3
+    - pip install git+https://gitlab-ci-token:${CI-JOB-TOKEN}@spinystellate.office.synsense.ai/research/SCNN/sinabs-slayer.git
 
   script:
     - pytest -v tests/tests_default -n 4
