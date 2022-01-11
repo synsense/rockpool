@@ -12,7 +12,7 @@ unit_tests:
   before_script:
     - pip install --upgrade pip
     - conda install nest-simulator
-    - conda install pytorch torchvision cudatoolkit -c pytorch
+    - conda install -c conda-forge cudatoolkit-dev
     - pip install --upgrade .[all] --no-cache-dir
     - python -c 'import samna'
     - pip install git+https://dylan.muir:${GITLAB_CLONE_API_KEY}@spinystellate.office.synsense.ai/research/SCNN/sinabs.git@06ede3955c9d8dfe3bee981423f005a7dcade0f3
