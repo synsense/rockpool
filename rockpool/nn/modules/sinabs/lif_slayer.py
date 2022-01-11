@@ -9,22 +9,11 @@ if util.find_spec("sinabs") is None or util.find_spec("sinabs.slayer") is None:
         "'Slayer' backend not found. Modules that rely on Sinabs-Slayer will not be available."
     )
 
-from typing import Union, List, Tuple, Callable, Optional, Any
-import numpy as np
 from rockpool.nn.modules.torch.lif_torch import LIFBaseTorch
 import torch
-import torch.nn.functional as F
-import torch.nn.init as init
-import rockpool.parameters as rp
 
 from rockpool.typehints import *
-
-from rockpool.graph import (
-    GraphModuleBase,
-    as_GraphHolder,
-    LIFNeuronWithSynsRealValue,
-    LinearWeights,
-)
+from rockpool.parameters import Constant
 
 from sinabs.slayer.spike import SpikeFunctionIterForward
 from sinabs.slayer.leaky import LeakyIntegrator
@@ -36,8 +25,8 @@ class LIFSlayer(LIFBaseTorch):
     def __init__(
         self,
         tau_mem: P_float = 0.02,
+        tau_syn: P_float = 0.05,
         threshold: P_float = 1.0,
-        # has_bias: bool = False,
         has_rec: bool = False,
         noise_std: P_float = 0.0,
         *args,
@@ -49,27 +38,27 @@ class LIFSlayer(LIFBaseTorch):
         Args:
             tau_mem (float): An optional array with concrete initialisation data for the membrane time constants. If not provided, 20ms will be used by default.
             threshold (float): An optional array specifying the firing threshold of each neuron. If not provided, ``1.`` will be used by default.
-            has_bias (bool): Must be False
             has_rec (bool): Must be False
             noise_std (float): Must be 0
         """
 
         assert isinstance(
             tau_mem, float
-        ), "Slayer-backed LIF module must have a single membrane time cnostant"
+        ), "Slayer-backed LIF module must have a single membrane time constant"
         assert isinstance(
             threshold, float
         ), "Slayer-backed LIF module must have a single threshold"
-        # assert has_bias == False, "Slayer-backed LIF module may not have biases"
+
         assert has_rec == False, "Slayer-backed LIF module does not support recurrence"
         assert noise_std == 0.0, "Slayer-backed LIF module does not support noise"
 
         # - Initialise superclass
         super().__init__(
-            tau_mem=tau_mem,
-            threshold=threshold,
-            # has_bias=has_bias,
-            has_rec=has_rec,
+            tau_mem=Constant(tau_mem),
+            threshold=Constant(threshold),
+            tau_syn=Constant(tau_syn),
+            bias=Constant(0.0),
+            has_rec=False,
             noise_std=noise_std,
             *args,
             **kwargs,
