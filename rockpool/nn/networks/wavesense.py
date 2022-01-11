@@ -106,9 +106,6 @@ class WaveSenseBlock(TorchModule):
         )
         """ Neuron model used by this WaveSense network """
 
-        self.record = SimulationParameter(False) 
-        """ Record states during evaluation """
-
         # - Dilation layers
         tau_syn = torch.arange(0, dilation * kernel_size, dilation) * base_tau_syn
         tau_syn = torch.clamp(tau_syn, base_tau_syn, tau_syn.max()).repeat(Nchannels, 1)
@@ -161,6 +158,7 @@ class WaveSenseBlock(TorchModule):
         )
 
         # - Internal record dictionary
+        self._record = False
         self._record_dict = {}
 
     def forward(self, data: torch.tensor) -> (torch.tensor, dict, dict):
@@ -168,28 +166,38 @@ class WaveSenseBlock(TorchModule):
         (n_batches, t_sim, Nchannels) = data.shape
 
         # - Pass through dilated weight layer
-        out, _, self._record_dict["lin1"] = self.lin1(data, record=self.record)
+        out, _, self._record_dict["lin1"] = self.lin1(data, record=self._record)
+        self._record_dict["lin1_output"] = out if self._record else []
 
         # - Pass through dilated spiking layer
         hidden, _, self._record_dict["spk1"] = self.spk1(
-            out, record=self.record
+            out, record=self._record
         )  # (t_sim, n_batches, Nchannels)
+        self._record_dict["spk1_output"] = out if self._record else []
 
         # - Pass through output linear weights
-        out_res, _, self._record_dict["lin2_res"] = self.lin2_res(hidden, record=self.record)
+        out_res, _, self._record_dict["lin2_res"] = self.lin2_res(
+            hidden, record=self._record
+        )
+        self._record_dict["lin2_res_output"] = out_res if self._record else []
 
         # - Pass through output spiking layer
-        out_res, _, self._record_dict["spk2_res"] = self.spk2_res(out_res, record=self.record)
+        out_res, _, self._record_dict["spk2_res"] = self.spk2_res(
+            out_res, record=self._record
+        )
+        self._record_dict["spk2_res_output"] = out_res if self._record else []
 
         # - Hidden -> skip outputs
         out_skip, _, self._record_dict["lin2_skip"] = self.lin2_skip(
-            hidden, record=self.record
+            hidden, record=self._record
         )
+        self._record_dict["lin2_skip_output"] = out_skip if self._record else []
 
         # - Pass through skip output spiking layer
         out_skip, _, self._record_dict["spk2_skip"] = self.spk2_skip(
-            out_skip, record=self.record
+            out_skip, record=self._record
         )
+        self._record_dict["spk2_skip_output"] = out_skip if self._record else []
 
         # - Combine output and residual connections (pass-through)
         res_out = out_res + data
@@ -198,13 +206,13 @@ class WaveSenseBlock(TorchModule):
 
     def evolve(self, input, record: bool = False):
 
-        self.record = record
+        self._record = record
 
         # - Use super-class evolve
-        output, new_state, _ = super().evolve(input, self.record)
+        output, new_state, _ = super().evolve(input, self._record)
 
         # - Get state record from property
-        record_dict = self._record_dict if self.record else {}
+        record_dict = self._record_dict if self._record else {}
 
         return output, new_state, record_dict
 
@@ -330,9 +338,6 @@ class WaveSenseNet(TorchModule):
 
         self.neuron_model = neuron_model
 
-        self.record = SimulationParameter(False) 
-        """ Record states during evaluation """
-
         # - Input mapping layers
         self.lin1 = LinearTorch(shape=(n_channels_in, n_channels_res), has_bias=False)
 
@@ -405,6 +410,7 @@ class WaveSenseNet(TorchModule):
         """ float: Time-step in seconds """
 
         # Dictionary for recording state
+        self._record = False
         self._record_dict = {}
 
     def forward(self, data: torch.Tensor):
@@ -412,30 +418,36 @@ class WaveSenseNet(TorchModule):
         (n_batches, t_sim, n_channels_in) = data.shape
 
         # - Input mapping layers
-        out, _, self._record_dict["lin1"] = self.lin1(data, record=self.record)
+        out, _, self._record_dict["lin1"] = self.lin1(data, record=self._record)
+        self._record_dict["lin1_output"] = out if self._record else []
 
         # Pass through spiking layer
         out, _, self._record_dict["spk1"] = self.spk1(
-            out, record=self.record
+            out, record=self._record
         )  # (t_sim, n_batches, Nchannels)
+        self._record_dict["spk1_output"] = out if self._record else []
 
         # Pass through each wave block in turn
         skip = 0
         for wave_index in range(self._num_dilations):
             wave_block = self.modules()[f"wave{wave_index}"]
             (out, skip_new), _, self._record_dict[f"wave{wave_index}"] = wave_block(
-                out, record=self.record
+                out, record=self._record
             )
+            self._record_dict[f"wave{wave_index}_output"] = out if self._record else []
             skip = skip_new + skip
 
         # Dense layers
-        out, _, self._record_dict["hidden"] = self.hidden(skip, record=self.record)
-        out, _, self._record_dict["spk2"] = self.spk2(out, record=self.record)
+        out, _, self._record_dict["hidden"] = self.hidden(skip, record=self._record)
+        self._record_dict["hidden_output"] = out if self._record else []
+        out, _, self._record_dict["spk2"] = self.spk2(out, record=self._record)
+        self._record_dict["spk2_output"] = out if self._record else []
 
         # Final readout layer
-        out, _, self._record_dict["readout"] = self.readout(out, record=self.record)
+        out, _, self._record_dict["readout"] = self.readout(out, record=self._record)
+        self._record_dict["readout_output"] = out if self._record else []
 
-        out, _, self._record_dict["spk_out"] = self.spk_out(out, record=self.record)
+        out, _, self._record_dict["spk_out"] = self.spk_out(out, record=self._record)
 
         # - low pass filter is not compatible with xylo unless we give tau_syn 0
         # - Smooth the output if requested
@@ -445,13 +457,16 @@ class WaveSenseNet(TorchModule):
         return out
 
     def evolve(self, input_data, record: bool = False):
+        # - Store "record" state
+        self._record = record
 
-        self.record = record
+        # - Evolve network
+        output, new_state, _ = super().evolve(input_data, record=self._record)
 
-        output, new_state, _ = super().evolve(input_data, record=self.record)
+        # - Get recording dictionary
+        record_dict = self._record_dict if self._record else {}
 
-        record_dict = self._record_dict if self.record else {}
-
+        # - Return
         return output, new_state, record_dict
 
     def as_graph(self):

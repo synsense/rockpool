@@ -121,7 +121,7 @@ class LIFSlayer(LIFBaseTorch):
         ).to(data.device)
 
         beta = torch.broadcast_to(self.beta, (self.n_neurons, self.n_synapses))
-        threshold = torch.broadcast_to(self.threshold, (self.n_neurons, ))
+        threshold = torch.broadcast_to(self.threshold, (self.n_neurons,))
         alpha = torch.broadcast_to(self.alpha, (self.n_neurons,))
 
         for syn in range(self.n_synapses):

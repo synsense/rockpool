@@ -13,8 +13,9 @@ def test_simple_network():
         LIFBitshiftTorch,
     )
     from rockpool.parameters import Constant
-    from rockpool.devices.xylo import mapper, config_from_specification
-    from rockpool.devices.xylo import XyloCim
+    from rockpool.devices.xylo import mapper
+    from rockpool.devices.xylo import config_from_specification
+    from rockpool.devices.xylo import XyloSim
     from rockpool.graph import (
         AliasConnection,
         GraphHolder,
@@ -159,11 +160,11 @@ def test_simple_network():
 
     _, _, recordings_f = mod(inp, record=True)
 
-    cim_g = XyloCim.from_config(xylo_conf_global, dt=dt)
+    cim_g = XyloSim.from_config(xylo_conf_global, dt=dt)
     cim_g.reset_state()
     spk_out_g, _, rec_cim_g = cim_g(inp[0].cpu().numpy(), record=True)
 
-    cim_c = XyloCim.from_config(xylo_conf_channel, dt=dt)
+    cim_c = XyloSim.from_config(xylo_conf_channel, dt=dt)
     cim_c.reset_state()
     spk_out_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
 
@@ -214,7 +215,7 @@ def test_complex_network():
     )
     from rockpool.devices.xylo import mapper
     from rockpool.devices.xylo import config_from_specification
-    from rockpool.devices.xylo import XyloCim
+    from rockpool.devices.xylo import XyloSim
     from rockpool.parameters import Constant
     from rockpool.graph import (
         AliasConnection,
@@ -401,11 +402,11 @@ def test_complex_network():
 
     _, _, recordings_f = mod(inp, record=True)
 
-    cim_g = XyloCim.from_config(xylo_conf_global, dt=dt)
+    cim_g = XyloSim.from_config(xylo_conf_global, dt=dt)
     cim_g.reset_state()
     spk_out_g, _, rec_cim_g = cim_g(inp[0].cpu().numpy(), record=True)
 
-    cim_c = XyloCim.from_config(xylo_conf_channel, dt=dt)
+    cim_c = XyloSim.from_config(xylo_conf_channel, dt=dt)
     cim_c.reset_state()
     spk_out_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
 
@@ -468,7 +469,8 @@ def test_sequential_combinator():
     )
     from rockpool.devices.xylo import mapper
     from rockpool.devices.xylo import config_from_specification
-    from rockpool.devices.xylo import XyloCim
+    from rockpool.devices.xylo import XyloSim
+    from rockpool.parameters import Constant
     from rockpool.graph import (
         AliasConnection,
         GraphHolder,
@@ -549,11 +551,11 @@ def test_sequential_combinator():
     mod.reset_state()
     _, _, recordings_f = mod(inp, record=True)
 
-    cim_g = XyloCim.from_config(xylo_conf_global, dt=dt)
+    cim_g = XyloSim.from_config(xylo_conf_global, dt=dt)
     cim_g.reset_state()
     spk_out_g, _, rec_cim_g = cim_g(inp[0].cpu().numpy(), record=True)
 
-    cim_c = XyloCim.from_config(xylo_conf_channel, dt=dt)
+    cim_c = XyloSim.from_config(xylo_conf_channel, dt=dt)
     cim_c.reset_state()
     spk_out_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
 
@@ -616,7 +618,7 @@ def test_residual_combinator():
     )
     from rockpool.devices.xylo import mapper
     from rockpool.devices.xylo import config_from_specification
-    from rockpool.devices.xylo import XyloCim
+    from rockpool.devices.xylo import XyloSim
     from rockpool.parameters import Constant
     import warnings
 
@@ -708,11 +710,11 @@ def test_residual_combinator():
     mod.reset_state()
     _, _, recordings_f = mod(inp, record=True)
 
-    cim_g = XyloCim.from_config(xylo_conf_global, dt=dt)
+    cim_g = XyloSim.from_config(xylo_conf_global, dt=dt)
     cim_g.reset_state()
     spk_out_g, _, rec_cim_g = cim_g(inp[0].cpu().numpy(), record=True)
 
-    cim_c = XyloCim.from_config(xylo_conf_channel, dt=dt)
+    cim_c = XyloSim.from_config(xylo_conf_channel, dt=dt)
     cim_c.reset_state()
     spk_out_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
 
