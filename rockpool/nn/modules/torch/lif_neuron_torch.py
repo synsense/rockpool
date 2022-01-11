@@ -15,7 +15,7 @@ from rockpool.nn.modules.torch.torch_module import TorchModule
 import torch
 import rockpool.parameters as rp
 
-from rockpool.typehints import P_float, P_tensor
+from rockpool.typehints import P_float, P_tensor, P_int
 
 __all__ = ["LIFNeuronTorch"]
 
@@ -75,10 +75,8 @@ class LIFNeuronTorch(TorchModule):
         shape: tuple = None,
         tau_mem: FloatVector = 0.1,
         bias: FloatVector = 0.0,
-        has_bias: bool = True,
         dt: float = 1e-3,
         noise_std: float = 0.0,
-        dtype=None,
         *args,
         **kwargs,
     ):
@@ -104,11 +102,7 @@ class LIFNeuronTorch(TorchModule):
 
         # - Initialize super-class
         super().__init__(
-            shape=shape,
-            spiking_input=False,
-            spiking_output=True,
-            *args,
-            **kwargs,
+            shape=shape, spiking_input=False, spiking_output=True, *args, **kwargs,
         )
 
         # # - Determine arguments for building tensors
@@ -163,15 +157,9 @@ class LIFNeuronTorch(TorchModule):
         output_data, states, record_dict = super().evolve(input_data, record)
 
         # - Fill record dictionary
-        if record:
-            record_dict = (
-                {
-                    "vmem": self._vmem_rec,
-                    "spikes": self._spikes_rec,
-                }
-                if record
-                else {}
-            )
+        record_dict = (
+            {"vmem": self._vmem_rec, "spikes": self._spikes_rec,} if record else {}
+        )
 
         # - Return output
         return output_data, states, record_dict
@@ -218,7 +206,11 @@ class LIFNeuronTorch(TorchModule):
         for t in range(time_steps):
             # - Update membrane potential
             dvmem = data[:, t, :] + self.bias - vmem
-            vmem = vmem + alpha * dvmem + torch.randn(vmem.shape, device=data.device) * noise_std
+            vmem = (
+                vmem
+                + alpha * dvmem
+                + torch.randn(vmem.shape, device=data.device) * noise_std
+            )
 
             # - Compute spikes and reset
             out_spikes = step_pwl(vmem)
