@@ -37,51 +37,61 @@ E-mail : ugurcan.cakal@gmail.com
 13/07/2021
 """
 
-import numpy as onp
 import logging
 
 import jax
-import jax.random as rand
-
 from jax.lax import scan
-from jax import numpy as np
+from jax import random as rand
+
+from jax import numpy as jnp
+import numpy as np
 
 from typing import Optional, Tuple, Any, Callable, Dict
-
-from rockpool.typehints import (
-    JP_ndarray,
-    FloatVector,
-)
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
 from rockpool.devices.dynapse.simconfig import DynapSE1SimBoard
 from rockpool.devices.dynapse.dynapse import DynapSE
 
-DynapSEState = Tuple[
-    JP_ndarray, JP_ndarray, JP_ndarray, JP_ndarray, JP_ndarray, Optional[Any]
+DynapSERecord = Tuple[
+    jnp.DeviceArray,  # spikes
+    jnp.DeviceArray,  # Isyn
+    jnp.DeviceArray,  # Iahp
+    jnp.DeviceArray,  # Imem
+    jnp.DeviceArray,  # Vmem
 ]
-DynapSERecord = Tuple[JP_ndarray, JP_ndarray, JP_ndarray, JP_ndarray, JP_ndarray]
+
+DynapSEState = Tuple[
+    jnp.DeviceArray,  # spikes
+    jnp.DeviceArray,  # Isyn
+    jnp.DeviceArray,  # Iahp
+    jnp.DeviceArray,  # Imem
+    jnp.DeviceArray,  # Vmem
+    jnp.DeviceArray,  # timer_ref
+    jnp.DeviceArray,  # key
+]
 
 
 @jax.custom_gradient
 def step_pwl(
-    Imem: FloatVector, Ispkthr: FloatVector, Ireset: FloatVector
-) -> Tuple[FloatVector, Callable[[FloatVector], FloatVector]]:
+    Imem: jnp.DeviceArray, Ispkthr: jnp.DeviceArray, Ireset: jnp.DeviceArray
+) -> Tuple[jnp.DeviceArray, Callable[[jnp.DeviceArray], jnp.DeviceArray]]:
     """
     step_pwl implements heaviside step function with piece-wise linear derivative to use as spike-generation surrogate
 
-    :param x: Input current to be compared for firing
-    :type x: FloatVector
+    :param Imem: Input current to be compared for firing
+    :type Imem: jnp.DeviceArray
     :param Ispkthr: Spiking threshold current in Amperes
-    :type Ispkthr: FloatVector
+    :type Ispkthr: jnp.DeviceArray
     :param Ireset: Reset current after spike generation in Amperes
-    :type Ireset: FloatVector
-    :return: spike output value and gradient function
-    :rtype: Tuple[FloatVector, Callable[[FloatVector], FloatVector]]
+    :type Ireset: jnp.DeviceArray
+    :return: spikes, grad_func
+        spike: generated spike output values
+        grad_func:gradient function
+    :rtype: Tuple[jnp.DeviceArray, Callable[[jnp.DeviceArray], jnp.DeviceArray]]
     """
 
-    spikes = np.clip(np.floor(Imem - Ispkthr) + 1.0, 0.0)
+    spikes = jnp.clip(jnp.floor(Imem - Ispkthr) + 1.0, 0.0)
     grad_func = lambda g: (g * (Imem > Ireset) * (Ispkthr - Ireset), 0.0, 0.0)
     return spikes, grad_func
 
@@ -153,7 +163,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
     :param has_rec: When ``True`` the module provides a trainable recurrent weight matrix. ``False``, module is feed-forward, defaults to True
     :type has_rec: bool, optional
     :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(Nrec, Nrec, 4)``. The last 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
-    :type w_rec: Optional[FloatVector], optional
+    :type w_rec: Optional[jnp.DeviceArray], optional
 
         Let's say 5 neurons allocated
 
@@ -213,61 +223,61 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
     :ivar SYN: A dictionary storing default indexes(order) of the synapse types
     :type SYN: Dict[str, int]
     :ivar Isyn: 2D array of synapse currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape (4,Nrec)
-    :type Isyn: JP_ndarray
+    :type Isyn: jnp.DeviceArray
     :ivar Iahp: Array of spike frequency adaptation currents of the neurons with shape (Nrec,)
-    :type Iahp: JP_ndarray
+    :type Iahp: jnp.DeviceArray
     :ivar Imem: Array of membrane currents of the neurons with shape (Nrec,)
-    :type Imem: JP_ndarray
+    :type Imem: jnp.DeviceArray
     :ivar spikes: Logical spiking raster for each neuron at the last simulation time-step with shape (Nrec,)
-    :type spikes: JP_ndarray
+    :type spikes: jnp.DeviceArray
     :ivar timer_ref: timer to keep the time from the spike generation until the refractory period ends
     :type timer_ref: int
     :ivar Itau_syn: 2D array of synapse leakage currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape (4,Nrec)
-    :type Itau_syn: JP_ndarray
+    :type Itau_syn: jnp.DeviceArray
     :ivar Itau_ahp: Array of spike frequency adaptation leakage currents of the neurons with shape (Nrec,)
-    :type Itau_ahp: JP_ndarray
+    :type Itau_ahp: jnp.DeviceArray
     :ivar Itau_mem: Array of membrane leakage currents of the neurons with shape (Nrec,)
-    :type Itau_mem: JP_ndarray
+    :type Itau_mem: jnp.DeviceArray
     :ivar f_gain_syn: 2D array of synapse gain parameters of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape (4,Nrec)
-    :type f_gain_syn: JP_ndarray
+    :type f_gain_syn: jnp.DeviceArray
     :ivar f_gain_ahp: Array of spike frequency adaptation gain parameters of the neurons with shape (Nrec,)
-    :type f_gain_ahp: JP_ndarray
+    :type f_gain_ahp: jnp.DeviceArray
     :ivar f_gain_mem: Array of membrane gain parameter of the neurons with shape (Nrec,)
-    :type f_gain_mem: JP_ndarray
+    :type f_gain_mem: jnp.DeviceArray
     :ivar Iw: 2D array of synapse weight currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape (4,Nrec)
-    :type Iw: JP_ndarray
+    :type Iw: jnp.DeviceArray
     :ivar Iw_ahp: Array of spike frequency adaptation weight currents of the neurons with shape (Nrec,)
-    :type Iw_ahp: JP_ndarray
+    :type Iw_ahp: jnp.DeviceArray
     :ivar Idc: Array of constant DC current in Amperes, injected to membrane with shape (Nrec,)
-    :type Idc: JP_ndarray
+    :type Idc: jnp.DeviceArray
     :ivar If_nmda: Array of the NMDA gate current in Amperes setting the NMDA gating voltage. If :math:`V_{mem} > V_{nmda}` : The :math:`I_{syn_{NMDA}}` current is added up to the input current, else it cannot with shape (Nrec,)
-    :type If_nmda: JP_ndarray
+    :type If_nmda: jnp.DeviceArray
     :ivar Iref: Array of the bias current setting the refractory period `t_ref` with shape (Nrec,)
-    :type Iref: JP_ndarray
+    :type Iref: jnp.DeviceArray
     :ivar Ipulse: Array of  the bias current setting the pulse width `t_pulse` with shape (Nrec,)
-    :type Ipulse: JP_ndarray
+    :type Ipulse: jnp.DeviceArray
     :ivar Ispkthr: Array of spiking threshold current with shape (Nrec,)
-    :type Ispkthr: JP_ndarray
+    :type Ispkthr: jnp.DeviceArray
     :ivar kappa: Array of mean subthreshold slope factor of the transistors with shape (Nrec,)
-    :type kappa: JP_ndarray
+    :type kappa: jnp.DeviceArray
     :ivar Ut: Array of thermal voltage in Volts with shape (Nrec,)
-    :type Ut: JP_ndarray
+    :type Ut: jnp.DeviceArray
     :ivar Io: Array of Dark current in Amperes that flows through the transistors even at the idle state with shape (Nrec,)
-    :type Io: JP_ndarray
+    :type Io: jnp.DeviceArray
     :ivar f_tau_syn: Array of tau factors in the following order: [GABA_B, GABA_A, NMDA, AMPA] with shape (4,Nrec)
-    :type f_tau_syn: np.ndarray
+    :type f_tau_syn: jnp.DeviceArray
     :ivar f_tau_ahp: Array of tau factor for spike frequency adaptation circuit with shape (Nrec,)
-    :type f_tau_ahp: JP_ndarray
+    :type f_tau_ahp: jnp.DeviceArray
     :ivar f_tau_mem: Array of tau factor for membrane circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau` with shape (Nrec,)
-    :type f_tau_mem: JP_ndarray
+    :type f_tau_mem: jnp.DeviceArray
     :ivar f_pulse: Array of the pulse width factor produced by virtue of a spike with shape (Nrec,)
-    :type f_pulse: JP_ndarray
+    :type f_pulse: jnp.DeviceArray
     :ivar f_pulse_ahp: Array of the ratio of reduction of pulse width for AHP also look at ``t_pulse`` and ``fpulse_ahp`` with shape (Nrec,)
-    :type f_pulse_ahp: JP_ndarray
+    :type f_pulse_ahp: jnp.DeviceArray
     :ivar f_ref: Array of refractory periods factor, limits maximum firing rate. In the refractory period the synaptic input current of the membrane is the dark current. with shape (Nrec,)
-    :type f_ref: JP_ndarray
+    :type f_ref: jnp.DeviceArray
     :ivar Ireset: Array of reset current after spike generation with shape (Nrec,)
-    :type Ireset: JP_ndarray
+    :type Ireset: jnp.DeviceArray
 
     [] TODO: parametric fill rate, different initialization methods
     [] TODO: all neurons cannot have the same parameters ideally however, they experience different parameters in practice because of device mismatch
@@ -286,7 +296,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
         shape: Optional[Tuple] = None,
         sim_config: Optional[DynapSE1SimBoard] = None,
         has_rec: bool = True,
-        w_rec: Optional[FloatVector] = None,
+        w_rec: Optional[jnp.DeviceArray] = None,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
         spiking_input: bool = False,
@@ -297,7 +307,6 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
         """
         __init__ Initialize ``DynapSEAdExpLIFJax`` module. Parameters are explained in the class docstring.
         """
-
         # Check the parameters and initialize to default if necessary
         if shape is None or len(shape) != 2:
             raise ValueError(f"shape should be defined (N*4,N,)! shape={shape}")
@@ -320,9 +329,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             raise ValueError("`shape[0]` should be `shape[1]`*4")
 
         if rng_key is None:
-            rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
-
-        _, rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
+            rng_key = rand.PRNGKey(np.random.randint(0, 2 ** 63))
 
         super(DynapSEAdExpLIFJax, self).__init__(
             shape=shape,
@@ -341,11 +348,11 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             )
 
         # --- Parameters & States --- #
-        init_current = lambda s: np.full(s, sim_config.Io)
+        init_current = lambda s: jnp.full(s, sim_config.Io)
 
         # --- States --- #
 
-        self.spikes = State(init_func=np.zeros, shape=(self.size_out,))
+        self.spikes = State(init_func=jnp.zeros, shape=(self.size_out,))
         self.Isyn = State(
             sim_config.Isyn, init_func=init_current, shape=(self.size_out, 4)
         )
@@ -357,9 +364,9 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             sim_config.Imem, init_func=init_current, shape=(self.size_out,)
         )
 
-        self.Vmem = State(init_func=np.zeros, shape=(self.size_out,))
-        self.timer_ref = State(init_func=np.zeros, shape=(self.size_out,))
-        self._rng_key: JP_ndarray = State(rng_key, init_func=lambda _: rng_key)
+        self.Vmem = State(init_func=jnp.zeros, shape=(self.size_out,))
+        self.timer_ref = State(init_func=jnp.zeros, shape=(self.size_out,))
+        self._rng_key = State(rng_key, init_func=lambda _: rng_key)
 
         ## Feed forward Mode
         if not has_rec:
@@ -369,18 +376,18 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
                 )
 
             # In order not to make the jax complain about w_rec
-            self.w_rec = np.zeros((self.size_out, self.size_in // 4, 4))
+            self.w_rec = jnp.zeros((self.size_out, self.size_in // 4, 4))
             logging.info(f"Module allocates {self.size_out} neurons with 4 synapses")
 
         ## Recurrent mode
         else:
             if w_rec is not None:
-                w_rec = np.array(w_rec, dtype=np.float32)
+                w_rec = jnp.array(w_rec, dtype=jnp.float32)
 
             weight_init = lambda s: sim_config.weight_matrix(self.poisson_CAM(s))
 
             # Values between 0,64
-            self.w_rec: JP_ndarray = Parameter(
+            self.w_rec = Parameter(
                 w_rec,
                 family="weights",
                 init_func=weight_init,
@@ -432,42 +439,42 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
         self.f_pulse = SimulationParameter(sim_config.f_pulse)
 
     def evolve(
-        self, input_data: np.ndarray, record: bool = True
-    ) -> Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, np.ndarray]]:
+        self, input_data: jnp.DeviceArray, record: bool = True
+    ) -> Tuple[jnp.DeviceArray, Dict[str, jnp.DeviceArray], Dict[str, jnp.DeviceArray]]:
         """
         evolve implements raw JAX evolution function for a DynapSEAdExpLIFJax module.
         The function solves the dynamical equations introduced at the ``DynapSEAdExpLIFJax`` module definition
 
         :param input_data: Input array of shape ``(T, Nrec, 4)`` to evolve over. Represents number of spikes at that timebin for different synaptic gates
-        :type input_data: np.ndarray
+        :type input_data: jnp.DeviceArray
         :param record: record the each timestep of evolution or not, defaults to False
         :type record: bool, optional
         :return: spikes_ts, states, record_dict
             :spikes_ts: is an array with shape ``(T, Nrec)`` containing the output data(spike raster) produced by the module.
             :states: is a dictionary containing the updated module state following evolution.
             :record_dict: is a dictionary containing the recorded state variables during the evolution at each time step, if the ``record`` argument is ``True`` else empty dictionary {}
-        :rtype: Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, np.ndarray]]
+        :rtype: Tuple[jnp.DeviceArray, Dict[str, jnp.DeviceArray], Dict[str, jnp.DeviceArray]]
         """
 
         # --- Stateless Parameters --- #
 
         ## --- Synapses --- ## Nrec, 4
-        Itau_syn_clip = np.clip(self.Itau_syn.T, self.Io).T
+        Itau_syn_clip = jnp.clip(self.Itau_syn.T, self.Io).T
         Ith_syn_clip = self.f_gain_syn * Itau_syn_clip
 
         ## --- Spike frequency adaptation --- ## Nrec
-        Itau_ahp_clip = np.clip(self.Itau_ahp, self.Io)
+        Itau_ahp_clip = jnp.clip(self.Itau_ahp, self.Io)
         Ith_ahp_clip = self.f_gain_ahp * Itau_ahp_clip
 
         ## -- Membrane -- ## Nrec
-        Itau_mem_clip = np.clip(self.Itau_mem, self.Io)
+        Itau_mem_clip = jnp.clip(self.Itau_mem, self.Io)
         Ith_mem_clip = self.f_gain_mem * Itau_mem_clip
 
         # Both (T, Nrecx4), and (T, Nrec, 4) shaped inputs are accepted
-        input_data = np.reshape(input_data, (input_data.shape[0], -1, 4))
+        input_data = jnp.reshape(input_data, (input_data.shape[0], -1, 4))
 
         def forward(
-            state: DynapSEState, Iw_input: np.ndarray
+            state: DynapSEState, Iw_input: jnp.DeviceArray
         ) -> Tuple[DynapSEState, DynapSERecord]:
             """
             forward implements single time-step neuron and synapse dynamics
@@ -481,14 +488,10 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
                 key: The Jax RNG seed to be used for mismatch simulation
             :type state: DynapSEState
             :param Iw_input: external weighted current matrix generated via input spikes [Nrec, 4]
-            :type Iw_input: np.ndarray
-            :return: state, (spikes, Isyn, Iahp, Imem, Vmem)
+            :type Iw_input: jnp.DeviceArray
+            :return: state, record
                 state: Updated state at end of the forward steps
-                spikes: Logical spiking raster for each neuron over time [Nrec]
-                Isyn: Updated synapse currents of each synapses[GABA_B, GABA_A, NMDA, AMPA] of each neuron [4xNrec]
-                Iahp: Updated spike frequency adaptation currents of each neuron [Nrec]
-                Imem: Updated membrane currents of each neuron [Nrec]
-                Vmem: Updated membrane potentials of each neuron [Nrec]
+                record: Updated record instance to including spikes, Isyn, Iahp, Imem, and Vmem states
             :rtype: Tuple[DynapSEState, DynapSERecord]
             """
             # [] TODO : Would you allow currents to go below Io or not?!!!!
@@ -500,12 +503,12 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             # ---------------------------------- #
 
             ## Real time weight is 0 if no spike, w_rec if spike event occurs
-            Iws_internal = np.dot(self.w_rec.T, spikes).T
-            Iws = np.add(Iws_internal, Iw_input)
+            Iws_internal = jnp.dot(self.w_rec.T, spikes).T
+            Iws = jnp.add(Iws_internal, Iw_input)
 
             # Isyn_inf is the current that a synapse current would reach with a sufficiently long pulse
             Isyn_inf = (self.f_gain_syn * Iws) - Ith_syn_clip
-            Isyn_inf = np.clip(Isyn_inf, 0)
+            Isyn_inf = jnp.clip(Isyn_inf, 0)
 
             # synaptic time constant is practically much more longer than expected when Isyn << Ith
             tau_syn_prime = (self.f_tau_syn / Itau_syn_clip) * (
@@ -513,15 +516,15 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             )
 
             ## Exponential charge, discharge positive feedback factor arrays
-            f_charge = 1 - np.exp(-self.t_pulse / tau_syn_prime.T).T  # Nrecx4
-            f_discharge = np.exp(-self.dt / tau_syn_prime)  # Nrecx4
+            f_charge = 1 - jnp.exp(-self.t_pulse / tau_syn_prime.T).T  # Nrecx4
+            f_discharge = jnp.exp(-self.dt / tau_syn_prime)  # Nrecx4
 
             ## DISCHARGE in any case
             Isyn = f_discharge * Isyn
 
             ## CHARGE if spike occurs -- UNDERSAMPLED -- dt >> t_pulse
             Isyn += f_charge * Isyn_inf
-            Isyn = np.clip(Isyn.T, self.Io).T  # Nrecx4
+            Isyn = jnp.clip(Isyn.T, self.Io).T  # Nrecx4
 
             # ---------------------------------- #
             # ---------------------------------- #
@@ -539,15 +542,15 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             )
 
             # Calculate charge and discharge factors
-            f_charge_ahp = 1 - np.exp(-self.t_pulse_ahp / tau_ahp_prime)  # Nrec
-            f_discharge_ahp = np.exp(-self.dt / tau_ahp_prime)  # Nrec
+            f_charge_ahp = 1 - jnp.exp(-self.t_pulse_ahp / tau_ahp_prime)  # Nrec
+            f_discharge_ahp = jnp.exp(-self.dt / tau_ahp_prime)  # Nrec
 
             ## DISCHARGE in any case
             Iahp = f_discharge_ahp * Iahp
 
             ## CHARGE if spike occurs -- UNDERSAMPLED -- dt >> t_pulse
             Iahp += f_charge_ahp * Iahp_inf
-            Iahp = np.clip(Iahp, self.Io)  # Nrec
+            Iahp = jnp.clip(Iahp, self.Io)  # Nrec
 
             # ------------------------------------------------------ #
             # ------------------------------------------------------ #
@@ -557,7 +560,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             # --- Forward step: MEMBRANE --- #
             # ------------------------------ #
 
-            f_feedback = np.exp(
+            f_feedback = jnp.exp(
                 (self.kappa ** 2 / (self.kappa + 1)) * (Vmem / self.Ut)
             )  # 4xNrec
 
@@ -569,8 +572,8 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
 
             # Iin = 0 if the neuron is in the refractory period
             Iin = I_nmda_dp + Iampa - Igaba_b + self.Idc
-            Iin *= np.logical_not(timer_ref.astype(bool))
-            Iin = np.clip(Iin, self.Io)
+            Iin *= jnp.logical_not(timer_ref.astype(bool))
+            Iin = jnp.clip(Iin, self.Io)
 
             # Igaba_a (shunting) contributes to the membrane leak instead of subtracting from Iin
             Ileak = Itau_mem_clip + Igaba_a
@@ -588,10 +591,10 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
                 Imem_inf + f_Imem - (Imem * (1 + (Iahp / Ileak)))
             )
             Imem = Imem + del_Imem * self.dt
-            Imem = np.clip(Imem, self.Io)
+            Imem = jnp.clip(Imem, self.Io)
 
             ## Membrane Potential
-            Vmem = (self.Ut / self.kappa) * np.log(Imem / self.Io)
+            Vmem = (self.Ut / self.kappa) * jnp.log(Imem / self.Io)
 
             # ------------------------------ #
             # ------------------------------ #
@@ -609,7 +612,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
 
             ## Set the refractrory timer
             timer_ref -= self.dt
-            timer_ref = np.clip(timer_ref, 0)
+            timer_ref = jnp.clip(timer_ref, 0)
             timer_ref = (1 - spikes) * timer_ref + spikes * self.t_ref
 
             # ------------------------------ #
@@ -617,7 +620,8 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             # ------------------------------ #
 
             state = (spikes, Isyn, Iahp, Imem, Vmem, timer_ref, key)
-            return state, (spikes, Isyn, Iahp, Imem, Vmem)
+            record = (spikes, Isyn, Iahp, Imem, Vmem)
+            return state, record
 
         # --- Evolve over spiking inputs --- #
         state, (spikes_ts, Isyn_ts, Iahp_ts, Imem_ts, Vmem_ts) = scan(
@@ -672,35 +676,35 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
         return spikes_ts, states, record_dict
 
     @property
-    def t_ref(self) -> JP_ndarray:
+    def t_ref(self) -> jnp.DeviceArray:
         """
         t_ref holds an array of refractory periods in seconds, limits maximum firing rate. In the refractory period the synaptic input current of the membrane is the dark current. with shape (Nrec,)
         """
         return self.f_ref / self.Iref
 
     @property
-    def t_pulse(self) -> JP_ndarray:
+    def t_pulse(self) -> jnp.DeviceArray:
         """
         t_pulse holds an array of the pulse widths in seconds produced by virtue of a spike with shape (Nrec,)
         """
         return self.f_pulse / self.Ipulse
 
     @property
-    def t_pulse_ahp(self) -> JP_ndarray:
+    def t_pulse_ahp(self) -> jnp.DeviceArray:
         """
         t_pulse_ahp holds an array of reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp`` with shape (Nrec,)
         """
         return self.t_pulse * self.f_pulse_ahp
 
     @property
-    def tau_mem(self) -> JP_ndarray:
+    def tau_mem(self) -> jnp.DeviceArray:
         """
         tau_mem holds an array of time constants in seconds for neurons with shape = (Nrec,)
         """
         return self.f_tau_mem / self.Itau_mem
 
     @property
-    def tau_syn(self) -> JP_ndarray:
+    def tau_syn(self) -> jnp.DeviceArray:
         """
         tau_syn holds an array of time constants in seconds for each synapse of the neurons with shape = (Nrec,4)
         There are tau_gaba_b, tau_gaba_a, tau_nmda, and tau_ampa  methods as well to fetch the time constants of the exact synapse
@@ -708,74 +712,67 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
         return self.f_tau_syn / self.Itau_syn
 
     @property
-    def tau_ahp(self) -> JP_ndarray:
+    def tau_ahp(self) -> jnp.DeviceArray:
         """
         tau_ahp holds an array of time constants in seconds for each spike frequency adaptation block of the neurons with shape = (Nrec,)
         """
         return self.f_tau_ahp / self.Itau_ahp
 
     @property
-    def tau_gaba_b(self) -> JP_ndarray:
+    def tau_gaba_b(self) -> jnp.DeviceArray:
         """
         tau_gaba_b holds an array of time constants in seconds for GABA_B synapse of the neurons with shape = (Nrec,)
         """
         return self.tau_syn[self.SYN["GABA_B"]]
 
     @property
-    def tau_gaba_a(self) -> JP_ndarray:
+    def tau_gaba_a(self) -> jnp.DeviceArray:
         """
         tau_gaba_a holds an array of time constants in seconds for GABA_A synapse of the neurons with shape = (Nrec,)
         """
         return self.tau_syn[self.SYN["GABA_A"]]
 
     @property
-    def tau_nmda(self) -> JP_ndarray:
+    def tau_nmda(self) -> jnp.DeviceArray:
         """
         tau_nmda holds an array of time constants in seconds for NMDA synapse of the neurons with shape = (Nrec,)
         """
         return self.tau_syn[self.SYN["NMDA"]]
 
     @property
-    def tau_ampa(self) -> JP_ndarray:
+    def tau_ampa(self) -> jnp.DeviceArray:
         """
         tau_ampa holds an array of time constants in seconds for AMPA synapse of the neurons with shape = (Nrec,)
         """
         return self.tau_syn[self.SYN["AMPA"]]
-
-    @property
-    def tau_ahp(self) -> JP_ndarray:
-        """
-        tau_ahp holds an array of time constants in seconds for AHP synapse of the neurons with shape = (Nrec,)
-        """
-        return self.tau_syn[self.SYN["AHP"]]
 
     ## --- MID-LEVEL HIDDEN BIAS CURRENTS (JAX) -- ##
 
     ### --- TAU(A.K.A LEAK) --- ###
 
     @property
-    def Itau_gaba_b(self) -> JP_ndarray:
+    def Itau_gaba_b(self) -> jnp.DeviceArray:
         """
         Itau_gaba_b holds an array of time constants bias current in Amperes for GABA_B synapse of the neurons with shape = (Nrec,)
         """
         return self.Itau_syn[self.SYN["GABA_B"]]
 
     @property
-    def Itau_gaba_a(self) -> JP_ndarray:
+    def Itau_gaba_a(self) -> jnp.DeviceArray:
         """
         Itau_gaba_a holds an array of time constants bias current in Amperes for GABA_A synapse of the neurons with shape = (Nrec,)
         """
         return self.Itau_syn[self.SYN["GABA_A"]]
 
     @property
-    def Itau_nmda(self) -> JP_ndarray:
+    def Itau_nmda(self) -> jnp.DeviceArray:
         """
         Itau_nmda holds an array of time constants bias current in Amperes for NMDA synapse of the neurons with shape = (Nrec,)
         """
         return self.Itau_syn[self.SYN["NMDA"]]
 
     @property
-    def Itau_ampa(self) -> JP_ndarray:
+    def Itau_ampa(self) -> jnp.DeviceArray:
         """
         Itau_ampa holds an array of time constants bias current in Amperes for AMPA synapse of the neurons with shape = (Nrec,)
         """
@@ -784,42 +781,42 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
     ### --- THRESHOLD (A.K.A GAIN) --- ###
 
     @property
-    def Ith_mem(self) -> JP_ndarray:
+    def Ith_mem(self) -> jnp.DeviceArray:
         """
         Ith_mem create an array of membrane threshold(a.k.a gain) currents with shape = (Nrec,)
         """
         return self.Itau_mem * self.f_gain_mem
 
     @property
-    def Ith_syn(self) -> JP_ndarray:
+    def Ith_syn(self) -> jnp.DeviceArray:
         """
         Ith_syn create an array of synaptic threshold(a.k.a gain) currents in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,Nrec)
         """
         return self.Itau_syn * self.f_gain_syn
 
     @property
-    def Ith_gaba_b(self) -> JP_ndarray:
+    def Ith_gaba_b(self) -> jnp.DeviceArray:
         """
         Ith_gaba_b holds an array of gain bias current in Amperes for GABA_B synapse of the neurons with shape = (Nrec,)
         """
         return self.Ith_syn[self.SYN["GABA_B"]]
 
     @property
-    def Ith_gaba_a(self) -> JP_ndarray:
+    def Ith_gaba_a(self) -> jnp.DeviceArray:
         """
         Ith_gaba_a holds an array of gain bias current in Amperes for GABA_A synapse of the neurons with shape = (Nrec,)
         """
         return self.Ith_syn[self.SYN["GABA_A"]]
 
     @property
-    def Ith_nmda(self) -> JP_ndarray:
+    def Ith_nmda(self) -> jnp.DeviceArray:
         """
         Ith_nmda holds an array of gain bias current in Amperes for NMDA synapse of the neurons with shape = (Nrec,)
         """
         return self.Ith_syn[self.SYN["NMDA"]]
 
     @property
-    def Ith_ampa(self) -> JP_ndarray:
+    def Ith_ampa(self) -> jnp.DeviceArray:
         """
         Ith_ampa holds an array of gain bias current in Amperes for AMPA synapse of the neurons with shape = (Nrec,)
         """
