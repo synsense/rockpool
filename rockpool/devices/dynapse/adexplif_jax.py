@@ -47,6 +47,7 @@ from jax import numpy as jnp
 import numpy as np
 
 from typing import Optional, Tuple, Any, Callable, Dict, Union
+from rockpool.devices.dynapse.mismatch import MismatchDevice
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
@@ -273,6 +274,8 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
     :type f_ref: jnp.DeviceArray
     :ivar Ireset: Array of reset current after spike generation with shape (Nrec,)
     :type Ireset: jnp.DeviceArray
+    :ivar _attr_list: A list of names of attributes imported from simulation configuration object
+    :type _attr_list: List[str]
 
 
     [] TODO : Find a better parameteric way of weight initialization
@@ -332,7 +335,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             :type shape: Tuple[int]
             :param init: the initialization function to be used when `.reset()` called, defaults to None
             :type init: Optional[Callable], optional
-            """        
+            """
             val = sim_config.__getattribute__(name)
             attr = cls(val, init_func=init, shape=shape)
             self.__setattr__(name, attr)
@@ -405,8 +408,10 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             "f_pulse",
         ]:
             config_setter(SimulationParameter, name, shape=(self.size_out,))
-        )
 
+        self._attr_list = sim_config._attr_list + ["w_rec"]
+        attr = {name: self.__getattribute__(name) for name in self._attr_list}
+        self.md = MismatchDevice(self._rng_key, **attr)
 
     def _shape_check(self, shape: Tuple[int]) -> None:
         """
@@ -504,18 +509,21 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
         """
 
         # --- Stateless Parameters --- #
+        t_ref = self.md.f_ref / self.md.Iref
+        t_pulse = self.md.f_pulse / self.md.Ipulse
+        t_pulse_ahp = t_pulse * self.md.f_pulse_ahp
 
         ## --- Synapses --- ## Nrec, 4
-        Itau_syn_clip = jnp.clip(self.Itau_syn.T, self.Io).T
-        Ith_syn_clip = self.f_gain_syn * Itau_syn_clip
+        Itau_syn_clip = jnp.clip(self.md.Itau_syn.T, self.md.Io).T
+        Ith_syn_clip = self.md.f_gain_syn * Itau_syn_clip
 
         ## --- Spike frequency adaptation --- ## Nrec
-        Itau_ahp_clip = jnp.clip(self.Itau_ahp, self.Io)
-        Ith_ahp_clip = self.f_gain_ahp * Itau_ahp_clip
+        Itau_ahp_clip = jnp.clip(self.md.Itau_ahp, self.md.Io)
+        Ith_ahp_clip = self.md.f_gain_ahp * Itau_ahp_clip
 
         ## -- Membrane -- ## Nrec
-        Itau_mem_clip = jnp.clip(self.Itau_mem, self.Io)
-        Ith_mem_clip = self.f_gain_mem * Itau_mem_clip
+        Itau_mem_clip = jnp.clip(self.md.Itau_mem, self.md.Io)
+        Ith_mem_clip = self.md.f_gain_mem * Itau_mem_clip
 
         # Both (T, Nrecx4), and (T, Nrec, 4) shaped inputs are accepted
         input_data = jnp.reshape(input_data, (input_data.shape[0], -1, 4))
@@ -550,20 +558,20 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             # ---------------------------------- #
 
             ## Real time weight is 0 if no spike, w_rec if spike event occurs
-            Iws_internal = jnp.dot(self.w_rec.T, spikes).T
+            Iws_internal = jnp.dot(self.md.w_rec.T, spikes).T
             Iws = jnp.add(Iws_internal, Iw_input)
 
             # Isyn_inf is the current that a synapse current would reach with a sufficiently long pulse
-            Isyn_inf = (self.f_gain_syn * Iws) - Ith_syn_clip
+            Isyn_inf = (self.md.f_gain_syn * Iws) - Ith_syn_clip
             Isyn_inf = jnp.clip(Isyn_inf, 0)
 
             # synaptic time constant is practically much more longer than expected when Isyn << Ith
-            tau_syn_prime = (self.f_tau_syn / Itau_syn_clip) * (
+            tau_syn_prime = (self.md.f_tau_syn / Itau_syn_clip) * (
                 1 + (Ith_syn_clip / Isyn)
             )
 
             ## Exponential charge, discharge positive feedback factor arrays
-            f_charge = 1 - jnp.exp(-self.t_pulse / tau_syn_prime.T).T  # Nrecx4
+            f_charge = 1 - jnp.exp(-t_pulse / tau_syn_prime.T).T  # Nrecx4
             f_discharge = jnp.exp(-self.dt / tau_syn_prime)  # Nrecx4
 
             ## DISCHARGE in any case
@@ -571,7 +579,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
 
             ## CHARGE if spike occurs -- UNDERSAMPLED -- dt >> t_pulse
             Isyn += f_charge * Isyn_inf
-            Isyn = jnp.clip(Isyn.T, self.Io).T  # Nrecx4
+            Isyn = jnp.clip(Isyn.T, self.md.Io).T  # Nrecx4
 
             # ---------------------------------- #
             # ---------------------------------- #
@@ -581,15 +589,15 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             # --- Forward step: AHP : Spike Frequency Adaptation --- #
             # ------------------------------------------------------ #
 
-            Iws_ahp = self.Iw_ahp * spikes  # 0 if no spike, Iw_ahp if spike
-            Iahp_inf = (self.f_gain_ahp * Iws_ahp) - Ith_ahp_clip
+            Iws_ahp = self.md.Iw_ahp * spikes  # 0 if no spike, Iw_ahp if spike
+            Iahp_inf = (self.md.f_gain_ahp * Iws_ahp) - Ith_ahp_clip
 
-            tau_ahp_prime = (self.f_tau_ahp / Itau_ahp_clip) * (
+            tau_ahp_prime = (self.md.f_tau_ahp / Itau_ahp_clip) * (
                 1 + (Ith_ahp_clip / Iahp)
             )
 
             # Calculate charge and discharge factors
-            f_charge_ahp = 1 - jnp.exp(-self.t_pulse_ahp / tau_ahp_prime)  # Nrec
+            f_charge_ahp = 1 - jnp.exp(-t_pulse_ahp / tau_ahp_prime)  # Nrec
             f_discharge_ahp = jnp.exp(-self.dt / tau_ahp_prime)  # Nrec
 
             ## DISCHARGE in any case
@@ -597,7 +605,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
 
             ## CHARGE if spike occurs -- UNDERSAMPLED -- dt >> t_pulse
             Iahp += f_charge_ahp * Iahp_inf
-            Iahp = jnp.clip(Iahp, self.Io)  # Nrec
+            Iahp = jnp.clip(Iahp, self.md.Io)  # Nrec
 
             # ------------------------------------------------------ #
             # ------------------------------------------------------ #
@@ -608,29 +616,29 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             # ------------------------------ #
 
             f_feedback = jnp.exp(
-                (self.kappa ** 2 / (self.kappa + 1)) * (Vmem / self.Ut)
+                (self.md.kappa ** 2 / (self.md.kappa + 1)) * (Vmem / self.md.Ut)
             )  # 4xNrec
 
             ## Decouple synaptic currents and calculate membrane input
             Igaba_b, Igaba_a, Inmda, Iampa = Isyn.T
 
             # Inmda = 0 if Vmem < Vth_nmda else Inmda
-            I_nmda_dp = Inmda / (1 + self.If_nmda / Imem)
+            I_nmda_dp = Inmda / (1 + self.md.If_nmda / Imem)
 
             # Iin = 0 if the neuron is in the refractory period
-            Iin = I_nmda_dp + Iampa - Igaba_b + self.Idc
+            Iin = I_nmda_dp + Iampa - Igaba_b + self.md.Idc
             Iin *= jnp.logical_not(timer_ref.astype(bool))
-            Iin = jnp.clip(Iin, self.Io)
+            Iin = jnp.clip(Iin, self.md.Io)
 
             # Igaba_a (shunting) contributes to the membrane leak instead of subtracting from Iin
             Ileak = Itau_mem_clip + Igaba_a
-            tau_mem_prime = self.f_tau_mem / Ileak * (1 + (Ith_mem_clip / Imem))
+            tau_mem_prime = self.md.f_tau_mem / Ileak * (1 + (Ith_mem_clip / Imem))
 
             ## Steady state current
-            Imem_inf = self.f_gain_mem * (Iin - Iahp - Ileak)
+            Imem_inf = self.md.f_gain_mem * (Iin - Iahp - Ileak)
 
             ## Positive feedback
-            Ifb = self.Io * f_feedback
+            Ifb = self.md.Io * f_feedback
             f_Imem = ((Ifb) / (Ileak)) * (Imem + Ith_mem_clip)
 
             ## Forward Euler Update
@@ -638,10 +646,10 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
                 Imem_inf + f_Imem - (Imem * (1 + (Iahp / Ileak)))
             )
             Imem = Imem + del_Imem * self.dt
-            Imem = jnp.clip(Imem, self.Io)
+            Imem = jnp.clip(Imem, self.md.Io)
 
             ## Membrane Potential
-            Vmem = (self.Ut / self.kappa) * jnp.log(Imem / self.Io)
+            Vmem = (self.md.Ut / self.md.kappa) * jnp.log(Imem / self.md.Io)
 
             # ------------------------------ #
             # ------------------------------ #
@@ -652,15 +660,15 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             # ------------------------------ #
 
             ## Detect next spikes (with custom gradient)
-            spikes = step_pwl(Imem, self.Ispkthr, self.Ireset)
+            spikes = step_pwl(Imem, self.md.Ispkthr, self.md.Ireset)
 
             ## Reset Imem depending on spiking activity
-            Imem = (1 - spikes) * Imem + spikes * self.Ireset
+            Imem = (1 - spikes) * Imem + spikes * self.md.Ireset
 
             ## Set the refractrory timer
             timer_ref -= self.dt
             timer_ref = jnp.clip(timer_ref, 0)
-            timer_ref = (1 - spikes) * timer_ref + spikes * self.t_ref
+            timer_ref = (1 - spikes) * timer_ref + spikes * t_ref
 
             # ------------------------------ #
             # ------------------------------ #
@@ -675,9 +683,9 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             forward,
             (
                 self.spikes,
-                self.Isyn,
-                self.Iahp,
-                self.Imem,
+                self.md.Isyn,
+                self.md.Iahp,
+                self.md.Imem,
                 self.Vmem,
                 self.timer_ref,
                 self._rng_key,
