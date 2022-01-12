@@ -414,6 +414,11 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
         attr = {name: self.__getattribute__(name) for name in self._attr_list}
         self.md = MismatchDevice(self._rng_key, **attr)
 
+        # Performance : Use device arrays in calculations
+        self._zero = jnp.array(0.0)
+        self._one = jnp.array(1.0)
+        self._two = jnp.array(2.0)
+
     def _shape_check(self, shape: Tuple[int]) -> None:
         """
         _shape_check Controls the shape of module and complains if not appropriate.
@@ -561,11 +566,11 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
 
             ## Real time weight is 0 if no spike, w_rec if spike event occurs
             Iws_internal = jnp.dot(self.md.w_rec.T, spikes).T
-            Iws = jnp.add(Iws_internal, Iw_input)
+            Iws = Iws_internal + Iw_input
 
             # Isyn_inf is the current that a synapse current would reach with a sufficiently long pulse
             Isyn_inf = (self.md.f_gain_syn * Iws) - Ith_syn_clip
-            Isyn_inf = jnp.clip(Isyn_inf, 0)
+            Isyn_inf = jnp.clip(Isyn_inf, self._zero)
 
             # synaptic time constant is practically much more longer than expected when Isyn << Ith
             tau_syn_prime = (self.md.f_tau_syn / Itau_syn_clip) * (
@@ -573,7 +578,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             )
 
             ## Exponential charge, discharge positive feedback factor arrays
-            f_charge = 1 - jnp.exp(-t_pulse / tau_syn_prime.T).T  # Nrecx4
+            f_charge = self._one - jnp.exp(-t_pulse / tau_syn_prime.T).T  # Nrecx4
             f_discharge = jnp.exp(-self.dt / tau_syn_prime)  # Nrecx4
 
             ## DISCHARGE in any case
@@ -595,11 +600,11 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             Iahp_inf = (self.md.f_gain_ahp * Iws_ahp) - Ith_ahp_clip
 
             tau_ahp_prime = (self.md.f_tau_ahp / Itau_ahp_clip) * (
-                1 + (Ith_ahp_clip / Iahp)
+                self._one + (Ith_ahp_clip / Iahp)
             )
 
             # Calculate charge and discharge factors
-            f_charge_ahp = 1 - jnp.exp(-t_pulse_ahp / tau_ahp_prime)  # Nrec
+            f_charge_ahp = self._one - jnp.exp(-t_pulse_ahp / tau_ahp_prime)  # Nrec
             f_discharge_ahp = jnp.exp(-self.dt / tau_ahp_prime)  # Nrec
 
             ## DISCHARGE in any case
@@ -616,25 +621,26 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             # ------------------------------ #
             # --- Forward step: MEMBRANE --- #
             # ------------------------------ #
-
-            f_feedback = jnp.exp(
-                (self.md.kappa ** 2 / (self.md.kappa + 1)) * (Vmem / self.md.Ut)
-            )  # 4xNrec
+            _kappa_2 = jnp.power(self.md.kappa, self._two)
+            _kappa_prime = _kappa_2 / (self.md.kappa + self._one)
+            f_feedback = jnp.exp(_kappa_prime * (Vmem / self.md.Ut))  # 4xNrec
 
             ## Decouple synaptic currents and calculate membrane input
             Igaba_b, Igaba_a, Inmda, Iampa = Isyn.T
 
             # Inmda = 0 if Vmem < Vth_nmda else Inmda
-            I_nmda_dp = Inmda / (1 + self.md.If_nmda / Imem)
+            I_nmda_dp = Inmda / (self._one + self.md.If_nmda / Imem)
 
             # Iin = 0 if the neuron is in the refractory period
             Iin = I_nmda_dp + Iampa - Igaba_b + self.md.Idc
-            Iin *= jnp.logical_not(timer_ref.astype(bool))
+            Iin *= jnp.logical_not(timer_ref.astype(bool)).astype(jnp.float32)
             Iin = jnp.clip(Iin, self.md.Io)
 
             # Igaba_a (shunting) contributes to the membrane leak instead of subtracting from Iin
             Ileak = Itau_mem_clip + Igaba_a
-            tau_mem_prime = self.md.f_tau_mem / Ileak * (1 + (Ith_mem_clip / Imem))
+            tau_mem_prime = (
+                self.md.f_tau_mem / Ileak * (self._one + (Ith_mem_clip / Imem))
+            )
 
             ## Steady state current
             Imem_inf = self.md.f_gain_mem * (Iin - Iahp - Ileak)
@@ -644,8 +650,8 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             f_Imem = ((Ifb) / (Ileak)) * (Imem + Ith_mem_clip)
 
             ## Forward Euler Update
-            del_Imem = (1 / tau_mem_prime) * (
-                Imem_inf + f_Imem - (Imem * (1 + (Iahp / Ileak)))
+            del_Imem = (self._one / tau_mem_prime) * (
+                Imem_inf + f_Imem - (Imem * (self._one + (Iahp / Ileak)))
             )
             Imem = Imem + del_Imem * self.dt
             Imem = jnp.clip(Imem, self.md.Io)
@@ -665,12 +671,12 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             spikes = step_pwl(Imem, self.md.Ispkthr, self.md.Ireset)
 
             ## Reset Imem depending on spiking activity
-            Imem = (1 - spikes) * Imem + spikes * self.md.Ireset
+            Imem = (self._one - spikes) * Imem + spikes * self.md.Ireset
 
             ## Set the refractrory timer
             timer_ref -= self.dt
-            timer_ref = jnp.clip(timer_ref, 0)
-            timer_ref = (1 - spikes) * timer_ref + spikes * t_ref
+            timer_ref = jnp.clip(timer_ref, self._zero)
+            timer_ref = (self._one - spikes) * timer_ref + spikes * t_ref
 
             # ------------------------------ #
             # ------------------------------ #
