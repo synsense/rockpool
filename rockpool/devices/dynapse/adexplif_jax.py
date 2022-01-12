@@ -293,7 +293,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
 
     def __init__(
         self,
-        shape: Optional[Tuple] = None,
+        shape: Optional[Tuple[int]] = None,
         sim_config: Optional[DynapSE1SimBoard] = None,
         has_rec: bool = True,
         w_rec: Optional[jnp.DeviceArray] = None,
@@ -307,29 +307,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
         """
         __init__ Initialize ``DynapSEAdExpLIFJax`` module. Parameters are explained in the class docstring.
         """
-        # Check the parameters and initialize to default if necessary
-        if shape is None or len(shape) != 2:
-            raise ValueError(f"shape should be defined (N*4,N,)! shape={shape}")
-
-        # Check the network size and the recurrent weight vector accordingly
-        syn_size_check = lambda s: s == (s // 4) * 4  # 4 synapse per neuron for sure
-
-        # Check if input dimension meets the 4 synapse per neuron criteria
-        if not syn_size_check(shape[0]):
-            raise ValueError(
-                f"Input dimension ({shape[0]},..) should have been multiples of 4! (Go for {shape[0]//4}, {(shape[0]+4)//4}, or {shape[0]*4}) \n"
-                f"Each neuron holds 4 synaptic state, which means 4 input gates per neuron!\n"
-                f"i.e. ({(shape[0]//4)*4},..) means {shape[0]//4} neurons with 4 synapses\n"
-                f"i.e. ({((shape[0]+4)//4)*4},..) means {(shape[0]+4)//4} neurons with 4 synapses\n"
-                f"i.e. ({shape[0]*4},..) means {shape[0]} neurons with 4 synapses\n"
-            )
-
-        # Check if output dimension meets the 4 synapse per neuron criteria
-        if shape[1] != shape[0] // 4:
-            raise ValueError("`shape[0]` should be `shape[1]`*4")
-
-        if rng_key is None:
-            rng_key = rand.PRNGKey(np.random.randint(0, 2 ** 63))
+        self._shape_check(shape)
 
         super(DynapSEAdExpLIFJax, self).__init__(
             shape=shape,
@@ -360,13 +338,37 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             sim_config.Iahp, init_func=init_current, shape=(self.size_out,)
         )
 
-        self.Imem = State(
-            sim_config.Imem, init_func=init_current, shape=(self.size_out,)
-        )
 
-        self.Vmem = State(init_func=jnp.zeros, shape=(self.size_out,))
-        self.timer_ref = State(init_func=jnp.zeros, shape=(self.size_out,))
-        self._rng_key = State(rng_key, init_func=lambda _: rng_key)
+    def _shape_check(self, shape: Tuple[int]) -> None:
+        """
+        _shape_check Controls the shape of module and complains if not appropriate.
+
+        :param shape: Either a single dimension ``N``, which defines a feed-forward layer of DynapSE AdExpIF neurons, or two dimensions ``(N, N)``, which defines a recurrent layer of DynapSE AdExpIF neurons.
+        :type shape: Tuple[int]
+        :raises ValueError: ``shape`` should be defined (N*4,N,)!
+        :raises ValueError: The simulation configuration object size and number of device neruons does not match!
+        :raises ValueError: `shape[0]` should be `shape[1]`*4 in the recurrent mode
+        """
+        # Check the parameters and initialize to default if necessary
+        if shape is None or len(shape) != 2:
+            raise ValueError(f"shape should be defined (N*4,N,)! shape={shape}")
+
+        # Check the network size and the recurrent weight vector accordingly
+        syn_size_check = lambda s: s == (s // 4) * 4  # 4 synapse per neuron for sure
+
+        # Check if input dimension meets the 4 synapse per neuron criteria
+        if not syn_size_check(shape[0]):
+            raise ValueError(
+                f"Input dimension ({shape[0]},..) should have been multiples of 4! (Go for {shape[0]//4}, {(shape[0]+4)//4}, or {shape[0]*4}) \n"
+                f"Each neuron holds 4 synaptic state, which means 4 input gates per neuron!\n"
+                f"i.e. ({(shape[0]//4)*4},..) means {shape[0]//4} neurons with 4 synapses\n"
+                f"i.e. ({((shape[0]+4)//4)*4},..) means {(shape[0]+4)//4} neurons with 4 synapses\n"
+                f"i.e. ({shape[0]*4},..) means {shape[0]} neurons with 4 synapses\n"
+            )
+
+        # Check if output dimension meets the 4 synapse per neuron criteria
+        if shape[1] != shape[0] // 4:
+            raise ValueError("`shape[0]` should be `shape[1]`*4")
 
         ## Feed forward Mode
         if not has_rec:
