@@ -422,6 +422,7 @@ class LIFTorch(LIFBaseTorch):
 
         # - Loop over time
         for t in range(time_steps):
+            
             # Integrate synaptic input
             isyn = isyn + data[:, t]
 
