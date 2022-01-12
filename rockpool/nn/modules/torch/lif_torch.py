@@ -71,7 +71,9 @@ class PeriodicExponential(torch.autograd.Function):
         (membranePotential,) = ctx.saved_tensors
 
         vmem_shifted = membranePotential - ctx.threshold / 2
-        vmem_periodic = vmem_shifted - torch.div(vmem_shifted, ctx.threshold, rounding_mode="floor")
+        vmem_periodic = vmem_shifted - torch.div(
+            vmem_shifted, ctx.threshold, rounding_mode="floor"
+        )
         vmem_below = vmem_shifted * (membranePotential < ctx.threshold)
         vmem_above = vmem_periodic * (membranePotential >= ctx.threshold)
         vmem_new = vmem_above + vmem_below
