@@ -46,7 +46,7 @@ from jax import random as rand
 from jax import numpy as jnp
 import numpy as np
 
-from typing import Optional, Tuple, Any, Callable, Dict
+from typing import Optional, Tuple, Any, Callable, Dict, Union
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
@@ -157,7 +157,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
     :Parameters:
 
     :param shape: Either a single dimension ``N``, which defines a feed-forward layer of DynapSE AdExpIF neurons, or two dimensions ``(N, N)``, which defines a recurrent layer of DynapSE AdExpIF neurons.
-    :type shape: Optional[Tuple], optional
+    :type shape: Optional[Tuple[int]], optional
     :param sim_config: Dynap-SE1 bias currents and simulation configuration parameters, defaults to None
     :type sim_config: Optional[Union[DynapSE1SimCore, DynapSE1SimBoard]], optional
     :param has_rec: When ``True`` the module provides a trainable recurrent weight matrix. ``False``, module is feed-forward, defaults to True
@@ -212,12 +212,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
     :type spiking_input: bool, optional
     :param spiking_output: Whether this module produces spiking output, defaults to True
     :type spiking_output: bool, optional
-
-    :raises ValueError: ``shape`` should be defined (N*4,N,)!
-    :raises ValueError: The simulation configuration object size and number of device neruons does not match!
-    :raises ValueError: If ``has_rec`` is False, then `w_rec` may not be provided as an argument or initialized by the module
-    :raises ValueError: `shape[0]` should be `shape[1]`*4 in the recurrent mode
-
+    
     :Instance Variables:
 
     :ivar SYN: A dictionary storing default indexes(order) of the synapse types
@@ -279,6 +274,8 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
     :ivar Ireset: Array of reset current after spike generation with shape (Nrec,)
     :type Ireset: jnp.DeviceArray
 
+
+    [] TODO : Find a better parameteric way of weight initialization
     [] TODO: parametric fill rate, different initialization methods
     [] TODO: all neurons cannot have the same parameters ideally however, they experience different parameters in practice because of device mismatch
     [] TODO: Provides mismatch simulation (as second step)
@@ -317,6 +314,34 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             **kwargs,
         )
 
+        def config_setter(
+            cls: Union[State, Parameter, SimulationParameter],
+            name: str,
+            shape: Tuple[int],
+            init: Optional[Callable] = None,
+        ) -> None:
+            """
+            config_setter set a `State`, `Parameter` or `SimulationParameter` object by of the module using the data
+            from simulation configuraiton `sim_config` object
+
+            :param cls: `State`, `Parameter` or `SimulationParameter` to call depending on the situation
+            :type cls: Union[State, Parameter, SimulationParameter]
+            :param name: the name of the attribute. Note that it will be the same in the sim_config object and in the simulator module
+            :type name: str
+            :param shape: the shape of the data frame
+            :type shape: Tuple[int]
+            :param init: the initialization function to be used when `.reset()` called, defaults to None
+            :type init: Optional[Callable], optional
+            """        
+            val = sim_config.__getattribute__(name)
+            attr = cls(val, init_func=init, shape=shape)
+            self.__setattr__(name, attr)
+
+        # --- Deal with Optinal Arguments --- #
+
+        if rng_key is None:
+            rng_key = rand.PRNGKey(np.random.randint(0, 2 ** 63))
+
         if sim_config is None:
             sim_config = DynapSE1SimBoard(size=self.size_out)
 
@@ -330,13 +355,56 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
         init_weight = lambda s: sim_config.weight_matrix(self.poisson_CAM(s))
 
         # --- States --- #
+        self._rng_key = State(rng_key, init_func=lambda _: rng_key)
+        config_setter(State, "Isyn", (self.size_out, 4), init_current)
 
-        self.spikes = State(init_func=jnp.zeros, shape=(self.size_out,))
-        self.Isyn = State(
-            sim_config.Isyn, init_func=init_current, shape=(self.size_out, 4)
-        )
-        self.Iahp = State(
-            sim_config.Iahp, init_func=init_current, shape=(self.size_out,)
+        for name in ["Imem", "Iahp"]:
+            config_setter(State, name, (self.size_out,), init_current)
+
+        for name in ["spikes", "Vmem", "timer_ref"]:
+            attr = State(init_func=jnp.zeros, shape=(self.size_out,))
+            self.__setattr__(name, attr)
+
+        # --- Parameters --- #
+        ## Weights
+        self._weight_init(has_rec, init_weight, w_rec)
+
+        ## Synapse
+        for name in ["Itau_syn", "f_gain_syn"]:
+            config_setter(Parameter, name, (self.size_out, 4))
+
+        ## Membrane
+        for name in [
+            "Itau_ahp",
+            "f_gain_ahp",
+            "Iw_ahp",
+            "Itau_mem",
+            "Itau2_mem",
+            "f_gain_mem",
+            "Idc",
+            "If_nmda",
+            "Iref",
+            "Ipulse",
+            "Ispkthr",
+        ]:
+            config_setter(Parameter, name, (self.size_out,))
+
+        # --- Simulation Parameters --- #
+        self.dt = SimulationParameter(dt, shape=())
+        config_setter(SimulationParameter, "f_tau_syn", (self.size_out, 4))
+
+        for name in [
+            "kappa",
+            "Ut",
+            "Io",
+            "Ireset",
+            "f_tau_mem",
+            "f_tau_ahp",
+            "f_pulse_ahp",
+            "f_ref",
+            "f_pulse",
+        ]:
+            config_setter(SimulationParameter, name, shape=(self.size_out,))
         )
 
 
