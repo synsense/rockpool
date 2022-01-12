@@ -327,6 +327,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
 
         # --- Parameters & States --- #
         init_current = lambda s: jnp.full(s, sim_config.Io)
+        init_weight = lambda s: sim_config.weight_matrix(self.poisson_CAM(s))
 
         # --- States --- #
 
@@ -370,7 +371,24 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
         if shape[1] != shape[0] // 4:
             raise ValueError("`shape[0]` should be `shape[1]`*4")
 
-        ## Feed forward Mode
+    def _weight_init(
+        self,
+        has_rec: bool,
+        init_func: Callable[[Tuple], jnp.DeviceArray],
+        w_rec: Optional[jnp.DeviceArray] = None,
+    ) -> None:
+        """
+        _weight_init initialize the weight matrix of the module as a `Parameter` object
+
+        :param has_rec: When ``True`` the module provides a trainable recurrent weight matrix. ``False``, module is feed-forward, defaults to True
+        :type has_rec: bool, optional
+        :param init_func: a function to initilize the weights in the case that w_rec is not explicitly provided
+        :type init_func: Callable[[Tuple], jnp.DeviceArray]
+        :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(Nrec, Nrec, 4)``. The last 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
+        :type w_rec: Optional[jnp.DeviceArray], optional
+        :raises ValueError: If ``has_rec`` is False, then `w_rec` may not be provided as an argument or initialized by the module
+        """
+        # Feed forward Mode
         if not has_rec:
             if w_rec is not None:
                 raise ValueError(
@@ -379,66 +397,25 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
 
             # In order not to make the jax complain about w_rec
             self.w_rec = jnp.zeros((self.size_out, self.size_in // 4, 4))
-            logging.info(f"Module allocates {self.size_out} neurons with 4 synapses")
+            logging.info(
+                f"Feed forward module allocates {self.size_out} neurons with 4 synapses"
+            )
 
-        ## Recurrent mode
+        # Recurrent mode
         else:
             if w_rec is not None:
                 w_rec = jnp.array(w_rec, dtype=jnp.float32)
-
-            weight_init = lambda s: sim_config.weight_matrix(self.poisson_CAM(s))
 
             # Values between 0,64
             self.w_rec = Parameter(
                 w_rec,
                 family="weights",
-                init_func=weight_init,
+                init_func=init_func,
                 shape=(self.size_out, self.size_in // 4, 4),
             )
-            logging.info(f"Module allocates {self.size_out} neurons with 4 synapses")
-
-        # --- Parameters --- #
-        ## Synapse
-        self.Itau_syn = Parameter(sim_config.Itau_syn, shape=(self.size_out, 4))
-        self.f_gain_syn = Parameter(sim_config.f_gain_syn, shape=(self.size_out, 4))
-
-        ## Spike Frequency Adaptation
-        self.Itau_ahp = Parameter(sim_config.Itau_ahp, shape=(self.size_out,))
-        self.f_gain_ahp = Parameter(sim_config.f_gain_ahp, shape=(self.size_out,))
-        self.Iw_ahp = Parameter(sim_config.Iw_ahp, shape=(self.size_out,))
-
-        ## Membrane
-        self.Itau_mem = Parameter(sim_config.Itau_mem, shape=(self.size_out,))
-        self.Itau2_mem = Parameter(sim_config.Itau2_mem, shape=(self.size_out,))
-        self.f_gain_mem = Parameter(sim_config.f_gain_mem, shape=(self.size_out,))
-        self.Idc = Parameter(sim_config.Idc, shape=(self.size_out,))
-        self.If_nmda = Parameter(sim_config.If_nmda, shape=(self.size_out,))
-        self.Iref = Parameter(sim_config.Iref, shape=(self.size_out,))
-        self.Ipulse = Parameter(sim_config.Ipulse, shape=(self.size_out,))
-        self.Ispkthr = Parameter(sim_config.Ispkthr, shape=(self.size_out,))
-
-        # --- Simulation Parameters --- #
-        self.dt = SimulationParameter(dt, shape=())
-        self.kappa = SimulationParameter(sim_config.kappa, shape=(self.size_out,))
-        self.Ut = SimulationParameter(sim_config.Ut, shape=(self.size_out,))
-        self.Io = SimulationParameter(sim_config.Io, shape=(self.size_out,))
-        self.Ireset = SimulationParameter(sim_config.Ireset, shape=(self.size_out,))
-
-        ## Time -> Current conversion
-        self.f_tau_syn = SimulationParameter(
-            sim_config.f_tau_syn, shape=(self.size_out, 4)
-        )
-        self.f_tau_ahp = SimulationParameter(
-            sim_config.f_tau_ahp, shape=(self.size_out,)
-        )
-        self.f_tau_mem = SimulationParameter(
-            sim_config.f_tau_mem, shape=(self.size_out,)
-        )
-        self.f_pulse_ahp = SimulationParameter(
-            sim_config.f_pulse_ahp, shape=(self.size_out,)
-        )
-        self.f_ref = SimulationParameter(sim_config.f_ref)
-        self.f_pulse = SimulationParameter(sim_config.f_pulse)
+            logging.info(
+                f"Recurrent module allocates {self.size_out} neurons with 4 synapses"
+            )
 
     def evolve(
         self, input_data: jnp.DeviceArray, record: bool = True
