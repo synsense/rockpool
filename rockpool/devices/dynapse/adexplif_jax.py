@@ -55,19 +55,19 @@ from rockpool.devices.dynapse.simconfig import DynapSE1SimBoard
 from rockpool.devices.dynapse.dynapse import DynapSE
 
 DynapSERecord = Tuple[
-    jnp.DeviceArray,  # spikes
     jnp.DeviceArray,  # Isyn
     jnp.DeviceArray,  # Iahp
     jnp.DeviceArray,  # Imem
     jnp.DeviceArray,  # Vmem
+    jnp.DeviceArray,  # spikes
 ]
 
 DynapSEState = Tuple[
-    jnp.DeviceArray,  # spikes
     jnp.DeviceArray,  # Isyn
     jnp.DeviceArray,  # Iahp
     jnp.DeviceArray,  # Imem
     jnp.DeviceArray,  # Vmem
+    jnp.DeviceArray,  # spikes
     jnp.DeviceArray,  # timer_ref
     jnp.DeviceArray,  # key
 ]
@@ -278,7 +278,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
     :type _attr_list: List[str]
 
 
-    [] TODO : Find a better parameteric way of weight initialization
+    [] TODO: Find a better parameteric way of weight initialization
     [] TODO: parametric fill rate, different initialization methods
     [] TODO: all neurons cannot have the same parameters ideally however, they experience different parameters in practice because of device mismatch
     [] TODO: Provides mismatch simulation (as second step)
@@ -358,15 +358,16 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
         init_weight = lambda s: sim_config.weight_matrix(self.poisson_CAM(s))
 
         # --- States --- #
-        self._rng_key = State(rng_key, init_func=lambda _: rng_key)
         config_setter(State, "Isyn", (self.size_out, 4), init_current)
 
-        for name in ["Imem", "Iahp"]:
+        for name in ["Iahp", "Imem"]:
             config_setter(State, name, (self.size_out,), init_current)
 
-        for name in ["spikes", "Vmem", "timer_ref"]:
+        for name in ["Vmem", "spikes", "timer_ref"]:
             attr = State(init_func=jnp.zeros, shape=(self.size_out,))
             self.__setattr__(name, attr)
+
+        self._rng_key = State(rng_key, init_func=lambda _: rng_key)
 
         # --- Parameters --- #
         ## Weights
@@ -534,11 +535,12 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             """
             forward implements single time-step neuron and synapse dynamics
 
-            :param state: (spikes, Isyn, Iahp, Imem, timer_ref, key)
-                spikes: Logical spike raster for each neuron [Nrec]
+            :param state: (Isyn, Iahp, Imem, Vmem, spikes, timer_ref, key)
                 Isyn: Synapse currents of each synapses[GABA_B, GABA_A, NMDA, AMPA] of each neuron [4xNrec]
                 Iahp: Spike frequency adaptation currents of each neuron [Nrec]
                 Imem: Membrane currents of each neuron [Nrec]
+                Vmem: Membrane voltages of each neuron [Nrec]
+                spikes: Logical spike raster for each neuron [Nrec]
                 timer_ref: Refractory timer of each neruon [Nrec]
                 key: The Jax RNG seed to be used for mismatch simulation
             :type state: DynapSEState
@@ -551,7 +553,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             """
             # [] TODO : Would you allow currents to go below Io or not?!!!!
 
-            spikes, Isyn, Iahp, Imem, Vmem, timer_ref, key = state
+            Isyn, Iahp, Imem, Vmem, spikes, timer_ref, key = state
 
             # ---------------------------------- #
             # --- Forward step: DPI SYNAPSES --- #
@@ -674,46 +676,36 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             # ------------------------------ #
             # ------------------------------ #
 
-            state = (spikes, Isyn, Iahp, Imem, Vmem, timer_ref, key)
-            record = (spikes, Isyn, Iahp, Imem, Vmem)
+            state = (Isyn, Iahp, Imem, Vmem, spikes, timer_ref, key)
+            record = (Isyn, Iahp, Imem, Vmem, spikes)
             return state, record
 
         # --- Evolve over spiking inputs --- #
-        state, (spikes_ts, Isyn_ts, Iahp_ts, Imem_ts, Vmem_ts) = scan(
+        state, (Isyn_ts, Iahp_ts, Imem_ts, Vmem_ts, spikes_ts) = scan(
             forward,
             (
-                self.spikes,
                 self.md.Isyn,
                 self.md.Iahp,
                 self.md.Imem,
                 self.Vmem,
+                self.spikes,
                 self.timer_ref,
                 self._rng_key,
             ),
             input_data,
         )
 
-        (
-            new_spikes,
-            new_Isyn,
-            new_Iahp,
-            new_Imem,
-            new_Vmem,
-            new_timer_ref,
-            new_rng_key,
-        ) = state
-
         # --- RETURN ARGUMENTS --- #
 
         ## the state returned should be in the same shape with the state dictionary given
         states = {
-            "spikes": new_spikes,
-            "Isyn": new_Isyn,
-            "Iahp": new_Iahp,
-            "Imem": new_Imem,
-            "Vmem": new_Vmem,
-            "timer_ref": new_timer_ref,
-            "_rng_key": new_rng_key,
+            "Iahp": state[0],
+            "Isyn": state[1],
+            "Imem": state[2],
+            "Vmem": state[3],
+            "spikes": state[4],
+            "timer_ref": state[5],
+            "_rng_key": state[6],
         }
 
         record_dict = {}
