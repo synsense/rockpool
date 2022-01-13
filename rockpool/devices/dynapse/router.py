@@ -7,24 +7,18 @@ E-mail : ugurcan.cakal@gmail.com
 13/09/2021
 """
 
+from typing import Optional, Tuple, Any, Iterable, Dict, Union, List
 
-from typing import (
-    Any,
-    Dict,
-    Iterable,
-    Union,
-    List,
-    Optional,
-    Tuple,
+from rockpool.devices.dynapse.dynapse import (
+    DynapSE,
+    ArrayLike,
+    Numeric,
+    NeuronKey,
+    NeuronConnection,
+    NeuronConnectionSynType,
 )
 
 import numpy as np
-
-ArrayLike = Union[np.ndarray, List, Tuple]
-Numeric = Union[int, float, complex, np.number]
-NeuronKey = Tuple[np.uint8, np.uint8, np.uint16]
-NeuronConnection = Tuple[np.uint16, np.uint16]
-NeuronConnectionSynType = Tuple[np.uint16, np.uint16, np.uint8]
 
 _SAMNA_AVAILABLE = True
 
@@ -51,17 +45,7 @@ except ModuleNotFoundError as e:
     _SAMNA_AVAILABLE = False
 
 
-class Router:
-    NUM_CHIPS = np.uint8(4)
-    NUM_CORES = np.uint8(4)
-    NUM_NEURONS = np.uint16(256)
-    NUM_SYNAPSES = np.uint16(64)
-    NUM_DESTINATION_TAGS = np.uint8(4)
-    NUM_POISSON_SOURCES = np.uint16(1024)
-
-    f_chip = NUM_NEURONS * NUM_CORES
-    f_core = NUM_NEURONS
-
+class Router(DynapSE):
     @staticmethod
     def get_UID(chipID: np.uint8, coreID: np.uint8, neuronID: np.uint16) -> np.uint16:
         """
@@ -94,7 +78,11 @@ class Router:
                 f"neuronID out of bounds. 0 <= neuronID:{neuronID} < {Router.NUM_NEURONS}"
             )
 
-        uid = Router.f_chip * chipID + Router.f_core * coreID + neuronID
+        uid = (
+            Router.NUM_NEURONS * Router.NUM_CORES * chipID
+            + Router.NUM_NEURONS * coreID
+            + neuronID
+        )
         return np.uint16(uid)
 
     @staticmethod
@@ -109,14 +97,14 @@ class Router:
         """
 
         # CHIP
-        chipID = UID // Router.f_chip
+        chipID = UID // (Router.NUM_NEURONS * Router.NUM_CORES)
 
         # CORE
-        UID -= Router.f_chip * chipID
-        coreID = UID // Router.f_core
+        UID -= Router.NUM_NEURONS * Router.NUM_CORES * chipID
+        coreID = UID // Router.NUM_NEURONS
 
         # NEURON
-        neuronID = UID - Router.f_core * coreID
+        neuronID = UID - Router.NUM_NEURONS * coreID
 
         ID_tuple = (np.uint8(chipID), np.uint8(coreID), np.uint16(neuronID))
         return ID_tuple
@@ -854,7 +842,7 @@ class Router:
         return CAM_matrix, idx_map
 
     @staticmethod
-    def core_matrix_from_idx_map(idx_map):
+    def core_matrix_from_idx_map(idx_map) -> np.ndarray:
         core_matrix = np.empty(len(idx_map), dtype=tuple)
         for idx, (chipID, coreID, _) in idx_map.items():
             core_matrix[idx] = (chipID, coreID)

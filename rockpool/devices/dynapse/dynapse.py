@@ -7,17 +7,50 @@ E-mail : ugurcan.cakal@gmail.com
 22/12/2021
 """
 
+from typing import Dict, List, Tuple, Union
 from dataclasses import dataclass
-import numpy as onp
+import numpy as np
 
-from jax.lax import scan
-from jax import numpy as np
+from jax import numpy as jnp
 
-from typing import Union, Tuple, List, Dict
+
+ArrayLike = Union[np.ndarray, List, Tuple]
+Numeric = Union[int, float, complex, np.number]
+NeuronKey = Tuple[np.uint8, np.uint8, np.uint16]
+NeuronConnection = Tuple[np.uint16, np.uint16]
+NeuronConnectionSynType = Tuple[np.uint16, np.uint16, np.uint8]
+
+DynapSERecord = Tuple[
+    jnp.DeviceArray,  # Isyn
+    jnp.DeviceArray,  # Iahp
+    jnp.DeviceArray,  # Imem
+    jnp.DeviceArray,  # Vmem
+    jnp.DeviceArray,  # spikes
+]
+
+DynapSEState = Tuple[
+    jnp.DeviceArray,  # Isyn
+    jnp.DeviceArray,  # Iahp
+    jnp.DeviceArray,  # Imem
+    jnp.DeviceArray,  # Vmem
+    jnp.DeviceArray,  # spikes
+    jnp.DeviceArray,  # timer_ref
+    jnp.DeviceArray,  # key
+]
 
 
 @dataclass
 class DynapSE:
+    NUM_CHIPS: np.uint8 = np.uint8(4)
+    NUM_CORES: np.uint8 = np.uint8(4)
+    NUM_NEURONS: np.uint16 = np.uint16(256)
+    NUM_SYNAPSES: np.uint16 = np.uint16(64)
+    NUM_DESTINATION_TAGS: np.uint8 = np.uint8(4)
+    NUM_POISSON_SOURCES: np.uint16 = np.uint16(1024)
+
+    # FIXED
+    syn_types = ["GABA_B", "GABA_A", "NMDA", "AMPA"]
+
     @staticmethod
     def weight_matrix(
         Iw_base: Union[Dict[Tuple[np.uint8, np.uint8], np.ndarray], np.ndarray],

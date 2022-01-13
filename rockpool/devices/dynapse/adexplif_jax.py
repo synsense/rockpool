@@ -271,9 +271,6 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
 
     __doc__ += "\nJaxModule" + JaxModule.__doc__
 
-    syn_types = ["GABA_B", "GABA_A", "NMDA", "AMPA"]
-    SYN = dict(zip(syn_types, range(len(syn_types))))
-
     def __init__(
         self,
         shape: Optional[Tuple[int]] = None,
@@ -299,6 +296,8 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             *args,
             **kwargs,
         )
+
+        self.SYN = dict(zip(self.syn_types, range(len(self.syn_types))))
 
         def config_setter(
             cls: Union[State, Parameter, SimulationParameter],
