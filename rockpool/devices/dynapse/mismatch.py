@@ -6,13 +6,12 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 11/01/2022
 """
+from typing import Tuple, Union
+
 from jax import random as rand
-import jax.numpy as jnp
-import numpy as np
+from jax import numpy as jnp
 
-from typing import Tuple, Union, List
-
-ArrayLike = Union[np.ndarray, List, Tuple]
+from rockpool.devices.dynapse.dynapse import ArrayLike
 
 
 class MismatchDevice:

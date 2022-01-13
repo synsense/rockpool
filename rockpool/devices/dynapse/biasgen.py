@@ -6,28 +6,21 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 02/09/2021
 """
+import logging
+
+from typing import Any, Tuple
 
 import numpy as np
-
-from typing import (
-    Tuple,
-    Any,
-)
-
-import logging
 
 _SAMNA_AVAILABLE = True
 
 try:
-    from samna.dynapse1 import (
-        Dynapse1Parameter,
-    )
+    from samna.dynapse1 import Dynapse1Parameter
 except ModuleNotFoundError as e:
     Dynapse1Parameter = Any
 
     print(
-        e,
-        "\nSimulation currents cannot be obtained from samna config object",
+        e, "\nSimulation currents cannot be obtained from samna config object",
     )
     _SAMNA_AVAILABLE = False
 

@@ -6,32 +6,20 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 01/10/2021
 """
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-import matplotlib
-import matplotlib.pyplot as plt
-from rockpool.devices.dynapse.adexplif_jax import DynapSEAdExpLIFJax
-from rockpool.devices.dynapse.fpga_jax import DynapSEFPGA
+import numpy as np
 
 from rockpool.timeseries import TSEvent, TSContinuous
 
 from rockpool.devices.dynapse.utils import custom_spike_train
+from rockpool.devices.dynapse.adexplif_jax import DynapSEAdExpLIFJax
+from rockpool.devices.dynapse.fpga_jax import DynapSEFPGA
+from rockpool.devices.dynapse.dynapse import ArrayLike, NeuronKey
 
-from typing import (
-    Any,
-    Dict,
-    Union,
-    List,
-    Optional,
-    Tuple,
-)
+import matplotlib
+import matplotlib.pyplot as plt
 
-from collections.abc import Iterable
-
-from rockpool.typehints import FloatVector
-
-import numpy as np
-
-from rockpool.devices.dynapse.router import ArrayLike, NeuronKey
 
 _SAMNA_AVAILABLE = True
 
@@ -40,8 +28,7 @@ try:
 except ModuleNotFoundError as e:
     Dynapse1SynType = Any
     print(
-        e,
-        "\nFigure module cannot interact with samna objects",
+        e, "\nFigure module cannot interact with samna objects",
     )
     _SAMNA_AVAILABLE = False
 
@@ -627,13 +614,7 @@ class Figure:
         # AHP handler
         if syn_name != "AHP":
             spikes_ts, labels = Figure.spike_input_post(
-                modSE,
-                input_ts,
-                output_ts,
-                post,
-                syn_type,
-                modIn,
-                title="",
+                modSE, input_ts, output_ts, post, syn_type, modIn, title="",
             )
         else:
             weighted_mask = np.zeros(output_ts.num_channels)
@@ -641,11 +622,7 @@ class Figure:
             idx_map = None if not hasattr(modSE, "idx_map") else modSE.idx_map
 
             spikes_ts, labels = Figure.select_input_channels(
-                output_ts,
-                weighted_mask,
-                virtual=False,
-                idx_map=idx_map,
-                title="",
+                output_ts, weighted_mask, virtual=False, idx_map=idx_map, title="",
             )
 
         scatter = Figure.plot_spikes_label(

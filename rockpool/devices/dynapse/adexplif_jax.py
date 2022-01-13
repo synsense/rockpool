@@ -39,41 +39,24 @@ E-mail : ugurcan.cakal@gmail.com
 
 import logging
 
-import jax
-from jax.lax import scan
+from typing import Any, Callable, Dict, Optional, Tuple, Union
+
 from jax import random as rand
+from jax import custom_gradient
+from jax.lax import scan
 
 from jax import numpy as jnp
 import numpy as np
 
-from typing import Optional, Tuple, Any, Callable, Dict, Union
-from rockpool.devices.dynapse.mismatch import MismatchDevice
-
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
+
+from rockpool.devices.dynapse.mismatch import MismatchDevice
 from rockpool.devices.dynapse.simconfig import DynapSE1SimBoard
-from rockpool.devices.dynapse.dynapse import DynapSE
-
-DynapSERecord = Tuple[
-    jnp.DeviceArray,  # Isyn
-    jnp.DeviceArray,  # Iahp
-    jnp.DeviceArray,  # Imem
-    jnp.DeviceArray,  # Vmem
-    jnp.DeviceArray,  # spikes
-]
-
-DynapSEState = Tuple[
-    jnp.DeviceArray,  # Isyn
-    jnp.DeviceArray,  # Iahp
-    jnp.DeviceArray,  # Imem
-    jnp.DeviceArray,  # Vmem
-    jnp.DeviceArray,  # spikes
-    jnp.DeviceArray,  # timer_ref
-    jnp.DeviceArray,  # key
-]
+from rockpool.devices.dynapse.dynapse import DynapSE, DynapSERecord, DynapSEState
 
 
-@jax.custom_gradient
+@custom_gradient
 def step_pwl(
     Imem: jnp.DeviceArray, Ispkthr: jnp.DeviceArray, Ireset: jnp.DeviceArray
 ) -> Tuple[jnp.DeviceArray, Callable[[jnp.DeviceArray], jnp.DeviceArray]]:

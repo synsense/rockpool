@@ -6,13 +6,13 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 23/07/2021
 """
-
-import numpy as np
-from rockpool.timeseries import TSEvent, TSContinuous
-from rockpool.devices.dynapse.router import Router
-
 from typing import Dict, Generator, List, Optional, Tuple, Union
 
+import numpy as np
+
+from rockpool.timeseries import TSEvent, TSContinuous
+
+from rockpool.devices.dynapse.router import Router
 from rockpool.devices.dynapse import ArrayLike
 
 import matplotlib.pyplot as plt
@@ -218,4 +218,3 @@ def random_spike_train(
         plt.yticks(range(len(channel_labels)), [f"s[{key}]" for key in channel_labels])
 
     return input_sp_ts
-
