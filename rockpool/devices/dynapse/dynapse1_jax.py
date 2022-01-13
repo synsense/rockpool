@@ -12,29 +12,21 @@ E-mail : ugurcan.cakal@gmail.com
 from __future__ import annotations
 import json
 import logging
-import jax.numpy as np
-import numpy as onp
 
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-from typing import (
-    Optional,
-    Dict,
-    Union,
-    List,
-    Any,
-    Tuple,
-)
-from rockpool.typehints import FloatVector
+import jax.numpy as jnp
+import numpy as np
 
 from rockpool.nn.modules import TimedModuleWrapper
 from rockpool.nn.combinators import Sequential
-from rockpool.parameters import SimulationParameter
 
 from rockpool.devices.dynapse.adexplif_jax import DynapSEAdExpLIFJax
 from rockpool.devices.dynapse.fpga_jax import DynapSEFPGA
 from rockpool.devices.dynapse.simconfig import DynapSE1SimBoard
-from rockpool.devices.dynapse.router import Router, NeuronKey
+from rockpool.devices.dynapse.router import Router
 from rockpool.devices.dynapse.biasgen import BiasGen
+from rockpool.devices.dynapse.dynapse import NeuronKey
 
 
 _SAMNA_AVAILABLE = True
@@ -67,11 +59,6 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
     :type idx_map: Dict[int, NeuronKey]
 
     :Instance Variables:
-
-    :ivar f_t_ref: An array of the factor of conversion from refractory period in seconds to refractory period bias current in Amperes
-    :type f_t_ref: JP_ndarray
-    :ivar f_t_pulse: An array of the factor of conversion from pulse width in seconds to pulse width bias current in Amperes
-    :type f_t_pulse: JP_ndarray
     :ivar core_dict: a dictionary from core keys (chipID, coreID) to an index map of neruons (neuron index : local neuronID) that the core allocates.
     :type core_dict: Dict[Tuple[int], Dict[int, int]]
 
@@ -126,7 +113,7 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
         shape: Optional[Tuple] = None,
         sim_config: Optional[DynapSE1SimBoard] = None,
         has_rec: bool = True,
-        w_rec: Optional[FloatVector] = None,
+        w_rec: Optional[jnp.DeviceArray] = None,
         idx_map: Optional[Dict[int, NeuronKey]] = None,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
