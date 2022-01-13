@@ -1412,7 +1412,7 @@ class DynapSE1SimBoard:
         # There can be multiple CAMs defined
         while np.sum(CAM) > 0:
             # [] TODO : For now, w_recs are added up linearly. It has to be non-linear!
-            bit_masks = jnp.array(CAM.astype(bool) * self.bit_mask)
+            bit_masks = CAM.astype(bool) * self.bit_mask
             w_rec += DynapSE.weight_matrix(self.Iw_base, cores, bit_masks)
             CAM = np.clip(CAM - 1, 0, None)
 
