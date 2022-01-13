@@ -16,11 +16,6 @@ except (ModuleNotFoundError, ImportError) as err:
     warn("Could not load package:" + str(err))
 
 try:
-    from .dpi_gui import *
-except (ModuleNotFoundError, ImportError) as err:
-    warn("Could not load package:" + str(err))
-
-try:
     from .dynapse1_jax import *
 except (ModuleNotFoundError, ImportError) as err:
     warn("Could not load package:" + str(err))
@@ -47,5 +42,15 @@ except (ModuleNotFoundError, ImportError) as err:
 
 try:
     from .utils import *
+except (ModuleNotFoundError, ImportError) as err:
+    warn("Could not load package:" + str(err))
+
+try:
+    from .mismatch import *
+except (ModuleNotFoundError, ImportError) as err:
+    warn("Could not load package:" + str(err))
+
+try:
+    from .comparison import *
 except (ModuleNotFoundError, ImportError) as err:
     warn("Could not load package:" + str(err))
