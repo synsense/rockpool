@@ -6,26 +6,22 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 07/12/2021
 """
+
 from __future__ import annotations
 import logging
 
-from typing import (
-    Optional,
-    Tuple,
-    Any,
-    Dict,
-)
-from rockpool.typehints import FloatVector
+from typing import Any, Dict, Optional, Tuple
 
 from jax.lax import scan
-from jax import numpy as np
+
+from jax import numpy as jnp
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter
 
+from rockpool.devices.dynapse.router import Router
 from rockpool.devices.dynapse.simconfig import DynapSE1SimBoard
-from rockpool.devices.dynapse.router import Router, NeuronKey
-from rockpool.devices.dynapse.dynapse import DynapSE
+from rockpool.devices.dynapse.dynapse import DynapSE, NeuronKey
 
 _SAMNA_AVAILABLE = True
 
@@ -50,7 +46,7 @@ class DynapSEFPGA(JaxModule):
     :param shape: Should be 2 dimensional first representing the number of virtual neurons and the second representing the real neurons in device (Nin,Nrec), defaults to None
     :type shape: Optional[Tuple], optional
     :param w_in: Initial input weights defining the connections from virtual FPGA neurons to real device neurons. It must be a rectangular matrix with shape ``(Nin, Nrec, 4)``. The last 4 holds a weight matrix for 4 different synapse types.
-    :type w_in: Optional[FloatVector], optional
+    :type w_in: Optional[jnp.DeviceArray], optional
 
         Let's say 3 virtual neurons allocated to send events to 5 device neurons
 
@@ -106,7 +102,7 @@ class DynapSEFPGA(JaxModule):
         self,
         shape: Optional[Tuple] = None,
         sim_config: Optional[DynapSE1SimBoard] = None,
-        w_in: Optional[FloatVector] = None,
+        w_in: Optional[jnp.DeviceArray] = None,
         idx_map: Optional[Dict[int, NeuronKey]] = None,
         spiking_input: bool = True,
         spiking_output: bool = False,
@@ -160,6 +156,9 @@ class DynapSEFPGA(JaxModule):
 
         weight_init = lambda s: sim_config.weight_matrix(DynapSE.poisson_CAM(s))
 
+        if w_in is not None:
+            w_in = jnp.array(w_in, dtype=jnp.float32)
+
         # - Specify weight parameter
         self.w_in = Parameter(
             w_in,
@@ -177,8 +176,8 @@ class DynapSEFPGA(JaxModule):
         self.idx_map = idx_map
 
     def evolve(
-        self, input_data: np.ndarray, record: bool = False
-    ) -> Tuple[np.ndarray, None, None]:
+        self, input_data: jnp.DeviceArray, record: bool = False
+    ) -> Tuple[jnp.DeviceArray, None, None]:
         """
         evolve iterates through the input spike train and delivers the input spikes to the respective device neurons
         It takes a 2 dimensional spike raster in discrete time (T,N) and produces a 3 dimensional matrix delivering the
@@ -187,31 +186,31 @@ class DynapSEFPGA(JaxModule):
         should process the exact same event.
 
         :param input_data: Input array of shape ``(T, Nin)`` to evolve over. Represents number of spikes at that timebin
-        :type input_data: np.ndarray
+        :type input_data: jnp.DeviceArray
         :param record: record the each timestep of evolution or not, defaults to False
         :type record: bool, optional
         :return: spikes_ts, state, record_dict
             :spikes_ts: spikes delivered to synaptic gates of the device neurons in shape ``(T, Nrec, 4)``
             :states: empty dictionary {}
             :record_dict: is a dictionary containing the recorded state variables during the evolution at each time step, if the ``record`` argument is ``True`` else empty dictionary {}
-        :rtype: Tuple[np.ndarray, None, None]
+        :rtype: Tuple[jnp.DeviceArray, None, None]
         """
 
-        def forward(state: Any, spike_inputs_ts: np.ndarray,) -> np.ndarray:
+        def forward(state: Any, spike_inputs_ts: jnp.DeviceArray,) -> jnp.DeviceArray:
             """
             forward implements single time-step delivery of input spikes to device neuron's synaptic gates
 
             :param state: does not have any effect, just for convenince
             :type state: Any
             :param spike_inputs_ts: incoming spike raster to be used as an axis with shape [Nin]
-            :type spike_inputs_ts: np.ndarray
+            :type spike_inputs_ts: jnp.DeviceArray
             :return: state, spikes
                 :states: None
                 :spikes: logical spiking raster for each synaptic gate of each neuron over time with shape [Nrec, 4]
-            :rtype: np.ndarray
+            :rtype: jnp.DeviceArray
             """
 
-            spikes = np.dot(self.w_in.T, spike_inputs_ts).T
+            spikes = jnp.dot(self.w_in.T, spike_inputs_ts).T
             return state, spikes
 
         # --- Evolve over spiking inputs --- #
