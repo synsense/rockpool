@@ -9,20 +9,18 @@ E-mail : ugurcan.cakal@gmail.com
 24/08/2021
 """
 from __future__ import annotations
-
-from rockpool.devices.dynapse.router import NeuronKey
-
-from rockpool.devices.dynapse.biasgen import DynapSE1BiasGen
-from rockpool.devices.dynapse.router import Router
-from jax import numpy as np
-
-import numpy as onp
-from dataclasses import dataclass
-
-from typing import Tuple, Any, Optional, List, Dict, Generator
-from rockpool.devices.dynapse.dynapse import DynapSE
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 import itertools
+from dataclasses import dataclass
+
+from jax import numpy as jnp
+import numpy as np
+
+from rockpool.devices.dynapse.router import Router
+from rockpool.devices.dynapse.biasgen import DynapSE1BiasGen
+from rockpool.devices.dynapse.dynapse import DynapSE, NeuronKey
+
 
 _SAMNA_AVAILABLE = True
 
@@ -84,7 +82,7 @@ class DynapSE1Capacitance:
         """
         for name, value in self.__dict__.items():
             if name != "Co":
-                self.__setattr__(name, onp.float32(value * self.Co))
+                self.__setattr__(name, float(value * self.Co))
 
 
 @dataclass
@@ -309,9 +307,9 @@ class WeightParameters:
     """
 
     Iw_0: float = 1e-6  # GABA_B
-    Iw_1: float = 2e-6  # GABA_A
-    Iw_2: float = 4e-6  # NMDA
-    Iw_3: float = 8e-6  # AMPA
+    Iw_1: float = 1e-6  # GABA_A
+    Iw_2: float = 1e-6  # NMDA
+    Iw_3: float = 1e-6  # AMPA
     layout: Optional[DynapSE1Layout] = None
 
     def __post_init__(self) -> None:
@@ -359,6 +357,9 @@ class WeightParameters:
     def get_vector(self) -> np.ndarray:
         """
         get_vector gather the base weight currents together and creates a base weight vector
+
+        IMPORTANT : get_vector does not return `jnp.DeviceArray` beacuse it needs preprocessing
+        before its used in the simulator
 
         :return: a base weight vector each index representing the same index bit. i.e. Iw[0] = Iw_0, Iw[1] = Iw_1 et
         :rtype: np.ndarray
@@ -1026,236 +1027,238 @@ class DynapSE1SimCore:
 
         return np.array(param_list)
 
-    def mem_property(self, attr: str) -> np.ndarray:
+    def mem_property(self, attr: str) -> jnp.DeviceArray:
         """
         mem_property fetches an attribute from the membrane subcircuit and create a property array covering all the neurons allocated
 
         :param attr: the target attribute
         :type attr: str
         :return: 1D an array full of the value of the target attribute (`size`,)
-        :rtype: np.ndarray
+        :rtype: jnp.DeviceArray
         """
-        return np.full(self.size, self.mem.__getattribute__(attr), dtype=np.float32)
+        return jnp.full(self.size, self.mem.__getattribute__(attr), dtype=jnp.float32)
 
-    def ahp_property(self, attr: str) -> np.ndarray:
+    def ahp_property(self, attr: str) -> jnp.DeviceArray:
         """
         ahp_property fetches an attribute from the spike frequency adaptation subcircuit and create a property array covering all the neurons allocated
 
         :param attr: the target attribute
         :type attr: str
         :return: 1D an array full of the value of the target attribute (`size`,)
-        :rtype: np.ndarray
+        :rtype: jnp.DeviceArray
         """
-        return np.full(self.size, self.ahp.__getattribute__(attr), dtype=np.float32)
+        return jnp.full(self.size, self.ahp.__getattribute__(attr), dtype=jnp.float32)
 
-    def layout_property(self, attr: str) -> np.ndarray:
+    def layout_property(self, attr: str) -> jnp.DeviceArray:
         """
         layout_property fetches an attribute from the circuit layout and create a property array covering all the neurons allocated
 
         :param attr: the target attribute
         :type attr: str
         :return: 1D an array full of the value of the target attribute (`size`,)
-        :rtype: np.ndarray
+        :rtype: jnp.DeviceArray
         """
-        return np.full(self.size, self.layout.__getattribute__(attr), dtype=np.float32)
+        return jnp.full(
+            self.size, self.layout.__getattribute__(attr), dtype=jnp.float32
+        )
 
-    def syn_property(self, attr: str) -> np.ndarray:
+    def syn_property(self, attr: str) -> jnp.DeviceArray:
         """
         syn_property fetches a attributes from the synaptic gate subcircuits in [GABA_B, GABA_A, NMDA, AMPA] order and create a property array covering all the neurons allocated
 
         :param attr: the target attribute
         :type attr: str
         :return: 2D an array full of the values of the target attributes of all 4 synapses (`size`, 4)
-        :rtype: np.ndarray
+        :rtype: jnp.DeviceArray
         """
-        return np.full((self.size, 4), self._get_syn_vector(attr), dtype=np.float32)
+        return jnp.full((self.size, 4), self._get_syn_vector(attr), dtype=jnp.float32)
 
     ## -- Property Utils End -- ##
 
     @property
-    def Imem(self) -> np.ndarray:
+    def Imem(self) -> jnp.DeviceArray:
         """
         Imem is an array of membrane currents of the neurons with shape = (Nrec,)
         """
         return self.mem_property("Imem")
 
     @property
-    def Itau_mem(self) -> np.ndarray:
+    def Itau_mem(self) -> jnp.DeviceArray:
         """
         Itau_mem is an array of membrane leakage currents of the neurons with shape = (Nrec,)
         """
         return self.mem_property("Itau")
 
     @property
-    def Itau2_mem(self) -> np.ndarray:
+    def Itau2_mem(self) -> jnp.DeviceArray:
         """
         Itau2_mem is an array of secondary membrane leakage currents of the neurons with shape = (Nrec,)
         """
         return self.mem_property("Itau2")
 
     @property
-    def f_gain_mem(self) -> np.ndarray:
+    def f_gain_mem(self) -> jnp.DeviceArray:
         """
         f_gain_mem is an array of membrane gain parameter of the neurons with shape = (Nrec,)
         """
         return self.mem_property("f_gain")
 
     @property
-    def Isyn(self) -> np.ndarray:
+    def Isyn(self) -> jnp.DeviceArray:
         """
         Isyn is a 2D array of synapse currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,Nrec)
         """
         return self.syn_property("Isyn")
 
     @property
-    def Itau_syn(self) -> np.ndarray:
+    def Itau_syn(self) -> jnp.DeviceArray:
         """
         Itau_syn is a 2D array of synapse leakage currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,Nrec)
         """
         return self.syn_property("Itau")
 
     @property
-    def f_gain_syn(self) -> np.ndarray:
+    def f_gain_syn(self) -> jnp.DeviceArray:
         """
         f_gain_syn is a 2D array of synapse gain parameters of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,Nrec)
         """
         return self.syn_property("f_gain")
 
     @property
-    def Iahp(self) -> np.ndarray:
+    def Iahp(self) -> jnp.DeviceArray:
         """
         Iahp is a 1D array of AHP synapse currents of the neurons with shape = (Nrec,)
         """
         return self.ahp_property("Isyn")
 
     @property
-    def Itau_ahp(self) -> np.ndarray:
+    def Itau_ahp(self) -> jnp.DeviceArray:
         """
         Itau_syn is a 1D array of AHP synapse leakage currents of the neurons with shape = (Nrec,)
         """
         return self.ahp_property("Itau")
 
     @property
-    def f_gain_ahp(self) -> np.ndarray:
+    def f_gain_ahp(self) -> jnp.DeviceArray:
         """
         f_gain_syn is a 1D array of AHP synapse gain parameters of the neurons with shape = (Nrec,)
         """
         return self.ahp_property("f_gain")
 
     @property
-    def Iw_base(self) -> np.ndarray:
+    def Iw_base(self) -> jnp.DeviceArray:
         """
         Iw_base is 1D array of connection base weight currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,)
         """
         return self.weights.get_vector()
 
     @property
-    def Iw_ahp(self) -> np.ndarray:
+    def Iw_ahp(self) -> jnp.DeviceArray:
         """
         Iw_ahp is 1D array of spike frequency adaptation currents of the neurons in Amperes with shape (Nrec,)
         """
         return self.ahp_property("Iw")
 
     @property
-    def kappa(self) -> np.ndarray:
+    def kappa(self) -> jnp.DeviceArray:
         """
         kappa is the mean subthreshold slope factor of the transistors with shape (Nrec,)
         """
         return self.layout_property("kappa")
 
     @property
-    def Ut(self) -> np.ndarray:
+    def Ut(self) -> jnp.DeviceArray:
         """
         Ut is the thermal voltage in Volts with shape (Nrec,)
         """
         return self.layout_property("Ut")
 
     @property
-    def Io(self) -> np.ndarray:
+    def Io(self) -> jnp.DeviceArray:
         """
         Io is the dark current in Amperes that flows through the transistors even at the idle state with shape (Nrec,)
         """
         return self.layout_property("Io")
 
     @property
-    def f_tau_mem(self) -> np.ndarray:
+    def f_tau_mem(self) -> jnp.DeviceArray:
         """
         f_tau_mem is an array of tau factor for membrane circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau` with shape (Nrec,)
         """
         return self.mem_property("f_tau")
 
     @property
-    def f_tau_syn(self) -> np.ndarray:
+    def f_tau_syn(self) -> jnp.DeviceArray:
         """
         f_tau_syn is a 2D array of tau factors in the following order: [GABA_B, GABA_A, NMDA, AMPA] with shape (4, Nrec)
         """
         return self.syn_property("f_tau")
 
     @property
-    def f_tau_ahp(self) -> np.ndarray:
+    def f_tau_ahp(self) -> jnp.DeviceArray:
         """
         f_tau_ahp is is an array of tau factors for spike frequency adaptation circuit with shape (Nrec,)
         """
         return self.ahp_property("f_tau")
 
     @property
-    def f_ref(self) -> np.ndarray:
+    def f_ref(self) -> jnp.DeviceArray:
         """
         f_ref is an array of the factor of conversion from the refractory period current to the refractory period shape (Nrec,)
         """
         return self.mem_property("f_ref")
 
     @property
-    def f_pulse(self) -> np.ndarray:
+    def f_pulse(self) -> jnp.DeviceArray:
         """
         f_pulse is an array of the factor of conversion from pulse width in seconds to pulse width bias current in Amperes with shape (Nrec,)
         """
         return self.mem_property("f_pulse")
 
     @property
-    def f_pulse_ahp(self) -> np.ndarray:
+    def f_pulse_ahp(self) -> jnp.DeviceArray:
         """
         f_pulse_ahp is an array of ahp pulse width ratios of the neurons with shape = (Nrec,)
         """
-        return np.full(self.size, self.fpulse_ahp, dtype=np.float32)
+        return jnp.full(self.size, self.fpulse_ahp, dtype=jnp.float32)
 
     @property
-    def Iref(self) -> np.ndarray:
+    def Iref(self) -> jnp.DeviceArray:
         """
         Iref is an array of the refractory period current in Amperes with shape  shape (Nrec,)
         """
         return self.mem_property("Iref")
 
     @property
-    def Ipulse(self) -> np.ndarray:
+    def Ipulse(self) -> jnp.DeviceArray:
         """
         Ipulse is an array of the pulse width current in Amperes with shape  shape (Nrec,)
         """
         return self.mem_property("Ipulse")
 
     @property
-    def Ispkthr(self) -> np.ndarray:
+    def Ispkthr(self) -> jnp.DeviceArray:
         """
         Ispkthr is an array of the spiking threshold current in Amperes with shape  shape (Nrec,)
         """
         return self.mem_property("Ispkthr")
 
     @property
-    def Ireset(self) -> np.ndarray:
+    def Ireset(self) -> jnp.DeviceArray:
         """
         Ireset is an array of the reset current after spike generation with shape (Nrec,)
         """
         return self.mem_property("Ireset")
 
     @property
-    def Idc(self) -> np.ndarray:
+    def Idc(self) -> jnp.DeviceArray:
         """
         Idc is an array of the constant DC current in Amperes, injected to membrane with shape (Nrec,)
         """
         return self.mem_property("Idc")
 
     @property
-    def If_nmda(self) -> np.ndarray:
+    def If_nmda(self) -> jnp.DeviceArray:
         """
         If_nmda is an array of the The NMDA gate current in Amperes setting the NMDA gating voltage. If :math:`V_{mem} > V_{nmda}` : The :math:`I_{syn_{NMDA}}` current is added up to the input current, else it cannot with shape (Nrec,)
         """
@@ -1331,7 +1334,7 @@ class DynapSE1SimBoard:
                 f"The board configuration object size {self.__len__()} and number of device neruons indicated in idx_map {len(self.idx_map)} does not match!"
             )
 
-        attr_list = [
+        self._attr_list = [
             "Imem",
             "Itau_mem",
             "Itau2_mem",
@@ -1360,7 +1363,7 @@ class DynapSE1SimBoard:
             "If_nmda",
         ]
 
-        for attr in attr_list:
+        for attr in self._attr_list:
             self.__setattr__(attr, self.merge_core_properties(attr))
 
     def __len__(self) -> int:
@@ -1375,7 +1378,7 @@ class DynapSE1SimBoard:
             size += len(core)
         return size
 
-    def merge_core_properties(self, attr: str) -> np.ndarray:
+    def merge_core_properties(self, attr: str) -> jnp.DeviceArray:
         """
         merge_core_properties help merging property arrays of the cores given into one array.
         In this way, the simulator runs in the neruon level and it only knows the location of the
@@ -1385,12 +1388,12 @@ class DynapSE1SimBoard:
         :param attr: the target attribute to be merged
         :type attr: str
         :return: The parameter or state to be used in the simulation
-        :rtype: np.ndarray
+        :rtype: jnp.DeviceArray
         """
-        prop = np.concatenate([core.__getattribute__(attr) for core in self.cores])
+        prop = jnp.concatenate([core.__getattribute__(attr) for core in self.cores])
         return prop
 
-    def weight_matrix(self, CAM: np.ndarray) -> np.ndarray:
+    def weight_matrix(self, CAM: np.ndarray) -> jnp.DeviceArray:
         """
         weight_matrix uses the `DynapSE` weight matrix method to obtain a weight matrix from a CAM matrix.
         There can be multiple CAMs defined per connection, therefore, the funciton iterates over given CAM matrix and accumulates the weight
@@ -1399,29 +1402,29 @@ class DynapSE1SimBoard:
         :param CAM: a CAM matrix, the number of CAMs defined per connection per neuron (3D, NinxNoutx4)
         :type CAM: np.ndarray
         :return: a Dynap-SE type weight matrix generated by collecting the base weights via bit mask dot product (N_pre,N_post,4) pre, post, syn_type
-        :rtype: np.ndarray
+        :rtype: jnp.DeviceArray
         """
         shape = CAM.shape
         CAM = CAM.astype(int)
-        w_rec = onp.zeros(shape, dtype=np.float32)
         cores = Router.core_matrix_from_idx_map(self.idx_map)
+        w_rec = jnp.zeros(shape, dtype=jnp.float32)
 
         # There can be multiple CAMs defined
-        while onp.sum(CAM) > 0:
+        while np.sum(CAM) > 0:
             # [] TODO : For now, w_recs are added up linearly. It has to be non-linear!
-            bit_masks = CAM.astype(bool) * self.bit_mask
+            bit_masks = jnp.array(CAM.astype(bool) * self.bit_mask)
             w_rec += DynapSE.weight_matrix(self.Iw_base, cores, bit_masks)
-            CAM = onp.clip(CAM - 1, 0, None)
+            CAM = np.clip(CAM - 1, 0, None)
 
         return w_rec
 
     @property
-    def Iw_base(self) -> Dict[Tuple[np.uint8, np.uint8], float]:
+    def Iw_base(self) -> Dict[Tuple[np.uint8], float]:
         """
         Iw_base creates a dictionary of base weight vectors of the different cores inside the board
 
         :return: base weight vectors of the simulation cores
-        :rtype: Dict[Tuple[np.uint8, np.uint8], float]
+        :rtype: Dict[Tuple[np.uint8], float]
         """
         Iw_base = {core.core_key: core.Iw_base for core in self.cores}
         return Iw_base
@@ -1493,7 +1496,7 @@ class DynapSE1SimBoard:
         if nidx != sorted(nidx):
             raise ValueError(f"Neuron indices are not ordered!\n" f"{nidx}\n")
 
-        if onp.sum(nidx) * 2 != nidx[-1] * (nidx[-1] + 1):
+        if np.sum(nidx) * 2 != nidx[-1] * (nidx[-1] + 1):
             raise ValueError(
                 f"Missing neuron indices! The neuron indices should be successive numbers from 0 to n\n"
                 f"{nidx}\n"
@@ -1529,7 +1532,7 @@ class DynapSE1SimBoard:
         :rtype: Dict[Tuple[int], Dict[int, int]]
         """
         # Find unique chip-core ID pairs
-        chip_core = onp.unique(
+        chip_core = np.unique(
             list(map(lambda nid: nid[0:2], idx_map.values())), axis=0,
         )
         core_index = list(map(lambda t: tuple(t), chip_core))
@@ -1590,9 +1593,9 @@ class DynapSE1SimBoard:
         """
         idx_map = {}
         for core_key, neuron_idx in core_dict.items():
-            chip_core_id = onp.array(onp.tile(core_key, (len(neuron_idx), 1)))
-            device_nid = onp.array(list(neuron_idx.values())).reshape(-1, 1)
-            values = onp.hstack((chip_core_id, device_nid))
+            chip_core_id = np.array(np.tile(core_key, (len(neuron_idx), 1)))
+            device_nid = np.array(list(neuron_idx.values())).reshape(-1, 1)
+            values = np.hstack((chip_core_id, device_nid))
             temp = dict(zip(list(neuron_idx.keys()), map(lambda t: tuple(t), values)))
             idx_map = {**idx_map, **temp}
         return idx_map
