@@ -19,9 +19,9 @@ from jax import numpy as jnp
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter
 
-from rockpool.devices.dynapse.utils.router import Router
+from rockpool.devices.dynapse.infrastructure.router import Router
 from rockpool.devices.dynapse.config.simconfig import DynapSE1SimBoard
-from rockpool.devices.dynapse.dynapse import DynapSE, NeuronKey
+from rockpool.devices.dynapse.base import DynapSE, NeuronKey
 
 _SAMNA_AVAILABLE = True
 

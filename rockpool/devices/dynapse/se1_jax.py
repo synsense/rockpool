@@ -1,8 +1,8 @@
 """
 Dynap-SE1 simulator with bias parameter export facilities and samna configuration factory methods
 
-renamed: dynapse1_simulatorx.py -> dynase1_jax.py @ 211208
-
+renamed: dynapse1_simulator.py -> dynase1_jax.py @ 211208
+renamed: dynapse1_jax.py -> se1_jax.py @ 220114
 
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
@@ -24,9 +24,9 @@ from rockpool.nn.combinators import Sequential
 from rockpool.devices.dynapse.adexplif_jax import DynapSEAdExpLIFJax
 from rockpool.devices.dynapse.fpga_jax import DynapSEFPGA
 from rockpool.devices.dynapse.config.simconfig import DynapSE1SimBoard
-from rockpool.devices.dynapse.utils.router import Router
-from rockpool.devices.dynapse.utils.biasgen import BiasGen
-from rockpool.devices.dynapse.dynapse import NeuronKey
+from rockpool.devices.dynapse.infrastructure.router import Router
+from rockpool.devices.dynapse.infrastructure.biasgen import BiasGen
+from rockpool.devices.dynapse.base import NeuronKey
 
 
 _SAMNA_AVAILABLE = True

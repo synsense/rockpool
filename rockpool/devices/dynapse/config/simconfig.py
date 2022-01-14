@@ -17,9 +17,9 @@ from dataclasses import dataclass
 from jax import numpy as jnp
 import numpy as np
 
-from rockpool.devices.dynapse.utils.router import Router
-from rockpool.devices.dynapse.utils.biasgen import DynapSE1BiasGen
-from rockpool.devices.dynapse.dynapse import DynapSE, NeuronKey
+from rockpool.devices.dynapse.infrastructure.router import Router
+from rockpool.devices.dynapse.infrastructure.biasgen import DynapSE1BiasGen
+from rockpool.devices.dynapse.base import DynapSE, NeuronKey
 
 
 _SAMNA_AVAILABLE = True

@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from rockpool.devices.dynapse.dynapse1_jax import DynapSE1Jax
+from rockpool.devices.dynapse.se1_jax import DynapSE1Jax
 
 _PANDAS_AVAILABLE = True
 

@@ -1,6 +1,8 @@
 """
 Utility functions for Dynap-SE1/SE2 simulator
 
+renamed: utils.py -> spike_input.py @ 220114
+
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
@@ -12,8 +14,8 @@ import numpy as np
 
 from rockpool.timeseries import TSEvent, TSContinuous
 
-from rockpool.devices.dynapse.utils.router import Router
-from rockpool.devices.dynapse import ArrayLike
+from rockpool.devices.dynapse.infrastructure.router import Router
+from rockpool.devices.dynapse.base import ArrayLike
 
 import matplotlib.pyplot as plt
 

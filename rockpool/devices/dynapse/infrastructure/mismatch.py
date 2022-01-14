@@ -11,7 +11,7 @@ from typing import Tuple, Union
 from jax import random as rand
 from jax import numpy as jnp
 
-from rockpool.devices.dynapse.dynapse import ArrayLike
+from rockpool.devices.dynapse.base import ArrayLike
 
 
 class MismatchDevice:

@@ -12,10 +12,10 @@ import numpy as np
 
 from rockpool.timeseries import TSEvent, TSContinuous
 
-from rockpool.devices.dynapse.utils import custom_spike_train
+from rockpool.devices.dynapse.utils.spike_input import custom_spike_train
 from rockpool.devices.dynapse.adexplif_jax import DynapSEAdExpLIFJax
 from rockpool.devices.dynapse.fpga_jax import DynapSEFPGA
-from rockpool.devices.dynapse.dynapse import ArrayLike, NeuronKey
+from rockpool.devices.dynapse.base import ArrayLike, NeuronKey
 
 import matplotlib
 import matplotlib.pyplot as plt

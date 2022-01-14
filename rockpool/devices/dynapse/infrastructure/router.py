@@ -9,7 +9,7 @@ E-mail : ugurcan.cakal@gmail.com
 
 from typing import Optional, Tuple, Any, Iterable, Dict, Union, List
 
-from rockpool.devices.dynapse.dynapse import (
+from rockpool.devices.dynapse.base import (
     DynapSE,
     ArrayLike,
     Numeric,
