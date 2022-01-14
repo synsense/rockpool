@@ -43,8 +43,8 @@ class StepPWL(torch.autograd.Function):
         ctx.save_for_backward(data.clone())
         ctx.threshold = threshold
         ctx.window = window
-        # return ((data > 0) * torch.floor(data / threshold)).float()
-        return torch.clip(torch.floor(data + 1.0 - threshold), 0.0)
+        return ((data > 0) * torch.floor(data / threshold)).float()
+        # return torch.clip(torch.floor(data + 1.0 - threshold), 0.0)
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -424,6 +424,7 @@ class LIFTorch(LIFBaseTorch):
 
         # - Loop over time
         for t in range(time_steps):
+
             # Integrate synaptic input
             isyn = isyn + data[:, t]
 

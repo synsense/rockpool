@@ -116,7 +116,7 @@ class WaveSenseBlock(TorchModule):
 
         self.spk1 = self.neuron_model(
             shape=(Nchannels * kernel_size, Nchannels),
-            tau_mem=Constant(tau_mem),
+            tau_mem=Constant(tau_syn.max().item()),
             tau_syn=Constant(tau_syn),
             bias=bias,
             threshold=Constant(threshold),

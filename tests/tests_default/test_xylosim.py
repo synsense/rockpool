@@ -114,3 +114,98 @@ def test_from_config():
     mod_xylo_sim = xylo.XyloSim.from_config(c)
 
     mod_xylo_sim.timed()
+
+
+
+def test_FF_equality_torch():
+    import torch
+    import numpy as np
+    
+    quant_scaling = 100
+    bitshift = 4
+    
+    # - parameter
+    n_synapses = 1
+    n_neurons = 1
+    n_batches = 1
+    T = 100
+    tau_mem = 0.008
+    tau_syn = 0.016
+    dt = 1e-3
+    threshold = 60 * quant_scaling
+    
+    # - init LIFTorch
+    from rockpool.nn.modules import LIFBitshiftTorch
+    from rockpool.nn.modules.torch.lif_bitshift_torch import calc_bitshift_decay
+    
+    lif_torch = LIFBitshiftTorch(
+        shape=(n_synapses * n_neurons, n_neurons),
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        bias=0.0,
+        has_rec=False,
+        dt=dt,
+        noise_std=0.0,
+        threshold=threshold,
+    )
+    
+    from xylosim.v1 import XyloSynapse, XyloLayer
+    
+    
+    weight = quant_scaling 
+    syn = XyloSynapse(target_neuron_id=0,
+                      target_synapse_id=0,
+                      weight=weight)
+    
+    dash_mem = calc_bitshift_decay(torch.Tensor([tau_mem]), dt).item() 
+    dash_syn = calc_bitshift_decay(torch.Tensor([tau_syn]), dt).item() 
+    
+    lif_xylo = XyloLayer(synapses_in = [[syn]], 
+                         synapses_rec = [[]], 
+                         synapses_out = [[]], 
+                         aliases = [[]], 
+                         threshold = [threshold], 
+                         threshold_out = [], 
+                         weight_shift_inp = bitshift, 
+                         weight_shift_rec = 0, 
+                         weight_shift_out = 0, 
+                         dash_mem = [dash_mem], 
+                         dash_mem_out = [], 
+                         dash_syns = [[dash_syn]], 
+                         dash_syns_out = [], 
+                         name = "test") 
+    
+    
+    
+    inp = np.zeros((T, 1), int)
+    inp[0, 0] = 1
+    
+    out_xylo = lif_xylo.evolve(inp)
+    out_xylo = lif_xylo.rec_recurrent_spikes
+    vmem_xylo = lif_xylo.rec_v_mem[0]
+    isyn_xylo = lif_xylo.rec_i_syn[0]
+    
+    inp[0, 0] = (inp[0, 0] * quant_scaling) << bitshift 
+    
+    out_torch, state, rec = lif_torch.evolve(torch.Tensor([inp]), record=True)
+    
+    vmem_torch = rec['vmem'][0, :, 0].detach().int().numpy()
+    isyn_torch = rec['isyn'][0, :, 0, 0].detach().int().numpy()
+    out_torch = out_torch.detach().int().numpy()[0]
+    
+    assert np.all(out_torch == out_xylo) 
+    
+    assert np.allclose(
+        [(i >> bitshift) / quant_scaling for i in isyn_torch],
+        [(i >> bitshift) / quant_scaling for i in isyn_xylo],
+        atol=1e-2,
+        rtol=1e-2,
+    )
+    
+    assert np.allclose(
+        [(i >> bitshift) / quant_scaling for i in vmem_torch],
+        [(i >> bitshift) / quant_scaling for i in vmem_xylo],
+        atol=1e-1,
+        rtol=1e-1,
+    )
+    
