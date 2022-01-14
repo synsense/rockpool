@@ -178,26 +178,26 @@ class DynapSE1SimCore:
         cls.chip_core_iter = itertools.count(step=Router.NUM_NEURONS)
 
     @classmethod
-    def from_samna_parameter_group(
+    def from_samna_parameters(
         cls,
-        parameter_group: Dynapse1ParameterGroup,
+        samna_parameters: Dict[str, Dynapse1Parameter],
         size: int,
         core_key: Tuple[np.uint8] = (0, 0),
         neuron_idx_map: Optional[Dict[np.uint8, np.uint16]] = None,
         fpulse_ahp: float = 0.1,
         Ispkthr: float = 1e-6,
         Ireset: Optional[float] = None,
-        layout: Optional[DynapSE1Layout] = None,
-        capacitance: Optional[DynapSE1Capacitance] = None,
+        layout: Optional[DynapSELayout] = None,
+        capacitance: Optional[DynapSECapacitance] = None,
     ) -> DynapSE1SimCore:
         """
-        from_samna_parameter_group create a simulation configuration object a the samna config object.
+        from_samna_parameters create a simulation configuration object a the samna config object.
         21/25 parameters used in the configuration of the simulator object.
         "IF_BUF_P", "IF_CASC_N", "R2R_P", and "IF_TAU2_N" has no effect on the simulator.
         The parameters which cannot be obtained from the parameter_group object should be defined explicitly
 
-        :param parameter_group: samna config object for setting the parameter group within one core
-        :type parameter_group: Dynapse1ParameterGroup
+        :param samna_parameters: a parameter dictionary inside samna config object for setting the parameter group within one core
+        :type samna_parameters: Dict[str, Dynapse1Parameter]
         :param size: the number of neurons allocated in the simulation core, the length of the property arrays.
         :type size: int
         :param core_key: the chip_id and core_id tuple uniquely defining the core
@@ -219,13 +219,13 @@ class DynapSE1SimCore:
         """
 
         if layout is None:
-            layout = DynapSE1Layout()
+            layout = DynapSELayout()
 
         if capacitance is None:
-            capacitance = DynapSE1Capacitance()
+            capacitance = DynapSECapacitance()
 
-        mem = MembraneParameters.from_parameter_group(
-            parameter_group,
+        mem = MembraneParameters.from_samna_parameters(
+            samna_parameters,
             layout,
             C=capacitance.mem,
             Cref=capacitance.ref,
@@ -235,30 +235,30 @@ class DynapSE1SimCore:
         )
 
         # Slow inhibitory
-        gaba_b = GABABParameters.from_parameter_group(
-            parameter_group, layout, C=capacitance.gaba_b,
+        gaba_b = GABABParameters.from_samna_parameters(
+            samna_parameters, layout, C=capacitance.gaba_b,
         )
 
         # Fast inhibitory (shunt)
-        gaba_a = GABAAParameters.from_parameter_group(
-            parameter_group, layout, C=capacitance.gaba_a,
+        gaba_a = GABAAParameters.from_samna_parameters(
+            samna_parameters, layout, C=capacitance.gaba_a,
         )
 
         # Slow Excitatory
-        nmda = NMDAParameters.from_parameter_group(
-            parameter_group, layout, C=capacitance.nmda,
+        nmda = NMDAParameters.from_samna_parameters(
+            samna_parameters, layout, C=capacitance.nmda,
         )
 
         # Fast Excitatory
-        ampa = AMPAParameters.from_parameter_group(
-            parameter_group, layout, C=capacitance.ampa,
+        ampa = AMPAParameters.from_samna_parameters(
+            samna_parameters, layout, C=capacitance.ampa,
         )
 
-        ahp = AHPParameters.from_parameter_group(
-            parameter_group, layout, C=capacitance.ahp,
+        ahp = AHPParameters.from_samna_parameters(
+            samna_parameters, layout, C=capacitance.ahp,
         )
 
-        weights = WeightParameters.from_parameter_group(parameter_group, layout)
+        weights = WeightParameters.from_samna_parameters(samna_parameters, layout)
 
         mod = cls(
             size=size,
@@ -905,9 +905,9 @@ class DynapSE1SimBoard:
         # Gather `DynapSE1SimCore` objects
         for (chipID, coreID), neuron_map in core_dict.items():
             # Traverse the chip for core parameter group
-            pg = config.chips[chipID].cores[coreID].parameter_group
-            sim_core = DynapSE1SimCore.from_samna_parameter_group(
-                pg, len(neuron_map), (chipID, coreID), neuron_map
+            params = config.chips[chipID].cores[coreID].parameter_group.param_map
+            sim_core = DynapSE1SimCore.from_samna_parameters(
+                params, len(neuron_map), (chipID, coreID), neuron_map
             )
             sim_cores.append(sim_core)
 
