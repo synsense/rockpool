@@ -213,7 +213,7 @@ class TorchModule(Module, nn.Module):
             # - Register as a non-persistent torch `buffer`, if we have a tensor
             if isinstance(value.data, torch.Tensor):
                 super().register_buffer(key, value.data, persistent=False)
-            return
+                return
 
         if isinstance(value, nn.Module) and not isinstance(value, TorchModule):
             # - Convert torch module to a Rockpool Module and assign
