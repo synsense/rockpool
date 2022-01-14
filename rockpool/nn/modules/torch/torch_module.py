@@ -203,7 +203,15 @@ class TorchModule(Module, nn.Module):
             self._register_attribute(key, value)
 
             # - register as a torch buffer
-            super().register_buffer(key, value.data)
+            super().register_buffer(key, value.data, persistent=True)
+            return
+
+        if isinstance(value, rp.SimulationParameter):
+            # - Register as a Rockpool attribute
+            self._register_attribute(key, value)
+
+            # - register as a non-persistent torch buffer
+            super().register_buffer(key, value.data, persistent=False)
             return
 
         if isinstance(value, nn.Module) and not isinstance(value, TorchModule):
@@ -247,12 +255,27 @@ class TorchModule(Module, nn.Module):
 
         return self
 
-    def register_buffer(self, name: str, tensor: torch.Tensor, *args, **kwargs) -> None:
-        self._register_attribute(name, rp.State(tensor, None, None, np.shape(tensor)))
-        super().register_buffer(name, tensor, *args, **kwargs)
+    def register_buffer(
+        self, name: str, tensor: torch.Tensor, persistent: bool = True, *args, **kwargs
+    ) -> None:
+        # - Register a Rockpool State or SimulationParameter
+        if persistent:
+            self._register_attribute(
+                name, rp.State(tensor, None, None, np.shape(tensor))
+            )
+        else:
+            self._register_attribute(
+                name, rp.SimulationParameter(tensor, None, None, np.shape(tensor))
+            )
+
+        # - Register the buffer with torch
+        super().register_buffer(name, tensor, persistent, *args, **kwargs)
 
     def register_parameter(self, name: str, param: nn.Parameter) -> None:
+        # - Register the parameter with Rockpool
         self._register_attribute(name, rp.Parameter(param, None, None, np.shape(param)))
+
+        # - Register the parameter with Torch
         super().register_parameter(name, param)
 
     def _get_attribute_family(
@@ -459,18 +482,3 @@ class TorchModule(Module, nn.Module):
             params = json.load(f)
 
         self.json_to_param(params)
-
-    def _apply(self, fn):
-        # - Call super-class apply
-        super()._apply(fn)
-
-        # - Get list of registered attributes
-        registered_attributes, _ = self._get_attribute_registry()
-
-        # - Apply function to each registered attribute
-        for name, properties in registered_attributes.items():
-            if properties[1] is "SimulationParameter":
-                setattr(self, name, fn(getattr(self, name)))
-
-        # - Return object
-        return self

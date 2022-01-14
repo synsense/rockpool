@@ -287,16 +287,16 @@ def test_torch_device_to():
     mod = TestModule().to_torch().to("cuda")
 
     print("Checking post-initialisation")
-    assert mod.test_param.device is not "cpu", "Parameter was not moved to GPU"
-    assert mod.test_const_param is not "cpu", "Constant parameter was not moved to GPU"
-    assert mod.test_simparam is not "cpu", "SimulationParameter was not moved to GPU"
-    assert mod.test_state is not "cpu", "State was not moved to GPU"
+    assert mod.test_param.device != "cpu", "Parameter was not moved to GPU"
+    assert mod.test_const_param != "cpu", "Constant parameter was not moved to GPU"
+    assert mod.test_simparam != "cpu", "SimulationParameter was not moved to GPU"
+    assert mod.test_state != "cpu", "State was not moved to GPU"
 
     mod.reset_state()
     mod.reset_parameters()
 
     print("Checking post-reset")
-    assert mod.test_param.device is not "cpu", "Parameter was not moved to GPU"
-    assert mod.test_const_param is not "cpu", "Constant parameter was not moved to GPU"
-    assert mod.test_simparam is not "cpu", "SimulationParameter was not moved to GPU"
-    assert mod.test_state is not "cpu", "State was not moved to GPU"
+    assert mod.test_param.device != "cpu", "Parameter was not moved to GPU"
+    assert mod.test_const_param != "cpu", "Constant parameter was not moved to GPU"
+    assert mod.test_simparam != "cpu", "SimulationParameter was not moved to GPU"
+    assert mod.test_state != "cpu", "State was not moved to GPU"
