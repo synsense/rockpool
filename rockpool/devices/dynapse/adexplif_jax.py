@@ -51,8 +51,8 @@ import numpy as np
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
 
-from rockpool.devices.dynapse.mismatch import MismatchDevice
-from rockpool.devices.dynapse.simconfig import DynapSE1SimBoard
+from rockpool.devices.dynapse.utils.mismatch import MismatchDevice
+from rockpool.devices.dynapse.config.simconfig import DynapSE1SimBoard
 from rockpool.devices.dynapse.dynapse import DynapSE, DynapSERecord, DynapSEState
 
 

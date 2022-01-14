@@ -12,7 +12,7 @@ import numpy as np
 
 from rockpool.timeseries import TSEvent, TSContinuous
 
-from rockpool.devices.dynapse.router import Router
+from rockpool.devices.dynapse.utils.router import Router
 from rockpool.devices.dynapse import ArrayLike
 
 import matplotlib.pyplot as plt
