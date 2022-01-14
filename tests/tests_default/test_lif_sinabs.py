@@ -62,6 +62,7 @@ def test_FF_equality_slayer():
     T = 100
     tau_mem = 0.01
     tau_syn = 0.05
+    threshold = 0.5
     
     # - init LIFTorch
     from rockpool.nn.modules.torch.lif_torch import LIFTorch
@@ -71,10 +72,11 @@ def test_FF_equality_slayer():
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
-        bias=Constant(0.0),
+        # bias=Constant(0.0),
         has_rec=False,
         dt=1e-3,
         noise_std=0.0,
+        threshold=threshold
     ).to("cuda")
     
     # - init LIFSlayer
@@ -84,10 +86,11 @@ def test_FF_equality_slayer():
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
-        bias=Constant(0),
+        # bias=Constant(0),
         has_rec=False,
         dt=1e-3,
         noise_std=0.0,
+        threshold=threshold
     ).to("cuda")
     
     # - Generate some data
