@@ -8,6 +8,9 @@ Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 20/09/2021
+
+TODOS:
+[] TODO : Update Iw bias getters
 """
 from __future__ import annotations
 import json
@@ -348,7 +351,7 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
                     )
                     I_bias = float(I_base[idx].mean())
                 else:
-                    I_bias = float(I_base[self.SYN[syn_type], idx].mean())
+                    I_bias = float(I_base[idx, self.SYN[syn_type]].mean())
 
         return I_bias
 
@@ -409,7 +412,7 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
         :return: samna bias parameter object involving a coarse and fine value
         :rtype: Dynapse1Parameter
         """
-        return self.bias_parameter(chipID, coreID, "Itau_syn", "IF_AHTAU_N", "AHP")
+        return self.bias_parameter(chipID, coreID, "Itau_ahp", "IF_AHTAU_N")
 
     def IF_AHTHR_N(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
         """
@@ -423,7 +426,7 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
         :return: samna bias parameter object involving a coarse and fine value
         :rtype: Dynapse1Parameter
         """
-        return self.bias_parameter(chipID, coreID, "Ith_syn", "IF_AHTHR_N", "AHP")
+        return self.bias_parameter(chipID, coreID, "Ith_ahp", "IF_AHTHR_N")
 
     def IF_AHW_P(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
         """
@@ -436,7 +439,7 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
         :return: samna bias parameter object involving a coarse and fine value
         :rtype: Dynapse1Parameter
         """
-        return self.bias_parameter(chipID, coreID, "Iw", "IF_AHW_P", "AHP")
+        return self.bias_parameter(chipID, coreID, "Iw_ahp", "IF_AHW_P")
 
     def IF_BUF_P(self, chipID: np.uint8, coreID: np.uint8) -> Dynapse1Parameter:
         """
