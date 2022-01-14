@@ -12,6 +12,7 @@ if util.find_spec("torch") is None:
 from typing import Union, List, Tuple, Callable, Optional, Any
 import numpy as np
 import torch
+import torch.nn.functional as F
 from rockpool.nn.modules.torch.lif_torch import LIFTorch, StepPWL, PeriodicExponential
 import rockpool.parameters as rp
 from rockpool.typehints import *
@@ -82,3 +83,101 @@ class LIFBitshiftTorch(LIFTorch):
         return 1 - 1 / (
             2 ** calc_bitshift_decay(self.tau_syn, self.dt).to(self.tau_syn.device)
         )
+
+    def forward(self, data: torch.Tensor) -> torch.Tensor:
+        """
+        Forward method for processing data through this layer
+        Adds synaptic inputs to the synaptic states and mimics the Leaky Integrate and Fire dynamics
+
+        ----------
+        data: Tensor
+            Data takes the shape of (batch, time_steps, n_synapses)
+
+        Returns
+        -------
+        out: Tensor
+            Out of spikes with the shape (batch, time_steps, n_neurons)
+
+        """
+        (n_batches, time_steps, n_connections) = data.shape
+        if n_connections != self.size_in:
+            raise ValueError(
+                "Input has wrong neuron dimension. It is {}, must be {}".format(
+                    n_connections, self.size_in
+                )
+            )
+
+        data = data.reshape(n_batches, time_steps, self.n_neurons, self.n_synapses)
+
+        # - Replicate states out by batches
+        vmem = torch.ones(n_batches, self.n_neurons).to(data.device) * self.vmem
+        isyn = (
+            torch.ones(n_batches, self.n_neurons, self.n_synapses).to(data.device)
+            * self.isyn
+        )
+        bias = torch.ones(n_batches, self.n_neurons).to(data.device) * self.bias
+        spikes = torch.zeros(n_batches, self.n_neurons).to(data.device) * self.spikes
+
+        # - Set up state record and output
+        if self._record:
+            self._record_Vmem = torch.zeros(n_batches, time_steps, self.n_neurons)
+            self._record_Isyn = torch.zeros(
+                n_batches, time_steps, self.n_neurons, self.n_synapses
+            )
+
+        self._record_spikes = torch.zeros(
+            n_batches, time_steps, self.n_neurons, device=data.device
+        )
+
+        # - Calculate and cache updated values for decay factors
+        alpha = self.alpha
+        beta = self.beta
+
+        # - Loop over time
+        for t in range(time_steps):
+
+            # Integrate synaptic input
+            isyn = isyn + data[:, t]
+
+            # Decay synaptic and membrane state
+            vmem *= alpha
+            isyn *= beta
+
+            # - Apply spikes over the recurrent weights
+            if hasattr(self, "w_rec"):
+                rec_inp = F.linear(spikes, self.w_rec.T).reshape(
+                    n_batches, self.n_neurons, self.n_synapses
+                )
+                isyn = isyn + rec_inp
+
+            # Integrate membrane state and apply noise
+            if self.noise_std > 0:
+                vmem = (
+                    vmem
+                    + isyn.sum(2)
+                    + bias
+                    + torch.randn(vmem.shape, device=vmem.device) * self.noise_std
+                )
+            else:
+                vmem = vmem + isyn.sum(2) + bias
+
+            # - Spike generation
+            spikes = self.spike_generation_fn(
+                vmem, self.threshold, self.learning_window
+            )
+
+            # - Membrane reset
+            vmem = vmem - spikes * self.threshold
+
+            if self._record:
+                # recording
+                self._record_Vmem[:, t] = vmem
+                self._record_Isyn[:, t] = isyn
+
+            self._record_spikes[:, t] = spikes
+
+        self.vmem = vmem[0].detach()
+        self.isyn = isyn[0].detach()
+        self.spikes = spikes[0].detach()
+
+        return self._record_spikes

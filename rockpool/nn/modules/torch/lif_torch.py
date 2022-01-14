@@ -43,8 +43,8 @@ class StepPWL(torch.autograd.Function):
         ctx.save_for_backward(data.clone())
         ctx.threshold = threshold
         ctx.window = window
-        # return ((data > 0) * torch.floor(data / threshold)).float()
-        return torch.clip(torch.floor(data + 1.0 - threshold), 0.0)
+        return ((data > 0) * torch.floor(data / threshold)).float()
+        # return torch.clip(torch.floor(data + 1.0 - threshold), 0.0)
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -71,7 +71,9 @@ class PeriodicExponential(torch.autograd.Function):
         (membranePotential,) = ctx.saved_tensors
 
         vmem_shifted = membranePotential - ctx.threshold / 2
-        vmem_periodic = vmem_shifted - torch.div(vmem_shifted, ctx.threshold, rounding_mode="floor")
+        vmem_periodic = vmem_shifted - torch.div(
+            vmem_shifted, ctx.threshold, rounding_mode="floor"
+        )
         vmem_below = vmem_shifted * (membranePotential < ctx.threshold)
         vmem_above = vmem_periodic * (membranePotential >= ctx.threshold)
         vmem_new = vmem_above + vmem_below
@@ -422,8 +424,6 @@ class LIFTorch(LIFBaseTorch):
 
         # - Loop over time
         for t in range(time_steps):
-            # # Integrate synaptic input
-            # isyn = isyn + data[:, t]
 
             # Decay synaptic and membrane state
             vmem *= alpha
