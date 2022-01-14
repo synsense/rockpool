@@ -422,12 +422,15 @@ class LIFTorch(LIFBaseTorch):
 
         # - Loop over time
         for t in range(time_steps):
-            # Integrate synaptic input
-            isyn = isyn + data[:, t]
+            # # Integrate synaptic input
+            # isyn = isyn + data[:, t]
 
             # Decay synaptic and membrane state
             vmem *= alpha
             isyn *= beta
+
+            # Integrate synaptic input
+            isyn = isyn + data[:, t]
 
             # - Apply spikes over the recurrent weights
             if hasattr(self, "w_rec"):
