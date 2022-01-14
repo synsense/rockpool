@@ -194,7 +194,7 @@ class TorchModule(Module, nn.Module):
             # - Register as a Rockpool attribute
             self._register_attribute(key, value)
 
-            # - Register as a torch parameter
+            # - Register as a torch `parameter`
             super().register_parameter(key, nn.Parameter(value.data))
             return
 
@@ -202,7 +202,7 @@ class TorchModule(Module, nn.Module):
             # - Register as a Rockpool attribute
             self._register_attribute(key, value)
 
-            # - register as a torch buffer
+            # - Register as a torch `buffer`
             super().register_buffer(key, value.data, persistent=True)
             return
 
@@ -210,8 +210,9 @@ class TorchModule(Module, nn.Module):
             # - Register as a Rockpool attribute
             self._register_attribute(key, value)
 
-            # - register as a non-persistent torch buffer
-            super().register_buffer(key, value.data, persistent=False)
+            # - Register as a non-persistent torch `buffer`, if we have a tensor
+            if isinstance(value.data, torch.Tensor):
+                super().register_buffer(key, value.data, persistent=False)
             return
 
         if isinstance(value, nn.Module) and not isinstance(value, TorchModule):
