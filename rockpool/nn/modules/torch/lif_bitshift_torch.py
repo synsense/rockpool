@@ -12,6 +12,7 @@ if util.find_spec("torch") is None:
 from typing import Union, List, Tuple, Callable, Optional, Any
 import numpy as np
 import torch
+import torch.functional as F
 from rockpool.nn.modules.torch.lif_torch import LIFTorch, StepPWL, PeriodicExponential
 import rockpool.parameters as rp
 from rockpool.typehints import *
