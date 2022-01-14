@@ -265,3 +265,38 @@ def test_API_semantics():
     # - Check __repr__
     repr_torch = "B(\n  (a): A(\n    (slayer): LIFTorch()\n    (lin): Linear 'lin' with shape (None,)\n  )\n)"
     assert str(b) == repr_torch
+
+
+def test_torch_device_to():
+    from rockpool.nn.modules import TorchModule
+    from rockpool.parameters import Parameter, SimulationParameter, State, Constant
+    import torch
+
+    if not torch.cuda.is_available():
+        return
+
+    class TestModule(TorchModule):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+
+            self.test_param = Parameter(torch.zeros((2,)))
+            self.test_const_param = Parameter(Constant(torch.zeros((2,))))
+            self.test_simparam = SimulationParameter(torch.zeros((2,)))
+            self.test_state = State(torch.zeros((2,)))
+
+    mod = TestModule().to_torch().to("cuda")
+
+    print("Checking post-initialisation")
+    assert mod.test_param.device is not "cpu", "Parameter was not moved to GPU"
+    assert mod.test_const_param is not "cpu", "Constant parameter was not moved to GPU"
+    assert mod.test_simparam is not "cpu", "SimulationParameter was not moved to GPU"
+    assert mod.test_state is not "cpu", "State was not moved to GPU"
+
+    mod.reset_state()
+    mod.reset_parameters()
+
+    print("Checking post-reset")
+    assert mod.test_param.device is not "cpu", "Parameter was not moved to GPU"
+    assert mod.test_const_param is not "cpu", "Constant parameter was not moved to GPU"
+    assert mod.test_simparam is not "cpu", "SimulationParameter was not moved to GPU"
+    assert mod.test_state is not "cpu", "State was not moved to GPU"

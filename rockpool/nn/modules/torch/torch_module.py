@@ -459,3 +459,18 @@ class TorchModule(Module, nn.Module):
             params = json.load(f)
 
         self.json_to_param(params)
+
+    def _apply(self, fn):
+        # - Call super-class apply
+        super()._apply(fn)
+
+        # - Get list of registered attributes
+        registered_attributes, _ = self._get_attribute_registry()
+
+        # - Apply function to each registered attribute
+        for name, properties in registered_attributes.items():
+            if properties[1] is "SimulationParameter":
+                setattr(self, name, fn(getattr(self, name)))
+
+        # - Return object
+        return self
