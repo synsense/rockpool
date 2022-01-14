@@ -55,6 +55,9 @@ def test_FF_equality_slayer():
     import torch
     import numpy as np
 
+    if not torch.cuda.is_available():
+        return
+
     # - parameter
     n_synapses = 1
     n_neurons = 10
@@ -63,7 +66,7 @@ def test_FF_equality_slayer():
     tau_mem = 0.01
     tau_syn = 0.05
     threshold = 1.0
-    
+
     # - init LIFTorch
     from rockpool.nn.modules.torch.lif_torch import LIFTorch
     from rockpool.parameters import Constant
@@ -126,6 +129,9 @@ def test_FF_multisyn_equality_slayer():
     import numpy as np
 
     from rockpool.parameters import Constant
+
+    if not torch.cuda.is_available():
+        return
 
     # - parameter
     n_synapses = 2
