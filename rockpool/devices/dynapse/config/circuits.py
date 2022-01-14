@@ -7,33 +7,76 @@ Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 24/08/2021
+[] TODO: Change scaling factor operation
 """
 from __future__ import annotations
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 from dataclasses import dataclass
 
 import numpy as np
 
-from rockpool.devices.dynapse.infrastructure.biasgen import DynapSE1BiasGen
+from rockpool.devices.dynapse.infrastructure.biasgen import BiasGenSE1, BiasGenSE2
 from rockpool.devices.dynapse.config.layout import DynapSELayout
 
 
 _SAMNA_AVAILABLE = True
 
 try:
-    from samna.dynapse1 import Dynapse1ParameterGroup
+    from samna.dynapse1 import Dynapse1Parameter
 except ModuleNotFoundError as e:
-    Dynapse1ParameterGroup = Any
+    Dynapse1Parameter = Any
 
     print(
         e, "\nDynapSE1SimCore object cannot be factored from a samna config object!",
     )
     _SAMNA_AVAILABLE = False
 
+try:
+    from samna.dynapse2 import Dynapse2Parameter
+except ModuleNotFoundError as e:
+    Dynapse2Parameter = Any
+    print(
+        e, "\nDynapSE2SimCore object cannot be factored from a samna config object!",
+    )
+    _SAMNA_AVAILABLE = False
+
+
+class DynapSEParameters:
+    @staticmethod
+    def bias(
+        layout: DynapSELayout,
+        samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]],
+        name: str,
+    ) -> float:
+        """
+        extract and obtain the bias current from the samna parameter group using bias generator
+
+        :param layout: constant values that are related to the exact silicon layout of a chip
+        :type layout: DynapSELayout
+        :param samna_parameters: a parameter dictionary inside samna config object for setting the parameter group within one core
+        :type samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]]
+        :param name: the parameter name of the bias current
+        :type name: str
+        :return: biasgen corrected bias value by multiplying a correction factor
+        :rtype: float
+        """
+        param = samna_parameters[name]
+        coarse = param.coarse_value
+        fine = param.fine_value
+        if isinstance(param, Dynapse1Parameter):
+            bias_current = BiasGenSE1.param_to_bias(
+                samna_parameters[name], Io=layout.Io
+            )
+        elif isinstance(param, Dynapse2Parameter):
+            bias_current = BiasGenSE2.get_bias(coarse, fine, name[-1], scaling_factor=1)
+        else:
+            raise TypeError("Unsupported type provided!")
+        return bias_current
+
 
 @dataclass
-class DPIParameters:
+class DPIParameters(DynapSEParameters):
     """
     DPIParameters encapsulates DPI-specific bias current parameters and calculates their logical reciprocals.
 
@@ -173,26 +216,6 @@ class DPIParameters:
 
         return tx, Ix
 
-    @staticmethod
-    def bias(
-        layout: DynapSELayout, parameter_group: Dynapse1ParameterGroup, name: str
-    ) -> float:
-        """
-        extract and obtain the bias current from the samna parameter group using bias generator
-
-        :param layout: constant values that are related to the exact silicon layout of a chip
-        :type layout: DynapSELayout
-        :param parameter_group: samna config object for setting the parameter group within one core
-        :type parameter_group: Dynapse1ParameterGroup
-        :param name: the parameter name of the bias current
-        :type name: str
-        :return: biasgen corrected bias value by multiplying a correction factor
-        :rtype: float
-        """
-        return DynapSE1BiasGen.param_to_bias(
-            parameter_group.get_parameter_by_name(name), Io=layout.Io
-        )
-
     @property
     def f_tau(self) -> float:
         """
@@ -202,7 +225,7 @@ class DPIParameters:
 
 
 @dataclass
-class WeightParameters:
+class WeightParameters(DynapSEParameters):
     """
     WeightParameters encapsulates weight currents of the configurable synapses between neurons. It provides a general way of handling SE1 and SE2 base weight currents.
 
@@ -233,27 +256,25 @@ class WeightParameters:
             self.layout = DynapSELayout()
 
     @classmethod
-    def from_parameter_group(
+    def from_samna_parameters(
         cls,
-        parameter_group: Dynapse1ParameterGroup,
+        samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]],
         layout: DynapSELayout,
         *args,
         **kwargs,
     ) -> WeightParameters:
         """
-        from_parameter_group is a factory method to construct a `WeightParameters` object using a `Dynapse1ParameterGroup` object
+        from_samna_parameters is a factory method to construct a `WeightParameters` object using a `Dynapse1ParameterGroup` object
 
-        :param parameter_group: samna config object for setting the parameter group within one core
-        :type parameter_group: Dynapse1ParameterGroup
+        :param samna_parameters: a parameter dictionary inside samna config object for setting the parameter group within one core
+        :type samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]]
         :param layout: constant values that are related to the exact silicon layout of a chip
         :type layout: DynapSELayout
         :return: a `WeightParameters` object, whose parameters obtained from the hardware configuration
         :rtype: WeightParameters
         """
 
-        bias = lambda name: DynapSE1BiasGen.param_to_bias(
-            parameter_group.get_parameter_by_name(name), Io=layout.Io
-        )
+        bias = lambda name: cls.bias(layout, samna_parameters, name)
 
         mod = cls(
             Iw_0=bias("PS_WEIGHT_INH_S_N"),  # GABA_B
@@ -309,9 +330,9 @@ class SynapseParameters(DPIParameters):
             )
 
     @classmethod
-    def _from_parameter_group(
+    def _from_samna_parameters(
         cls,
-        parameter_group: Dynapse1ParameterGroup,
+        samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]],
         layout: DynapSELayout,
         Itau_name: str,
         Ithr_name: str,
@@ -319,11 +340,11 @@ class SynapseParameters(DPIParameters):
         **kwargs,
     ) -> SynapseParameters:
         """
-        _from_parameter_group is a common factory method to construct a `SynapseParameters` object using a `Dynapse1ParameterGroup` object
+        _from_samna_parameters is a common factory method to construct a `SynapseParameters` object using a `Dynapse1ParameterGroup` object
         Each individual synapse is expected to provide their individual Itau and Ithr bias names
 
-        :param parameter_group: samna config object for setting the parameter group within one core
-        :type parameter_group: Dynapse1ParameterGroup
+        :param samna_parameters: a parameter dictionary inside samna config object for setting the parameter group within one core
+        :type samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]]
         :param layout: constant values that are related to the exact silicon layout of a chip
         :type layout: DynapSELayout
         :param Itau_name: the name of the leak bias current
@@ -334,7 +355,7 @@ class SynapseParameters(DPIParameters):
         :rtype: SynapseParameters
         """
 
-        bias = lambda name: cls.bias(layout, parameter_group, name)
+        bias = lambda name: cls.bias(layout, samna_parameters, name)
 
         mod = cls(
             Itau=bias(Itau_name),
@@ -434,25 +455,25 @@ class MembraneParameters(DPIParameters):
         )
 
     @classmethod
-    def from_parameter_group(
+    def from_samna_parameters(
         cls,
-        parameter_group: Dynapse1ParameterGroup,
+        samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]],
         layout: DynapSELayout,
         *args,
         **kwargs,
     ) -> MembraneParameters:
         """
-        from_parameter_group is a `MembraneParameters` factory method with hardcoded bias parameter names
+        from_samna_parameters is a `MembraneParameters` factory method with hardcoded bias parameter names
 
-        :param parameter_group: samna config object for setting the parameter group within one core
-        :type parameter_group: Dynapse1ParameterGroup
+        :param samna_parameters: a parameter dictionary inside samna config object for setting the parameter group within one core
+        :type samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]]
         :param layout: constant values that are related to the exact silicon layout of a chip
         :type layout: DynapSELayout
         :return: a `MembraneParameters` object whose parameters obtained from the hardware configuration
         :rtype: MembraneParameters
         """
 
-        bias = lambda name: cls.bias(layout, parameter_group, name)
+        bias = lambda name: cls.bias(layout, samna_parameters, name)
 
         mod = cls(
             Itau=bias("IF_TAU1_N"),
@@ -500,26 +521,26 @@ class GABABParameters(SynapseParameters):
     tau: Optional[float] = 100e-3
 
     @classmethod
-    def from_parameter_group(
+    def from_samna_parameters(
         cls,
-        parameter_group: Dynapse1ParameterGroup,
+        samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]],
         layout: DynapSELayout,
         *args,
         **kwargs,
     ) -> GABABParameters:
         """
-        from_parameter_group is a `GABABParameters` factory method implemented by customizing `SynapseParameter._from_parameter_group()`
+        from_samna_parameters is a `GABABParameters` factory method implemented by customizing `SynapseParameter._from_samna_parameters()`
 
-        :param parameter_group: samna config object for setting the parameter group within one core
-        :type parameter_group: Dynapse1ParameterGroup
+        :param samna_parameters: a parameter dictionary inside samna config object for setting the parameter group within one core
+        :type samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]]
         :param layout: constant values that are related to the exact silicon layout of a chip
         :type layout: DynapSELayout
         :return: a `GABABParameters` object, whose parameters obtained from the hardware configuration
         :rtype: GABABParameters
         """
 
-        return cls._from_parameter_group(
-            parameter_group,
+        return cls._from_samna_parameters(
+            samna_parameters,
             layout,
             Itau_name="NPDPII_TAU_S_P",
             Ithr_name="NPDPII_THR_S_P",
@@ -540,26 +561,26 @@ class GABAAParameters(SynapseParameters):
     tau: Optional[float] = 10e-3
 
     @classmethod
-    def from_parameter_group(
+    def from_samna_parameters(
         cls,
-        parameter_group: Dynapse1ParameterGroup,
+        samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]],
         layout: DynapSELayout,
         *args,
         **kwargs,
     ) -> GABAAParameters:
         """
-        from_parameter_group is a `GABAAParameters` factory method implemented by customizing `SynapseParameter._from_parameter_group()`
+        from_samna_parameters is a `GABAAParameters` factory method implemented by customizing `SynapseParameter._from_samna_parameters()`
 
-        :param parameter_group: samna config object for setting the parameter group within one core
-        :type parameter_group: Dynapse1ParameterGroup
+        :param samna_parameters: a parameter dictionary inside samna config object for setting the parameter group within one core
+        :type samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]]
         :param layout: constant values that are related to the exact silicon layout of a chip
         :type layout: DynapSELayout
         :return: a `GABAAParameters` object, whose parameters obtained from the hardware configuration
         :rtype: GABAAParameters
         """
 
-        return cls._from_parameter_group(
-            parameter_group,
+        return cls._from_samna_parameters(
+            samna_parameters,
             layout,
             Itau_name="NPDPII_TAU_F_P",
             Ithr_name="NPDPII_THR_F_P",
@@ -580,26 +601,26 @@ class NMDAParameters(SynapseParameters):
     tau: Optional[float] = 100e-3
 
     @classmethod
-    def from_parameter_group(
+    def from_samna_parameters(
         cls,
-        parameter_group: Dynapse1ParameterGroup,
+        samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]],
         layout: DynapSELayout,
         *args,
         **kwargs,
     ) -> NMDAParameters:
         """
-        from_parameter_group is a `NMDAParameters` factory method implemented by customizing `SynapseParameter._from_parameter_group()`
+        from_samna_parameters is a `NMDAParameters` factory method implemented by customizing `SynapseParameter._from_samna_parameters()`
 
-        :param parameter_group: samna config object for setting the parameter group within one core
-        :type parameter_group: Dynapse1ParameterGroup
+        :param samna_parameters: a parameter dictionary inside samna config object for setting the parameter group within one core
+        :type samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]]
         :param layout: constant values that are related to the exact silicon layout of a chip
         :type layout: DynapSELayout
         :return: a `NMDAParameters` object, whose parameters obtained from the hardware configuration
         :rtype: NMDAParameters
         """
 
-        return cls._from_parameter_group(
-            parameter_group,
+        return cls._from_samna_parameters(
+            samna_parameters,
             layout,
             Itau_name="NPDPIE_TAU_S_P",
             Ithr_name="NPDPIE_THR_S_P",
@@ -620,26 +641,26 @@ class AMPAParameters(SynapseParameters):
     tau: Optional[float] = 10e-3
 
     @classmethod
-    def from_parameter_group(
+    def from_samna_parameters(
         cls,
-        parameter_group: Dynapse1ParameterGroup,
+        samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]],
         layout: DynapSELayout,
         *args,
         **kwargs,
     ) -> AMPAParameters:
         """
-        from_parameter_group is a `AMPAParameters` factory method implemented by customizing `SynapseParameter._from_parameter_group()`
+        from_samna_parameters is a `AMPAParameters` factory method implemented by customizing `SynapseParameter._from_samna_parameters()`
 
-        :param parameter_group: samna config object for setting the parameter group within one core
-        :type parameter_group: Dynapse1ParameterGroup
+        :param samna_parameters: a parameter dictionary inside samna config object for setting the parameter group within one core
+        :type samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]]
         :param layout: constant values that are related to the exact silicon layout of a chip
         :type layout: DynapSELayout
         :return: a `AMPAParameters` object, whose parameters obtained from the hardware configuration
         :rtype: AMPAParameters
         """
 
-        return cls._from_parameter_group(
-            parameter_group,
+        return cls._from_samna_parameters(
+            samna_parameters,
             layout,
             Itau_name="NPDPIE_TAU_F_P",
             Ithr_name="NPDPIE_THR_F_P",
@@ -661,30 +682,30 @@ class AHPParameters(SynapseParameters):
     Iw: float = 1e-6
 
     @classmethod
-    def from_parameter_group(
+    def from_samna_parameters(
         cls,
-        parameter_group: Dynapse1ParameterGroup,
+        samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]],
         layout: DynapSELayout,
         *args,
         **kwargs,
     ) -> AHPParameters:
         """
-        from_parameter_group is a `AHPParameters` factory method implemented by customizing `SynapseParameter._from_parameter_group()`
+        from_samna_parameters is a `AHPParameters` factory method implemented by customizing `SynapseParameter._from_samna_parameters()`
 
-        :param parameter_group: samna config object for setting the parameter group within one core
-        :type parameter_group: Dynapse1ParameterGroup
+        :param samna_parameters: a parameter dictionary inside samna config object for setting the parameter group within one core
+        :type samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]]
         :param layout: constant values that are related to the exact silicon layout of a chip
         :type layout: DynapSELayout
         :return: a `AHPParameters` object, whose parameters obtained from the hardware configuration
         :rtype: AHPParameters
         """
 
-        return cls._from_parameter_group(
-            parameter_group,
+        return cls._from_samna_parameters(
+            samna_parameters,
             layout,
             Itau_name="IF_AHTAU_N",
             Ithr_name="IF_AHTHR_N",
-            Iw=cls.bias(layout, parameter_group, "IF_AHW_P"),
+            Iw=cls.bias(layout, samna_parameters, "IF_AHW_P"),
             *args,
             **kwargs,
         )
