@@ -790,28 +790,28 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
         """
         Itau_gaba_b holds an array of time constants bias current in Amperes for GABA_B synapse of the neurons with shape = (Nrec,)
         """
-        return self.Itau_syn[self.SYN["GABA_B"]]
+        return self.Itau_syn[:, self.SYN["GABA_B"]]
 
     @property
     def Itau_gaba_a(self) -> jnp.DeviceArray:
         """
         Itau_gaba_a holds an array of time constants bias current in Amperes for GABA_A synapse of the neurons with shape = (Nrec,)
         """
-        return self.Itau_syn[self.SYN["GABA_A"]]
+        return self.Itau_syn[:, self.SYN["GABA_A"]]
 
     @property
     def Itau_nmda(self) -> jnp.DeviceArray:
         """
         Itau_nmda holds an array of time constants bias current in Amperes for NMDA synapse of the neurons with shape = (Nrec,)
         """
-        return self.Itau_syn[self.SYN["NMDA"]]
+        return self.Itau_syn[:, self.SYN["NMDA"]]
 
     @property
     def Itau_ampa(self) -> jnp.DeviceArray:
         """
         Itau_ampa holds an array of time constants bias current in Amperes for AMPA synapse of the neurons with shape = (Nrec,)
         """
-        return self.Itau_syn[self.SYN["AMPA"]]
+        return self.Itau_syn[:, self.SYN["AMPA"]]
 
     ### --- THRESHOLD (A.K.A GAIN) --- ###
 
@@ -828,6 +828,13 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
         Ith_syn create an array of synaptic threshold(a.k.a gain) currents in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,Nrec)
         """
         return self.Itau_syn * self.f_gain_syn
+
+    @property
+    def Ith_ahp(self) -> jnp.DeviceArray:
+        """
+        Ith_ahp create an array of spike frequency adaptation threshold(a.k.a gain) currents with shape = (Nrec,)
+        """
+        return self.Itau_ahp * self.f_gain_ahp
 
     @property
     def Ith_gaba_b(self) -> jnp.DeviceArray:
