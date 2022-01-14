@@ -6,11 +6,14 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 02/09/2021
 """
+
 import logging
 
 from typing import Any, Tuple
 
 import numpy as np
+
+from rockpool.devices.dynapse.infrastructure.lookup import paramgen, scaling_factor
 
 _SAMNA_AVAILABLE = True
 
@@ -212,10 +215,10 @@ class BiasGen:
         return lookup
 
 
-class DynapSE1BiasGen(BiasGen):
+class BiasGenSE1(BiasGen):
 
     """
-    DynapSE1BiasGen is Dynap-SE1 specific bias generator. It holds the corrections factors of
+    BiasGenSE1 is Dynap-SE1 specific bias generator. It holds the corrections factors of
     25 different biases and implements a parameter to bias conversion method.
 
     :Instance Variables:
@@ -267,8 +270,8 @@ class DynapSE1BiasGen(BiasGen):
         :return: corrected bias value by multiplying a correction factor first then adding the dark current.
         :rtype: float
         """
-        raw = DynapSE1BiasGen.get_bias(param.coarse_value, param.fine_value)
-        corrected = raw * DynapSE1BiasGen.correction_factor[param.param_name]
+        raw = BiasGenSE1.get_bias(param.coarse_value, param.fine_value)
+        corrected = raw * BiasGenSE1.correction_factor[param.param_name]
         return corrected
 
 
@@ -290,5 +293,5 @@ class BiasGenSE2:
         if fine < 0 or fine > 255:
             raise IndexError(f"Fine Value: {fine} is out of limits! [0,255]")
 
-        bias = BiasGenSE2.lookup[f"{type}{coarse}"][fine] * scaling_factor
+        bias = paramgen.table[f"{type}{coarse}"][fine] * scaling_factor
         return bias
