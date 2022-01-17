@@ -4,6 +4,7 @@ Encapsulate a simple instantaneous function as a jax module
 
 from rockpool.nn.modules import Module
 from rockpool.parameters import SimulationParameter
+from rockpool.typehints import P_Callable
 
 from warnings import warn
 
@@ -19,7 +20,7 @@ class InstantMixin:
 
     def __init__(
         self,
-        shape: tuple = None,
+        shape: Union[int, tuple] = None,
         function: Callable = lambda x: x,
         *args,
         **kwargs,
@@ -39,15 +40,9 @@ class InstantMixin:
         super().__init__(shape=shape, *args, **kwargs)
 
         # - Store the function
-        self.function: Union[Callable, SimulationParameter] = SimulationParameter(
-            function
-        )
+        self.function: P_Callable = SimulationParameter(function)
 
-    def evolve(
-        self,
-        input,
-        record: bool = False,
-    ) -> (tuple, tuple, tuple):
+    def evolve(self, input, record: bool = False,) -> (tuple, tuple, tuple):
         return self.function(input), {}, {}
 
 
