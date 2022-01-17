@@ -9,7 +9,7 @@ E-mail : ugurcan.cakal@gmail.com
 
 import logging
 
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
@@ -57,10 +57,10 @@ class BiasGen:
     """
     BiasGen is a static class encapsulating coarse and fine value to bias current and linear bias value conversion utilities.
 
-    :Attributes:
-
-    :param coarse_base: base currents depending on given coarse index defaults to [1.5e-11, 1.05e-10, 8.2e-10, 6.5e-09, 5e-08, 4e-07, 3.2e-06, 2.4e-05]
+    :param coarse_base: base currents depending on given coarse index
     :type coarse_base: ArrayLike
+    :param scaling_factor_table: a mapping between bias parameter names and their scaling factors, defaults to None
+    :type scaling_factor_table: optional, Dict[str, float]
     :param f_linear: scaling factor to convert bias currents to linear bias values
     :type f_linear: float, optional
     :param fine_max: the max number that a fine value can get
@@ -70,6 +70,7 @@ class BiasGen:
     def __init__(
         self,
         coarse_base: ArrayLike,
+        scaling_factor_table: Optional[Dict[str, float]] = None,
         f_linear: Optional[float] = np.float32(1e14),
         fine_max: Optional[int] = np.uint8(255),
     ) -> None:
@@ -78,6 +79,7 @@ class BiasGen:
         """
 
         self.coarse_base = np.array(coarse_base, dtype=np.float32)
+        self.scaling_factor_table = scaling_factor_table
         self.f_linear = f_linear
         self.fine_max = fine_max
 
@@ -242,9 +244,47 @@ class BiasGen:
     def bias_to_coarse_fine(
         self, bias: np.float64, coarse_smallest: bool = True  # Better resolution
     ) -> Tuple[np.uint8, np.uint8]:
+        """
+        bias_to_coarse_fine find a coarse and fine tuple which represents the desired bias current the best
+
+        :param bias: The bias current in Amperes
+        :type bias: np.float64
+        :param coarse_smallest: Choose the smallest coarse value possible. In this case, fine value would be slightly higher. If False, the function returns the biggest possible coarse value. The smaller the coarse value is the better the resolution is! defaults to True
+        :type coarse_smallest: bool, optional
+        :return: coarse and fine value tuple
+        :rtype: Tuple[np.uint8, np.uint8]
+        """
         linear = self.bias_to_linear(bias)
         coarse, fine = self.get_coarse_fine(linear, coarse_smallest, exact=False)
         return coarse, fine
+
+    def param_to_bias(
+        self,
+        param_name: str,
+        param: Union[Dynapse1Parameter, Dynapse2Parameter],
+        scale_lookup: bool = True,
+        *args,
+        **kwargs,
+    ) -> float:
+        """
+        param_to_bias convert samna `Dynapse1Parameter` or `Dynapse2Parameter` object to a bias current to be used in the simulator
+
+        :param param_name: the parameter name
+        :type param_name: str
+        :param param: samna parameter object storing a coarse and fine value tuple and the name of the device bias current
+        :type param: Union[Dynapse1Parameter, Dynapse2Parameter]
+        :param scale_lookup: use the the scaling factor table to scale and correct the bias_current defaults to True
+        :type scale_lookup: bool, optional
+        :return: corrected bias current value by multiplying a scaling factor
+        :rtype: float
+        """
+        if scale_lookup and self.scaling_factor_table is None:
+            raise ValueError("Scale factor lookup table is missing!")
+        scale = self.scaling_factor_table[param_name] if scale_lookup else 1.0
+        bias = self.get_bias(
+            param.coarse_value, param.fine_value, scale, *args, **kwargs,
+        )
+        return bias
 
     def get_lookup_table(self) -> np.ndarray:
         """
@@ -279,38 +319,23 @@ class BiasGenSE1(BiasGen):
     """
     BiasGenSE1 is Dynap-SE1 specific bias generator. It holds the corrections factors of
     25 different biases and implements a parameter to bias conversion method.
-
-    :Instance Variables:
-
-    :ivar scaling_factor: A dictionary storing correction factors of the bias currents obtained experimentally.
-    :type scaling_factor: Dict[str, float]
     """
 
     __doc__ += BiasGen.__doc__
 
     def __init__(
-        self, coarse_base: ArrayLike = COARSE_BASE_EXT, *args, **kwargs,
+        self,
+        coarse_base: ArrayLike = COARSE_BASE_EXT,
+        scaling_factor_table: Dict[str, float] = scaling_factor_se1.table,
+        *args,
+        **kwargs,
     ) -> None:
         """
         __init__ initialize the common module with full list of coarse base currents
         """
-        super(BiasGenSE1, self).__init__(coarse_base, *args, **kwargs)
-
-    def param_to_bias(self, param_name: str, param: Dynapse1Parameter) -> float:
-        """
-        param_to_bias convert samna `Dynapse1Parameter` object to a bias current to be used in the simulator
-
-        :param param_name: the parameter name
-        :type param_name: str
-        :param param: Dynapse1Parameter holding a coarse and fine value tuple and the name of the device bias current
-        :type param: Dynapse1Parameter
-        :return: corrected bias value by multiplying a scaling factor
-        :rtype: float
-        """
-        bias = self.get_bias(
-            param.coarse_value, param.fine_value, scaling_factor_se1.table[param_name],
+        super(BiasGenSE1, self).__init__(
+            coarse_base, scaling_factor_table, *args, **kwargs
         )
-        return bias
 
 
 class BiasGenSE2(BiasGen):
@@ -323,12 +348,19 @@ class BiasGenSE2(BiasGen):
     __doc__ += BiasGen.__doc__
 
     def __init__(
-        self, coarse_base: ArrayLike = COARSE_BASE_EXT[1:-1], *args, **kwargs,
+        self,
+        coarse_base: ArrayLike = COARSE_BASE_EXT[1:-1],
+        scaling_factor_table: Dict[str, float] = scaling_factor.table,
+        *args,
+        **kwargs,
     ) -> None:
         """
         __init__ initialize the common module with shrinked list of coarse base currents
         """
-        super(BiasGenSE2, self).__init__(coarse_base, *args, **kwargs)
+        self.paramgen_table = paramgen.table
+        super(BiasGenSE2, self).__init__(
+            coarse_base, scaling_factor_table, *args, **kwargs
+        )
 
     def get_bias(
         self,
@@ -357,7 +389,7 @@ class BiasGenSE2(BiasGen):
         """
         self._check_coarse_fine_limits(coarse, fine)
         if lookup:
-            bias = paramgen.table[f"{type}{coarse}"][fine] * scaling_factor
+            bias = self.paramgen_table[f"{type}{coarse}"][fine] * scaling_factor
         else:
             bias = super().get_bias(coarse, fine, scaling_factor)
 
@@ -384,8 +416,8 @@ class BiasGenSE2(BiasGen):
         :return: corrected bias value by multiplying a scaling factor
         :rtype: float
         """
-        scale = scaling_factor.table[param_name] if scale_lookup else 1.0
-        bias = self.get_bias(
-            param.coarse_value, param.fine_value, scale, param.type, bias_lookup,
+        bias = super().param_to_bias(
+            param_name, param, scale_lookup, param.type, bias_lookup
         )
         return bias
+
