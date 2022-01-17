@@ -24,21 +24,21 @@ class ExpSynTorch(TorchModule):
     """
     An exponential synapse model
 
-    This module implements the dynamics:
+    This module implements the update equations:
 
     .. math ::
 
-        \\tau_{syn} \\dot{I}_{syn} + I_{syn} = 0
+        I_{syn} += S_{in}(t) + \sigma \zeta_t
+        I_{syn} *= \exp(-dt / \tau)
 
-        I_{syn} += S_{in}(t)
-
-        where :math:`S_{in}(t)` is a vector containing ``1`` for each input channel that emits a spike at time :math:`t`.
+        where :math:`S_{in}(t)` is a vector containing ``1`` or weighted spike for each input channel that emits a spike at time :math:`t`, :math:`\\tau` is the vector of time constants for each synapse, and :math:`\sigma` is the std. dev of a Wiener process after 1s.
     """
 
     def __init__(
         self,
         shape: Union[tuple, int],
-        tau: rt.FloatVector = 50e-3,
+        tau: rt.FloatVector = None,
+        noise_std: float = 0.0,
         dt: float = 1e-3,
         *args,
         **kwargs,
@@ -48,34 +48,37 @@ class ExpSynTorch(TorchModule):
 
         Args:
             shape (tuple): Number of synapses that will be created. Example: shape = (5,).
-            tau (Optional[np.ndarray]): An optional array with concrete initialisation data for the synaptic time constants, in seconds. If not provided, a common trainable time-constant of 50ms will be used by default.
+            tau (np.ndarray): An optional array with concrete initialisation data for the synaptic time constants, in seconds. If not provided, an individual trainable time-constant of 10ms will be used by default.
+            noise_std (float): The std. dev. after 1s of the noise Wiener process added to each synapse.
             dt (float): The time step for the forward-Euler ODE solver, in seconds. Default: 1ms
-            noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: ``0.0``
-            device (str): Defines the device on which the model will be processed. Default: ``None``, use the system default.
-            dtype: Defines the torch data type of the tensors to use in this module. Default: ``None``.
         """
         # Initialize super class
         super().__init__(
-            shape=shape,
-            spiking_input=True,
-            spiking_output=False,
-            *args,
-            **kwargs,
+            shape=shape, spiking_input=True, spiking_output=False, *args, **kwargs,
         )
+
+        # - To-float-tensor conversion utility
+        to_float_tensor = lambda x: torch.tensor(x).float()
 
         # - Initialise tau
         self.tau_syn: rt.P_tensor = rp.Parameter(
-            tau, shape=[(), (self.size_out,)], family="taus", cast_fn=torch.tensor
+            tau,
+            shape=[(self.size_out,), ()],
+            family="taus",
+            init_func=lambda s: torch.ones(*s) * 10e-3,
+            cast_fn=to_float_tensor,
         )
-        """ (torch.Tensor) Time constants of each synapse in seconds ``() or (N,)`` """
+        """ (torch.Tensor) Time constants of each synapse in seconds ``(N,)`` or ``()`` """
+
+        # - Initialise noise std dev
+        self.noise_std: rt.P_tensor = rp.SimulationParameter(
+            noise_std, cast_fn=to_float_tensor
+        )
+        """ (float) Noise std. dev after 1 second """
 
         # - Initialise state
         self.isyn: rt.P_tensor = rp.State(
-            shape=(
-                1,
-                self.size_out,
-            ),
-            init_func=lambda s: torch.zeros(*s),
+            shape=(1, self.size_out,), init_func=lambda s: torch.zeros(*s),
         )
         """ (torch.tensor) Synaptic current state for each synapse ``(1, N)`` """
 
@@ -112,7 +115,6 @@ class ExpSynTorch(TorchModule):
             Out of spikes with the shape (batch, time_steps, N)
         """
         n_batches, time_steps, n_synapses = data.shape
-        data = data.type(torch.double)
 
         if n_synapses != self.size_out:
             raise ValueError(
@@ -120,20 +122,21 @@ class ExpSynTorch(TorchModule):
             )
 
         # - Expand state over batches
-        isyn = torch.ones(n_batches, 1, device=data.device).type(
-            torch.double
-        ) @ self.isyn.type(torch.double)
+        isyn = torch.ones(n_batches, 1, device=data.device) @ self.isyn
 
         # - Build a tensor to compute and return internal state
-        self._isyn_rec = torch.zeros(data.shape, device=data.device).type(torch.double)
+        self._isyn_rec = torch.zeros(data.shape, device=data.device)
 
         # - Compute decay factor
         beta = torch.exp(-self.dt / self.tau_syn)
+        noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
 
         # - Loop over time
         for t in range(time_steps):
-            # Integrate input
-            isyn = beta * isyn + data[:, t, :]
+            isyn += data[:, t, :] + noise_zeta * torch.randn(
+                isyn.shape, device=isyn.device
+            )
+            isyn *= beta
             self._isyn_rec[:, t, :] = isyn
 
         # - Store the final state

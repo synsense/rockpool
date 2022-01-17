@@ -22,6 +22,7 @@ from .native.exp_syn import *
 # - Torch modules
 try:
     from .torch.torch_module import *
+    from .torch.rate_torch import *
     from .torch.lif_torch import *
     from .torch.lif_bitshift_torch import *
     from .torch.exp_syn_torch import *
@@ -29,7 +30,6 @@ try:
     from .torch.linear_torch import *
     from .torch.updown_torch import *
 
-    # from .torch.lowpass import *
 except (ImportError, ModuleNotFoundError) as err:
     warnings.warn(f"Torch modules not available: {err}")
 
