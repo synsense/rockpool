@@ -9,11 +9,16 @@ E-mail : ugurcan.cakal@gmail.com
 
 import logging
 
-from typing import Any, Tuple
+from typing import Any, Optional, Tuple
 
 import numpy as np
 
-from rockpool.devices.dynapse.infrastructure.lookup import paramgen, scaling_factor
+from rockpool.devices.dynapse.base import ArrayLike
+from rockpool.devices.dynapse.infrastructure.lookup import (
+    paramgen,
+    scaling_factor,
+    scaling_factor_se1,
+)
 
 _SAMNA_AVAILABLE = True
 
@@ -23,9 +28,29 @@ except ModuleNotFoundError as e:
     Dynapse1Parameter = Any
 
     print(
-        e, "\nSimulation currents cannot be obtained from samna config object",
+        e, "\nA bias current value from `Dynapse1Parameter` cannot be obtained!",
     )
     _SAMNA_AVAILABLE = False
+
+try:
+    from samna.dynapse2 import Dynapse2Parameter
+except ModuleNotFoundError as e:
+    Dynapse2Parameter = Any
+    print(
+        e, "\nA bias current value from `Dynapse2Parameter` cannot be obtained!",
+    )
+    _SAMNA_AVAILABLE = False
+
+COARSE_BASE_EXT = [
+    1.5e-11,  # I0
+    1.05e-10,  # I1
+    8.2e-10,  # I2
+    6.5e-09,  # I3
+    5e-08,  # I4
+    4e-07,  # I5
+    3.2e-06,  # I6
+    2.4e-05,  # I7
+]
 
 
 class BiasGen:
@@ -34,64 +59,101 @@ class BiasGen:
 
     :Attributes:
 
-    :attr coarse_base: base currents depending on given coarse index
-    :type coarse_base: np.ndarray
-    :attr scaling_factor: scaling factor to convert bias currents to linear bias values
-    :type scaling_factor: np.float32
-    :attr fine_range: the maximum value for a fine value to get
-    :type fine_range: np.uint8
+    :param coarse_base: base currents depending on given coarse index defaults to [1.5e-11, 1.05e-10, 8.2e-10, 6.5e-09, 5e-08, 4e-07, 3.2e-06, 2.4e-05]
+    :type coarse_base: ArrayLike
+    :param f_linear: scaling factor to convert bias currents to linear bias values
+    :type f_linear: float, optional
+    :param fine_max: the max number that a fine value can get
+    :type fine_max: int, optional
     """
 
-    coarse_base = np.array(
-        [
-            1.5e-11,  # I0
-            1.05e-10,  # I1
-            8.2e-10,  # I2
-            6.5e-09,  # I3
-            5e-08,  # I4
-            4e-07,  # I5
-            3.2e-06,  # I6
-            2.4e-05,  # I7
-        ],
-        dtype=np.float32,
-    )
-
-    scaling_factor = np.float32(1e14)
-    fine_range = np.uint8(255)
-
-    @staticmethod
-    def get_bias(coarse: np.uint8, fine: np.uint8) -> np.float64:
+    def __init__(
+        self,
+        coarse_base: ArrayLike,
+        f_linear: Optional[float] = np.float32(1e14),
+        fine_max: Optional[int] = np.uint8(255),
+    ) -> None:
         """
-        get_bias
-        The very large scale integration(VLSI) neurons on DYNAP-SE are controlled by configurable current
-        sources called “biases”. For each bias, there is an integer coarse value :math:`C \\in [0,7]` and
-        an integer fine value :math:`F \\in [0,255]`, which together determine the amplitude of the current
+        __init__ initializes the common SE1 and SE2 BiasGen module
+        """
 
-        :param coarse: integer coarse value :math:`C \\in [0,7]`
+        self.coarse_base = np.array(coarse_base, dtype=np.float32)
+        self.f_linear = f_linear
+        self.fine_max = fine_max
+
+    def _check_coarse_fine_limits(self, coarse: np.uint8, fine: np.uint8) -> None:
+        """
+        _check_coarse_fine_limits checks if coarse and fine values are within the limits or not.
+
+        :param coarse: integer coarse value :math:`C \\in [0,7]` for SE1 or :math:`C \\in [0,5]` for SE2
         :type coarse: np.uint8
         :param fine: integer fine value :math:`F \\in [0,255]`
         :type fine: np.uint8
+        :raises IndexError: The coarse value is out of limits
+        :raises IndexError: The fine value is out of limits
         """
-        max_current = BiasGen.coarse_base[coarse]
-        base_current = np.divide(max_current, BiasGen.fine_range, dtype=np.float64)
+        if coarse < 0 or coarse > len(self.coarse_base):
+            raise IndexError(f"Coarse Value: {coarse} is out of limits! [0,5]")
+        if fine < 0 or fine > self.fine_max:
+            raise IndexError(f"Fine Value: {fine} is out of limits! [0,255]")
+
+    def get_bias(
+        self, coarse: np.uint8, fine: np.uint8, scaling_factor: Optional[float] = 1.0,
+    ) -> np.float64:
+        """
+        get_bias obtains a bias current value using the theoretical conversion.
+        The very large scale integration(VLSI) neurons on DYNAP-SE are controlled by configurable current
+        sources called “biases”. For each bias, there is an integer coarse value :math:`C \\in [0,7]` and
+        an integer fine value :math:`F \\in [0,255]`, which together determine the amplitude of the current in Amperes.
+
+        :param coarse: integer coarse value :math:`C \\in [0,7]` for SE1 or :math:`C \\in [0,5]` for SE2
+        :type coarse: np.uint8
+        :param fine: integer fine value :math:`F \\in [0,255]`
+        :type fine: np.uint8
+        :param scaling_factor: the scaling factor to correct the bias value calculation with multiplication, defaults to 1
+        :type scaling_factor: float, optional
+        :return: the bias current in Amperes
+        :rtype: np.float64
+        """
+        self._check_coarse_fine_limits(coarse, fine)
+        max_current = self.coarse_base[coarse]
+        base_current = np.divide(max_current, self.fine_max, dtype=np.float64)
         bias = np.multiply(fine, base_current, dtype=np.float64)
-        return bias
+        corrected = bias * scaling_factor
+        return corrected
 
-    @staticmethod
-    def get_linear(coarse: np.uint8, fine: np.uint8) -> np.float32:
-        bias = BiasGen.get_bias(coarse, fine)
-        linear = BiasGen.bias_to_linear(bias)
+    def get_linear(self, coarse: np.uint8, fine: np.uint8) -> np.float64:
+        """
+        get_linear calculates the bias current then scales it to the linear bias value
+        For more info, look at `BiasGen.bias_to_linear()`.
+
+        :param coarse: integer coarse value :math:`C \\in [0,7]` for SE1 or :math:`C \\in [0,5]` for SE2
+        :type coarse: np.uint8
+        :param fine: integer fine value :math:`F \\in [0,255]`
+        :type fine: np.uint8
+        :return: the reciprocal linear bias value obtained from bias current
+        :rtype: np.float32
+        """
+        bias = self.get_bias(coarse, fine)
+        linear = self.bias_to_linear(bias)
         return linear
 
-    @staticmethod
-    def bias_to_linear(bias: np.float64):
-        linear = np.multiply(bias, BiasGen.scaling_factor, dtype=np.float32)
-        linear = np.round(linear, 0)
+    def bias_to_linear(self, bias: np.float64) -> np.float32:
+        """
+        bias_to_linear scales and round the bias value using the linearization factor `f_linear`
+        It allows expressing all the possible bias values with integers.
+
+        :param bias: the bias current in Amperes
+        :type bias: np.float64
+        :return: the reciprocal linear bias value obtained from bias current
+        :rtype: np.float32
+        """
+        linear = np.multiply(bias, self.f_linear, dtype=np.float32)
+        linear = np.around(linear, 0)
         return linear
 
-    @staticmethod
     def get_coarse_fine(
-        linear: np.float32, coarse_smallest: bool = True, exact: bool = True
+        self, linear: np.float32, coarse_smallest: bool = True, exact: bool = True
     ) -> Tuple[np.uint8, np.uint8]:
         """
         get_coarse_fine gives a coarse/fine tuple given a linear bias value
@@ -125,8 +187,8 @@ class BiasGen:
             :rtype: np.ndarray
             """
 
-            max_linear = np.multiply(BiasGen.coarse_base, BiasGen.scaling_factor)
-            min_linear = np.divide(max_linear, BiasGen.fine_range + 1, dtype=np.float32)
+            max_linear = np.multiply(self.coarse_base, self.f_linear)
+            min_linear = np.divide(max_linear, self.fine_max + 1, dtype=np.float32)
 
             upper_bound = max_linear >= linear
             lower_bound = min_linear <= linear
@@ -146,11 +208,11 @@ class BiasGen:
             """
 
             fine = np.divide(
-                linear * BiasGen.fine_range,
-                BiasGen.coarse_base[coarse] * BiasGen.scaling_factor,
+                linear * self.fine_max,
+                self.coarse_base[coarse] * self.f_linear,
                 dtype=np.float32,
             )
-            fine = np.uint8(np.round(fine))
+            fine = np.uint8(np.around(fine, 0))
             return coarse, fine
 
         ## -- Coarse Fine Search -- ##
@@ -162,7 +224,7 @@ class BiasGen:
             coarse, fine = propose_coarse_fine_tuple(coarse)
 
             if exact:  # Exact linear value should be obtained via the coarse fine tuple
-                if linear == BiasGen.get_linear(coarse, fine):
+                if linear == self.get_linear(coarse, fine):
                     couples.append((coarse, fine))
                 else:
                     continue
@@ -173,25 +235,23 @@ class BiasGen:
             return couples[couple_idx]
         else:
             logging.warning(
-                f"Desired linear value is out of limits! {linear} > 2400000000. Max returned!"
+                f"Desired linear value is out of limits! {linear}. Max possible returned!"
             )
-            return np.uint8(7), np.uint8(255)
+            return np.uint8(len(self.coarse_base)), np.uint8(self.fine_max)
 
-    @staticmethod
     def bias_to_coarse_fine(
-        bias: np.float64, coarse_smallest: bool = True  # Better resolution
+        self, bias: np.float64, coarse_smallest: bool = True  # Better resolution
     ) -> Tuple[np.uint8, np.uint8]:
-        linear = BiasGen.bias_to_linear(bias)
-        coarse, fine = BiasGen.get_coarse_fine(linear, coarse_smallest, exact=False)
+        linear = self.bias_to_linear(bias)
+        coarse, fine = self.get_coarse_fine(linear, coarse_smallest, exact=False)
         return coarse, fine
 
-    @staticmethod
-    def get_lookup_table() -> np.ndarray:
+    def get_lookup_table(self) -> np.ndarray:
         """
         get_lookup_table provides a lookup table with always increasing linear biases.
         Please note that due to the floating point precision issues, the linear bias values are not
         the same as the C++ samna implementation. However the variation is small. In comparison:
-            Mismatched elements: 296 / 5436 (5.45%)
+            Unmatched elements: 296 / 5436 (5.45%)
             Max absolute difference: 256.
             Max relative difference: 5.16192974e-06
 
@@ -202,9 +262,9 @@ class BiasGen:
         :rtype: np.ndarray
         """
         lookup = []
-        for c in range(len(BiasGen.coarse_base)):
-            for f in range(BiasGen.fine_range + 1):
-                linear = BiasGen.get_linear(c, f)
+        for c in range(len(self.coarse_base)):
+            for f in range(self.fine_max + 1):
+                linear = self.get_linear(c, f)
                 if lookup:
                     if linear > lookup[-1][2] * 1.00001:
                         lookup.append([c, f, linear])
@@ -216,82 +276,116 @@ class BiasGen:
 
 
 class BiasGenSE1(BiasGen):
-
     """
     BiasGenSE1 is Dynap-SE1 specific bias generator. It holds the corrections factors of
     25 different biases and implements a parameter to bias conversion method.
 
     :Instance Variables:
 
-    :ivar correction_factor: A dictionary storing correction factors of the bias currents obtained experimentally.
-    :type correction_factor: Dict[str, float]
-
+    :ivar scaling_factor: A dictionary storing correction factors of the bias currents obtained experimentally.
+    :type scaling_factor: Dict[str, float]
     """
 
     __doc__ += BiasGen.__doc__
 
-    correction_factor = {
-        "IF_AHTAU_N": 1.0,
-        "IF_AHTHR_N": 1.0,
-        "IF_AHW_P": 1.0,
-        "IF_BUF_P": 1.0,
-        "IF_CASC_N": 1.0,
-        "IF_DC_P": 1.0,
-        "IF_NMDA_N": 1.0,
-        "IF_RFR_N": 1.0,
-        "IF_TAU1_N": 1e-4,
-        "IF_TAU2_N": 1.0,
-        "IF_THR_N": 1.0,
-        "NPDPIE_TAU_F_P": 1.0,
-        "NPDPIE_TAU_S_P": 1.0,
-        "NPDPIE_THR_F_P": 1.0,
-        "NPDPIE_THR_S_P": 1.0,
-        "NPDPII_TAU_F_P": 1.0,
-        "NPDPII_TAU_S_P": 1.0,
-        "NPDPII_THR_F_P": 1.0,
-        "NPDPII_THR_S_P": 1.0,
-        "PS_WEIGHT_EXC_F_N": 1.0,
-        "PS_WEIGHT_EXC_S_N": 1.0,
-        "PS_WEIGHT_INH_F_N": 1.0,
-        "PS_WEIGHT_INH_S_N": 1.0,
-        "PULSE_PWLK_P": 1.0,
-        "R2R_P": 1.0,
-    }
+    def __init__(
+        self, coarse_base: ArrayLike = COARSE_BASE_EXT, *args, **kwargs,
+    ) -> None:
+        """
+        __init__ initialize the common module with full list of coarse base currents
+        """
+        super(BiasGenSE1, self).__init__(coarse_base, *args, **kwargs)
 
-    @staticmethod
-    def param_to_bias(param: Dynapse1Parameter, Io: float = 5e-13) -> float:
+    def param_to_bias(self, param_name: str, param: Dynapse1Parameter) -> float:
         """
         param_to_bias convert samna `Dynapse1Parameter` object to a bias current to be used in the simulator
 
+        :param param_name: the parameter name
+        :type param_name: str
         :param param: Dynapse1Parameter holding a coarse and fine value tuple and the name of the device bias current
         :type param: Dynapse1Parameter
-        :param Io: the dark current on the device, which flows through the transistors in the idle state. It's added to calculated bias, defaults to 5e-13
-        :type Io: float, optional
-        :return: corrected bias value by multiplying a correction factor first then adding the dark current.
+        :return: corrected bias value by multiplying a scaling factor
         :rtype: float
         """
-        raw = BiasGenSE1.get_bias(param.coarse_value, param.fine_value)
-        corrected = raw * BiasGenSE1.correction_factor[param.param_name]
-        return corrected
+        bias = self.get_bias(
+            param.coarse_value, param.fine_value, scaling_factor_se1.table[param_name],
+        )
+        return bias
 
 
-class BiasGenSE2:
-    @staticmethod
+class BiasGenSE2(BiasGen):
+    """
+    BiasGenSE2 is Dynap-SE2 specific bias generator. One can convert a coarse, fine value to
+    bias current given the transistor type and scaling factor or one can define a bias parameter
+    name to use the right transistor type and the scaling factor for conversion
+    """
+
+    __doc__ += BiasGen.__doc__
+
+    def __init__(
+        self, coarse_base: ArrayLike = COARSE_BASE_EXT[1:-1], *args, **kwargs,
+    ) -> None:
+        """
+        __init__ initialize the common module with shrinked list of coarse base currents
+        """
+        super(BiasGenSE2, self).__init__(coarse_base, *args, **kwargs)
+
     def get_bias(
-        coarse: np.uint8, fine: np.uint8, type: str = "N", scaling_factor: float = 1.0
+        self,
+        coarse: np.uint8,
+        fine: np.uint8,
+        scaling_factor: Optional[float] = 1.0,
+        type: Optional[str] = "N",
+        lookup: Optional[bool] = True,
     ) -> np.float64:
         """
-        get_bias
+        get_bias overwrites the common get_bias() method and extend it's capabilities such as transistor type 
+        specific bias current calculation and lookup table usage
 
         :param coarse: integer coarse value :math:`C \\in [0,5]`
         :type coarse: np.uint8
         :param fine: integer fine value :math:`F \\in [0,255]`
         :type fine: np.uint8
+        :param scaling_factor: the scaling factor to multiply the current, defaults to 1.0
+        :type scaling_factor: Optional[float], optional
+        :param type: the transistor type used to fetch from lookup table, defaults to "N"
+        :type type: Optional[str], optional
+        :param lookup: use lookup tables in bias calculation or not, defaults to True
+        :type lookup: Optional[bool], optional
+        :return: the bias current in Amperes
+        :rtype: np.float64
         """
-        if coarse < 0 or coarse > 5:
-            raise IndexError(f"Coarse Value: {coarse} is out of limits! [0,5]")
-        if fine < 0 or fine > 255:
-            raise IndexError(f"Fine Value: {fine} is out of limits! [0,255]")
+        self._check_coarse_fine_limits(coarse, fine)
+        if lookup:
+            bias = paramgen.table[f"{type}{coarse}"][fine] * scaling_factor
+        else:
+            bias = super().get_bias(coarse, fine, scaling_factor)
 
-        bias = paramgen.table[f"{type}{coarse}"][fine] * scaling_factor
+        return bias
+
+    def param_to_bias(
+        self,
+        param_name: str,
+        param: Dynapse2Parameter,
+        scale_lookup: bool = True,
+        bias_lookup: bool = True,
+    ) -> float:
+        """
+        param_to_bias convert samna `Dynapse2Parameter` object to a bias current to be used in the simulator
+
+        :param param_name: the parameter name
+        :type param_name: str
+        :param param: Dynapse2Parameter holding a coarse and fine value tuple and the name of the device bias current
+        :type param: Dynapse2Parameter
+        :param scale_lookup: use the the scaling factor table to scale and correct the bias_current defaults to True
+        :type scale_lookup: bool, optional
+        :param bias_lookup: use the transistor specific parameter generator lookup table or not. If not, then theoretical calculations are used. defaults to True
+        :type bias_lookup: bool, optional
+        :return: corrected bias value by multiplying a scaling factor
+        :rtype: float
+        """
+        scale = scaling_factor.table[param_name] if scale_lookup else 1.0
+        bias = self.get_bias(
+            param.coarse_value, param.fine_value, scale, param.type, bias_lookup,
+        )
         return bias
