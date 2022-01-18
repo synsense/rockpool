@@ -37,7 +37,7 @@ class ExpSynTorch(TorchModule):
     def __init__(
         self,
         shape: Union[tuple, int],
-        tau: rt.FloatVector = None,
+        tau: Optional[rt.FloatVector] = None,
         noise_std: float = 0.0,
         dt: float = 1e-3,
         *args,
@@ -114,13 +114,9 @@ class ExpSynTorch(TorchModule):
         out: Tensor
             Out of spikes with the shape (batch, time_steps, N)
         """
-        print(data.shape)
         # - Auto-batch over input data
         data, (isyn,) = self._auto_batch(data, (self.isyn,))
         n_batches, time_steps, _ = data.shape
-        print(data.shape)
-        print(n_batches, time_steps)
-        print(self.isyn.shape, isyn.shape)
 
         # - Build a tensor to compute and return internal state
         self._isyn_rec = torch.zeros(data.shape, device=data.device)

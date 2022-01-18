@@ -22,7 +22,7 @@ from jax.lax import scan
 import jax.random as rand
 
 from typing import Optional, Tuple, Union, Dict, Callable, Any
-from rockpool.typehints import FloatVector, P_bool, P_Callable, P_ndarray
+from rockpool.typehints import FloatVector, P_bool, P_Callable, P_ndarray, JaxRNGKey
 
 __all__ = ["LIFJax"]
 
@@ -93,7 +93,7 @@ class LIFJax(JaxModule):
         threshold: FloatVector = 1.0,
         noise_std: float = 0.0,
         dt: float = 1e-3,
-        rng_key: Optional[Any] = None,
+        rng_key: Optional[JaxRNGKey] = None,
         spiking_input: bool = False,
         spiking_output: bool = True,
         *args,
@@ -246,6 +246,7 @@ class LIFJax(JaxModule):
         # - Get evolution constants
         alpha = np.exp(-self.dt / self.tau_mem)
         beta = np.exp(-self.dt / self.tau_syn)
+        noise_zeta = self.noise_std * np.sqrt(self.dt)
 
         # - Single-step LIF dynamics
         def forward(
@@ -304,7 +305,7 @@ class LIFJax(JaxModule):
 
         # - Generate membrane noise trace
         key1, subkey = rand.split(self.rng_key)
-        noise_ts = self.noise_std * rand.normal(
+        noise_ts = noise_zeta * rand.normal(
             subkey, shape=(batches, num_timesteps, self.size_out)
         )
 
