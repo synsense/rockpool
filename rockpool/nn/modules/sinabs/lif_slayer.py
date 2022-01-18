@@ -27,6 +27,7 @@ class LIFSlayer(LIFBaseTorch):
         tau_mem: P_float = 0.02,
         tau_syn: P_float = 0.05,
         threshold: P_float = 1.0,
+        bias: P_float = Constant(0.0),
         has_rec: bool = False,
         noise_std: P_float = 0.0,
         *args,
@@ -51,22 +52,19 @@ class LIFSlayer(LIFBaseTorch):
 
         assert has_rec == False, "Slayer-backed LIF module does not support recurrence"
         assert noise_std == 0.0, "Slayer-backed LIF module does not support noise"
+        assert bias == Constant(0.0), "Slayer-backed LIF module does not support bias"
 
         # - Initialise superclass
         super().__init__(
             tau_mem=Constant(tau_mem),
             threshold=Constant(threshold),
             tau_syn=Constant(tau_syn),
-            bias=Constant(0.0),
+            bias=bias,
             has_rec=False,
             noise_std=noise_std,
             *args,
             **kwargs,
         )
-
-    # def forward_leak(self, inp: torch.Tensor, alpha, state):
-    #
-    #     return out_state
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
@@ -154,13 +152,11 @@ class LIFSlayer(LIFBaseTorch):
             .to(data.device)
         )
 
-        vmem_slayer = vmem_slayer - spikes
-
         # recording
         if self._record:
             # recording
-            self._record_Vmem = vmem_slayer
-            self._record_Isyn = isyn_slayer
+            self._record_vmem = vmem_slayer
+            self._record_isyn = isyn_slayer
 
         self._record_spikes = spikes
 
