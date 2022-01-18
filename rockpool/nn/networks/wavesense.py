@@ -113,6 +113,8 @@ class WaveSenseBlock(TorchModule):
         self.lin1 = LinearTorch(
             shape=(Nchannels, Nchannels * kernel_size), has_bias=False
         )
+        with torch.no_grad():
+            self.lin1.weight.data = self.lin1.weight.data * dt / tau_syn.max()
 
         self.spk1 = self.neuron_model(
             shape=(Nchannels * kernel_size, Nchannels),
@@ -130,6 +132,8 @@ class WaveSenseBlock(TorchModule):
 
         # - Remapping output layers
         self.lin2_res = LinearTorch(shape=(Nchannels, Nchannels), has_bias=False)
+        with torch.no_grad():
+            self.lin2_res.weight.data = self.lin2_res.weight.data * dt / tau_syn.min()
 
         self.spk2_res = self.neuron_model(
             shape=(Nchannels, Nchannels),
@@ -147,6 +151,8 @@ class WaveSenseBlock(TorchModule):
 
         # - Skip output layers
         self.lin2_skip = LinearTorch(shape=(Nchannels, Nskip), has_bias=False)
+        with torch.no_grad():
+            self.lin2_skip.weight.data = self.lin2_skip.weight.data * dt / tau_syn.min()
 
         self.spk2_skip = self.neuron_model(
             shape=(Nskip, Nskip),
@@ -340,6 +346,8 @@ class WaveSenseNet(TorchModule):
 
         # - Input mapping layers
         self.lin1 = LinearTorch(shape=(n_channels_in, n_channels_res), has_bias=False)
+        with torch.no_grad():
+            self.lin1.weight.data = self.lin1.weight.data * dt / base_tau_syn
 
         self.spk1 = self.neuron_model(
             shape=(n_channels_res, n_channels_res),
@@ -374,6 +382,8 @@ class WaveSenseNet(TorchModule):
 
         # Dense readout layers
         self.hidden = LinearTorch(shape=(n_channels_skip, n_hidden), has_bias=False)
+        with torch.no_grad():
+            self.hidden.weight.data = self.hidden.weight.data * dt / base_tau_syn
 
         self.spk2 = self.neuron_model(
             shape=(n_hidden, n_hidden),
@@ -390,6 +400,8 @@ class WaveSenseNet(TorchModule):
         )
 
         self.readout = LinearTorch(shape=(n_hidden, n_classes), has_bias=False)
+        with torch.no_grad():
+            self.readout.weight.data = self.readout.weight.data * dt / tau_lp
 
         self.spk_out = self.neuron_model(
             shape=(n_classes, n_classes),
