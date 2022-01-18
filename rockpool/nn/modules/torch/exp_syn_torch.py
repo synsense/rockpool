@@ -78,7 +78,7 @@ class ExpSynTorch(TorchModule):
 
         # - Initialise state
         self.isyn: rt.P_tensor = rp.State(
-            shape=(1, self.size_out,), init_func=lambda s: torch.zeros(*s),
+            shape=(self.size_out,), init_func=lambda s: torch.zeros(*s),
         )
         """ (torch.tensor) Synaptic current state for each synapse ``(1, N)`` """
 
@@ -102,7 +102,7 @@ class ExpSynTorch(TorchModule):
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
         Forward method for processing data through this layer
-        Adds synaptic inputs to the synaptic states and mimics the epxonential synapse dynamics
+        Adds synaptic inputs to the synaptic states and mimics the exponential synapse dynamics
 
         Parameters
         ----------
@@ -114,15 +114,13 @@ class ExpSynTorch(TorchModule):
         out: Tensor
             Out of spikes with the shape (batch, time_steps, N)
         """
-        n_batches, time_steps, n_synapses = data.shape
-
-        if n_synapses != self.size_out:
-            raise ValueError(
-                f"Input has wrong synapse dimensions. It is {n_synapses}, must be {self.size_out}"
-            )
-
-        # - Expand state over batches
-        isyn = torch.ones(n_batches, 1, device=data.device) @ self.isyn
+        print(data.shape)
+        # - Auto-batch over input data
+        data, (isyn,) = self._auto_batch(data, (self.isyn,))
+        n_batches, time_steps, _ = data.shape
+        print(data.shape)
+        print(n_batches, time_steps)
+        print(self.isyn.shape, isyn.shape)
 
         # - Build a tensor to compute and return internal state
         self._isyn_rec = torch.zeros(data.shape, device=data.device)
@@ -140,7 +138,7 @@ class ExpSynTorch(TorchModule):
             self._isyn_rec[:, t, :] = isyn
 
         # - Store the final state
-        self.isyn = isyn[0:1].detach()
+        self.isyn = isyn[0].detach()
 
         # - Return the evolved synaptic current
         return self._isyn_rec

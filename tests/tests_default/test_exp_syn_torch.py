@@ -26,7 +26,7 @@ def test_ExpSynTorch():
     assert out.shape == input_data.shape
 
     for _, obj in ns.items():
-        assert obj.shape == (1, n_synapses)
+        assert obj.shape == (n_synapses,)
 
     for _, obj in rd.items():
         assert obj.shape == input_data.shape

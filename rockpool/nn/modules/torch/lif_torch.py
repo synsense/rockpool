@@ -358,29 +358,14 @@ class LIFTorch(LIFBaseTorch):
             Out of spikes with the shape (batch, time_steps, n_neurons)
 
         """
-        # - Verify input data shape
-        if len(data.shape) == 2:
-            data = torch.unsqueeze(data, 0)
-
-        (n_batches, time_steps, n_connections) = data.shape
-        if n_connections != self.size_in:
-            raise ValueError(
-                "Input has wrong neuron dimension. It is {}, must be {}".format(
-                    n_connections, self.size_in
-                )
-            )
+        # - Auto-batch over input data
+        data, (vmem, isyn, bias, spikes) = self._auto_batch(
+            data, (self.vmem, self.isyn, self.bias, self.spikes)
+        )
+        n_batches, time_steps, _ = data.shape
 
         # - Reshape data over separate input synapses
         data = data.reshape(n_batches, time_steps, self.n_neurons, self.n_synapses)
-
-        # - Replicate states out by batches
-        vmem = torch.ones(n_batches, self.n_neurons).to(data.device) * self.vmem
-        isyn = (
-            torch.ones(n_batches, self.n_neurons, self.n_synapses).to(data.device)
-            * self.isyn
-        )
-        bias = torch.ones(n_batches, self.n_neurons).to(data.device) * self.bias
-        spikes = torch.zeros(n_batches, self.n_neurons).to(data.device) * self.spikes
 
         # - Set up state record and output
         if self._record:

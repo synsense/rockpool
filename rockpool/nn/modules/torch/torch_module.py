@@ -185,6 +185,45 @@ class TorchModule(Module, nn.Module):
 
         return output_data, new_states, record_dict
 
+    def _auto_batch(
+        self, data: torch.Tensor, states: Tuple = (),
+    ) -> (torch.Tensor, Tuple[torch.Tensor]):
+        """
+        Automatically replicate states over batches and verify input dimensions
+
+        Usage:
+            >>> data, (state0, state1, state2) = self._auto_batch(data, (self.state0, self.state1, self.state2))
+
+            This will verify that `data` has the correct final dimension (i.e. `self.size_in`). If `data` has only two dimensions `(T, Nin)`, then it will be augmented to `(1, T, Nin)`. The individual states will be replicated out from shape `(a, b, c, ...)` to `(n_batches, a, b, c, ...)` and returned.
+
+        Args:
+            data (torch.Tensor): Input data tensor. Either ``(batches, T, Nin)`` or ``(T, Nin)``
+            states (Tuple): Tuple of state variables. Each will be replicated out over batches by prepending a batch dimension
+
+        Returns:
+            (torch.Tensor, Tuple[torch.Tensor]) data, states
+        """
+        # - Verify input data shape
+        if len(data.shape) == 2:
+            data = torch.unsqueeze(data, 0)
+
+        # - Get shape of input
+        (n_batches, time_steps, n_connections) = data.shape
+
+        # - Check input dimensions
+        if n_connections != self.size_in:
+            raise ValueError(
+                "Input has wrong neuron dimension. It is {}, must be {}".format(
+                    n_connections, self.size_in
+                )
+            )
+
+        # - Replicate shapes and return
+        states = tuple(
+            torch.ones((n_batches, *s.shape), device=s.device) * s for s in states
+        )
+        return data, states
+
     def __setattr__(self, key, value):
         if isinstance(value, nn.Parameter):
             # - Also register as a rockpool parameter
