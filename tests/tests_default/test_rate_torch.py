@@ -35,7 +35,9 @@ def test_evolve():
     assert out.shape == (batches, T, N)
     out.sum().backward()
 
-    assert torch.all(mod.tau.grad != 0.0)
-    assert torch.all(mod.bias.grad != 0.0)
-    assert torch.all(mod.threshold.grad != 0.0)
-    assert torch.all(mod.w_rec.grad != 0.0)
+    all_zero = lambda x: torch.allclose(x, torch.zeros_like(x))
+
+    assert not all_zero(mod.tau.grad)
+    assert not all_zero(mod.bias.grad)
+    assert not all_zero(mod.threshold.grad)
+    assert not all_zero(mod.w_rec.grad)
