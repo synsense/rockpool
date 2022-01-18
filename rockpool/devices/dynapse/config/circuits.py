@@ -19,8 +19,9 @@ import numpy as np
 from rockpool.devices.dynapse.infrastructure.biasgen import BiasGenSE1, BiasGenSE2
 from rockpool.devices.dynapse.config.layout import DynapSELayout
 
+_SAMNA_SE1_AVAILABLE = True
+_SAMNA_SE2_AVAILABLE = True
 
-_SAMNA_AVAILABLE = True
 
 try:
     from samna.dynapse1 import Dynapse1Parameter
@@ -30,7 +31,7 @@ except ModuleNotFoundError as e:
     print(
         e, "\nDynapSE1SimCore object cannot be factored from a samna config object!",
     )
-    _SAMNA_AVAILABLE = False
+    _SAMNA_SE1_AVAILABLE = False
 
 try:
     from samna.dynapse2 import Dynapse2Parameter
@@ -39,21 +40,57 @@ except ModuleNotFoundError as e:
     print(
         e, "\nDynapSE2SimCore object cannot be factored from a samna config object!",
     )
-    _SAMNA_AVAILABLE = False
+    _SAMNA_SE2_AVAILABLE = False
 
 
-class DynapSEParameters:
-    @staticmethod
+@dataclass
+class DynapSEParamGen:
+    """
+    DynapSEParamGen encapsulates common Dynap-SE1/SE2 paramter configuratin -> bias current 
+    conversion methods and serve as a top level class.
+
+    :param version: the processor version. either 1 or 2
+    :type version: int
+    """
+
+    version: int
+
+    def __post_init__(self) -> None:
+        if self.version == 1:
+            self.bias_gen = BiasGenSE1()
+        elif self.version == 2:
+            self.bias_gen = BiasGenSE2()
+        else:
+            raise ValueError(
+                f"Currently Dynap-SE1 and Dynap-SE2 are available. (version 1 or 2)!\n"
+                f"No support for version: {self.version}!"
+            )
+
+    def _check_param_version(self, param: Union[Dynapse1Parameter, Dynapse2Parameter]):
+        """
+        _check_param_version Check if the samna parameter version and the simulated processor version is compatible
+
+        :param param: a parameter inside samna config object of interest to check if the samna parameter version matches the simulation configuration version
+        :type param: Union[Dynapse1Parameter, Dynapse2Parameter]
+        :raises TypeError: The parameter type and processor version indicated is incompatible!"
+        """
+        if isinstance(param, Dynapse1Parameter) and self.version == 1:
+            None
+        elif isinstance(param, Dynapse2Parameter) and self.version == 2:
+            None
+        else:
+            raise TypeError(
+                f"The parameter type {type(param)} and processor version Dynap-SE{self.version} indicated is incompatible!"
+            )
+
     def bias(
-        layout: DynapSELayout,
+        self,
         samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]],
         name: str,
     ) -> float:
         """
         extract and obtain the bias current from the samna parameter group using bias generator
 
-        :param layout: constant values that are related to the exact silicon layout of a chip
-        :type layout: DynapSELayout
         :param samna_parameters: a parameter dictionary inside samna config object for setting the parameter group within one core
         :type samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]]
         :param name: the parameter name of the bias current
@@ -61,22 +98,12 @@ class DynapSEParameters:
         :return: biasgen corrected bias value by multiplying a correction factor
         :rtype: float
         """
-        param = samna_parameters[name]
-        coarse = param.coarse_value
-        fine = param.fine_value
-        if isinstance(param, Dynapse1Parameter):
-            bias_current = BiasGenSE1.param_to_bias(
-                samna_parameters[name], Io=layout.Io
-            )
-        elif isinstance(param, Dynapse2Parameter):
-            bias_current = BiasGenSE2.get_bias(coarse, fine, name[-1], scaling_factor=1)
-        else:
-            raise TypeError("Unsupported type provided!")
+        bias_current = self.bias_gen.param_to_bias(name, samna_parameters[name])
         return bias_current
 
 
 @dataclass
-class DPIParameters(DynapSEParameters):
+class DPIParameters:
     """
     DPIParameters encapsulates DPI-specific bias current parameters and calculates their logical reciprocals.
 
@@ -225,7 +252,7 @@ class DPIParameters(DynapSEParameters):
 
 
 @dataclass
-class WeightParameters(DynapSEParameters):
+class WeightParameters:
     """
     WeightParameters encapsulates weight currents of the configurable synapses between neurons. It provides a general way of handling SE1 and SE2 base weight currents.
 
@@ -473,7 +500,7 @@ class MembraneParameters(DPIParameters):
         :rtype: MembraneParameters
         """
 
-        bias = lambda name: cls.bias(layout, samna_parameters, name)
+        bias = lambda name: cls.bias(samna_parameters, name)
 
         mod = cls(
             Itau=bias("IF_TAU1_N"),
@@ -705,7 +732,7 @@ class AHPParameters(SynapseParameters):
             layout,
             Itau_name="IF_AHTAU_N",
             Ithr_name="IF_AHTHR_N",
-            Iw=cls.bias(layout, samna_parameters, "IF_AHW_P"),
+            Iw=cls.bias(samna_parameters, "IF_AHW_P"),
             *args,
             **kwargs,
         )
