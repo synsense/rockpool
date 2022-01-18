@@ -359,8 +359,15 @@ class LIFTorch(LIFBaseTorch):
 
         """
         # - Auto-batch over input data
-        data, (vmem, isyn, bias, spikes) = self._auto_batch(
-            data, (self.vmem, self.isyn, self.bias, self.spikes)
+        data, (vmem, bias, spikes, isyn) = self._auto_batch(
+            data,
+            (self.vmem, self.bias, self.spikes, self.isyn,),
+            (
+                (self.size_out,),
+                (self.size_out,),
+                (self.size_out,),
+                (self.n_neurons, self.n_synapses),
+            ),
         )
         n_batches, time_steps, _ = data.shape
 

@@ -186,7 +186,7 @@ class TorchModule(Module, nn.Module):
         return output_data, new_states, record_dict
 
     def _auto_batch(
-        self, data: torch.Tensor, states: Tuple = (),
+        self, data: torch.Tensor, states: Tuple = (), target_shapes: Tuple = None,
     ) -> (torch.Tensor, Tuple[torch.Tensor]):
         """
         Automatically replicate states over batches and verify input dimensions
@@ -218,9 +218,19 @@ class TorchModule(Module, nn.Module):
                 )
             )
 
+        # - Get target shapes
+        if target_shapes is None:
+            target_shapes = tuple(s.shape for s in states)
+        else:
+            target_shapes = tuple(
+                s.shape if shape is None else shape
+                for s, shape in zip(states, target_shapes)
+            )
+
         # - Replicate shapes and return
         states = tuple(
-            torch.ones((n_batches, *s.shape), device=s.device) * s for s in states
+            torch.ones((n_batches, *shape), device=s.device) * s
+            for s, shape in zip(states, target_shapes)
         )
         return data, states
 
