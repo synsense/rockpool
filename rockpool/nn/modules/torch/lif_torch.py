@@ -39,7 +39,7 @@ class StepPWL(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, data, threshold=0.0, window=0.5):
+    def forward(ctx, data, threshold=1.0, window=0.5):
         ctx.save_for_backward(data.clone())
         ctx.threshold = threshold
         ctx.window = window
@@ -359,7 +359,10 @@ class LIFTorch(LIFBaseTorch):
 
         """
         # - Verify input data shape
-        (n_batches, time_steps, n_connections) = torch.atleast_3d(data).shape
+        if len(data.shape) == 2:
+            data = torch.unsqueeze(data, 0)
+
+        (n_batches, time_steps, n_connections) = data.shape
         if n_connections != self.size_in:
             raise ValueError(
                 "Input has wrong neuron dimension. It is {}, must be {}".format(
@@ -400,16 +403,16 @@ class LIFTorch(LIFBaseTorch):
             # Integrate synaptic input
             isyn = isyn + data[:, t]
 
-            # Decay synaptic and membrane state
-            vmem *= alpha
-            isyn *= beta
-
             # - Apply spikes over the recurrent weights
             if hasattr(self, "w_rec"):
                 rec_inp = F.linear(spikes, self.w_rec.T).reshape(
                     n_batches, self.n_neurons, self.n_synapses
                 )
                 isyn = isyn + rec_inp
+
+            # Decay synaptic and membrane state
+            vmem *= alpha
+            isyn *= beta
 
             # Integrate membrane state and apply noise
             vmem = vmem + isyn.sum(2) + bias

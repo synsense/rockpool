@@ -65,7 +65,8 @@ def step_pwl(x: FloatVector, threshold: FloatVector) -> FloatVector:
     Returns:
         float: Number of output events for each input value
     """
-    return np.clip(np.floor(x + 1.0 - threshold), 0.0)
+    # return np.clip(np.floor(x + 1.0 - threshold), 0.0)
+    return (x > 0) * np.floor(x / threshold)
 
 
 @step_pwl.defjvp
@@ -80,44 +81,6 @@ def step_pwl_jvp(primals, tangents):
 
 
 class LIFJax(JaxModule):
-    """
-    A leaky integrate-and-fire spiking neuron model
-
-    This module implements the dynamics:
-
-    .. math ::
-
-        \\tau_{syn} \\dot{I}_{syn} + I_{syn} = 0
-
-        I_{syn} += S_{in}(t)
-
-        \\tau_{syn} \\dot{V}_{mem} + V_{mem} = I_{syn} + b + \\sigma\\zeta(t)
-
-    where :math:`S_{in}(t)` is a vector containing ``1`` for each input channel that emits a spike at time :math:`t`; :math:`b` is a :math:`N` vector of bias currents for each neuron; :math:`\\sigma\\zeta(t)` is a white-noise process with standard deviation :math:`\\sigma` injected independently onto each neuron's membrane; and :math:`\\tau_{mem}` and :math:`\\tau_{syn}` are the membrane and synaptic time constants, respectively.
-
-    :On spiking:
-
-    When the membrane potential for neuron :math:`j`, :math:`V_{mem, j}` exceeds the threshold voltage :math:`V_{thr} = 0`, then the neuron emits a spike.
-
-    .. math ::
-
-        V_{mem, j} > V_{thr} \\rightarrow S_{rec,j} = 1
-
-        I_{syn} = I_{syn} + S_{rec} \\cdot w_{rec}
-
-        V_{mem, j} = V_{mem, j} - 1
-
-    Neurons therefore share a common resting potential of ``0``, a firing threshold of ``0``, and a subtractive reset of ``-1``. Neurons each have an optional bias current `.bias` (default: ``0.``).
-
-    :Surrogate signals:
-
-    To facilitate gradient-based training, a surrogate :math:`U(t)` is generated from the membrane potentials of each neuron.
-
-    .. math ::
-
-        U_j = \\textrm{tanh}(20 * V_j + 1) / 2 + .5
-    """
-
     def __init__(
         self,
         shape: Union[Tuple, int],
@@ -126,11 +89,11 @@ class LIFJax(JaxModule):
         bias: Optional[FloatVector] = None,
         has_rec: bool = False,
         w_rec: Optional[FloatVector] = None,
-        threshold: FloatVector = 0.0,
-        dt: float = 1e-3,
-        noise_std: float = 0.0,
-        rng_key: Optional[Any] = None,
         weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = kaiming,
+        threshold: FloatVector = 1.0,
+        noise_std: float = 0.0,
+        dt: float = 1e-3,
+        rng_key: Optional[Any] = None,
         spiking_input: bool = False,
         spiking_output: bool = True,
         *args,
@@ -216,10 +179,7 @@ class LIFJax(JaxModule):
         """ (np.ndarray) Synaptic time constants `(Nout,)` or `()` """
 
         self.bias: Union[np.ndarray, Parameter] = Parameter(
-            bias,
-            "bias",
-            init_func=lambda s: np.zeros(s),
-            shape=[(self.size_out,), ()],
+            bias, "bias", init_func=lambda s: np.zeros(s), shape=[(self.size_out,), ()],
         )
         """ (np.ndarray) Neuron bias currents `(Nout,)` or `()` """
 
@@ -242,12 +202,12 @@ class LIFJax(JaxModule):
         )
         """ (np.ndarray) Spiking state of each neuron `(Nout,)` """
 
-        self.Isyn: Union[np.ndarray, State] = State(
+        self.isyn: Union[np.ndarray, State] = State(
             shape=(self.size_out,), init_func=np.zeros
         )
         """ (np.ndarray) Synaptic current of each neuron `(Nin,)` """
 
-        self.Vmem: Union[np.ndarray, State] = State(
+        self.vmem: Union[np.ndarray, State] = State(
             shape=(self.size_out,), init_func=np.zeros
         )
         """ (np.ndarray) Membrane voltage of each neuron `(Nout,)` """
@@ -258,46 +218,9 @@ class LIFJax(JaxModule):
         }
 
     def evolve(
-        self,
-        input_data: np.ndarray,
-        record: bool = False,
+        self, input_data: np.ndarray, record: bool = False,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
-        Raw JAX evolution function for an LIF spiking layer
-
-        This function implements the dynamics:
-
-        .. math ::
-
-            \\tau_{syn} \\dot{I}_{syn} + I_{syn} = 0
-
-            I_{syn} += S_{in}(t)
-
-            \\tau_{syn} \\dot{V}_{mem} + V_{mem} = I_{syn} + b + \\sigma\\zeta(t)
-
-        where :math:`S_{in}(t)` is a vector containing ``1`` for each input channel that emits a spike at time :math:`t`; :math:`b` is a :math:`N` vector of bias currents for each neuron; :math:`\\sigma\\zeta(t)` is a white-noise process with standard deviation :math:`\\sigma` injected independently onto each neuron's membrane; and :math:`\\tau_{mem}` and :math:`\\tau_{syn}` are the membrane and synaptic time constants, respectively.
-
-        :On spiking:
-
-        When the membrane potential for neuron :math:`j`, :math:`V_{mem, j}` exceeds the threshold voltage :math:`V_{thr} = 0`, then the neuron emits a spike.
-
-        .. math ::
-
-            V_{mem, j} > V_{thr} \\rightarrow S_{rec,j} = 1
-
-            I_{syn} = I_{syn} + S_{rec} \\cdot w_{rec}
-
-            V_{mem, j} = V_{mem, j} - 1
-
-        Neurons therefore share a common resting potential of ``0``, a firing threshold of ``0``, and a subtractive reset of ``-1``. Neurons each have an optional bias current `.bias` (default: ``-1``).
-
-        :Surrogate signals:
-
-        To facilitate gradient-based training, a surrogate :math:`U(t)` is generated from the membrane potentials of each neuron.
-
-        .. math ::
-
-            U_j = \\textrm{tanh}(20 * V_j + 1) / 2 + .5
 
         Args:
             input_data (np.ndarray): Input array of shape ``(T, Nin)`` to evolve over
@@ -307,6 +230,18 @@ class LIFJax(JaxModule):
             (np.ndarray, dict, dict): output, new_state, record_state
             ``output`` is an array with shape ``(T, Nout)`` containing the output data produced by this module. ``new_state`` is a dictionary containing the updated module state following evolution. ``record_state`` will be a dictionary containing the recorded state variables for this evolution, if the ``record`` argument is ``True``.
         """
+
+        # - Get input shapes, add batch dimension if necessary
+        if len(input_data.shape) == 2:
+            input_data = np.expand_dims(input_data, 0)
+        batches, num_timesteps, n_inputs = input_data.shape
+
+        if n_inputs != self.size_in:
+            raise ValueError(
+                "Input has wrong neuron dimension. It is {}, must be {}".format(
+                    n_inputs, self.size_in
+                )
+            )
 
         # - Get evolution constants
         alpha = np.exp(-self.dt / self.tau_mem)
@@ -362,23 +297,30 @@ class LIFJax(JaxModule):
             spikes = step_pwl(Vmem, self.threshold)
 
             # - Apply subtractive membrane reset
-            Vmem = Vmem - spikes
+            Vmem = Vmem - spikes * self.threshold
 
             # - Return state and outputs
             return (spikes, Isyn, Vmem), (Irec, spikes, Vmem, Isyn)
 
         # - Generate membrane noise trace
-        num_timesteps = input_data.shape[0]
         key1, subkey = rand.split(self.rng_key)
         noise_ts = self.noise_std * rand.normal(
-            subkey, shape=(num_timesteps, self.size_out)
+            subkey, shape=(batches, num_timesteps, self.size_out)
         )
 
+        # - Replicate states
+        spikes = np.broadcast_to(self.spikes, (batches, self.size_out))
+        isyn = np.broadcast_to(self.isyn, (batches, self.size_in))
+        vmem = np.broadcast_to(self.vmem, (batches, self.size_out))
+
+        # - Map over batches
+        @jax.vmap
+        def scan_time(spikes, isyn, vmem, input_data, noise_ts):
+            return scan(forward, (spikes, isyn, vmem), (input_data, noise_ts))
+
         # - Evolve over spiking inputs
-        state, (Irec_ts, spikes_ts, Vmem_ts, Isyn_ts) = scan(
-            forward,
-            (self.spikes, self.Isyn, self.Vmem),
-            (input_data, noise_ts),
+        state, (Irec_ts, spikes_ts, Vmem_ts, Isyn_ts) = scan_time(
+            spikes, isyn, vmem, input_data, noise_ts
         )
 
         # - Generate output surrogate
@@ -387,17 +329,17 @@ class LIFJax(JaxModule):
         # - Generate return arguments
         outputs = spikes_ts
         states = {
-            "spikes": spikes_ts[-1],
-            "Isyn": Isyn_ts[-1],
-            "Vmem": Vmem_ts[-1],
+            "spikes": spikes_ts[0, -1],
+            "isyn": Isyn_ts[0, -1],
+            "vmem": Vmem_ts[0, -1],
             "rng_key": key1,
         }
 
         record_dict = {
-            "Irec": Irec_ts,
+            "irec": Irec_ts,
             "spikes": spikes_ts,
-            "Isyn": Isyn_ts,
-            "Vmem": Vmem_ts,
+            "isyn": Isyn_ts,
+            "vmem": Vmem_ts,
             "U": surrogate_ts,
         }
 
