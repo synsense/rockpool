@@ -144,25 +144,11 @@ class RateTorch(TorchModule):
         return out, state, record_dict
 
     def forward(self, data, *args, **kwargs) -> torch.Tensor:
-        # - Verify input data shape
-        if len(data.shape) == 2:
-            data = torch.unsqueeze(data, 0)
-        (n_batches, time_steps, n_inputs) = data.shape
-
-        if n_inputs != self.size_in:
-            raise ValueError(
-                "Input has wrong input dimension. It is {}, must be {}".format(
-                    n_inputs, self.size_in
-                )
-            )
-
-        # - Replicate states out by batches
-        neur_state = torch.ones(n_batches, self.size_out).to(data.device) * self.x
-        bias = torch.ones(n_batches, self.size_out).to(data.device) * self.bias
-        acts = torch.ones(n_batches, self.size_out).to(data.device) * self.acts
-        threshold = (
-            torch.ones(n_batches, self.size_out).to(data.device) * self.threshold
+        # - Perform auto-batching
+        data, (neur_state, bias, acts, threshold) = self._auto_batch(
+            data, (self.x, self.bias, self.acts, self.threshold)
         )
+        (n_batches, time_steps, _) = data.shape
 
         # - Set up state record and output
         if self._record:
