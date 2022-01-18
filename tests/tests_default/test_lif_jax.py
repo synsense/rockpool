@@ -40,7 +40,7 @@ def test_lif_jax():
     _, new_state, _ = lyr(np.random.rand(T, N))
     lyr = lyr.set_attributes(new_state)
 
-    lyr.Vmem = np.array([1.0] * N)
+    lyr.vmem = np.array([1.0] * N)
 
     print("evolving with jit")
     je = jit(lyr)
@@ -199,3 +199,59 @@ def test_sgd():
             t.set_postfix({"loss": loss})
 
     print(f"Losses: [0] {loss_t[0]} .. [-1] {loss_t[-1]}")
+
+
+def test_lif_jax_batches():
+    from rockpool.nn.modules.jax.lif_jax import LIFJax
+
+    from jax import jit
+
+    import numpy as np
+
+    batches = 5
+    N = 10
+    T = 20
+    lyr = LIFJax(N)
+
+    # - Test getting and setting
+    p = lyr.parameters()
+    lyr.set_attributes(p)
+
+    s = lyr.state()
+    lyr.set_attributes(s)
+
+    sp = lyr.simulation_parameters()
+    lyr.set_attributes(sp)
+
+    print("evolve func")
+    _, new_state, _ = lyr.evolve(np.random.rand(batches, T, N))
+    lyr = lyr.set_attributes(new_state)
+
+    print("evolving with call")
+    _, new_state, _ = lyr(np.random.rand(batches, T, N))
+    lyr = lyr.set_attributes(new_state)
+
+    _, new_state, _ = lyr(np.random.rand(batches, T, N))
+    lyr = lyr.set_attributes(new_state)
+
+    lyr.vmem = np.array([1.0] * N)
+
+    print("evolving with jit")
+    je = jit(lyr)
+    _, new_state, _ = je(np.random.rand(batches, T, N))
+    lyr = lyr.set_attributes(new_state)
+
+    _, new_state, _ = je(np.random.rand(batches, T, N))
+    lyr = lyr.set_attributes(new_state)
+
+    ## - Test recurrent mode
+    lyr = LIFJax((N, N), has_rec=True)
+
+    print("evolving recurrent")
+    o, ns, r_d = lyr(np.random.rand(batches, T, N))
+    lyr = lyr.set_attributes(ns)
+
+    print("evolving recurrent with jit")
+    je = jit(lyr)
+    o, n_s, r_d = je(np.random.rand(batches, T, N))
+    lyr = lyr.set_attributes(n_s)

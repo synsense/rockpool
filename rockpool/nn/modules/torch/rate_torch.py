@@ -145,7 +145,10 @@ class RateTorch(TorchModule):
 
     def forward(self, data, *args, **kwargs) -> torch.Tensor:
         # - Verify input data shape
-        (n_batches, time_steps, n_inputs) = torch.atleast_3d(data).shape
+        if len(data.shape) == 2:
+            data = torch.unsqueeze(data, 0)
+        (n_batches, time_steps, n_inputs) = data.shape
+
         if n_inputs != self.size_in:
             raise ValueError(
                 "Input has wrong input dimension. It is {}, must be {}".format(
