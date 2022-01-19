@@ -7,7 +7,6 @@ def test_tracing():
         LIFTorch,
         LinearJax,
         LinearTorch,
-        RateEulerJax,
     )
     from rockpool.nn.combinators import Sequential
     from rockpool.graph import bag_graph
