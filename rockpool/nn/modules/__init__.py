@@ -19,6 +19,7 @@ from .native.instant import *
 from .native.filter_bank import *
 from .native.exp_syn import *
 from .native.rate import *
+from .native.lif import *
 
 # - Torch modules
 try:

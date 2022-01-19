@@ -214,9 +214,9 @@ class Rate(Module):
                 )
 
                 # - Keep a record of the layer dynamics
-                rec_inputs[b, :, :] = this_rec_i
-                res_state[b, :, :] = this_r_s
-                outputs[b, :, :] = this_out
+                rec_inputs[b, t, :] = this_rec_i
+                res_state[b, t, :] = this_r_s
+                outputs[b, t, :] = this_out
 
         self.x = x[0]
 
