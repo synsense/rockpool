@@ -730,3 +730,51 @@ class Module(ModuleBase, ABC, metaclass=PostInitMetaMixin):
         return TimedModuleWrapper(
             self, output_num=output_num, dt=dt, add_events=add_events
         )
+
+    def _auto_batch(
+        self, data: np.ndarray, states: Tuple = (), target_shapes: Tuple = None,
+    ) -> (np.ndarray, Tuple[np.ndarray]):
+        """
+        Automatically replicate states over batches and verify input dimensions
+
+        Usage:
+            >>> data, (state0, state1, state2) = self._auto_batch(data, (self.state0, self.state1, self.state2))
+
+            This will verify that `data` has the correct final dimension (i.e. `self.size_in`). If `data` has only two dimensions `(T, Nin)`, then it will be augmented to `(1, T, Nin)`. The individual states will be replicated out from shape `(a, b, c, ...)` to `(n_batches, a, b, c, ...)` and returned.
+
+        Args:
+            data (np.ndarray): Input data tensor. Either ``(batches, T, Nin)`` or ``(T, Nin)``
+            states (Tuple): Tuple of state variables. Each will be replicated out over batches by prepending a batch dimension
+
+        Returns:
+            (np.ndarray, Tuple[np.ndarray]) data, states
+        """
+        # - Verify input data shape
+        if len(data.shape) == 2:
+            data = np.expand_dims(data, 0)
+
+        # - Get shape of input
+        (n_batches, time_steps, n_connections) = data.shape
+
+        # - Check input dimensions
+        if n_connections != self.size_in:
+            raise ValueError(
+                "Input has wrong neuron dimension. It is {}, must be {}".format(
+                    n_connections, self.size_in
+                )
+            )
+
+        # - Get target shapes
+        if target_shapes is None:
+            target_shapes = tuple(s.shape for s in states)
+        else:
+            target_shapes = tuple(
+                s.shape if shape is None else shape
+                for s, shape in zip(states, target_shapes)
+            )
+
+        # - Replicate shapes and return
+        states = tuple(
+            np.ones((n_batches, *shape)) * s for s, shape in zip(states, target_shapes)
+        )
+        return data, states
