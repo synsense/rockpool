@@ -6,18 +6,16 @@ config.update("jax_log_compiles", True)
 
 
 def test_imports():
-    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
-    from rockpool.nn.modules.module import Module
-    from rockpool.nn.modules.jax.jax_module import JaxModule
-    from rockpool.parameters import Parameter, SimulationParameter, State
+    from rockpool.nn.modules import RateJax
+    from rockpool.nn.modules import JaxModule
 
 
 def test_assignment_jax():
-    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
+    from rockpool.nn.modules import RateJax
     import numpy as np
 
     # - Construct a module
-    mod = RateEulerJax(5)
+    mod = RateJax(5)
 
     # - Modify attributes and test assignment
     p = mod.parameters()
@@ -34,8 +32,8 @@ def test_assignment_jax():
     assert np.all(mod.tau == 4.0)
 
 
-def test_euler_jax():
-    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
+def test_rate_jax():
+    from rockpool.nn.modules import RateJax
 
     import jax
     from jax import jit
@@ -43,14 +41,10 @@ def test_euler_jax():
 
     import numpy as np
 
-    lyr = RateEulerJax(
-        tau=np.random.rand(
-            2,
-        )
-        * 10,
-        bias=np.random.rand(
-            2,
-        ),
+    lyr = RateJax(
+        shape=2,
+        tau=np.random.rand(2,) * 10,
+        bias=np.random.rand(2,),
         activation_func="tanh",
     )
     lyr = lyr.reset_state()
@@ -112,7 +106,7 @@ def test_euler_jax():
     # print(lyr.state())
 
     # - Test recurrent mode
-    lyr = RateEulerJax(shape=(10, 10))
+    lyr = RateJax(shape=(10, 10))
 
     o, ns, r_d = lyr(np.random.rand(20, 10))
     lyr = lyr.set_attributes(ns)
@@ -123,8 +117,8 @@ def test_euler_jax():
 
 
 def test_ffwd_net():
-    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
-    from rockpool.nn.modules.jax.jax_module import JaxModule
+    from rockpool.nn.modules import RateJax
+    from rockpool.nn.modules import JaxModule
     from rockpool.parameters import Parameter
 
     import numpy as np
@@ -145,16 +139,9 @@ def test_ffwd_net():
                     ),
                 )
 
-                tau = (
-                    np.random.rand(
-                        N_out,
-                    )
-                    * 10
-                )
-                bias = np.random.rand(
-                    N_out,
-                )
-                setattr(self, f"iaf_{index}", RateEulerJax(tau=tau, bias=bias))
+                tau = np.random.rand(N_out,) * 10
+                bias = np.random.rand(N_out,)
+                setattr(self, f"iaf_{index}", RateJax(N_out, tau=tau, bias=bias))
 
         def evolve(self, input, record: bool = False):
             new_state = {}
@@ -211,8 +198,8 @@ def test_ffwd_net():
 
 
 def test_sgd():
-    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
-    from rockpool.nn.modules.jax.jax_module import JaxModule
+    from rockpool.nn.modules import RateJax
+    from rockpool.nn.modules import JaxModule
     from rockpool.parameters import Parameter
 
     import jax
@@ -232,16 +219,9 @@ def test_sgd():
                     Parameter(np.random.rand(N_in, N_out), "weights"),
                 )
 
-                tau = (
-                    np.random.rand(
-                        N_out,
-                    )
-                    * 10
-                )
-                bias = np.random.rand(
-                    N_out,
-                )
-                setattr(self, f"iaf_{index}", RateEulerJax(tau=tau, bias=bias))
+                tau = np.random.rand(N_out,) * 10
+                bias = np.random.rand(N_out,)
+                setattr(self, f"iaf_{index}", RateJax(N_out, tau=tau, bias=bias))
 
         def evolve(self, input, record: bool = False):
             new_state = {}
@@ -320,8 +300,8 @@ def test_sgd():
 
 
 def test_nonjax_submodule():
-    from rockpool.nn.modules.module import Module
-    from rockpool.nn.modules.jax.jax_module import JaxModule
+    from rockpool.nn.modules import Module
+    from rockpool.nn.modules import JaxModule
 
     class nonjax_mod(Module):
         def evolve(self, input, record: bool = False):

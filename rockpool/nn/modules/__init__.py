@@ -51,8 +51,6 @@ try:
     from .jax.rate_jax import *
     from .jax.softmax_jax import *
 
-    # from .jax.exp_smooth_jax import *
-
 except (ImportError, ModuleNotFoundError) as err:
     warnings.warn(f"Jax modules not available: {err}")
 

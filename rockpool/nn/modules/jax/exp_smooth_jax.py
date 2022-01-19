@@ -13,6 +13,10 @@ from typing import Tuple, Union, Any, Callable, Optional
 
 __all__ = ["ExpSmoothJax"]
 
+import warnings
+
+warnings.warn("The module ExpSmoothJax is deprecated. Use ExpSynJax instead.")
+
 
 class ExpSmoothJax(JaxModule):
     """
