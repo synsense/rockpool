@@ -106,7 +106,7 @@ def test_rate_jax():
     # print(lyr.state())
 
     # - Test recurrent mode
-    lyr = RateJax(shape=(10, 10))
+    lyr = RateJax(10, has_rec=True)
 
     o, ns, r_d = lyr(np.random.rand(20, 10))
     lyr = lyr.set_attributes(ns)
