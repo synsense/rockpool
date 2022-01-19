@@ -105,6 +105,9 @@ class RateJax(JaxModule):
             shape=shape, spiking_input=False, spiking_output=False, *args, **kwargs
         )
 
+        if self.size_out != self.size_in:
+            raise ValueError("RateJax module must have `size_out` == `size_in`.")
+
         # - Seed RNG
         if rng_key is None:
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
@@ -236,7 +239,7 @@ class RateJax(JaxModule):
             return scan(forward, (state0, act0), inputs)
 
         # - Use `scan` to evaluate reservoir
-        (x1, _), (rec_inputs, res_state, res_acts) = scan_time(
+        (x1, _), (rec_inputs, res_state, outputs) = scan_time(
             x0, self.act_fn(x0), inputs
         )
 
@@ -248,10 +251,9 @@ class RateJax(JaxModule):
         record_dict = {
             "rec_input": rec_inputs,
             "x": res_state,
-            "act": res_acts,
         }
 
-        return res_acts, new_state, record_dict
+        return outputs, new_state, record_dict
 
     def as_graph(self) -> GraphModuleBase:
         # - Generate a GraphModule for the neurons
