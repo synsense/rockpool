@@ -279,59 +279,23 @@ class DynapSE1SimCore:
 
     ## Property Utils ##
 
-    def _get_syn_vector(self, target: str) -> np.ndarray:
+    def neuron_property(self, subcircuit: str, attr: str) -> jnp.DeviceArray:
         """
-        _get_syn_vector lists the synaptic parameters traversing the different object instances of the same class
-
-        :param target: target parameter to be extracted and listed in the order of object list
-        :type target: str
-        :return: An array of target parameter values obtained from the objects
-        :rtype: np.ndarray
-        """
-
-        object_list = [self.gaba_b, self.gaba_a, self.nmda, self.ampa]
-
-        param_list = [
-            obj.__getattribute__(target) if obj is not None else None
-            for obj in object_list
-        ]
-
-        return np.array(param_list)
-
-    def mem_property(self, attr: str) -> jnp.DeviceArray:
-        """
-        mem_property fetches an attribute from the membrane subcircuit and create a property array covering all the neurons allocated
-
-        :param attr: the target attribute
+        neuron_property fetches an attribute from a neuron subcircuit and create a property array covering all the neurons allocated
+            i.e. Itau_mem :jnp.DeviceArray = self.neuron_property("mem", "Itau")
+            
+        :param subcircuit: The subcircuit harboring the desired property like "mem", "ahp" or "layout"
+        :type subcircuit: str
+        :param attr: An attribute stored inside the given subcircuit like "Itau", "Ith" or etc.
         :type attr: str
         :return: 1D an array full of the value of the target attribute (`size`,)
         :rtype: jnp.DeviceArray
         """
-        return jnp.full(self.size, self.mem.__getattribute__(attr), dtype=jnp.float32)
 
-    def ahp_property(self, attr: str) -> jnp.DeviceArray:
-        """
-        ahp_property fetches an attribute from the spike frequency adaptation subcircuit and create a property array covering all the neurons allocated
-
-        :param attr: the target attribute
-        :type attr: str
-        :return: 1D an array full of the value of the target attribute (`size`,)
-        :rtype: jnp.DeviceArray
-        """
-        return jnp.full(self.size, self.ahp.__getattribute__(attr), dtype=jnp.float32)
-
-    def layout_property(self, attr: str) -> jnp.DeviceArray:
-        """
-        layout_property fetches an attribute from the circuit layout and create a property array covering all the neurons allocated
-
-        :param attr: the target attribute
-        :type attr: str
-        :return: 1D an array full of the value of the target attribute (`size`,)
-        :rtype: jnp.DeviceArray
-        """
-        return jnp.full(
-            self.size, self.layout.__getattribute__(attr), dtype=jnp.float32
-        )
+        obj = self.__getattribute__(subcircuit)
+        data = obj.__getattribute__(attr)
+        array = jnp.full(self.size, data, dtype=jnp.float32)
+        return array
 
     def syn_property(self, attr: str) -> jnp.DeviceArray:
         """
@@ -342,7 +306,27 @@ class DynapSE1SimCore:
         :return: 2D an array full of the values of the target attributes of all 4 synapses (`size`, 4)
         :rtype: jnp.DeviceArray
         """
-        return jnp.full((self.size, 4), self._get_syn_vector(attr), dtype=jnp.float32)
+
+        def get_syn_vector() -> np.ndarray:
+            """
+            _get_syn_vector lists the synaptic parameters traversing the different object instances of the same class
+
+            :return: An array of target parameter values obtained from the objects
+            :rtype: np.ndarray
+            """
+
+            object_list = [self.gaba_b, self.gaba_a, self.nmda, self.ampa]
+
+            param_list = [
+                obj.__getattribute__(attr) if obj is not None else None
+                for obj in object_list
+            ]
+
+            return np.array(param_list)
+
+        data = get_syn_vector()
+        array = jnp.full((self.size, 4), data, dtype=jnp.float32)
+        return array
 
     ## -- Property Utils End -- ##
 
@@ -351,28 +335,28 @@ class DynapSE1SimCore:
         """
         Imem is an array of membrane currents of the neurons with shape = (Nrec,)
         """
-        return self.mem_property("Imem")
+        return self.neuron_property("mem", "Imem")
 
     @property
     def Itau_mem(self) -> jnp.DeviceArray:
         """
         Itau_mem is an array of membrane leakage currents of the neurons with shape = (Nrec,)
         """
-        return self.mem_property("Itau")
+        return self.neuron_property("mem", "Itau")
 
     @property
     def Itau2_mem(self) -> jnp.DeviceArray:
         """
         Itau2_mem is an array of secondary membrane leakage currents of the neurons with shape = (Nrec,)
         """
-        return self.mem_property("Itau2")
+        return self.neuron_property("mem", "Itau2")
 
     @property
     def f_gain_mem(self) -> jnp.DeviceArray:
         """
         f_gain_mem is an array of membrane gain parameter of the neurons with shape = (Nrec,)
         """
-        return self.mem_property("f_gain")
+        return self.neuron_property("mem", "f_gain")
 
     @property
     def Isyn(self) -> jnp.DeviceArray:
@@ -400,22 +384,23 @@ class DynapSE1SimCore:
         """
         Iahp is a 1D array of AHP synapse currents of the neurons with shape = (Nrec,)
         """
-        return self.ahp_property("Isyn")
+        return self.neuron_property("ahp", "Isyn")
 
     @property
     def Itau_ahp(self) -> jnp.DeviceArray:
         """
         Itau_syn is a 1D array of AHP synapse leakage currents of the neurons with shape = (Nrec,)
         """
-        return self.ahp_property("Itau")
+        return self.neuron_property("ahp", "Itau")
 
     @property
     def f_gain_ahp(self) -> jnp.DeviceArray:
         """
         f_gain_syn is a 1D array of AHP synapse gain parameters of the neurons with shape = (Nrec,)
         """
-        return self.ahp_property("f_gain")
+        return self.neuron_property("ahp", "f_gain")
 
+    # [] TODO : Remove
     @property
     def Iw_base(self) -> jnp.DeviceArray:
         """
@@ -428,35 +413,35 @@ class DynapSE1SimCore:
         """
         Iw_ahp is 1D array of spike frequency adaptation currents of the neurons in Amperes with shape (Nrec,)
         """
-        return self.ahp_property("Iw")
+        return self.neuron_property("ahp", "Iw")
 
     @property
     def kappa(self) -> jnp.DeviceArray:
         """
         kappa is the mean subthreshold slope factor of the transistors with shape (Nrec,)
         """
-        return self.layout_property("kappa")
+        return self.neuron_property("layout", "kappa")
 
     @property
     def Ut(self) -> jnp.DeviceArray:
         """
         Ut is the thermal voltage in Volts with shape (Nrec,)
         """
-        return self.layout_property("Ut")
+        return self.neuron_property("layout", "Ut")
 
     @property
     def Io(self) -> jnp.DeviceArray:
         """
         Io is the dark current in Amperes that flows through the transistors even at the idle state with shape (Nrec,)
         """
-        return self.layout_property("Io")
+        return self.neuron_property("layout", "Io")
 
     @property
     def f_tau_mem(self) -> jnp.DeviceArray:
         """
         f_tau_mem is an array of tau factor for membrane circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau` with shape (Nrec,)
         """
-        return self.mem_property("f_tau")
+        return self.neuron_property("mem", "f_tau")
 
     @property
     def f_tau_syn(self) -> jnp.DeviceArray:
@@ -470,21 +455,21 @@ class DynapSE1SimCore:
         """
         f_tau_ahp is is an array of tau factors for spike frequency adaptation circuit with shape (Nrec,)
         """
-        return self.ahp_property("f_tau")
+        return self.neuron_property("ahp", "f_tau")
 
     @property
     def f_ref(self) -> jnp.DeviceArray:
         """
         f_ref is an array of the factor of conversion from the refractory period current to the refractory period shape (Nrec,)
         """
-        return self.mem_property("f_ref")
+        return self.neuron_property("mem", "f_ref")
 
     @property
     def f_pulse(self) -> jnp.DeviceArray:
         """
         f_pulse is an array of the factor of conversion from pulse width in seconds to pulse width bias current in Amperes with shape (Nrec,)
         """
-        return self.mem_property("f_pulse")
+        return self.neuron_property("mem", "f_pulse")
 
     @property
     def f_pulse_ahp(self) -> jnp.DeviceArray:
@@ -498,42 +483,42 @@ class DynapSE1SimCore:
         """
         Iref is an array of the refractory period current in Amperes with shape  shape (Nrec,)
         """
-        return self.mem_property("Iref")
+        return self.neuron_property("mem", "Iref")
 
     @property
     def Ipulse(self) -> jnp.DeviceArray:
         """
         Ipulse is an array of the pulse width current in Amperes with shape  shape (Nrec,)
         """
-        return self.mem_property("Ipulse")
+        return self.neuron_property("mem", "Ipulse")
 
     @property
     def Ispkthr(self) -> jnp.DeviceArray:
         """
         Ispkthr is an array of the spiking threshold current in Amperes with shape  shape (Nrec,)
         """
-        return self.mem_property("Ispkthr")
+        return self.neuron_property("mem", "Ispkthr")
 
     @property
     def Ireset(self) -> jnp.DeviceArray:
         """
         Ireset is an array of the reset current after spike generation with shape (Nrec,)
         """
-        return self.mem_property("Ireset")
+        return self.neuron_property("mem", "Ireset")
 
     @property
     def Idc(self) -> jnp.DeviceArray:
         """
         Idc is an array of the constant DC current in Amperes, injected to membrane with shape (Nrec,)
         """
-        return self.mem_property("Idc")
+        return self.neuron_property("mem", "Idc")
 
     @property
     def If_nmda(self) -> jnp.DeviceArray:
         """
         If_nmda is an array of the The NMDA gate current in Amperes setting the NMDA gating voltage. If :math:`V_{mem} > V_{nmda}` : The :math:`I_{syn_{NMDA}}` current is added up to the input current, else it cannot with shape (Nrec,)
         """
-        return self.mem_property("If_nmda")
+        return self.neuron_property("mem", "If_nmda")
 
 
 @dataclass
