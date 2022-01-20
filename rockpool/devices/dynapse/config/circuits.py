@@ -18,10 +18,12 @@ import numpy as np
 
 from rockpool.devices.dynapse.infrastructure.biasgen import BiasGenSE1, BiasGenSE2
 from rockpool.devices.dynapse.config.layout import DynapSELayout
+from rockpool.devices.dynapse.lookup import param_name
 
 _SAMNA_SE1_AVAILABLE = True
 _SAMNA_SE2_AVAILABLE = True
 
+param_name_table = param_name.table
 
 try:
     from samna.dynapse1 import Dynapse1Parameter
@@ -46,7 +48,7 @@ except ModuleNotFoundError as e:
 @dataclass
 class DynapSEParamGen:
     """
-    DynapSEParamGen encapsulates common Dynap-SE1/SE2 paramter configuratin -> bias current 
+    DynapSEParamGen encapsulates common Dynap-SE1/SE2 paramter configuration -> bias current 
     conversion methods and serve as a top level class.
 
     :param version: the processor version. either 1 or 2
@@ -56,6 +58,11 @@ class DynapSEParamGen:
     version: int
 
     def __post_init__(self) -> None:
+        """
+        __post_init__ runs after __init__ and initializes the DynapSEParamGen object, check if the processor version supported.
+
+        :raises ValueError: Only Dynap-SE1 and Dynap-SE2 versions are available. (version 1 or 2)
+        """
         if self.version == 1:
             self.bias_gen = BiasGenSE1()
         elif self.version == 2:
@@ -98,8 +105,57 @@ class DynapSEParamGen:
         :return: biasgen corrected bias value by multiplying a correction factor
         :rtype: float
         """
-        bias_current = self.bias_gen.param_to_bias(name, samna_parameters[name])
+        param = samna_parameters[name]
+        self._check_param_version(param)
+        bias_current = self.bias_gen.param_to_bias(name, param)
         return bias_current
+
+
+@dataclass
+class SimulationParameters:
+    """
+    SimulationParameters encapsulates a samna parameter dictionary, creates right version
+    of the BiasGen and returns the right bias parameter objects given a simulation parameter name
+
+    :param version: the processor version. either 1 or 2
+    :type version: int
+    """
+
+    samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]]
+
+    def __post_init__(self) -> None:
+        """
+        __post_init__ runs after __init__ and initializes the SimulationParameters object, check if the processor version supported.
+
+        :raises TypeError: The dictionary type does not refer to any processor version!
+        """
+        _param_type = list(self.samna_parameters.values())[0]
+        if isinstance(_param_type, Dynapse1Parameter):
+            self.version = 1
+        elif isinstance(_param_type, Dynapse2Parameter):
+            self.version = 2
+        else:
+            raise TypeError(
+                f"The dictionary type {_param_type} does not refer to any processor version!"
+            )
+
+        self.paramgen = DynapSEParamGen(self.version)
+
+    def nominal(self, name: str):
+        """
+        nominal abstracts the invisible conversion to find the nominal current value that 
+        the simulation paramter need to have depending on the device configuration.
+
+        * Provided the name of the simulation current parameter, find the respected device parameter name
+        * Using the right version bias generator, find the nominal current value
+
+        :param name: the simulation parameter name of the desired parameter (like Itau_ampa)
+        :type name: str
+        :return: the BiasGen generated current value of the parameter of interest
+        :rtype: [type]
+        """
+        device_name = param_name_table[name][self.version]
+        return self.paramgen.bias(self.samna_parameters, device_name)
 
 
 @dataclass
@@ -291,7 +347,7 @@ class WeightParameters:
         **kwargs,
     ) -> WeightParameters:
         """
-        from_samna_parameters is a factory method to construct a `WeightParameters` object using a `Dynapse1ParameterGroup` object
+        from_samna_parameters is a factory method to construct a `WeightParameters` object using a samna config object
 
         :param samna_parameters: a parameter dictionary inside samna config object for setting the parameter group within one core
         :type samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]]
@@ -301,13 +357,13 @@ class WeightParameters:
         :rtype: WeightParameters
         """
 
-        bias = lambda name: cls.bias(layout, samna_parameters, name)
+        simparam = SimulationParameters(samna_parameters)
 
         mod = cls(
-            Iw_0=bias("PS_WEIGHT_INH_S_N"),  # GABA_B
-            Iw_1=bias("PS_WEIGHT_INH_F_N"),  # GABA_A
-            Iw_2=bias("PS_WEIGHT_EXC_S_N"),  # NMDA
-            Iw_3=bias("PS_WEIGHT_EXC_F_N"),  # AMPA
+            Iw_0=simparam.nominal("Iw_0"),  # GABA_B - se1
+            Iw_1=simparam.nominal("Iw_1"),  # GABA_A - se1
+            Iw_2=simparam.nominal("Iw_2"),  # NMDA - se1
+            Iw_3=simparam.nominal("Iw_3"),  # AMPA - se1
             layout=layout,
             *args,
             **kwargs,
@@ -362,7 +418,7 @@ class SynapseParameters(DPIParameters):
         samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]],
         layout: DynapSELayout,
         Itau_name: str,
-        Ithr_name: str,
+        Ith_name: str,
         *args,
         **kwargs,
     ) -> SynapseParameters:
@@ -376,17 +432,17 @@ class SynapseParameters(DPIParameters):
         :type layout: DynapSELayout
         :param Itau_name: the name of the leak bias current
         :type Itau_name: str
-        :param Ithr_name: the name of the gain bias current
-        :type Ithr_name: str
+        :param Ith_name: the name of the gain bias current
+        :type Ith_name: str
         :return: a `SynapseParameters` object, whose parameters obtained from the hardware configuration
         :rtype: SynapseParameters
         """
 
-        bias = lambda name: cls.bias(layout, samna_parameters, name)
+        simparam = SimulationParameters(samna_parameters)
 
         mod = cls(
-            Itau=bias(Itau_name),
-            Ith=bias(Ithr_name),
+            Itau=simparam.nominal(Itau_name),
+            Ith=simparam.nominal(Ith_name),
             f_gain=None,  # deduced from Ith/Itau
             tau=None,  # deduced from Itau
             layout=layout,
@@ -491,7 +547,7 @@ class MembraneParameters(DPIParameters):
     ) -> MembraneParameters:
         """
         from_samna_parameters is a `MembraneParameters` factory method with hardcoded bias parameter names
-
+        
         :param samna_parameters: a parameter dictionary inside samna config object for setting the parameter group within one core
         :type samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]]
         :param layout: constant values that are related to the exact silicon layout of a chip
@@ -500,21 +556,21 @@ class MembraneParameters(DPIParameters):
         :rtype: MembraneParameters
         """
 
-        bias = lambda name: cls.bias(samna_parameters, name)
+        simparam = SimulationParameters(samna_parameters)
 
         mod = cls(
-            Itau=bias("IF_TAU1_N"),
-            Ith=bias("IF_THR_N"),
+            Itau=simparam.nominal("Itau_mem"),
+            Ith=simparam.nominal("Ith_mem"),
             tau=None,  # deduced from Itau
             tau2=None,  # deduced from Itau2
-            Itau2=bias("IF_TAU2_N"),
+            Itau2=simparam.nominal("Itau2_mem"),
             f_gain=None,  # deduced from Ith/Itau
-            Iref=bias("IF_RFR_N"),
+            Iref=simparam.nominal("Iref"),
             t_ref=None,  # deduced from Iref
-            Ipulse=bias("PULSE_PWLK_P"),
+            Ipulse=simparam.nominal("Ipulse"),
             t_pulse=None,  # deduced from Ipulse
-            Idc=bias("IF_DC_P"),
-            If_nmda=bias("IF_NMDA_N"),
+            Idc=simparam.nominal("Idc"),
+            If_nmda=simparam.nominal("If_nmda"),
             layout=layout,
             *args,
             **kwargs,
@@ -569,8 +625,8 @@ class GABABParameters(SynapseParameters):
         return cls._from_samna_parameters(
             samna_parameters,
             layout,
-            Itau_name="NPDPII_TAU_S_P",
-            Ithr_name="NPDPII_THR_S_P",
+            Itau_name="Itau_gaba_b",
+            Ith_name="Ith_gaba_b",
             *args,
             **kwargs,
         )
@@ -609,8 +665,8 @@ class GABAAParameters(SynapseParameters):
         return cls._from_samna_parameters(
             samna_parameters,
             layout,
-            Itau_name="NPDPII_TAU_F_P",
-            Ithr_name="NPDPII_THR_F_P",
+            Itau_name="Itau_gaba_a",
+            Ith_name="Ith_gaba_a",
             *args,
             **kwargs,
         )
@@ -649,8 +705,8 @@ class NMDAParameters(SynapseParameters):
         return cls._from_samna_parameters(
             samna_parameters,
             layout,
-            Itau_name="NPDPIE_TAU_S_P",
-            Ithr_name="NPDPIE_THR_S_P",
+            Itau_name="Itau_nmda",
+            Ith_name="Ith_nmda",
             *args,
             **kwargs,
         )
@@ -689,8 +745,8 @@ class AMPAParameters(SynapseParameters):
         return cls._from_samna_parameters(
             samna_parameters,
             layout,
-            Itau_name="NPDPIE_TAU_F_P",
-            Ithr_name="NPDPIE_THR_F_P",
+            Itau_name="Itau_ampa",
+            Ith_name="Ith_ampa",
             *args,
             **kwargs,
         )
@@ -727,12 +783,17 @@ class AHPParameters(SynapseParameters):
         :rtype: AHPParameters
         """
 
-        return cls._from_samna_parameters(
-            samna_parameters,
-            layout,
-            Itau_name="IF_AHTAU_N",
-            Ithr_name="IF_AHTHR_N",
-            Iw=cls.bias(samna_parameters, "IF_AHW_P"),
+        simparam = SimulationParameters(samna_parameters)
+
+        mod = cls(
+            Itau=simparam.nominal("Itau_ahp"),
+            Ith=simparam.nominal("Ith_ahp"),
+            f_gain=None,  # deduced from Ith/Itau
+            tau=None,  # deduced from Itau
+            Iw=simparam.nominal("Iw_ahp"),
+            layout=layout,
             *args,
             **kwargs,
         )
+
+        return mod
