@@ -36,3 +36,16 @@ table = {
     "Iw_0": ["Iw_0", "PS_WEIGHT_INH_S_N", "SYAM_W0_P"],  # GABA_B SE1
     "Ipulse": ["Ipulse", "PULSE_PWLK_P", None],
 }
+
+# SE1 device to simulation map
+_se1_non_simulated = {
+    "IF_BUF_P": None,
+    "IF_CASC_N": None,
+    "R2R_P": None,
+}
+se1 = {v[1]: k for k, v in table.items() if v[1] is not None}
+se1 = {**se1, **_se1_non_simulated}
+se1 = dict(sorted(se1.items(), key=lambda x: x[0].upper()))
+
+# SE2 device to simulation map
+se2 = {v[2]: k for k, v in table.items() if v[2] is not None}
