@@ -30,6 +30,7 @@ from rockpool.devices.dynapse.config.simconfig import DynapSE1SimBoard
 from rockpool.devices.dynapse.infrastructure.router import Router
 from rockpool.devices.dynapse.infrastructure.biasgen import BiasGen
 from rockpool.devices.dynapse.base import NeuronKey
+from rockpool.devices.dynapse.lookup import param_name
 
 
 _SAMNA_AVAILABLE = True

@@ -24,6 +24,11 @@ except (ModuleNotFoundError, ImportError) as err:
     warn("Could not load package:" + str(err))
 
 try:
+    from .lookup import *
+except (ModuleNotFoundError, ImportError) as err:
+    warn("Could not load package:" + str(err))
+
+try:
     from .utils import *
 except (ModuleNotFoundError, ImportError) as err:
     warn("Could not load package:" + str(err))

@@ -5,6 +5,9 @@ Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 11/01/2022
+[] TODO : Jax module
+[] TODO : Check again with JIT
+[] TODO : Register the attributes as SimulationParameters
 """
 from typing import Tuple, Union
 

@@ -14,7 +14,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
 
 from rockpool.devices.dynapse.base import ArrayLike
-from rockpool.devices.dynapse.infrastructure.lookup import (
+from rockpool.devices.dynapse.lookup import (
     paramgen,
     scaling_factor,
     scaling_factor_se1,
