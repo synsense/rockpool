@@ -15,9 +15,10 @@ def test_lif_jax():
 
     import numpy as np
 
-    N = 10
+    Nin = 10
+    Nout = 5
     T = 20
-    lyr = LIFJax(N)
+    lyr = LIFJax((Nin, Nout))
 
     # - Test getting and setting
     p = lyr.parameters()
@@ -30,36 +31,36 @@ def test_lif_jax():
     lyr.set_attributes(sp)
 
     print("evolve func")
-    _, new_state, _ = lyr.evolve(np.random.rand(T, N))
+    _, new_state, _ = lyr.evolve(np.random.rand(T, Nin))
     lyr = lyr.set_attributes(new_state)
 
     print("evolving with call")
-    _, new_state, _ = lyr(np.random.rand(T, N))
+    _, new_state, _ = lyr(np.random.rand(T, Nin))
     lyr = lyr.set_attributes(new_state)
 
-    _, new_state, _ = lyr(np.random.rand(T, N))
+    _, new_state, _ = lyr(np.random.rand(T, Nin))
     lyr = lyr.set_attributes(new_state)
 
-    lyr.vmem = np.array([1.0] * N)
+    lyr.vmem = np.array([1.0] * Nout)
 
     print("evolving with jit")
     je = jit(lyr)
-    _, new_state, _ = je(np.random.rand(T, N))
+    _, new_state, _ = je(np.random.rand(T, Nin))
     lyr = lyr.set_attributes(new_state)
 
-    _, new_state, _ = je(np.random.rand(T, N))
+    _, new_state, _ = je(np.random.rand(T, Nin))
     lyr = lyr.set_attributes(new_state)
 
     ## - Test recurrent mode
-    lyr = LIFJax((N, N), has_rec=True)
+    lyr = LIFJax((Nin, Nout), has_rec=True)
 
     print("evolving recurrent")
-    o, ns, r_d = lyr(np.random.rand(T, N))
+    o, ns, r_d = lyr(np.random.rand(T, Nin))
     lyr = lyr.set_attributes(ns)
 
     print("evolving recurrent with jit")
     je = jit(lyr)
-    o, n_s, r_d = je(np.random.rand(T, N))
+    o, n_s, r_d = je(np.random.rand(T, Nin))
     lyr = lyr.set_attributes(n_s)
 
 

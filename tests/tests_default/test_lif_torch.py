@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_LIFTorch_shapes():
     from rockpool.nn.modules.torch.lif_torch import LIFTorch
     import torch

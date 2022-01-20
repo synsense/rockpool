@@ -72,8 +72,7 @@ class ExpSyn(Module):
         """ Time constant of each synapse """
 
         self.Isyn: Union[np.array, State] = State(
-            shape=self.shape,
-            init_func=np.zeros,
+            shape=self.shape, init_func=np.zeros,
         )
 
     def _init_synapse_windows(self) -> None:
@@ -84,16 +83,13 @@ class ExpSyn(Module):
 
         # - Compute window normalised time base
         time_base = [-np.arange(0, window_length) * self.dt] * self.size_out
-        time_base = time_base / np.atleast_2d(self.tau).T
+        time_base = np.array(time_base) / np.atleast_2d(self.tau).T
 
         # - Compute exponentials
         self._window = np.exp(time_base).T
 
     def evolve(
-        self,
-        input_data: np.array,
-        *args,
-        **kwargs,
+        self, input_data: np.array, *args, **kwargs,
     ) -> (np.ndarray, dict, dict):
         # - Compute roll-over decay from last evolution
         rollover = np.zeros(input_data.shape)

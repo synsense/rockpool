@@ -21,7 +21,7 @@ from jax.lax import scan
 import jax.random as rand
 
 from typing import Optional, Tuple, Union, Callable
-from rockpool.typehints import FloatVector, P_ndarray, JaxRNGKey, P_float
+from rockpool.typehints import FloatVector, P_ndarray, JaxRNGKey, P_float, P_int
 
 __all__ = ["LIFJax"]
 
@@ -127,6 +127,9 @@ class LIFJax(JaxModule):
             rng_key, init_func=lambda _: rng_key
         )
 
+        self.n_synapses: P_int = SimulationParameter(shape[0] // shape[1])
+        """ (int) Number of input synapses per neuron """
+
         # - Should we be recurrent or FFwd?
         if has_rec:
             self.w_rec: P_ndarray = Parameter(
@@ -141,14 +144,14 @@ class LIFJax(JaxModule):
             if w_rec is not None:
                 raise ValueError("`w_rec` may not be provided if `has_rec` is `False`")
 
-            self.w_rec = 0.0
+            self.w_rec = np.zeros((self.size_out, self.size_in))
             """ (Tensor) Recurrent weights `(Nout, Nin)` """
 
         # - Set parameters
         self.tau_mem: P_ndarray = Parameter(
             tau_mem,
             shape=[(self.size_out,), ()],
-            init_func=lambda s: np.ones(s) * 100e-3,
+            init_func=lambda s: np.ones(s) * 20e-3,
             family="taus",
             cast_fn=np.array,
         )
@@ -157,8 +160,8 @@ class LIFJax(JaxModule):
         self.tau_syn: P_ndarray = Parameter(
             tau_syn,
             "taus",
-            init_func=lambda s: np.ones(s) * 50e-3,
-            shape=[(self.size_out,), ()],
+            init_func=lambda s: np.ones(s) * 10e-3,
+            shape=[(self.size_out, self.n_synapses,), (1, self.n_synapses,), (),],
         )
         """ (np.ndarray) Synaptic time constants `(Nout,)` or `()` """
 
@@ -182,8 +185,10 @@ class LIFJax(JaxModule):
         self.spikes: P_ndarray = State(shape=(self.size_out,), init_func=np.zeros)
         """ (np.ndarray) Spiking state of each neuron `(Nout,)` """
 
-        self.isyn: P_ndarray = State(shape=(self.size_out,), init_func=np.zeros)
-        """ (np.ndarray) Synaptic current of each neuron `(Nin,)` """
+        self.isyn: P_ndarray = State(
+            shape=(self.size_out, self.n_synapses), init_func=np.zeros
+        )
+        """ (np.ndarray) Synaptic current of each neuron `(Nout, Nsyn)` """
 
         self.vmem: P_ndarray = State(shape=(self.size_out,), init_func=np.zeros)
         """ (np.ndarray) Membrane voltage of each neuron `(Nout,)` """
@@ -206,18 +211,18 @@ class LIFJax(JaxModule):
             (np.ndarray, dict, dict): output, new_state, record_state
             ``output`` is an array with shape ``(T, Nout)`` containing the output data produced by this module. ``new_state`` is a dictionary containing the updated module state following evolution. ``record_state`` will be a dictionary containing the recorded state variables for this evolution, if the ``record`` argument is ``True``.
         """
-
         # - Get input shapes, add batch dimension if necessary
-        if len(input_data.shape) == 2:
-            input_data = np.expand_dims(input_data, 0)
-        batches, num_timesteps, n_inputs = input_data.shape
+        input_data, (vmem, spikes, isyn) = self._auto_batch(
+            input_data,
+            (self.vmem, self.spikes, self.isyn),
+            ((self.size_out,), (self.size_out,), (self.size_out, self.n_synapses),),
+        )
+        batches, num_timesteps, _ = input_data.shape
 
-        if n_inputs != self.size_in:
-            raise ValueError(
-                "Input has wrong neuron dimension. It is {}, must be {}".format(
-                    n_inputs, self.size_in
-                )
-            )
+        # - Reshape data over separate input synapses
+        input_data = input_data.reshape(
+            batches, num_timesteps, self.size_out, self.n_synapses
+        )
 
         # - Get evolution constants
         alpha = np.exp(-self.dt / self.tau_mem)
@@ -254,14 +259,12 @@ class LIFJax(JaxModule):
             """
             # - Unpack inputs
             (sp_in_t, I_in_t) = inputs_t
-            sp_in_t = sp_in_t.reshape(-1)
-            Iin = I_in_t.reshape(-1)
 
             # - Unpack state
             spikes, Isyn, Vmem = state
 
             # - Apply synaptic and recurrent input
-            Irec = np.dot(spikes, self.w_rec)
+            Irec = np.dot(spikes, self.w_rec).reshape(self.size_out, self.n_synapses)
             Isyn += sp_in_t + Irec
 
             # - Decay synaptic and membrane state
@@ -269,7 +272,7 @@ class LIFJax(JaxModule):
             Isyn *= beta
 
             # - Integrate membrane potentials
-            Vmem += Isyn + Iin + self.bias
+            Vmem += Isyn.sum(1) + I_in_t + self.bias
 
             # - Detect next spikes (with custom gradient)
             spikes = step_pwl(Vmem, self.threshold)
@@ -285,11 +288,6 @@ class LIFJax(JaxModule):
         noise_ts = noise_zeta * rand.normal(
             subkey, shape=(batches, num_timesteps, self.size_out)
         )
-
-        # - Replicate states
-        spikes = np.broadcast_to(self.spikes, (batches, self.size_out))
-        isyn = np.broadcast_to(self.isyn, (batches, self.size_in))
-        vmem = np.broadcast_to(self.vmem, (batches, self.size_out))
 
         # - Map over batches
         @jax.vmap

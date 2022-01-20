@@ -4,7 +4,7 @@ Utility functions for working with trees.
 
 from warnings import warn
 
-from typing import Tuple, Generator, Any, Callable, Union
+from typing import Tuple, Generator, Any, Callable, List
 
 import copy
 
@@ -42,6 +42,25 @@ def branches(tree: Tree, prefix: list = None) -> Generator[Tuple, None, None]:
         else:
             # - Yield this branch
             yield tuple(prefix + [k])
+
+
+def get_nested(tree: Tree, branch: Tuple) -> None:
+    """
+    Get a value from a tree branch, specifying a branch
+
+    Args:
+        tree (Tree): A nested dictionary tree structure
+        branch (Tuple[str]): A branch: a tuple of indices to walk through the tree
+    """
+    # - Start from the root node
+    node = tree
+
+    # - Iterate along the branch
+    for key in branch[:-1]:
+        node = node[key]
+
+    # - Get the leaf value
+    return node[branch[-1]]
 
 
 def set_nested(tree: Tree, branch: Tuple, value: Any) -> None:
@@ -184,12 +203,7 @@ def tree_map_reduce_select(
     proto_flat, _ = tu.tree_flatten(protoype_tree)
 
     def map_or_null(leaf: Any, select: bool) -> Any:
-        return jax.lax.cond(
-            select,
-            lambda _: map_fun(leaf),
-            lambda _: null,
-            0,
-        )
+        return jax.lax.cond(select, lambda _: map_fun(leaf), lambda _: null, 0,)
 
     # - Map function over leaves
     mapped = [map_or_null(*xs) for xs in zip(tree_flat, proto_flat)]
@@ -221,12 +235,7 @@ def tree_map_select(
 
     # - A function that conditionally maps over the tree leaves
     def map_or_original(leaf: Any, select: bool) -> Any:
-        return jax.lax.cond(
-            select,
-            lambda _: map_fun(leaf),
-            lambda _: leaf,
-            0,
-        )
+        return jax.lax.cond(select, lambda _: map_fun(leaf), lambda _: leaf, 0,)
 
     # - Map function over leaves
     mapped = [map_or_original(*xs) for xs in zip(tree_flat, proto_flat)]
@@ -260,10 +269,7 @@ def tree_map_select_with_rng(
     # - A function that conditionally maps over the tree leaves
     def map_or_original(leaf: Any, select: bool, rng_key: Any) -> Any:
         return jax.lax.cond(
-            select,
-            lambda _: map_fun(leaf, rng_key),
-            lambda _: leaf,
-            0,
+            select, lambda _: map_fun(leaf, rng_key), lambda _: leaf, 0,
         )
 
     # - Map function over leaves
@@ -305,3 +311,20 @@ def tree_multimap_with_rng(
 
     # - Map function over the tree and return
     return tu.tree_multimap(map_fun, tree, subkeys_tree, *rest)
+
+
+def tree_find(tree: Tree) -> List:
+    """
+    Return the tree branches to tree nodes that evaluate to ``True``
+
+    Args:
+        tree (Tree): A tree to examine
+
+    Returns:
+        list: A list of all tree branches, for which the corresponding tree leaf evaluate to ``True``
+    """
+    # - Get a list of all tree branches
+    all_branches = list(branches(tree))
+
+    # - Return a list of branches to leaves that evaluate to `True`
+    return [branch for branch in all_branches if get_nested(tree, branch)]

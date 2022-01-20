@@ -9,7 +9,7 @@ from rockpool.nn.modules.native.linear import kaiming
 import numpy as np
 
 from typing import Optional, Tuple, Union, Dict, Callable, Any
-from rockpool.typehints import FloatVector, P_float, P_tensor, P_ndarray
+from rockpool.typehints import FloatVector, P_float, P_tensor, P_ndarray, P_int
 
 from rockpool.graph import (
     GraphModuleBase,
@@ -98,6 +98,9 @@ class LIF(Module):
             **kwargs,
         )
 
+        self.n_synapses: P_int = SimulationParameter(shape[0] // shape[1])
+        """ (int) Number of input synapses per neuron """
+
         # - Should we be recurrent or FFwd?
         if has_rec:
             self.w_rec: P_ndarray = Parameter(
@@ -116,7 +119,7 @@ class LIF(Module):
         self.tau_mem: P_ndarray = Parameter(
             tau_mem,
             shape=[(self.size_out,), ()],
-            init_func=lambda s: np.ones(s) * 100e-3,
+            init_func=lambda s: np.ones(s) * 20e-3,
             family="taus",
             cast_fn=np.array,
         )
@@ -125,8 +128,8 @@ class LIF(Module):
         self.tau_syn: P_ndarray = Parameter(
             tau_syn,
             "taus",
-            init_func=lambda s: np.ones(s) * 50e-3,
-            shape=[(self.size_out,), ()],
+            init_func=lambda s: np.ones(s) * 10e-3,
+            shape=[(self.size_out, self.n_synapses,), (1, self.n_synapses,), (),],
         )
         """ (np.ndarray) Synaptic time constants `(Nout,)` or `()` """
 
@@ -150,8 +153,10 @@ class LIF(Module):
         self.spikes: P_ndarray = State(shape=(self.size_out,), init_func=np.zeros)
         """ (np.ndarray) Spiking state of each neuron `(Nout,)` """
 
-        self.isyn: P_ndarray = State(shape=(self.size_out,), init_func=np.zeros)
-        """ (np.ndarray) Synaptic current of each neuron `(Nin,)` """
+        self.isyn: P_ndarray = State(
+            shape=(self.size_out, self.n_synapses), init_func=np.zeros
+        )
+        """ (np.ndarray) Synaptic current of each neuron `(Nout, Nsyn)` """
 
         self.vmem: P_ndarray = State(shape=(self.size_out,), init_func=np.zeros)
         """ (np.ndarray) Membrane voltage of each neuron `(Nout,)` """
@@ -169,11 +174,17 @@ class LIF(Module):
             (np.ndarray, dict, dict): output, new_state, record_state
             ``output`` is an array with shape ``(T, Nout)`` containing the output data produced by this module. ``new_state`` is a dictionary containing the updated module state following evolution. ``record_state`` will be a dictionary containing the recorded state variables for this evolution, if the ``record`` argument is ``True``.
         """
-
-        input_data, (spikes, isyn, vmem) = self._auto_batch(
-            input_data, (self.spikes, self.isyn, self.vmem)
+        input_data, (vmem, spikes, isyn) = self._auto_batch(
+            input_data,
+            (self.vmem, self.spikes, self.isyn),
+            ((self.size_out,), (self.size_out,), (self.size_out, self.n_synapses),),
         )
-        batches, num_timesteps, n_inputs = input_data.shape
+        batches, num_timesteps, _ = input_data.shape
+
+        # - Reshape data over separate input synapses
+        input_data = input_data.reshape(
+            batches, num_timesteps, self.size_out, self.n_synapses
+        )
 
         # - Get evolution constants
         alpha = np.exp(-self.dt / self.tau_mem)
@@ -210,14 +221,16 @@ class LIF(Module):
             """
             # - Unpack inputs
             (sp_in_t, I_in_t) = inputs_t
-            sp_in_t = sp_in_t.reshape(-1)
-            Iin = I_in_t.reshape(-1)
 
             # - Unpack state
             spikes, Isyn, Vmem = state
 
             # - Apply synaptic and recurrent input
-            Irec = np.dot(spikes, self.w_rec) if hasattr(self, "w_rec") else 0.0
+            Irec = (
+                np.dot(spikes, self.w_rec).reshape(self.size_out, self.n_synapses)
+                if hasattr(self, "w_rec")
+                else np.zeros((self.size_out, self.n_synapses))
+            )
             Isyn += sp_in_t + Irec
 
             # - Decay synaptic and membrane state
@@ -225,7 +238,7 @@ class LIF(Module):
             Isyn *= beta
 
             # - Integrate membrane potentials
-            Vmem += Isyn + Iin + self.bias
+            Vmem += Isyn.sum(1) + I_in_t + self.bias
 
             # - Detect next spikes (with custom gradient)
             spikes = spike(Vmem, self.threshold)
@@ -239,10 +252,10 @@ class LIF(Module):
         # - Generate membrane noise trace
         noise_ts = noise_zeta * np.random.randn(batches, num_timesteps, self.size_out)
 
-        Irec_ts = np.zeros((batches, num_timesteps, self.size_out))
+        Irec_ts = np.zeros((batches, num_timesteps, self.size_out, self.n_synapses))
         spikes_ts = np.zeros((batches, num_timesteps, self.size_out))
         Vmem_ts = np.zeros((batches, num_timesteps, self.size_out))
-        Isyn_ts = np.zeros((batches, num_timesteps, self.size_out))
+        Isyn_ts = np.zeros((batches, num_timesteps, self.size_out, self.n_synapses))
 
         for b in range(batches):
             for t in range(num_timesteps):
@@ -250,10 +263,10 @@ class LIF(Module):
                 (
                     (spikes[b], isyn[b], vmem[b]),
                     (
-                        Irec_ts[b, t, :],
+                        Irec_ts[b, t, :, :],
                         spikes_ts[b, t, :],
                         Vmem_ts[b, t, :],
-                        Isyn_ts[b, t, :],
+                        Isyn_ts[b, t, :, :],
                     ),
                 ) = forward(
                     (spikes[b], isyn[b], vmem[b]),
