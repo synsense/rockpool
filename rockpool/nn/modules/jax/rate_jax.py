@@ -29,15 +29,16 @@ from rockpool.typehints import FloatVector, P_Callable, P_ndarray, P_float
 __all__ = ["RateJax", "H_tanh", "H_ReLU", "H_sigmoid"]
 
 # -- Define useful neuron transfer functions
-def H_ReLU(x: FloatVector) -> FloatVector:
-    return x * (x > 0.0)
+def H_ReLU(x: FloatVector, threshold: FloatVector) -> FloatVector:
+    return (x - threshold) * ((x - threshold) > 0.0)
 
 
-H_tanh = np.tanh
+def H_tanh(x: FloatVector, threshold: FloatVector) -> FloatVector:
+    return np.tanh(x - threshold)
 
 
-def H_sigmoid(x: FloatVector) -> FloatVector:
-    return (np.tanh(x) + 1) / 2
+def H_sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
+    return (np.tanh(x - threshold) + 1) / 2
 
 
 class RateJax(JaxModule):
@@ -76,10 +77,11 @@ class RateJax(JaxModule):
         shape: Union[int, Tuple[np.ndarray]],
         tau: Optional[FloatVector] = None,
         bias: Optional[FloatVector] = None,
+        threshold: Optional[FloatVector] = None,
         w_rec: Optional[np.ndarray] = None,
         has_rec: bool = False,
         activation_func: Union[str, Callable] = H_ReLU,
-        noise_std: float = 1e-3,
+        noise_std: float = 0.0,
         dt: float = 1e-3,
         rng_key: Optional[int] = None,
         *args: list,
@@ -130,7 +132,7 @@ class RateJax(JaxModule):
                 init_func=lambda s: jax.random.normal(
                     rand.split(self.rng_key)[0], shape=self.shape
                 )
-                / np.sqrt(self.shape[0]),
+                / np.sqrt(2 / self.shape[0]),
                 shape=(self.size_out, self.size_in),
             )
             """The recurrent weight matrix ``(N, N)`` for this module """
@@ -151,6 +153,14 @@ class RateJax(JaxModule):
             bias, "bias", init_func=lambda s: np.zeros(s), shape=[(self.size_out,), ()],
         )
         """The vector ``(N,)`` of bias currents for each unit """
+
+        self.threshold: P_ndarray = Parameter(
+            threshold,
+            family="thresholds",
+            shape=[(self.size_out,), ()],
+            init_func=np.zeros,
+        )
+        """ (Tensor) Unit thresholds `(Nout,)` or `()` """
 
         self.dt: P_float = SimulationParameter(dt)
         """The Euler solver time step for this module"""
@@ -221,7 +231,7 @@ class RateJax(JaxModule):
             state *= alpha
             rec_input = np.dot(activation, w_rec)
             state += inp + self.bias + rec_input
-            activation = self.act_fn(state)
+            activation = self.act_fn(state, self.threshold)
 
             return (state, activation), (rec_input, state, activation)
 
@@ -240,7 +250,7 @@ class RateJax(JaxModule):
 
         # - Use `scan` to evaluate reservoir
         (x1, _), (rec_inputs, res_state, outputs) = scan_time(
-            x0, self.act_fn(x0), inputs
+            x0, self.act_fn(x0, self.threshold), inputs
         )
 
         new_state = {

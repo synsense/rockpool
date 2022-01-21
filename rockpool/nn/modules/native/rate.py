@@ -16,15 +16,16 @@ from rockpool.typehints import FloatVector, P_float, P_int, P_tensor
 __all__ = ["Rate"]
 
 # -- Define useful neuron transfer functions
-def H_ReLU(x: FloatVector) -> FloatVector:
-    return x * (x > 0.0)
+def H_ReLU(x: FloatVector, threshold: FloatVector) -> FloatVector:
+    return (x - threshold) * ((x - threshold) > 0.0)
 
 
-H_tanh = np.tanh
+def H_tanh(x: FloatVector, threshold: FloatVector) -> FloatVector:
+    return np.tanh(x - threshold)
 
 
-def H_sigmoid(x: FloatVector) -> FloatVector:
-    return (np.tanh(x) + 1) / 2
+def H_sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
+    return (np.tanh(x - threshold) + 1) / 2
 
 
 class Rate(Module):
@@ -63,11 +64,12 @@ class Rate(Module):
         shape: Union[int, Tuple[int, int], Tuple[int]],
         tau: Optional[FloatVector] = None,
         bias: Optional[FloatVector] = None,
+        threshold: Optional[FloatVector] = None,
         w_rec: Optional[np.ndarray] = None,
         has_rec: bool = False,
         activation_func: Union[str, Callable] = H_ReLU,
         dt: float = 1e-3,
-        noise_std: float = 1e-3,
+        noise_std: float = 0.0,
         *args: list,
         **kwargs: dict,
     ):
@@ -114,7 +116,7 @@ class Rate(Module):
             self.w_rec: P_tensor = Parameter(
                 w_rec,
                 family="weights",
-                init_func=lambda s: rand.normal(s) / np.sqrt(s[0]),
+                init_func=lambda s: rand.normal(size=s) / np.sqrt(2 / s[0]),
                 shape=(self.size_out, self.size_in),
             )
             """The recurrent weight matrix ``(N, N)`` for this module"""
@@ -123,15 +125,23 @@ class Rate(Module):
         self.tau: P_tensor = Parameter(
             tau,
             family="taus",
-            init_func=lambda s: np.ones(s) * 100e-3,
-            shape=(self.size_out,),
+            init_func=lambda s: np.ones(s) * 10e-3,
+            shape=[(self.size_out,), ()],
         )
         """ The vector ``(N,)`` of time constants :math:`\\tau` for each neuron"""
 
         self.bias: P_tensor = Parameter(
-            bias, "bias", init_func=lambda s: np.zeros(s), shape=(self.size_out,),
+            bias, "bias", init_func=lambda s: np.zeros(s), shape=[(self.size_out,), ()],
         )
         """The vector ``(N,)`` of bias currents for each neuron"""
+
+        self.threshold: P_tensor = Parameter(
+            threshold,
+            family="thresholds",
+            shape=[(self.size_out,), ()],
+            init_func=np.zeros,
+        )
+        """ (Tensor) Unit thresholds `(Nout,)` or `()` """
 
         self.dt: P_float = SimulationParameter(dt)
         """The Euler solver time step for this module"""
@@ -193,7 +203,7 @@ class Rate(Module):
             state *= alpha
             rec_input = np.dot(activation, w_rec) if w_rec is not None else 0.0
             state += inp + self.bias + rec_input
-            activation = self.act_fn(state)
+            activation = self.act_fn(state, self.threshold)
 
             return (state, activation), (rec_input, state, activation)
 
@@ -210,7 +220,7 @@ class Rate(Module):
             for t in range(num_timesteps):
                 # - Solve layer dynamics for this time-step
                 ((x[b], _), (this_rec_i, this_r_s, this_out,),) = forward(
-                    (x[b], self.act_fn(x[b])), inputs[b, t, :]
+                    (x[b], self.act_fn(x[b], self.threshold)), inputs[b, t, :]
                 )
 
                 # - Keep a record of the layer dynamics
@@ -220,6 +230,6 @@ class Rate(Module):
 
         self.x = x[0]
 
-        record_dict = {"rec_inputs": rec_inputs, "x": res_state} if record else {}
+        record_dict = {"rec_input": rec_inputs, "x": res_state} if record else {}
 
         return outputs, self.state(), record_dict

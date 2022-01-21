@@ -116,7 +116,7 @@ class RateTorch(TorchModule):
         )
         """ (Tensor) Unit thresholds `(Nout,)` or `()` """
 
-        self.activation_func: rt.P_Callable = rp.SimulationParameter(activation_func)
+        self.act_fn: rt.P_Callable = rp.SimulationParameter(activation_func)
         """ (Callable) Activation function for the units """
 
         self.x: rt.P_tensor = rp.State(
@@ -124,42 +124,30 @@ class RateTorch(TorchModule):
         )
         """ (Tensor) Unit state `(Nout,)` """
 
-        self.acts: rt.P_tensor = rp.State(
-            shape=self.size_out, init_func=torch.zeros, cast_fn=to_float_tensor
-        )
-        """ (Tensor) Activations `(Nout,)` """
-
         self._record = False
 
     def evolve(self, data, record: bool = False) -> Tuple[Any, Any, Any]:
         self._record = record
         out, state, _ = super().evolve(data, record)
 
-        record_dict = (
-            {"rec_input": self._rec_input, "x": self._state, "act": self._act,}
-            if record
-            else {}
-        )
+        record_dict = {"rec_input": self._rec_input, "x": self._state} if record else {}
 
         return out, state, record_dict
 
     def forward(self, data, *args, **kwargs) -> torch.Tensor:
         # - Perform auto-batching
-        data, (neur_state, bias, acts, threshold) = self._auto_batch(
-            data, (self.x, self.bias, self.acts, self.threshold)
-        )
+        data, (neur_state,) = self._auto_batch(data, (self.x,))
         (n_batches, time_steps, _) = data.shape
+
+        act = self.act_fn(neur_state, self.threshold)
 
         # - Set up state record and output
         if self._record:
-            self._state = torch.zeros(
-                n_batches, time_steps, self.size_out, device=data.device
-            )
             self._rec_input = torch.zeros(
                 n_batches, time_steps, self.size_out, device=data.device
             )
 
-        self._act = torch.zeros(
+        self._state = torch.zeros(
             n_batches, time_steps, self.size_out, device=data.device
         )
 
@@ -172,7 +160,7 @@ class RateTorch(TorchModule):
             neur_state *= alpha
 
             # - Integrate input, bias, noise
-            neur_state += data[:, t] + bias
+            neur_state += data[:, t] + self.bias
 
             if self.noise_std > 0.0:
                 neur_state += noise_zeta * torch.randn(
@@ -181,23 +169,22 @@ class RateTorch(TorchModule):
 
             # - Recurrent input
             if hasattr(self, "w_rec"):
-                rec_inputs = F.linear(acts, self.w_rec.T)
+                rec_inputs = F.linear(act, self.w_rec.T)
                 neur_state = neur_state + rec_inputs
             else:
                 rec_inputs = 0.0
 
             # - Record state
             if self._record:
-                self._state[:, t, :] = neur_state
                 self._rec_input[:, t, :] = rec_inputs
 
+            self._state[:, t, :] = neur_state
+
             # - Compute unit activation
-            acts = self.activation_func(neur_state, threshold)
-            self._act[:, t, :] = acts
+            act = self.act_fn(neur_state, self.threshold)
 
         # - Update states
         self.x = neur_state[0].detach()
-        self.acts = acts[0].detach()
 
         # - Return activations
-        return self._act
+        return self.act_fn(self._state, self.threshold)
