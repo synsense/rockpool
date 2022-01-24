@@ -238,6 +238,8 @@ class LIFBaseTorch(TorchModule):
         # placeholders for recordings
         self._record_vmem = None
         self._record_isyn = None
+        self._record_irec = None
+        self._record_U = None
         self._record_spikes = None
 
         self._record_dict = {}

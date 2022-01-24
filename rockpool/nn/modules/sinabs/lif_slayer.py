@@ -120,7 +120,7 @@ class LIFSlayer(LIFBaseTorch):
             )
 
             isyn_slayer[:, syn] = LeakyIntegrator.apply(
-                inp, isyn[:, :, syn].flatten().contiguous(), beta[0, syn]
+                inp.contiguous(), isyn[:, :, syn].flatten().contiguous(), beta[0, syn]
             )
 
         spikes, vmem_slayer = SpikeFunctionIterForward.apply(
