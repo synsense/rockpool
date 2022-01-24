@@ -311,6 +311,9 @@ def test_Rec_equality_torch():
 def test_FF_equality_slayer():
     import torch
     import numpy as np
+
+    if not torch.cuda.is_available():
+        return
     
     quant_scaling = 100
     bitshift = 4
