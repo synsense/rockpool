@@ -128,7 +128,7 @@ class DynapSE:
         :rtype: jnp.DeviceArray
         """
 
-        def bit_select(bitmask: np.ndarray) -> np.ndarray:
+        def bit_select(bitmask: np.ndarray) -> jnp.DeviceArray:
             """
             bit_select apply 4-bit mask to select bits
                 

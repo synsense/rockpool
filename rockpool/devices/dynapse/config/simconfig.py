@@ -400,20 +400,48 @@ class DynapSE1SimCore:
         """
         return self.neuron_property("ahp", "f_gain")
 
-    # [] TODO : Remove
-    @property
-    def Iw_base(self) -> jnp.DeviceArray:
-        """
-        Iw_base is 1D array of connection base weight currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,)
-        """
-        return self.weights.get_vector()
-
     @property
     def Iw_ahp(self) -> jnp.DeviceArray:
         """
         Iw_ahp is 1D array of spike frequency adaptation currents of the neurons in Amperes with shape (Nrec,)
         """
         return self.neuron_property("ahp", "Iw")
+
+    @property
+    def Iw_0(self) -> jnp.DeviceArray:
+        """
+        Iw_0 is a 1D array of Iw bit 0 parameters of the neurons with shape = (Nrec,)
+        """
+        return self.neuron_property("weights", "Iw_0")
+
+    @property
+    def Iw_1(self) -> jnp.DeviceArray:
+        """
+        Iw_1 is a 1D array of Iw bit 1 parameters of the neurons with shape = (Nrec,)
+        """
+        return self.neuron_property("weights", "Iw_1")
+
+    @property
+    def Iw_2(self) -> jnp.DeviceArray:
+        """
+        Iw_2 is a 1D array of Iw bit 2 parameters of the neurons with shape = (Nrec,)
+        """
+        return self.neuron_property("weights", "Iw_2")
+
+    @property
+    def Iw_3(self) -> jnp.DeviceArray:
+        """
+        Iw_3 is a 1D array of Iw bit 0 parameters of the neurons with shape = (Nrec,)
+        """
+        return self.neuron_property("weights", "Iw_3")
+
+    # [] TODO : Remove this
+    @property
+    def Iw_base(self) -> jnp.DeviceArray:
+        """
+        Iw_base is 1D array of connection base weight currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,)
+        """
+        return self.weights.get_vector()
 
     @property
     def kappa(self) -> jnp.DeviceArray:
@@ -602,6 +630,10 @@ class DynapSE1SimBoard:
             "Itau_ahp",
             "f_gain_ahp",
             "Iw_ahp",
+            "Iw_0",
+            "Iw_1",
+            "Iw_2",
+            "Iw_3",
             "kappa",
             "Ut",
             "Io",
@@ -649,6 +681,7 @@ class DynapSE1SimBoard:
         prop = jnp.concatenate([core.__getattribute__(attr) for core in self.cores])
         return prop
 
+    # [] TODO :  Remove
     def weight_matrix(self, CAM: np.ndarray) -> jnp.DeviceArray:
         """
         weight_matrix uses the `DynapSE` weight matrix method to obtain a weight matrix from a CAM matrix.
@@ -674,6 +707,7 @@ class DynapSE1SimBoard:
 
         return w_rec
 
+    # TODO : Remove
     @property
     def Iw_base(self) -> Dict[Tuple[np.uint8], float]:
         """

@@ -325,9 +325,9 @@ class WeightParameters:
     """
 
     Iw_0: float = 1e-6  # GABA_B
-    Iw_1: float = 1e-6  # GABA_A
-    Iw_2: float = 1e-6  # NMDA
-    Iw_3: float = 1e-6  # AMPA
+    Iw_1: float = 2e-6  # GABA_A
+    Iw_2: float = 4e-6  # NMDA
+    Iw_3: float = 8e-6  # AMPA
     layout: Optional[DynapSELayout] = None
 
     def __post_init__(self) -> None:
@@ -370,6 +370,7 @@ class WeightParameters:
         )
         return mod
 
+    # [] TODO : Remove
     def get_vector(self) -> np.ndarray:
         """
         get_vector gather the base weight currents together and creates a base weight vector

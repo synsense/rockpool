@@ -35,6 +35,7 @@ Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 13/07/2021
+[] TODO : Ith or f_gain should be an option to set or optimize
 """
 
 import logging
@@ -223,10 +224,16 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
     :type f_gain_ahp: jnp.DeviceArray
     :ivar f_gain_mem: Array of membrane gain parameter of the neurons with shape (Nrec,)
     :type f_gain_mem: jnp.DeviceArray
-    :ivar Iw: 2D array of synapse weight currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape (4,Nrec)
-    :type Iw: jnp.DeviceArray
     :ivar Iw_ahp: Array of spike frequency adaptation weight currents of the neurons with shape (Nrec,)
     :type Iw_ahp: jnp.DeviceArray
+    :ivar Iw_0: Array of weight bit 0 currents of the neurons with shape (Nrec,)
+    :type Iw_0: jnp.DeviceArray
+    :ivar Iw_1: Array of weight bit 1 currents of the neurons with shape (Nrec,)
+    :type Iw_1: jnp.DeviceArray
+    :ivar Iw_2: Array of weight bit 2 currents of the neurons with shape (Nrec,)
+    :type Iw_2: jnp.DeviceArray
+    :ivar Iw_3: Array of weight bit 3 currents of the neurons with shape (Nrec,)
+    :type Iw_3: jnp.DeviceArray
     :ivar Idc: Array of constant DC current in Amperes, injected to membrane with shape (Nrec,)
     :type Idc: jnp.DeviceArray
     :ivar If_nmda: Array of the NMDA gate current in Amperes setting the NMDA gating voltage. If :math:`V_{mem} > V_{nmda}` : The :math:`I_{syn_{NMDA}}` current is added up to the input current, else it cannot with shape (Nrec,)
@@ -352,6 +359,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
         self._rng_key = State(rng_key, init_func=lambda _: rng_key)
 
         # --- Parameters --- #
+        # [] TODO : Change
         ## Weights
         self._weight_init(has_rec, init_weight, w_rec)
 
@@ -364,6 +372,10 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
             "Itau_ahp",
             "f_gain_ahp",
             "Iw_ahp",
+            "Iw_0",
+            "Iw_1",
+            "Iw_2",
+            "Iw_3",
             "Itau_mem",
             "Itau2_mem",
             "f_gain_mem",
@@ -482,7 +494,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
         self, input_data: jnp.DeviceArray, record: bool = True
     ) -> Tuple[jnp.DeviceArray, Dict[str, jnp.DeviceArray], Dict[str, jnp.DeviceArray]]:
         """
-        evolve implements raw JAX evolution function for a DynapSEAdExpLIFJax module.
+        evolve implements raw rockpool JAX evolution function for a DynapSEAdExpLIFJax module.
         The function solves the dynamical equations introduced at the ``DynapSEAdExpLIFJax`` module definition
 
         :param input_data: Input array of shape ``(T, Nrec, 4)`` to evolve over. Represents number of spikes at that timebin for different synaptic gates
