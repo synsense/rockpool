@@ -51,7 +51,7 @@ class ExpSynJax(JaxModule):
 
         Args:
             shape (Optional[tuple]): The number of units in this module ``(N,)``.
-            tau (Optional[np.ndarray]): Concrete initialisation data to use for the time constants of the synapses. Default: shared 100 ms for all synapses.
+            tau (Optional[np.ndarray]): Concrete initialisation data to use for the time constants of the synapses. Default: trainable individual 10 ms for all synapses.
             dt (float): The time step for simulation, in seconds. Default: 1 ms
         """
         # - Call super-class initialisation
@@ -87,7 +87,7 @@ class ExpSynJax(JaxModule):
         """ (np.ndarray) Time constant of each synapse """
 
         # - Initialise noise std dev
-        self.noise_std: rt.P_tensor = SimulationParameter(noise_std, cast_fn=np.array)
+        self.noise_std: rt.P_float = SimulationParameter(noise_std, cast_fn=np.array)
         """ (float) Noise std. dev after 1 second """
 
         self.isyn: Union[np.array, State] = State(
@@ -131,4 +131,4 @@ class ExpSynJax(JaxModule):
         isyn, output = scan_time(isyn, input_data + noise_ts)
 
         # - Return output data and state
-        return output, {"isyn": isyn}, {}
+        return output, {"isyn": isyn[0]}, {}

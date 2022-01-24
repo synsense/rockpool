@@ -61,7 +61,7 @@ class ExpSynTorch(TorchModule):
         to_float_tensor = lambda x: torch.tensor(x).float()
 
         # - Initialise tau
-        self.tau_syn: rt.P_tensor = rp.Parameter(
+        self.tau: rt.P_tensor = rp.Parameter(
             tau,
             shape=[(self.size_out,), ()],
             family="taus",
@@ -91,13 +91,10 @@ class ExpSynTorch(TorchModule):
     ) -> Tuple[Any, Any, Any]:
 
         # - Evolve the module
-        output_data, states, _ = super().evolve(input_data, record)
-
-        # - Build a record dictionary
-        record_dict = {"isyn": self._isyn_rec} if record else {}
+        output_data, _, _ = super().evolve(input_data, record)
 
         # - Return the result of evolution
-        return output_data, states, record_dict
+        return output_data, self.state(), {}
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
@@ -119,10 +116,10 @@ class ExpSynTorch(TorchModule):
         n_batches, time_steps, _ = data.shape
 
         # - Build a tensor to compute and return internal state
-        self._isyn_rec = torch.zeros(data.shape, device=data.device)
+        isyn_ts = torch.zeros(data.shape, device=data.device)
 
         # - Compute decay factor
-        beta = torch.exp(-self.dt / self.tau_syn)
+        beta = torch.exp(-self.dt / self.tau)
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
 
         # - Loop over time
@@ -131,10 +128,10 @@ class ExpSynTorch(TorchModule):
                 isyn.shape, device=isyn.device
             )
             isyn *= beta
-            self._isyn_rec[:, t, :] = isyn[:, 0, :]
+            isyn_ts[:, t, :] = isyn[:, 0, :]
 
         # - Store the final state
         self.isyn = isyn[0].detach()
 
         # - Return the evolved synaptic current
-        return self._isyn_rec
+        return isyn_ts

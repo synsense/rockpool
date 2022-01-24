@@ -5,12 +5,13 @@ Implement a fast exponential synapse layer using convolution
 # - Rockpool imports
 from rockpool.nn.modules import Module
 from rockpool.parameters import Parameter, State, SimulationParameter
+from rockpool.typehints import P_float
 
 # - Other imports
 import numpy as np
 import scipy.signal as sig
 
-from typing import Union
+from typing import Union, Optional
 
 __all__ = ["ExpSyn"]
 
@@ -24,8 +25,9 @@ class ExpSyn(Module):
 
     def __init__(
         self,
-        shape: tuple = None,
-        tau: np.array = None,
+        shape: Union[int, tuple],
+        tau: Optional[np.array] = None,
+        noise_std: float = 0.0,
         dt: float = 1e-3,
         max_window_length: int = 1e6,
         *args,
@@ -36,20 +38,15 @@ class ExpSyn(Module):
 
         Args:
             shape (Optional[tuple]): The number of synapses in this module ``(N,)``. If not provided, the shape will be extracted from ``tau``.
-            tau (Optional[np.ndarray]): Concrete initialisation data for the time constants of the synapses, in seconds. Default: 100 ms for all synapses.
+            tau (Optional[np.ndarray]): Concrete initialisation data for the time constants of the synapses, in seconds. Default: 10 ms individual for all synapses.
             dt (float): The timestep of this module, in seconds. Default: 1 ms.
-            max_window_length (int):
+            max_window_length (int): The largest window to use when pre-generating synaptic kernels. Default: 1e6.
         """
         # - Work out the shape of this module
-        if shape is None:
-            assert (
-                tau is not None
-            ), "You must provide either `shape` or else specify concrete parameters."
-            shape = np.array(tau).shape
-
-        # - Check that the shape is reasonable
         if np.size(shape) > 1:
-            raise ValueError("The `shape` argument must be one-dimensional.")
+            raise ValueError(
+                "The `shape` argument must be one-dimensional for an ExpSyn module."
+            )
 
         # - Call super-class initialisation
         super().__init__(shape=shape, *args, **kwargs)
@@ -61,17 +58,21 @@ class ExpSyn(Module):
         self.max_window_length: Union[int, SimulationParameter] = SimulationParameter(
             max_window_length
         )
-        """ Maximum window length for convolution """
+        """ (int) Maximum window length for convolution """
+
+        # - Initialise noise std dev
+        self.noise_std: P_float = SimulationParameter(noise_std, cast_fn=np.array)
+        """ (float) Noise std. dev after 1 second """
 
         self.tau: Union[np.array, Parameter] = Parameter(
-            shape=self.shape,
             data=tau,
             family="taus",
-            init_func=lambda s: 100e-3 * np.ones(s),
+            shape=[(self.size_in,), ()],
+            init_func=lambda s: 10e-3 * np.ones(s),
         )
-        """ Time constant of each synapse """
+        """ (np.ndarray) Time constant of each synapse ``(Nin,)`` or ``()`` """
 
-        self.Isyn: Union[np.array, State] = State(
+        self.isyn: Union[np.array, State] = State(
             shape=self.shape, init_func=np.zeros,
         )
 
@@ -82,7 +83,7 @@ class ExpSyn(Module):
         )
 
         # - Compute window normalised time base
-        time_base = [-np.arange(0, window_length) * self.dt] * self.size_out
+        time_base = [-np.arange(1, window_length + 1) * self.dt] * self.size_out
         time_base = np.array(time_base) / np.atleast_2d(self.tau).T
 
         # - Compute exponentials
@@ -91,29 +92,42 @@ class ExpSyn(Module):
     def evolve(
         self, input_data: np.array, *args, **kwargs,
     ) -> (np.ndarray, dict, dict):
+        # - Expand states and data over batches
+        input_data, (isyn, window) = self._auto_batch(
+            input_data, (self.isyn, self._window)
+        )
+        n_batches, n_timesteps, _ = input_data.shape
+        window = np.broadcast_to(
+            self._window, (n_batches, self._window.shape[0], self.size_in)
+        )
+
         # - Compute roll-over decay from last evolution
         rollover = np.zeros(input_data.shape)
-        rollover[0, :] = self.Isyn
+        rollover[:, 0, :] = isyn
         rollover = sig.fftconvolve(
-            rollover, self._window[: input_data.shape[0]], axes=0, mode="full"
+            rollover, window[:, :n_timesteps, :], axes=1, mode="full",
         )
 
         # - Perform temporal convolution on input
         output_data = (
-            sig.fftconvolve(
-                input_data, self._window[: input_data.shape[0]], axes=0, mode="full"
-            )
+            sig.fftconvolve(input_data, window[:, :n_timesteps, :], axes=1, mode="full")
             + rollover
         )
 
-        # - Record final state for use in next evolution
-        self.Isyn = output_data[input_data.shape[0], :]
-
         # - Trim output to input shape
-        output_data = output_data[: input_data.shape[0]]
+        output_data = output_data[:, :n_timesteps, :]
+
+        # - Add noise
+        if self.noise_std > 0.0:
+            output_data += (
+                self.noise_std * np.sqrt(self.dt) * np.random.randn(*output_data.shape)
+            )
+
+        # - Record final state for use in next evolution
+        self.isyn = output_data[0, -1, :]
 
         # - Return output along with new state
-        return output_data, {"Isyn": self.Isyn}, {}
+        return output_data, self.state(), {}
 
     @property
     def tau(self) -> float:

@@ -8,6 +8,10 @@ from typing import List
 from rockpool.typehints import Tree
 
 
+class MismatchError(ValueError):
+    pass
+
+
 def compare_value_tree(results: List[Tree], Classes: List[type], atol: float = 1e-4):
     def to_numpy(x):
         if isinstance(x, torch.Tensor):
@@ -29,9 +33,12 @@ def compare_value_tree(results: List[Tree], Classes: List[type], atol: float = 1
             mismatch = tree_find(mismatch_params)
 
             if len(mismatch) > 0:
-                raise ValueError(
-                    f"Comparing {Classes[0].__name__} and {Classes[class_index].__name__}\nSome elements of default parameters do not match:\n{mismatch}"
+                raise MismatchError(
+                    f"Comparing {Classes[0].__name__} and {Classes[class_index].__name__}\nSome elements of comaprison values do not match:\n{mismatch}"
                 )
+        except MismatchError:
+            raise
+
         except Exception as e:
             raise ValueError(
                 f"Error comparing classes {Classes[0].__name__} and {Classes[class_index].__name__}:\n"
@@ -157,6 +164,59 @@ def test_rate_dynamics():
             "rec_output": out_rec,
             "rec_states": dict(ns_rec),
             "rec_record": dict(r_d_rec),
+        }
+
+    # - Get dynamics for each module class
+    results = [get_dynamics(M) for M in Module_classes]
+
+    compare_value_tree(results, Module_classes)
+
+
+def test_expsyn_defaults():
+    from rockpool.nn.modules import ExpSyn, ExpSynJax, ExpSynTorch
+
+    Module_classes = [ExpSyn, ExpSynJax, ExpSynTorch]
+
+    N = 2
+
+    def get_defaults(Mod_class: type) -> dict:
+        mod = Mod_class(N)
+        params = mod.parameters()
+        simparams = mod.simulation_parameters()
+        simparams.pop("max_window_length", None)
+
+        return {"params": dict(params), "simparams": dict(simparams)}
+
+    # - Get default parameters for each module class
+    results = [get_defaults(M) for M in Module_classes]
+
+    compare_value_tree(results, Module_classes)
+
+
+def test_expsyn_dynamics():
+    from rockpool.nn.modules import ExpSyn, ExpSynJax, ExpSynTorch, TorchModule
+    import numpy as np
+    import torch
+
+    Module_classes = [ExpSyn, ExpSynJax, ExpSynTorch]
+
+    Nin = 2
+    batches = 3
+    T = 10
+    input_data = np.random.rand(batches, T, Nin)
+
+    def get_dynamics(Mod_class: type):
+        is_torch = issubclass(Mod_class, TorchModule)
+        this_data = torch.from_numpy(input_data).float() if is_torch else input_data
+
+        mod = Mod_class((Nin,))
+        out, ns, r_d = mod(this_data, record=True)
+        ns.pop("rng_key", None)
+
+        return {
+            "output": out,
+            "states": dict(ns),
+            "record": dict(r_d),
         }
 
     # - Get dynamics for each module class
