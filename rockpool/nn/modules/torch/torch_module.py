@@ -476,6 +476,9 @@ class TorchModule(Module, nn.Module):
 
     def json_to_param(self, jparam):
 
+        if not jparam:
+            return
+
         for k, param in jparam.items():
 
             if isinstance(param, str):
@@ -485,8 +488,15 @@ class TorchModule(Module, nn.Module):
                 self.modules()[k].json_to_param(param)
             else:
                 my_params = self.parameters()
+                my_params.update(self.simulation_parameters())
                 if isinstance(my_params[k], list):
                     my_params[k] = param
+                elif isinstance(my_params[k], int):
+                    my_params[k] = param
+                elif isinstance(my_params[k], float):
+                    my_params[k] = param
+                elif callable(my_params[k]):
+                    pass
                 elif isinstance(my_params[k], np.ndarray):
                     my_params[k] = np.array(param)
                 elif isinstance(my_params[k], torch.Tensor):
@@ -504,23 +514,55 @@ class TorchModule(Module, nn.Module):
             return json.dumps(param.detach().cpu().numpy().tolist())
         elif isinstance(param, np.ndarray):
             return json.dumps(param.tolist())
+        elif isinstance(param, float):
+            return json.dumps(param)
+        elif isinstance(param, int):
+            return json.dumps(param)
+        elif callable(param):
+            return  
         elif isinstance(param, dict):
-            try:
-                return json.dumps(param)
-            except:
-                return_dict = {}
-                for k, p in param.items():
-                    return_dict[k] = self.param_to_json(p)
-                return return_dict
+            return_dict = {}
+            for k, p in param.items():
+                return_dict[k] = self.param_to_json(p)
+            return return_dict
         else:
             raise NotImplementedError(
                 f"{type(param)} not implemented to save. Please implement."
             )
 
-    def to_json(self):
-        params = self.parameters()
+    def merge(self, a, b):
+        
+        ret = {}
+        keys_a = a.keys()
+        keys_b = b.keys()
+        mutual_keys = keys_a & keys_b
+        keys_a -= mutual_keys
+        keys_b -= mutual_keys
 
-        return self.param_to_json(params)
+        for k in keys_a:
+            ret[k] = a[k]
+
+        for k in keys_b:
+            ret[k] = b[k]
+
+        for k in mutual_keys:
+            if isinstance(a[k], dict) and isinstance(b[k], dict):
+                ret[k] = self.merge(a[k], b[k])
+            else:
+                if not a[k] == b[k]:
+                    raise f"Conflict at {k}"
+
+        return ret
+
+
+
+    def to_json(self):
+        params = self.param_to_json(self.parameters())
+        sim_params = self.param_to_json(self.simulation_parameters())
+
+        all_params = self.merge(params, sim_params)
+
+        return all_params 
 
     def save(self, fn):
         with open(fn, "w+") as f:
