@@ -43,33 +43,32 @@ def H_sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
 
 class RateJax(JaxModule):
     """
-    Encapsulates a population of rate neurons, supporting feed-forward and recurrent modules.
+    Encapsulates a population of rate neurons, supporting feed-forward and recurrent modules, with a Jax backend
 
     Examples:
         Instantiate a feed-forward module with 8 neurons:
 
-        >>> mod = RateJax((8,))
+        >>> mod = RateJax(8,)
         RateEulerJax 'None' with shape (8,)
 
         Instantiate a recurrent module with 12 neurons:
 
-        >>> mod_rec = RateJax((12, 12))
-        RateEulerJax 'None' with shape (12, 12)
+        >>> mod_rec = RateJax(12, has_rec = True)
+        RateEulerJax 'None' with shape (12,)
 
         Instantiate a feed-forward module with defined time constants:
 
-        >>> mod = RateJax(tau = np.arange(7,) * 10e-3)
+        >>> mod = RateJax(7, tau = np.arange(7,) * 10e-3)
         RateEulerJax 'None' with shape (7,)
 
-        ``mod`` will contain 7 neurons, taking the dimensionlity of `tau`.
+    This module implements the update equations:
 
-    Notes:
-        Each neuron follows the dynamics
+    .. math::
 
-        .. math::
-            \\tau \\cdot \\dot{x} + x = b + i(t) + \\sigma\\eta(t)
+        X = X * \exp(-dt / \tau)
+        X = X + i(t) + W_{rec} H(X) + \sigma \zeta_t
 
-        where :math:`x` is the neuron state; :math:`\\tau` is the neuron time constant; :math:`b` is the neuron bias; :math:`i(t)`$` is the input current at time :math:`t`$`; and :math:`\\sigma\\eta(t)`$` is a white noise process with std. dev. :math:`\\eta`.
+        H(x, t) = (x - t) * ((x - t) > 0)
     """
 
     def __init__(

@@ -20,7 +20,17 @@ class ExpSyn(Module):
     """
     Exponential synapse module
 
+    This module implements a layer of exponential synapses, operating under the update equations
 
+    .. math::
+
+        I_{syn} = I_{syn} + i(t)
+        I_{syn} = I_{syn} * \exp(-dt / \tau)
+        I_{syn} = I_{syn} + \sigma \zeta_t
+
+    where :math:`i(t)` is the instantaneous input; :math:`\\tau` is the vector ``(N,)`` of time constants for each synapse in seconds; :math:`dt` is the update time-step in seconds; :math:`\\sigma` is the std. deviation after 1s of a Wiener process.
+
+    This module uses fast convolutional logic to implement the update dynamics.
     """
 
     def __init__(
@@ -30,6 +40,8 @@ class ExpSyn(Module):
         noise_std: float = 0.0,
         dt: float = 1e-3,
         max_window_length: int = 1e6,
+        spiking_input: bool = True,
+        spiking_output: bool = False,
         *args,
         **kwargs,
     ):
@@ -37,8 +49,9 @@ class ExpSyn(Module):
         Initialise a module of exponential synapses
 
         Args:
-            shape (Optional[tuple]): The number of synapses in this module ``(N,)``. If not provided, the shape will be extracted from ``tau``.
+            shape (Union[int, tuple]): The number of synapses in this module ``(N,)``.
             tau (Optional[np.ndarray]): Concrete initialisation data for the time constants of the synapses, in seconds. Default: 10 ms individual for all synapses.
+            noise_std (float): The std. dev after 1s of noise added independently to each synapse
             dt (float): The timestep of this module, in seconds. Default: 1 ms.
             max_window_length (int): The largest window to use when pre-generating synaptic kernels. Default: 1e6.
         """
@@ -49,7 +62,13 @@ class ExpSyn(Module):
             )
 
         # - Call super-class initialisation
-        super().__init__(shape=shape, *args, **kwargs)
+        super().__init__(
+            shape=shape,
+            spiking_input=spiking_input,
+            spiking_output=spiking_output,
+            *args,
+            **kwargs,
+        )
 
         # - Record parameters
         self.dt: Union[float, SimulationParameter] = SimulationParameter(dt)

@@ -19,17 +19,32 @@ relu = lambda x, t: torch.clip(x - t, 0, torch.inf)
 
 class RateTorch(TorchModule):
     """
-    Rate dynamic neuron, with a torch backend
+    Encapsulates a population of rate neurons, supporting feed-forward and recurrent modules, with a Toch backend
+
+    Examples:
+        Instantiate a feed-forward module with 8 neurons:
+
+        >>> mod = RateTorch(8,)
+        RateEulerJax 'None' with shape (8,)
+
+        Instantiate a recurrent module with 12 neurons:
+
+        >>> mod_rec = RateTorch(12, has_rec = True)
+        RateEulerJax 'None' with shape (12,)
+
+        Instantiate a feed-forward module with defined time constants:
+
+        >>> mod = RateTorch(7, tau = torch.arange(7,) * 10e-3)
+        RateEulerJax 'None' with shape (7,)
 
     This module implements the update equations:
 
     .. math::
 
-        X = X + i(t) + W_{rec} H(X) + \sigma \zeta_t
         X = X * \exp(-dt / \tau)
+        X = X + i(t) + W_{rec} H(X) + \sigma \zeta_t
 
         H(x, t) = (x - t) * ((x - t) > 0)
-    
     """
 
     def __init__(
