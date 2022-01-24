@@ -5,6 +5,7 @@ Contains an implementation of a non-spiking rate module
 # - Rockpool imports
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import Parameter, State, SimulationParameter
+from .linear import kaiming, unit_eigs
 
 # -- Imports
 import numpy as np
@@ -52,10 +53,10 @@ class Rate(Module):
 
     .. math::
 
-        X = X * \exp(-dt / \tau)
-        X = X + i(t) + W_{rec} H(X) + \sigma \zeta_t
+        \dot{X} = -X + i(t) + W_{rec} H(X) + bias + \sigma \zeta_t
+        X = X + \dot{x} * dt / \tau
 
-        H(x, t) = (x - t) * ((x - t) > 0)
+        H(x, t) = relu(x, t) = (x - t) * ((x - t) > 0)
     """
 
     def __init__(
@@ -65,6 +66,7 @@ class Rate(Module):
         bias: Optional[FloatVector] = None,
         threshold: Optional[FloatVector] = None,
         w_rec: Optional[np.ndarray] = None,
+        weight_init_func: Callable = unit_eigs,
         has_rec: bool = False,
         activation_func: Union[str, Callable] = H_ReLU,
         dt: float = 1e-3,
@@ -79,7 +81,8 @@ class Rate(Module):
             shape (Tuple[int]): A tuple containing the numer  of this module.
             tau (float): A scalar or vector defining the initialisation time constants for the module. If a vector is provided, it must match the output size of the module. Default: ``1.``
             bias (float): A scalar or vector defining the initialisation bias values for the module. If a vector is provided, it must match the output size of the module. Default: ``0.``
-            w_rec (np.ndarray): An optional matrix defining the initialisation recurrent weights for the module. Default: ``Normal / sqrt(N)``
+            w_rec (np.ndarray): An optional matrix defining the initialisation recurrent weights for the module.
+            weight_init_func (Callable): A function used to initialise the recurrent weights, if used. Default: :py:func:`.unit_eigs`; initialise such that recurrent feedback has eigenvalues distributed within the unit circle.
             has_rec (bool): A flag parameter indicating whether the module has recurrent connections or not. Default: ``False``, no recurrent connections.
             activation_func (Callable): The activation function of the neurons. This can be provided as a string ``['ReLU', 'sigmoid', 'tanh']``, or as a function that accepts a vector of neural states and returns the vector of output activations. Default: ``'ReLU'``.
             dt (float): The Euler solver time-step. Default: ``1e-3``
@@ -115,7 +118,7 @@ class Rate(Module):
             self.w_rec: P_tensor = Parameter(
                 w_rec,
                 family="weights",
-                init_func=lambda s: rand.normal(size=s) / np.sqrt(2 / s[0]),
+                init_func=weight_init_func,
                 shape=(self.size_out, self.size_in),
             )
             """The recurrent weight matrix ``(N, N)`` for this module"""
@@ -182,7 +185,7 @@ class Rate(Module):
         batches, num_timesteps, n_inputs = input_data.shape
 
         # - Get evolution constants
-        alpha = np.exp(-self.dt / self.tau)
+        alpha = self.dt / self.tau
         noise_zeta = self.noise_std * np.sqrt(self.dt)
 
         w_rec = self.w_rec if hasattr(self, "w_rec") else None
@@ -199,9 +202,9 @@ class Rate(Module):
             """
             state, activation = x
 
-            state *= alpha
             rec_input = np.dot(activation, w_rec) if w_rec is not None else 0.0
-            state += inp + self.bias + rec_input
+            dstate = -state + inp + self.bias + rec_input
+            state = state + dstate * alpha
             activation = self.act_fn(state, self.threshold)
 
             return (state, activation), (rec_input, state, activation)

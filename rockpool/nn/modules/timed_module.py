@@ -529,6 +529,9 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         Returns:
             TimeSeries: The data in ``output`` wrapped into a :py:class:`.TimeSeries` object
         """
+        if len(output.shape) > 2:
+            output = output[0]
+
         if self.spiking_output:
             return self._gen_tsevent(output, **kwargs)
         else:

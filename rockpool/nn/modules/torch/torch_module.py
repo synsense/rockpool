@@ -204,8 +204,16 @@ class TorchModule(Module, nn.Module):
             (torch.Tensor, Tuple[torch.Tensor]) data, states
         """
         # - Verify input data shape
-        if len(data.shape) == 2:
+        if len(data.shape) == 1:
+            data = torch.unsqueeze(data, 1)
+            data = torch.unsqueeze(data, 2)
+        elif len(data.shape) == 2:
             data = torch.unsqueeze(data, 0)
+
+        if data.shape[-1] == 1:
+            data = torch.broadcast_to(
+                data, (data.shape[0], data.shape[1], self.size_in)
+            )
 
         # - Get shape of input
         (n_batches, time_steps, n_connections) = data.shape
@@ -519,7 +527,7 @@ class TorchModule(Module, nn.Module):
         elif isinstance(param, int):
             return json.dumps(param)
         elif callable(param):
-            return  
+            return
         elif isinstance(param, dict):
             return_dict = {}
             for k, p in param.items():
@@ -531,7 +539,7 @@ class TorchModule(Module, nn.Module):
             )
 
     def merge(self, a, b):
-        
+
         ret = {}
         keys_a = a.keys()
         keys_b = b.keys()
@@ -554,15 +562,13 @@ class TorchModule(Module, nn.Module):
 
         return ret
 
-
-
     def to_json(self):
         params = self.param_to_json(self.parameters())
         sim_params = self.param_to_json(self.simulation_parameters())
 
         all_params = self.merge(params, sim_params)
 
-        return all_params 
+        return all_params
 
     def save(self, fn):
         with open(fn, "w+") as f:
