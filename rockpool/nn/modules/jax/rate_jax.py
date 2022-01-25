@@ -5,6 +5,7 @@ Contains an implementation of a non-spiking rate module, with a Jax backend
 # - Rockpool imports
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
+from ..native.linear import unit_eigs, kaiming
 from rockpool.graph import (
     RateNeuronWithSynsRealValue,
     LinearWeights,
@@ -43,33 +44,32 @@ def H_sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
 
 class RateJax(JaxModule):
     """
-    Encapsulates a population of rate neurons, supporting feed-forward and recurrent modules.
+    Encapsulates a population of rate neurons, supporting feed-forward and recurrent modules, with a Jax backend
 
     Examples:
         Instantiate a feed-forward module with 8 neurons:
 
-        >>> mod = RateJax((8,))
+        >>> mod = RateJax(8,)
         RateEulerJax 'None' with shape (8,)
 
         Instantiate a recurrent module with 12 neurons:
 
-        >>> mod_rec = RateJax((12, 12))
-        RateEulerJax 'None' with shape (12, 12)
+        >>> mod_rec = RateJax(12, has_rec = True)
+        RateEulerJax 'None' with shape (12,)
 
         Instantiate a feed-forward module with defined time constants:
 
-        >>> mod = RateJax(tau = np.arange(7,) * 10e-3)
+        >>> mod = RateJax(7, tau = np.arange(7,) * 10e-3)
         RateEulerJax 'None' with shape (7,)
 
-        ``mod`` will contain 7 neurons, taking the dimensionlity of `tau`.
+    This module implements the update equations:
 
-    Notes:
-        Each neuron follows the dynamics
+    .. math::
 
-        .. math::
-            \\tau \\cdot \\dot{x} + x = b + i(t) + \\sigma\\eta(t)
+        \dot{X} = -X + i(t) + W_{rec} H(X) + bias + \sigma \zeta_t
+        X = X + \dot{x} * dt / \tau
 
-        where :math:`x` is the neuron state; :math:`\\tau` is the neuron time constant; :math:`b` is the neuron bias; :math:`i(t)`$` is the input current at time :math:`t`$`; and :math:`\\sigma\\eta(t)`$` is a white noise process with std. dev. :math:`\\eta`.
+        H(x, t) = relu(x, t) = (x - t) * ((x - t) > 0)
     """
 
     def __init__(
@@ -79,6 +79,7 @@ class RateJax(JaxModule):
         bias: Optional[FloatVector] = None,
         threshold: Optional[FloatVector] = None,
         w_rec: Optional[np.ndarray] = None,
+        weight_init_func: Callable = unit_eigs,
         has_rec: bool = False,
         activation_func: Union[str, Callable] = H_ReLU,
         noise_std: float = 0.0,
@@ -95,6 +96,7 @@ class RateJax(JaxModule):
             tau (float): A scalar or vector defining the initialisation time constants for the module. If a vector is provided, it must match the output size of the module. Default: ``10ms``
             bias (float): A scalar or vector defining the initialisation bias values for the module. If a vector is provided, it must match the output size of the module. Default: ``0.``
             w_rec (np.ndarray): An optional matrix defining the initialisation recurrent weights for the module. Default: ``Normal / sqrt(N)``
+            weight_init_func (Callable): A function used to initialise the recurrent weights, if used. Default: :py:func:`.unit_eigs`; initialise such that recurrent feedback has eigenvalues distributed within the unit circle.
             activation_func (Callable): The activation function of the neurons. This can be provided as a string ``['ReLU', 'sigmoid', 'tanh']``, or as a function that accepts a vector of neural states and returns the vector of output activations. This function must use `jax.numpy` math functions, and *not* `numpy` math functions. Default: ``'ReLU'``.
             dt (float): The Euler solver time-step. Default: ``1e-3``
             noise_std (float): The std. dev. of normally-distributed noise added to the neural state at each time step. Default: ``0.``
@@ -129,10 +131,7 @@ class RateJax(JaxModule):
             self.w_rec: P_ndarray = Parameter(
                 w_rec,
                 family="weights",
-                init_func=lambda s: jax.random.normal(
-                    rand.split(self.rng_key)[0], shape=self.shape
-                )
-                / np.sqrt(2 / self.shape[0]),
+                init_func=weight_init_func,
                 shape=(self.size_out, self.size_in),
             )
             """The recurrent weight matrix ``(N, N)`` for this module """
@@ -211,7 +210,7 @@ class RateJax(JaxModule):
             )
 
         # - Get evolution constants
-        alpha = np.exp(-self.dt / self.tau)
+        alpha = self.dt / self.tau
         noise_zeta = self.noise_std * np.sqrt(self.dt)
 
         w_rec = self.w_rec
@@ -228,9 +227,9 @@ class RateJax(JaxModule):
             """
             state, activation = x
 
-            state *= alpha
-            rec_input = np.dot(activation, w_rec)
-            state += inp + self.bias + rec_input
+            rec_input = np.dot(activation, w_rec) if w_rec is not None else 0.0
+            dstate = -state + inp + self.bias + rec_input
+            state = state + dstate * alpha
             activation = self.act_fn(state, self.threshold)
 
             return (state, activation), (rec_input, state, activation)

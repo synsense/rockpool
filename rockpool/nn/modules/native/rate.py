@@ -5,6 +5,7 @@ Contains an implementation of a non-spiking rate module
 # - Rockpool imports
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import Parameter, State, SimulationParameter
+from .linear import kaiming, unit_eigs
 
 # -- Imports
 import numpy as np
@@ -30,33 +31,32 @@ def H_sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
 
 class Rate(Module):
     """
-    Encapsulates a population of rate neurons, supporting feed-forward and recurrent modules.
+    Encapsulates a population of rate neurons, supporting feed-forward and recurrent modules
 
     Examples:
         Instantiate a feed-forward module with 8 neurons:
 
         >>> mod = Rate(8,)
-        Rate 'None' with shape (8,)
+        RateEulerJax 'None' with shape (8,)
 
         Instantiate a recurrent module with 12 neurons:
 
-        >>> mod_rec = Rate((12, 12))
-        Rate 'None' with shape (12, 12)
+        >>> mod_rec = Rate(12, has_rec = True)
+        RateEulerJax 'None' with shape (12,)
 
         Instantiate a feed-forward module with defined time constants:
 
-        >>> mod = Rate(tau = np.arange(7,) * 10e-3)
-        Rate 'None' with shape (7,)
+        >>> mod = Rate(7, tau = np.arange(7,) * 10e-3)
+        RateEulerJax 'None' with shape (7,)
 
-        ``mod`` will contain 7 neurons, taking the dimensionlity of `tau`.
+    This module implements the update equations:
 
-    Notes:
-        Each neuron follows the dynamics
+    .. math::
 
-        .. math::
-            \\tau \\cdot \\dot{x} + x = b + i(t) + \\sigma\\eta(t)
+        \dot{X} = -X + i(t) + W_{rec} H(X) + bias + \sigma \zeta_t
+        X = X + \dot{x} * dt / \tau
 
-        where :math:`x` is the neuron state; :math:`\\tau` is the neuron time constant; :math:`b` is the neuron bias; :math:`i(t)`$` is the input current at time :math:`t`$`; and :math:`\\sigma\\eta(t)`$` is a white noise process with std. dev. :math:`\\eta`.
+        H(x, t) = relu(x, t) = (x - t) * ((x - t) > 0)
     """
 
     def __init__(
@@ -66,6 +66,7 @@ class Rate(Module):
         bias: Optional[FloatVector] = None,
         threshold: Optional[FloatVector] = None,
         w_rec: Optional[np.ndarray] = None,
+        weight_init_func: Callable = unit_eigs,
         has_rec: bool = False,
         activation_func: Union[str, Callable] = H_ReLU,
         dt: float = 1e-3,
@@ -80,7 +81,8 @@ class Rate(Module):
             shape (Tuple[int]): A tuple containing the numer  of this module.
             tau (float): A scalar or vector defining the initialisation time constants for the module. If a vector is provided, it must match the output size of the module. Default: ``1.``
             bias (float): A scalar or vector defining the initialisation bias values for the module. If a vector is provided, it must match the output size of the module. Default: ``0.``
-            w_rec (np.ndarray): An optional matrix defining the initialisation recurrent weights for the module. Default: ``Normal / sqrt(N)``
+            w_rec (np.ndarray): An optional matrix defining the initialisation recurrent weights for the module.
+            weight_init_func (Callable): A function used to initialise the recurrent weights, if used. Default: :py:func:`.unit_eigs`; initialise such that recurrent feedback has eigenvalues distributed within the unit circle.
             has_rec (bool): A flag parameter indicating whether the module has recurrent connections or not. Default: ``False``, no recurrent connections.
             activation_func (Callable): The activation function of the neurons. This can be provided as a string ``['ReLU', 'sigmoid', 'tanh']``, or as a function that accepts a vector of neural states and returns the vector of output activations. Default: ``'ReLU'``.
             dt (float): The Euler solver time-step. Default: ``1e-3``
@@ -116,7 +118,7 @@ class Rate(Module):
             self.w_rec: P_tensor = Parameter(
                 w_rec,
                 family="weights",
-                init_func=lambda s: rand.normal(size=s) / np.sqrt(2 / s[0]),
+                init_func=weight_init_func,
                 shape=(self.size_out, self.size_in),
             )
             """The recurrent weight matrix ``(N, N)`` for this module"""
@@ -183,7 +185,7 @@ class Rate(Module):
         batches, num_timesteps, n_inputs = input_data.shape
 
         # - Get evolution constants
-        alpha = np.exp(-self.dt / self.tau)
+        alpha = self.dt / self.tau
         noise_zeta = self.noise_std * np.sqrt(self.dt)
 
         w_rec = self.w_rec if hasattr(self, "w_rec") else None
@@ -200,9 +202,9 @@ class Rate(Module):
             """
             state, activation = x
 
-            state *= alpha
             rec_input = np.dot(activation, w_rec) if w_rec is not None else 0.0
-            state += inp + self.bias + rec_input
+            dstate = -state + inp + self.bias + rec_input
+            state = state + dstate * alpha
             activation = self.act_fn(state, self.threshold)
 
             return (state, activation), (rec_input, state, activation)

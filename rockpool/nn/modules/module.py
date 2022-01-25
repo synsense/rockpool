@@ -685,35 +685,6 @@ class Module(ModuleBase, ABC, metaclass=PostInitMetaMixin):
     The native Python / numpy ``Module`` base class for Rockpool
     """
 
-    pass
-    # def _register_module(self, name: str, mod: ModuleBase):
-    #     """
-    #     Register a submodule in the module registry
-    #
-    #     Args:
-    #         name (str): The name to assign to the submodule
-    #         mod (Module): The submodule to register. Must inherit from ``Module``
-    #     """
-    #     # - Register the module
-    #     super()._register_module(name, mod)
-    #
-    #     # - Do we even have a `dt` attribute?
-    #     if hasattr(self, "dt"):
-    #         # - Check that the submodule `dt` is the same as mine
-    #         if hasattr(mod, "dt"):
-    #             if mod.dt != getattr(self, "dt"):
-    #                 raise ValueError(
-    #                     f"The submodule {mod.name} must have the same `dt` as the parent module {self.name}"
-    #                 )
-    #         else:
-    #             # - Add `dt` as an attribute to the module (not a registered attribute)
-    #             mod.dt = getattr(self, "dt")
-    #
-    #     else:
-    #         # - We should inherit the first `dt` of a submodule
-    #         if hasattr(mod, "dt"):
-    #             setattr(self, "dt", mod.dt)
-
     def timed(self, output_num: int = 0, dt: float = None, add_events: bool = False):
         """
         Convert this module to a :py:class:`TimedModule`
@@ -750,8 +721,14 @@ class Module(ModuleBase, ABC, metaclass=PostInitMetaMixin):
             (np.ndarray, Tuple[np.ndarray]) data, states
         """
         # - Verify input data shape
-        if len(data.shape) == 2:
+        if len(data.shape) == 1:
             data = np.expand_dims(data, 0)
+            data = np.expand_dims(data, 2)
+        elif len(data.shape) == 2:
+            data = np.expand_dims(data, 0)
+
+        if data.shape[-1] == 1:
+            data = np.broadcast_to(data, (data.shape[0], data.shape[1], self.size_in))
 
         # - Get shape of input
         (n_batches, time_steps, n_connections) = data.shape

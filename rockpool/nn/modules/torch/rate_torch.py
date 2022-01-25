@@ -3,6 +3,7 @@ Rate dynamics module with torch backend
 """
 
 from rockpool.nn.modules.torch.torch_module import TorchModule
+from ..native.linear import unit_eigs, kaiming
 import rockpool.typehints as rt
 import rockpool.parameters as rp
 
@@ -19,17 +20,32 @@ relu = lambda x, t: torch.clip(x - t, 0, torch.inf)
 
 class RateTorch(TorchModule):
     """
-    Rate dynamic neuron, with a torch backend
+    Encapsulates a population of rate neurons, supporting feed-forward and recurrent modules, with a Toch backend
+
+    Examples:
+        Instantiate a feed-forward module with 8 neurons:
+
+        >>> mod = RateTorch(8,)
+        RateEulerJax 'None' with shape (8,)
+
+        Instantiate a recurrent module with 12 neurons:
+
+        >>> mod_rec = RateTorch(12, has_rec = True)
+        RateEulerJax 'None' with shape (12,)
+
+        Instantiate a feed-forward module with defined time constants:
+
+        >>> mod = RateTorch(7, tau = torch.arange(7,) * 10e-3)
+        RateEulerJax 'None' with shape (7,)
 
     This module implements the update equations:
 
     .. math::
 
-        X = X + i(t) + W_{rec} H(X) + \sigma \zeta_t
-        X = X * \exp(-dt / \tau)
+        \dot{X} = -X + i(t) + W_{rec} H(X) + bias + \sigma \zeta_t
+        X = X + \dot{x} * dt / \tau
 
-        H(x, t) = (x - t) * ((x - t) > 0)
-    
+        H(x, t) = relu(x, t) = (x - t) * ((x - t) > 0)
     """
 
     def __init__(
@@ -40,9 +56,7 @@ class RateTorch(TorchModule):
         threshold: Optional[rt.FloatVector] = None,
         has_rec: bool = False,
         w_rec: Optional[rt.FloatVector] = None,
-        weight_init_func: Optional[Callable] = lambda s: init.kaiming_uniform_(
-            torch.empty(s)
-        ),
+        weight_init_func: Callable = unit_eigs,
         activation_func: Callable = relu,
         noise_std: float = 0.0,
         dt: float = 1e-3,
@@ -59,7 +73,7 @@ class RateTorch(TorchModule):
             threshold (Tensor): Threshold for each neuron ``(N,)``. Default: 0. for each unit
             has_rec (bool): Iff ``True``, module includes recurrent connectivity. Default: ``False``, module is feed-forward
             w_rec (Tensor): If ``has_rec``, can be used to provide concrete initialisation data for recurrent weights.
-            weight_init_func (Callable): Weight initialisation function, if ``has_rec``. Default: Kaiming initialisation
+            weight_init_func (Callable): A function used to initialise the recurrent weights, if used. Default: :py:func:`.unit_eigs`; initialise such that recurrent feedback has eigenvalues distributed within the unit circle.
             activation_func (Callable): Actiavtion function. Default: ReLU
             noise_std (float): Std. dev of noise after 1s, added to neuron state. Defualt: ``0.``, no noise.
             dt (float): Simulation time constant in seconds
@@ -151,28 +165,28 @@ class RateTorch(TorchModule):
             n_batches, time_steps, self.size_out, device=data.device
         )
 
-        alpha = torch.exp(-self.dt / self.tau)
+        alpha = self.dt / self.tau
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
 
         # - Loop over time
         for t in range(time_steps):
-            # - Decay state
-            neur_state *= alpha
-
             # - Integrate input, bias, noise
-            neur_state += data[:, t] + self.bias
+            dstate = -neur_state + data[:, t] + self.bias
 
             if self.noise_std > 0.0:
-                neur_state += noise_zeta * torch.randn(
+                dstate = dstate + noise_zeta * torch.randn(
                     self.size_out, device=data.device
                 )
 
             # - Recurrent input
             if hasattr(self, "w_rec"):
                 rec_inputs = F.linear(act, self.w_rec.T)
-                neur_state = neur_state + rec_inputs
+                dstate = dstate + rec_inputs
             else:
                 rec_inputs = 0.0
+
+            # - Accumulate state
+            neur_state = neur_state + dstate * alpha
 
             # - Record state
             if self._record:

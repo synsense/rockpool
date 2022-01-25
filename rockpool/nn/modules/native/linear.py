@@ -14,7 +14,11 @@ from typing import Tuple, Any, Callable
 
 from abc import ABC
 
-__all__ = ["kaiming", "xavier", "Linear", "LinearJax"]
+__all__ = ["unit_eigs", "kaiming", "xavier", "Linear", "LinearJax"]
+
+
+def unit_eigs(s):
+    return onp.random.randn(*s) / onp.sqrt(s[0])
 
 
 def kaiming(s):
@@ -49,7 +53,7 @@ class LinearMixin(ABC):
 
         `.Linear` essentially wraps a single weight matrix, and passes data through by using the matrix as a set of weights. The shape of the matrix must be specified as a tuple ``(Nin, Nout)``.
 
-        A weight initialisation function may be specified. By default the weights will be Normally distributed around zero, and normalised by N_in.
+        A weight initialisation function may be specified. By default the weights will be use Kaiming initialisation (:py:func:`.kaiming`).
 
         Examples:
 

@@ -95,8 +95,14 @@ class JaxModule(Module, ABC):
             (np.ndarray, Tuple[np.ndarray]) data, states
         """
         # - Verify input data shape
-        if len(data.shape) == 2:
+        if len(data.shape) == 1:
             data = np.expand_dims(data, 0)
+            data = np.expand_dims(data, 2)
+        elif len(data.shape) == 2:
+            data = np.expand_dims(data, 0)
+
+        if data.shape[-1] == 1:
+            data = np.broadcast_to(data, (data.shape[0], data.shape[1], self.size_in))
 
         # - Get shape of input
         (n_batches, time_steps, n_connections) = data.shape

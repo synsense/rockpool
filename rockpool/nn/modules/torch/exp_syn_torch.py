@@ -22,16 +22,17 @@ __all__ = ["ExpSynTorch"]
 
 class ExpSynTorch(TorchModule):
     """
-    An exponential synapse model
+    Exponential synapse module with a Torch backend
 
-    This module implements the update equations:
+    This module implements a layer of exponential synapses, operating under the update equations
 
-    .. math ::
+    .. math::
 
-        I_{syn} += S_{in}(t) + \sigma \zeta_t
-        I_{syn} *= \exp(-dt / \tau)
+        I_{syn} = I_{syn} + i(t)
+        I_{syn} = I_{syn} * \exp(-dt / \tau)
+        I_{syn} = I_{syn} + \sigma \zeta_t
 
-        where :math:`S_{in}(t)` is a vector containing ``1`` or weighted spike for each input channel that emits a spike at time :math:`t`, :math:`\\tau` is the vector of time constants for each synapse, and :math:`\sigma` is the std. dev of a Wiener process after 1s.
+    where :math:`i(t)` is the instantaneous input; :math:`\\tau` is the vector ``(N,)`` of time constants for each synapse in seconds; :math:`dt` is the update time-step in seconds; :math:`\\sigma` is the std. deviation after 1s of a Wiener process.
     """
 
     def __init__(
@@ -40,6 +41,8 @@ class ExpSynTorch(TorchModule):
         tau: Optional[rt.FloatVector] = None,
         noise_std: float = 0.0,
         dt: float = 1e-3,
+        spiking_input: bool = True,
+        spiking_output: bool = False,
         *args,
         **kwargs,
     ):
@@ -47,21 +50,25 @@ class ExpSynTorch(TorchModule):
         Instantiate an exp. synapse module
 
         Args:
-            shape (tuple): Number of synapses that will be created. Example: shape = (5,).
-            tau (np.ndarray): An optional array with concrete initialisation data for the synaptic time constants, in seconds. If not provided, an individual trainable time-constant of 10ms will be used by default.
-            noise_std (float): The std. dev. after 1s of the noise Wiener process added to each synapse.
-            dt (float): The time step for the forward-Euler ODE solver, in seconds. Default: 1ms
+            shape (Union[int, tuple]): The number of synapses in this module ``(N,)``.
+            tau (Optional[np.ndarray]): Concrete initialisation data for the time constants of the synapses, in seconds. Default: 10 ms individual for all synapses.
+            noise_std (float): The std. dev after 1s of noise added independently to each synapse
+            dt (float): The timestep of this module, in seconds. Default: 1 ms.
         """
         # Initialize super class
         super().__init__(
-            shape=shape, spiking_input=True, spiking_output=False, *args, **kwargs,
+            shape=shape,
+            spiking_input=spiking_input,
+            spiking_output=spiking_output,
+            *args,
+            **kwargs,
         )
 
         # - To-float-tensor conversion utility
         to_float_tensor = lambda x: torch.tensor(x).float()
 
         # - Initialise tau
-        self.tau_syn: rt.P_tensor = rp.Parameter(
+        self.tau: rt.P_tensor = rp.Parameter(
             tau,
             shape=[(self.size_out,), ()],
             family="taus",
@@ -91,13 +98,10 @@ class ExpSynTorch(TorchModule):
     ) -> Tuple[Any, Any, Any]:
 
         # - Evolve the module
-        output_data, states, _ = super().evolve(input_data, record)
-
-        # - Build a record dictionary
-        record_dict = {"isyn": self._isyn_rec} if record else {}
+        output_data, _, _ = super().evolve(input_data, record)
 
         # - Return the result of evolution
-        return output_data, states, record_dict
+        return output_data, self.state(), {}
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
@@ -119,10 +123,10 @@ class ExpSynTorch(TorchModule):
         n_batches, time_steps, _ = data.shape
 
         # - Build a tensor to compute and return internal state
-        self._isyn_rec = torch.zeros(data.shape, device=data.device)
+        isyn_ts = torch.zeros(data.shape, device=data.device)
 
         # - Compute decay factor
-        beta = torch.exp(-self.dt / self.tau_syn)
+        beta = torch.exp(-self.dt / self.tau)
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
 
         # - Loop over time
@@ -131,10 +135,10 @@ class ExpSynTorch(TorchModule):
                 isyn.shape, device=isyn.device
             )
             isyn *= beta
-            self._isyn_rec[:, t, :] = isyn[:, 0, :]
+            isyn_ts[:, t, :] = isyn[:, 0, :]
 
         # - Store the final state
         self.isyn = isyn[0].detach()
 
         # - Return the evolved synaptic current
-        return self._isyn_rec
+        return isyn_ts
