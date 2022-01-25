@@ -219,11 +219,12 @@ class WeightConfig:
     """
 
     weights: Optional[jnp.DeviceArray] = None
-    Iw_0: Optional[jnp.DeviceArray] = None
-    Iw_1: Optional[jnp.DeviceArray] = None
-    Iw_2: Optional[jnp.DeviceArray] = None
-    Iw_3: Optional[jnp.DeviceArray] = None
+    Iw_0: Optional[float] = None
+    Iw_1: Optional[float] = None
+    Iw_2: Optional[float] = None
+    Iw_3: Optional[float] = None
     encoded_bitmask: Optional[np.ndarray] = None
+    # Scale Iw
 
     _optimizers = [
         [
@@ -438,10 +439,10 @@ class WeightConfig:
 
         ## Update Iws
         code = self.ae.code(self.w_flat)
-        self.Iw_0 = jnp.full(self.n_post, code[0] / self.scale)
-        self.Iw_1 = jnp.full(self.n_post, code[1] / self.scale)
-        self.Iw_2 = jnp.full(self.n_post, code[2] / self.scale)
-        self.Iw_3 = jnp.full(self.n_post, code[3] / self.scale)
+        self.Iw_0 = code[0] / self.scale
+        self.Iw_1 = code[1] / self.scale
+        self.Iw_2 = code[2] / self.scale
+        self.Iw_3 = code[3] / self.scale
         return record_dict["loss"]
 
     def __getattribute__(self, __name: str) -> Any:
@@ -583,8 +584,7 @@ class WeightConfig:
         """
         mse calculates the Mean Square Error loss between the reconstructed weights and the original weight matrix
         """
-        w_rec, _, _ = self.ae(self.w_flat)
-        loss = l.mse(w_rec, self.w_flat)
+        loss = l.mse(self.weight_matrix(), self.weights)
         return loss
 
     @property
@@ -592,7 +592,7 @@ class WeightConfig:
         """
         Iw returns weight matrix required
         """
-        return jnp.column_stack((self.Iw_0, self.Iw_1, self.Iw_2, self.Iw_3))
+        return jnp.array([self.Iw_0, self.Iw_1, self.Iw_2, self.Iw_3])
 
     @property
     def shape(self) -> Tuple[int]:
