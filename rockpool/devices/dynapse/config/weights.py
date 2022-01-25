@@ -6,7 +6,6 @@ Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 21/01/2022
-[] TODO : Refactor compatible with circuit parameters
 [] TODO : Select training w_en or not
 [] TODO : if Iws defined, then construct w_en
 [] TODO : if bitmask defined, then construct w_dec ?? harder
@@ -14,6 +13,7 @@ E-mail : ugurcan.cakal@gmail.com
 [] TODO : from_samna_parameters() # requires bitmask from router
 [] TODO : from_samna() # standalone
 [] TODO : merging and disjoining weight matrices across cores # post-synaptic side is here
+[] TODO : Try with L1 regularization
 """
 from __future__ import annotations
 import logging
@@ -35,7 +35,7 @@ import numpy as np
 from rockpool.parameters import Parameter
 from rockpool.training import jax_loss as l
 from rockpool.nn.modules.jax.jax_module import JaxModule
-from rockpool.nn.modules.native.linear import kaiming
+from rockpool.nn.modules.native.linear import kaiming, xavier
 from rockpool.devices.dynapse.config.layout import DynapSELayout
 from rockpool.devices.dynapse.config.circuits import SimulationParameters
 from rockpool.devices.dynapse.lookup import param_name
@@ -100,7 +100,7 @@ class AutoEncoder(JaxModule):
     :param w_dec: decoder wegiht matrix that reconstructs a weight matrix from the code, defaults to None
     :type w_dec: Optional[jnp.DeviceArray], optional
     :param weight_init: weight initialization function which gets a size and creates a weight, defaults to kaiming
-    :type weight_init: Callable[[int], np.ndarray], optional
+    :type weight_init: Callable[[Tuple[int]], np.ndarray], optional
     """
 
     def __init__(
@@ -109,7 +109,7 @@ class AutoEncoder(JaxModule):
         n_code: int = 4,
         w_en: Optional[jnp.DeviceArray] = None,
         w_dec: Optional[jnp.DeviceArray] = None,
-        weight_init: Callable[[int], np.ndarray] = kaiming,
+        weight_init: Callable[[Tuple[int]], np.ndarray] = kaiming,
         *args,
         **kwargs,
     ) -> None:
@@ -311,6 +311,7 @@ class WeightParameters:
                 pass  # [] TODO : initialize or partly initialize the encoder weights
 
             logging.info("Run .fit() to find weight parameters and bitmask!")
+            # [] TODO : Parametrize 4
             self.ae = AutoEncoder(self.w_flat.size, 4)
 
     @classmethod
@@ -439,7 +440,7 @@ class WeightParameters:
 
         ## - Get the optimiser functions
         init_fun, update_fun, get_params = self._get_optimizer(
-            optimizer, step_size, *args, *kwargs
+            optimizer, step_size, *args, **kwargs
         )
 
         ## - Initialize the optimizer with the initial parameters
@@ -537,8 +538,7 @@ class WeightParameters:
 
         :param weights: any matrix
         :type weights: np.ndarray
-        :raises ValueError: Weight matrix should be positive!
-        :raises ShapeError: Weight matrix provided does not have a proper shape! It should be 3-dimensional with (pre,post,gate)!
+        :raises ValueError: Weight matrix provided does not have a proper shape! It should be 3-dimensional with (pre,post,gate)!
         :return: w_flat, transforms
             w_flat: scaled, flattened, and preprocessed weight matrix
             transforms: the transforms applied to the weight matrix
