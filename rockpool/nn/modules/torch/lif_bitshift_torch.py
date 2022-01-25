@@ -78,16 +78,9 @@ class LIFBitshiftTorch(LIFTorch):
             **kwargs,
         )
 
-        #dash_mem = calc_bitshift_decay(self.tau_mem, self.dt)
-        #dash_syn = calc_bitshift_decay(self.tau_syn, self.dt)
-
         ## make sure the tau mem and tau syn are representable by bitshift decay
-        #self.tau_mem.data = inv_calc_bitshift_decay(dash_mem, self.dt) 
-        #self.tau_syn.data = inv_calc_bitshift_decay(dash_syn, self.dt) 
-
         alpha = self.alpha
         beta = self.beta
-
 
         self.tau_mem.data = -dt / torch.log(alpha)
         self.tau_syn.data = -dt / torch.log(beta)
