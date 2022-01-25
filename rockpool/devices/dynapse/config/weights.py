@@ -8,50 +8,29 @@ E-mail : ugurcan.cakal@gmail.com
 21/01/2022
 [] TODO : Refactor compatible with circuit parameters
 [] TODO : Select training w_en or not
-# [] TODO : float Iws
-# [] TODO : if Iws defined, then construct w_en
-# [] TODO : if bitmask defined, then construct w_dec ?? harder
+[] TODO : if Iws defined, then construct w_en
+[] TODO : if bitmask defined, then construct w_dec ?? harder
 """
 import logging
 
 from typing import Any, Callable, Dict, Optional, Tuple, Union
 
+from copy import deepcopy
 from dataclasses import dataclass
 
-from jax import nn
-from jax import jit
-from jax import value_and_grad
-from jax import custom_gradient
+# JAX
+from jax import nn, jit, value_and_grad, custom_gradient
 from jax.lax import scan
-from jax.experimental.optimizers import (
-    sgd,
-    momentum,
-    nesterov,
-    adagrad,
-    rmsprop,
-    rmsprop_momentum,
-    adam,
-    adamax,
-    sm3,
-    InitFn,
-    UpdateFn,
-    ParamsFn,
-    OptimizerState,
-)
+from jax.experimental import optimizers
 
 from jax import numpy as jnp
 import numpy as np
-from sympy import ShapeError
 
-from tqdm.autonotebook import tqdm
-from copy import deepcopy
-
+# Rockpool
 from rockpool.parameters import Parameter
 from rockpool.training import jax_loss as l
-from rockpool.training.jax_loss import bounds_cost, make_bounds
-
 from rockpool.nn.modules.jax.jax_module import JaxModule
-from rockpool.nn.modules.native.linear import kaiming, xavier
+from rockpool.nn.modules.native.linear import kaiming
 
 WeightRecord = Tuple[
     jnp.DeviceArray, jnp.DeviceArray, jnp.DeviceArray,  # loss  # w_en  # w_dec
@@ -121,7 +100,7 @@ class AutoEncoder(JaxModule):
         )
 
         # Bounds
-        self.lower_bounds, _ = make_bounds(self.parameters())
+        self.lower_bounds, _ = l.make_bounds(self.parameters())
         self.lower_bounds["w_en"] = 0
 
     def evolve(self, matrix: jnp.DeviceArray, record: bool = False):
@@ -186,11 +165,11 @@ class WeightConfig:
     :type Iw_2: float
     :param Iw_3: the fourth base weight current corresponding to the 3rd bit of the bit-mask, in Amperes. In DynapSE1, it's AMPA base weigth.
     :type Iw_3: float
-    :param encoded_bitmask: A bit mask to select and dot product the Iw base parameters the (shape,)
+    :param encoded_bitmask: A bit mask to select and dot product the base Iw currents (shape,)
     :type encoded_bitmask: np.ndarray
-        1 = 0001 -> selected bit: Iw_0
-        8 = 1000 -> selected bit: Iw_3
-        5 = 0101 -> selected bits Iw_0 + Iw_2
+        1 = 0001 -> selected bias parameters: Iw_0
+        8 = 1000 -> selected bias parameters: Iw_3
+        5 = 0101 -> selected bias parameterss Iw_0 + Iw_2
             array([[[ 0,  1, 12,  0],
                     [11, 10,  4,  1],
                     [ 7,  0, 15, 15],
@@ -357,7 +336,7 @@ class WeightConfig:
         output, _, _ = net(self.w_flat)
 
         # - Calculate the loss imposing the bounds
-        penalty = bounds_cost(parameters, self.ae.lower_bounds, {}) * f_bound_penalty
+        penalty = l.bounds_cost(parameters, self.ae.lower_bounds, {}) * f_bound_penalty
         loss = l.mse(output, self.w_flat) + penalty
 
         return loss
@@ -370,7 +349,7 @@ class WeightConfig:
         record: bool = True,
         *args,
         **kwargs,
-    ) -> Tuple[AutoEncoder, OptimizerState, Dict[str, jnp.DeviceArray]]:
+    ) -> Tuple[AutoEncoder, optimizers.OptimizerState, Dict[str, jnp.DeviceArray]]:
         """
         fit fit the autotencoder to the given weight matrix using a gradient based optimization method
 
@@ -386,7 +365,7 @@ class WeightConfig:
             :encoder: the best(low-loss) encoder encountered throughout iterations
             :opt_state: the last time step optimizer state
             :record_dict: the record dictionary including loss value, encoder weights, and decoder weights
-        :rtype: Tuple[AutoEncoder, OptimizerState, Dict[str, jnp.DeviceArray]]
+        :rtype: Tuple[AutoEncoder, optimizers.OptimizerState, Dict[str, jnp.DeviceArray]]
         """
 
         ## - Get the optimiser functions
@@ -403,19 +382,19 @@ class WeightConfig:
         update_fun = jit(update_fun)
 
         def iteration(
-            opt_state: OptimizerState, epoch: int
-        ) -> Tuple[OptimizerState, WeightRecord]:
+            opt_state: optimizers.OptimizerState, epoch: int
+        ) -> Tuple[optimizers.OptimizerState, WeightRecord]:
             """
             iteration stacks together the single iteration step operations during training
 
             :param opt_state: the optimizer's current state
-            :type opt_state: OptimizerState
+            :type opt_state: optimizers.OptimizerState
             :param epoch: the current epoch
             :type epoch: int
             :return: opt_state, rec
                 :opt_state: the current time step optimizer state
                 :rec: the step record including loss value, encoder weights, and decoder weights
-            :rtype: Tuple[OptimizerState, WeightRecord]
+            :rtype: Tuple[optimizers.OptimizerState, WeightRecord]
             """
 
             params = get_params(opt_state)
@@ -497,7 +476,7 @@ class WeightConfig:
         :rtype: Tuple[np.ndarray, Dict[str, Any]]
         """
         if len(weights.shape) != 3:
-            raise ShapeError(
+            raise ValueError(
                 "Weight matrix provided does not have a proper shape! It should be 3-dimensional with (pre,post,gate)!"
             )
 
@@ -520,7 +499,9 @@ class WeightConfig:
         return w_flat, transforms
 
     @staticmethod
-    def _get_optimizer(name: str, *args, **kwargs) -> Tuple[InitFn, UpdateFn, ParamsFn]:
+    def _get_optimizer(
+        name: str, *args, **kwargs
+    ) -> Tuple[optimizers.InitFn, optimizers.UpdateFn, optimizers.ParamsFn]:
         """
         _get_optimizer calls the name-requested optimizer and returns the jax optimizer functions
 
@@ -528,27 +509,27 @@ class WeightConfig:
         :type name: str
         :raises ValueError: Requested optimizer is not available!
         :return: the optimizer functions
-        :rtype: Tuple[InitFn, UpdateFn, ParamsFn]
+        :rtype: Tuple[optimizers.InitFn, optimizers.UpdateFn, optimizers.ParamsFn]
         """
 
         if name == "sgd":
-            return sgd(*args, **kwargs)
+            return optimizers.sgd(*args, **kwargs)
         elif name == "momentum":
-            return momentum(*args, **kwargs)
+            return optimizers.momentum(*args, **kwargs)
         elif name == "nesterov":
-            return nesterov(*args, **kwargs)
+            return optimizers.nesterov(*args, **kwargs)
         elif name == "adagrad":
-            return adagrad(*args, **kwargs)
+            return optimizers.adagrad(*args, **kwargs)
         elif name == "rmsprop":
-            return rmsprop(*args, **kwargs)
+            return optimizers.rmsprop(*args, **kwargs)
         elif name == "rmsprop_momentum":
-            return rmsprop_momentum(*args, **kwargs)
+            return optimizers.rmsprop_momentum(*args, **kwargs)
         elif name == "adam":
-            return adam(*args, **kwargs)
+            return optimizers.adam(*args, **kwargs)
         elif name == "adamax":
-            return adamax(*args, **kwargs)
+            return optimizers.adamax(*args, **kwargs)
         elif name == "sm3":
-            return sm3(*args, **kwargs)
+            return optimizers.sm3(*args, **kwargs)
         else:
             raise ValueError(
                 f"The optimizer : {name} is not available!"
