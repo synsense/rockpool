@@ -40,7 +40,9 @@ class JaxModule(Module, ABC):
     """
     Base class for `Module` subclasses that use a Jax backend.
 
-    All modules in Rockpool that require Jax support must inherit from this base class. For compatibility with Jax, all `JaxModule` subclasses must use the functional API for evolution and setting state and attributes.
+    All modules in Rockpool that require Jax support must inherit from this base class. For compatibility with Jax, all :py:class:`.JaxModule` subclasses must use the functional API for evolution and setting state and attributes.
+
+    To get started with the Jax backend, see :ref:`/in-depth/api-functional.ipynb` and :ref:`/in-depth/jax-training.ipynb`.
 
     Examples:
         Functional evolution of a module:

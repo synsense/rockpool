@@ -269,7 +269,8 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
         # - Store number of layer time steps per global time step for each layer
         for _, mod in self.modules().items():
-            mod._parent_dt_factor = float(round(self.dt / mod.dt))
+            if hasattr(mod, "dt"):
+                mod._parent_dt_factor = float(round(self.dt / mod.dt))
 
     def _evolve_wrapper(
         self,

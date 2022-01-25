@@ -21,16 +21,16 @@ def test_imports():
 
 
 def test_mse():
-    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
+    from rockpool.nn.modules import RateJax
     from jax.experimental.optimizers import adam
 
     import jax
-    from jax import jit, numpy as jnp
+    from jax import jit
     import numpy as np
 
     from rockpool.training.jax_loss import mse
 
-    mod = RateEulerJax(2)
+    mod = RateJax(2)
     params0 = mod.parameters()
 
     init_fun, update_fun, get_params = adam(1e-2)

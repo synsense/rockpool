@@ -197,20 +197,11 @@ class RateJax(JaxModule):
     def evolve(
         self, input_data: np.ndarray, record: bool = False,
     ):
-        # - Get input shapes, add batch dimension if necessary
-        if len(input_data.shape) == 2:
-            input_data = np.expand_dims(input_data, 0)
-        batches, num_timesteps, n_inputs = input_data.shape
-
-        if n_inputs != self.size_in:
-            raise ValueError(
-                "Input has wrong neuron dimension. It is {}, must be {}".format(
-                    n_inputs, self.size_in
-                )
-            )
+        # - Expand over batches
+        input_data, (x0,) = self._auto_batch(input_data, (self.x,))
 
         # - Get evolution constants
-        alpha = self.dt / self.tau
+        alpha = self.dt / np.clip(self.tau, 10 * self.dt, np.inf)
         noise_zeta = self.noise_std * np.sqrt(self.dt)
 
         w_rec = self.w_rec
@@ -227,7 +218,7 @@ class RateJax(JaxModule):
             """
             state, activation = x
 
-            rec_input = np.dot(activation, w_rec) if w_rec is not None else 0.0
+            rec_input = np.dot(activation, w_rec)
             dstate = -state + inp + self.bias + rec_input
             state = state + dstate * alpha
             activation = self.act_fn(state, self.threshold)
@@ -238,9 +229,6 @@ class RateJax(JaxModule):
         key1, subkey = rand.split(self.rng_key)
         noise = noise_zeta * rand.normal(subkey, shape=input_data.shape)
         inputs = input_data + noise
-
-        # - Replicate states
-        x0 = np.broadcast_to(self.x, (batches, self.size_out))
 
         # - Map over batches
         @jax.vmap

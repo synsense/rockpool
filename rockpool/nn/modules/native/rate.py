@@ -185,7 +185,7 @@ class Rate(Module):
         batches, num_timesteps, n_inputs = input_data.shape
 
         # - Get evolution constants
-        alpha = self.dt / self.tau
+        alpha = self.dt / np.clip(self.tau, 10 * self.dt, np.inf)
         noise_zeta = self.noise_std * np.sqrt(self.dt)
 
         w_rec = self.w_rec if hasattr(self, "w_rec") else None

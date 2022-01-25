@@ -252,8 +252,8 @@ class LIFJax(JaxModule):
         )
 
         # - Get evolution constants
-        alpha = np.exp(-self.dt / self.tau_mem)
-        beta = np.exp(-self.dt / self.tau_syn)
+        alpha = np.exp(-self.dt / np.clip(self.tau_mem, 10 * self.dt, np.inf))
+        beta = np.exp(-self.dt / np.clip(self.tau_syn, 10 * self.dt, np.inf))
         noise_zeta = self.noise_std * np.sqrt(self.dt)
 
         # - Single-step LIF dynamics

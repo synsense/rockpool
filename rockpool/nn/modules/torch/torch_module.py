@@ -62,7 +62,9 @@ class TorchModule(Module, nn.Module):
     See Also:
         See :ref:`/in-depth/torch-api.ipynb` for details of using the Torch API.
 
-    To implement a module from scratch using the Torch low-level API, simply inherit from :py:class:`.TorchModule` instead of ``torch.nn.Module``. You must implement the Torch API in the form of :py:meth:`.forward` etc. :py:class:`.TorchModule` will convert the API for you, and provides its own :py:meth:`.evolve` method. You should not implement the :py:meth:`.evolve` method yourself.
+    To implement a module from scratch using the Torch low-level API, simply inherit from :py:class:`.TorchModule` instead of ``torch.nn.Module``. You must implement the Torch API in the form of :py:meth:`.forward`. :py:class:`.TorchModule` will convert the API for you, and provides its own :py:meth:`.evolve` method. You should not need to implement the :py:meth:`.evolve` method yourself.
+
+    :py:meth:`.evolve` will automatically set the :py:attr:`._record` flag according to the input argument to :py:meth:`.evolve`. You can use this within your :py:meth:`.forward` method, and should build a dictionary :py:attr:`._record_dict`. This will be returned automatically from :py:meth:`.evolve`, if requested.
 
     In your :py:meth:`.forward` method you should use the Torch API and semantics as usual. Sub-modules of a Rockpool :py:class:`.TorchModule` are expected to be Torch ``nn.Module`` s. Only the top-level module needs to be wrapped as a Rockpool :py:class:`.TorchModule`.
 
@@ -139,6 +141,9 @@ class TorchModule(Module, nn.Module):
         if retain_torch_api:
             self.to_torch()
 
+        # - Initialise "record" flag
+        self._record = False
+
     def __call__(self, *args, **kwargs):
         if hasattr(self, "_call"):
             return self._call(*args, **kwargs)
@@ -163,6 +168,8 @@ class TorchModule(Module, nn.Module):
 
         :py:meth:`.evolve` is provided by :py:class:`.TorchModule` to connect the Rockpool low-level API to the Torch API (i.e. :py:meth:`.forward` etc.). You should *not* override :py:meth:`.evolve` if using :py:class:`.TorchModule` directly, but should implement the Torch API to perform evaluation of the module.
 
+        :py:meth:`.evolve` will automatically set the :py:attr:`._record` flag according to the input argument to :py:meth:`.evolve`. You can use this within your :py:meth:`.forward` method, and should build a dictionary :py:attr:`._record_dict`. This will be returned automatically from :py:meth:`.evolve`, if requested.
+
         Args:
             input_data: This might be a numpy array or Torch tensor, containing the input data to evolve over
             record (bool): Iff ``True``, return a dictionary of state variables as ``record_dict``, containing the time series of those state variables over evolution. Default: ``False``, do not record state during evolution
@@ -175,13 +182,16 @@ class TorchModule(Module, nn.Module):
         """
 
         # - Call nn.Module.__call__() method to get output data
+        self._record = record
         output_data = nn.Module.__call__(self, input_data)
 
         # - Build a new state dictionary
         new_states = self.state()
 
         # - No general solution as yet to access recorded states
-        record_dict = {}
+        record_dict = (
+            self._record_dict if (hasattr(self, "_record_dict") and record) else {}
+        )
 
         return output_data, new_states, record_dict
 

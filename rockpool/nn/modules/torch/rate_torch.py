@@ -86,11 +86,18 @@ class RateTorch(TorchModule):
         self.dt: rt.P_float = rp.SimulationParameter(dt)
         """ (float) Euler simulator time-step in seconds"""
 
+        # - To-float-tensor conversion utility
+        to_float_tensor = lambda x: torch.tensor(x).float()
+
         # - Initialise recurrent weights
         w_rec_shape = (self.size_out, self.size_in)
         if has_rec:
             self.w_rec: rt.P_tensor = rp.Parameter(
-                w_rec, shape=w_rec_shape, init_func=weight_init_func, family="weights",
+                w_rec,
+                shape=w_rec_shape,
+                init_func=weight_init_func,
+                family="weights",
+                cast_fn=to_float_tensor,
             )
             """ (Tensor) Recurrent weights `(Nout, Nin)` """
         else:
@@ -99,9 +106,6 @@ class RateTorch(TorchModule):
 
         self.noise_std: rt.P_float = rp.SimulationParameter(noise_std)
         """ (float) Noise std.dev. injected onto the membrane of each unit during evolution """
-
-        # - To-float-tensor conversion utility
-        to_float_tensor = lambda x: torch.tensor(x).float()
 
         self.tau: rt.P_tensor = rp.Parameter(
             tau,
@@ -165,7 +169,7 @@ class RateTorch(TorchModule):
             n_batches, time_steps, self.size_out, device=data.device
         )
 
-        alpha = self.dt / self.tau
+        alpha = self.dt / torch.clip(self.tau, 10 * self.dt, torch.inf)
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
 
         # - Loop over time

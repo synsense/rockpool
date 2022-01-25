@@ -682,12 +682,20 @@ class PostInitMetaMixin(type(ModuleBase)):
 
 class Module(ModuleBase, ABC, metaclass=PostInitMetaMixin):
     """
-    The native Python / numpy ``Module`` base class for Rockpool
+    The native Python / numpy :py:class:`.Module` base class for Rockpool
+
+    This class acts as the base class for all "native" modules in Rockpool. To get started with using and writing your own Rockpool modules, see :ref:`/basics/getting_started.ipynb` and :ref:`/in-depth/api-low-level.ipynb`.
+
+    If you plan to write modules using Jax or Torch backends, you should use either :py:class:`.JaxModule` or :py:class:`.TorchModule` as base classes, respectively.
+
+    To get started with the Jax backend, see :ref:`/in-depth/api-functional.ipynb` and :ref:`/in-depth/jax-training.ipynb`.
+
+    To get started with the Torch backend, see :ref:`/in-depth/torch-api.ipynb` and :ref:`/in-depth/torch-training.ipynb`.
     """
 
     def timed(self, output_num: int = 0, dt: float = None, add_events: bool = False):
         """
-        Convert this module to a :py:class:`TimedModule`
+        Convert this module to a :py:class:`.TimedModule`
 
         Args:
             output_num (int): Specify which output of the module to take, if the module returns multiple output series. Default: ``0``, take the first (or only) output.
@@ -708,10 +716,14 @@ class Module(ModuleBase, ABC, metaclass=PostInitMetaMixin):
         """
         Automatically replicate states over batches and verify input dimensions
 
-        Usage:
+        Examples:
             >>> data, (state0, state1, state2) = self._auto_batch(data, (self.state0, self.state1, self.state2))
 
-            This will verify that `data` has the correct final dimension (i.e. `self.size_in`). If `data` has only two dimensions `(T, Nin)`, then it will be augmented to `(1, T, Nin)`. The individual states will be replicated out from shape `(a, b, c, ...)` to `(n_batches, a, b, c, ...)` and returned.
+            This will verify that ``data`` has the correct final dimension (i.e. ``self.size_in``).
+
+            If ``data`` has only two dimensions ``(T, Nin)``, then it will be augmented to ``(1, T, Nin)``. The individual states will be replicated out from shape ``(a, b, c, ...)`` to ``(n_batches, a, b, c, ...)`` and returned.
+
+            If ``data`` has only a single dimension ``(T,)``, it will be expanded to ``(1, T, self.size_in)``.
 
         Args:
             data (np.ndarray): Input data tensor. Either ``(batches, T, Nin)`` or ``(T, Nin)``
