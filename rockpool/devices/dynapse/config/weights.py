@@ -558,11 +558,8 @@ class WeightParameters:
                 "Weight matrix provided does not have a proper shape! It should be 3-dimensional with (pre,post,gate)!"
             )
 
-        scale = np.size(weights) / np.sum(weights)
-
-        if scale <= 0:
-            raise ValueError("Weight matrix should be positive!")
-
+        diff = np.max(weights) - np.min(weights)
+        scale = 1.0 / diff if diff > 0 else 1.0
         idx_nonzero = weights.astype(bool)
 
         transforms = {
