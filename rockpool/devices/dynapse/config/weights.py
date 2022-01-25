@@ -122,16 +122,11 @@ class AutoEncoder(JaxModule):
         )
 
         self.n_code = n_code
-        weight_init = lambda s: jnp.array(weight_init(s))
 
-        # Encoder weights should be non-negative
-        self.w_en = Parameter(
-            w_en, init_func=weight_init, shape=(self.size_in, n_code),
-        )
-        # Decoder wegiths should include both positive and negative values
-        self.w_dec = Parameter(
-            w_dec, init_func=weight_init, shape=(n_code, self.size_out),
-        )
+        # Weight Initialization
+        _init = lambda s: jnp.array(weight_init(s))
+        self.w_en = Parameter(w_en, init_func=_init, shape=(self.size_in, n_code),)
+        self.w_dec = Parameter(w_dec, init_func=_init, shape=(n_code, self.size_out),)
 
     def evolve(
         self, matrix: jnp.DeviceArray, record: bool = False
