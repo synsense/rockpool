@@ -121,21 +121,21 @@ class AutoEncoder(JaxModule):
             shape=shape, *args, **kwargs,
         )
 
-        # Encoder weights should be non-negative
-        en_init = lambda s: jnp.array(abs(weight_init(s)))
-        self.w_en = Parameter(w_en, init_func=en_init, shape=(self.size_in, n_code),)
+        self.n_code = n_code
+        weight_init = lambda s: jnp.array(weight_init(s))
 
+        # Encoder weights should be non-negative
+        self.w_en = Parameter(
+            w_en, init_func=weight_init, shape=(self.size_in, n_code),
+        )
         # Decoder wegiths should include both positive and negative values
-        dec_init = lambda s: jnp.array(weight_init(s))
         self.w_dec = Parameter(
-            w_dec, init_func=dec_init, shape=(n_code, self.size_out),
+            w_dec, init_func=weight_init, shape=(n_code, self.size_out),
         )
 
-        # Bounds
-        self.lower_bounds, _ = l.make_bounds(self.parameters())
-        self.lower_bounds["w_en"] = 0
-
-    def evolve(self, matrix: jnp.DeviceArray, record: bool = False):
+    def evolve(
+        self, matrix: jnp.DeviceArray, record: bool = False
+    ) -> Tuple[jnp.DeviceArray, jnp.DeviceArray, jnp.DeviceArray]:
         """
         evolve implements raw rockpool JAX evolution function for a AutoEncoder module.
         The AutoEncoder architecture is stateless, threfore, there is no state to return.
@@ -146,18 +146,21 @@ class AutoEncoder(JaxModule):
         :type matrix: jnp.DeviceArray
         :param record: dummy record flag, required for rockpool jax modules, defaults to False
         :type record: bool, optional
-        :return: the reconstructed weight matrix (and two dummy empty dictionaries)
-        :rtype: Tuple[jnp.DeviceArray, Dict[None], Dict[None]]
+        :return: reconstructed, code, bitmask
+            :reconstructed: the reconstructed weight matrix
+            :code: compressed matrix
+            :bitmask: binary decoder
+        :rtype: Tuple[jnp.DeviceArray, jnp.DeviceArray, jnp.DeviceArray]
         """
         assert matrix.size == self.size_out
 
         # Compress the matrix
-        code = matrix @ self.w_en
+        code = self.code(matrix)
 
         # Reconstruct the matrix given
         reconstructed = code @ self.bitmask
 
-        return reconstructed, {}, {}
+        return reconstructed, code, self.bitmask
 
     def code(self, matrix: jnp.DeviceArray) -> jnp.DeviceArray:
         """
@@ -403,12 +406,18 @@ class WeightParameters:
         """
         # - Assign the provided parameters to the network
         net = self.ae.set_attributes(parameters)
-        output, _, _ = net(self.w_flat)
+        output, code, bitmask = net(self.w_flat)
+
+        # - Bound penalty - #
+        _code = jnp.clip(code, None, 0)
+        _code = jnp.exp(-_code)
+
+        ## - subtract the code length from the sum to make the penalty 0 if all the code values are 0
+        penalty = jnp.nansum(_code) - self.ae.n_code
+        penalty *= f_bound_penalty
 
         # - Calculate the loss imposing the bounds
-        penalty = l.bounds_cost(parameters, self.ae.lower_bounds, {}) * f_bound_penalty
         loss = l.mse(output, self.w_flat) + penalty
-
         return loss
 
     def fit(
