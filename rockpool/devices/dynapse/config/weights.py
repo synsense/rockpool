@@ -424,7 +424,9 @@ class WeightParameters:
         self,
         n_epoch: int = 10000,
         optimizer: str = "adam",
-        step_size: float = 1e-3,
+        step_size: Union[float, Callable[[int], float]] = lambda i: (
+            1e-4 / (1.0 + 1e-4 * i)
+        ),
         record: bool = True,
         *args,
         **kwargs,
@@ -437,7 +439,7 @@ class WeightParameters:
         :param optimizer: one of the optimizer defined in `jax.experimental.optimizers` : , defaults to "adam"
         :type optimizer: str, optional
         :param step_size: positive scalar, or a callable representing a step size schedule that maps the iteration index to a positive scalar. , defaults to 1e-3
-        :type step_size: float, optional
+        :type step_size: Union[float, Callable[[int], float]], optional
         :param record: record the parameter changes through iteration steps or not, defaults to True
         :type record: bool, optional
         :return: encoder, opt_state, record_dict
