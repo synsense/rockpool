@@ -71,21 +71,20 @@ class LIFBitshiftTorch(LIFTorch):
 
         # - Initialise superclass
         super().__init__(
-            tau_mem=tau_mem, tau_syn=tau_syn, dt=dt, *args, **kwargs,
+            tau_mem=tau_mem,
+            tau_syn=tau_syn,
+            dt=dt,
+            *args, 
+            **kwargs,
         )
 
-        # dash_mem = calc_bitshift_decay(self.tau_mem, self.dt)
-        # dash_syn = calc_bitshift_decay(self.tau_syn, self.dt)
-
         ## make sure the tau mem and tau syn are representable by bitshift decay
-        # self.tau_mem.data = inv_calc_bitshift_decay(dash_mem, self.dt)
-        # self.tau_syn.data = inv_calc_bitshift_decay(dash_syn, self.dt)
-
         alpha = self.alpha
         beta = self.beta
 
         self.tau_mem.data = -dt / torch.log(alpha)
         self.tau_syn.data = -dt / torch.log(beta)
+
 
     @property
     def alpha(self):
@@ -98,10 +97,3 @@ class LIFBitshiftTorch(LIFTorch):
         return 1 - 1 / (
             2 ** calc_bitshift_decay(self.tau_syn, self.dt).to(self.tau_syn.device)
         )
-
-    def apply_quantisation(self):
-        alpha = self.alpha
-        beta = self.beta
-
-        self.tau_mem.data = -self.dt / torch.log(alpha)
-        self.tau_syn.data = -self.dt / torch.log(beta)
