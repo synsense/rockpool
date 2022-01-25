@@ -10,7 +10,12 @@ E-mail : ugurcan.cakal@gmail.com
 [] TODO : Select training w_en or not
 [] TODO : if Iws defined, then construct w_en
 [] TODO : if bitmask defined, then construct w_dec ?? harder
+[] TODO : make sure that bitmask is jnp.DeviceArray
+[] TODO : from_samna_parameters() # requires bitmask from router
+[] TODO : from_samna() # standalone
+[] TODO : merging and disjoining weight matrices across cores # post-synaptic side is here
 """
+from __future__ import annotations
 import logging
 
 from typing import Any, Callable, Dict, Optional, Tuple, Union
@@ -31,6 +36,33 @@ from rockpool.parameters import Parameter
 from rockpool.training import jax_loss as l
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.nn.modules.native.linear import kaiming
+from rockpool.devices.dynapse.config.layout import DynapSELayout
+from rockpool.devices.dynapse.config.circuits import SimulationParameters
+from rockpool.devices.dynapse.lookup import param_name
+
+_SAMNA_SE1_AVAILABLE = True
+_SAMNA_SE2_AVAILABLE = True
+
+param_name_table = param_name.table
+try:
+    from samna.dynapse1 import Dynapse1Parameter
+except ModuleNotFoundError as e:
+    Dynapse1Parameter = Any
+
+    print(
+        e, "\nDynapSE1SimCore object cannot be factored from a samna config object!",
+    )
+    _SAMNA_SE1_AVAILABLE = False
+
+try:
+    from samna.dynapse2 import Dynapse2Parameter
+except ModuleNotFoundError as e:
+    Dynapse2Parameter = Any
+    print(
+        e, "\nDynapSE2SimCore object cannot be factored from a samna config object!",
+    )
+    _SAMNA_SE2_AVAILABLE = False
+
 
 WeightRecord = Tuple[
     jnp.DeviceArray, jnp.DeviceArray, jnp.DeviceArray,  # loss  # w_en  # w_dec
@@ -149,9 +181,9 @@ class AutoEncoder(JaxModule):
 
 
 @dataclass
-class WeightConfig:
+class WeightParameters:
     """
-    WeightConfig encapsulates weight currents of the configurable synapses between neurons. 
+    WeightParameters encapsulates weight currents of the configurable synapses between neurons. 
     It provides a general way of handling SE2 weight current and the conversion from device 
     configuration object
 
@@ -224,28 +256,30 @@ class WeightConfig:
     Iw_2: Optional[float] = None
     Iw_3: Optional[float] = None
     encoded_bitmask: Optional[np.ndarray] = None
+    layout: Optional[DynapSELayout] = None
     # Scale Iw
 
     _optimizers = [
-        [
-            "sgd",
-            "momentum",
-            "nesterov",
-            "adagrad",
-            "rmsprop",
-            "rmsprop_momentum",
-            "adam",
-            "adamax",
-            "sm3",
-        ]
+        "sgd",
+        "momentum",
+        "nesterov",
+        "adagrad",
+        "rmsprop",
+        "rmsprop_momentum",
+        "adam",
+        "adamax",
+        "sm3",
     ]
 
     def __post_init__(self) -> None:
         """
-        __post_init__ runs after __init__ and initializes the WeightConfig object with default values in the case that they are not specified.
+        __post_init__ runs after __init__ and initializes the WeightParameters object with default values in the case that they are not specified.
 
         :raises ValueError: If `weight` is None, then bitmask and weight bits are required to calculate the weight matrix
         """
+
+        if self.layout is None:
+            self.layout = DynapSELayout()
 
         if self.weights is None:
             if (
@@ -278,6 +312,40 @@ class WeightConfig:
 
             logging.info("Run .fit() to find weight parameters and bitmask!")
             self.ae = AutoEncoder(self.w_flat.size, 4)
+
+    @classmethod
+    def from_samna_parameters(
+        cls,
+        samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]],
+        bitmask: np.ndarray,
+        layout: DynapSELayout,
+        *args,
+        **kwargs,
+    ) -> WeightParameters:
+        """
+        from_samna_parameters is a factory method to construct a `WeightParameters` object using a samna config object
+
+        :param samna_parameters: a parameter dictionary inside samna config object for setting the parameter group within one core
+        :type samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]]
+        :param layout: constant values that are related to the exact silicon layout of a chip
+        :type layout: DynapSELayout
+        :return: a `WeightParameters` object, whose parameters obtained from the hardware configuration
+        :rtype: WeightParameters
+        """
+
+        simparam = SimulationParameters(samna_parameters)
+
+        mod = cls(
+            Iw_0=simparam.nominal("Iw_0"),  # GABA_B - se1
+            Iw_1=simparam.nominal("Iw_1"),  # GABA_A - se1
+            Iw_2=simparam.nominal("Iw_2"),  # NMDA - se1
+            Iw_3=simparam.nominal("Iw_3"),  # AMPA - se1
+            encoded_bitmask=bitmask,
+            layout=layout,
+            *args,
+            **kwargs,
+        )
+        return mod
 
     def _update_encoder(
         self, w_en: jnp.DeviceArray, w_dec: jnp.DeviceArray
