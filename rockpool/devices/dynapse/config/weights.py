@@ -88,6 +88,10 @@ class AutoEncoder(JaxModule):
     """
     AutoEncoder implements a specific autoencoder architecture that aims to find the 
     optimal weight parameters and the bitmask configuraiton given a weight matrix for `DynapSE` networks.
+    
+    NOTE: If intermediate code representation is known, then add a mean square error term to the 
+    loss function used in training. It will push the system generate the same code. However, if it's not known,
+    the way the autoencoder behave changes. Look at the evolve function below! If you are not sure, then let the code search stay at the default value.
 
     :Parameters:
     
@@ -101,6 +105,8 @@ class AutoEncoder(JaxModule):
     :type w_dec: Optional[jnp.DeviceArray], optional
     :param weight_init: weight initialization function which gets a size and creates a weight, defaults to kaiming
     :type weight_init: Callable[[Tuple[int]], np.ndarray], optional
+    :param code_search: Do the code search or not. Code search requires using thresholded decoding, defaults to True
+    :type code_search: bool, optional
     """
 
     def __init__(
@@ -110,6 +116,7 @@ class AutoEncoder(JaxModule):
         w_en: Optional[jnp.DeviceArray] = None,
         w_dec: Optional[jnp.DeviceArray] = None,
         weight_init: Callable[[Tuple[int]], np.ndarray] = kaiming,
+        code_search: bool = True,
         *args,
         **kwargs,
     ) -> None:
@@ -122,6 +129,8 @@ class AutoEncoder(JaxModule):
         )
 
         self.n_code = n_code
+
+        self.code_search = float(code_search)
 
         # Weight Initialization
         _init = lambda s: jnp.array(weight_init(s))
@@ -150,16 +159,16 @@ class AutoEncoder(JaxModule):
         assert matrix.size == self.size_out
 
         # Compress the matrix
-        code = self.code(matrix)
+        code = self.encode(matrix)
 
         # Reconstruct the matrix given
-        reconstructed = code @ self.bitmask
+        reconstructed = code @ self.decode
 
-        return reconstructed, code, self.bitmask
+        return reconstructed, code, self.decode
 
-    def code(self, matrix: jnp.DeviceArray) -> jnp.DeviceArray:
+    def encode(self, matrix: jnp.DeviceArray) -> jnp.DeviceArray:
         """
-        code generates the compressed version of a matrix using the encoder
+        encode generates the compressed version of a matrix using the encoder
 
         :param matrix: any matrix to compress
         :type matrix: jnp.DeviceArray
@@ -169,13 +178,19 @@ class AutoEncoder(JaxModule):
         return matrix @ self.w_en
 
     @property
-    def bitmask(self) -> jnp.DeviceArray:
+    def decode(self) -> jnp.DeviceArray:
         """
-        bitmask regard the decoder weights as binary and return the decoder indicated binary weight mask
+        decode decide how to use the decoder weights and how to regard the decoder weights.
+        Return the decoder indicated binary weight mask if code search is being done.
+        If code search is off, then do not restrict the weights here and add the boundary violation term to the loss function
         """
+        # Thresholding
         prob = nn.sigmoid(self.w_dec)
         spikes = step_pwl(prob)
-        return spikes
+
+        # Threshold or not dependin on the code_search situation! NOT USING if-else for better jit pipeline!
+        _dec = spikes * self.code_search + self.w_dec * (1.0 - self.code_search)
+        return _dec
 
 
 @dataclass
@@ -300,17 +315,15 @@ class WeightParameters:
             else:
                 pass  # [] TODO : initialize decoder weights
 
-            if (
-                (self.Iw_0 is not None)
-                or (self.Iw_1 is not None)
-                or (self.Iw_2 is not None)
-                or (self.Iw_3 is not None)
-            ):
-                pass  # [] TODO : initialize or partly initialize the encoder weights
-
+            code_search = False if self.Iw.nonzero()[0].size > 2 else True
             logging.info("Run .fit() to find weight parameters and bitmask!")
             # [] TODO : Parametrize 4
-            self.ae = AutoEncoder(self.w_flat.size, 4)
+
+            self.ae = AutoEncoder(self.w_flat.size, 4, code_search=code_search)
+
+        # If most of the Iw's are defined, then there is a code implied!
+        self.code_implied = self.Iw * self.scale
+        self.idx_optimize = self.Iw.astype(bool)
 
     @classmethod
     def from_samna_parameters(
@@ -385,34 +398,61 @@ class WeightParameters:
         w_rec = jnp.sum(bits_trans * self.Iw, axis=-1).transpose(1, 2, 0)
         return w_rec
 
-    def loss_mse(
-        self, parameters: Dict[str, Any], f_bound_penalty: float = 1e3
-    ) -> float:
+    def loss_mse(self, parameters: Dict[str, Any], f_penalty: float = 1e3) -> float:
         """
         loss_mse calculates the mean square error loss between output and the target,
         given a new parameter set. Also, adds the bound violation penalty to the loss calculated.
 
         :param parameters: new parameter set for the autoencoder
         :type parameters: Dict[str, Any]
-        :param f_bound_penalty: a factor of multiplication for bound violation penalty, defaults to 1e3
-        :type f_bound_penalty: float, optional
+        :param f_penalty: a factor of multiplication for bound violation penalty, defaults to 1e3
+        :type f_penalty: float, optional
         :return: the mean square error loss between the output and the target + bound violation penatly
         :rtype: float
         """
+
+        def penalty_negative(_attr: jnp.DeviceArray) -> float:
+
+            # - Bound penalty - #
+            negatives = jnp.clip(_attr, None, 0)
+            loss = jnp.exp(-negatives)
+
+            ## - subtract the code length from the sum to make the penalty 0 if all the code values are 0
+            penalty = jnp.nansum(loss) - float(_attr.size)
+            return penalty
+
+        def penalty_float(_attr: jnp.DeviceArray) -> float:
+            _encoded = self.encode_bitmask(_attr).round().astype(int)
+            _decoded = self.decode_bitmask(_encoded).astype(float)
+            penalty = l.mse(_attr, _decoded)
+
+            return penalty
+
+        def penalty_upper(_attr: jnp.DeviceArray) -> float:
+
+            upper = jnp.clip(_attr - (1.0), 0, None)
+            loss = jnp.exp(upper)
+            penalty = jnp.nansum(loss) - float(_attr.size)
+            return penalty
+
         # - Assign the provided parameters to the network
         net = self.ae.set_attributes(parameters)
         output, code, bitmask = net(self.w_flat)
 
-        # - Bound penalty - #
-        _code = jnp.clip(code, None, 0)
-        _code = jnp.exp(-_code)
+        # - Code Implied - #
+        penalty = penalty_negative(code)
+        target_code = code.at[self.idx_optimize].set(
+            self.code_implied[self.idx_optimize]
+        )
+        penalty += l.mse(target_code, code)
 
-        ## - subtract the code length from the sum to make the penalty 0 if all the code values are 0
-        penalty = jnp.nansum(_code) - self.ae.n_code
-        penalty *= f_bound_penalty
+        # - Bitmap Implied - #
+        penalty += 1e-3 * penalty_float(bitmask) * (1.0 - self.ae.code_search)
+        # penalty += penalty_upper(bitmask) * (self.ae.th)
+        # penalty += penalty_negative(bitmask) * (self.ae.th)
 
         # - Calculate the loss imposing the bounds
-        loss = l.mse(output, self.w_flat) + penalty
+        loss = l.mse(output, self.w_flat) + f_penalty * penalty
         return loss
 
     def fit(
@@ -507,13 +547,13 @@ class WeightParameters:
         self.ae, state, record_dict = self.fit(*args, **kwargs)
 
         ## Update encoded_bitmask
-        bitmask_flat = self.encode_bitmask(self.ae.bitmask)
-        self.encoded_bitmask = (
-            self.encoded_bitmask.at[self.idx_nonzero].set(bitmask_flat).astype(int)
-        )
+        bitmask_flat = self.encode_bitmask(self.ae.decode)
+        self.encoded_bitmask = jnp.round(
+            self.encoded_bitmask.at[self.idx_nonzero].set(bitmask_flat)
+        ).astype(int)
 
         ## Update Iws
-        code = self.ae.code(self.w_flat)
+        code = self.ae.encode(self.w_flat)
         self.Iw_0 = code[0] / self.scale
         self.Iw_1 = code[1] / self.scale
         self.Iw_2 = code[2] / self.scale
@@ -663,7 +703,12 @@ class WeightParameters:
         """
         Iw returns weight matrix required
         """
-        return jnp.array([self.Iw_0, self.Iw_1, self.Iw_2, self.Iw_3])
+        i0 = self.Iw_0 if self.Iw_0 is not None else 0.0
+        i1 = self.Iw_1 if self.Iw_1 is not None else 0.0
+        i2 = self.Iw_2 if self.Iw_2 is not None else 0.0
+        i3 = self.Iw_3 if self.Iw_3 is not None else 0.0
+
+        return jnp.array([i0, i1, i2, i3])
 
     @property
     def shape(self) -> Tuple[int]:
