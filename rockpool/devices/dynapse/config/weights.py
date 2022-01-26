@@ -13,6 +13,7 @@ E-mail : ugurcan.cakal@gmail.com
 [] TODO : from_samna_parameters() # requires bitmask from router
 [] TODO : from_samna() # standalone
 [] TODO : merging and disjoining weight matrices across cores # post-synaptic side is here
+[] TODO : what happens if Iw=0, reduce the code length being aware that the order is important
 [] TODO : Try with L1 regularization
 """
 from __future__ import annotations
@@ -411,28 +412,55 @@ class WeightParameters:
         :rtype: float
         """
 
-        def penalty_negative(_attr: jnp.DeviceArray) -> float:
+        def penalty_negative(param: jnp.DeviceArray) -> float:
+            """
+            penalty_negative applies a below zero limit violation penalty to any attribute
 
+            :param param: the parameter to apply the zero limit
+            :type param: jnp.DeviceArray
+            :return: an exponentially increasing bound loss punishing the parameter values below zero
+            :rtype: float
+            """
             # - Bound penalty - #
-            negatives = jnp.clip(_attr, None, 0)
+            negatives = jnp.clip(param, None, 0)
             loss = jnp.exp(-negatives)
 
             ## - subtract the code length from the sum to make the penalty 0 if all the code values are 0
-            penalty = jnp.nansum(loss) - float(_attr.size)
+            penalty = jnp.nansum(loss) - float(param.size)
             return penalty
 
-        def penalty_float(_attr: jnp.DeviceArray) -> float:
-            _encoded = self.encode_bitmask(_attr).round().astype(int)
+        def penalty_reconstruction(bitmask: jnp.DeviceArray) -> float:
+            """
+            penalty_reconstruction applies a penalty if the bitmask encoding&decoding is non-unique. 
+            It also assures that the rounded decoding weights are the same as the bitmask desired, and the 
+            bitmask consists of binary values.
+
+            :param bitmask: the bitmask to check if encoding&decoding is unique
+            :type bitmask: jnp.DeviceArray
+            :return: mean square error loss between the bitmask found and the bitmap reconstructed after encoding decoding
+            :rtype: float
+            """
+            _encoded = self.encode_bitmask(bitmask).round().astype(int)
             _decoded = self.decode_bitmask(_encoded).astype(float)
-            penalty = l.mse(_attr, _decoded)
+            penalty = l.mse(bitmask, _decoded)
+            penalty *= 1.0 - self.ae.code_search
 
             return penalty
 
-        def penalty_upper(_attr: jnp.DeviceArray) -> float:
+        def penalty_code_difference(code: jnp.DeviceArray) -> float:
+            """
+            penalty_code_difference applies a penalty if the code is different then the code indicated by
+            the weight parameters
 
-            upper = jnp.clip(_attr - (1.0), 0, None)
-            loss = jnp.exp(upper)
-            penalty = jnp.nansum(loss) - float(_attr.size)
+            :param code: the code to compare against the Iw-indicated code (in the case that Iws defined)
+            :type code: jnp.DeviceArray
+            :return: the mean square error between the Iw-indicated and auto-encoded code
+            :rtype: float
+            """
+            target_code = code.at[self.idx_optimize].set(
+                self.code_implied[self.idx_optimize]
+            )
+            penalty = l.mse(target_code, code)
             return penalty
 
         # - Assign the provided parameters to the network
@@ -440,19 +468,14 @@ class WeightParameters:
         output, code, bitmask = net(self.w_flat)
 
         # - Code Implied - #
-        penalty = penalty_negative(code)
-        target_code = code.at[self.idx_optimize].set(
-            self.code_implied[self.idx_optimize]
-        )
-        penalty += l.mse(target_code, code)
+        penalty = f_penalty * penalty_negative(code)
+        penalty += f_penalty * penalty_code_difference(code)
 
         # - Bitmap Implied - #
-        penalty += 1e-3 * penalty_float(bitmask) * (1.0 - self.ae.code_search)
-        # penalty += penalty_upper(bitmask) * (self.ae.th)
-        # penalty += penalty_negative(bitmask) * (self.ae.th)
+        penalty += penalty_reconstruction(bitmask)
 
         # - Calculate the loss imposing the bounds
-        loss = l.mse(output, self.w_flat) + f_penalty * penalty
+        loss = l.mse(output, self.w_flat) + penalty
         return loss
 
     def fit(
