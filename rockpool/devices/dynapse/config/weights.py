@@ -93,8 +93,6 @@ class AutoEncoder(JaxModule):
     
     :param shape: the input, output size of the AutoEncoder, (N,N). Usually, the flatten matrix size.
     :type shape: Tuple[int]
-    :param n_code: the length of the code. It refers to the number of bias weight parameters used., defaults to 4
-    :type n_code: int, optional
     :param w_en: encoder weight matrix that transforms a weight matrix to the code, defaults to None
     :type w_en: Optional[jnp.DeviceArray], optional
     :param w_dec: decoder wegiht matrix that reconstructs a weight matrix from the code, defaults to None
@@ -106,8 +104,10 @@ class AutoEncoder(JaxModule):
     def __init__(
         self,
         shape: Tuple[int],
-        n_code: int = 4,
-        w_en: Optional[jnp.DeviceArray] = None,
+        w_en_0: Optional[jnp.DeviceArray] = None,
+        w_en_1: Optional[jnp.DeviceArray] = None,
+        w_en_2: Optional[jnp.DeviceArray] = None,
+        w_en_3: Optional[jnp.DeviceArray] = None,
         w_dec: Optional[jnp.DeviceArray] = None,
         weight_init: Callable[[Tuple[int]], np.ndarray] = kaiming,
         *args,
@@ -121,12 +121,13 @@ class AutoEncoder(JaxModule):
             shape=shape, *args, **kwargs,
         )
 
-        self.n_code = n_code
-
         # Weight Initialization
         _init = lambda s: jnp.array(weight_init(s))
-        self.w_en = Parameter(w_en, init_func=_init, shape=(self.size_in, n_code),)
-        self.w_dec = Parameter(w_dec, init_func=_init, shape=(n_code, self.size_out),)
+        self.w_en_0 = Parameter(w_en_0, init_func=_init, shape=(self.size_in,),)
+        self.w_en_1 = Parameter(w_en_1, init_func=_init, shape=(self.size_in,),)
+        self.w_en_2 = Parameter(w_en_2, init_func=_init, shape=(self.size_in,),)
+        self.w_en_3 = Parameter(w_en_3, init_func=_init, shape=(self.size_in,),)
+        self.w_dec = Parameter(w_dec, init_func=_init, shape=(4, self.size_out),)
 
     def evolve(
         self, matrix: jnp.DeviceArray, record: bool = False
@@ -176,6 +177,13 @@ class AutoEncoder(JaxModule):
         prob = nn.sigmoid(self.w_dec)
         spikes = step_pwl(prob)
         return spikes
+
+    @property
+    def w_en(self) -> jnp.DeviceArray:
+        """
+        w_en regard and return the w_en dimensions as a whole 2D matrix
+        """
+        return jnp.column_stack((self.w_en_0, self.w_en_1, self.w_en_2, self.w_en_3))
 
 
 @dataclass
@@ -306,11 +314,12 @@ class WeightParameters:
                 or (self.Iw_2 is not None)
                 or (self.Iw_3 is not None)
             ):
-                pass  # [] TODO : initialize or partly initialize the encoder weights
+                # [] TODO : initialize or partly initialize the encoder weights
+                None
 
             logging.info("Run .fit() to find weight parameters and bitmask!")
             # [] TODO : Parametrize 4
-            self.ae = AutoEncoder(self.w_flat.size, 4)
+            self.ae = AutoEncoder(self.w_flat.size)
 
     @classmethod
     def from_samna_parameters(
@@ -364,7 +373,10 @@ class WeightParameters:
         assert w_dec.shape == self.ae.w_dec.shape
 
         params = {
-            "w_en": w_en,
+            "w_en_0": w_en[:, 0],
+            "w_en_1": w_en[:, 1],
+            "w_en_2": w_en[:, 2],
+            "w_en_3": w_en[:, 3],
             "w_dec": w_dec,
         }
         encoder = self.ae.set_attributes(params)
@@ -408,7 +420,7 @@ class WeightParameters:
         _code = jnp.exp(-_code)
 
         ## - subtract the code length from the sum to make the penalty 0 if all the code values are 0
-        penalty = jnp.nansum(_code) - self.ae.n_code
+        penalty = jnp.nansum(_code) - 4.0
         penalty *= f_bound_penalty
 
         # - Calculate the loss imposing the bounds
@@ -478,7 +490,10 @@ class WeightParameters:
             opt_state = update_fun(epoch, grads, opt_state)
 
             # Return
-            rec = (loss_val, params["w_en"], params["w_dec"])
+            w_en = jnp.column_stack(
+                (params["w_en_0"], params["w_en_1"], params["w_en_2"], params["w_en_3"])
+            )
+            rec = (loss_val, w_en, params["w_dec"])
             return opt_state, rec
 
         # --- Iterate over epochs --- #
@@ -504,7 +519,7 @@ class WeightParameters:
         """
 
         # Update ae
-        self.ae, state, record_dict = self.fit(*args, **kwargs)
+        self.ae, opt_state, record_dict = self.fit(*args, **kwargs)
 
         ## Update encoded_bitmask
         bitmask_flat = self.encode_bitmask(self.ae.bitmask)
