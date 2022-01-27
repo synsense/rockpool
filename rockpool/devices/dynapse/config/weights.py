@@ -276,10 +276,10 @@ class WeightParameters:
         w_rec = jnp.sum(bits_trans * self.Iw, axis=-1).transpose(1, 2, 0)
         return w_rec
 
-    def loss_mse(self, parameters: Dict[str, Any], f_penalty: float = 1e3) -> float:
+    def loss(self, parameters: Dict[str, Any], f_penalty: float = 1e3) -> float:
         """
-        loss_mse calculates the mean square error loss between output and the target,
-        given a new parameter set. Also, adds the bound violation penalty to the loss calculated.
+        loss calculates the mean square error loss between output and the target,
+        given a new parameter set. Also, adds the bound violation penalties to the loss calculated.
 
         :param parameters: new parameter set for the autoencoder
         :type parameters: Dict[str, Any]
@@ -300,10 +300,10 @@ class WeightParameters:
             """
             # - Bound penalty - #
             negatives = jnp.clip(param, None, 0)
-            loss = jnp.exp(-negatives)
+            _loss = jnp.exp(-negatives)
 
             ## - subtract the code length from the sum to make the penalty 0 if all the code values are 0
-            penalty = jnp.nansum(loss) - float(param.size)
+            penalty = jnp.nansum(_loss) - float(param.size)
             return penalty
 
         def penalty_reconstruction(bitmask: jnp.DeviceArray) -> float:
@@ -320,7 +320,6 @@ class WeightParameters:
             _encoded = self.encode_bitmask(bitmask).round().astype(int)
             _decoded = self.decode_bitmask(_encoded).astype(float)
             penalty = l.mse(bitmask, _decoded)
-            penalty *= 1.0 - self.ae.code_search
 
             return penalty
 
@@ -349,11 +348,12 @@ class WeightParameters:
         penalty += f_penalty * penalty_code_difference(code)
 
         # - Bitmap Implied - #
-        penalty += penalty_reconstruction(bitmask)
+        penalty += f_penalty * l.mse(self.bitmask_implied, bitmask)
+        penalty += (1.0 - self.code_search) * penalty_reconstruction(bitmask)
 
         # - Calculate the loss imposing the bounds
-        loss = l.mse(output, self.w_flat) + penalty
-        return loss
+        _loss = l.mse(output, self.w_flat) + penalty
+        return _loss
 
     def fit(
         self,
@@ -394,7 +394,7 @@ class WeightParameters:
         opt_state = init_fun(params0)
 
         ## - Get the jit compiled update and value-and-gradient functions
-        loss_vgf = jit(value_and_grad(self.loss_mse))
+        loss_vgf = jit(value_and_grad(self.loss))
         update_fun = jit(update_fun)
 
         def iteration(
