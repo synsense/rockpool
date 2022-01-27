@@ -6,14 +6,15 @@ Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 21/01/2022
-[] TODO : Select training w_en or not
-[] TODO : if Iws defined, then construct w_en
+[] TODO : dual search, depended search!
+[] TODO : Get Iw as vector, do not restrict yourself on 4
 [] TODO : if bitmask defined, then construct w_dec ?? harder
 [] TODO : make sure that bitmask is jnp.DeviceArray
 [] TODO : from_samna_parameters() # requires bitmask from router
 [] TODO : from_samna() # standalone
 [] TODO : merging and disjoining weight matrices across cores # post-synaptic side is here
 [] TODO : what happens if Iw=0, reduce the code length being aware that the order is important
+[] TODO : Iw=0, reduce bits, parametrize 4
 [] TODO : Try with L1 regularization
 """
 from __future__ import annotations
@@ -25,7 +26,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 
 # JAX
-from jax import nn, jit, value_and_grad, custom_gradient
+from jax import jit, value_and_grad
 from jax.lax import scan
 from jax.experimental import optimizers
 
@@ -33,19 +34,18 @@ from jax import numpy as jnp
 import numpy as np
 
 # Rockpool
-from rockpool.parameters import Parameter
 from rockpool.training import jax_loss as l
-from rockpool.nn.modules.jax.jax_module import JaxModule
-from rockpool.nn.modules.native.linear import kaiming, xavier
 from rockpool.devices.dynapse.config.layout import DynapSELayout
 from rockpool.devices.dynapse.config.circuits import SimulationParameters
-from rockpool.devices.dynapse.lookup import param_name
-from rockpool.devices.dynapse.config.autoencoder import AutoEncoder
+from rockpool.devices.dynapse.config.autoencoder import (
+    AutoEncoder,
+    DigitalAutoEncoder,
+    AnalogAutoEncoder,
+)
 
 _SAMNA_SE1_AVAILABLE = True
 _SAMNA_SE2_AVAILABLE = True
 
-param_name_table = param_name.table
 try:
     from samna.dynapse1 import Dynapse1Parameter
 except ModuleNotFoundError as e:
@@ -148,7 +148,6 @@ class WeightParameters:
     Iw_3: Optional[float] = None
     encoded_bitmask: Optional[np.ndarray] = None
     layout: Optional[DynapSELayout] = None
-    # Scale Iw
 
     _optimizers = [
         "sgd",
@@ -193,11 +192,16 @@ class WeightParameters:
             else:
                 pass  # [] TODO : initialize decoder weights
 
-            code_search = False if self.Iw.nonzero()[0].size > 2 else True
+            self.code_search = False if self.Iw.nonzero()[0].size > 2 else True
             logging.info("Run .fit() to find weight parameters and bitmask!")
             # [] TODO : Parametrize 4
 
-            self.ae = AutoEncoder(self.w_flat.size, 4, code_search=code_search)
+            # self.ae = AutoEncoder(self.w_flat.size, 4, code_search=code_search)
+            self.ae = (
+                DigitalAutoEncoder(self.w_flat.size, 4)
+                if self.code_search
+                else AnalogAutoEncoder(self.w_flat.size, 4)
+            )
 
         # If most of the Iw's are defined, then there is a code implied!
         self.code_implied = self.Iw * self.scale
@@ -348,7 +352,6 @@ class WeightParameters:
         penalty += f_penalty * penalty_code_difference(code)
 
         # - Bitmap Implied - #
-        penalty += f_penalty * l.mse(self.bitmask_implied, bitmask)
         penalty += (1.0 - self.code_search) * penalty_reconstruction(bitmask)
 
         # - Calculate the loss imposing the bounds
