@@ -78,7 +78,7 @@ class WeightParameters:
     It provides a general way of handling SE2 weight current and the conversion from device 
     configuration object
 
-    :param weights: The weight matrix to obtain, co-depended to Iw_0, Iw_1, Iw_2, Iw_3 and bitmask.
+    :param weights: The weight matrix to obtain, co-depended to Iw_0, Iw_1, Iw_2, Iw_3 and mux.
     :type weights: jnp.DeviceArray
     :param Iw_0: the first base weight current corresponding to the 0th bit of the bit-mask, in Amperes. In DynapSE1, it's GABA_B base weigth.
     :type Iw_0: float
@@ -88,8 +88,8 @@ class WeightParameters:
     :type Iw_2: float
     :param Iw_3: the fourth base weight current corresponding to the 3rd bit of the bit-mask, in Amperes. In DynapSE1, it's AMPA base weigth.
     :type Iw_3: float
-    :param encoded_bitmask: A bit mask to select and dot product the base Iw currents (shape,)
-    :type encoded_bitmask: np.ndarray
+    :param mux: A binary value representing uint mask to select and dot product the base Iw currents (shape,)
+    :type mux: np.ndarray
         1 = 0001 -> selected bias parameters: Iw_0
         8 = 1000 -> selected bias parameters: Iw_3
         5 = 0101 -> selected bias parameterss Iw_0 + Iw_2
@@ -146,7 +146,7 @@ class WeightParameters:
     Iw_1: Optional[float] = None
     Iw_2: Optional[float] = None
     Iw_3: Optional[float] = None
-    encoded_bitmask: Optional[np.ndarray] = None
+    mux: Optional[np.ndarray] = None
     layout: Optional[DynapSELayout] = None
 
     _optimizers = [
@@ -165,7 +165,7 @@ class WeightParameters:
         """
         __post_init__ runs after __init__ and initializes the WeightParameters object with default values in the case that they are not specified.
 
-        :raises ValueError: If `weight` is None, then bitmask and weight bits are required to calculate the weight matrix
+        :raises ValueError: If `weight` is None, then mux and weight bits are required to calculate the weight matrix
         """
 
         if self.layout is None:
@@ -177,18 +177,18 @@ class WeightParameters:
                 or (self.Iw_1 is None)
                 or (self.Iw_2 is None)
                 or (self.Iw_3 is None)
-                or (self.encoded_bitmask is None)
+                or (self.mux is None)
             ):
                 raise ValueError(
-                    "If `weight` is None, then bitmask and weight bits are required to calculate the weight matrix!"
+                    "If `weight` is None, then mux and weight bits are required to calculate the weight matrix!"
                 )
             self.weights = self.weight_matrix()
 
         self.w_flat, self.transforms = self.preprocess(self.weights)
 
         if self.weights is not None:
-            if self.encoded_bitmask is None:
-                self.encoded_bitmask = jnp.zeros(self.shape, int)
+            if self.mux is None:
+                self.mux = jnp.zeros(self.shape, int)
             else:
                 pass  # [] TODO : initialize decoder weights
 
@@ -211,7 +211,7 @@ class WeightParameters:
     def from_samna_parameters(
         cls,
         samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]],
-        bitmask: np.ndarray,
+        mux: np.ndarray,
         layout: DynapSELayout,
         *args,
         **kwargs,
@@ -234,7 +234,7 @@ class WeightParameters:
             Iw_1=simparam.nominal("Iw_1"),  # GABA_A - se1
             Iw_2=simparam.nominal("Iw_2"),  # NMDA - se1
             Iw_3=simparam.nominal("Iw_3"),  # AMPA - se1
-            encoded_bitmask=bitmask,
+            mux=mux,
             layout=layout,
             *args,
             **kwargs,
@@ -267,7 +267,7 @@ class WeightParameters:
 
     def weight_matrix(self) -> jnp.DeviceArray:
         """
-        weight_matrix generates a weight matrix for `DynapSE` modules using the base weight currents, and the bitmask.
+        weight_matrix generates a weight matrix for `DynapSE` modules using the base weight currents, and the mux.
         In device, we have the opportunity to define 4 different base weight current. Then using a bit mask, we can compose a
         weight current defining the strength of the connection between two neurons. The parameters and usage explained below.
 
@@ -275,7 +275,7 @@ class WeightParameters:
         :rtype: jnp.DeviceArray
         """
         # To broadcast on the post-synaptic neurons : pre, post, gate -> [(bits), post, pre, gate].T
-        bits_trans = self.decode_bitmask(self.encoded_bitmask.transpose(1, 0, 2)).T
+        bits_trans = self.quantize_mux(self.mux.transpose(1, 0, 2)).T
         # Restore the shape : (gate, pre, post) -> pre, post, gate
         w_rec = jnp.sum(bits_trans * self.Iw, axis=-1).transpose(1, 2, 0)
         return w_rec
@@ -321,9 +321,9 @@ class WeightParameters:
             :return: mean square error loss between the bitmask found and the bitmap reconstructed after encoding decoding
             :rtype: float
             """
-            _encoded = self.encode_bitmask(bitmask).round().astype(int)
-            _decoded = self.decode_bitmask(_encoded).astype(float)
-            penalty = l.mse(bitmask, _decoded)
+            mux = self.multiplex_bitmask(bitmask).round().astype(int)
+            bitmask_reconstructed = self.quantize_mux(mux).astype(float)
+            penalty = l.mse(bitmask, bitmask_reconstructed)
 
             return penalty
 
@@ -449,11 +449,9 @@ class WeightParameters:
         # Update ae
         self.ae, state, record_dict = self.fit(*args, **kwargs)
 
-        ## Update encoded_bitmask
-        bitmask_flat = self.encode_bitmask(self.ae.bitmask)
-        self.encoded_bitmask = jnp.round(
-            self.encoded_bitmask.at[self.idx_nonzero].set(bitmask_flat)
-        ).astype(int)
+        ## Update mux
+        mux_flat = self.multiplex_bitmask(self.ae.bitmask)
+        self.mux = jnp.round(self.mux.at[self.idx_nonzero].set(mux_flat)).astype(int)
 
         ## Update Iws
         code = self.ae.encode(self.w_flat)
@@ -473,7 +471,7 @@ class WeightParameters:
             or __name == "Iw_1"
             or __name == "Iw_2"
             or __name == "Iw_3"
-            or __name == "encoded_bitmask"
+            or __name == "mux"
         ):
             if _attr is None:
                 pass  # [] TODO : Hook warnings in the case they return None
@@ -552,18 +550,16 @@ class WeightParameters:
             )
 
     @staticmethod
-    def decode_bitmask(
-        encoded_bitmask: Union[jnp.DeviceArray, np.ndarray]
-    ) -> jnp.DeviceArray:
+    def quantize_mux(mux: Union[jnp.DeviceArray, np.ndarray]) -> jnp.DeviceArray:
         """
-        decode_bitmask apply 4-bit mask to numbers representing select bits and generates a bitmask 
+        quantize_mux converts a integer valued bitmask to 4 dimension (4-bits) bitmask representing the indexes of the selection
             
             1 = 0001 -> selected bit: 0
             8 = 1000 -> selected bit: 3
             5 = 0101 -> selected bit 0 and 2
 
-        :param bitmask: Binary mask to select, integer values representing binary numbers (shape,)
-        :type bitmask: np.ndarray
+        :param mux: Integer values representing binary numbers to select (shape,)
+        :type mux: np.ndarray
         :return: an array of indices of selected bits, only binary values, (4,shape)
         :rtype: jnp.DeviceArray
         """
@@ -571,27 +567,25 @@ class WeightParameters:
         bit_pattern = lambda n: (1 << n)  # 2^n
 
         # Indexes of the IDs to be selected in bits list
-        decoded = jnp.array(
-            [encoded_bitmask & bit_pattern(bit) for bit in bits], dtype=bool
-        )
-        return decoded
+        bitmask = jnp.array([mux & bit_pattern(bit) for bit in bits], dtype=bool)
+        return bitmask
 
     @staticmethod
-    def encode_bitmask(decoded_bitmask: jnp.DeviceArray) -> jnp.DeviceArray:
+    def multiplex_bitmask(bitmask: jnp.DeviceArray) -> jnp.DeviceArray:
         """
-        encode_bitmask converts a integer valued bitmask to 4 dimension (4-bits) bitmask representing the indexes of the selection
+        multiplex_bitmask apply 4-bit selection to binary values representing select bits and generates a compressed bitmask 
             
             [0,0,0,1] -> 1
             [1,0,0,0] -> 8
             [0,1,0,1] -> 5
 
-        :param decoded_bitmask: an array of indices of selected bits, only binary values, (4,shape)
-        :type decoded_bitmask: jnp.DeviceArray
-        :return: a binary mask to select, integer values representing binary numbers (shape,)
+        :param bitmask: an array of indices of selected bits, only binary values, (4,shape)
+        :type bitmask: jnp.DeviceArray
+        :return: integer values representing binary numbers (shape,)
         :rtype: jnp.DeviceArray
         """
-        encoded = jnp.sum(decoded_bitmask.T * jnp.array([1, 2, 4, 8]), axis=-1).T
-        return encoded
+        mux = jnp.sum(bitmask.T * jnp.array([1, 2, 4, 8]), axis=-1).T
+        return mux
 
     @property
     def mse(self):
