@@ -6,62 +6,20 @@ Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 27/01/2022
-
-[] TODO : make sure that bitmask is jnp.DeviceArray
 """
 
-from __future__ import annotations
-import logging
-
-from typing import Any, Callable, Dict, Optional, Tuple, Union
-
-from copy import deepcopy
-from dataclasses import dataclass
+from typing import Any, Callable, Dict, Optional, Tuple
 
 # JAX
-from jax import nn, jit, value_and_grad, custom_gradient
-from jax.lax import scan
-from jax.experimental import optimizers
+from jax import nn, custom_gradient
 
 from jax import numpy as jnp
 import numpy as np
 
 # Rockpool
 from rockpool.parameters import Parameter
-from rockpool.training import jax_loss as l
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.nn.modules.native.linear import kaiming, xavier
-from rockpool.devices.dynapse.config.layout import DynapSELayout
-from rockpool.devices.dynapse.config.circuits import SimulationParameters
-from rockpool.devices.dynapse.lookup import param_name
-
-_SAMNA_SE1_AVAILABLE = True
-_SAMNA_SE2_AVAILABLE = True
-
-param_name_table = param_name.table
-try:
-    from samna.dynapse1 import Dynapse1Parameter
-except ModuleNotFoundError as e:
-    Dynapse1Parameter = Any
-
-    print(
-        e, "\nDynapSE1SimCore object cannot be factored from a samna config object!",
-    )
-    _SAMNA_SE1_AVAILABLE = False
-
-try:
-    from samna.dynapse2 import Dynapse2Parameter
-except ModuleNotFoundError as e:
-    Dynapse2Parameter = Any
-    print(
-        e, "\nDynapSE2SimCore object cannot be factored from a samna config object!",
-    )
-    _SAMNA_SE2_AVAILABLE = False
-
-
-WeightRecord = Tuple[
-    jnp.DeviceArray, jnp.DeviceArray, jnp.DeviceArray,  # loss  # w_en  # w_dec
-]
 
 
 @custom_gradient
@@ -85,11 +43,10 @@ class AutoEncoder(JaxModule):
     optimal weight parameters and the bitmask configuraiton given a weight matrix for `DynapSE` networks.
     
     NOTE: If intermediate code representation is known, then add a mean square error term to the 
-    loss function used in training. It will push the system generate the same code. However, if it's not known,
-    the way the autoencoder behave changes. Look at the evolve function below! If you are not sure, then let the code search stay at the default value.
+    loss function used in training. It will push the system generate the same code.
 
     :Parameters:
-    
+
     :param shape: the input, output size of the AutoEncoder, (N,N). Usually, the flatten matrix size.
     :type shape: Tuple[int]
     :param n_code: the length of the code. It refers to the number of bias weight parameters used., defaults to 4
@@ -100,8 +57,6 @@ class AutoEncoder(JaxModule):
     :type w_dec: Optional[jnp.DeviceArray], optional
     :param weight_init: weight initialization function which gets a size and creates a weight, defaults to kaiming
     :type weight_init: Callable[[Tuple[int]], np.ndarray], optional
-    :param code_search: Do the code search or not. Code search requires using thresholded decoding, defaults to True
-    :type code_search: bool, optional
     """
 
     def __init__(
@@ -111,7 +66,6 @@ class AutoEncoder(JaxModule):
         w_en: Optional[jnp.DeviceArray] = None,
         w_dec: Optional[jnp.DeviceArray] = None,
         weight_init: Callable[[Tuple[int]], np.ndarray] = kaiming,
-        code_search: bool = True,
         *args,
         **kwargs,
     ) -> None:
@@ -122,10 +76,7 @@ class AutoEncoder(JaxModule):
         super(AutoEncoder, self).__init__(
             shape=shape, *args, **kwargs,
         )
-
         self.n_code = n_code
-
-        self.code_search = float(code_search)
 
         # Weight Initialization
         _init = lambda s: jnp.array(weight_init(s))
@@ -168,23 +119,82 @@ class AutoEncoder(JaxModule):
         :return: the code generated, or the compressed version
         :rtype: jnp.DeviceArray
         """
+        assert matrix.size == self.size_in
         return matrix @ self.w_en
-
-    @property
-    def bitmask(self) -> jnp.DeviceArray:
-        # Thresholding
-        prob = nn.sigmoid(self.w_dec)
-        spikes = step_pwl(prob)
-
-        # Threshold or not dependin on the code_search situation! NOT USING if-else for better jit pipeline!
-        _dec = spikes * self.code_search + self.w_dec * (1.0 - self.code_search)
-        return _dec
 
     def decode(self, code: jnp.DeviceArray) -> jnp.DeviceArray:
         """
-        decode decide how to use the decoder weights and how to regard the decoder weights.
-        Return the decoder indicated binary weight mask if code search is being done.
-        If code search is off, then do not restrict the weights here and add the boundary violation term to the loss function
+        decode reconstructs the matrix from the code
+
+        :param code: the compressed version of the matrix
+        :type code: jnp.DeviceArray
+        :return: the reconstructed matrix
+        :rtype: jnp.DeviceArray
         """
+        assert code.size == self.n_code
         return code @ self.bitmask
 
+    @property
+    def bitmask(self) -> jnp.DeviceArray:
+        """
+        ABSTRACT METHOD
+        bitmask should transform the decoding weights to a bitmask to be used in matrix reconstruction from the code
+
+        :raises NotImplementedError: This is an abstract method, needs overwriting
+        :return: bitmask obtained biased to w_dec
+        :rtype: jnp.DeviceArray
+        """
+        raise NotImplementedError("Use one of child classes instead!")
+
+
+class AnalogAutoEncoder(AutoEncoder):
+    """
+    AnalogAutoEncoder is the simplest possible AutoEncoder implementation.
+    It uses the weight matrix itself as a bitmask.
+
+    NOTE : A penalty can be implemented in the loss function used in training to
+    push the system generate a proper bitmask 
+
+    def penalty_reconstruction(bitmask: jnp.DeviceArray) -> float:
+        _encoded = self.encode_bitmask(bitmask).round().astype(int)
+        _decoded = self.decode_bitmask(_encoded).astype(float)
+        penalty = l.mse(bitmask, _decoded)
+
+        return penalty
+    """
+
+    def __init__(self, *args, **kwargs):
+        """
+        __init__ intialize the parent class
+        """
+        super(AnalogAutoEncoder, self).__init__(*args, **kwargs)
+
+    @property
+    def bitmask(self) -> jnp.DeviceArray:
+        """
+        bitmask returns directly the decoder weight matrix
+        """
+        return self.w_dec
+
+
+class DigitalAutoEncoder(AutoEncoder):
+    """
+    DigitalAutoEncoder uses the quantized decoder weights in the calculations
+    to make sure that the bitmask produced will be a `valid`, binary bitmask
+    """
+
+    def __init__(self, *args, **kwargs):
+        """
+        __init__ intialize the parent class
+        """
+        super(DigitalAutoEncoder, self).__init__(*args, **kwargs)
+
+    @property
+    def bitmask(self) -> jnp.DeviceArray:
+        """
+        bitmask applies the sigmoid to the decoder weights to scale them in 0,1 with ditribution center at .5
+        Then it applies a heaviside step function with piece-wise linear derivative to obtain a valid bitmask consisting only of bits 
+        """
+        prob = nn.sigmoid(self.w_dec)
+        spikes = step_pwl(prob)
+        return spikes
