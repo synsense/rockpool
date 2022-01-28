@@ -50,6 +50,4 @@ def test_ExpSynTorch():
     mod = mod.to_torch()
     out = mod(input_data)
 
-    # - Nothing to compute gradients for
-    with pytest.raises(RuntimeError):
-        out.sum().backward()
+    out.sum().backward()
