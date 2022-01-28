@@ -6,8 +6,10 @@ Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 21/01/2022
+[] TODO : lighter record, last(100) i.e
 [] TODO : dual search, depended search!
 [] TODO : Get Iw as vector, do not restrict yourself on 4
+[] TODO : check mux numbers and bitmask dimension if they met Iw length
 [] TODO : if bitmask defined, then construct w_dec ?? harder
 [] TODO : make sure that bitmask is jnp.DeviceArray
 [] TODO : from_samna_parameters() # requires bitmask from router
@@ -27,7 +29,7 @@ from dataclasses import dataclass
 
 # JAX
 from jax import jit, value_and_grad
-from jax.lax import scan
+from jax.lax import scan, cond
 from jax.experimental import optimizers
 
 from jax import numpy as jnp
@@ -42,6 +44,7 @@ from rockpool.devices.dynapse.config.autoencoder import (
     DigitalAutoEncoder,
     AnalogAutoEncoder,
 )
+from rockpool.devices.dynapse.base import ArrayLike
 
 _SAMNA_SE1_AVAILABLE = True
 _SAMNA_SE2_AVAILABLE = True
@@ -388,10 +391,7 @@ class WeightParameters:
             :return: the mean square error between the Iw-indicated and auto-encoded code
             :rtype: float
             """
-            target_code = code.at[self.idx_optimize].set(
-                self.code_implied[self.idx_optimize]
-            )
-            penalty = l.mse(target_code, code)
+            penalty = l.mse(self.code_implied, code)
             return penalty
 
         # - Assign the provided parameters to the network
@@ -400,10 +400,21 @@ class WeightParameters:
 
         # - Code Implied - #
         penalty = f_penalty * penalty_negative(code)
-        penalty += f_penalty * penalty_code_difference(code)
+
+        penalty += cond(
+            self.code_search,
+            lambda _: 0.0,
+            lambda code: f_penalty * penalty_code_difference(code),
+            code,
+        )
 
         # - Bitmap Implied - #
-        penalty += (1.0 - self.dual_search) * penalty_reconstruction(len(code), bitmask)
+        penalty += cond(
+            self.code_search,
+            lambda _: 0.0,
+            lambda cb: penalty_reconstruction(len(cb[0]), cb[1]),
+            (code, bitmask),
+        )
 
         # - Calculate the loss imposing the bounds
         _loss = l.mse(output, self.w_flat) + penalty
