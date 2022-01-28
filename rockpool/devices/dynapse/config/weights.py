@@ -171,41 +171,90 @@ class WeightParameters:
         if self.layout is None:
             self.layout = DynapSELayout()
 
+        self.code_length = self.get_code_length()
+
         if self.weights is None:
-            if (
-                (self.Iw_0 is None)
-                or (self.Iw_1 is None)
-                or (self.Iw_2 is None)
-                or (self.Iw_3 is None)
-                or (self.mux is None)
-            ):
+            if self.Iw is None or self.mux is None:
                 raise ValueError(
                     "If `weight` is None, then mux and weight bits are required to calculate the weight matrix!"
                 )
             self.weights = self.weight_matrix()
+            self.w_flat, self.transforms = self.preprocess(self.weights)
 
-        self.w_flat, self.transforms = self.preprocess(self.weights)
+        elif self.weights is not None:
+            ## - Search for the right code and and the bitmask
 
-        if self.weights is not None:
+            self.w_flat, self.transforms = self.preprocess(self.weights)
+
+            if self.Iw is not None and self.mux is not None:
+                raise ValueError(
+                    "Conflict of Interest: Define either the weight matrix or the mux&Iw pair."
+                    "Not all at the same time!"
+                )
+
             if self.mux is None:
                 self.mux = jnp.zeros(self.shape, int)
             else:
-                pass  # [] TODO : initialize decoder weights
+                # [] TODO : initialize decoder weights
+                pass
 
-            self.code_search = False if self.Iw.nonzero()[0].size > 2 else True
+            self.code_search = True if self.Iw is None else False
+
+            ## - Initialize an autoencoder
             logging.info("Run .fit() to find weight parameters and bitmask!")
-            # [] TODO : Parametrize 4
-
-            # self.ae = AutoEncoder(self.w_flat.size, 4, code_search=code_search)
             self.ae = (
-                DigitalAutoEncoder(self.w_flat.size, 4)
+                DigitalAutoEncoder(self.w_flat.size, self.code_length)
                 if self.code_search
-                else AnalogAutoEncoder(self.w_flat.size, 4)
+                else AnalogAutoEncoder(self.w_flat.size, self.code_length)
             )
 
-        # If most of the Iw's are defined, then there is a code implied!
-        self.code_implied = self.Iw * self.scale
-        self.idx_optimize = self.Iw.astype(bool)
+        self.code_implied = (
+            self.Iw * self.scale
+            if self.Iw is not None
+            else jnp.full(self.code_length, 0.0)
+        )
+
+    def get_code_length(self) -> int:
+        """
+        get_code_length calculates the Iw indicated intermediate code length used in encoding and decoding the weight matrix
+        It also make sure that parameter value definition is consequtive. 
+
+        :return: the number of bits to reserve for a code
+        :rtype: int
+        """
+
+        def none_checker(*args) -> None:
+            """
+            none_checker makes sure that none of the arguments given is None
+
+            :raises ValueError: Unexpected None detected!
+            """
+            for arg in args:
+                if arg is None:
+                    raise ValueError(
+                        "Unexpected None detected! Iw bits should be defined `consequtively`"
+                    )
+
+        def consecution_test(id: int) -> int:
+            """
+            consecution_test makes sure that if Iw_x is defined, then all the less significant weight bits should be defined as well
+
+            :param id: the bit id, x in Iw_x
+            :type id: int
+            :return: the code length in the case that no error has raised
+            :rtype: int
+            """
+
+            params = [self.__getattribute__(f"Iw_{i}") for i in range(id)]
+            none_checker(*params)
+            code_len = id + 1
+            return code_len
+
+        for i in reversed(range(4)):
+            if self.__getattribute__(f"Iw_{i}") is not None:
+                return consecution_test(i)
+
+        return 4
 
     @classmethod
     def from_samna_parameters(
@@ -445,7 +494,6 @@ class WeightParameters:
     def fit_update(self, *args, **kwargs) -> None:
         """
         fit_update calls the fit method and update the related object instance variables
-        # [] TODO : Instead of hard-coded update, add more functions
         """
 
         # Update ae
@@ -457,27 +505,8 @@ class WeightParameters:
 
         ## Update Iws
         code = self.ae.encode(self.w_flat)
-        self.Iw_0 = code[0] / self.scale
-        self.Iw_1 = code[1] / self.scale
-        self.Iw_2 = code[2] / self.scale
-        self.Iw_3 = code[3] / self.scale
+        self.Iw = code / self.scale
         return record_dict["loss"]
-
-    def __getattribute__(self, __name: str) -> Any:
-        """
-        If Iw_bits are None, warn the user that they should run .fit()
-        """
-        _attr = super().__getattribute__(__name)
-        if (
-            __name == "Iw_0"
-            or __name == "Iw_1"
-            or __name == "Iw_2"
-            or __name == "Iw_3"
-            or __name == "mux"
-        ):
-            if _attr is None:
-                pass  # [] TODO : Hook warnings in the case they return None
-        return _attr
 
     @staticmethod
     def preprocess(weights: np.ndarray) -> Tuple[np.ndarray, Dict[str, Any]]:
@@ -612,14 +641,34 @@ class WeightParameters:
     @property
     def Iw(self) -> jnp.DeviceArray:
         """
-        Iw returns weight matrix required
+        Iw returns a vector of weight current parameters
         """
-        i0 = self.Iw_0 if self.Iw_0 is not None else 0.0
-        i1 = self.Iw_1 if self.Iw_1 is not None else 0.0
-        i2 = self.Iw_2 if self.Iw_2 is not None else 0.0
-        i3 = self.Iw_3 if self.Iw_3 is not None else 0.0
+        Iw_x = lambda i: self.__getattribute__(f"Iw_{i}")
+        _Iw = [Iw_x(i) for i in range(4) if Iw_x(i) is not None]
 
-        return jnp.array([i0, i1, i2, i3])
+        return None if len(_Iw) == 0 else jnp.array(_Iw)
+
+    @Iw.setter
+    def Iw(self, new_Iw: ArrayLike) -> None:
+        """
+        Iw is an helper function to update the weight bias parameters all together
+
+        :param new_Iw: Iw vector stacking 4 weight bias currents together : [Iw_0, Iw_1, Iw_2, Iw_3]
+        :type new_Iw: ArrayLike
+        :raises IndexError: new_Iw is hosting more than 4 bias currents
+        """
+        if len(new_Iw) > 4:
+            raise IndexError(f"Not enough Iw bits to set! {len(new_Iw)} > 4")
+        if len(new_Iw) == 0:
+            self.Iw = [None, None, None, None]
+        if len(new_Iw) > 0:
+            self.Iw_0 = new_Iw[0]
+        if len(new_Iw) > 1:
+            self.Iw_1 = new_Iw[1]
+        if len(new_Iw) > 2:
+            self.Iw_2 = new_Iw[2]
+        if len(new_Iw) > 3:
+            self.Iw_3 = new_Iw[3]
 
     @property
     def shape(self) -> Tuple[int]:
