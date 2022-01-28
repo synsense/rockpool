@@ -190,11 +190,16 @@ class LIFJax(JaxModule):
             "taus",
             init_func=lambda s: np.ones(s) * 20e-3,
             shape=[(self.size_out, self.n_synapses,), (1, self.n_synapses,), (),],
+            cast_fn=np.array,
         )
         """ (np.ndarray) Synaptic time constants `(Nout,)` or `()` """
 
         self.bias: P_ndarray = Parameter(
-            bias, "bias", init_func=lambda s: np.zeros(s), shape=[(self.size_out,), ()],
+            bias,
+            "bias",
+            init_func=lambda s: np.zeros(s),
+            shape=[(self.size_out,), ()],
+            cast_fn=np.array,
         )
         """ (np.ndarray) Neuron bias currents `(Nout,)` or `()` """
 

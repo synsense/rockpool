@@ -52,7 +52,7 @@ def test_mse():
 
     from tqdm.autonotebook import tqdm
 
-    with tqdm(range(100)) as t:
+    with tqdm(range(5)) as t:
         for i in t:
             loss, grads = vgf(get_params(opt_state), mod, inputs, target)
             opt_state = update_fun(i, grads, opt_state)

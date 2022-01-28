@@ -106,7 +106,7 @@ def test_lif_dynamics():
     # - Get dynamics for each module class
     results = [get_dynamics(M) for M in Module_classes]
 
-    compare_value_tree(results, Module_classes)
+    compare_value_tree(results, Module_classes, atol=1e-3)
 
 
 def test_rate_defaults():

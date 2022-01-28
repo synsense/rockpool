@@ -115,7 +115,7 @@ class ParameterBase:
 
         def numel(x):
             if isinstance(x, np.ndarray):
-                return x.size()
+                return x.size
             elif isinstance(x, torch.Tensor):
                 return x.numel()
             else:
@@ -230,23 +230,4 @@ class SimulationParameter(ParameterBase):
         See :py:class:`.Parameter` for representing the configuration of a module, and :py:class:`.State` for representing the transient internal state of a neuron or module.
     """
 
-    pass
-
-
-# - Register the parameter types with Jax
-try:
-    from jax.tree_util import register_pytree_node
-    import operator as op
-
-    register_pytree_node(
-        Parameter, op.methodcaller("_tree_flatten"), Parameter._tree_unflatten
-    )
-    register_pytree_node(State, op.methodcaller("_tree_flatten"), State._tree_unflatten)
-    register_pytree_node(
-        SimulationParameter,
-        op.methodcaller("_tree_flatten"),
-        SimulationParameter._tree_unflatten,
-    )
-
-except:
     pass
