@@ -314,15 +314,11 @@ class LIFBaseTorch(TorchModule):
 
     @property
     def alpha(self):
-        return torch.exp(-self.dt / torch.clip(self.tau_mem, 10 * self.dt, np.inf)).to(
-            self.tau_mem.device
-        )
+        return torch.exp(-self.dt / self.tau_mem).to(self.tau_mem.device)
 
     @property
     def beta(self):
-        return torch.exp(-self.dt / torch.clip(self.tau_syn, 10 * self.dt, np.inf)).to(
-            self.tau_syn.device
-        )
+        return torch.exp(-self.dt / self.tau_syn).to(self.tau_syn.device)
 
 
 class LIFTorch(LIFBaseTorch):
