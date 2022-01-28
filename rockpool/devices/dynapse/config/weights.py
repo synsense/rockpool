@@ -6,6 +6,7 @@ Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 21/01/2022
+
 [] TODO : code implied docstring
 [] TODO : lighter record, last(100) i.e
 [] TODO : dual search, depended search!
@@ -34,7 +35,6 @@ from jax.lax import scan, cond
 from jax.experimental import optimizers
 
 from jax import numpy as jnp
-import numpy as np
 
 # Rockpool
 from rockpool.training import jax_loss as l
@@ -93,7 +93,7 @@ class WeightParameters:
     :param Iw_3: the fourth base weight current corresponding to the 3rd bit of the bit-mask, in Amperes. In DynapSE1, it's AMPA base weigth.
     :type Iw_3: float
     :param mux: A binary value representing uint mask to select and dot product the base Iw currents (shape,)
-    :type mux: np.ndarray
+    :type mux: jnp.DeviceArray
         1 = 0001 -> selected bias parameters: Iw_0
         8 = 1000 -> selected bias parameters: Iw_3
         5 = 0101 -> selected bias parameterss Iw_0 + Iw_2
@@ -150,7 +150,8 @@ class WeightParameters:
     Iw_1: Optional[float] = None
     Iw_2: Optional[float] = None
     Iw_3: Optional[float] = None
-    mux: Optional[np.ndarray] = None
+    mux: Optional[jnp.DeviceArray] = None
+    code_length: Optional[int] = None
     layout: Optional[DynapSELayout] = None
 
     _optimizers = [
@@ -175,7 +176,8 @@ class WeightParameters:
         if self.layout is None:
             self.layout = DynapSELayout()
 
-        self.code_length = self.get_code_length()
+        if self.code_length is None:
+            self.code_length = self.get_code_length()
 
         if self.weights is None:
             if self.Iw is None or self.mux is None:
@@ -266,7 +268,7 @@ class WeightParameters:
     def from_samna_parameters(
         cls,
         samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]],
-        mux: np.ndarray,
+        mux: jnp.DeviceArray,
         layout: DynapSELayout,
         *args,
         **kwargs,
@@ -588,9 +590,7 @@ class WeightParameters:
             )
 
     @staticmethod
-    def quantize_mux(
-        n_bits: int, mux: Union[jnp.DeviceArray, np.ndarray]
-    ) -> jnp.DeviceArray:
+    def quantize_mux(n_bits: int, mux: jnp.DeviceArray) -> jnp.DeviceArray:
         """
         quantize_mux converts a integer valued bitmask to 4 dimension (4-bits) bitmask representing the indexes of the selection
             
@@ -603,7 +603,7 @@ class WeightParameters:
         :param n_bits: number of bits reserved for representing the integer values
         :type n_bits: int
         :param mux: Integer values representing binary numbers to select (shape,)
-        :type mux: np.ndarray
+        :type mux: jnp.DeviceArray
         :return: an array of indices of selected bits, only binary values, (n_bits,shape)
         :rtype: jnp.DeviceArray
         """
@@ -692,7 +692,7 @@ class WeightParameters:
         return self.transforms["scale"]
 
     @property
-    def idx_nonzero(self) -> np.ndarray:
+    def idx_nonzero(self) -> jnp.DeviceArray:
         """
         idx_nonzero returns the indexes of the elements with the non-zero values
         """
