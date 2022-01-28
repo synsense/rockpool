@@ -6,6 +6,7 @@ Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 21/01/2022
+[] TODO : code implied docstring
 [] TODO : lighter record, last(100) i.e
 [] TODO : dual search, depended search!
 [] TODO : Get Iw as vector, do not restrict yourself on 4
@@ -185,36 +186,38 @@ class WeightParameters:
             self.w_flat, self.transforms = self.preprocess(self.weights)
 
         elif self.weights is not None:
-            ## - Search for the right code and and the bitmask
-
-            self.w_flat, self.transforms = self.preprocess(self.weights)
-
             if self.Iw is not None and self.mux is not None:
                 raise ValueError(
                     "Conflict of Interest: Define either the weight matrix or the mux&Iw pair."
                     "Not all at the same time!"
                 )
 
+            ## - Search for the right code and and the bitmask
+            self.code_search = True if self.Iw is None else False
+            self.mask_search = True if self.mux is None else False
+            self.w_flat, self.transforms = self.preprocess(self.weights)
+
             if self.mux is None:
                 self.mux = jnp.zeros(self.shape, int)
-            else:
-                # [] TODO : initialize decoder weights
-                pass
-
-            self.code_search = True if self.Iw is None else False
 
             ## - Initialize an autoencoder
             logging.info("Run .fit() to find weight parameters and bitmask!")
             self.ae = (
                 DigitalAutoEncoder(self.w_flat.size, self.code_length)
-                if self.code_search
+                if self.code_search and self.mask_search
                 else AnalogAutoEncoder(self.w_flat.size, self.code_length)
             )
+
+        ## Implied bitmask and code, 0 if nothing is implied
 
         self.code_implied = (
             self.Iw * self.scale
             if self.Iw is not None
             else jnp.full(self.code_length, 0.0)
+        )
+
+        self.bitmask_implied = self.quantize_mux(
+            self.code_length, self.mux[self.idx_nonzero]
         )
 
     def get_code_length(self) -> int:
@@ -329,7 +332,8 @@ class WeightParameters:
         # To broadcast on the post-synaptic neurons : pre, post, gate -> [(bits), post, pre, gate].T
         bits_trans = self.quantize_mux(self.code_length, self.mux.transpose(1, 0, 2)).T
         # Restore the shape : (gate, pre, post) -> pre, post, gate
-        w_rec = jnp.sum(bits_trans * self.Iw, axis=-1).transpose(1, 2, 0)
+        Iw = self.Iw if self.Iw is not None else jnp.zeros(self.code_length)
+        w_rec = jnp.sum(bits_trans * Iw, axis=-1).transpose(1, 2, 0)
         return w_rec
 
     def loss(self, parameters: Dict[str, Any], f_penalty: float = 1e3) -> float:
@@ -344,76 +348,30 @@ class WeightParameters:
         :return: the mean square error loss between the output and the target + bound violation penatly
         :rtype: float
         """
-
-        def penalty_negative(param: jnp.DeviceArray) -> float:
-            """
-            penalty_negative applies a below zero limit violation penalty to any attribute
-
-            :param param: the parameter to apply the zero limit
-            :type param: jnp.DeviceArray
-            :return: an exponentially increasing bound loss punishing the parameter values below zero
-            :rtype: float
-            """
-            # - Bound penalty - #
-            negatives = jnp.clip(param, None, 0)
-            _loss = jnp.exp(-negatives)
-
-            ## - subtract the code length from the sum to make the penalty 0 if all the code values are 0
-            penalty = jnp.nansum(_loss) - float(param.size)
-            return penalty
-
-        def penalty_reconstruction(n_bits: int, bitmask: jnp.DeviceArray) -> float:
-            """
-            penalty_reconstruction applies a penalty if the bitmask encoding&decoding is non-unique. 
-            It also assures that the rounded decoding weights are the same as the bitmask desired, and the 
-            bitmask consists of binary values.
-
-            :param n_bits: number of bits reserved for representing the integer values
-            :type n_bits: int
-            :param bitmask: the bitmask to check if encoding&decoding is unique
-            :type bitmask: jnp.DeviceArray
-            :return: mean square error loss between the bitmask found and the bitmap reconstructed after encoding decoding
-            :rtype: float
-            """
-            mux = self.multiplex_bitmask(n_bits, bitmask).round().astype(int)
-            bitmask_reconstructed = self.quantize_mux(n_bits, mux).astype(float)
-            penalty = l.mse(bitmask, bitmask_reconstructed)
-
-            return penalty
-
-        def penalty_code_difference(code: jnp.DeviceArray) -> float:
-            """
-            penalty_code_difference applies a penalty if the code is different then the code indicated by
-            the weight parameters
-
-            :param code: the code to compare against the Iw-indicated code (in the case that Iws defined)
-            :type code: jnp.DeviceArray
-            :return: the mean square error between the Iw-indicated and auto-encoded code
-            :rtype: float
-            """
-            penalty = l.mse(self.code_implied, code)
-            return penalty
-
         # - Assign the provided parameters to the network
         net = self.ae.set_attributes(parameters)
         output, code, bitmask = net(self.w_flat)
 
-        # - Code Implied - #
-        penalty = f_penalty * penalty_negative(code)
+        # - Code should always be positive (reresent real current value) - #
+        penalty = f_penalty * self.penalty_negative(code)
 
+        # - Multiplexing and de-multiplexing the bitmask should produce the same bitmask
+        penalty += self.penalty_reconstruction(len(code), bitmask)
+
+        # - If the intermediate code representation is known, then push the system to generate the same - #
         penalty += cond(
             self.code_search,
             lambda _: 0.0,
-            lambda code: f_penalty * penalty_code_difference(code),
+            lambda code: f_penalty * l.mse(self.code_implied, code),
             code,
         )
 
-        # - Bitmap Implied - #
+        # - If the bitmask is given, then push the system, produce the same - #
         penalty += cond(
-            self.code_search,
+            self.mask_search,
             lambda _: 0.0,
-            lambda cb: penalty_reconstruction(len(cb[0]), cb[1]),
-            (code, bitmask),
+            lambda bitmask: f_penalty * l.mse(self.bitmask_implied, bitmask),
+            bitmask,
         )
 
         # - Calculate the loss imposing the bounds
@@ -520,25 +478,63 @@ class WeightParameters:
         return record_dict["loss"]
 
     @staticmethod
-    def preprocess(weights: np.ndarray) -> Tuple[np.ndarray, Dict[str, Any]]:
+    def penalty_negative(param: jnp.DeviceArray) -> float:
+        """
+        penalty_negative applies a below zero limit violation penalty to any parameter
+
+        :param param: the parameter to apply the zero limit
+        :type param: jnp.DeviceArray
+        :return: an exponentially increasing bound loss punishing the parameter values below zero
+        :rtype: float
+        """
+        # - Bound penalty - #
+        negatives = jnp.clip(param, None, 0)
+        _loss = jnp.exp(-negatives)
+
+        ## - subtract the code length from the sum to make the penalty 0 if all the code values are 0
+        penalty = jnp.nansum(_loss) - float(param.size)
+        return penalty
+
+    @staticmethod
+    def penalty_reconstruction(n_bits: int, bitmask: jnp.DeviceArray) -> float:
+        """
+        penalty_reconstruction applies a penalty if the bitmask encoding&decoding is non-unique. 
+        It also assures that the rounded decoding weights are the same as the bitmask desired, and the 
+        bitmask consists of binary values.
+
+        :param n_bits: number of bits reserved for representing the integer values
+        :type n_bits: int
+        :param bitmask: the bitmask to check if encoding&decoding is unique
+        :type bitmask: jnp.DeviceArray
+        :return: mean square error loss between the bitmask found and the bitmap reconstructed after encoding decoding
+        :rtype: float
+        """
+        mux = WeightParameters.multiplex_bitmask(n_bits, bitmask).round().astype(int)
+        bitmask_reconstructed = WeightParameters.quantize_mux(n_bits, mux).astype(float)
+        penalty = l.mse(bitmask, bitmask_reconstructed)
+
+        return penalty
+
+    @staticmethod
+    def preprocess(weights: jnp.DeviceArray) -> Tuple[jnp.DeviceArray, Dict[str, Any]]:
         """
         preprocess preprocess a weight matrix to obtain a flat, non-zero, scaled
         version which would be a better candidate for gradient-based auto-encoding
 
         :param weights: any matrix
-        :type weights: np.ndarray
+        :type weights: jnp.DeviceArray
         :raises ValueError: Weight matrix provided does not have a proper shape! It should be 3-dimensional with (pre,post,gate)!
         :return: w_flat, transforms
             w_flat: scaled, flattened, and preprocessed weight matrix
             transforms: the transforms applied to the weight matrix
-        :rtype: Tuple[np.ndarray, Dict[str, Any]]
+        :rtype: Tuple[jnp.DeviceArray, Dict[str, Any]]
         """
         if len(weights.shape) != 3:
             raise ValueError(
                 "Weight matrix provided does not have a proper shape! It should be 3-dimensional with (pre,post,gate)!"
             )
 
-        diff = np.max(weights) - np.min(weights)
+        diff = jnp.max(weights) - jnp.min(weights)
         scale = 1.0 / diff if diff > 0 else 1.0
         idx_nonzero = weights.astype(bool)
 
