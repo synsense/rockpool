@@ -1,4 +1,11 @@
 def test_simple_network():
+    try:
+        from rockpool.devices.xylo import mapper
+        from rockpool.devices.xylo import config_from_specification
+        from rockpool.devices.xylo import XyloSim
+    except:
+        return
+
     import numpy as np
     import torch
     import copy
@@ -13,9 +20,6 @@ def test_simple_network():
         LIFBitshiftTorch,
     )
     from rockpool.parameters import Constant
-    from rockpool.devices.xylo import mapper
-    from rockpool.devices.xylo import config_from_specification
-    from rockpool.devices.xylo import XyloSim
     from rockpool.graph import (
         AliasConnection,
         GraphHolder,
@@ -202,6 +206,13 @@ def test_simple_network():
 
 
 def test_complex_network():
+    try:
+        from rockpool.devices.xylo import mapper
+        from rockpool.devices.xylo import config_from_specification
+        from rockpool.devices.xylo import XyloSim
+    except:
+        return
+
     import numpy as np
     import torch
     import copy
@@ -213,9 +224,6 @@ def test_complex_network():
         LIFTorch,
         LIFBitshiftTorch,
     )
-    from rockpool.devices.xylo import mapper
-    from rockpool.devices.xylo import config_from_specification
-    from rockpool.devices.xylo import XyloSim
     from rockpool.parameters import Constant
     from rockpool.graph import (
         AliasConnection,
@@ -453,6 +461,13 @@ def test_complex_network():
 
 
 def test_sequential_combinator():
+    try:
+        from rockpool.devices.xylo import mapper
+        from rockpool.devices.xylo import config_from_specification
+        from rockpool.devices.xylo import XyloSim
+    except:
+        return
+
     import numpy as np
     import torch
     import copy
@@ -467,9 +482,6 @@ def test_sequential_combinator():
         LIFTorch,
         LIFBitshiftTorch,
     )
-    from rockpool.devices.xylo import mapper
-    from rockpool.devices.xylo import config_from_specification
-    from rockpool.devices.xylo import XyloSim
     from rockpool.parameters import Constant
     from rockpool.graph import (
         AliasConnection,
@@ -603,6 +615,13 @@ def test_sequential_combinator():
 
 
 def test_residual_combinator():
+    try:
+        from rockpool.devices.xylo import mapper
+        from rockpool.devices.xylo import config_from_specification
+        from rockpool.devices.xylo import XyloSim
+    except:
+        return
+
     import numpy as np
     import torch
     import copy
@@ -616,9 +635,6 @@ def test_residual_combinator():
         LIFTorch,
         LIFBitshiftTorch,
     )
-    from rockpool.devices.xylo import mapper
-    from rockpool.devices.xylo import config_from_specification
-    from rockpool.devices.xylo import XyloSim
     from rockpool.parameters import Constant
     import warnings
 

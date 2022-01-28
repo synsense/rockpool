@@ -213,6 +213,9 @@ class TorchModule(Module, nn.Module):
         Returns:
             (torch.Tensor, Tuple[torch.Tensor]) data, states
         """
+        # - Ensure data is a float tensor
+        data = torch.tensor(data).float()
+
         # - Verify input data shape
         if len(data.shape) == 1:
             data = torch.unsqueeze(data, 1)

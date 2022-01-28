@@ -7,6 +7,13 @@ from ..native.linear import unit_eigs, kaiming
 import rockpool.typehints as rt
 import rockpool.parameters as rp
 
+from rockpool.graph import (
+    RateNeuronWithSynsRealValue,
+    LinearWeights,
+    GraphModuleBase,
+    as_GraphHolder,
+)
+
 import torch
 import torch.nn.functional as F
 import torch.nn.init as init
@@ -68,7 +75,7 @@ class RateTorch(TorchModule):
 
         Args:
             shape (Union[tuple, int]): The number of units in this module
-            tau (Tensor): Time constant of each unit ``(N,)``. Default: 10ms for each unit
+            tau (Tensor): Time constant of each unit ``(N,)``. Default: 20ms for each unit
             bias (Tensor): Bias current for each neuron ``(N,)``. Default: 0. for each unit
             threshold (Tensor): Threshold for each neuron ``(N,)``. Default: 0. for each unit
             has_rec (bool): Iff ``True``, module includes recurrent connectivity. Default: ``False``, module is feed-forward
@@ -111,7 +118,7 @@ class RateTorch(TorchModule):
             tau,
             family="taus",
             shape=[(self.size_out,), ()],
-            init_func=lambda s: torch.ones(s) * 10e-3,
+            init_func=lambda s: torch.ones(s) * 20e-3,
             cast_fn=to_float_tensor,
         )
         """ (Tensor) Unit time constants `(Nout,)` or `()` """
@@ -206,3 +213,29 @@ class RateTorch(TorchModule):
 
         # - Return activations
         return self.act_fn(self._state, self.threshold)
+
+    def as_graph(self) -> GraphModuleBase:
+        # - Generate a GraphModule for the neurons
+        neurons = RateNeuronWithSynsRealValue._factory(
+            self.size_in,
+            self.size_out,
+            f"{type(self).__name__}_{self.name}_{id(self)}",
+            self,
+            self.tau,
+            self.bias,
+            self.dt,
+        )
+
+        # - Include recurrent weights if present
+        if len(self.attributes_named("w_rec")) > 0:
+            # - Weights are connected over the existing input and output nodes
+            w_rec_graph = LinearWeights(
+                neurons.output_nodes,
+                neurons.input_nodes,
+                f"{type(self).__name__}_recurrent_{self.name}_{id(self)}",
+                self,
+                self.w_rec,
+            )
+
+        # - Return a graph containing neurons and optional weights
+        return as_GraphHolder(neurons)

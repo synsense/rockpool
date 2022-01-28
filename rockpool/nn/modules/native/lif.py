@@ -98,7 +98,7 @@ class LIF(Module):
         Args:
             shape (tuple): Either a single dimension ``(Nout,)``, which defines a feed-forward layer of LIF modules with equal amounts of synapses and neurons, or two dimensions ``(Nin, Nout)``, which defines a layer of ``Nin`` synapses and ``Nout`` LIF neurons.
             tau_mem (Optional[np.ndarray]): An optional array with concrete initialisation data for the membrane time constants. If not provided, 20ms will be used by default.
-            tau_syn (Optional[np.ndarray]): An optional array with concrete initialisation data for the synaptic time constants. If not provided, 10ms will be used by default.
+            tau_syn (Optional[np.ndarray]): An optional array with concrete initialisation data for the synaptic time constants. If not provided, 20ms will be used by default.
             bias (Optional[np.ndarray]): An optional array with concrete initialisation data for the neuron bias currents. If not provided, 0.0 will be used by default.
             w_rec (Optional[np.ndarray]): If the module is initialised in recurrent mode, you can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(Nout, Nin)``.
             has_rec (bool): If ``True``, module provides a recurrent weight matrix. Default: ``False``, no recurrent connectivity.
@@ -125,7 +125,7 @@ class LIF(Module):
             **kwargs,
         )
 
-        self.n_synapses: P_int = SimulationParameter(shape[0] // shape[1])
+        self.n_synapses: P_int = shape[0] // shape[1]
         """ (int) Number of input synapses per neuron """
 
         # - Should we be recurrent or FFwd?
@@ -155,7 +155,7 @@ class LIF(Module):
         self.tau_syn: P_ndarray = Parameter(
             tau_syn,
             "taus",
-            init_func=lambda s: np.ones(s) * 10e-3,
+            init_func=lambda s: np.ones(s) * 20e-3,
             shape=[(self.size_out, self.n_synapses,), (1, self.n_synapses,), (),],
         )
         """ (np.ndarray) Synaptic time constants `(Nout,)` or `()` """
@@ -214,8 +214,8 @@ class LIF(Module):
         )
 
         # - Get evolution constants
-        alpha = np.exp(-self.dt / np.clip(self.tau_mem, 10 * self.dt, np.inf))
-        beta = np.exp(-self.dt / np.clip(self.tau_syn, 10 * self.dt, np.inf))
+        alpha = np.exp(-self.dt / self.tau_mem)
+        beta = np.exp(-self.dt / self.tau_syn)
         noise_zeta = self.noise_std * np.sqrt(self.dt)
 
         # - Single-step LIF dynamics

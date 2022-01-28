@@ -49,4 +49,7 @@ def test_ExpSynTorch():
     mod = ExpSynTorch(n_synapses, tau=Constant(tau_syn), dt=1e-3)
     mod = mod.to_torch()
     out = mod(input_data)
-    out.sum().backward()
+
+    # - Nothing to compute gradients for
+    with pytest.raises(RuntimeError):
+        out.sum().backward()

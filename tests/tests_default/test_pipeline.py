@@ -2,6 +2,12 @@ import pytest
 
 
 def test_pipeline():
+    try:
+        from rockpool.devices.xylo import mapper, config_from_specification
+        from rockpool.devices.xylo.xylo_sim import XyloSim
+    except:
+        return
+
     import numpy as np
     import torch
     import copy
@@ -13,8 +19,6 @@ def test_pipeline():
         LIFTorch,
         LIFBitshiftTorch,
     )
-    from rockpool.devices.xylo import mapper, config_from_specification
-    from rockpool.devices.xylo.xylo_sim import XyloSim
     from rockpool.parameters import Constant
     import warnings
 
@@ -101,6 +105,13 @@ def test_pipeline():
 
 
 def test_rec_rockpool():
+    try:
+        from rockpool.devices.xylo import mapper
+        from rockpool.devices.xylo import config_from_specification
+        from rockpool.devices.xylo import XyloSim
+    except:
+        return
+
     import numpy as np
     import torch
     import copy
@@ -114,9 +125,6 @@ def test_rec_rockpool():
         LIFTorch,
         LIFBitshiftTorch,
     )
-    from rockpool.devices.xylo import mapper
-    from rockpool.devices.xylo import config_from_specification
-    from rockpool.devices.xylo import XyloSim
     import warnings
 
     warnings.filterwarnings("ignore")

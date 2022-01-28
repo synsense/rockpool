@@ -6,6 +6,7 @@ from typing import Callable, Iterable, Any, Union, List, Tuple, Optional
 from copy import deepcopy
 
 from itertools import compress
+from functools import partial
 
 import numpy as np
 
@@ -52,7 +53,7 @@ class ParameterBase:
         init_func: Callable[[Any], Any] = None,
         shape: Optional[Union[List[Tuple], Tuple, int]] = None,
         permit_reshape: bool = True,
-        cast_fn: Callable[[Any], Any] = None,
+        cast_fn: Callable[[Any], Any] = lambda x: x,
     ):
         """
         Instantiate a Rockpool registered attribute
@@ -70,7 +71,7 @@ class ParameterBase:
 
         # - Check type and configuration of `shape` argument
         if shape is not None:
-            if not isinstance(shape, (List, Tuple, int)):
+            if not isinstance(shape, (List, Tuple, int),):
                 raise TypeError(
                     f"`shape` must be a list, a tuple or an integer. Instead `shape` was a {type(shape).__name__}."
                 )
@@ -171,6 +172,27 @@ class ParameterBase:
     def __repr__(self):
         return f"{type(self).__name__}(data={self.data}, family={self.family}, init_func={self.init_func}, shape={self.shape})"
 
+    def _tree_flatten(self) -> Tuple[tuple, tuple]:
+        """ FLatten this parameter / state for Jax """
+        return (
+            (
+                self.data,
+                self.family,
+                partial(self.init_func),
+                self.shape,
+                partial(self.cast_fn),
+            ),
+            (),
+        )
+
+    @classmethod
+    def _tree_unflatten(cls, _, children):
+        """Unflatten a tree of parameter from Jax to Rockpool"""
+        data, family, init_func, shape, cast_fn = children
+        obj = cls(data=data, family=family, init_func=init_func)
+
+        return obj
+
 
 class Parameter(ParameterBase):
     """
@@ -208,4 +230,23 @@ class SimulationParameter(ParameterBase):
         See :py:class:`.Parameter` for representing the configuration of a module, and :py:class:`.State` for representing the transient internal state of a neuron or module.
     """
 
+    pass
+
+
+# - Register the parameter types with Jax
+try:
+    from jax.tree_util import register_pytree_node
+    import operator as op
+
+    register_pytree_node(
+        Parameter, op.methodcaller("_tree_flatten"), Parameter._tree_unflatten
+    )
+    register_pytree_node(State, op.methodcaller("_tree_flatten"), State._tree_unflatten)
+    register_pytree_node(
+        SimulationParameter,
+        op.methodcaller("_tree_flatten"),
+        SimulationParameter._tree_unflatten,
+    )
+
+except:
     pass

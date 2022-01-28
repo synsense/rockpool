@@ -1,3 +1,4 @@
+import jax
 from jax.config import config
 
 config.update("jax_log_compiles", True)
@@ -15,8 +16,8 @@ def test_lif_jax():
 
     import numpy as np
 
-    Nin = 10
-    Nout = 5
+    Nin = 4
+    Nout = 2
     T = 20
     lyr = LIFJax((Nin, Nout))
 
@@ -43,6 +44,11 @@ def test_lif_jax():
 
     lyr.vmem = np.array([1.0] * Nout)
 
+    def grad_check(params, mod, input):
+        mod = mod.set_attributes(params)
+        out, _, _ = mod(input)
+        return np.sum(out ** 2)
+
     print("evolving with jit")
     je = jit(lyr)
     _, new_state, _ = je(np.random.rand(T, Nin))
@@ -50,6 +56,23 @@ def test_lif_jax():
 
     _, new_state, _ = je(np.random.rand(T, Nin))
     lyr = lyr.set_attributes(new_state)
+
+    lyr = LIFJax((Nin, Nout))
+    gf = jit(jax.grad(grad_check))
+    grads = gf(lyr.parameters(), lyr, np.random.rand(T, Nin))
+
+    assert not np.allclose(
+        grads["tau_syn"], np.zeros_like(grads["tau_syn"])
+    ), "`tau_syn` gradients are zero in FFwd mode."
+    assert not np.allclose(
+        grads["tau_mem"], np.zeros_like(grads["tau_mem"])
+    ), "`tau_mem` gradients are zero in FFwd mode."
+    assert not np.allclose(
+        grads["bias"], np.zeros_like(grads["bias"])
+    ), "`bias` gradients are zero in FFwd mode."
+    assert not np.allclose(
+        grads["threshold"], np.zeros_like(grads["threshold"])
+    ), "`threshold` gradients are zero in FFwd mode."
 
     ## - Test recurrent mode
     lyr = LIFJax((Nin, Nout), has_rec=True)
@@ -62,6 +85,26 @@ def test_lif_jax():
     je = jit(lyr)
     o, n_s, r_d = je(np.random.rand(T, Nin))
     lyr = lyr.set_attributes(n_s)
+
+    lyr = LIFJax((Nin, Nout), has_rec=True)
+    gf = jit(jax.grad(grad_check))
+    grads = gf(lyr.parameters(), lyr, np.random.rand(T, Nin))
+
+    assert not np.allclose(
+        grads["tau_syn"], np.zeros_like(grads["tau_syn"])
+    ), "`tau_syn` gradients are zero in recurrent mode."
+    assert not np.allclose(
+        grads["tau_mem"], np.zeros_like(grads["tau_mem"])
+    ), "`tau_mem` gradients are zero in recurrent mode."
+    assert not np.allclose(
+        grads["bias"], np.zeros_like(grads["bias"])
+    ), "`bias` gradients are zero in recurrent mode."
+    assert not np.allclose(
+        grads["threshold"], np.zeros_like(grads["threshold"])
+    ), "`threshold` gradients are zero in recurrent mode."
+    assert not np.allclose(
+        grads["w_rec"], np.zeros_like(grads["w_rec"])
+    ), "`w_rec` gradients are zero in recurrent mode."
 
 
 def test_ffwd_net():

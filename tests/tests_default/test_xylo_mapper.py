@@ -17,10 +17,7 @@ def test_mapper():
 
     smod = Sequential(
         LinearTorch((5, 6)),
-        LIFTorch(
-            (6, 6),
-            has_rec=True,
-        ),
+        LIFTorch((6, 6), has_rec=True,),
         LinearTorch((6, 6)),
         LIFTorch((6,)),
         LinearTorch((6, 8)),
@@ -40,11 +37,7 @@ def test_output_nodes_have_neurons_as_source():
     from rockpool.devices.xylo import mapper, DRCError
 
     # - Output nodes with weights as last layer
-    smod = Sequential(
-        LinearTorch((2, 3)),
-        LIFTorch((3,)),
-        LinearTorch((3, 4)),
-    )
+    smod = Sequential(LinearTorch((2, 3)), LIFTorch((3,)), LinearTorch((3, 4)),)
 
     with pytest.raises(DRCError):
         mapper(smod.as_graph())
@@ -56,11 +49,7 @@ def test_input_to_neurons_is_a_weight():
     from rockpool.devices.xylo import mapper, DRCError
 
     # - Neuron to neuron connection with no weights
-    smod = Sequential(
-        LinearTorch((2, 3)),
-        LIFTorch((3, 4)),
-        LIFTorch((4, 5)),
-    )
+    smod = Sequential(LinearTorch((2, 3)), LIFTorch((3, 4)), LIFTorch((4, 5)),)
 
     with pytest.raises(DRCError):
         mapper(smod.as_graph())
@@ -72,11 +61,7 @@ def test_first_module_is_a_weight():
     from rockpool.devices.xylo import mapper, DRCError
 
     # - Network with no weights on input
-    smod = Sequential(
-        LIFTorch((2,)),
-        LinearTorch((2, 3)),
-        LIFTorch((3, 4)),
-    )
+    smod = Sequential(LIFTorch((2,)), LinearTorch((2, 3)), LIFTorch((3, 4)),)
 
     with pytest.raises(DRCError):
         mapper(smod.as_graph())
@@ -89,10 +74,7 @@ def test_le_16_input_channels():
 
     # - Network with no weights on input
     smod = Sequential(
-        LinearTorch((32, 2)),
-        LIFTorch((2,)),
-        LinearTorch((2, 3)),
-        LIFTorch((3, 4)),
+        LinearTorch((32, 2)), LIFTorch((2,)), LinearTorch((2, 3)), LIFTorch((3, 4)),
     )
 
     with pytest.raises(DRCError):
@@ -151,10 +133,7 @@ def test_network_too_large():
 
     # - Network with too many output neurons
     smod = Sequential(
-        LinearTorch((2, 3)),
-        LIFTorch((3,)),
-        LinearTorch((3, 64)),
-        LIFTorch((64,)),
+        LinearTorch((2, 3)), LIFTorch((3,)), LinearTorch((3, 64)), LIFTorch((64,)),
     )
 
     with pytest.raises(DRCError):
@@ -162,16 +141,17 @@ def test_network_too_large():
 
 
 def test_XyloSim_creation():
+    try:
+        from rockpool.devices.xylo import mapper, XyloSim
+    except:
+        return
+
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapper, XyloSim
 
     smod = Sequential(
         LinearTorch((5, 6)),
-        LIFTorch(
-            (6, 6),
-            has_rec=True,
-        ),
+        LIFTorch((6, 6), has_rec=True,),
         LinearTorch((6, 6)),
         LIFTorch((6,)),
         LinearTorch((6, 8)),

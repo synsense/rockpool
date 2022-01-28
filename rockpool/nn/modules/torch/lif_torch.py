@@ -122,7 +122,7 @@ class LIFBaseTorch(TorchModule):
         Args:
             shape (tuple): Either a single dimension ``(Nout,)``, which defines a feed-forward layer of LIF modules with equal amounts of synapses and neurons, or two dimensions ``(Nin, Nout)``, which defines a layer of ``Nin`` synapses and ``Nout`` LIF neurons.
             tau_mem (Optional[FloatVector]): An optional array with concrete initialisation data for the membrane time constants. If not provided, 20ms will be used by default.
-            tau_syn (Optional[FloatVector]): An optional array with concrete initialisation data for the synaptic time constants. If not provided, 10ms will be used by default.
+            tau_syn (Optional[FloatVector]): An optional array with concrete initialisation data for the synaptic time constants. If not provided, 20ms will be used by default.
             bias (Optional[FloatVector]): An optional array with concrete initialisation data for the neuron bias currents. If not provided, ``0.0`` will be used by default.
             threshold (FloatVector): An optional array specifying the firing threshold of each neuron. If not provided, ``1.`` will be used by default.
             has_rec (bool): When ``True`` the module provides a trainable recurrent weight matrix. Default ``False``, module is feed-forward.
@@ -148,17 +148,24 @@ class LIFBaseTorch(TorchModule):
         )
 
         self.n_neurons = self.size_out
-        self.n_synapses: P_int = rp.SimulationParameter(shape[0] // shape[1])
+        self.n_synapses: P_int = shape[0] // shape[1]
         """ (int) Number of input synapses per neuron """
 
         self.dt: P_float = rp.SimulationParameter(dt)
         """ (float) Euler simulator time-step in seconds"""
 
+        # - To-float-tensor conversion utility
+        to_float_tensor = lambda x: torch.tensor(x).float()
+
         # - Initialise recurrent weights
         w_rec_shape = (self.size_out, self.size_in)
         if has_rec:
             self.w_rec: P_tensor = rp.Parameter(
-                w_rec, shape=w_rec_shape, init_func=weight_init_func, family="weights",
+                w_rec,
+                shape=w_rec_shape,
+                init_func=weight_init_func,
+                family="weights",
+                cast_fn=to_float_tensor,
             )
             """ (Tensor) Recurrent weights `(Nout, Nin)` """
         else:
@@ -167,9 +174,6 @@ class LIFBaseTorch(TorchModule):
 
         self.noise_std: P_float = rp.SimulationParameter(noise_std)
         """ (float) Noise std.dev. injected onto the membrane of each neuron during evolution """
-
-        # - To-float-tensor conversion utility
-        to_float_tensor = lambda x: torch.tensor(x).float()
 
         self.tau_mem: P_tensor = rp.Parameter(
             tau_mem,
@@ -184,7 +188,7 @@ class LIFBaseTorch(TorchModule):
             tau_syn,
             family="taus",
             shape=[(self.size_out, self.n_synapses,), (1, self.n_synapses,), (),],
-            init_func=lambda s: torch.ones(s) * 10e-3,
+            init_func=lambda s: torch.ones(s) * 20e-3,
             cast_fn=to_float_tensor,
         )
         """ (Tensor) Synaptic time constants `(Nin,)` or `()` """

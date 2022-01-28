@@ -79,6 +79,10 @@ class ExpSmoothJax(JaxModule):
         ] = SimulationParameter(Partial(activation_fun))
         """ (Callable[[np.ndarray], np.ndarray]) Activation function of this module. """
 
+        self._init_args = {
+            "activation_fun": Partial(activation_fun),
+        }
+
     def evolve(
         self, input_data: np.ndarray, record: bool = False
     ) -> Tuple[Any, Any, Any]:

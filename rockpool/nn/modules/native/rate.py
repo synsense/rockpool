@@ -7,6 +7,13 @@ from rockpool.nn.modules.module import Module
 from rockpool.parameters import Parameter, State, SimulationParameter
 from .linear import kaiming, unit_eigs
 
+from rockpool.graph import (
+    RateNeuronWithSynsRealValue,
+    LinearWeights,
+    GraphModuleBase,
+    as_GraphHolder,
+)
+
 # -- Imports
 import numpy as np
 import numpy.random as rand
@@ -79,7 +86,7 @@ class Rate(Module):
 
         Args:
             shape (Tuple[int]): A tuple containing the numer  of this module.
-            tau (float): A scalar or vector defining the initialisation time constants for the module. If a vector is provided, it must match the output size of the module. Default: ``1.``
+            tau (float): A scalar or vector defining the initialisation time constants for the module. If a vector is provided, it must match the output size of the module. Default: ``20ms`` for each unit
             bias (float): A scalar or vector defining the initialisation bias values for the module. If a vector is provided, it must match the output size of the module. Default: ``0.``
             w_rec (np.ndarray): An optional matrix defining the initialisation recurrent weights for the module.
             weight_init_func (Callable): A function used to initialise the recurrent weights, if used. Default: :py:func:`.unit_eigs`; initialise such that recurrent feedback has eigenvalues distributed within the unit circle.
@@ -127,7 +134,7 @@ class Rate(Module):
         self.tau: P_tensor = Parameter(
             tau,
             family="taus",
-            init_func=lambda s: np.ones(s) * 10e-3,
+            init_func=lambda s: np.ones(s) * 20e-3,
             shape=[(self.size_out,), ()],
         )
         """ The vector ``(N,)`` of time constants :math:`\\tau` for each neuron"""
@@ -235,3 +242,29 @@ class Rate(Module):
         record_dict = {"rec_input": rec_inputs, "x": res_state} if record else {}
 
         return outputs, self.state(), record_dict
+
+    def as_graph(self) -> GraphModuleBase:
+        # - Generate a GraphModule for the neurons
+        neurons = RateNeuronWithSynsRealValue._factory(
+            self.size_in,
+            self.size_out,
+            f"{type(self).__name__}_{self.name}_{id(self)}",
+            self,
+            self.tau,
+            self.bias,
+            self.dt,
+        )
+
+        # - Include recurrent weights if present
+        if len(self.attributes_named("w_rec")) > 0:
+            # - Weights are connected over the existing input and output nodes
+            w_rec_graph = LinearWeights(
+                neurons.output_nodes,
+                neurons.input_nodes,
+                f"{type(self).__name__}_recurrent_{self.name}_{id(self)}",
+                self,
+                self.w_rec,
+            )
+
+        # - Return a graph containing neurons and optional weights
+        return as_GraphHolder(neurons)

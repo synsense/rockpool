@@ -21,17 +21,19 @@ import jax
 from jax.lax import scan
 import jax.random as rand
 from jax.tree_util import Partial
+from jax.nn import relu, leaky_relu
+from functools import partial
 
 import numpy as onp
 
 from typing import Optional, Union, Any, Callable, Tuple
 from rockpool.typehints import FloatVector, P_Callable, P_ndarray, P_float
 
-__all__ = ["RateJax", "H_tanh", "H_ReLU", "H_sigmoid"]
+__all__ = ["RateJax", "H_tanh", "H_ReLU", "H_sigmoid", "H_LReLU"]
 
 # -- Define useful neuron transfer functions
 def H_ReLU(x: FloatVector, threshold: FloatVector) -> FloatVector:
-    return (x - threshold) * ((x - threshold) > 0.0)
+    return (x - threshold) * ((x - threshold) > 0)
 
 
 def H_tanh(x: FloatVector, threshold: FloatVector) -> FloatVector:
@@ -40,6 +42,14 @@ def H_tanh(x: FloatVector, threshold: FloatVector) -> FloatVector:
 
 def H_sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
     return (np.tanh(x - threshold) + 1) / 2
+
+
+def H_LReLU(
+    x: FloatVector, threshold: FloatVector, negative_slope: float = 1e-2
+) -> FloatVector:
+    return (x - threshold) * ((x - threshold) >= 0) + negative_slope * (
+        (x - threshold) < 0
+    )
 
 
 class RateJax(JaxModule):
@@ -72,6 +82,10 @@ class RateJax(JaxModule):
         H(x, t) = relu(x, t) = (x - t) * ((x - t) > 0)
     """
 
+    # @partial(
+    #     jax.jit,
+    #     static_argnames=("self", "has_rec", "activation_func", "weight_init_func"),
+    # )
     def __init__(
         self,
         shape: Union[int, Tuple[np.ndarray]],
@@ -93,9 +107,10 @@ class RateJax(JaxModule):
 
         Args:
             shape (Tuple[np.ndarray]): A tuple containing the shape of this module. If one dimension is provided ``(N,)``, it will define the number of neurons in a feed-forward layer. If two dimensions are provided, a recurrent layer will be defined. In that case the two dimensions must be identical ``(N, N)``.
-            tau (float): A scalar or vector defining the initialisation time constants for the module. If a vector is provided, it must match the output size of the module. Default: ``10ms``
+            tau (float): A scalar or vector defining the initialisation time constants for the module. If a vector is provided, it must match the output size of the module. Default: ``20ms``
             bias (float): A scalar or vector defining the initialisation bias values for the module. If a vector is provided, it must match the output size of the module. Default: ``0.``
             w_rec (np.ndarray): An optional matrix defining the initialisation recurrent weights for the module. Default: ``Normal / sqrt(N)``
+            has_rec (bool): Iff ``True``, the module operates in recurrent mode. Default: ``False``, operate in feed-forward mode.
             weight_init_func (Callable): A function used to initialise the recurrent weights, if used. Default: :py:func:`.unit_eigs`; initialise such that recurrent feedback has eigenvalues distributed within the unit circle.
             activation_func (Callable): The activation function of the neurons. This can be provided as a string ``['ReLU', 'sigmoid', 'tanh']``, or as a function that accepts a vector of neural states and returns the vector of output activations. This function must use `jax.numpy` math functions, and *not* `numpy` math functions. Default: ``'ReLU'``.
             dt (float): The Euler solver time-step. Default: ``1e-3``
@@ -109,8 +124,8 @@ class RateJax(JaxModule):
             shape=shape, spiking_input=False, spiking_output=False, *args, **kwargs
         )
 
-        if self.size_out != self.size_in:
-            raise ValueError("RateJax module must have `size_out` == `size_in`.")
+        # if self.size_out != self.size_in:
+        #     raise ValueError("RateJax module must have `size_out` == `size_in`.")
 
         # - Seed RNG
         if rng_key is None:
@@ -123,33 +138,39 @@ class RateJax(JaxModule):
         """The Jax PRNG key for this module"""
 
         # - Initialise state
-        self.x: P_ndarray = State(shape=self.size_out, init_func=np.zeros)
+        self.x: P_ndarray = State(
+            shape=self.size_out, init_func=np.zeros, cast_fn=np.array,
+        )
         """A vector ``(N,)`` of the internal state of each unit"""
 
-        # - Should we be recurrent
-        if has_rec:
+        if isinstance(has_rec, jax.core.Tracer) or has_rec:
             self.w_rec: P_ndarray = Parameter(
                 w_rec,
                 family="weights",
                 init_func=weight_init_func,
                 shape=(self.size_out, self.size_in),
+                cast_fn=np.array,
             )
             """The recurrent weight matrix ``(N, N)`` for this module """
         else:
-            self.w_rec: float = 0.0
-            """The recurrent weight matrix ``(N, N)`` for this module """
+            self.w_rec = 0.0
 
         # - Set parameters
         self.tau: P_ndarray = Parameter(
             tau,
             family="taus",
-            init_func=lambda s: np.ones(s) * 10e-3,
+            init_func=lambda s: np.ones(s) * 20e-3,
             shape=[(self.size_out,), ()],
+            cast_fn=np.array,
         )
         """ The vector ``(N,)`` of time constants :math:`\\tau` for each unit """
 
         self.bias: P_ndarray = Parameter(
-            bias, "bias", init_func=lambda s: np.zeros(s), shape=[(self.size_out,), ()],
+            bias,
+            "bias",
+            init_func=lambda s: np.zeros(s),
+            shape=[(self.size_out,), ()],
+            cast_fn=np.array,
         )
         """The vector ``(N,)`` of bias currents for each unit """
 
@@ -158,6 +179,7 @@ class RateJax(JaxModule):
             family="thresholds",
             shape=[(self.size_out,), ()],
             init_func=np.zeros,
+            cast_fn=np.array,
         )
         """ (Tensor) Unit thresholds `(Nout,)` or `()` """
 
@@ -193,6 +215,14 @@ class RateJax(JaxModule):
 
         # - Assign activation function
         self.act_fn: P_Callable = SimulationParameter(Partial(act_fn))
+        """ (Callable) Activation function """
+
+        # - Define additional arguments required during initialisation
+        self._init_args = {
+            "has_rec": has_rec,
+            "weight_init_func": Partial(weight_init_func),
+            "activation_func": Partial(act_fn),
+        }
 
     def evolve(
         self, input_data: np.ndarray, record: bool = False,
@@ -201,10 +231,8 @@ class RateJax(JaxModule):
         input_data, (x0,) = self._auto_batch(input_data, (self.x,))
 
         # - Get evolution constants
-        alpha = self.dt / np.clip(self.tau, 10 * self.dt, np.inf)
+        alpha = self.dt / self.tau
         noise_zeta = self.noise_std * np.sqrt(self.dt)
-
-        w_rec = self.w_rec
 
         # - Reservoir state step function (forward Euler solver)
         def forward(x, inp):
@@ -218,9 +246,8 @@ class RateJax(JaxModule):
             """
             state, activation = x
 
-            rec_input = np.dot(activation, w_rec)
-            dstate = -state + inp + self.bias + rec_input
-            state = state + dstate * alpha
+            rec_input = np.dot(activation, self.w_rec)
+            state += alpha * (-state + inp + self.bias + rec_input)
             activation = self.act_fn(state, self.threshold)
 
             return (state, activation), (rec_input, state, activation)
@@ -258,6 +285,7 @@ class RateJax(JaxModule):
             self.size_in,
             self.size_out,
             f"{type(self).__name__}_{self.name}_{id(self)}",
+            self,
             self.tau,
             self.bias,
             self.dt,
@@ -270,6 +298,7 @@ class RateJax(JaxModule):
                 neurons.output_nodes,
                 neurons.input_nodes,
                 f"{type(self).__name__}_recurrent_{self.name}_{id(self)}",
+                self,
                 self.w_rec,
             )
 
