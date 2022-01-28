@@ -275,7 +275,7 @@ class WeightParameters:
         :rtype: jnp.DeviceArray
         """
         # To broadcast on the post-synaptic neurons : pre, post, gate -> [(bits), post, pre, gate].T
-        bits_trans = self.quantize_mux(self.mux.transpose(1, 0, 2)).T
+        bits_trans = self.quantize_mux(self.code_length, self.mux.transpose(1, 0, 2)).T
         # Restore the shape : (gate, pre, post) -> pre, post, gate
         w_rec = jnp.sum(bits_trans * self.Iw, axis=-1).transpose(1, 2, 0)
         return w_rec
@@ -310,19 +310,21 @@ class WeightParameters:
             penalty = jnp.nansum(_loss) - float(param.size)
             return penalty
 
-        def penalty_reconstruction(bitmask: jnp.DeviceArray) -> float:
+        def penalty_reconstruction(n_bits: int, bitmask: jnp.DeviceArray) -> float:
             """
             penalty_reconstruction applies a penalty if the bitmask encoding&decoding is non-unique. 
             It also assures that the rounded decoding weights are the same as the bitmask desired, and the 
             bitmask consists of binary values.
 
+            :param n_bits: number of bits reserved for representing the integer values
+            :type n_bits: int
             :param bitmask: the bitmask to check if encoding&decoding is unique
             :type bitmask: jnp.DeviceArray
             :return: mean square error loss between the bitmask found and the bitmap reconstructed after encoding decoding
             :rtype: float
             """
-            mux = self.multiplex_bitmask(bitmask).round().astype(int)
-            bitmask_reconstructed = self.quantize_mux(mux).astype(float)
+            mux = self.multiplex_bitmask(n_bits, bitmask).round().astype(int)
+            bitmask_reconstructed = self.quantize_mux(n_bits, mux).astype(float)
             penalty = l.mse(bitmask, bitmask_reconstructed)
 
             return penalty
@@ -352,7 +354,7 @@ class WeightParameters:
         penalty += f_penalty * penalty_code_difference(code)
 
         # - Bitmap Implied - #
-        penalty += (1.0 - self.code_search) * penalty_reconstruction(bitmask)
+        penalty += (1.0 - self.dual_search) * penalty_reconstruction(len(code), bitmask)
 
         # - Calculate the loss imposing the bounds
         _loss = l.mse(output, self.w_flat) + penalty
@@ -450,7 +452,7 @@ class WeightParameters:
         self.ae, state, record_dict = self.fit(*args, **kwargs)
 
         ## Update mux
-        mux_flat = self.multiplex_bitmask(self.ae.bitmask)
+        mux_flat = self.multiplex_bitmask(self.ae.n_code, self.ae.bitmask)
         self.mux = jnp.round(self.mux.at[self.idx_nonzero].set(mux_flat)).astype(int)
 
         ## Update Iws
@@ -550,41 +552,53 @@ class WeightParameters:
             )
 
     @staticmethod
-    def quantize_mux(mux: Union[jnp.DeviceArray, np.ndarray]) -> jnp.DeviceArray:
+    def quantize_mux(
+        n_bits: int, mux: Union[jnp.DeviceArray, np.ndarray]
+    ) -> jnp.DeviceArray:
         """
         quantize_mux converts a integer valued bitmask to 4 dimension (4-bits) bitmask representing the indexes of the selection
             
+            (n_bits=4)
+
             1 = 0001 -> selected bit: 0
             8 = 1000 -> selected bit: 3
             5 = 0101 -> selected bit 0 and 2
 
+        :param n_bits: number of bits reserved for representing the integer values
+        :type n_bits: int
         :param mux: Integer values representing binary numbers to select (shape,)
         :type mux: np.ndarray
-        :return: an array of indices of selected bits, only binary values, (4,shape)
+        :return: an array of indices of selected bits, only binary values, (n_bits,shape)
         :rtype: jnp.DeviceArray
         """
-        bits = range(4)  # [0,1,2,3]
-        bit_pattern = lambda n: (1 << n)  # 2^n
+
+        pattern = jnp.array([1 << n for n in range(n_bits)])  # [1,2,4,8, ..]
+        mux_ext = jnp.full((n_bits, *mux.shape), mux)  # (n_bits,shape)
 
         # Indexes of the IDs to be selected in bits list
-        bitmask = jnp.array([mux & bit_pattern(bit) for bit in bits], dtype=bool)
+        bitmask = jnp.bitwise_and(mux_ext.T, pattern).T.astype(bool)  # (n_bits,shape)
         return bitmask
 
     @staticmethod
-    def multiplex_bitmask(bitmask: jnp.DeviceArray) -> jnp.DeviceArray:
+    def multiplex_bitmask(n_bits: int, bitmask: jnp.DeviceArray) -> jnp.DeviceArray:
         """
         multiplex_bitmask apply 4-bit selection to binary values representing select bits and generates a compressed bitmask 
             
+            (n_bits=4)
+
             [0,0,0,1] -> 1
             [1,0,0,0] -> 8
             [0,1,0,1] -> 5
-
-        :param bitmask: an array of indices of selected bits, only binary values, (4,shape)
+        
+        :param n_bits: number of bits reserved for representing the integer values
+        :type n_bits: int
+        :param bitmask: an array of indices of selected bits, only binary values, (n_bits,shape)
         :type bitmask: jnp.DeviceArray
         :return: integer values representing binary numbers (shape,)
         :rtype: jnp.DeviceArray
         """
-        mux = jnp.sum(bitmask.T * jnp.array([1, 2, 4, 8]), axis=-1).T
+        pattern = jnp.array([1 << n for n in range(n_bits)])  # [1,2,4,8, ..]
+        mux = jnp.sum(bitmask.T * pattern, axis=-1).T
         return mux
 
     @property
