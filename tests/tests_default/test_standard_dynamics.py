@@ -58,7 +58,6 @@ def test_lif_defaults():
         simparams = mod.simulation_parameters()
         simparams.pop("learning_window", None)
         simparams.pop("spike_generation_fn", None)
-        simparams.pop("max_spikes_per_dt", None)
 
         return {"params": dict(params), "simparams": dict(simparams)}
 
