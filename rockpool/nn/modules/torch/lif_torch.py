@@ -109,6 +109,7 @@ class LIFBaseTorch(TorchModule):
         noise_std: P_float = 0.0,
         spike_generation_fn: torch.autograd.Function = StepPWL,
         learning_window: P_float = 0.5,
+        max_spikes_per_dt: P_int = None,
         weight_init_func: Optional[
             Callable[[Tuple], torch.tensor]
         ] = lambda s: init.kaiming_uniform_(torch.empty(s)),
@@ -238,6 +239,9 @@ class LIFBaseTorch(TorchModule):
         )
         """ (Callable) Spike generation function with surrograte gradient """
 
+        self.max_spikes_per_dt: P_int = rp.SimulationParameter(max_spikes_per_dt)
+        """ (int) Maximum number of events that can be produced in each time-step """
+
         # placeholders for recordings
         self._record_vmem = None
         self._record_isyn = None
@@ -350,6 +354,13 @@ class LIFTorch(LIFBaseTorch):
     """
 
     def __init__(self, *args, **kwargs):
+        # - Set default for max_spikes_per_dt
+        max_spikes_per_dt = kwargs.get("max_spikes_per_dt", None)
+        if max_spikes_per_dt is None:
+            max_spikes_per_dt = torch.inf
+        kwargs.update({"max_spikes_per_dt": max_spikes_per_dt})
+
+        # - Initialise superclass
         super().__init__(*args, **kwargs)
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
@@ -423,6 +434,7 @@ class LIFTorch(LIFBaseTorch):
             spikes = self.spike_generation_fn(
                 vmem, self.threshold, self.learning_window
             )
+            spikes = torch.clamp(spikes, 0.0, self.max_spikes_per_dt)
 
             # - Membrane reset
             vmem = vmem - spikes * self.threshold

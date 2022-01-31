@@ -53,38 +53,25 @@ def inv_calc_bitshift_decay(dash, dt):
 
 class LIFBitshiftTorch(LIFTorch):
     def __init__(
-        self,
-        tau_mem: Optional[Union[FloatVector, P_float]] = None,
-        tau_syn: Optional[Union[FloatVector, P_float]] = None,
-        dt: P_float = 1e-3,
-        *args,
-        **kwargs,
+        self, *args, **kwargs,
     ):
-        """
-        Instantiate an LIF module
-
-        Args:
-            tau_mem (Optional[FloatVector]): An optional array with concrete initialisation data for the membrane time constants. If not provided, 20ms will be used by default.
-            tau_syn (Optional[FloatVector]): An optional array with concrete initialisation data for the synaptic time constants. If not provided, 10ms will be used by default.
-            dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
-        """
+        # - Set default for max_spikes_per_dt
+        max_spikes_per_dt = kwargs.get("max_spikes_per_dt", None)
+        if max_spikes_per_dt is None:
+            max_spikes_per_dt = 15
+        kwargs.update({"max_spikes_per_dt": max_spikes_per_dt})
 
         # - Initialise superclass
         super().__init__(
-            tau_mem=tau_mem,
-            tau_syn=tau_syn,
-            dt=dt,
-            *args, 
-            **kwargs,
+            *args, **kwargs,
         )
 
         ## make sure the tau mem and tau syn are representable by bitshift decay
         alpha = self.alpha
         beta = self.beta
 
-        self.tau_mem.data = -dt / torch.log(alpha)
-        self.tau_syn.data = -dt / torch.log(beta)
-
+        self.tau_mem.data = -self.dt / torch.log(alpha)
+        self.tau_syn.data = -self.dt / torch.log(beta)
 
     @property
     def alpha(self):
