@@ -7,7 +7,6 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 21/01/2022
 
-[] TODO : code implied docstring
 [] TODO : from_samna_parameters() # requires bitmask from router
 [] TODO : from_samna() # standalone
 [] TODO : merging and disjoining weight matrices across cores # post-synaptic side is here
@@ -73,6 +72,13 @@ class WeightParameters:
     It provides a general way of handling SE2 weight current and the conversion from device 
     configuration object
 
+    :Attributes:
+
+    :attr _optimizers: name list of all available optimizers
+    :type _optimizers: List[str]
+
+    :Parameters:
+
     :param weights: The weight matrix to obtain, co-depended to Iw_0, Iw_1, Iw_2, Iw_3 and mux.
     :type weights: jnp.DeviceArray
     :param Iw_0: the first base weight current corresponding to the 0th bit of the bit-mask, in Amperes. In DynapSE1, it's GABA_B base weigth.
@@ -83,11 +89,13 @@ class WeightParameters:
     :type Iw_2: float
     :param Iw_3: the fourth base weight current corresponding to the 3rd bit of the bit-mask, in Amperes. In DynapSE1, it's AMPA base weigth.
     :type Iw_3: float
-    :param mux: A binary value representing uint mask to select and dot product the base Iw currents (shape,)
+    :param mux: A binary value representing uint mask to select and dot product the base Iw currents (pre, post, gate)
     :type mux: jnp.DeviceArray
+        
         1 = 0001 -> selected bias parameters: Iw_0
         8 = 1000 -> selected bias parameters: Iw_3
         5 = 0101 -> selected bias parameterss Iw_0 + Iw_2
+        
             array([[[ 0,  1, 12,  0],
                     [11, 10,  4,  1],
                     [ 7,  0, 15, 15],
@@ -100,36 +108,30 @@ class WeightParameters:
                     [10, 15,  9, 14],
                     [ 6,  8, 10,  8],
                     [15,  1,  1,  9],
-                    [ 5,  2,  7, 13]],
-
-                   [[ 2, 12, 14, 10],
-                    [ 0,  3,  9,  0],
-                    [ 6,  1, 11,  5],
-                    [ 0,  2,  7,  1],
-                    [ 7, 15,  2,  6],
-                    [15, 11,  7,  7]],
-
-                   [[11, 13, 13, 12],
-                    [ 2,  9,  2,  3],
-                    [ 9,  2, 12,  1],
-                    [11, 11,  1,  4],
-                    [15,  7,  5,  7],
-                    [ 0, 13,  2,  3]],
-
-                   [[ 0,  6, 10,  3],
-                    [14, 10,  4, 10],
-                    [ 8, 10,  6,  6],
-                    [ 2,  3, 10,  6],
-                    [ 1,  8, 10, 15],
-                    [ 4,  3,  2, 12]],
-
-                   [[13,  5,  3,  6],
-                    [12, 14,  5,  3],
-                    [ 4,  4,  3, 14],
-                    [ 3, 13, 11, 10],
-                    [ 1, 13,  5, 13],
-                    [15,  2,  4,  2]]])
+                    [ 5,  2,  7, 13]]])
     
+    :param code_length: the number of bits to reserve for a code, defaults to 4
+    :type code_length: Optional[int], optional
+    :param layout: constant values that are related to the exact silicon layout of a chip, defaults to None
+    :type layout: Optional[DynapSELayout], optional
+
+    :Instance Variables:
+
+    :ivar w_flat: scaled, flattened, and preprocessed weight matrix with only non-zero values
+    :type w_flat: jnp.DeviceArray
+    :ivar transforms: a dictionary of the transforms applied to the weight matrix
+    :type transforms: Dict[str, Any]
+    :ivar code_search: Looking for a code representation if True, else already known
+    :type code_search: bool
+    :ivar mask_search: Looking for a bitmask representation if True, else already known
+    :type mask_search: bool
+    :ivar ae: The autoencoder object to find a bitmask and/or Iw code representation
+    :type ae: AutoEncoder
+    :ivar code_implied: The Iw code implied by the Iw bits. non-zero if at least one of Iw_0, Iw_1, Iw_2, Iw_3 is provided
+    :type code_implied: jnp.DeviceArray
+    :ivar bitmask_implied: The bitmask implied by the mux. non-zero if mux is not None.
+    :type bitmask_implied: jnp.DeviceArray
+
     NOTE : The current implementation finds the weight parameter and CAM configuration
     for one core. The core specific allocation has to be done by looking into the other parameters distribution.
     For example : one can apply k-means clustering to the tau parameters. Then according to the neuron allocation,
@@ -217,25 +219,21 @@ class WeightParameters:
             self.code_length, self.mux[self.idx_nonzero]
         )
 
-    def __setattr__(self, __name: str, __value: Any) -> None:
+    def weight_matrix(self) -> jnp.DeviceArray:
         """
-        __setattr__ hook when setting an object parameter for checking if codependend parameters are consistent
+        weight_matrix generates a weight matrix for `DynapSE` modules using the base weight currents, and the mux.
+        In device, we have the opportunity to define 4 different base weight current. Then using a bit mask, we can compose a
+        weight current defining the strength of the connection between two neurons. The parameters and usage explained below.
 
-        :param __name: the name of the variable
-        :type __name: str
-        :param __value: the value to set
-        :type __value: Any
-        :raises ValueError: Mux includes elements exceeding the coding capacity!
+        :return: the weight matrix composed using the base weight parameters and the binary bit-mask.
+        :rtype: jnp.DeviceArray
         """
-        if __name == "mux" and __value is not None:
-            __value = jnp.array(__value)
-            if hasattr(self, "code_length") and self.code_length is not None:
-                if (__value > (2 ** self.code_length - 1)).any():
-                    raise ValueError(
-                        "Mux includes elements exceeding the coding capacity!"
-                    )
-
-        super().__setattr__(__name, __value)
+        # To broadcast on the post-synaptic neurons : pre, post, gate -> [(bits), post, pre, gate].T
+        bits_trans = self.quantize_mux(self.code_length, self.mux.transpose(1, 0, 2)).T
+        # Restore the shape : (gate, pre, post) -> pre, post, gate
+        Iw = self.Iw if self.Iw is not None else jnp.zeros(self.code_length)
+        w_rec = jnp.sum(bits_trans * Iw, axis=-1).transpose(1, 2, 0)
+        return w_rec
 
     def get_code_length(self) -> int:
         """
@@ -279,41 +277,7 @@ class WeightParameters:
 
         return 4
 
-    @classmethod
-    def from_samna_parameters(
-        cls,
-        samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]],
-        mux: jnp.DeviceArray,
-        layout: DynapSELayout,
-        *args,
-        **kwargs,
-    ) -> WeightParameters:
-        """
-        from_samna_parameters is a factory method to construct a `WeightParameters` object using a samna config object
-
-        :param samna_parameters: a parameter dictionary inside samna config object for setting the parameter group within one core
-        :type samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]]
-        :param layout: constant values that are related to the exact silicon layout of a chip
-        :type layout: DynapSELayout
-        :return: a `WeightParameters` object, whose parameters obtained from the hardware configuration
-        :rtype: WeightParameters
-        """
-
-        simparam = SimulationParameters(samna_parameters)
-
-        mod = cls(
-            Iw_0=simparam.nominal("Iw_0"),  # GABA_B - se1
-            Iw_1=simparam.nominal("Iw_1"),  # GABA_A - se1
-            Iw_2=simparam.nominal("Iw_2"),  # NMDA - se1
-            Iw_3=simparam.nominal("Iw_3"),  # AMPA - se1
-            mux=mux,
-            layout=layout,
-            *args,
-            **kwargs,
-        )
-        return mod
-
-    def _update_encoder(
+    def update_encoder(
         self, w_en: jnp.DeviceArray, w_dec: jnp.DeviceArray
     ) -> AutoEncoder:
         """
@@ -337,21 +301,7 @@ class WeightParameters:
         encoder = self.ae.set_attributes(params)
         return encoder
 
-    def weight_matrix(self) -> jnp.DeviceArray:
-        """
-        weight_matrix generates a weight matrix for `DynapSE` modules using the base weight currents, and the mux.
-        In device, we have the opportunity to define 4 different base weight current. Then using a bit mask, we can compose a
-        weight current defining the strength of the connection between two neurons. The parameters and usage explained below.
-
-        :return: the weight matrix composed using the base weight parameters and the binary bit-mask.
-        :rtype: jnp.DeviceArray
-        """
-        # To broadcast on the post-synaptic neurons : pre, post, gate -> [(bits), post, pre, gate].T
-        bits_trans = self.quantize_mux(self.code_length, self.mux.transpose(1, 0, 2)).T
-        # Restore the shape : (gate, pre, post) -> pre, post, gate
-        Iw = self.Iw if self.Iw is not None else jnp.zeros(self.code_length)
-        w_rec = jnp.sum(bits_trans * Iw, axis=-1).transpose(1, 2, 0)
-        return w_rec
+    ## OPTIMIZATION ##
 
     def loss(self, parameters: Dict[str, Any], f_penalty: float = 1e3) -> float:
         """
@@ -521,7 +471,7 @@ class WeightParameters:
             w_en, w_dec = w_en_t[idx], w_dec_t[idx]
 
         ## - Updated COPY of the original encoder
-        encoder = self._update_encoder(w_en, w_dec)
+        encoder = self.update_encoder(w_en, w_dec)
         return encoder, opt_state, loss_t
 
     def fit_update(self, *args, **kwargs) -> None:
@@ -540,6 +490,30 @@ class WeightParameters:
         code = self.ae.encode(self.w_flat)
         self.Iw = code / self.scale
         return loss_t
+
+    ## OVERWRITES ##
+
+    def __setattr__(self, __name: str, __value: Any) -> None:
+        """
+        __setattr__ hook when setting an object parameter for checking if codependend parameters are consistent
+
+        :param __name: the name of the variable
+        :type __name: str
+        :param __value: the value to set
+        :type __value: Any
+        :raises ValueError: Mux includes elements exceeding the coding capacity!
+        """
+        if __name == "mux" and __value is not None:
+            __value = jnp.array(__value)
+            if hasattr(self, "code_length") and self.code_length is not None:
+                if (__value > (2 ** self.code_length - 1)).any():
+                    raise ValueError(
+                        "Mux includes elements exceeding the coding capacity!"
+                    )
+
+        super().__setattr__(__name, __value)
+
+    ## - UTILITIES - ##
 
     @staticmethod
     def penalty_negative(param: jnp.DeviceArray) -> float:
@@ -699,13 +673,62 @@ class WeightParameters:
         mux = jnp.sum(bitmask.T * pattern, axis=-1).T
         return mux
 
-    @property
-    def mse(self):
+    @classmethod
+    def from_samna_parameters(
+        cls,
+        samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]],
+        mux: jnp.DeviceArray,
+        layout: DynapSELayout,
+        *args,
+        **kwargs,
+    ) -> WeightParameters:
         """
-        mse calculates the Mean Square Error loss between the reconstructed weights and the original weight matrix
+        from_samna_parameters is a factory method to construct a `WeightParameters` object using a samna config object
+
+        :param samna_parameters: a parameter dictionary inside samna config object for setting the parameter group within one core
+        :type samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]]
+        :param mux: A binary value representing uint mask to select and dot product the base Iw currents (pre, post, gate)
+        :type mux: jnp.DeviceArray
+
+            1 = 0001 -> selected bias parameters: Iw_0
+            8 = 1000 -> selected bias parameters: Iw_3
+            5 = 0101 -> selected bias parameterss Iw_0 + Iw_2
+
+            array([[[ 0,  1, 12,  0],
+                    [11, 10,  4,  1],
+                    [ 7,  0, 15, 15],
+                    [13, 15, 15,  7],
+                    [ 5,  3,  2, 12],
+                    [ 5,  8,  5,  9]],
+
+                   [[12, 13,  9,  0],
+                    [12, 12, 11,  2],
+                    [10, 15,  9, 14],
+                    [ 6,  8, 10,  8],
+                    [15,  1,  1,  9],
+                    [ 5,  2,  7, 13]]])
+
+        :param layout: constant values that are related to the exact silicon layout of a chip
+        :type layout: DynapSELayout
+        :return: a `WeightParameters` object, whose parameters obtained from the hardware configuration
+        :rtype: WeightParameters
         """
-        loss = l.mse(self.weight_matrix(), self.weights)
-        return loss
+
+        simparam = SimulationParameters(samna_parameters)
+
+        mod = cls(
+            Iw_0=simparam.nominal("Iw_0"),  # GABA_B - se1
+            Iw_1=simparam.nominal("Iw_1"),  # GABA_A - se1
+            Iw_2=simparam.nominal("Iw_2"),  # NMDA - se1
+            Iw_3=simparam.nominal("Iw_3"),  # AMPA - se1
+            mux=mux,
+            layout=layout,
+            *args,
+            **kwargs,
+        )
+        return mod
+
+    ## PROPERTIES ##
 
     @property
     def Iw(self) -> jnp.DeviceArray:
@@ -713,7 +736,7 @@ class WeightParameters:
         Iw returns a vector of weight current parameters
         """
         Iw_x = lambda i: self.__getattribute__(f"Iw_{i}")
-        _Iw = [Iw_x(i) for i in range(4) if Iw_x(i) is not None]
+        _Iw = [Iw_x(i) for i in range(self.code_length) if Iw_x(i) is not None]
 
         return None if len(_Iw) == 0 else jnp.array(_Iw)
 
@@ -738,6 +761,14 @@ class WeightParameters:
             self.Iw_2 = new_Iw[2]
         if len(new_Iw) > 3:
             self.Iw_3 = new_Iw[3]
+
+    @property
+    def mse(self):
+        """
+        mse calculates the Mean Square Error loss between the reconstructed weights and the original weight matrix
+        """
+        loss = l.mse(self.weight_matrix(), self.weights)
+        return loss
 
     @property
     def shape(self) -> Tuple[int]:
