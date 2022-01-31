@@ -8,18 +8,9 @@ E-mail : ugurcan.cakal@gmail.com
 21/01/2022
 
 [] TODO : code implied docstring
-[] TODO : lighter record, last(100) i.e
-[] TODO : dual search, depended search!
-[] TODO : Get Iw as vector, do not restrict yourself on 4
-[] TODO : check mux numbers and bitmask dimension if they met Iw length
-[] TODO : if bitmask defined, then construct w_dec ?? harder
-[] TODO : make sure that bitmask is jnp.DeviceArray
 [] TODO : from_samna_parameters() # requires bitmask from router
 [] TODO : from_samna() # standalone
 [] TODO : merging and disjoining weight matrices across cores # post-synaptic side is here
-[] TODO : what happens if Iw=0, reduce the code length being aware that the order is important
-[] TODO : Iw=0, reduce bits, parametrize 4
-[] TODO : Try with L1 regularization
 """
 from __future__ import annotations
 import logging
@@ -179,6 +170,9 @@ class WeightParameters:
         if self.code_length is None:
             self.code_length = self.get_code_length()
 
+        # Check if mux & code_length is compatible
+        self.mux = self.mux
+
         if self.weights is None:
             if self.Iw is None or self.mux is None:
                 raise ValueError(
@@ -188,6 +182,7 @@ class WeightParameters:
             self.w_flat, self.transforms = self.preprocess(self.weights)
 
         elif self.weights is not None:
+            self.weights = jnp.array(self.weights)
             if self.Iw is not None and self.mux is not None:
                 raise ValueError(
                     "Conflict of Interest: Define either the weight matrix or the mux&Iw pair."
@@ -221,6 +216,26 @@ class WeightParameters:
         self.bitmask_implied = self.quantize_mux(
             self.code_length, self.mux[self.idx_nonzero]
         )
+
+    def __setattr__(self, __name: str, __value: Any) -> None:
+        """
+        __setattr__ hook when setting an object parameter for checking if codependend parameters are consistent
+
+        :param __name: the name of the variable
+        :type __name: str
+        :param __value: the value to set
+        :type __value: Any
+        :raises ValueError: Mux includes elements exceeding the coding capacity!
+        """
+        if __name == "mux" and __value is not None:
+            __value = jnp.array(__value)
+            if hasattr(self, "code_length") and self.code_length is not None:
+                if (__value > (2 ** self.code_length - 1)).any():
+                    raise ValueError(
+                        "Mux includes elements exceeding the coding capacity!"
+                    )
+
+        super().__setattr__(__name, __value)
 
     def get_code_length(self) -> int:
         """
@@ -387,7 +402,7 @@ class WeightParameters:
         step_size: Union[float, Callable[[int], float]] = lambda i: (
             1e-4 / (1.0 + 1e-4 * i)
         ),
-        record: bool = True,
+        light: bool = False,
         *args,
         **kwargs,
     ) -> Tuple[AutoEncoder, optimizers.OptimizerState, Dict[str, jnp.DeviceArray]]:
@@ -400,12 +415,12 @@ class WeightParameters:
         :type optimizer: str, optional
         :param step_size: positive scalar, or a callable representing a step size schedule that maps the iteration index to a positive scalar. , defaults to 1e-3
         :type step_size: Union[float, Callable[[int], float]], optional
-        :param record: record the parameter changes through iteration steps or not, defaults to True
-        :type record: bool, optional
-        :return: encoder, opt_state, record_dict
+        :param light: If true, use much less memory to compute, if not finds the ultimate least loss parameter set, defaults to False
+        :type light: bool, optional
+        :return: encoder, opt_state, loss_t
             :encoder: the best(low-loss) encoder encountered throughout iterations
             :opt_state: the last time step optimizer state
-            :record_dict: the record dictionary including loss value, encoder weights, and decoder weights
+            :loss_t: loss value record over the iterations
         :rtype: Tuple[AutoEncoder, optimizers.OptimizerState, Dict[str, jnp.DeviceArray]]
         """
 
@@ -422,11 +437,37 @@ class WeightParameters:
         loss_vgf = jit(value_and_grad(self.loss))
         update_fun = jit(update_fun)
 
-        def iteration(
+        def step(
+            opt_state: optimizers.OptimizerState, epoch: int
+        ) -> Tuple[
+            Dict[str, jnp.DeviceArray], optimizers.OptimizerState, jnp.DeviceArray
+        ]:
+            """
+            step stacks together the single iteration step operations during training
+
+            :param opt_state: the optimizer's current state
+            :type opt_state: optimizers.OptimizerState
+            :param epoch: the current epoch
+            :type epoch: int
+            :return: params, opt_state, loss_val
+                :params: the network parameters
+                :opt_state: the current time step optimizer state
+                :loss_val: the current loss value
+            :rtype: Tuple[Dict[str, jnp.DeviceArray], optimizers.OptimizerState, jnp.DeviceArray]
+            """
+
+            params = get_params(opt_state)
+            loss_val, grads = loss_vgf(params)
+            opt_state = update_fun(epoch, grads, opt_state)
+
+            # Return
+            return params, opt_state, loss_val
+
+        def iteration_full(
             opt_state: optimizers.OptimizerState, epoch: int
         ) -> Tuple[optimizers.OptimizerState, WeightRecord]:
             """
-            iteration stacks together the single iteration step operations during training
+            iteration_full encapsulates `step()` function call and returns the state the loss value and the network parameters
 
             :param opt_state: the optimizer's current state
             :type opt_state: optimizers.OptimizerState
@@ -437,30 +478,51 @@ class WeightParameters:
                 :rec: the step record including loss value, encoder weights, and decoder weights
             :rtype: Tuple[optimizers.OptimizerState, WeightRecord]
             """
-
-            params = get_params(opt_state)
-            loss_val, grads = loss_vgf(params)
-            opt_state = update_fun(epoch, grads, opt_state)
+            params, opt_state, loss_val = step(opt_state, epoch)
 
             # Return
             rec = (loss_val, params["w_en"], params["w_dec"])
             return opt_state, rec
 
+        def iteration_light(
+            opt_state: optimizers.OptimizerState, epoch: int
+        ) -> Tuple[optimizers.OptimizerState, jnp.DeviceArray]:
+            """
+            iteration_light encapsulates `step()` function call and returns only the state and the loss
+
+            :param opt_state: the optimizer's current state
+            :type opt_state: optimizers.OptimizerState
+            :param epoch: the current epoch
+            :type epoch: int
+            :return: opt_state, loss_val
+                :opt_state: the current time step optimizer state
+                :loss_val: the current loss value
+            :rtype: Tuple[optimizers.OptimizerState, jnp.DeviceArray]
+            """
+
+            _, opt_state, loss_val = step(opt_state, epoch)
+
+            # Return
+            return opt_state, loss_val
+
         # --- Iterate over epochs --- #
         epoch = jnp.array(range(n_epoch)).reshape(-1, 1)
-        opt_state, (loss_t, w_en_t, w_dec_t) = scan(iteration, opt_state, epoch)
 
-        ### --- RETURN --- ###
-        record_dict = {}
+        if light:  # Use less memory
+            opt_state, loss_t = scan(iteration_light, opt_state, epoch)
+            params = get_params(opt_state)
+            w_en, w_dec = params["w_en"], params["w_dec"]
 
-        if record:
-            record_dict = {"loss": loss_t, "w_en": w_en_t, "w_dec": w_dec_t}
+        else:  # Find the best encoder
+            opt_state, (loss_t, w_en_t, w_dec_t) = scan(
+                iteration_full, opt_state, epoch
+            )
+            idx = jnp.argmin(loss_t)
+            w_en, w_dec = w_en_t[idx], w_dec_t[idx]
 
         ## - Updated COPY of the original encoder
-        idx = jnp.argmin(loss_t)
-        encoder = self._update_encoder(w_en_t[idx], w_dec_t[idx])
-
-        return encoder, opt_state, record_dict
+        encoder = self._update_encoder(w_en, w_dec)
+        return encoder, opt_state, loss_t
 
     def fit_update(self, *args, **kwargs) -> None:
         """
@@ -468,7 +530,7 @@ class WeightParameters:
         """
 
         # Update ae
-        self.ae, state, record_dict = self.fit(*args, **kwargs)
+        self.ae, state, loss_t = self.fit(*args, **kwargs)
 
         ## Update mux
         mux_flat = self.multiplex_bitmask(self.ae.n_code, self.ae.bitmask)
@@ -477,7 +539,7 @@ class WeightParameters:
         ## Update Iws
         code = self.ae.encode(self.w_flat)
         self.Iw = code / self.scale
-        return record_dict["loss"]
+        return loss_t
 
     @staticmethod
     def penalty_negative(param: jnp.DeviceArray) -> float:
