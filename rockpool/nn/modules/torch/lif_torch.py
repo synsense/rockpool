@@ -49,7 +49,7 @@ class StepPWL(torch.autograd.Function):
     def backward(ctx, grad_output):
         (data,) = ctx.saved_tensors
         grad_input = grad_output.clone()
-        grad_input[data < -ctx.window] = 0
+        grad_input[(data - ctx.threshold) < -ctx.window] = 0
         return grad_input, None, None
 
 

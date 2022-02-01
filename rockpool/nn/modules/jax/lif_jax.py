@@ -6,6 +6,7 @@ import jax
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.nn.modules.native.linear import kaiming
 from rockpool.parameters import Parameter, State, SimulationParameter
+from rockpool import TSContinuous, TSEvent
 from rockpool.graph import (
     GraphModuleBase,
     as_GraphHolder,
@@ -388,3 +389,24 @@ class LIFJax(JaxModule):
 
         # - Return a graph containing neurons and optional weights
         return as_GraphHolder(neurons)
+
+    def _wrap_recorded_state(self, state_dict: dict, t_start: float = 0.0) -> dict:
+        args = {"dt": self.dt, "t_start": t_start}
+
+        return {
+            "vmem": TSContinuous.from_clocked(
+                np.squeeze(state_dict["vmem"][0]), name="$V_{mem}$", **args
+            ),
+            "isyn": TSContinuous.from_clocked(
+                np.squeeze(state_dict["isyn"][0]), name="$I_{syn}$", **args
+            ),
+            "irec": TSContinuous.from_clocked(
+                np.squeeze(state_dict["irec"][0]), name="$I_{rec}$", **args
+            ),
+            "U": TSContinuous.from_clocked(
+                np.squeeze(state_dict["U"][0]), name="Surrogate $U$", **args
+            ),
+            "spikes": TSEvent.from_raster(
+                np.squeeze(state_dict["spikes"][0]), name="Spikes", **args
+            ),
+        }
