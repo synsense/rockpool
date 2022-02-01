@@ -1,6 +1,7 @@
 import pytest
 import torch
 import numpy as np
+import jax
 from rockpool.utilities.jax_tree_utils import tree_find
 from jax.tree_util import tree_multimap
 
@@ -43,6 +44,24 @@ def compare_value_tree(results: List[Tree], Classes: List[type], atol: float = 1
             raise ValueError(
                 f"Error comparing classes {Classes[0].__name__} and {Classes[class_index].__name__}:\n"
             ) from e
+
+
+def get_torch_gradients(module, data):
+    data = torch.tensor(data, requires_grad=True).float()
+
+    out, _, _ = module(data)
+    (out ** 2).sum().backward()
+
+    return {k: p.grad.detach() for k, p in module.parameters().items()}
+
+
+def get_jax_gradients(module, data):
+    def grad_check(params, mod, data):
+        mod = mod.set_attributes(params)
+        out, _, _ = mod(data)
+        return (out ** 2).sum()
+
+    return jax.grad(grad_check)(module.parameters(), module, data)
 
 
 def test_lif_defaults():
@@ -223,3 +242,69 @@ def test_expsyn_dynamics():
     results = [get_dynamics(M) for M in Module_classes]
 
     compare_value_tree(results, Module_classes)
+
+
+def test_linear_gradients():
+    from rockpool.nn.modules import LinearJax, LinearTorch
+    import numpy as np
+
+    Nin = 2
+    Nout = 100
+    batches = 3
+    T = 10
+    input_data = np.random.rand(batches, T, Nin)
+
+    t_mod = LinearTorch((Nin, Nout))
+    j_mod = LinearJax(
+        (Nin, Nout),
+        weight=np.array(t_mod.weight.detach()),
+        bias=np.array(t_mod.bias.detach()),
+    )
+
+    t_grads = get_torch_gradients(t_mod, input_data)
+    j_grads = get_jax_gradients(j_mod, input_data)
+
+    compare_value_tree([j_grads, t_grads], [LinearTorch, LinearJax])
+
+
+def test_lif_gradients():
+    from rockpool.nn.modules import LIFJax, LIFTorch
+    import numpy as np
+
+    Nin = 200
+    Nout = 100
+    batches = 3
+    T = 10
+    input_data = np.random.rand(batches, T, Nin)
+
+    t_mod = LIFTorch((Nin, Nout))
+    j_mod = LIFJax(
+        (Nin, Nout),
+        tau_syn=np.array(t_mod.tau_syn.detach()),
+        tau_mem=np.array(t_mod.tau_mem.detach()),
+        bias=np.array(t_mod.bias.detach()),
+        threshold=np.array(t_mod.threshold.detach()),
+    )
+
+    t_grads = get_torch_gradients(t_mod, input_data)
+    j_grads = get_jax_gradients(j_mod, input_data)
+
+    compare_value_tree([j_grads, t_grads], [LIFJax, LIFTorch])
+
+
+def test_expsyn_gradients():
+    from rockpool.nn.modules import ExpSynJax, ExpSynTorch
+    import numpy as np
+
+    Nin = 2
+    batches = 3
+    T = 10
+    input_data = np.random.rand(batches, T, Nin)
+
+    t_mod = ExpSynTorch(Nin)
+    j_mod = ExpSynJax(Nin, tau=np.array(t_mod.tau.detach()),)
+
+    t_grads = get_torch_gradients(t_mod, input_data)
+    j_grads = get_jax_gradients(j_mod, input_data)
+
+    compare_value_tree([j_grads, t_grads], [ExpSynJax, ExpSynTorch])
