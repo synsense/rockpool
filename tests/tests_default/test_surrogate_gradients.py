@@ -1,7 +1,8 @@
 
 def test_spike_clipping():
-    from rockpool.nn.modules.torch.lif_torch import LIFTorch, StepPWLXylo, PeriodicExponentialXylo
+    from rockpool.nn.modules.torch.lif_torch import StepPWLXylo, PeriodicExponentialXylo
     from rockpool.nn.modules.torch import LIFBitshiftTorch
+    from rockpool.nn.modules import LIFTorch
     import torch
 
     n_synapses = 5
@@ -58,9 +59,9 @@ def test_spike_clipping():
     # - test that number of spikes does not exceed 15
     out, _, rd = mod(input_data, record=True)
     out_xylo_step, _, rd_xylo_step = mod_xylo_step(input_data, record=True)
-    out_xylo_periodic, _, rd_xylo_periodic = mod_xylo_periodic(input_data, record=True)
+    out_xylo_periodic, _, _ = mod_xylo_periodic(input_data, record=True)
     # - test default gradient of xylo
-    out_bitshift, _, rd_xylo_periodic = mod_bitshift(input_data, record=True)
+    out_bitshift, _, _ = mod_bitshift(input_data, record=True)
 
     assert torch.any(out > 15)
     assert torch.all(out_xylo_step <= 15)
