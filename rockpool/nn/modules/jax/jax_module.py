@@ -100,6 +100,9 @@ class JaxModule(Module, ABC):
         data = np.array(data, "float")
 
         # - Verify input data shape
+        if len(data.shape) == 0:
+            data = np.expand_dims(data, 0)
+
         if len(data.shape) == 1:
             data = np.expand_dims(data, 0)
             data = np.expand_dims(data, 2)

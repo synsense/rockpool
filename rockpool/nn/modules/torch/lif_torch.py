@@ -49,7 +49,7 @@ class StepPWL(torch.autograd.Function):
     def backward(ctx, grad_output):
         (data,) = ctx.saved_tensors
         grad_input = grad_output.clone()
-        grad_input[data < -ctx.window] = 0
+        grad_input[(data - ctx.threshold) < -ctx.window] = 0
         return grad_input, None, None
 
 
@@ -132,6 +132,7 @@ class LIFBaseTorch(TorchModule):
             spike_generation_fn (Callable): Function to call for spike production. Usually simple threshold crossing. Implements the surrogate gradient function in the backward call. (StepPWL or PeriodicExponential).
             learning_window (float): Cutoff value for the surrogate gradient.
             weight_init_func (Optional[Callable[[Tuple], torch.tensor]): The initialisation function to use when generating weights. Default: ``None`` (Kaiming initialisation)
+            max_spikes_per_dt (int): The maximum number of events that will be produced in a single time-step. Default: ``np.inf``; do not clamp spiking
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
         """
         # - Check shape argument

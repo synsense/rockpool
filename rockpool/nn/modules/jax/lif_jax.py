@@ -6,6 +6,7 @@ import jax
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.nn.modules.native.linear import kaiming
 from rockpool.parameters import Parameter, State, SimulationParameter
+from rockpool import TSContinuous, TSEvent
 from rockpool.graph import (
     GraphModuleBase,
     as_GraphHolder,
@@ -103,6 +104,7 @@ class LIFJax(JaxModule):
         weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = kaiming,
         threshold: FloatVector = 1.0,
         noise_std: float = 0.0,
+        max_spikes_per_dt: P_int = np.inf,
         dt: float = 1e-3,
         rng_key: Optional[JaxRNGKey] = None,
         spiking_input: bool = False,
@@ -122,8 +124,9 @@ class LIFJax(JaxModule):
             has_rec (bool): If ``True``, module provides a recurrent weight matrix. Default: ``False``, no recurrent connectivity.
             weight_init_func (Optional[Callable[[Tuple], np.ndarray]): The initialisation function to use when generating weights. Default: ``None`` (Kaiming initialisation)
             threshold (FloatVector): An optional array specifying the firing threshold of each neuron. If not provided, ``1.`` will be used by default.
-            dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
             noise_std (float): The std. dev. after 1s of the noise added to membrane state variables. Default: ``0.0`` (no noise).
+            max_spikes_per_dt (int): The maximum number of events that will be produced in a single time-step. Default: ``np.inf``; do not clamp spiking
+            dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
             rng_key (Optional[Any]): The Jax RNG seed to use on initialisation. By default, a new seed is generated.
         """
         # - Check shape argument
@@ -225,6 +228,9 @@ class LIFJax(JaxModule):
 
         self.vmem: P_ndarray = State(shape=(self.size_out,), init_func=np.zeros)
         """ (np.ndarray) Membrane voltage of each neuron `(Nout,)` """
+
+        self.max_spikes_per_dt: P_int = SimulationParameter(max_spikes_per_dt)
+        """ (int) Maximum number of events that can be produced in each time-step """
 
         # - Define additional arguments required during initialisation
         self._init_args = {
@@ -383,3 +389,24 @@ class LIFJax(JaxModule):
 
         # - Return a graph containing neurons and optional weights
         return as_GraphHolder(neurons)
+
+    def _wrap_recorded_state(self, state_dict: dict, t_start: float = 0.0) -> dict:
+        args = {"dt": self.dt, "t_start": t_start}
+
+        return {
+            "vmem": TSContinuous.from_clocked(
+                np.squeeze(state_dict["vmem"][0]), name="$V_{mem}$", **args
+            ),
+            "isyn": TSContinuous.from_clocked(
+                np.squeeze(state_dict["isyn"][0]), name="$I_{syn}$", **args
+            ),
+            "irec": TSContinuous.from_clocked(
+                np.squeeze(state_dict["irec"][0]), name="$I_{rec}$", **args
+            ),
+            "U": TSContinuous.from_clocked(
+                np.squeeze(state_dict["U"][0]), name="Surrogate $U$", **args
+            ),
+            "spikes": TSEvent.from_raster(
+                np.squeeze(state_dict["spikes"][0]), name="Spikes", **args
+            ),
+        }

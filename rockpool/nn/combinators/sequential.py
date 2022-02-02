@@ -3,6 +3,8 @@ Implement the :py:class:`.Sequential` combinator, with helper classes for Jax an
 """
 
 from rockpool.nn.modules.module import Module, ModuleBase
+from rockpool import TSContinuous, TSEvent
+
 from copy import copy
 from typing import Tuple, Any
 from abc import ABC
@@ -137,6 +139,31 @@ class SequentialMixin(ABC):
             f"{type(self).__name__}_{self.name}_{id(self)}",
             self,
         )
+
+    def _wrap_recorded_state(self, state_dict: dict, t_start: float = 0.0) -> dict:
+        # - Wrap each sub-dictionary in turn
+        for mod_name in self._submodule_names:
+            mod = self.modules()[mod_name]
+            state_dict[mod_name].update(
+                mod._wrap_recorded_state(state_dict[mod_name], t_start)
+            )
+
+            # - Wrap recorded output for this module
+            output_key = f"{mod_name}_output"
+            dt = mod.dt if hasattr(mod, "dt") else self.dt
+            if mod.spiking_output:
+                ts_output = TSEvent.from_raster(
+                    state_dict[output_key][0], dt=dt, name=output_key, t_start=t_start,
+                )
+            else:
+                ts_output = TSContinuous.from_clocked(
+                    state_dict[output_key][0], dt=dt, name=output_key, t_start=t_start,
+                )
+
+            state_dict.update({output_key: ts_output})
+
+        # - Return wrapped dictionary
+        return state_dict
 
 
 class ModSequential(SequentialMixin, Module):

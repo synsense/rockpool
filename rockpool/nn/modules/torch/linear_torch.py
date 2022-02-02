@@ -52,7 +52,9 @@ class LinearTorch(TorchModule):
         weight=None,
         bias=None,
         has_bias: bool = True,
-        weight_init_func: Optional[Callable] = None,
+        weight_init_func: Optional[Callable] = lambda s: init.kaiming_uniform_(
+            torch.empty((s[1], s[0]))
+        ).T,
         *args,
         **kwargs,
     ) -> None:
@@ -64,6 +66,7 @@ class LinearTorch(TorchModule):
             weight (Tensor): Concrete initialisation data for the weights ``(Nin, Nout)``
             bias (Tensor): Concrete initialisation data for the biases ``(Nout,)`` Default: ``0.0``
             has_bias (bool): Iff ``True``, this layer includes a bias. Default: ``True``
+            weight_init_func (Callable): Random initialisation function for weights. Default: Kaiming initialisation
         """
         # - Initialise superclass
         super().__init__(shape=shape, *args, **kwargs)
@@ -75,10 +78,6 @@ class LinearTorch(TorchModule):
             )
 
         # - Set up parameters
-        # - Initialise recurrent weights
-        if weight_init_func is None:
-            weight_init_func = lambda s: init.kaiming_uniform_(torch.empty(s))
-
         w_rec_shape = (self.size_in, self.size_out)
         self.weight: P_tensor = rp.Parameter(
             weight, shape=w_rec_shape, init_func=weight_init_func, family="weights",
