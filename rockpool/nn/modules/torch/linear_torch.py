@@ -87,7 +87,7 @@ class LinearTorch(TorchModule):
         if has_bias:
             self.bias: Union[torch.Tensor, rp.Parameter] = rp.Parameter(
                 bias,
-                shape=self.shape,
+                shape=[(self.size_out,), ()],
                 init_func=lambda s: init.uniform_(
                     torch.empty(s[-1]), -math.sqrt(1 / s[0]), math.sqrt(1 / s[0]),
                 ),

@@ -85,7 +85,7 @@ class ExpSynTorch(TorchModule):
 
         # - Initialise state
         self.isyn: rt.P_tensor = rp.State(
-            shape=(1, self.size_out,), init_func=lambda s: torch.zeros(*s),
+            shape=(self.size_out,), init_func=lambda s: torch.zeros(*s),
         )
         """ (torch.tensor) Synaptic current state for each synapse ``(1, N)`` """
 
@@ -129,13 +129,13 @@ class ExpSynTorch(TorchModule):
         beta = torch.exp(-self.dt / self.tau)
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
 
+        data = data + noise_zeta * torch.randn(data.shape)
+
         # - Loop over time
         for t in range(time_steps):
-            isyn += data[:, t : t + 1, :] + noise_zeta * torch.randn(
-                isyn.shape, device=isyn.device
-            )
+            isyn += data[:, t, :]
             isyn *= beta
-            isyn_ts[:, t, :] = isyn[:, 0, :]
+            isyn_ts[:, t, :] = isyn
 
         # - Store the final state
         self.isyn = isyn[0].detach()
