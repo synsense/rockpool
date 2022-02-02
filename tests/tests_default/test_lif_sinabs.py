@@ -106,20 +106,22 @@ def test_FF_equality_slayer():
     assert np.allclose(out_torch.detach().cpu(), out_sinabs.detach().cpu())
 
     for key in ns_torch.keys():
-        assert np.allclose(
-            ns_torch[key].detach().cpu(),
-            ns_sinabs[key].detach().cpu(),
-            atol=1e-5,
-            rtol=1e-5,
-        )
+        if not ns_torch[key] == None and not ns_sinabs[key] == None:
+            assert np.allclose(
+                ns_torch[key].detach().cpu(),
+                ns_sinabs[key].detach().cpu(),
+                atol=1e-5,
+                rtol=1e-5,
+            )
 
     for key in rd_torch.keys():
-        assert np.allclose(
-            rd_torch[key].detach().cpu(),
-            rd_sinabs[key].detach().cpu(),
-            atol=1e-5,
-            rtol=1e-5,
-        )
+        if not rd_torch[key] == None and not rd_sinabs[key] == None:
+            assert np.allclose(
+                rd_torch[key].detach().cpu(),
+                rd_sinabs[key].detach().cpu(),
+                atol=1e-5,
+                rtol=1e-5,
+            )
 
 
 def test_FF_multisyn_equality_slayer():
@@ -180,17 +182,19 @@ def test_FF_multisyn_equality_slayer():
     assert np.allclose(out_torch.detach().cpu(), out_sinabs.detach().cpu())
 
     for key in ns_torch.keys():
-        assert np.allclose(
-            ns_torch[key].detach().cpu(),
-            ns_sinabs[key].detach().cpu(),
-            atol=1e-5,
-            rtol=1e-5,
-        )
+        if not ns_torch[key] == None and not ns_sinabs[key] == None:
+            assert np.allclose(
+                ns_torch[key].detach().cpu(),
+                ns_sinabs[key].detach().cpu(),
+                atol=1e-5,
+                rtol=1e-5,
+            )
 
     for key in rd_torch.keys():
-        assert np.allclose(
-            rd_torch[key].detach().cpu(),
-            rd_sinabs[key].detach().cpu(),
-            atol=1e-5,
-            rtol=1e-5,
-        )
+        if not rd_torch[key] == None and not rd_sinabs[key] == None:
+            assert np.allclose(
+                rd_torch[key].detach().cpu(),
+                rd_sinabs[key].detach().cpu(),
+                atol=1e-5,
+                rtol=1e-5,
+            )
