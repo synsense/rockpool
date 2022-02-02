@@ -486,24 +486,32 @@ def test_jax_surrogate():
 def test_torch_spike_surrogate():
     from rockpool.nn.modules.torch.lif_torch import StepPWL
 
-    x = torch.arange(-1, 10, 0.009)
-    x.requires_grad = True
     test_thresh = [1.0, 1.5, 2.0]
 
     for t in test_thresh:
-        # - Generate threshold tensor
+        # - Generate input and threshold tensor
+        x = torch.arange(-1, 10, 0.009)
+        x.requires_grad = True
         t_t = t * torch.ones(x.shape)
         t_t.requires_grad = True
 
-        # - Get primal outputs and gradients for analytical and surrogate
+        # - Get primal outputs and gradients for analytical autograd
         s_x = analytical_surrogate(x, t_t)
         s_x.backward(torch.ones(x.shape))
         g_x, g_t = (x.grad, t_t.grad)
 
+        # - Generate input and threshold tensor
+        x = torch.arange(-1, 10, 0.009)
+        x.requires_grad = True
+        t_t = t * torch.ones(x.shape)
+        t_t.requires_grad = True
+
+        # - Get primal outputs and gradients for spiking surrogate
         s_x_s = StepPWL.apply(x, t_t)
         s_x_s.backward(torch.ones(x.shape))
         g_x_s, g_t_s = (x.grad, t_t.grad)
 
+        # - Get analytical gradients
         ag_x = analytical_dSdx(x, t_t)
         ag_t = analytical_dSdt(x, t_t)
 

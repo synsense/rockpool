@@ -98,6 +98,8 @@ class LinearTorch(TorchModule):
             self.bias = None
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
+        input, _ = self._auto_batch(input)
+
         return (
             F.linear(input, self.weight.T, self.bias,)
             if self.bias is not None
