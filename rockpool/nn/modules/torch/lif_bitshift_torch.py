@@ -13,7 +13,7 @@ from typing import Union, List, Tuple, Callable, Optional, Any
 import numpy as np
 import torch
 import torch.nn.functional as F
-from rockpool.nn.modules.torch.lif_torch import LIFTorch, StepPWL, PeriodicExponential
+from rockpool.nn.modules.torch.lif_torch import LIFTorch, StepPWLXylo
 import rockpool.parameters as rp
 from rockpool.typehints import *
 
@@ -53,17 +53,14 @@ def inv_calc_bitshift_decay(dash, dt):
 
 class LIFBitshiftTorch(LIFTorch):
     def __init__(
-        self, *args, **kwargs,
+        self,
+        spike_generation_fn: torch.autograd.Function = StepPWLXylo,
+        *args, **kwargs,
     ):
-        # - Set default for max_spikes_per_dt
-        max_spikes_per_dt = kwargs.get("max_spikes_per_dt", None)
-        if max_spikes_per_dt is None:
-            max_spikes_per_dt = 15
-        kwargs.update({"max_spikes_per_dt": max_spikes_per_dt})
 
         # - Initialise superclass
         super().__init__(
-            *args, **kwargs,
+            spike_generation_fn=spike_generation_fn, *args, **kwargs,
         )
 
         ## make sure the tau mem and tau syn are representable by bitshift decay
