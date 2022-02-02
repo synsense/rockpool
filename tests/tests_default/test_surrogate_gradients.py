@@ -55,10 +55,11 @@ def test_spike_clipping():
     # - Generate some data
     input_data = 0.5*torch.ones(n_batches, T, n_synapses * n_neurons)
 
-    # - Test Rockpool interface
+    # - test that number of spikes does not exceed 15
     out, _, rd = mod(input_data, record=True)
     out_xylo_step, _, rd_xylo_step = mod_xylo_step(input_data, record=True)
     out_xylo_periodic, _, rd_xylo_periodic = mod_xylo_periodic(input_data, record=True)
+    # - test default gradient of xylo
     out_bitshift, _, rd_xylo_periodic = mod_bitshift(input_data, record=True)
 
     assert torch.any(out > 15)
@@ -66,15 +67,12 @@ def test_spike_clipping():
     assert torch.all(out_xylo_periodic <= 15)
     assert torch.all(out_bitshift <= 15)
 
+    # - test that membrane potential is not reset entirely when spikes are clipped
     batch = 0
     neuron = 0
     t_spike = torch.where(out[batch, :, neuron] > 15)[0][0]
     vmem = rd['vmem'][batch, :, neuron]
     vmem_xylo_step = rd_xylo_step['vmem'][batch, :, neuron]
     spike_diff = (out[batch, : t_spike+1, neuron]-out_xylo_step[batch, : t_spike+1, neuron])
-    
+
     assert torch.allclose(vmem[:t_spike+1],  vmem_xylo_step[:t_spike+1] - spike_diff*threshold)
-
-
-
-test_spike_clipping()
