@@ -2,7 +2,7 @@
 def test_spike_clipping():
     from rockpool.nn.modules.torch.lif_torch import StepPWL, PeriodicExponential
     from rockpool.nn.modules.torch import LIFBitshiftTorch
-    from rockpool.nn.modules import LIFTorch, LIFSlayer
+    from rockpool.nn.modules import LIFTorch
     import torch
 
     n_synapses = 5
@@ -82,6 +82,7 @@ def test_spike_clipping():
 
 
     if torch.cuda.is_available():
+        from rockpool.nn.modules import LIFSlayer
         mod_slayer = LIFSlayer(
             shape=(n_synapses * n_neurons, n_neurons),
             tau_mem=tau_mem[0].item(),
