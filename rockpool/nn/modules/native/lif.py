@@ -85,7 +85,7 @@ class LIF(Module):
         w_rec: Optional[FloatVector] = None,
         has_rec: bool = False,
         weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = kaiming,
-        threshold: FloatVector = 1.0,
+        threshold: Optional[FloatVector] = None,
         noise_std: float = 0.0,
         dt: float = 1e-3,
         spiking_input: bool = False,
@@ -167,7 +167,11 @@ class LIF(Module):
         """ (np.ndarray) Neuron bias currents `(Nout,)` or `()` """
 
         self.threshold: P_ndarray = Parameter(
-            threshold, shape=[(self.size_out,), ()], cast_fn=np.array
+            threshold,
+            "threshold",
+            init_func=np.ones,
+            shape=[(self.size_out,), ()],
+            cast_fn=np.array,
         )
         """ (np.ndarray) Firing threshold for each neuron `(Nout,)` or `()`"""
 

@@ -40,27 +40,30 @@ def sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
 
 
 @jax.custom_jvp
-def step_pwl(x: FloatVector, threshold: FloatVector) -> FloatVector:
+def step_pwl(
+    x: FloatVector, threshold: FloatVector, window: FloatVector = 0.5
+) -> FloatVector:
     """
     Heaviside step function with piece-wise linear derivative to use as spike-generation surrogate
 
     Args:
         x (float):          Input value
         threshold (float):  Firing threshold
+        window (float): Learning window around threshold. Default: 0.5
 
     Returns:
         float: Number of output events for each input value
     """
-    return (x > 0) * np.floor(x / threshold)
+    return (x > (threshold - window)) * np.floor(x / threshold)
 
 
 @step_pwl.defjvp
 def step_pwl_jvp(primals, tangents):
-    x, threshold = primals
-    (x_dot, threshold_dot) = tangents
+    x, threshold, window = primals
+    (x_dot, threshold_dot, window_dot) = tangents
     primal_out = step_pwl(*primals)
-    tangent_out = x_dot * (x > (threshold - 0.5)) - threshold_dot * (
-        x > (threshold - 0.5)
+    tangent_out = (x > (threshold - window)) * (
+        x_dot / threshold - threshold_dot * x / (threshold ** 2)
     )
     return primal_out, tangent_out
 
@@ -102,7 +105,7 @@ class LIFJax(JaxModule):
         w_rec: Optional[FloatVector] = None,
         has_rec: bool = False,
         weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = kaiming,
-        threshold: FloatVector = 1.0,
+        threshold: Optional[FloatVector] = None,
         noise_std: float = 0.0,
         dt: float = 1e-3,
         rng_key: Optional[JaxRNGKey] = None,
@@ -205,7 +208,11 @@ class LIFJax(JaxModule):
         """ (np.ndarray) Neuron bias currents `(Nout,)` or `()` """
 
         self.threshold: P_ndarray = Parameter(
-            threshold, shape=[(self.size_out,), ()], cast_fn=np.array
+            threshold,
+            "threshold",
+            shape=[(self.size_out,), ()],
+            init_func=np.ones,
+            cast_fn=np.array,
         )
         """ (np.ndarray) Firing threshold for each neuron `(Nout,)` or `()`"""
 

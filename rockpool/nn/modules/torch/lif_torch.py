@@ -41,18 +41,23 @@ class StepPWL(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, data, threshold=1.0, window=0.5):
-        ctx.save_for_backward(data.clone())
-        ctx.threshold = threshold
-        ctx.window = window
-        return ((data > 0) * torch.floor(data / threshold)).float()
+    def forward(ctx, x, threshold=torch.tensor(1.0), window=torch.tensor(0.5)):
+        ctx.save_for_backward(x, threshold, window)
+        return ((x >= (threshold - window)) * torch.floor(x / threshold)).float()
 
     @staticmethod
     def backward(ctx, grad_output):
-        (data,) = ctx.saved_tensors
-        grad_input = grad_output.clone()
-        grad_input[data < -ctx.window] = 0
-        return grad_input, None, None
+        (x, threshold, window) = ctx.saved_tensors
+        grad_x = grad_threshold = grad_window = None
+
+        mask = x >= (threshold - window)
+        if ctx.needs_input_grad[0]:
+            grad_x = grad_output / threshold * mask
+
+        if ctx.needs_input_grad[1]:
+            grad_threshold = -x * grad_output / (threshold ** 2) * mask
+
+        return grad_x, grad_threshold, grad_window
 
 class StepPWLXylo(torch.autograd.Function):
     """
@@ -169,7 +174,6 @@ class LIFBaseTorch(TorchModule):
         noise_std: P_float = 0.0,
         spike_generation_fn: torch.autograd.Function = StepPWL,
         learning_window: P_float = 0.5,
-        # max_spikes_per_dt: P_int = torch.inf,
         weight_init_func: Optional[
             Callable[[Tuple], torch.tensor]
         ] = lambda s: init.kaiming_uniform_(torch.empty(s)),
@@ -299,7 +303,6 @@ class LIFBaseTorch(TorchModule):
         )
         """ (Callable) Spike generation function with surrograte gradient """
 
-        # self.max_spikes_per_dt: P_int = rp.SimulationParameter(max_spikes_per_dt)
         """ (int) Maximum number of events that can be produced in each time-step """
 
         # placeholders for recordings
@@ -308,7 +311,6 @@ class LIFBaseTorch(TorchModule):
         self._record_irec = None
         self._record_U = None
         self._record_spikes = None
-        # self._record_unclipped_spikes = None
 
         self._record_dict = {}
         self._record = False
@@ -328,7 +330,6 @@ class LIFBaseTorch(TorchModule):
                 "vmem": self._record_vmem,
                 "isyn": self._record_isyn,
                 "spikes": self._record_spikes,
-                # "unclipped_spikes": self._record_unclipped_spikes,
                 "irec": self._record_irec,
                 "U": self._record_U,
             }
@@ -456,9 +457,6 @@ class LIFTorch(LIFBaseTorch):
         self._record_spikes = torch.zeros(
             n_batches, time_steps, self.size_out, device=data.device
         )
-        # self._record_unclipped_spikes = torch.zeros(
-        #     n_batches, time_steps, self.size_out, device=data.device
-        # )
 
         # - Calculate and cache updated values for decay factors
         alpha = self.alpha
@@ -490,12 +488,6 @@ class LIFTorch(LIFBaseTorch):
             spikes = self.spike_generation_fn(
                 vmem, self.threshold, self.learning_window
             )
-
-            # - Maintain state record
-            # if self._record:
-            #     self._record_unclipped_spikes[:, t] = spikes
-            # spikes = torch.clamp(spikes, 0.0, self.max_spikes_per_dt)
-            # spikes = dclamp(spikes, 0.0, self.max_spikes_per_dt)
 
             # - Membrane reset
             vmem = vmem - spikes * self.threshold
