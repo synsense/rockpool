@@ -11,6 +11,7 @@ if util.find_spec("sinabs") is None or util.find_spec("sinabs.slayer") is None:
 
 from rockpool.nn.modules.torch.lif_torch import LIFBaseTorch
 import torch
+import numpy as np
 
 from rockpool.typehints import *
 from rockpool.parameters import Constant
@@ -67,6 +68,10 @@ class LIFSlayer(LIFBaseTorch):
             *args,
             **kwargs,
         )
+
+        self.surrogate_grad_fn = Heaviside(self.learning_window)
+        if np.isinf(self.max_spikes_per_dt):
+            self.max_spikes_per_dt = None
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
@@ -125,9 +130,6 @@ class LIFSlayer(LIFBaseTorch):
                 inp.contiguous(), isyn[:, :, syn].flatten().contiguous(), beta[0, syn], True
             )
 
-        surrogate_grad_fn = Heaviside(self.learning_window)
-        max_num_spikes_per_bin = None
-
         spikes, vmem_slayer = SpikeFunctionIterForward.apply(
             isyn_slayer.sum(1),  # input
             threshold[0],  # membrane subtract
@@ -136,10 +138,8 @@ class LIFSlayer(LIFBaseTorch):
             spikes.squeeze(),  # last activations
             threshold[0],  # threshold
             None,  # threshold low
-            surrogate_grad_fn,
-            max_num_spikes_per_bin
-            # self.learning_window,  # learning window
-            # 1.0,  # scale grads
+            self.surrogate_grad_fn,
+            self.max_spikes_per_dt
         )
 
         # Bring states to rockpool dimensions
