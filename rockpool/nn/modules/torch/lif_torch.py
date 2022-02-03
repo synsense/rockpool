@@ -39,18 +39,23 @@ class StepPWL(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, data, threshold=1.0, window=0.5):
-        ctx.save_for_backward(data.clone())
-        ctx.threshold = threshold
-        ctx.window = window
-        return ((data > 0) * torch.floor(data / threshold)).float()
+    def forward(ctx, x, threshold=torch.tensor(1.0), window=torch.tensor(0.5)):
+        ctx.save_for_backward(x, threshold, window)
+        return ((x >= (threshold - window)) * torch.floor(x / threshold)).float()
 
     @staticmethod
     def backward(ctx, grad_output):
-        (data,) = ctx.saved_tensors
-        grad_input = grad_output.clone()
-        grad_input[(data - ctx.threshold) < -ctx.window] = 0
-        return grad_input, None, None
+        (x, threshold, window) = ctx.saved_tensors
+        grad_x = grad_threshold = grad_window = None
+
+        mask = x >= (threshold - window)
+        if ctx.needs_input_grad[0]:
+            grad_x = grad_output / threshold * mask
+
+        if ctx.needs_input_grad[1]:
+            grad_threshold = -x * grad_output / (threshold ** 2) * mask
+
+        return grad_x, grad_threshold, grad_window
 
 
 class PeriodicExponential(torch.autograd.Function):
