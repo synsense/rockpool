@@ -41,30 +41,7 @@ class StepPWL(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, data, threshold=1.0, window=0.5):
-        ctx.save_for_backward(data.clone())
-        ctx.threshold = threshold
-        ctx.window = window
-        return ((data > 0) * torch.floor(data / threshold)).float()
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        (data,) = ctx.saved_tensors
-        grad_input = grad_output.clone()
-        grad_input[data < -ctx.window] = 0
-        return grad_input, None, None
-
-class StepPWLXylo(torch.autograd.Function):
-    """
-    Heaviside step function with piece-wise linear derivative to use as spike-generation surrogate
-
-    :param torch.Tensor x: Input value
-
-    :return torch.Tensor: output value and gradient function
-    """
-
-    @staticmethod
-    def forward(ctx, data, threshold=1.0, window=0.5, max_spikes_per_dt=15):
+    def forward(ctx, data, threshold=1.0, window=0.5, max_spikes_per_dt=torch.inf):
         ctx.save_for_backward(data.clone())
         ctx.threshold = threshold
         ctx.window = window
@@ -86,38 +63,7 @@ class PeriodicExponential(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, data, threshold=1, window=0.5):
-        ctx.save_for_backward(data.clone())
-        ctx.threshold = threshold
-        ctx.window = window
-        return ((data > 0) * torch.floor(data / threshold)).float()
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        (membranePotential,) = ctx.saved_tensors
-
-        vmem_shifted = membranePotential - ctx.threshold / 2
-        vmem_periodic = vmem_shifted - torch.div(
-            vmem_shifted, ctx.threshold, rounding_mode="floor"
-        )
-        vmem_below = vmem_shifted * (membranePotential < ctx.threshold)
-        vmem_above = vmem_periodic * (membranePotential >= ctx.threshold)
-        vmem_new = vmem_above + vmem_below
-        spikePdf = (
-            torch.exp(-torch.abs(vmem_new - ctx.threshold / 2) / ctx.window)
-            / ctx.threshold
-        )
-
-        return grad_output * spikePdf, None, None
-
-
-class PeriodicExponentialXylo(torch.autograd.Function):
-    """
-    Subtract from membrane potential on reaching threshold
-    """
-
-    @staticmethod
-    def forward(ctx, data, threshold=1.0, window=0.5, max_spikes_per_dt=15):
+    def forward(ctx, data, threshold=1.0, window=0.5, max_spikes_per_dt=torch.inf):
         ctx.save_for_backward(data.clone())
         ctx.threshold = threshold
         ctx.window = window
@@ -169,7 +115,7 @@ class LIFBaseTorch(TorchModule):
         noise_std: P_float = 0.0,
         spike_generation_fn: torch.autograd.Function = StepPWL,
         learning_window: P_float = 0.5,
-        # max_spikes_per_dt: P_int = torch.inf,
+        max_spikes_per_dt: P_int = torch.inf,
         weight_init_func: Optional[
             Callable[[Tuple], torch.tensor]
         ] = lambda s: init.kaiming_uniform_(torch.empty(s)),
@@ -299,7 +245,7 @@ class LIFBaseTorch(TorchModule):
         )
         """ (Callable) Spike generation function with surrograte gradient """
 
-        # self.max_spikes_per_dt: P_int = rp.SimulationParameter(max_spikes_per_dt)
+        self.max_spikes_per_dt: P_int = rp.SimulationParameter(max_spikes_per_dt)
         """ (int) Maximum number of events that can be produced in each time-step """
 
         # placeholders for recordings
@@ -308,7 +254,6 @@ class LIFBaseTorch(TorchModule):
         self._record_irec = None
         self._record_U = None
         self._record_spikes = None
-        # self._record_unclipped_spikes = None
 
         self._record_dict = {}
         self._record = False
@@ -488,7 +433,7 @@ class LIFTorch(LIFBaseTorch):
 
             # - Spike generation
             spikes = self.spike_generation_fn(
-                vmem, self.threshold, self.learning_window
+                vmem, self.threshold, self.learning_window, self.max_spikes_per_dt
             )
 
             # - Maintain state record

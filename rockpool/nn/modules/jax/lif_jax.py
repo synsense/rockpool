@@ -104,6 +104,7 @@ class LIFJax(JaxModule):
         weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = kaiming,
         threshold: FloatVector = 1.0,
         noise_std: float = 0.0,
+        max_spikes_per_dt: P_int = np.inf,
         dt: float = 1e-3,
         rng_key: Optional[JaxRNGKey] = None,
         spiking_input: bool = False,
@@ -124,6 +125,7 @@ class LIFJax(JaxModule):
             weight_init_func (Optional[Callable[[Tuple], np.ndarray]): The initialisation function to use when generating weights. Default: ``None`` (Kaiming initialisation)
             threshold (FloatVector): An optional array specifying the firing threshold of each neuron. If not provided, ``1.`` will be used by default.
             noise_std (float): The std. dev. after 1s of the noise added to membrane state variables. Default: ``0.0`` (no noise).
+            max_spikes_per_dt (int): Currently not used! The maximum number of events that will be produced in a single time-step. Default: ``np.inf``; do not clamp spiking
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
             rng_key (Optional[Any]): The Jax RNG seed to use on initialisation. By default, a new seed is generated.
         """
@@ -226,6 +228,9 @@ class LIFJax(JaxModule):
 
         self.vmem: P_ndarray = State(shape=(self.size_out,), init_func=np.zeros)
         """ (np.ndarray) Membrane voltage of each neuron `(Nout,)` """
+
+        self.max_spikes_per_dt: P_int = SimulationParameter(max_spikes_per_dt)
+        """ (int) Maximum number of events that can be produced in each time-step """
 
         # - Define additional arguments required during initialisation
         self._init_args = {
