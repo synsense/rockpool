@@ -59,13 +59,13 @@ def step_pwl(
         float: Number of output events for each input value
     """
     spikes = (x >= threshold) * np.floor(x / threshold)
-    spikes[spikes > max_spikes_per_dt] = max_spikes_per_dt
+    return np.clip(spikes, 0.0, max_spikes_per_dt)
 
 
 @step_pwl.defjvp
 def step_pwl_jvp(primals, tangents):
-    x, threshold, window = primals
-    (x_dot, threshold_dot, window_dot) = tangents
+    x, threshold, window, max_spikes_per_dt = primals
+    x_dot, threshold_dot, window_dot, max_spikes_per_dt_dot = tangents
     primal_out = step_pwl(*primals)
     tangent_out = (x >= (threshold - window)) * (
         x_dot / threshold - threshold_dot * x / (threshold ** 2)
@@ -200,7 +200,17 @@ class LIFJax(JaxModule):
             tau_syn,
             "taus",
             init_func=lambda s: np.ones(s) * 20e-3,
-            shape=[(self.size_out, self.n_synapses,), (1, self.n_synapses,), (),],
+            shape=[
+                (
+                    self.size_out,
+                    self.n_synapses,
+                ),
+                (
+                    1,
+                    self.n_synapses,
+                ),
+                (),
+            ],
             cast_fn=np.array,
         )
         """ (np.ndarray) Synaptic time constants `(Nout,)` or `()` """
@@ -251,7 +261,9 @@ class LIFJax(JaxModule):
         }
 
     def evolve(
-        self, input_data: np.ndarray, record: bool = False,
+        self,
+        input_data: np.ndarray,
+        record: bool = False,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
 
@@ -267,7 +279,11 @@ class LIFJax(JaxModule):
         input_data, (vmem, spikes, isyn) = self._auto_batch(
             input_data,
             (self.vmem, self.spikes, self.isyn),
-            ((self.size_out,), (self.size_out,), (self.size_out, self.n_synapses),),
+            (
+                (self.size_out,),
+                (self.size_out,),
+                (self.size_out, self.n_synapses),
+            ),
         )
         batches, num_timesteps, _ = input_data.shape
 
@@ -327,7 +343,7 @@ class LIFJax(JaxModule):
             Vmem += Isyn.sum(1) + I_in_t + self.bias
 
             # - Detect next spikes (with custom gradient)
-            spikes = step_pwl(Vmem, self.threshold, None, self.max_spikes_per_dt)
+            spikes = step_pwl(Vmem, self.threshold, 0.5, self.max_spikes_per_dt)
 
             # - Apply subtractive membrane reset
             Vmem = Vmem - spikes * self.threshold

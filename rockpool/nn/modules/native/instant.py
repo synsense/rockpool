@@ -42,7 +42,11 @@ class InstantMixin:
         # - Store the function
         self.function: P_Callable = SimulationParameter(function)
 
-    def evolve(self, input, record: bool = False,) -> (tuple, tuple, tuple):
+    def evolve(
+        self,
+        input,
+        record: bool = False,
+    ) -> (tuple, tuple, tuple):
         return self.function(input), {}, {}
 
 

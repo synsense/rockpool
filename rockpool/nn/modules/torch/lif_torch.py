@@ -41,9 +41,14 @@ class StepPWL(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, x, threshold=1.0, window=0.5, max_spikes_per_dt=torch.inf):
-        ctx.save_for_backward(x.clone())
-        ctx.threshold = threshold
+    def forward(
+        ctx,
+        x,
+        threshold=torch.tensor(1.0),
+        window=torch.tensor(0.5),
+        max_spikes_per_dt=torch.tensor(float("inf")),
+    ):
+        ctx.save_for_backward(x, threshold)
         ctx.window = window
         nr_spikes = ((x >= threshold) * torch.floor(x / threshold)).float()
         nr_spikes[nr_spikes > max_spikes_per_dt] = max_spikes_per_dt
@@ -51,10 +56,10 @@ class StepPWL(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        (x, threshold, window) = ctx.saved_tensors
+        x, threshold = ctx.saved_tensors
         grad_x = grad_threshold = grad_window = grad_max_spikes_per_dt = None
 
-        mask = x >= (threshold - window)
+        mask = x >= (threshold - ctx.window)
         if ctx.needs_input_grad[0]:
             grad_x = grad_output / threshold * mask
 
@@ -159,7 +164,11 @@ class LIFBaseTorch(TorchModule):
 
         # - Initialise superclass
         super().__init__(
-            shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs,
+            shape=shape,
+            spiking_input=True,
+            spiking_output=True,
+            *args,
+            **kwargs,
         )
 
         self.n_neurons = self.size_out
@@ -202,7 +211,17 @@ class LIFBaseTorch(TorchModule):
         self.tau_syn: P_tensor = rp.Parameter(
             tau_syn,
             family="taus",
-            shape=[(self.size_out, self.n_synapses,), (1, self.n_synapses,), (),],
+            shape=[
+                (
+                    self.size_out,
+                    self.n_synapses,
+                ),
+                (
+                    1,
+                    self.n_synapses,
+                ),
+                (),
+            ],
             init_func=lambda s: torch.ones(s) * 20e-3,
             cast_fn=to_float_tensor,
         )
@@ -227,7 +246,8 @@ class LIFBaseTorch(TorchModule):
         """ (Tensor) Firing threshold for each neuron `(Nout,)` """
 
         self.learning_window: P_tensor = rp.SimulationParameter(
-            learning_window, cast_fn=to_float_tensor,
+            learning_window,
+            cast_fn=to_float_tensor,
         )
         """ (float) Learning window cutoff for surrogate gradient function """
 
@@ -387,7 +407,11 @@ class LIFTorch(LIFBaseTorch):
         data, (vmem, spikes, isyn) = self._auto_batch(
             data,
             (self.vmem, self.spikes, self.isyn),
-            ((self.size_out,), (self.size_out,), (self.size_out, self.n_synapses),),
+            (
+                (self.size_out,),
+                (self.size_out,),
+                (self.size_out, self.n_synapses),
+            ),
         )
         n_batches, time_steps, _ = data.shape
 

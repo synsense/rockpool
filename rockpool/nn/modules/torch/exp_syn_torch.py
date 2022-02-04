@@ -85,7 +85,8 @@ class ExpSynTorch(TorchModule):
 
         # - Initialise state
         self.isyn: rt.P_tensor = rp.State(
-            shape=(self.size_out,), init_func=lambda s: torch.zeros(*s),
+            shape=(self.size_out,),
+            init_func=lambda s: torch.zeros(*s),
         )
         """ (torch.tensor) Synaptic current state for each synapse ``(1, N)`` """
 

@@ -127,7 +127,10 @@ class LIFSlayer(LIFBaseTorch):
             )
 
             isyn_slayer[:, syn] = LeakyIntegrator.apply(
-                inp.contiguous(), isyn[:, :, syn].flatten().contiguous(), beta[0, syn], True
+                inp.contiguous(),
+                isyn[:, :, syn].flatten().contiguous(),
+                beta[0, syn],
+                True,
             )
 
         spikes, vmem_slayer = SpikeFunctionIterForward.apply(
@@ -139,7 +142,7 @@ class LIFSlayer(LIFBaseTorch):
             threshold[0],  # threshold
             None,  # threshold low
             self.surrogate_grad_fn,
-            self.max_spikes_per_dt
+            self.max_spikes_per_dt,
         )
 
         # Bring states to rockpool dimensions
