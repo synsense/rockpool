@@ -10,7 +10,14 @@ from rockpool import TSContinuous, TSEvent
 import numpy as np
 
 from typing import Optional, Tuple, Union, Dict, Callable, Any
-from rockpool.typehints import FloatVector, P_float, P_tensor, P_ndarray, P_int
+from rockpool.typehints import (
+    FloatVector,
+    P_float,
+    P_tensor,
+    P_ndarray,
+    P_int,
+    P_Callable,
+)
 
 from rockpool.graph import (
     GraphModuleBase,
@@ -20,7 +27,7 @@ from rockpool.graph import (
 )
 
 
-__all__ = ["LIF"]
+__all__ = ["LIF", "spike_subtract_threshold"]
 
 # - Surrogate functions to use in learning
 def sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
@@ -34,18 +41,27 @@ def sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
     return np.tanh(x + 1 - threshold) / 2 + 0.5
 
 
-def spike(x: FloatVector, threshold: FloatVector) -> FloatVector:
+def spike_subtract_threshold(
+    x: FloatVector,
+    threshold: FloatVector,
+    window: FloatVector = 0.5,
+    max_spikes_per_dt: int = np.inf,
+) -> FloatVector:
     """
     Spike production function
+
+    Number of spikes is equal to floor(x / threshold)
 
     Args:
         x (float):          Input value
         threshold (float):  Firing threshold
+        window (float): Unused
+        max_spikes_per_dt (int): Maximum number of events that may be produced in each time-step. Default: ``np.inf`` (do not impose a maximum)
 
     Returns:
         float: Number of output events for each input value
     """
-    return (x > 0) * np.floor(x / threshold)
+    return np.clamp((x >= threshold) * np.floor(x / threshold), None, max_spikes_per_dt)
 
 
 class LIF(Module):
@@ -279,7 +295,9 @@ class LIF(Module):
             Vmem += Isyn.sum(1) + I_in_t + self.bias
 
             # - Detect next spikes (with custom gradient)
-            spikes = spike(Vmem, self.threshold)
+            spikes = spike_subtract_threshold(
+                Vmem, self.threshold, None, self.max_spikes_per_dt
+            )
 
             # - Apply subtractive membrane reset
             Vmem = Vmem - spikes * self.threshold

@@ -41,7 +41,10 @@ def sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
 
 @jax.custom_jvp
 def step_pwl(
-    x: FloatVector, threshold: FloatVector, window: FloatVector = 0.5
+    x: FloatVector,
+    threshold: FloatVector,
+    window: FloatVector = 0.5,
+    max_spikes_per_dt: int = np.inf,
 ) -> FloatVector:
     """
     Heaviside step function with piece-wise linear derivative to use as spike-generation surrogate
@@ -50,11 +53,13 @@ def step_pwl(
         x (float):          Input value
         threshold (float):  Firing threshold
         window (float): Learning window around threshold. Default: 0.5
+        max_spikes_per_dt (int): Maximum number of spikes that may be produced each dt. Default: ``np.inf``, do not clamp spikes
 
     Returns:
         float: Number of output events for each input value
     """
-    return (x > (threshold - window)) * np.floor(x / threshold)
+    spikes = (x >= threshold) * np.floor(x / threshold)
+    spikes[spikes > max_spikes_per_dt] = max_spikes_per_dt
 
 
 @step_pwl.defjvp
@@ -62,7 +67,7 @@ def step_pwl_jvp(primals, tangents):
     x, threshold, window = primals
     (x_dot, threshold_dot, window_dot) = tangents
     primal_out = step_pwl(*primals)
-    tangent_out = (x > (threshold - window)) * (
+    tangent_out = (x >= (threshold - window)) * (
         x_dot / threshold - threshold_dot * x / (threshold ** 2)
     )
     return primal_out, tangent_out
@@ -128,7 +133,7 @@ class LIFJax(JaxModule):
             weight_init_func (Optional[Callable[[Tuple], np.ndarray]): The initialisation function to use when generating weights. Default: ``None`` (Kaiming initialisation)
             threshold (FloatVector): An optional array specifying the firing threshold of each neuron. If not provided, ``1.`` will be used by default.
             noise_std (float): The std. dev. after 1s of the noise added to membrane state variables. Default: ``0.0`` (no noise).
-            max_spikes_per_dt (int): Currently not used! The maximum number of events that will be produced in a single time-step. Default: ``np.inf``; do not clamp spiking
+            max_spikes_per_dt (int): The maximum number of events that will be produced in a single time-step. Default: ``np.inf``; do not clamp spiking.
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
             rng_key (Optional[Any]): The Jax RNG seed to use on initialisation. By default, a new seed is generated.
         """
@@ -322,7 +327,7 @@ class LIFJax(JaxModule):
             Vmem += Isyn.sum(1) + I_in_t + self.bias
 
             # - Detect next spikes (with custom gradient)
-            spikes = step_pwl(Vmem, self.threshold)
+            spikes = step_pwl(Vmem, self.threshold, None, self.max_spikes_per_dt)
 
             # - Apply subtractive membrane reset
             Vmem = Vmem - spikes * self.threshold

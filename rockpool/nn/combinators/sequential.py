@@ -240,6 +240,11 @@ try:
             super().__init__(*args, **kwargs)
 
         def forward(self, *args, **kwargs):
+            # - By default, record state
+            record = kwargs.get("record", True)
+            kwargs["record"] = record
+
+            # - Return output
             return self.evolve(*args, **kwargs)[0]
 
 

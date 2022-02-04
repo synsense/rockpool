@@ -33,7 +33,7 @@ __all__ = ["LIFTorch"]
 
 class StepPWL(torch.autograd.Function):
     """
-    Heaviside step function with piece-wise linear derivative to use as spike-generation surrogate
+    Heaviside step function with piece-wise linear surrogate to use as spike-generation surrogate
 
     :param torch.Tensor x: Input value
 
@@ -41,20 +41,27 @@ class StepPWL(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, data, threshold=1.0, window=0.5, max_spikes_per_dt=torch.inf):
-        ctx.save_for_backward(data.clone())
+    def forward(ctx, x, threshold=1.0, window=0.5, max_spikes_per_dt=torch.inf):
+        ctx.save_for_backward(x.clone())
         ctx.threshold = threshold
         ctx.window = window
-        nr_spikes = ((data > 0) * torch.floor(data / threshold)).float()
+        nr_spikes = ((x >= threshold) * torch.floor(x / threshold)).float()
         nr_spikes[nr_spikes > max_spikes_per_dt] = max_spikes_per_dt
         return nr_spikes
 
     @staticmethod
     def backward(ctx, grad_output):
-        (data,) = ctx.saved_tensors
-        grad_input = grad_output.clone()
-        grad_input[data < -ctx.window] = 0
-        return grad_input, None, None, None
+        (x, threshold, window) = ctx.saved_tensors
+        grad_x = grad_threshold = grad_window = grad_max_spikes_per_dt = None
+
+        mask = x >= (threshold - window)
+        if ctx.needs_input_grad[0]:
+            grad_x = grad_output / threshold * mask
+
+        if ctx.needs_input_grad[1]:
+            grad_threshold = -x * grad_output / (threshold ** 2) * mask
+
+        return grad_x, grad_threshold, grad_window, grad_max_spikes_per_dt
 
 
 class PeriodicExponential(torch.autograd.Function):
@@ -67,7 +74,7 @@ class PeriodicExponential(torch.autograd.Function):
         ctx.save_for_backward(data.clone())
         ctx.threshold = threshold
         ctx.window = window
-        nr_spikes = ((data > 0) * torch.floor(data / threshold)).float()
+        nr_spikes = ((data >= threshold) * torch.floor(data / threshold)).float()
         nr_spikes[nr_spikes > max_spikes_per_dt] = max_spikes_per_dt
         return nr_spikes
 
@@ -137,6 +144,7 @@ class LIFBaseTorch(TorchModule):
             noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: ``0.0`` (no noise)
             spike_generation_fn (Callable): Function to call for spike production. Usually simple threshold crossing. Implements the surrogate gradient function in the backward call. (StepPWL or PeriodicExponential).
             learning_window (float): Cutoff value for the surrogate gradient.
+            max_spikes_per_dt (int): The maximum number of events that will be produced in a single time-step. Default: ``np.inf``; do not clamp spiking.
             weight_init_func (Optional[Callable[[Tuple], torch.tensor]): The initialisation function to use when generating weights. Default: ``None`` (Kaiming initialisation)
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
         """
@@ -359,7 +367,6 @@ class LIFTorch(LIFBaseTorch):
 
     Neurons therefore share a common resting potential of ``0``, have individual firing thresholds, and perform subtractive reset of ``-V_{thr}``.
     """
-
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
