@@ -9,15 +9,13 @@ if util.find_spec("torch") is None:
         "'Torch' backend not found. Modules that rely on Torch will not be available."
     )
 
-from typing import Union, List, Tuple, Callable, Optional, Any
+from typing import Union, Tuple, Callable, Optional, Any
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
 import torch
 import torch.nn.functional as F
 import torch.nn.init as init
 import rockpool.parameters as rp
-
-from torch.cuda.amp import custom_bwd, custom_fwd
 
 from rockpool.typehints import *
 
@@ -34,10 +32,6 @@ __all__ = ["LIFTorch"]
 class StepPWL(torch.autograd.Function):
     """
     Heaviside step function with piece-wise linear surrogate to use as spike-generation surrogate
-
-    :param torch.Tensor x: Input value
-
-    :return torch.Tensor: output value and gradient function
     """
 
     @staticmethod
@@ -388,7 +382,7 @@ class LIFTorch(LIFBaseTorch):
     Neurons therefore share a common resting potential of ``0``, have individual firing thresholds, and perform subtractive reset of ``-V_{thr}``.
     """
 
-    def forward(self, data: torch.Tensor) -> torch.Tensor:
+    def forward(self, input_data: torch.Tensor) -> torch.Tensor:
         """
         Forward method for processing data through this layer
         Adds synaptic inputs to the synaptic states and mimics the Leaky Integrate and Fire dynamics
@@ -404,8 +398,8 @@ class LIFTorch(LIFBaseTorch):
 
         """
         # - Auto-batch over input data
-        data, (vmem, spikes, isyn) = self._auto_batch(
-            data,
+        input_data, (vmem, spikes, isyn) = self._auto_batch(
+            input_data,
             (self.vmem, self.spikes, self.isyn),
             (
                 (self.size_out,),
@@ -413,67 +407,63 @@ class LIFTorch(LIFBaseTorch):
                 (self.size_out, self.n_synapses),
             ),
         )
-        n_batches, time_steps, _ = data.shape
+        n_batches, n_timesteps, _ = input_data.shape
 
         # - Reshape data over separate input synapses
-        data = data.reshape(n_batches, time_steps, self.size_out, self.n_synapses)
+        input_data = input_data.reshape(
+            n_batches, n_timesteps, self.size_out, self.n_synapses
+        )
 
         # - Set up state record and output
         if self._record:
-            self._record_vmem = torch.zeros(n_batches, time_steps, self.size_out)
+            self._record_vmem = torch.zeros(n_batches, n_timesteps, self.size_out)
             self._record_isyn = torch.zeros(
-                n_batches, time_steps, self.size_out, self.n_synapses
+                n_batches, n_timesteps, self.size_out, self.n_synapses
             )
             self._record_irec = torch.zeros(
-                n_batches, time_steps, self.size_out, self.n_synapses
+                n_batches, n_timesteps, self.size_out, self.n_synapses
             )
-            self._record_U = torch.zeros(n_batches, time_steps, self.size_out)
+            self._record_U = torch.zeros(n_batches, n_timesteps, self.size_out)
 
         self._record_spikes = torch.zeros(
-            n_batches, time_steps, self.size_out, device=data.device
+            n_batches, n_timesteps, self.size_out, device=input_data.device
         )
-        # self._record_unclipped_spikes = torch.zeros(
-        #     n_batches, time_steps, self.size_out, device=data.device
-        # )
 
         # - Calculate and cache updated values for decay factors
         alpha = self.alpha
         beta = self.beta
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
 
+        # - Generate membrane noise trace
+        noise_ts = noise_zeta * torch.randn(
+            (n_batches, n_timesteps, self.size_out), device=vmem.device
+        )
+
         # - Loop over time
-        for t in range(time_steps):
+        for t in range(n_timesteps):
             # Integrate synaptic input
-            isyn = isyn + data[:, t]
+            isyn = isyn + input_data[:, t]
 
             # - Apply spikes over the recurrent weights
             if hasattr(self, "w_rec"):
-                rec_inp = F.linear(spikes, self.w_rec.T).reshape(
+                irec = F.linear(spikes, self.w_rec.T).reshape(
                     n_batches, self.size_out, self.n_synapses
                 )
-                isyn = isyn + rec_inp
+                isyn = isyn + irec
 
             # Decay synaptic and membrane state
             vmem *= alpha
             isyn *= beta
 
             # Integrate membrane state and apply noise
-            vmem = vmem + isyn.sum(2) + self.bias
-            if self.noise_std > 0:
-                vmem += noise_zeta * torch.randn(vmem.shape, device=vmem.device)
+            vmem = vmem + isyn.sum(2) + noise_ts[:, t, :] + self.bias
 
             # - Spike generation
             spikes = self.spike_generation_fn(
                 vmem, self.threshold, self.learning_window, self.max_spikes_per_dt
             )
 
-            # - Maintain state record
-            # if self._record:
-            #     self._record_unclipped_spikes[:, t] = spikes
-            # spikes = torch.clamp(spikes, 0.0, self.max_spikes_per_dt)
-            # spikes = dclamp(spikes, 0.0, self.max_spikes_per_dt)
-
-            # - Membrane reset
+            # - Apply subtractive membrane reset
             vmem = vmem - spikes * self.threshold
 
             # - Maintain state record
@@ -482,7 +472,7 @@ class LIFTorch(LIFBaseTorch):
                 self._record_isyn[:, t] = isyn
 
                 if hasattr(self, "w_rec"):
-                    self._record_irec[:, t] = rec_inp
+                    self._record_irec[:, t] = irec
 
                 self._record_U[:, t] = sigmoid(vmem * 20.0, self.threshold)
 

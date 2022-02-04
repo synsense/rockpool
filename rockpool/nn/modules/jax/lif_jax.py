@@ -285,17 +285,23 @@ class LIFJax(JaxModule):
                 (self.size_out, self.n_synapses),
             ),
         )
-        batches, num_timesteps, _ = input_data.shape
+        n_batches, n_timesteps, _ = input_data.shape
 
         # - Reshape data over separate input synapses
         input_data = input_data.reshape(
-            batches, num_timesteps, self.size_out, self.n_synapses
+            n_batches, n_timesteps, self.size_out, self.n_synapses
         )
 
         # - Get evolution constants
         alpha = np.exp(-self.dt / self.tau_mem)
         beta = np.exp(-self.dt / self.tau_syn)
         noise_zeta = self.noise_std * np.sqrt(self.dt)
+
+        # - Generate membrane noise trace
+        key1, subkey = rand.split(self.rng_key)
+        noise_ts = noise_zeta * rand.normal(
+            subkey, shape=(n_batches, n_timesteps, self.size_out)
+        )
 
         # - Single-step LIF dynamics
         def forward(
@@ -326,36 +332,31 @@ class LIFJax(JaxModule):
                 Isyn_ts:        (np.ndarray) Synaptic input current received by each neuron over time [T, N]
             """
             # - Unpack inputs
-            (sp_in_t, I_in_t) = inputs_t
+            (sp_in_t, noise_in_t) = inputs_t
 
             # - Unpack state
-            spikes, Isyn, Vmem = state
+            spikes, isyn, vmem = state
 
             # - Apply synaptic and recurrent input
-            Irec = np.dot(spikes, self.w_rec).reshape(self.size_out, self.n_synapses)
-            Isyn += sp_in_t + Irec
+            isyn = isyn + sp_in_t
+            irec = np.dot(spikes, self.w_rec).reshape(self.size_out, self.n_synapses)
+            isyn = isyn + irec
 
             # - Decay synaptic and membrane state
-            Vmem *= alpha
-            Isyn *= beta
+            vmem *= alpha
+            isyn *= beta
 
             # - Integrate membrane potentials
-            Vmem += Isyn.sum(1) + I_in_t + self.bias
+            vmem = vmem + isyn.sum(1) + noise_in_t + self.bias
 
             # - Detect next spikes (with custom gradient)
-            spikes = step_pwl(Vmem, self.threshold, 0.5, self.max_spikes_per_dt)
+            spikes = step_pwl(vmem, self.threshold, 0.5, self.max_spikes_per_dt)
 
             # - Apply subtractive membrane reset
-            Vmem = Vmem - spikes * self.threshold
+            vmem = vmem - spikes * self.threshold
 
             # - Return state and outputs
-            return (spikes, Isyn, Vmem), (Irec, spikes, Vmem, Isyn)
-
-        # - Generate membrane noise trace
-        key1, subkey = rand.split(self.rng_key)
-        noise_ts = noise_zeta * rand.normal(
-            subkey, shape=(batches, num_timesteps, self.size_out)
-        )
+            return (spikes, isyn, vmem), (irec, spikes, vmem, isyn)
 
         # - Map over batches
         @jax.vmap
@@ -363,27 +364,27 @@ class LIFJax(JaxModule):
             return scan(forward, (spikes, isyn, vmem), (input_data, noise_ts))
 
         # - Evolve over spiking inputs
-        state, (Irec_ts, spikes_ts, Vmem_ts, Isyn_ts) = scan_time(
+        state, (irec_ts, spikes_ts, vmem_ts, isyn_ts) = scan_time(
             spikes, isyn, vmem, input_data, noise_ts
         )
 
         # - Generate output surrogate
-        surrogate_ts = sigmoid(Vmem_ts * 20.0, self.threshold)
+        surrogate_ts = sigmoid(vmem_ts * 20.0, self.threshold)
 
         # - Generate return arguments
         outputs = spikes_ts
         states = {
             "spikes": spikes_ts[0, -1],
-            "isyn": Isyn_ts[0, -1],
-            "vmem": Vmem_ts[0, -1],
+            "isyn": isyn_ts[0, -1],
+            "vmem": vmem_ts[0, -1],
             "rng_key": key1,
         }
 
         record_dict = {
-            "irec": Irec_ts,
+            "irec": irec_ts,
             "spikes": spikes_ts,
-            "isyn": Isyn_ts,
-            "vmem": Vmem_ts,
+            "isyn": isyn_ts,
+            "vmem": vmem_ts,
             "U": surrogate_ts,
         }
 
