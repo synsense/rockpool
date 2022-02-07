@@ -50,6 +50,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
 
    tutorials/easter/easter-snn-images.ipynb
    tutorials/adversarial_training.ipynb
+   
    .. tutorials/building_reservoir.ipynb
    .. tutorials/deneve_reservoirs.ipynb
    .. tutorials/network_ads_tutorial.ipynb
@@ -60,6 +61,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    :caption: Training and deploying to HW
 
    devices/xylo-overview.ipynb
+   tutorials/quick-xylo/deploy_to_xylo.ipynb
    devices/torch-training-spiking-for-xylo.ipynb
    devices/analog-frontend-example.ipynb
 
