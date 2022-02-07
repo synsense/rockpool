@@ -148,6 +148,15 @@ def alias_output_nodes_must_have_neurons_as_input(graph: GraphModuleBase) -> Non
                     )
 
 
+def at_least_two_neuron_layers_needed(graph: GraphModuleBase) -> None:
+    all_neurons = find_modules_of_subclass(graph, GenericNeurons)
+
+    if len(all_neurons) < 2:
+        raise DRCError(
+            "At least two layers of neurons are required to map to hidden and output layers on Xylo."
+        )
+
+
 xylo_drc: List[Callable[[GraphModuleBase], None]] = [
     output_nodes_have_neurons_as_source,
     input_to_neurons_is_a_weight,
@@ -158,6 +167,7 @@ xylo_drc: List[Callable[[GraphModuleBase], None]] = [
     no_consecutive_weights,
     alias_inputs_must_be_neurons,
     alias_output_nodes_must_have_neurons_as_input,
+    at_least_two_neuron_layers_needed,
 ]
 """ List[Callable[[GraphModuleBase], None]]: The collection of design rules for Xylo """
 
