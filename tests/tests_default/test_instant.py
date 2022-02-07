@@ -94,7 +94,9 @@ def test_instant_torch():
 
     out.sum().backward()
 
-    mod = InstantTorch(N, function=lambda x: torch.clip(x, 0.0, torch.inf))
+    mod = InstantTorch(
+        N, function=lambda x: torch.clip(x, 0.0, torch.tensor(float("inf")))
+    )
     out, _, _ = mod(data)
 
     assert out.shape == (batches, T, N)

@@ -69,7 +69,13 @@ class PeriodicExponential(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, data, threshold=1.0, window=0.5, max_spikes_per_dt=torch.inf):
+    def forward(
+        ctx,
+        data,
+        threshold=1.0,
+        window=0.5,
+        max_spikes_per_dt=torch.tensor(float("inf")),
+    ):
         ctx.save_for_backward(data.clone())
         ctx.threshold = threshold
         ctx.window = window
@@ -121,7 +127,7 @@ class LIFBaseTorch(TorchModule):
         noise_std: P_float = 0.0,
         spike_generation_fn: torch.autograd.Function = StepPWL,
         learning_window: P_float = 0.5,
-        max_spikes_per_dt: P_int = torch.inf,
+        max_spikes_per_dt: P_int = torch.tensor(float("inf")),
         weight_init_func: Optional[
             Callable[[Tuple], torch.tensor]
         ] = lambda s: init.kaiming_uniform_(torch.empty(s)),
@@ -263,7 +269,7 @@ class LIFBaseTorch(TorchModule):
         """ (Tensor) Spikes `(Nin,)` """
 
         self.spike_generation_fn: P_Callable = rp.SimulationParameter(
-            spike_generation_fn().apply
+            spike_generation_fn.apply
         )
         """ (Callable) Spike generation function with surrograte gradient """
 

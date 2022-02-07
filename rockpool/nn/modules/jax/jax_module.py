@@ -102,8 +102,8 @@ class JaxModule(Module, ABC):
         Returns:
             (np.ndarray, Tuple[np.ndarray]) data, states
         """
-        # - Ensure data is a float tensor
-        data = np.array(data, "float")
+        # - Ensure data is a float32 tensor
+        data = np.array(data, "float32")
 
         # - Verify input data shape
         if len(data.shape) == 0:
