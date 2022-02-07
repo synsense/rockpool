@@ -254,6 +254,7 @@ class LIFBaseTorch(TorchModule):
         self._record_irec = None
         self._record_U = None
         self._record_spikes = None
+        self._record_threshold = None
 
         self._record_dict = {}
         self._record = False
@@ -273,7 +274,7 @@ class LIFBaseTorch(TorchModule):
                 "vmem": self._record_vmem,
                 "isyn": self._record_isyn,
                 "spikes": self._record_spikes,
-                # "unclipped_spikes": self._record_unclipped_spikes,
+                "threshold": self._record_threshold,
                 "irec": self._record_irec,
                 "U": self._record_U,
             }
@@ -397,13 +398,11 @@ class LIFTorch(LIFBaseTorch):
                 n_batches, time_steps, self.size_out, self.n_synapses
             )
             self._record_U = torch.zeros(n_batches, time_steps, self.size_out)
+            self._record_threshold = torch.zeros(n_batches, time_steps, self.size_out)
 
         self._record_spikes = torch.zeros(
             n_batches, time_steps, self.size_out, device=data.device
         )
-        # self._record_unclipped_spikes = torch.zeros(
-        #     n_batches, time_steps, self.size_out, device=data.device
-        # )
 
         # - Calculate and cache updated values for decay factors
         alpha = self.alpha
@@ -436,12 +435,6 @@ class LIFTorch(LIFBaseTorch):
                 vmem, self.threshold, self.learning_window, self.max_spikes_per_dt
             )
 
-            # - Maintain state record
-            # if self._record:
-            #     self._record_unclipped_spikes[:, t] = spikes
-            # spikes = torch.clamp(spikes, 0.0, self.max_spikes_per_dt)
-            # spikes = dclamp(spikes, 0.0, self.max_spikes_per_dt)
-
             # - Membrane reset
             vmem = vmem - spikes * self.threshold
 
@@ -454,6 +447,7 @@ class LIFTorch(LIFBaseTorch):
                     self._record_irec[:, t] = rec_inp
 
                 self._record_U[:, t] = sigmoid(vmem * 20.0, self.threshold)
+                self._record_threshold[:, t] = self.threshold
 
             # - Maintain output spike record
             self._record_spikes[:, t] = spikes
