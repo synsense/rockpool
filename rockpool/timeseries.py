@@ -1162,7 +1162,10 @@ class TSContinuous(TimeSeries):
         resampled_series._create_interpolator()
         return resampled_series
 
-    def to_clocked(self, dt: float,) -> np.ndarray:
+    def to_clocked(
+        self,
+        dt: float,
+    ) -> np.ndarray:
         """
         Resample this time series to a synchronous clock and return the samples
 

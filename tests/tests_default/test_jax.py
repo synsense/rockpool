@@ -44,8 +44,13 @@ def test_rate_jax():
     # - Generate module
     lyr = RateJax(
         shape=2,
-        tau=np.random.rand(2,) * 10,
-        bias=np.random.rand(2,),
+        tau=np.random.rand(
+            2,
+        )
+        * 10,
+        bias=np.random.rand(
+            2,
+        ),
         activation_func="relu",
     )
     lyr = lyr.reset_state()
@@ -167,8 +172,15 @@ def test_ffwd_net():
                     ),
                 )
 
-                tau = np.random.rand(N_out,) * 10
-                bias = np.random.rand(N_out,)
+                tau = (
+                    np.random.rand(
+                        N_out,
+                    )
+                    * 10
+                )
+                bias = np.random.rand(
+                    N_out,
+                )
                 setattr(self, f"iaf_{index}", RateJax(N_out, tau=tau, bias=bias))
 
         def evolve(self, input, record: bool = False):
@@ -247,8 +259,15 @@ def test_sgd():
                     Parameter(np.random.rand(N_in, N_out), "weights"),
                 )
 
-                tau = np.random.rand(N_out,) * 10
-                bias = np.random.rand(N_out,)
+                tau = (
+                    np.random.rand(
+                        N_out,
+                    )
+                    * 10
+                )
+                bias = np.random.rand(
+                    N_out,
+                )
                 setattr(self, f"iaf_{index}", RateJax(N_out, tau=tau, bias=bias))
 
         def evolve(self, input, record: bool = False):

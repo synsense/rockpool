@@ -9,15 +9,13 @@ if util.find_spec("torch") is None:
         "'Torch' backend not found. Modules that rely on Torch will not be available."
     )
 
-from typing import Union, List, Tuple, Callable, Optional, Any
+from typing import Union, Tuple, Callable, Optional, Any
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
 import torch
 import torch.nn.functional as F
 import torch.nn.init as init
 import rockpool.parameters as rp
-
-from torch.cuda.amp import custom_bwd, custom_fwd
 
 from rockpool.typehints import *
 
@@ -33,28 +31,36 @@ __all__ = ["LIFTorch"]
 
 class StepPWL(torch.autograd.Function):
     """
-    Heaviside step function with piece-wise linear derivative to use as spike-generation surrogate
-
-    :param torch.Tensor x: Input value
-
-    :return torch.Tensor: output value and gradient function
+    Heaviside step function with piece-wise linear surrogate to use as spike-generation surrogate
     """
 
     @staticmethod
-    def forward(ctx, data, threshold=1.0, window=0.5, max_spikes_per_dt=torch.inf):
-        ctx.save_for_backward(data.clone())
-        ctx.threshold = threshold
+    def forward(
+        ctx,
+        x,
+        threshold=torch.tensor(1.0),
+        window=torch.tensor(0.5),
+        max_spikes_per_dt=torch.tensor(float("inf")),
+    ):
+        ctx.save_for_backward(x, threshold)
         ctx.window = window
-        nr_spikes = ((data > 0) * torch.floor(data / threshold)).float()
+        nr_spikes = ((x >= threshold) * torch.floor(x / threshold)).float()
         nr_spikes[nr_spikes > max_spikes_per_dt] = max_spikes_per_dt
         return nr_spikes
 
     @staticmethod
     def backward(ctx, grad_output):
-        (data,) = ctx.saved_tensors
-        grad_input = grad_output.clone()
-        grad_input[data < -ctx.window] = 0
-        return grad_input, None, None, None
+        x, threshold = ctx.saved_tensors
+        grad_x = grad_threshold = grad_window = grad_max_spikes_per_dt = None
+
+        mask = x >= (threshold - ctx.window)
+        if ctx.needs_input_grad[0]:
+            grad_x = grad_output / threshold * mask
+
+        if ctx.needs_input_grad[1]:
+            grad_threshold = -x * grad_output / (threshold ** 2) * mask
+
+        return grad_x, grad_threshold, grad_window, grad_max_spikes_per_dt
 
 
 class PeriodicExponential(torch.autograd.Function):
@@ -67,7 +73,7 @@ class PeriodicExponential(torch.autograd.Function):
         ctx.save_for_backward(data.clone())
         ctx.threshold = threshold
         ctx.window = window
-        nr_spikes = ((data > 0) * torch.floor(data / threshold)).float()
+        nr_spikes = ((data >= threshold) * torch.floor(data / threshold)).float()
         nr_spikes[nr_spikes > max_spikes_per_dt] = max_spikes_per_dt
         return nr_spikes
 
@@ -137,6 +143,7 @@ class LIFBaseTorch(TorchModule):
             noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: ``0.0`` (no noise)
             spike_generation_fn (Callable): Function to call for spike production. Usually simple threshold crossing. Implements the surrogate gradient function in the backward call. (StepPWL or PeriodicExponential).
             learning_window (float): Cutoff value for the surrogate gradient.
+            max_spikes_per_dt (int): The maximum number of events that will be produced in a single time-step. Default: ``np.inf``; do not clamp spiking.
             weight_init_func (Optional[Callable[[Tuple], torch.tensor]): The initialisation function to use when generating weights. Default: ``None`` (Kaiming initialisation)
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
         """
@@ -151,7 +158,11 @@ class LIFBaseTorch(TorchModule):
 
         # - Initialise superclass
         super().__init__(
-            shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs,
+            shape=shape,
+            spiking_input=True,
+            spiking_output=True,
+            *args,
+            **kwargs,
         )
 
         self.n_neurons = self.size_out
@@ -194,7 +205,17 @@ class LIFBaseTorch(TorchModule):
         self.tau_syn: P_tensor = rp.Parameter(
             tau_syn,
             family="taus",
-            shape=[(self.size_out, self.n_synapses,), (1, self.n_synapses,), (),],
+            shape=[
+                (
+                    self.size_out,
+                    self.n_synapses,
+                ),
+                (
+                    1,
+                    self.n_synapses,
+                ),
+                (),
+            ],
             init_func=lambda s: torch.ones(s) * 20e-3,
             cast_fn=to_float_tensor,
         )
@@ -219,7 +240,8 @@ class LIFBaseTorch(TorchModule):
         """ (Tensor) Firing threshold for each neuron `(Nout,)` """
 
         self.learning_window: P_tensor = rp.SimulationParameter(
-            learning_window, cast_fn=to_float_tensor,
+            learning_window,
+            cast_fn=to_float_tensor,
         )
         """ (float) Learning window cutoff for surrogate gradient function """
 
@@ -361,8 +383,7 @@ class LIFTorch(LIFBaseTorch):
     Neurons therefore share a common resting potential of ``0``, have individual firing thresholds, and perform subtractive reset of ``-V_{thr}``.
     """
 
-
-    def forward(self, data: torch.Tensor) -> torch.Tensor:
+    def forward(self, input_data: torch.Tensor) -> torch.Tensor:
         """
         Forward method for processing data through this layer
         Adds synaptic inputs to the synaptic states and mimics the Leaky Integrate and Fire dynamics
@@ -378,30 +399,37 @@ class LIFTorch(LIFBaseTorch):
 
         """
         # - Auto-batch over input data
-        data, (vmem, spikes, isyn) = self._auto_batch(
-            data,
+        input_data, (vmem, spikes, isyn) = self._auto_batch(
+            input_data,
             (self.vmem, self.spikes, self.isyn),
-            ((self.size_out,), (self.size_out,), (self.size_out, self.n_synapses),),
+            (
+                (self.size_out,),
+                (self.size_out,),
+                (self.size_out, self.n_synapses),
+            ),
         )
-        n_batches, time_steps, _ = data.shape
+        n_batches, n_timesteps, _ = input_data.shape
 
         # - Reshape data over separate input synapses
-        data = data.reshape(n_batches, time_steps, self.size_out, self.n_synapses)
+        input_data = input_data.reshape(
+            n_batches, n_timesteps, self.size_out, self.n_synapses
+        )
 
         # - Set up state record and output
         if self._record:
-            self._record_vmem = torch.zeros(n_batches, time_steps, self.size_out)
+            self._record_vmem = torch.zeros(n_batches, n_timesteps, self.size_out)
             self._record_isyn = torch.zeros(
-                n_batches, time_steps, self.size_out, self.n_synapses
+                n_batches, n_timesteps, self.size_out, self.n_synapses
             )
             self._record_irec = torch.zeros(
-                n_batches, time_steps, self.size_out, self.n_synapses
+                n_batches, n_timesteps, self.size_out, self.n_synapses
             )
+
             self._record_U = torch.zeros(n_batches, time_steps, self.size_out)
             self._record_threshold = torch.zeros(n_batches, time_steps, self.size_out)
 
         self._record_spikes = torch.zeros(
-            n_batches, time_steps, self.size_out, device=data.device
+            n_batches, n_timesteps, self.size_out, device=input_data.device
         )
 
         # - Calculate and cache updated values for decay factors
@@ -409,33 +437,36 @@ class LIFTorch(LIFBaseTorch):
         beta = self.beta
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
 
+        # - Generate membrane noise trace
+        noise_ts = noise_zeta * torch.randn(
+            (n_batches, n_timesteps, self.size_out), device=vmem.device
+        )
+
         # - Loop over time
-        for t in range(time_steps):
+        for t in range(n_timesteps):
             # Integrate synaptic input
-            isyn = isyn + data[:, t]
+            isyn = isyn + input_data[:, t]
 
             # - Apply spikes over the recurrent weights
             if hasattr(self, "w_rec"):
-                rec_inp = F.linear(spikes, self.w_rec.T).reshape(
+                irec = F.linear(spikes, self.w_rec.T).reshape(
                     n_batches, self.size_out, self.n_synapses
                 )
-                isyn = isyn + rec_inp
+                isyn = isyn + irec
 
             # Decay synaptic and membrane state
             vmem *= alpha
             isyn *= beta
 
             # Integrate membrane state and apply noise
-            vmem = vmem + isyn.sum(2) + self.bias
-            if self.noise_std > 0:
-                vmem += noise_zeta * torch.randn(vmem.shape, device=vmem.device)
+            vmem = vmem + isyn.sum(2) + noise_ts[:, t, :] + self.bias
 
             # - Spike generation
             spikes = self.spike_generation_fn(
                 vmem, self.threshold, self.learning_window, self.max_spikes_per_dt
             )
 
-            # - Membrane reset
+            # - Apply subtractive membrane reset
             vmem = vmem - spikes * self.threshold
 
             # - Maintain state record
@@ -444,7 +475,7 @@ class LIFTorch(LIFBaseTorch):
                 self._record_isyn[:, t] = isyn
 
                 if hasattr(self, "w_rec"):
-                    self._record_irec[:, t] = rec_inp
+                    self._record_irec[:, t] = irec
 
                 self._record_U[:, t] = sigmoid(vmem * 20.0, self.threshold)
                 self._record_threshold[:, t] = self.threshold

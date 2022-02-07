@@ -1,4 +1,3 @@
-
 def test_spike_clipping():
     from rockpool.nn.modules.torch.lif_torch import StepPWL, PeriodicExponential
     from rockpool.nn.modules.torch import LIFBitshiftTorch
@@ -56,7 +55,7 @@ def test_spike_clipping():
     )
 
     # - Generate some data
-    input_data = 0.5*torch.ones(n_batches, T, n_synapses * n_neurons)
+    input_data = 0.5 * torch.ones(n_batches, T, n_synapses * n_neurons)
 
     # - test that number of spikes does not exceed 15
     out, _, rd = mod(input_data, record=True)
@@ -75,14 +74,18 @@ def test_spike_clipping():
     neuron = 0
 
     t_spike = torch.where(out[batch, :, neuron] > 15)[0][0]
-    vmem = rd['vmem'][batch, :, neuron]
-    vmem_xylo_step = rd_xylo_step['vmem'][batch, :, neuron]
-    spike_diff = (out[batch, : t_spike+1, neuron]-out_xylo_step[batch, : t_spike+1, neuron])
-    assert torch.allclose(vmem[:t_spike+1],  vmem_xylo_step[:t_spike+1] - spike_diff*threshold)
-
+    vmem = rd["vmem"][batch, :, neuron]
+    vmem_xylo_step = rd_xylo_step["vmem"][batch, :, neuron]
+    spike_diff = (
+        out[batch, : t_spike + 1, neuron] - out_xylo_step[batch, : t_spike + 1, neuron]
+    )
+    assert torch.allclose(
+        vmem[: t_spike + 1], vmem_xylo_step[: t_spike + 1] - spike_diff * threshold
+    )
 
     if torch.cuda.is_available():
         from rockpool.nn.modules import LIFSlayer
+
         mod_slayer = LIFSlayer(
             shape=(n_synapses * n_neurons, n_neurons),
             tau_mem=tau_mem[0].item(),
@@ -104,15 +107,21 @@ def test_spike_clipping():
         ).cuda()
 
         out_slayer, _, rd_slayer = mod_slayer(input_data.cuda(), record=True)
-        out_slayer_xylo, _, rd_slayer_xylo = mod_slayer_xylo(input_data.cuda(), record=True)
+        out_slayer_xylo, _, rd_slayer_xylo = mod_slayer_xylo(
+            input_data.cuda(), record=True
+        )
 
         assert torch.any(out_slayer > 15)
         assert torch.all(out_slayer_xylo <= 15)
 
         t_spike = torch.where(out_slayer[batch, :, neuron] > 15)[0][0]
-        vmem = rd_slayer['vmem'][batch, :, neuron]
-        vmem_slayer_xylo = rd_slayer_xylo['vmem'][batch, :, neuron]
-        spike_diff = (out_slayer[batch, : t_spike + 1, neuron] - out_slayer_xylo[batch, : t_spike + 1, neuron])
-        assert torch.allclose(vmem[:t_spike + 1], vmem_slayer_xylo[:t_spike + 1] - spike_diff * threshold)
-
-
+        vmem = rd_slayer["vmem"][batch, :, neuron]
+        vmem_slayer_xylo = rd_slayer_xylo["vmem"][batch, :, neuron]
+        spike_diff = (
+            out_slayer[batch, : t_spike + 1, neuron]
+            - out_slayer_xylo[batch, : t_spike + 1, neuron]
+        )
+        assert torch.allclose(
+            vmem[: t_spike + 1],
+            vmem_slayer_xylo[: t_spike + 1] - spike_diff * threshold,
+        )

@@ -55,7 +55,10 @@ class JaxModule(Module, ABC):
     """The internal registry of registered `JaxModule` s"""
 
     def __init__(
-        self, shape: Optional[Union[int, Tuple]] = None, *args, **kwargs,
+        self,
+        shape: Optional[Union[int, Tuple]] = None,
+        *args,
+        **kwargs,
     ):
         """
 
@@ -79,7 +82,10 @@ class JaxModule(Module, ABC):
             JaxModule._rockpool_pytree_registry.append(cls)
 
     def _auto_batch(
-        self, data: np.ndarray, states: Tuple = (), target_shapes: Tuple = None,
+        self,
+        data: np.ndarray,
+        states: Tuple = (),
+        target_shapes: Tuple = None,
     ) -> (np.ndarray, Tuple[np.ndarray]):
         """
         Automatically replicate states over batches and verify input dimensions

@@ -92,7 +92,8 @@ class ExpSyn(Module):
         """ (np.ndarray) Time constant of each synapse ``(Nin,)`` or ``()`` """
 
         self.isyn: Union[np.array, State] = State(
-            shape=self.shape, init_func=np.zeros,
+            shape=self.shape,
+            init_func=np.zeros,
         )
 
     def _init_synapse_windows(self) -> None:
@@ -109,7 +110,10 @@ class ExpSyn(Module):
         self._window = np.exp(time_base).T
 
     def evolve(
-        self, input_data: np.array, *args, **kwargs,
+        self,
+        input_data: np.array,
+        *args,
+        **kwargs,
     ) -> (np.ndarray, dict, dict):
         # - Expand states and data over batches
         input_data, (isyn, window) = self._auto_batch(
@@ -124,7 +128,10 @@ class ExpSyn(Module):
         rollover = np.zeros(input_data.shape)
         rollover[:, 0, :] = isyn
         rollover = sig.fftconvolve(
-            rollover, window[:, :n_timesteps, :], axes=1, mode="full",
+            rollover,
+            window[:, :n_timesteps, :],
+            axes=1,
+            mode="full",
         )
 
         # - Perform temporal convolution on input

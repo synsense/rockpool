@@ -360,7 +360,7 @@ def test_lif_gradients():
     Nin = 200
     Nout = 100
     batches = 3
-    T = 10
+    T = 20
     input_data = np.random.rand(batches, T, Nin)
 
     t_mod = LIFTorch((Nin, Nout))
@@ -424,7 +424,10 @@ def test_expsyn_gradients():
     input_data = np.random.rand(batches, T, Nin)
 
     t_mod = ExpSynTorch(Nin)
-    j_mod = ExpSynJax(Nin, tau=np.array(t_mod.tau.detach()),)
+    j_mod = ExpSynJax(
+        Nin,
+        tau=np.array(t_mod.tau.detach()),
+    )
 
     t_grads = get_torch_gradients(t_mod, input_data)
     j_grads = get_jax_gradients(j_mod, input_data)

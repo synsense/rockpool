@@ -41,7 +41,10 @@ def sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
 
 @jax.custom_jvp
 def step_pwl(
-    x: FloatVector, threshold: FloatVector, window: FloatVector = 0.5
+    x: FloatVector,
+    threshold: FloatVector,
+    window: FloatVector = 0.5,
+    max_spikes_per_dt: int = np.inf,
 ) -> FloatVector:
     """
     Heaviside step function with piece-wise linear derivative to use as spike-generation surrogate
@@ -50,19 +53,21 @@ def step_pwl(
         x (float):          Input value
         threshold (float):  Firing threshold
         window (float): Learning window around threshold. Default: 0.5
+        max_spikes_per_dt (int): Maximum number of spikes that may be produced each dt. Default: ``np.inf``, do not clamp spikes
 
     Returns:
         float: Number of output events for each input value
     """
-    return (x > (threshold - window)) * np.floor(x / threshold)
+    spikes = (x >= threshold) * np.floor(x / threshold)
+    return np.clip(spikes, 0.0, max_spikes_per_dt)
 
 
 @step_pwl.defjvp
 def step_pwl_jvp(primals, tangents):
-    x, threshold, window = primals
-    (x_dot, threshold_dot, window_dot) = tangents
+    x, threshold, window, max_spikes_per_dt = primals
+    x_dot, threshold_dot, window_dot, max_spikes_per_dt_dot = tangents
     primal_out = step_pwl(*primals)
-    tangent_out = (x > (threshold - window)) * (
+    tangent_out = (x >= (threshold - window)) * (
         x_dot / threshold - threshold_dot * x / (threshold ** 2)
     )
     return primal_out, tangent_out
@@ -128,7 +133,7 @@ class LIFJax(JaxModule):
             weight_init_func (Optional[Callable[[Tuple], np.ndarray]): The initialisation function to use when generating weights. Default: ``None`` (Kaiming initialisation)
             threshold (FloatVector): An optional array specifying the firing threshold of each neuron. If not provided, ``1.`` will be used by default.
             noise_std (float): The std. dev. after 1s of the noise added to membrane state variables. Default: ``0.0`` (no noise).
-            max_spikes_per_dt (int): Currently not used! The maximum number of events that will be produced in a single time-step. Default: ``np.inf``; do not clamp spiking
+            max_spikes_per_dt (int): The maximum number of events that will be produced in a single time-step. Default: ``np.inf``; do not clamp spiking.
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
             rng_key (Optional[Any]): The Jax RNG seed to use on initialisation. By default, a new seed is generated.
         """
@@ -195,7 +200,17 @@ class LIFJax(JaxModule):
             tau_syn,
             "taus",
             init_func=lambda s: np.ones(s) * 20e-3,
-            shape=[(self.size_out, self.n_synapses,), (1, self.n_synapses,), (),],
+            shape=[
+                (
+                    self.size_out,
+                    self.n_synapses,
+                ),
+                (
+                    1,
+                    self.n_synapses,
+                ),
+                (),
+            ],
             cast_fn=np.array,
         )
         """ (np.ndarray) Synaptic time constants `(Nout,)` or `()` """
@@ -246,7 +261,9 @@ class LIFJax(JaxModule):
         }
 
     def evolve(
-        self, input_data: np.ndarray, record: bool = False,
+        self,
+        input_data: np.ndarray,
+        record: bool = False,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
 
@@ -262,19 +279,29 @@ class LIFJax(JaxModule):
         input_data, (vmem, spikes, isyn) = self._auto_batch(
             input_data,
             (self.vmem, self.spikes, self.isyn),
-            ((self.size_out,), (self.size_out,), (self.size_out, self.n_synapses),),
+            (
+                (self.size_out,),
+                (self.size_out,),
+                (self.size_out, self.n_synapses),
+            ),
         )
-        batches, num_timesteps, _ = input_data.shape
+        n_batches, n_timesteps, _ = input_data.shape
 
         # - Reshape data over separate input synapses
         input_data = input_data.reshape(
-            batches, num_timesteps, self.size_out, self.n_synapses
+            n_batches, n_timesteps, self.size_out, self.n_synapses
         )
 
         # - Get evolution constants
         alpha = np.exp(-self.dt / self.tau_mem)
         beta = np.exp(-self.dt / self.tau_syn)
         noise_zeta = self.noise_std * np.sqrt(self.dt)
+
+        # - Generate membrane noise trace
+        key1, subkey = rand.split(self.rng_key)
+        noise_ts = noise_zeta * rand.normal(
+            subkey, shape=(n_batches, n_timesteps, self.size_out)
+        )
 
         # - Single-step LIF dynamics
         def forward(
@@ -305,36 +332,31 @@ class LIFJax(JaxModule):
                 Isyn_ts:        (np.ndarray) Synaptic input current received by each neuron over time [T, N]
             """
             # - Unpack inputs
-            (sp_in_t, I_in_t) = inputs_t
+            (sp_in_t, noise_in_t) = inputs_t
 
             # - Unpack state
-            spikes, Isyn, Vmem = state
+            spikes, isyn, vmem = state
 
             # - Apply synaptic and recurrent input
-            Irec = np.dot(spikes, self.w_rec).reshape(self.size_out, self.n_synapses)
-            Isyn += sp_in_t + Irec
+            isyn = isyn + sp_in_t
+            irec = np.dot(spikes, self.w_rec).reshape(self.size_out, self.n_synapses)
+            isyn = isyn + irec
 
             # - Decay synaptic and membrane state
-            Vmem *= alpha
-            Isyn *= beta
+            vmem *= alpha
+            isyn *= beta
 
             # - Integrate membrane potentials
-            Vmem += Isyn.sum(1) + I_in_t + self.bias
+            vmem = vmem + isyn.sum(1) + noise_in_t + self.bias
 
             # - Detect next spikes (with custom gradient)
-            spikes = step_pwl(Vmem, self.threshold)
+            spikes = step_pwl(vmem, self.threshold, 0.5, self.max_spikes_per_dt)
 
             # - Apply subtractive membrane reset
-            Vmem = Vmem - spikes * self.threshold
+            vmem = vmem - spikes * self.threshold
 
             # - Return state and outputs
-            return (spikes, Isyn, Vmem), (Irec, spikes, Vmem, Isyn)
-
-        # - Generate membrane noise trace
-        key1, subkey = rand.split(self.rng_key)
-        noise_ts = noise_zeta * rand.normal(
-            subkey, shape=(batches, num_timesteps, self.size_out)
-        )
+            return (spikes, isyn, vmem), (irec, spikes, vmem, isyn)
 
         # - Map over batches
         @jax.vmap
@@ -342,27 +364,27 @@ class LIFJax(JaxModule):
             return scan(forward, (spikes, isyn, vmem), (input_data, noise_ts))
 
         # - Evolve over spiking inputs
-        state, (Irec_ts, spikes_ts, Vmem_ts, Isyn_ts) = scan_time(
+        state, (irec_ts, spikes_ts, vmem_ts, isyn_ts) = scan_time(
             spikes, isyn, vmem, input_data, noise_ts
         )
 
         # - Generate output surrogate
-        surrogate_ts = sigmoid(Vmem_ts * 20.0, self.threshold)
+        surrogate_ts = sigmoid(vmem_ts * 20.0, self.threshold)
 
         # - Generate return arguments
         outputs = spikes_ts
         states = {
             "spikes": spikes_ts[0, -1],
-            "isyn": Isyn_ts[0, -1],
-            "vmem": Vmem_ts[0, -1],
+            "isyn": isyn_ts[0, -1],
+            "vmem": vmem_ts[0, -1],
             "rng_key": key1,
         }
 
         record_dict = {
-            "irec": Irec_ts,
+            "irec": irec_ts,
             "spikes": spikes_ts,
-            "isyn": Isyn_ts,
-            "vmem": Vmem_ts,
+            "isyn": isyn_ts,
+            "vmem": vmem_ts,
             "U": surrogate_ts,
         }
 
