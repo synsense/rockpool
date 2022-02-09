@@ -267,7 +267,6 @@ class LIFBaseTorch(TorchModule):
         self._record_irec = None
         self._record_U = None
         self._record_spikes = None
-        self._record_threshold = None
 
         self._record_dict = {}
         self._record = False
@@ -287,7 +286,6 @@ class LIFBaseTorch(TorchModule):
                 "vmem": self._record_vmem,
                 "isyn": self._record_isyn,
                 "spikes": self._record_spikes,
-                "threshold": self._record_threshold,
                 "irec": self._record_irec,
                 "U": self._record_U,
             }
@@ -413,7 +411,6 @@ class LIFTorch(LIFBaseTorch):
             )
 
             self._record_U = torch.zeros(n_batches, n_timesteps, self.size_out)
-            self._record_threshold = torch.zeros(n_batches, n_timesteps, self.size_out)
 
         self._record_spikes = torch.zeros(
             n_batches, n_timesteps, self.size_out, device=input_data.device
@@ -465,7 +462,6 @@ class LIFTorch(LIFBaseTorch):
                     self._record_irec[:, t] = irec
 
                 self._record_U[:, t] = sigmoid(vmem * 20.0, self.threshold)
-                self._record_threshold[:, t] = self.threshold
 
             # - Maintain output spike record
             self._record_spikes[:, t] = spikes
