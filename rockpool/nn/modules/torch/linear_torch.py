@@ -112,12 +112,10 @@ class LinearTorch(TorchModule):
         )
 
     def as_graph(self) -> GraphModuleBase:
-        return as_GraphHolder(
-            LinearWeights._factory(
-                self.size_in,
-                self.size_out,
-                f"{type(self).__name__}_{self.name}_{id(self)}",
-                self,
-                self.weight.detach().numpy(),
-            )
+        return LinearWeights._factory(
+            self.size_in,
+            self.size_out,
+            f"{type(self).__name__}_{self.name}_{id(self)}",
+            self,
+            self.weight.detach().numpy(),
         )

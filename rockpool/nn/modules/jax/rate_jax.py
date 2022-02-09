@@ -139,7 +139,9 @@ class RateJax(JaxModule):
 
         # - Initialise state
         self.x: P_ndarray = State(
-            shape=self.size_out, init_func=np.zeros, cast_fn=np.array,
+            shape=self.size_out,
+            init_func=np.zeros,
+            cast_fn=np.array,
         )
         """A vector ``(N,)`` of the internal state of each unit"""
 
@@ -225,7 +227,9 @@ class RateJax(JaxModule):
         }
 
     def evolve(
-        self, input_data: np.ndarray, record: bool = False,
+        self,
+        input_data: np.ndarray,
+        record: bool = False,
     ):
         # - Expand over batches
         input_data, (x0,) = self._auto_batch(input_data, (self.x,))

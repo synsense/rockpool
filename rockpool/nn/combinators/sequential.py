@@ -20,7 +20,9 @@ class SequentialMixin(ABC):
     """
 
     def __init__(
-        self, *args, **kwargs,
+        self,
+        *args,
+        **kwargs,
     ):
         # - Check that `shape` wasn't provided as a keyword argument
         if "shape" in kwargs:
@@ -84,7 +86,9 @@ class SequentialMixin(ABC):
         # - Assign modules as submodules
         for (mod_name, submod) in zip(submod_names, submods):
             setattr(
-                self, mod_name, submod,
+                self,
+                mod_name,
+                submod,
             )
 
         # - Record module list
@@ -106,7 +110,10 @@ class SequentialMixin(ABC):
             x, substate, subrec = mod(x, record=record)
             new_state_dict.update({submod_name: substate})
             record_dict.update(
-                {submod_name: subrec, f"{submod_name}_output": copy(x),}
+                {
+                    submod_name: subrec,
+                    f"{submod_name}_output": copy(x),
+                }
             )
 
         # - Return output, state and record
@@ -153,11 +160,17 @@ class SequentialMixin(ABC):
             dt = mod.dt if hasattr(mod, "dt") else self.dt
             if mod.spiking_output:
                 ts_output = TSEvent.from_raster(
-                    state_dict[output_key][0], dt=dt, name=output_key, t_start=t_start,
+                    state_dict[output_key][0],
+                    dt=dt,
+                    name=output_key,
+                    t_start=t_start,
                 )
             else:
                 ts_output = TSContinuous.from_clocked(
-                    state_dict[output_key][0], dt=dt, name=output_key, t_start=t_start,
+                    state_dict[output_key][0],
+                    dt=dt,
+                    name=output_key,
+                    t_start=t_start,
                 )
 
             state_dict.update({output_key: ts_output})
@@ -227,7 +240,9 @@ try:
         """
 
         def __init__(
-            self, *args, **kwargs,
+            self,
+            *args,
+            **kwargs,
         ):
             # - Convert torch modules to Rockpool TorchModules
             for item in args:
@@ -240,6 +255,11 @@ try:
             super().__init__(*args, **kwargs)
 
         def forward(self, *args, **kwargs):
+            # - By default, record state
+            record = kwargs.get("record", True)
+            kwargs["record"] = record
+
+            # - Return output
             return self.evolve(*args, **kwargs)[0]
 
 

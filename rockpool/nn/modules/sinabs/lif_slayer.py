@@ -11,12 +11,15 @@ if util.find_spec("sinabs") is None or util.find_spec("sinabs.slayer") is None:
 
 from rockpool.nn.modules.torch.lif_torch import LIFBaseTorch
 import torch
+import numpy as np
 
 from rockpool.typehints import *
 from rockpool.parameters import Constant
 
-from sinabs.slayer.spike import SpikeFunctionIterForward
-from sinabs.slayer.leaky import LeakyIntegrator
+from sinabs.exodus.spike import SpikeFunctionIterForward
+from sinabs.exodus.leaky import LeakyIntegrator
+
+from sinabs.activation import Heaviside, SingleExponential
 
 __all__ = ["LIFSlayer"]
 
@@ -65,6 +68,10 @@ class LIFSlayer(LIFBaseTorch):
             *args,
             **kwargs,
         )
+
+        self.surrogate_grad_fn = Heaviside(self.learning_window)
+        if np.isinf(self.max_spikes_per_dt):
+            self.max_spikes_per_dt = None
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
@@ -120,7 +127,10 @@ class LIFSlayer(LIFBaseTorch):
             )
 
             isyn_slayer[:, syn] = LeakyIntegrator.apply(
-                inp.contiguous(), isyn[:, :, syn].flatten().contiguous(), beta[0, syn]
+                inp.contiguous(),
+                isyn[:, :, syn].flatten().contiguous(),
+                beta[0, syn],
+                True,
             )
 
         spikes, vmem_slayer = SpikeFunctionIterForward.apply(
@@ -131,8 +141,8 @@ class LIFSlayer(LIFBaseTorch):
             spikes.squeeze(),  # last activations
             threshold[0],  # threshold
             None,  # threshold low
-            self.learning_window,  # learning window
-            1.0,  # scale grads
+            self.surrogate_grad_fn,
+            self.max_spikes_per_dt,
         )
 
         # Bring states to rockpool dimensions

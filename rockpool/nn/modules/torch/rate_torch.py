@@ -22,7 +22,7 @@ from typing import Optional, Union, Callable, Tuple, Any
 
 __all__ = ["RateTorch"]
 
-relu = lambda x, t: torch.clip(x - t, 0, torch.inf)
+relu = lambda x, t: torch.clip(x - t, 0, None)
 
 
 class RateTorch(TorchModule):
@@ -176,7 +176,7 @@ class RateTorch(TorchModule):
             n_batches, time_steps, self.size_out, device=data.device
         )
 
-        alpha = self.dt / torch.clip(self.tau, 10 * self.dt, torch.inf)
+        alpha = self.dt / self.tau
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
 
         # - Loop over time

@@ -114,14 +114,12 @@ class LinearMixin(ABC):
         return self._dot(input_data, self.weight) + self.bias, {}, {}
 
     def as_graph(self) -> GraphModuleBase:
-        return as_GraphHolder(
-            LinearWeights._factory(
-                self.size_in,
-                self.size_out,
-                f"{type(self).__name__}_{self.name}_{id(self)}",
-                self,
-                self.weight,
-            )
+        return LinearWeights._factory(
+            self.size_in,
+            self.size_out,
+            f"{type(self).__name__}_{self.name}_{id(self)}",
+            self,
+            self.weight,
         )
 
 
