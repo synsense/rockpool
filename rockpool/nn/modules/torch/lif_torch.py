@@ -164,11 +164,7 @@ class LIFBaseTorch(TorchModule):
 
         # - Initialise superclass
         super().__init__(
-            shape=shape,
-            spiking_input=True,
-            spiking_output=True,
-            *args,
-            **kwargs,
+            shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs,
         )
 
         self.n_neurons = self.size_out
@@ -211,17 +207,7 @@ class LIFBaseTorch(TorchModule):
         self.tau_syn: P_tensor = rp.Parameter(
             tau_syn,
             family="taus",
-            shape=[
-                (
-                    self.size_out,
-                    self.n_synapses,
-                ),
-                (
-                    1,
-                    self.n_synapses,
-                ),
-                (),
-            ],
+            shape=[(self.size_out, self.n_synapses,), (1, self.n_synapses,), (),],
             init_func=lambda s: torch.ones(s) * 20e-3,
             cast_fn=to_float_tensor,
         )
@@ -246,8 +232,7 @@ class LIFBaseTorch(TorchModule):
         """ (Tensor) Firing threshold for each neuron `(Nout,)` """
 
         self.learning_window: P_tensor = rp.SimulationParameter(
-            learning_window,
-            cast_fn=to_float_tensor,
+            learning_window, cast_fn=to_float_tensor,
         )
         """ (float) Learning window cutoff for surrogate gradient function """
 
@@ -408,11 +393,7 @@ class LIFTorch(LIFBaseTorch):
         input_data, (vmem, spikes, isyn) = self._auto_batch(
             input_data,
             (self.vmem, self.spikes, self.isyn),
-            (
-                (self.size_out,),
-                (self.size_out,),
-                (self.size_out, self.n_synapses),
-            ),
+            ((self.size_out,), (self.size_out,), (self.size_out, self.n_synapses),),
         )
         n_batches, n_timesteps, _ = input_data.shape
 
@@ -431,8 +412,8 @@ class LIFTorch(LIFBaseTorch):
                 n_batches, n_timesteps, self.size_out, self.n_synapses
             )
 
-            self._record_U = torch.zeros(n_batches, time_steps, self.size_out)
-            self._record_threshold = torch.zeros(n_batches, time_steps, self.size_out)
+            self._record_U = torch.zeros(n_batches, n_timesteps, self.size_out)
+            self._record_threshold = torch.zeros(n_batches, n_timesteps, self.size_out)
 
         self._record_spikes = torch.zeros(
             n_batches, n_timesteps, self.size_out, device=input_data.device

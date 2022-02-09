@@ -1,4 +1,8 @@
-import pytest
+# - Set 64-bit mode
+from jax.config import config
+
+config.update("jax_enable_x64", True)
+
 import torch
 import numpy as np
 import jax
@@ -362,10 +366,18 @@ def test_lif_gradients():
     batches = 3
     T = 20
     np.random.seed(0)
-    input_data = np.random.rand(batches, T, Nin)
+    input_data = np.random.rand(batches, T, Nin).astype("float64")
+    threshold = np.ones((Nout,)).astype("float64")
+    tau_syn = 100e-3 * np.ones((Nin,)).astype("float64")
+    tau_mem = 150e-3 * np.ones((Nout,)).astype("float64")
 
-    t_mod = LIFTorch((Nin, Nout))
-    j_mod = LIFJax((Nin, Nout))
+    t_mod = LIFTorch(
+        (Nin, Nout),
+        threshold=torch.tensor(threshold),
+        tau_mem=torch.tensor(tau_mem),
+        tau_syn=torch.tensor(tau_syn),
+    )
+    j_mod = LIFJax((Nin, Nout), threshold=threshold, tau_mem=tau_mem, tau_syn=tau_syn,)
 
     t_grads = get_torch_gradients(t_mod, input_data)
     j_grads = get_jax_gradients(j_mod, input_data)
@@ -374,11 +386,10 @@ def test_lif_gradients():
         "Max difference",
         np.max(np.abs(t_grads["tau_mem"].numpy() - j_grads["tau_mem"])),
     )
-    print("Tolerance", 1e-4 * Nin * Nout * T)
+    atol = 1e-8 * Nin * Nout * T
+    print("Tolerance", atol)
 
-    compare_value_tree(
-        [j_grads, t_grads], [LIFJax, LIFTorch], atol=1e-4 * Nin * Nout * T
-    )
+    compare_value_tree([j_grads, t_grads], [LIFJax, LIFTorch], atol=atol)
 
 
 def test_linearlif_gradients():
@@ -389,22 +400,34 @@ def test_linearlif_gradients():
     Nin = 2
     Nout = 4
     batches = 3
-    T = 200
+    T = 20
     np.random.seed(0)
-    input_data = np.random.rand(batches, T, Nin).astype("float32")
-    weight = np.random.uniform(-1, 1, size=(Nin, Nout)).astype("float32")
-    bias = np.random.uniform(-1, 1, size=(Nout,)).astype("float32")
+    input_data = np.random.rand(batches, T, Nin).astype("float64")
+    weight = np.random.uniform(-1, 1, size=(Nin, Nout)).astype("float64")
+    bias = np.random.uniform(-1, 1, size=(Nout,)).astype("float64")
+    threshold = np.ones((Nout,)).astype("float64")
+    tau_syn = 100e-3 * np.ones((Nout,)).astype("float64")
+    tau_mem = 150e-3 * np.ones((Nout,)).astype("float64")
 
     t_mod = Sequential(
-        LinearTorch((Nin, Nout), weight=torch.tensor(weight), bias=torch.tensor(bias)),
-        LIFTorch(Nout),
+        LinearTorch(
+            (Nin, Nout),
+            weight=torch.tensor(weight).float(),
+            bias=torch.tensor(bias).float(),
+        ),
+        LIFTorch(
+            Nout,
+            threshold=torch.tensor(threshold).float(),
+            tau_mem=torch.tensor(tau_mem).float(),
+            tau_syn=torch.tensor(tau_syn).float(),
+        ),
     )
     j_mod = Sequential(
         LinearJax((Nin, Nout), weight=weight, bias=bias),
-        LIFJax(Nout),
+        LIFJax(Nout, threshold=threshold, tau_mem=tau_mem, tau_syn=tau_syn,),
     )
 
-    t_grads = get_torch_gradients(t_mod, input_data)
+    t_grads = get_torch_gradients(t_mod, torch.tensor(input_data).float())
     j_grads = get_jax_gradients(j_mod, input_data)
 
     print(
@@ -416,7 +439,8 @@ def test_linearlif_gradients():
             )
         ),
     )
-    print("Tolerance", 1e-4 * Nin * Nout * T)
+    atol_weight = 1e-8 * Nin * Nout * T
+    print("Tolerance", atol_weight)
 
     print(
         "Max tau_mem difference",
@@ -427,17 +451,16 @@ def test_linearlif_gradients():
             )
         ),
     )
-    print("Tolerance", 1e-4 * Nout * T)
+    atol_lif = 1e-8 * Nout ** 2 * T ** 2.4
+    print("Tolerance", atol_lif)
 
     compare_value_tree(
         [j_grads["0_LinearJax"], t_grads["0_LinearTorch"]],
         [LinearJax, LinearTorch],
-        atol=1e-4 * T * Nin * Nout,
+        atol=atol_weight,
     )
     compare_value_tree(
-        [j_grads["1_LIFJax"], t_grads["1_LIFTorch"]],
-        [LIFJax, LIFTorch],
-        atol=1e-4 * T * Nout,
+        [j_grads["1_LIFJax"], t_grads["1_LIFTorch"]], [LIFJax, LIFTorch], atol=atol_lif,
     )
 
 
