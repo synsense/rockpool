@@ -121,6 +121,11 @@ def connect_modules(
                 this_dest_node_index = sink.input_nodes.index(d_i_node)
                 sink.input_nodes[this_dest_node_index] = s_o_node
 
+        # - Replace destination input nodes, if required
+        if d_i_node in dest.input_nodes:
+            this_dest_node_index = dest.input_nodes.index(d_i_node)
+            dest.input_nodes[this_dest_node_index] = s_o_node
+
 
 def bag_graph(
     graph: GraphModuleBase,
