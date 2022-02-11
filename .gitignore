@@ -16,3 +16,7 @@ test.json
 **/.vscode
 *.so
 *samna.log
+docs/tutorials/cache
+docs/tutorials/data
+docs/tutorials/lightning_logs
+docs/tutorials/mlruns

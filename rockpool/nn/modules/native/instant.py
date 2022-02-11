@@ -4,12 +4,13 @@ Encapsulate a simple instantaneous function as a jax module
 
 from rockpool.nn.modules import Module
 from rockpool.parameters import SimulationParameter
+from rockpool.typehints import P_Callable
 
 from warnings import warn
 
 from typing import Callable, Union
 
-__all__ = ["Instant", "InstantJax"]
+__all__ = ["Instant", "InstantJax", "InstantTorch"]
 
 
 class InstantMixin:
@@ -19,7 +20,7 @@ class InstantMixin:
 
     def __init__(
         self,
-        shape: tuple = None,
+        shape: Union[int, tuple] = None,
         function: Callable = lambda x: x,
         *args,
         **kwargs,
@@ -39,9 +40,7 @@ class InstantMixin:
         super().__init__(shape=shape, *args, **kwargs)
 
         # - Store the function
-        self.function: Union[Callable, SimulationParameter] = SimulationParameter(
-            function
-        )
+        self.function: P_Callable = SimulationParameter(function)
 
     def evolve(
         self,
@@ -82,4 +81,23 @@ except (ImportError, ModuleNotFoundError) as err:
         def __init__(self, *_, **__):
             raise ImportError(
                 "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available."
+            )
+
+
+try:
+    from rockpool.nn.modules.torch.torch_module import TorchModule
+
+    class InstantTorch(InstantMixin, TorchModule):
+        """
+        Wrap a callable function as an instantaneous Rockpool module, with a Torch backend
+        """
+
+
+except (ImportError, ModuleNotFoundError) as err:
+    # warn("'torch' backend not found. Modules that rely on Torch will not be available.")
+
+    class InstantTorch:
+        def __init__(self, *_, **__):
+            raise ImportError(
+                "'torch' backend not found. Modules that rely on Torch will not be available."
             )

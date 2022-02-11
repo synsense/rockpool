@@ -21,16 +21,16 @@ def test_imports():
 
 
 def test_mse():
-    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
+    from rockpool.nn.modules import RateJax
     from jax.experimental.optimizers import adam
 
     import jax
-    from jax import jit, numpy as jnp
+    from jax import jit
     import numpy as np
 
     from rockpool.training.jax_loss import mse
 
-    mod = RateEulerJax(2)
+    mod = RateJax(2)
     params0 = mod.parameters()
 
     init_fun, update_fun, get_params = adam(1e-2)
@@ -52,7 +52,7 @@ def test_mse():
 
     from tqdm.autonotebook import tqdm
 
-    with tqdm(range(100)) as t:
+    with tqdm(range(5)) as t:
         for i in t:
             loss, grads = vgf(get_params(opt_state), mod, inputs, target)
             opt_state = update_fun(i, grads, opt_state)
@@ -110,10 +110,10 @@ def test_bounds_cost():
 
 def test_l2sqr_norm():
     import jax
-    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
+    from rockpool.nn.modules.jax.rate_jax import RateJax
     from rockpool.training.jax_loss import l2sqr_norm
 
-    mod = RateEulerJax((2, 2))
+    mod = RateJax(2, has_rec=True)
 
     c = l2sqr_norm(mod.parameters("weights"))
 
@@ -125,16 +125,16 @@ def test_l2sqr_norm():
 
 
 def test_l0norm():
-    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
+    from rockpool.nn.modules.jax.rate_jax import RateJax
     from rockpool.training.jax_loss import l0_norm_approx
     from rockpool.nn.combinators.ffwd_stack import FFwdStack
     import jax
 
-    mod = RateEulerJax((2, 2))
+    mod = RateJax(2, has_rec=True)
 
     c = l0_norm_approx(mod.parameters("weights"))
 
-    mod = FFwdStack(RateEulerJax(10), RateEulerJax((5, 5)), RateEulerJax(1))
+    mod = FFwdStack(RateJax(10), RateJax(5, has_rec=True), RateJax(1))
 
     c = l0_norm_approx(mod.parameters("weights"))
 

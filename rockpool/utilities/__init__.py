@@ -20,3 +20,5 @@ try:
     from .timedarray_shift import TimedArray
 except (ImportError, ModuleNotFoundError) as err:
     warnings.warn(f"Could not import modules: {err}")
+
+from .backend_management import *

@@ -20,12 +20,10 @@ def test_LIFBitshiftTorch_Forward_Backward():
         tau_mem=tau_mem,
         tau_syn=tau_syn,
         threshold=1.0,
-        has_bias=True,
         has_rec=True,
         noise_std=0.1,
         learning_window=0.5,
         dt=0.001,
-        device="cpu",
     )
 
     # - Generate some data
@@ -56,12 +54,10 @@ def test_LIFBitshiftTorch_single_neuron():
         tau_mem=tau_mem,
         tau_syn=tau_syn,
         threshold=1000.0,
-        has_bias=False,
         has_rec=False,
         noise_std=0.0,
         learning_window=0.5,
         dt=0.001,
-        device="cpu",
     )
 
     # - Generate some data
@@ -73,9 +69,11 @@ def test_LIFBitshiftTorch_single_neuron():
     # - Test Rockpool interface
     out, state, rec = mod.evolve(input_data, record=True)
 
-    # make sure the values decayed correctly
-    assert rec["Isyn"][0, 0, 0, 0] == 0.5
-    assert rec["Isyn"][0, 1, 0, 0] == 0.25
+    print(rec["isyn"])
 
-    assert rec["Isyn"][0, 0, 0, 1] == 0.75
-    assert rec["Isyn"][0, 1, 0, 1] == 0.5625
+    # make sure the values decayed correctly
+    assert rec["isyn"][0, 0, 0, 0] == 0.5
+    assert rec["isyn"][0, 1, 0, 0] == 0.25
+
+    assert rec["isyn"][0, 0, 0, 1] == 0.75
+    assert rec["isyn"][0, 1, 0, 1] == 0.5625

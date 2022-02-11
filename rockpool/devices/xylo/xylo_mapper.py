@@ -73,6 +73,13 @@ def le_16_input_channels(graph: GraphModuleBase) -> None:
         )
 
 
+def le_8_output_channels(graph: GraphModuleBase) -> None:
+    if len(graph.output_nodes) > 8:
+        raise DRCError(
+            f"Xylo only supports up to 8 output channels. The network requires {len(graph.output_nodes)} output channels."
+        )
+
+
 def all_neurons_have_same_dt(graph: GraphModuleBase) -> None:
     neurons: SetList[GenericNeurons] = find_modules_of_subclass(graph, GenericNeurons)
 
@@ -148,16 +155,27 @@ def alias_output_nodes_must_have_neurons_as_input(graph: GraphModuleBase) -> Non
                     )
 
 
+def at_least_two_neuron_layers_needed(graph: GraphModuleBase) -> None:
+    all_neurons = find_modules_of_subclass(graph, GenericNeurons)
+
+    if len(all_neurons) < 2:
+        raise DRCError(
+            "At least two layers of neurons are required to map to hidden and output layers on Xylo."
+        )
+
+
 xylo_drc: List[Callable[[GraphModuleBase], None]] = [
     output_nodes_have_neurons_as_source,
     input_to_neurons_is_a_weight,
     first_module_is_a_weight,
     le_16_input_channels,
+    le_8_output_channels,
     all_neurons_have_same_dt,
     output_neurons_cannot_be_recurrent,
     no_consecutive_weights,
     alias_inputs_must_be_neurons,
     alias_output_nodes_must_have_neurons_as_input,
+    at_least_two_neuron_layers_needed,
 ]
 """ List[Callable[[GraphModuleBase], None]]: The collection of design rules for Xylo """
 
@@ -467,23 +485,20 @@ def mapper(
         dash_mem[these_indices] = n.dash_mem
 
         if len(n.input_nodes) > len(n.output_nodes):
-            # dash_syn[these_indices] = n.dash_syn[::2]
-            # dash_syn_2[these_indices] = n.dash_syn[1::2]
+            dash_syn_reshape = np.array(n.dash_syn).reshape((-1, 2))
             for i, index in enumerate(these_indices):
-                dash_syn[index] = n.dash_syn[i][0]
-                dash_syn_2[index] = n.dash_syn[i][1]
+                dash_syn[index] = dash_syn_reshape[i][0]
+                dash_syn_2[index] = dash_syn_reshape[i][1]
         else:
-            # dash_syn[these_indices] = n.dash_syn
             for i, index in enumerate(these_indices):
-                dash_syn[index] = n.dash_syn[i][0]
+                dash_syn[index] = n.dash_syn[i]
         threshold[these_indices] = n.threshold
 
     for n in output_neurons:
         these_indices = [allocated_output_neurons.index(id) for id in n.hw_ids]
         dash_mem_out[these_indices] = n.dash_mem
-        # dash_syn_out[these_indices] = n.dash_syn
         for i, index in enumerate(these_indices):
-            dash_syn_out[index] = n.dash_syn[i][0]
+            dash_syn_out[index] = n.dash_syn[i]
         threshold_out[these_indices] = n.threshold
 
     neurons: SetList[XyloNeurons] = find_modules_of_subclass(graph, XyloNeurons)

@@ -43,7 +43,10 @@ class ModuleBase(ABC):
         """
         # - Set flag to specify that we are in the `__init__()` method
         self._in_Module_init = True
-        """(bool) If exists and ``True``, indicates that the module is in the ``__init__`` chain."""
+        """ (bool) If exists and ``True``, indicates that the module is in the ``__init__`` chain."""
+
+        self._force_set_attributes = False
+        """ (bool) If ``True``, do not sanity-check attributes when setting. """
 
         # - Initialise co-classes etc.
         super().__init__(*args, **kwargs)
@@ -83,10 +86,12 @@ class ModuleBase(ABC):
         repr = f"{indent}{self.full_name} with shape {self._shape}"
 
         # - Add submodules
-        if self.modules():
+        if self._submodulenames:
             repr += " {"
-            for mod in self.modules().values():
-                repr += "\n" + ModuleBase.__repr__(mod, indent=indent + "    ")
+            for mod_name in self._submodulenames:
+                repr += "\n" + ModuleBase.__repr__(
+                    getattr(self, mod_name), indent=indent + "    "
+                )
 
             repr += f"\n{indent}" + "}"
 
@@ -145,13 +150,19 @@ class ModuleBase(ABC):
 
         # - Check if this is an already registered attribute
         if name in __registered_attributes:
-            # - Check that shapes are identical
             if hasattr(self, name):
                 (_, _, _, _, shape) = __registered_attributes[name]
-                if np.shape(val) != shape and val is not None:
-                    raise ValueError(
-                        f"The new value assigned to {name} must be of shape {shape} (got {np.shape(val)})."
-                    )
+
+                if val is not None:
+                    # - Should we force-set the attribute?
+                    if self._force_set_attributes:
+                        __registered_attributes[name][4] = np.shape(val)
+
+                    elif np.shape(val) != shape:
+                        # - Check that shapes are identical
+                        raise ValueError(
+                            f"The new value assigned to {name} must be of shape {shape} (got {np.shape(val)})."
+                        )
 
             # - Assign the value to the __registered_attributes dictionary
             __registered_attributes[name][0] = val
@@ -671,41 +682,20 @@ class PostInitMetaMixin(type(ModuleBase)):
 
 class Module(ModuleBase, ABC, metaclass=PostInitMetaMixin):
     """
-    The native Python / numpy ``Module`` base class for Rockpool
-    """
+    The native Python / numpy :py:class:`.Module` base class for Rockpool
 
-    pass
-    # def _register_module(self, name: str, mod: ModuleBase):
-    #     """
-    #     Register a submodule in the module registry
-    #
-    #     Args:
-    #         name (str): The name to assign to the submodule
-    #         mod (Module): The submodule to register. Must inherit from ``Module``
-    #     """
-    #     # - Register the module
-    #     super()._register_module(name, mod)
-    #
-    #     # - Do we even have a `dt` attribute?
-    #     if hasattr(self, "dt"):
-    #         # - Check that the submodule `dt` is the same as mine
-    #         if hasattr(mod, "dt"):
-    #             if mod.dt != getattr(self, "dt"):
-    #                 raise ValueError(
-    #                     f"The submodule {mod.name} must have the same `dt` as the parent module {self.name}"
-    #                 )
-    #         else:
-    #             # - Add `dt` as an attribute to the module (not a registered attribute)
-    #             mod.dt = getattr(self, "dt")
-    #
-    #     else:
-    #         # - We should inherit the first `dt` of a submodule
-    #         if hasattr(mod, "dt"):
-    #             setattr(self, "dt", mod.dt)
+    This class acts as the base class for all "native" modules in Rockpool. To get started with using and writing your own Rockpool modules, see :ref:`/basics/getting_started.ipynb` and :ref:`/in-depth/api-low-level.ipynb`.
+
+    If you plan to write modules using Jax or Torch backends, you should use either :py:class:`.JaxModule` or :py:class:`.TorchModule` as base classes, respectively.
+
+    To get started with the Jax backend, see :ref:`/in-depth/api-functional.ipynb` and :ref:`/in-depth/jax-training.ipynb`.
+
+    To get started with the Torch backend, see :ref:`/in-depth/torch-api.ipynb` and :ref:`/in-depth/torch-training.ipynb`.
+    """
 
     def timed(self, output_num: int = 0, dt: float = None, add_events: bool = False):
         """
-        Convert this module to a :py:class:`TimedModule`
+        Convert this module to a :py:class:`.TimedModule`
 
         Args:
             output_num (int): Specify which output of the module to take, if the module returns multiple output series. Default: ``0``, take the first (or only) output.
@@ -719,3 +709,67 @@ class Module(ModuleBase, ABC, metaclass=PostInitMetaMixin):
         return TimedModuleWrapper(
             self, output_num=output_num, dt=dt, add_events=add_events
         )
+
+    def _auto_batch(
+        self,
+        data: np.ndarray,
+        states: Tuple = (),
+        target_shapes: Tuple = None,
+    ) -> (np.ndarray, Tuple[np.ndarray]):
+        """
+        Automatically replicate states over batches and verify input dimensions
+
+        Examples:
+            >>> data, (state0, state1, state2) = self._auto_batch(data, (self.state0, self.state1, self.state2))
+
+            This will verify that ``data`` has the correct final dimension (i.e. ``self.size_in``).
+
+            If ``data`` has only two dimensions ``(T, Nin)``, then it will be augmented to ``(1, T, Nin)``. The individual states will be replicated out from shape ``(a, b, c, ...)`` to ``(n_batches, a, b, c, ...)`` and returned.
+
+            If ``data`` has only a single dimension ``(T,)``, it will be expanded to ``(1, T, self.size_in)``.
+
+        Args:
+            data (np.ndarray): Input data tensor. Either ``(batches, T, Nin)`` or ``(T, Nin)``
+            states (Tuple): Tuple of state variables. Each will be replicated out over batches by prepending a batch dimension
+
+        Returns:
+            (np.ndarray, Tuple[np.ndarray]) data, states
+        """
+        # - Ensure data is a float tensor
+        data = np.array(data, "float")
+
+        # - Verify input data shape
+        if len(data.shape) == 1:
+            data = np.expand_dims(data, 0)
+            data = np.expand_dims(data, 2)
+        elif len(data.shape) == 2:
+            data = np.expand_dims(data, 0)
+
+        if data.shape[-1] == 1:
+            data = np.broadcast_to(data, (data.shape[0], data.shape[1], self.size_in))
+
+        # - Get shape of input
+        (n_batches, time_steps, n_connections) = data.shape
+
+        # - Check input dimensions
+        if n_connections != self.size_in:
+            raise ValueError(
+                "Input has wrong neuron dimension. It is {}, must be {}".format(
+                    n_connections, self.size_in
+                )
+            )
+
+        # - Get target shapes
+        if target_shapes is None:
+            target_shapes = tuple(s.shape for s in states)
+        else:
+            target_shapes = tuple(
+                s.shape if shape is None else shape
+                for s, shape in zip(states, target_shapes)
+            )
+
+        # - Replicate shapes and return
+        states = tuple(
+            np.ones((n_batches, *shape)) * s for s, shape in zip(states, target_shapes)
+        )
+        return data, states

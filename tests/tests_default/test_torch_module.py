@@ -158,11 +158,7 @@ def test_lowpass():
     N = 3
     tau_mem = 0.04
 
-    lyr = LowPass(
-        n_neurons=N,
-        tau_mem=tau_mem,
-        dt=0.01,
-    )
+    lyr = LowPass(n_neurons=N, tau_mem=tau_mem, dt=0.01)
 
     inp = torch.rand(50, 1, N).cpu()
 
@@ -175,7 +171,7 @@ def test_lowpass():
 
 
 def test_astorch():
-    from rockpool.nn.modules.torch import LIFBitshiftTorch
+    from rockpool.nn.modules import LIFBitshiftTorch
 
     import torch
 
@@ -193,7 +189,6 @@ def test_astorch():
         threshold=threshold,
         learning_window=learning_window,
         dt=0.01,
-        device="cpu",
     )
 
     inp = torch.rand(1, 50, Nsyn * N).cpu()
@@ -205,3 +200,103 @@ def test_astorch():
 
     for (r_param, t_param) in zip(params_astorch, torch_params):
         assert r_param is t_param, "Rockpool and torch parameters do not match."
+
+
+def test_API_semantics():
+    import torch
+    from torch import nn
+    from rockpool.nn.modules import TorchModule
+    from rockpool.nn.modules import LIFTorch
+
+    from collections import OrderedDict
+    from typing import Generator
+
+    class A(TorchModule):
+        def __init__(self):
+            super().__init__()
+            self.slayer = LIFTorch(shape=(1, 1), tau_mem=0.3, tau_syn=0.1)
+            self.lin = nn.Linear(1, 1)
+            # self.conv = nn.Conv1d(1, 1, 1)
+
+        def forward(self, data):
+            x, _, _ = self.slayer(data)
+            return self.lin(x)
+
+    class B(TorchModule):
+        def __init__(self):
+            super().__init__()
+            self.a = A()
+
+        def forward(self, data):
+            out, _, _ = self.a(data)
+            return out
+
+    # - Generate module
+    b = B()
+
+    # - Check `modules` call
+    assert isinstance(b.modules(), OrderedDict)
+
+    # - Check Rockpool call semantics
+    out = b(torch.zeros((1, 1, 1)))
+    assert len(out) == 3
+
+    # - Check Rockpool `parameters` call
+    assert isinstance(b.parameters(), dict)
+
+    # - Check __repr__
+    repr_Rockpool = "B  with shape (None,) {\n    A 'a' with shape (None,) {\n        LIFTorch 'slayer' with shape (1, 1)\n        Linear 'lin' with shape (None,)\n        Linear 'lin' with shape (None,)\n    }\n}"
+
+    assert str(b) == repr_Rockpool
+
+    # - Convert to torch
+    b.to_torch()
+
+    # - Check torch.nn call semantics
+    out = b(torch.zeros((1, 1, 1)))
+    assert len(out) == 1
+
+    # - Check `modules` call
+    assert isinstance(b.modules(), Generator)
+
+    # - Check torch.nn `parameters` semantics
+    assert isinstance(b.parameters(), Generator)
+
+    # - Check __repr__
+    repr_torch = "B(\n  (a): A(\n    (slayer): LIFTorch()\n    (lin): Linear 'lin' with shape (None,)\n  )\n)"
+    assert str(b) == repr_torch
+
+
+def test_torch_device_to():
+    from rockpool.nn.modules import TorchModule
+    from rockpool.parameters import Parameter, SimulationParameter, State, Constant
+    import torch
+
+    if not torch.cuda.is_available():
+        return
+
+    class TestModule(TorchModule):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+
+            self.test_param = Parameter(torch.zeros((2,)))
+            self.test_const_param = Parameter(Constant(torch.zeros((2,))))
+            self.test_simparam = SimulationParameter(torch.zeros((2,)))
+            self.test_state = State(torch.zeros((2,)))
+
+    mod = TestModule().to_torch().to("cuda")
+
+    print("Checking devices post-initialisation")
+    assert mod.test_param.device != "cpu", "Parameter was not moved to GPU"
+    assert mod.test_const_param != "cpu", "Constant parameter was not moved to GPU"
+    assert mod.test_simparam != "cpu", "SimulationParameter was not moved to GPU"
+    assert mod.test_state != "cpu", "State was not moved to GPU"
+
+    mod.reset_state()
+    mod.reset_parameters()
+
+    print("Checking devices post-reset")
+    assert mod.test_param.device != "cpu", "Parameter was not moved to GPU"
+    assert mod.test_const_param != "cpu", "Constant parameter was not moved to GPU"
+    assert mod.test_simparam != "cpu", "SimulationParameter was not moved to GPU"
+    assert mod.test_state != "cpu", "State was not moved to GPU"

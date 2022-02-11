@@ -10,10 +10,12 @@ if util.find_spec("torch") is None:
     )
 
 import math
-from typing import Union, Optional
+from typing import Union, Optional, Callable
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
 from rockpool.graph import GraphModuleBase, LinearWeights, as_GraphHolder
+from rockpool.typehints import P_tensor
+
 import torch
 import torch.nn.init as init
 import torch.nn.functional as F
@@ -50,8 +52,9 @@ class LinearTorch(TorchModule):
         weight=None,
         bias=None,
         has_bias: bool = True,
-        device: Optional[str] = None,
-        dtype: Optional[str] = None,
+        weight_init_func: Optional[Callable] = lambda s: init.kaiming_uniform_(
+            torch.empty((s[1], s[0]))
+        ).T,
         *args,
         **kwargs,
     ) -> None:
@@ -61,10 +64,9 @@ class LinearTorch(TorchModule):
         Args:
             shape (tuple): The shape of this layer ``(Nin, Nout)``
             weight (Tensor): Concrete initialisation data for the weights ``(Nin, Nout)``
-            bias (Tensor): Concrete initialisation data for the biases ``(Nout,)``
+            bias (Tensor): Concrete initialisation data for the biases ``(Nout,)`` Default: ``0.0``
             has_bias (bool): Iff ``True``, this layer includes a bias. Default: ``True``
-            device (Optional[str]): Initialise the tensors on the supplied device.
-            dtype (Optional[str]): Initialise the tensors with the supplied dtype.
+            weight_init_func (Callable): Random initialisation function for weights. Default: Kaiming initialisation
         """
         # - Initialise superclass
         super().__init__(shape=shape, *args, **kwargs)
@@ -76,43 +78,30 @@ class LinearTorch(TorchModule):
             )
 
         # - Set up parameters
-        factory_kwargs = {"device": device, "dtype": dtype}
-        self.weight: Union[torch.Tensor, rp.Parameter] = rp.Parameter(
-            weight,
-            shape=shape,
-            init_func=lambda s: init.uniform_(
-                torch.empty(s, **factory_kwargs),
-                -math.sqrt(2 / s[0]),
-                math.sqrt(2 / s[0]),
-            ),
-            family="weights",
+        w_rec_shape = (self.size_in, self.size_out)
+        self.weight: P_tensor = rp.Parameter(
+            weight, shape=w_rec_shape, init_func=weight_init_func, family="weights",
         )
-        self.weight.requires_grad = True
         """ (torch.Tensor) Weight matrix with shape ``(Nin, Nout)`` """
 
         if has_bias:
             self.bias: Union[torch.Tensor, rp.Parameter] = rp.Parameter(
                 bias,
-                shape=shape[-1],
+                shape=[(self.size_out,), ()],
                 init_func=lambda s: init.uniform_(
-                    torch.empty(s[-1], **factory_kwargs),
-                    -math.sqrt(2 / s[0]),
-                    math.sqrt(2 / s[0]),
+                    torch.empty(s[-1]), -math.sqrt(1 / s[0]), math.sqrt(1 / s[0]),
                 ),
                 family="biases",
             )
             """ (torch.Tensor) Bias vector with shape ``(Nout,)`` """
-            self.bias.requires_grad = True
         else:
             self.bias = None
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
+        input, _ = self._auto_batch(input)
+
         return (
-            F.linear(
-                input,
-                self.weight.T,
-                self.bias,
-            )
+            F.linear(input, self.weight.T, self.bias,)
             if self.bias is not None
             else F.linear(input, self.weight.T)
         )
@@ -123,12 +112,10 @@ class LinearTorch(TorchModule):
         )
 
     def as_graph(self) -> GraphModuleBase:
-        return as_GraphHolder(
-            LinearWeights._factory(
-                self.size_in,
-                self.size_out,
-                f"{type(self).__name__}_{self.name}_{id(self)}",
-                self,
-                self.weight.detach().numpy(),
-            )
+        return LinearWeights._factory(
+            self.size_in,
+            self.size_out,
+            f"{type(self).__name__}_{self.name}_{id(self)}",
+            self,
+            self.weight.detach().numpy(),
         )
