@@ -22,7 +22,7 @@ from dataclasses import dataclass
 # JAX
 from jax import jit, value_and_grad
 from jax.lax import scan, cond
-from jax.experimental import optimizers
+from jax.example_libraries import optimizers
 
 from jax import numpy as jnp
 
@@ -68,8 +68,8 @@ WeightRecord = Tuple[
 @dataclass
 class WeightParameters:
     """
-    WeightParameters encapsulates weight currents of the configurable synapses between neurons. 
-    It provides a general way of handling SE2 weight current and the conversion from device 
+    WeightParameters encapsulates weight currents of the configurable synapses between neurons.
+    It provides a general way of handling SE2 weight current and the conversion from device
     configuration object
 
     :Attributes:
@@ -91,11 +91,11 @@ class WeightParameters:
     :type Iw_3: float
     :param mux: A binary value representing uint mask to select and dot product the base Iw currents (pre, post, gate)
     :type mux: jnp.DeviceArray
-        
+
         1 = 0001 -> selected bias parameters: Iw_0
         8 = 1000 -> selected bias parameters: Iw_3
         5 = 0101 -> selected bias parameterss Iw_0 + Iw_2
-        
+
             array([[[ 0,  1, 12,  0],
                     [11, 10,  4,  1],
                     [ 7,  0, 15, 15],
@@ -109,7 +109,7 @@ class WeightParameters:
                     [ 6,  8, 10,  8],
                     [15,  1,  1,  9],
                     [ 5,  2,  7, 13]]])
-    
+
     :param code_length: the number of bits to reserve for a code, defaults to 4
     :type code_length: Optional[int], optional
     :param layout: constant values that are related to the exact silicon layout of a chip, defaults to None
@@ -238,7 +238,7 @@ class WeightParameters:
     def get_code_length(self) -> int:
         """
         get_code_length calculates the Iw indicated intermediate code length used in encoding and decoding the weight matrix
-        It also make sure that parameter value definition is consequtive. 
+        It also make sure that parameter value definition is consequtive.
 
         :return: the number of bits to reserve for a code
         :rtype: int
@@ -361,7 +361,7 @@ class WeightParameters:
 
         :param n_epoch: the number of epoches to iterate, defaults to 10000
         :type n_epoch: int, optional
-        :param optimizer: one of the optimizer defined in `jax.experimental.optimizers` : , defaults to "adam"
+        :param optimizer: one of the optimizer defined in `jax.example_libraries.optimizers` : , defaults to "adam"
         :type optimizer: str, optional
         :param step_size: positive scalar, or a callable representing a step size schedule that maps the iteration index to a positive scalar. , defaults to 1e-3
         :type step_size: Union[float, Callable[[int], float]], optional
@@ -536,8 +536,8 @@ class WeightParameters:
     @staticmethod
     def penalty_reconstruction(n_bits: int, bitmask: jnp.DeviceArray) -> float:
         """
-        penalty_reconstruction applies a penalty if the bitmask encoding&decoding is non-unique. 
-        It also assures that the rounded decoding weights are the same as the bitmask desired, and the 
+        penalty_reconstruction applies a penalty if the bitmask encoding&decoding is non-unique.
+        It also assures that the rounded decoding weights are the same as the bitmask desired, and the
         bitmask consists of binary values.
 
         :param n_bits: number of bits reserved for representing the integer values
@@ -622,14 +622,14 @@ class WeightParameters:
         else:
             raise ValueError(
                 f"The optimizer : {name} is not available!"
-                f"Try one of the optimizer defined in `jax.experimental.optimizers'` : sgd, momentum, nesterov, adagrad, rmsprop, rmsprop_momentum, adam, adamax, sm3"
+                f"Try one of the optimizer defined in `jax.example_libraries.optimizers'` : sgd, momentum, nesterov, adagrad, rmsprop, rmsprop_momentum, adam, adamax, sm3"
             )
 
     @staticmethod
     def quantize_mux(n_bits: int, mux: jnp.DeviceArray) -> jnp.DeviceArray:
         """
         quantize_mux converts a integer valued bitmask to 4 dimension (4-bits) bitmask representing the indexes of the selection
-            
+
             (n_bits=4)
 
             1 = 0001 -> selected bit: 0
@@ -654,14 +654,14 @@ class WeightParameters:
     @staticmethod
     def multiplex_bitmask(n_bits: int, bitmask: jnp.DeviceArray) -> jnp.DeviceArray:
         """
-        multiplex_bitmask apply 4-bit selection to binary values representing select bits and generates a compressed bitmask 
-            
+        multiplex_bitmask apply 4-bit selection to binary values representing select bits and generates a compressed bitmask
+
             (n_bits=4)
 
             [0,0,0,1] -> 1
             [1,0,0,0] -> 8
             [0,1,0,1] -> 5
-        
+
         :param n_bits: number of bits reserved for representing the integer values
         :type n_bits: int
         :param bitmask: an array of indices of selected bits, only binary values, (n_bits,shape)
@@ -797,4 +797,3 @@ class WeightParameters:
         n_post returns the number of post-synaptic neurons implicitly indicated in weights
         """
         return self.transforms["n_post"]
-
