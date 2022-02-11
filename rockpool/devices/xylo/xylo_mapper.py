@@ -73,6 +73,13 @@ def le_16_input_channels(graph: GraphModuleBase) -> None:
         )
 
 
+def le_8_output_channels(graph: GraphModuleBase) -> None:
+    if len(graph.output_nodes) > 8:
+        raise DRCError(
+            f"Xylo only supports up to 8 output channels. The network requires {len(graph.output_nodes)} output channels."
+        )
+
+
 def all_neurons_have_same_dt(graph: GraphModuleBase) -> None:
     neurons: SetList[GenericNeurons] = find_modules_of_subclass(graph, GenericNeurons)
 
@@ -162,6 +169,7 @@ xylo_drc: List[Callable[[GraphModuleBase], None]] = [
     input_to_neurons_is_a_weight,
     first_module_is_a_weight,
     le_16_input_channels,
+    le_8_output_channels,
     all_neurons_have_same_dt,
     output_neurons_cannot_be_recurrent,
     no_consecutive_weights,

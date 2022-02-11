@@ -53,17 +53,12 @@ def inv_calc_bitshift_decay(dash, dt):
 
 class LIFBitshiftTorch(LIFTorch):
     def __init__(
-        self,
-        max_spikes_per_dt: P_int = 15,
-        *args,
-        **kwargs,
+        self, *args, max_spikes_per_dt: P_int = 15, **kwargs,
     ):
 
         # - Initialise superclass
         super().__init__(
-            max_spikes_per_dt=max_spikes_per_dt,
-            *args,
-            **kwargs,
+            max_spikes_per_dt=max_spikes_per_dt, *args, **kwargs,
         )
 
         ## make sure the tau mem and tau syn are representable by bitshift decay
