@@ -121,6 +121,11 @@ def connect_modules(
                 this_dest_node_index = sink.input_nodes.index(d_i_node)
                 sink.input_nodes[this_dest_node_index] = s_o_node
 
+        # - Replace destination input nodes, if required
+        if d_i_node in dest.input_nodes:
+            this_dest_node_index = dest.input_nodes.index(d_i_node)
+            dest.input_nodes[this_dest_node_index] = s_o_node
+
 
 def bag_graph(
     graph: GraphModuleBase,
@@ -181,7 +186,7 @@ def bag_graph(
     return nodes_bag, modules_bag_to_return
 
 
-def find_modules_of_subclass(graph: GraphModuleBase, cls) -> SetList[GraphModuleBase]:
+def find_modules_of_subclass(graph: GraphModuleBase, cls) -> SetList[Any]:
     """
     Search a graph for all :py:class:`.GraphModule` s of a specific class or any subclass
 

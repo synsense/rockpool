@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_LIFTorch_shapes():
     from rockpool.nn.modules.torch.lif_torch import LIFTorch
     import torch
@@ -14,11 +17,9 @@ def test_LIFTorch_shapes():
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
-        has_bias=False,
         has_rec=False,
         dt=1e-3,
         noise_std=0.0,
-        device="cpu",
     )
 
     # - Generate some data
@@ -30,19 +31,19 @@ def test_LIFTorch_shapes():
     out.sum().backward()
 
     assert out.shape == (n_batches, T, n_neurons)
-    assert ns["Isyn"].shape == (n_neurons, n_synapses)
-    assert ns["Vmem"].shape == (n_neurons,)
-    assert rd["Isyn"].shape == (n_batches, T, n_neurons, n_synapses)
-    assert rd["Vmem"].shape == (n_batches, T, n_neurons)
+    assert ns["isyn"].shape == (n_neurons, n_synapses)
+    assert ns["vmem"].shape == (n_neurons,)
+    assert rd["isyn"].shape == (n_batches, T, n_neurons, n_synapses)
+    assert rd["vmem"].shape == (n_batches, T, n_neurons)
 
 
 def test_LIFTorch_bias():
     from rockpool.nn.modules.torch.lif_torch import LIFTorch
     import torch
 
-    n_synapses = 5
-    n_neurons = 10
-    n_batches = 3
+    n_synapses = 1
+    n_neurons = 1
+    n_batches = 1
     T = 20
     tau_mem = torch.rand(n_neurons)
     tau_syn = 0.02
@@ -53,11 +54,10 @@ def test_LIFTorch_bias():
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
+        threshold=1.0,
         bias=bias,
-        has_bias=True,
         dt=dt,
         noise_std=0.0,
-        device="cpu",
     )
 
     # - Generate some data
@@ -68,15 +68,15 @@ def test_LIFTorch_bias():
 
     out.sum().backward()
 
-    assert torch.all(ns["Isyn"] == 0)
-    assert torch.all(rd["Isyn"] == 0)
-    assert torch.all(rd["Vmem"][:, 0] == 0.1)  # match bias in the fist timestep
+    assert torch.all(ns["isyn"] == 0)
+    assert torch.all(rd["isyn"] == 0)
+    assert torch.all(rd["vmem"][:, 0] == 0.1)  # match bias in the fist timestep
     assert torch.all(
-        rd["Vmem"][:, 1] == 0.1 * torch.exp(-dt / tau_mem) + 0.1
+        rd["vmem"][:, 1] == 0.1 * torch.exp(-dt / tau_mem) + 0.1
     )  # decay one timestep + bias
 
-    # bias has gradients
-    assert not torch.all(mod.bias == 0)
+    # assert bias has gradients
+    assert not torch.all(mod.bias.grad == 0)
 
 
 def test_LIFTorch_recurrent():
@@ -107,12 +107,10 @@ def test_LIFTorch_recurrent():
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
-        has_bias=False,
         has_rec=True,
         w_rec=w_rec,
         dt=dt,
         noise_std=0.0,
-        device="cpu",
     )
 
     # - Generate some data
@@ -150,10 +148,8 @@ def test_LIFTorch_noise():
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
-        has_bias=False,
         dt=dt,
         noise_std=0.1,
-        device="cpu",
     )
 
     # - Generate some data
@@ -165,7 +161,7 @@ def test_LIFTorch_noise():
     out.sum().backward()
 
     # no input but vmem not zero due to noise
-    assert not torch.all(rd["Vmem"] == 0)
+    assert not torch.all(rd["vmem"] == 0)
 
 
 def test_LIFTorch_tau_syn_shape_1():
@@ -185,10 +181,8 @@ def test_LIFTorch_tau_syn_shape_1():
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
-        has_bias=False,
         dt=dt,
         noise_std=0.1,
-        device="cpu",
     )
 
     # - Generate some data
@@ -212,7 +206,7 @@ def test_LIFTorch_tau_syn_shape_2():
     n_batches = 3
     T = 20
     tau_mem = torch.rand(n_neurons)
-    tau_syn = 0.03
+    tau_syn = torch.rand(n_neurons, n_synapses)
     dt = 1e-3
 
     # - Test maximal initialisation
@@ -220,10 +214,8 @@ def test_LIFTorch_tau_syn_shape_2():
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
-        has_bias=False,
         dt=dt,
         noise_std=0.1,
-        device="cpu",
     )
 
     # - Generate some data
@@ -248,7 +240,7 @@ def test_LIFTorch_threshold_shape_1():
     T = 20
     tau_mem = torch.rand(n_neurons)
     tau_syn = 0.03
-    threshold = 0.5
+    threshold = 0.5 * torch.ones(n_neurons)
     dt = 1e-3
 
     # - Test maximal initialisation
@@ -256,11 +248,9 @@ def test_LIFTorch_threshold_shape_1():
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
-        has_bias=False,
         dt=dt,
         threshold=threshold,
         noise_std=0.1,
-        device="cpu",
     )
 
     # - Generate some data
@@ -279,13 +269,13 @@ def test_LIFTorch_threshold_shape_2():
     from rockpool.nn.modules.torch.lif_torch import LIFTorch
     import torch
 
-    n_synapses = 5
+    n_synapses = 1
     n_neurons = 2
-    n_batches = 3
+    n_batches = 1
     T = 20
     tau_mem = torch.ones(n_neurons) * 0.05
     tau_syn = 0.03
-    threshold = torch.Tensor([0.5, 1.0])
+    threshold = torch.Tensor([0.1, 10.0])
     dt = 1e-3
 
     # - Test maximal initialisation
@@ -293,15 +283,15 @@ def test_LIFTorch_threshold_shape_2():
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
-        has_bias=False,
         dt=dt,
         threshold=threshold,
-        noise_std=0.1,
-        device="cpu",
+        noise_std=0.0,
     )
 
     # - Generate some data
-    input_data = torch.ones(n_batches, T, n_synapses * n_neurons, requires_grad=True)
+    input_data = 2 * torch.ones(
+        n_batches, T, n_synapses * n_neurons, requires_grad=True
+    )
 
     # - Test Rockpool interface
     out, ns, rd = mod(input_data, record=True)
@@ -311,6 +301,29 @@ def test_LIFTorch_threshold_shape_2():
     # assert correct shape
     assert mod.threshold.shape == (n_neurons,)
 
+    print(out[:, :, 0] - out[:, :, 1])
+    print(out)
+
     # assert output makes sense (low threshold produces higher activity)
     assert torch.all(out[:, :, 0] >= out[:, :, 1])
-    assert not torch.any(out[:, :, 0] < out[:, :, 1])
+
+
+def test_LIFTorch_reset():
+    from rockpool.nn.modules.torch.lif_torch import LIFTorch
+    import torch
+
+    if not torch.cuda.is_available():
+        return
+
+    mod = LIFTorch(10).to("cuda")
+    device = mod.isyn.device
+
+    mod.reset_state()
+    assert mod.isyn.device == device
+    assert mod.vmem.device == device
+
+    mod.reset_parameters()
+    assert mod.tau_syn.device == device
+    assert mod.tau_mem.detach == device
+    assert mod.threshold.device == device
+    assert mod.bias.device == device

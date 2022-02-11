@@ -162,9 +162,13 @@ def test_network_too_large():
 
 
 def test_XyloSim_creation():
+    try:
+        from rockpool.devices.xylo import mapper, XyloSim
+    except:
+        return
+
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapper, XyloSim
 
     smod = Sequential(
         LinearTorch((5, 6)),

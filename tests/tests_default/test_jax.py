@@ -6,18 +6,16 @@ config.update("jax_log_compiles", True)
 
 
 def test_imports():
-    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
-    from rockpool.nn.modules.module import Module
-    from rockpool.nn.modules.jax.jax_module import JaxModule
-    from rockpool.parameters import Parameter, SimulationParameter, State
+    from rockpool.nn.modules import RateJax
+    from rockpool.nn.modules import JaxModule
 
 
 def test_assignment_jax():
-    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
+    from rockpool.nn.modules import RateJax
     import numpy as np
 
     # - Construct a module
-    mod = RateEulerJax(5)
+    mod = RateJax(5)
 
     # - Modify attributes and test assignment
     p = mod.parameters()
@@ -34,8 +32,8 @@ def test_assignment_jax():
     assert np.all(mod.tau == 4.0)
 
 
-def test_euler_jax():
-    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
+def test_rate_jax():
+    from rockpool.nn.modules import RateJax
 
     import jax
     from jax import jit
@@ -43,7 +41,9 @@ def test_euler_jax():
 
     import numpy as np
 
-    lyr = RateEulerJax(
+    # - Generate module
+    lyr = RateJax(
+        shape=2,
         tau=np.random.rand(
             2,
         )
@@ -51,38 +51,28 @@ def test_euler_jax():
         bias=np.random.rand(
             2,
         ),
-        activation_func="tanh",
+        activation_func="relu",
     )
     lyr = lyr.reset_state()
 
-    print(lyr.parameters())
-    print(lyr.simulation_parameters())
-    print(lyr.state())
-
-    print("evolve func")
+    # - evolve using evolve method
     _, new_state, _ = lyr.evolve(np.random.rand(10, 2))
     lyr = lyr.set_attributes(new_state)
 
-    print(lyr.parameters())
-    print(lyr.simulation_parameters())
-    print(lyr.state())
-
-    print("evolving with call")
+    # - evolve using direct call
     input_rand = np.random.rand(10, 2)
     lyr = lyr.reset_state()
     output, new_state, _ = lyr(input_rand)
     lyr = lyr.set_attributes(new_state)
 
+    # - Set attributes method
     _, new_state, _ = lyr(input_rand)
     lyr = lyr.set_attributes(new_state)
 
-    # print(lyr.parameters())
-    # print(lyr.simulation_parameters())
-    # print(lyr.state())
-
+    # - Direct set state
     lyr.activation = np.array([100.0, 100.0])
 
-    print("evolving with jit")
+    # - Reset state and evolve
     lyr = lyr.reset_state()
     je = jit(lyr)
     output_jit, new_state, _ = je(input_rand)
@@ -92,8 +82,11 @@ def test_euler_jax():
     lyr = lyr.set_attributes(new_state)
 
     # - Compare non-jit and jitted output
-    assert np.all(output == output_jit)
+    assert np.allclose(
+        output, output_jit
+    ), "Compiled evolution does not match non-compiled evolution"
 
+    # - Define loss function to test gradients
     def loss_fn(grad_params, net, input, target):
         net = net.set_attributes(grad_params)
         output, _, _ = net(input)
@@ -104,27 +97,61 @@ def test_euler_jax():
     loss, grad = loss_vgf(params, lyr, np.random.rand(10, 2), 0.0)
     loss, grad = loss_vgf(params, lyr, np.random.rand(10, 2), 0.0)
 
-    print("loss: ", loss)
-    print("grad: ", grad)
+    assert not np.allclose(
+        grad["bias"], np.zeros_like(grad["bias"])
+    ), "Bias gradients are zero in FFwd module"
+    assert not np.allclose(
+        grad["tau"], np.zeros_like(grad["tau"])
+    ), "Tau gradients are zero in FFwd module"
+    assert not np.allclose(
+        grad["threshold"], np.zeros_like(grad["threshold"])
+    ), "Threshold gradients are zero in FFwd module"
 
-    # print(lyr.parameters())
-    # print(lyr.simulation_parameters())
-    # print(lyr.state())
+    # - Test recurrent mode evolution and gradients
+    lyr = RateJax(2, has_rec=True)
 
-    # - Test recurrent mode
-    lyr = RateEulerJax(shape=(10, 10))
-
-    o, ns, r_d = lyr(np.random.rand(20, 10))
+    o, ns, r_d = lyr(np.random.rand(20, 2))
     lyr = lyr.set_attributes(ns)
 
     je = jit(lyr)
-    o, n_s, r_d = je(np.random.rand(20, 10))
+    o, n_s, r_d = je(np.random.rand(20, 2))
     lyr = lyr.set_attributes(n_s)
+
+    loss_vgf = jit(jax.value_and_grad(loss_fn))
+    params = lyr.parameters()
+    loss, grad = loss_vgf(params, lyr, np.random.rand(20, 2), 0.0)
+    loss, grad = loss_vgf(params, lyr, np.random.rand(20, 2), 0.0)
+
+    assert not np.allclose(
+        grad["bias"], np.zeros_like(grad["bias"])
+    ), "Bias gradients are zero in recurrent module"
+    assert not np.allclose(
+        grad["tau"], np.zeros_like(grad["tau"])
+    ), "Tau gradients are zero in recurrent module"
+    assert not np.allclose(
+        grad["w_rec"], np.zeros_like(grad["w_rec"])
+    ), "Recurrent weight gradients are zero in recurrent module"
+    assert not np.allclose(
+        grad["threshold"], np.zeros_like(grad["threshold"])
+    ), "Threshold gradients are zero in recurrent module"
+
+
+def test_rate_jax_tree():
+    from rockpool.nn.modules import RateJax
+    from jax.tree_util import tree_flatten, tree_unflatten
+
+    mod = RateJax(2)
+    tree, treedef = tree_flatten(mod)
+    tree_unflatten(treedef, tree)
+
+    mod = RateJax(2, has_rec=True)
+    tree, treedef = tree_flatten(mod)
+    tree_unflatten(treedef, tree)
 
 
 def test_ffwd_net():
-    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
-    from rockpool.nn.modules.jax.jax_module import JaxModule
+    from rockpool.nn.modules import RateJax
+    from rockpool.nn.modules import JaxModule
     from rockpool.parameters import Parameter
 
     import numpy as np
@@ -154,7 +181,7 @@ def test_ffwd_net():
                 bias = np.random.rand(
                     N_out,
                 )
-                setattr(self, f"iaf_{index}", RateEulerJax(tau=tau, bias=bias))
+                setattr(self, f"iaf_{index}", RateJax(N_out, tau=tau, bias=bias))
 
         def evolve(self, input, record: bool = False):
             new_state = {}
@@ -211,8 +238,8 @@ def test_ffwd_net():
 
 
 def test_sgd():
-    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
-    from rockpool.nn.modules.jax.jax_module import JaxModule
+    from rockpool.nn.modules import RateJax
+    from rockpool.nn.modules import JaxModule
     from rockpool.parameters import Parameter
 
     import jax
@@ -241,7 +268,7 @@ def test_sgd():
                 bias = np.random.rand(
                     N_out,
                 )
-                setattr(self, f"iaf_{index}", RateEulerJax(tau=tau, bias=bias))
+                setattr(self, f"iaf_{index}", RateJax(N_out, tau=tau, bias=bias))
 
         def evolve(self, input, record: bool = False):
             new_state = {}
@@ -320,8 +347,8 @@ def test_sgd():
 
 
 def test_nonjax_submodule():
-    from rockpool.nn.modules.module import Module
-    from rockpool.nn.modules.jax.jax_module import JaxModule
+    from rockpool.nn.modules import Module
+    from rockpool.nn.modules import JaxModule
 
     class nonjax_mod(Module):
         def evolve(self, input, record: bool = False):

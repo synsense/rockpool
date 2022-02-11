@@ -20,24 +20,51 @@ def test_connect_modules():
 
     assert gm1.output_nodes == gm2.input_nodes, "Nodes not merged on connection"
 
+    # - GraphHolders should be discarded
+    gm1 = GraphModule._factory(2, 3)
+    gm2 = GraphModule._factory(3, 4)
+    gh2 = as_GraphHolder(gm2)
+    connect_modules(gm1, gh2)
+
+    assert (
+        gh2 not in gm1.output_nodes[0].sink_modules
+    ), "GraphHolder module should have been discarded"
+
+    assert (
+        gh2 not in gm2.output_nodes[0].source_modules
+    ), "GraphHolder module should have been discarded"
+
+    assert gm1.output_nodes == gm2.input_nodes, "Nodes not merged on connection"
+
+    assert (
+        gh2.input_nodes == gm2.input_nodes
+    ), "Graph holder nodes not merged on connection"
+
+    # - GraphHolders should be discarded
+    gm1 = GraphModule._factory(2, 3)
+    gm2 = GraphModule._factory(3, 4)
+    gh1 = as_GraphHolder(gm1)
+    connect_modules(gh1, gm2)
+
+    assert (
+        gh1 not in gm2.input_nodes[0].source_modules
+    ), "GraphHolder module should have been discarded"
+
+    assert (
+        gh1 not in gm2.output_nodes[0].sink_modules
+    ), "GraphHolder module should have been discarded"
+
+    assert gm1.output_nodes == gm2.input_nodes, "Nodes not merged on connection"
+
+    assert (
+        gh1.output_nodes == gm2.input_nodes
+    ), "Graph holder nodes not merged on connection"
+
     # - In / Out dimensionality must match
     with pytest.raises(ValueError):
         gm1 = GraphModule._factory(2, 3, "mod1")
         gm2 = GraphModule._factory(2, 3, "mod2")
         connect_modules(gm1, gm2)
-
-    # - GraphHolders should be discarded
-    gm1 = GraphModule._factory(2, 3)
-    gm2 = as_GraphHolder(GraphModule._factory(3, 4))
-    connect_modules(gm1, gm2)
-
-    assert (
-        gm1.output_nodes[0].sink_modules != gm2
-    ), "GraphHolder module should have been discarded"
-
-    assert (
-        gm2.output_nodes[0].source_modules != gm2
-    ), "GraphHolder module should have been discarded"
 
 
 def test_connect_modules_with_partial_nodes_connected():

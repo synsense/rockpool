@@ -26,6 +26,7 @@ except Exception as e:
 
 # - Jax imports
 from jax.tree_util import register_pytree_node
+import jax.numpy as np
 
 # - Other imports
 from copy import deepcopy
@@ -39,7 +40,9 @@ class JaxModule(Module, ABC):
     """
     Base class for `Module` subclasses that use a Jax backend.
 
-    All modules in Rockpool that require Jax support must inherit from this base class. For compatibility with Jax, all `JaxModule` subclasses must use the functional API for evolution and setting state and attributes.
+    All modules in Rockpool that require Jax support must inherit from this base class. For compatibility with Jax, all :py:class:`.JaxModule` subclasses must use the functional API for evolution and setting state and attributes.
+
+    To get started with the Jax backend, see :ref:`/in-depth/api-functional.ipynb` and :ref:`/in-depth/jax-training.ipynb`.
 
     Examples:
         Functional evolution of a module:
@@ -67,6 +70,9 @@ class JaxModule(Module, ABC):
         # - Call the superclass initialiser
         super().__init__(shape, *args, **kwargs)
 
+        # - Initialise initialisation args
+        self._init_args = {}
+
         # - Register this class as a pytree for Jax
         cls = type(self)
         if cls not in JaxModule._rockpool_pytree_registry:
@@ -74,6 +80,69 @@ class JaxModule(Module, ABC):
                 cls, op.methodcaller("tree_flatten"), cls.tree_unflatten
             )
             JaxModule._rockpool_pytree_registry.append(cls)
+
+    def _auto_batch(
+        self,
+        data: np.ndarray,
+        states: Tuple = (),
+        target_shapes: Tuple = None,
+    ) -> (np.ndarray, Tuple[np.ndarray]):
+        """
+        Automatically replicate states over batches and verify input dimensions
+
+        Usage:
+            >>> data, (state0, state1, state2) = self._auto_batch(data, (self.state0, self.state1, self.state2))
+
+            This will verify that `data` has the correct final dimension (i.e. `self.size_in`). If `data` has only two dimensions `(T, Nin)`, then it will be augmented to `(1, T, Nin)`. The individual states will be replicated out from shape `(a, b, c, ...)` to `(n_batches, a, b, c, ...)` and returned.
+
+        Args:
+            data (np.ndarray): Input data tensor. Either ``(batches, T, Nin)`` or ``(T, Nin)``
+            states (Tuple): Tuple of state variables. Each will be replicated out over batches by prepending a batch dimension
+
+        Returns:
+            (np.ndarray, Tuple[np.ndarray]) data, states
+        """
+        # - Ensure data is a float32 tensor
+        data = np.array(data, "float32")
+
+        # - Verify input data shape
+        if len(data.shape) == 0:
+            data = np.expand_dims(data, 0)
+
+        if len(data.shape) == 1:
+            data = np.expand_dims(data, 0)
+            data = np.expand_dims(data, 2)
+        elif len(data.shape) == 2:
+            data = np.expand_dims(data, 0)
+
+        if data.shape[-1] == 1:
+            data = np.broadcast_to(data, (data.shape[0], data.shape[1], self.size_in))
+
+        # - Get shape of input
+        (n_batches, time_steps, n_connections) = data.shape
+
+        # - Check input dimensions
+        if n_connections != self.size_in:
+            raise ValueError(
+                "Input has wrong neuron dimension. It is {}, must be {}".format(
+                    n_connections, self.size_in
+                )
+            )
+
+        # - Get target shapes
+        if target_shapes is None:
+            target_shapes = tuple(s.shape for s in states)
+        else:
+            target_shapes = tuple(
+                s.shape if shape is None else shape
+                for s, shape in zip(states, target_shapes)
+            )
+
+        # - Replicate shapes and return
+        states = tuple(
+            np.ones((n_batches, *shape)) * s for s, shape in zip(states, target_shapes)
+        )
+        return data, states
 
     def tree_flatten(self) -> Tuple[tuple, tuple]:
         """Flatten this module tree for Jax"""
@@ -83,6 +152,7 @@ class JaxModule(Module, ABC):
                 self.simulation_parameters(),
                 self.state(),
                 self.modules(),
+                self._init_args,
             ),
             (self._name, self._shape, self._submodulenames),
         )
@@ -90,9 +160,9 @@ class JaxModule(Module, ABC):
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         """Unflatten a tree of modules from Jax to Rockpool"""
-        params, sim_params, state, modules = children
+        params, sim_params, state, modules, init_args = children
         _name, _shape, _submodulenames = aux_data
-        obj = cls(shape=_shape)
+        obj = cls(shape=_shape, **init_args)
         obj._name = _name
 
         # - Assign modules if necessary
@@ -101,9 +171,11 @@ class JaxModule(Module, ABC):
                 setattr(obj, name, mod)
 
         # - Restore configuration
+        obj._force_set_attributes = True
         obj = obj.set_attributes(params)
         obj = obj.set_attributes(state)
         obj = obj.set_attributes(sim_params)
+        obj._force_set_attributes = False
 
         return obj
 

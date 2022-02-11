@@ -873,7 +873,7 @@ class TSContinuous(TimeSeries):
                     ax.set_title(self.name)
 
                 # - Set the extent of the time axis
-                ax.set_xlim(self.t_start, self.t_stop)
+                ax.set_xlim(times[0], times[-1])
 
                 # - Plot the curves
                 return ax.plot(times, samples, **kwargs)

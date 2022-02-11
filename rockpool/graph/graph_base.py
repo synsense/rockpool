@@ -94,7 +94,8 @@ class GraphModuleBase:
 
     def __repr__(self) -> str:
         type_name = type(self).__name__
-        return f'{type_name} "{self.name}" with {len(self.input_nodes)} input nodes -> {len(self.output_nodes)} output nodes'
+        name_str = f' "{self.name}"' if len(self.name) > 0 else ""
+        return f"{type_name}{name_str} with {len(self.input_nodes)} input nodes -> {len(self.output_nodes)} output nodes"
 
     def add_input(self, node: "GraphNode") -> None:
         """
