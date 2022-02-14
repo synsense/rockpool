@@ -1,28 +1,10 @@
 """
 Defines the `JaxModule` base class, for Jax support in Rockpool.
 """
+__all__ = ["JaxModule"]
 
 # - Import Rockpool Module base class
 from rockpool.nn.modules.module import Module
-
-__all__ = ["JaxModule"]
-
-# - Check that jax is installed
-from importlib import util
-
-if (util.find_spec("jax") is None) or (util.find_spec("jaxlib") is None):
-    raise ModuleNotFoundError(
-        "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available."
-    )
-
-# check if JAX is available (especially for M1-type MAC processors)
-try:
-    import jax, jaxlib
-
-except Exception as e:
-    raise ImportError(
-        "Could not import 'jax' or 'jaxlib'. Modules that rely on Jax will not be available."
-    )
 
 # - Jax imports
 from jax.tree_util import register_pytree_node
@@ -55,10 +37,7 @@ class JaxModule(Module, ABC):
     """The internal registry of registered `JaxModule` s"""
 
     def __init__(
-        self,
-        shape: Optional[Union[int, Tuple]] = None,
-        *args,
-        **kwargs,
+        self, shape: Optional[Union[int, Tuple]] = None, *args, **kwargs,
     ):
         """
 
@@ -82,10 +61,7 @@ class JaxModule(Module, ABC):
             JaxModule._rockpool_pytree_registry.append(cls)
 
     def _auto_batch(
-        self,
-        data: np.ndarray,
-        states: Tuple = (),
-        target_shapes: Tuple = None,
+        self, data: np.ndarray, states: Tuple = (), target_shapes: Tuple = None,
     ) -> (np.ndarray, Tuple[np.ndarray]):
         """
         Automatically replicate states over batches and verify input dimensions

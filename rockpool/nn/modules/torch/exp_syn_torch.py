@@ -2,13 +2,6 @@
 Implement a exponential synapse module, using a Torch backend
 """
 
-from importlib import util
-
-if util.find_spec("torch") is None:
-    raise ModuleNotFoundError(
-        "'Torch' backend not found. Modules that rely on Torch will not be available."
-    )
-
 from typing import Optional, Tuple, Any, Union
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
@@ -85,8 +78,7 @@ class ExpSynTorch(TorchModule):
 
         # - Initialise state
         self.isyn: rt.P_tensor = rp.State(
-            shape=(self.size_out,),
-            init_func=lambda s: torch.zeros(*s),
+            shape=(self.size_out,), init_func=lambda s: torch.zeros(*s),
         )
         """ (torch.tensor) Synaptic current state for each synapse ``(1, N)`` """
 

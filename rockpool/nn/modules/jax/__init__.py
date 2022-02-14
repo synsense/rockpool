@@ -11,6 +11,7 @@ try:
     from .lif_jax import *
     from .rate_jax import *
     from .softmax_jax import *
+    from .jax_lif_ode import *
 except:
     if not backend_available("jax"):
         JaxModule = missing_backend_shim("JaxModule", "jax")

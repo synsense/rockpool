@@ -3,7 +3,7 @@ An exponential synapse layer, with a Jax backend.
 """
 
 # - Rockpool imports
-from rockpool.nn.modules import JaxModule
+from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
 
 # - Other imports
@@ -93,16 +93,12 @@ class ExpSynJax(JaxModule):
         """ (float) Noise std. dev after 1 second """
 
         self.isyn: Union[np.array, State] = State(
-            shape=self.size_out,
-            init_func=np.zeros,
+            shape=self.size_out, init_func=np.zeros,
         )
         """ (torch.tensor) Synaptic current state for each synapse ``(1, N)`` """
 
     def evolve(
-        self,
-        input_data: np.array,
-        *args,
-        **kwargs,
+        self, input_data: np.array, *args, **kwargs,
     ) -> (np.ndarray, dict, dict):
         # - Get input shapes, add batch dimension if necessary
         if len(input_data.shape) == 2:

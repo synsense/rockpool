@@ -3,15 +3,6 @@ Provide a base class for build Torch-compatible modules
 """
 __all__ = ["TorchModule", "TorchModuleParameters"]
 
-from rockpool.utilities import backend_available, missing_backend_shim
-
-from rockpool.utilities.backend_management import AbortImport
-
-if not backend_available("smag"):
-    TorchModule = missing_backend_shim("TorchModule", "torch")
-    TorchModuleParameters = missing_backend_shim("TorchModuleParameters", "torch")
-    # raise AbortImport
-
 from rockpool.nn.modules.module import Module
 
 import torch
