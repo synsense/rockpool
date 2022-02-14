@@ -75,7 +75,7 @@ class XyloNeurons(GenericNeurons):
                 len(mod.output_nodes),
                 mod.name,
                 mod.computational_module,
-                [],  # TODO: what [] means?
+                [],  # Empty list for HW IDs
                 thresholds,
                 dash_mem,
                 dash_syn,
@@ -97,9 +97,7 @@ class XyloNeurons(GenericNeurons):
 
             # - Make a new module
             neurons = cls._factory(
-                len(mod.input_nodes),
-                len(mod.output_nodes),
-                mod.name,
+                len(mod.input_nodes), len(mod.output_nodes), mod.name,
             )
 
             # - Replace the target module
