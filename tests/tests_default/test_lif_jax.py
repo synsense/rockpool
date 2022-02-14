@@ -1,6 +1,7 @@
 import jax
 from jax.config import config
 
+config.update("jax_enable_x64", True)
 config.update("jax_log_compiles", True)
 config.update("jax_debug_nans", True)
 
@@ -299,3 +300,41 @@ def test_lif_jax_batches():
     je = jit(lyr)
     o, n_s, r_d = je(np.random.rand(batches, T, N))
     lyr = lyr.set_attributes(n_s)
+
+
+def test_linear_lif():
+    from rockpool.nn.combinators import Sequential
+    from rockpool.nn.modules import LIFJax, LinearJax
+
+    # - Generate a network using the sequential combinator
+    Nin = 200
+    N = 50
+    Nout = 1
+    dt = 1e-3
+
+    mod = Sequential(
+        LinearJax((Nin, N), has_bias=False, spiking_input=True),
+        LIFJax(N, dt=dt, tau_syn=100e-3, tau_mem=200e-3),
+        LinearJax((N, Nout), has_bias=False),
+    )
+
+    import rockpool.training.jax_loss as l
+    import jax.numpy as jnp
+
+    # - Define a loss function
+    def loss_mse(params, net, input, target):
+        # - Reset the network state
+        net = net.reset_state()
+
+        # - Apply the parameters
+        net = net.set_attributes(params)
+
+        # - Evolve the network
+        output, _, states = net(input, record=True)
+
+        # - Return the loss
+        return l.mse(output, target)
+
+    import jax
+
+    jax.jit(jax.grad(loss_mse))(mod.parameters(), mod, 1.0, 0.0)
