@@ -29,7 +29,7 @@ You can also install |project| using `conda`, from the `conda-forge` channel.
 Dependencies
 ------------
 
-|project| has several dependencies for various aspects of the package. However, these dependencies are compartmentalised as much as possible. For example, Jax_ is required to use the Jax_-backed modules (e.g. `.RateEulerJax`); PyTorch_ is required to use the Torch_-backed modules, and so on. But if these dependencies are not available, the remainder of |project| is still usable.
+|project| has several dependencies for various aspects of the package. However, these dependencies are compartmentalised as much as possible. For example, Jax_ is required to use the Jax_-backed modules (e.g. `.RateJax`); PyTorch_ is required to use the Torch_-backed modules, and so on. But if these dependencies are not available, the remainder of |project| is still usable.
 
 * scipy_ for scipy_-backed modules
 * NEST_ for NEST_-backed modules
@@ -64,7 +64,7 @@ To build a live, locally-hosted HTML version of the docs, use the command
 .. code-block:: Bash
 
     $ cd docs
-    $ make clean livehtml
+    $ make clean html
 
 To build a PDF version of the docs, you need to install `imagemagick` on your system, as well as a working version of `latex` and `pdflatex`. You will need to install these dependencies manually.
 
@@ -118,7 +118,7 @@ Then push your new branch to your repository
 
 Use the `Black code formatter`_ on your submission during your final commit. This is required for us to merge your changes. If your modifications aren't already covered by a unit test, please include a unit test with your merge request. Unit tests go in the `tests` directory.
 
-Then when you're ready, make a merge request on gitlab.com, from the feature branch in your fork to https://gitlab.com/ai-ctx/rockpool.
+Then when you're ready, make a merge request on gitlab.com, from the feature branch in your fork to https://github.com/synsense/rockpool.
 
 .. _`Black code formatter`: https://black.readthedocs.io/en/stable/
 
