@@ -6,28 +6,22 @@
 # - Imports
 from warnings import warn
 
-from importlib import util
-
-if util.find_spec("brian2") is None:
-    raise ModuleNotFoundError(
-        "'Brian2'backend not found. Modules that rely on Brian will not be available."
-    )
-
 import brian2 as b2
 import brian2.numpy_ as np
 from brian2.units.stdunits import *
 from brian2.units.allunits import *
 
+from rockpool.utilities.timedarray_shift import TimedArray as TAShift
+
 from rockpool.timeseries import TSContinuous, TSEvent
 
 from rockpool.nn.layers.layer import Layer
-from rockpool.utilities.timedarray_shift import TimedArray as TAShift
 
+from rockpool.typehints import FloatVector
 from typing import Optional, Union, Tuple, List, Any
 
 # - Type alias for array-like objects
-ArrayLike = Union[np.ndarray, List, Tuple]
-FloatVector = Union[float, np.ndarray]
+ArrayLike = FloatVector
 
 from rockpool.nn.modules.timed_module import astimedmodule
 
@@ -517,19 +511,8 @@ class FFIAFBrianBase(Layer):
 
 
 @astimedmodule(
-    parameters=[
-        "weights",
-        "bias",
-        "tau_mem",
-        "v_thresh",
-        "v_reset",
-        "v_rest",
-    ],
-    simulation_parameters=[
-        "dt",
-        "noise_std",
-        "refractory",
-    ],
+    parameters=["weights", "bias", "tau_mem", "v_thresh", "v_reset", "v_rest",],
+    simulation_parameters=["dt", "noise_std", "refractory",],
 )
 class FFIAFBrian(FFIAFBrianBase):
     pass
@@ -545,11 +528,7 @@ class FFIAFBrian(FFIAFBrianBase):
         "v_reset",
         "v_rest",
     ],
-    simulation_parameters=[
-        "dt",
-        "noise_std",
-        "refractory",
-    ],
+    simulation_parameters=["dt", "noise_std", "refractory",],
 )
 class FFIAFSpkInBrian(FFIAFBrianBase):
     """Spiking feedforward layer with spiking inputs and outputs"""
@@ -1420,11 +1399,7 @@ class RecIAFBrianBase(Layer):
         "v_reset",
         "v_rest",
     ],
-    simulation_parameters=[
-        "dt",
-        "noise_std",
-        "refractory",
-    ],
+    simulation_parameters=["dt", "noise_std", "refractory",],
 )
 class RecIAFBrian(RecIAFBrianBase):
     pass
@@ -1442,11 +1417,7 @@ class RecIAFBrian(RecIAFBrianBase):
         "v_reset",
         "v_rest",
     ],
-    simulation_parameters=[
-        "dt",
-        "noise_std",
-        "refractory",
-    ],
+    simulation_parameters=["dt", "noise_std", "refractory",],
 )
 class RecIAFSpkInBrian(RecIAFBrianBase):
     """Spiking recurrent layer with spiking in- and outputs, and a Brian2 backend"""

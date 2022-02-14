@@ -79,24 +79,28 @@ def check_backend(
     return requirements_met
 
 
-def backend_available(backend_name: str) -> bool:
+def backend_available(*backend_names) -> bool:
     """
     Report if a backend is available for use
 
     This function returns immediately if the named backend has already been checked previously. Otherwise, if the backend is "standard", then it will be checked for availability. If the backend is non-standard, it cannot be checked automatically. In that case you must use :py:func:`.check_backend` directly.
 
     Args:
-        backend_name (str): A backend to check
+        backend_name0, backend_name1, ... (str): A backend to check
 
     Returns:
         bool: ``True`` iff the backend is available for use
     """
-    if backend_name in __checked_backends:
-        return __checked_backends[backend_name]
-    elif backend_name in __backend_specs:
-        return check_backend(backend_name, *__backend_specs[backend_name])
-    else:
-        return False
+
+    def check_single_backend(backend_name):
+        if backend_name in __checked_backends:
+            return __checked_backends[backend_name]
+        elif backend_name in __backend_specs:
+            return check_backend(backend_name, *__backend_specs[backend_name])
+        else:
+            return check_backend(backend_name)
+
+    return all([check_single_backend(be) for be in backend_names])
 
 
 def missing_backend_shim(class_name: str, backend_name: str):
@@ -126,3 +130,12 @@ def missing_backend_shim(class_name: str, backend_name: str):
             )
 
     return MissingBackendShim
+
+
+def missing_backend_error(class_name, backend_name):
+    def __init__(self, *args, **kwargs):
+        raise ModuleNotFoundError(
+            f"Missing the `{backend_name}` backend. `{class_name}` objects, and others relying on `{backend_name}` are not available."
+        )
+
+    return __init__

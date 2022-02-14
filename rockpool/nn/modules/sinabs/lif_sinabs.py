@@ -4,10 +4,10 @@ Implement a LIF Module, using a Sinabs backend
 
 from importlib import util
 
-if util.find_spec("sinabs") is None:
-    raise ModuleNotFoundError(
-        "'Sinabs' backend not found. Modules that rely on Sinabs will not be available."
-    )
+# if util.find_spec("sinabs") is None:
+#     raise ModuleNotFoundError(
+#         "'Sinabs' backend not found. Modules that rely on Sinabs will not be available."
+#     )
 
 from typing import Union, List, Tuple, Callable, Optional, Any
 import numpy as np
@@ -172,11 +172,7 @@ class LIFSinabs(TorchModule):
 
         # - Initialise superclass
         super().__init__(
-            shape=shape,
-            spiking_input=True,
-            spiking_output=True,
-            *args,
-            **kwargs,
+            shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs,
         )
 
         self.n_synapses: P_int = rp.SimulationParameter(shape[0] // shape[1])
