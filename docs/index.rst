@@ -25,6 +25,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    basics/introduction_to_snns.ipynb
    basics/getting_started.ipynb
    basics/time_series.ipynb
+   basics/standard_modules.ipynb
    basics/sharp_points.ipynb
 
 .. toctree::
