@@ -1,3 +1,7 @@
+"""
+Layer v1 base class for Rockpool layers
+"""
+
 from warnings import warn
 from abc import ABC, abstractmethod
 from functools import reduce

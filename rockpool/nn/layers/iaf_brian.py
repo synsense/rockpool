@@ -1,6 +1,6 @@
-###
-# iaf_brian.py - Classes implementing recurrent and feedforward layers consisting of standard IAF neurons in brian2
-###
+"""
+IAF neurons layers with Brian2 backend
+"""
 
 
 # - Imports

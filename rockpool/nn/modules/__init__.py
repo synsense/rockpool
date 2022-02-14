@@ -41,7 +41,7 @@ from .torch import *
 
 
 # - Sinabs modules
-from sinabs import *
+from .sinabs import *
 
 # try:
 #     from .sinabs.lif_slayer import *
@@ -52,18 +52,23 @@ from sinabs import *
 
 
 # - Jax modules
-try:
-    from .jax.jax_module import *
-    from .jax.exp_syn_jax import *
-    from .jax.lif_jax import *
-    from .jax.rate_jax import *
-    from .jax.softmax_jax import *
+from .jax import *
 
-except (ImportError, ModuleNotFoundError) as err:
-    warnings.warn(f"Jax modules not available: {err}")
+# try:
+#     from .jax.jax_module import *
+#     from .jax.exp_syn_jax import *
+#     from .jax.lif_jax import *
+#     from .jax.rate_jax import *
+#     from .jax.softmax_jax import *
+#
+# except (ImportError, ModuleNotFoundError) as err:
+#     warnings.warn(f"Jax modules not available: {err}")
 
 # - NEST modules
-try:
-    from .nest.iaf_nest import FFIAFNest, RecIAFSpkInNest, RecAEIFSpkInNest
-except (ImportError, ModuleNotFoundError) as err:
-    warnings.warn(f"NEST modules not available: {err}")
+from .nest import *
+
+#
+# try:
+#     from .nest.iaf_nest import FFIAFNest, RecIAFSpkInNest, RecAEIFSpkInNest
+# except (ImportError, ModuleNotFoundError) as err:
+#     warnings.warn(f"NEST modules not available: {err}")

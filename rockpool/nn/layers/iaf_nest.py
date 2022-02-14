@@ -1,3 +1,8 @@
+"""
+IAF neuron layers with a NEST backend
+"""
+
+
 import multiprocessing
 from importlib import util
 

@@ -59,11 +59,11 @@ def check_backend(
 
     requirements_met = check_flag
     for spec in required_modules:
-        # - Check the required module is installed
-        requirements_met = requirements_met and (util.find_spec(spec) is not None)
-
-        # - Try to import the module
         try:
+            # - Check the required module is installed
+            requirements_met = requirements_met and (util.find_spec(spec) is not None)
+
+            # - Try to import the module
             importlib.import_module(spec)
         except Exception as e:
             requirements_met = False
@@ -124,6 +124,10 @@ def missing_backend_shim(class_name: str, backend_name: str):
     """
 
     class MissingBackendShim:
+        """
+        BACKEND MISSING FOR THIS CLASS
+        """
+
         def __init__(self, *args, **kwargs):
             raise ModuleNotFoundError(
                 f"Missing the `{backend_name}` backend. `{class_name}` objects, and others relying on `{backend_name}` are not available."

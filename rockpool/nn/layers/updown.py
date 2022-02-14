@@ -1,7 +1,7 @@
 """
-updown.py - Feedforward layer that converts each analogue input channel to one spiking up and one down channel
-            Runs in batch mode like UpDownTorch to save memory, but does not use pytorch. UpDownTorch seems
-            to be slower..
+Feedforward layer that converts each analogue input channel to one spiking up and one down channel
+
+Runs in batch mode like UpDownTorch to save memory, but does not use pytorch. UpDownTorch seems to be slower...
 """
 
 from typing import Optional, Union, Tuple

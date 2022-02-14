@@ -1,3 +1,7 @@
+"""
+Pass-through layer that weights events
+"""
+
 import numpy as np
 from rockpool.timeseries import TSEvent
 from rockpool.nn.layers.layer import Layer

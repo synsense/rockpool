@@ -1,6 +1,6 @@
-###
-# spike_bt - Implement a back-tick precise spike time recurrent layer, with fast and slow synapses
-###
+"""
+A back-tick precise spike time recurrent layer, with fast and slow synapses
+"""
 
 ### --- Imports
 

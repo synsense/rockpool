@@ -1,6 +1,6 @@
-###
-# exp_synapses_brian.py - Class implementing a spike-to-current layer with exponential synapses
-###
+"""
+Spike-to-current layer with exponential synapses, with a Brian2 backend
+"""
 
 
 # - Imports

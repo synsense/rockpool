@@ -1,3 +1,7 @@
+"""
+Adaptive-exponential integrate-and-fire neurons with NEST backend
+"""
+
 import multiprocessing
 from warnings import warn
 from typing import Union, List, Dict
