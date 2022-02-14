@@ -19,7 +19,8 @@ def test_JaxResidual():
 
     mod = Residual(LinearJax((N, N)), LIFJax((N,)))
 
-    input = np.random.rand(T, N)
+    np.random.seed(0)
+    input = 10 * np.random.rand(T, N)
 
     # - Test evolution
     out, state_dict, rec_dict = mod(input, record=True)
@@ -78,10 +79,7 @@ def test_NativeResidual():
     N = 10
     T = 30
 
-    mod = Residual(
-        Linear((N, 20)),
-        Linear((20, N)),
-    )
+    mod = Residual(Linear((N, 20)), Linear((20, N)),)
 
     import numpy as np
 
