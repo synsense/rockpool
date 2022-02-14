@@ -279,9 +279,6 @@ def mapper(
     Returns:
         dict: A dictionary of specifications for Xylo v1, containing the mapped computational graph
     """
-    # - Make a deep copy of the graph
-    # graph = copy.deepcopy(graph)
-
     # - Check design rules
     check_drc(graph, xylo_drc)
 

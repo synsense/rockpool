@@ -44,12 +44,22 @@ def test_GraphModuleBase():
 
     from rockpool.graph import GraphNode
 
-    gmb.add_input(GraphNode())
-    gmb.add_input(GraphNode())
+    gn0 = GraphNode()
+    gn1 = GraphNode()
+    gmb.add_input(gn0)
+    gmb.add_output(gn1)
+
+    assert gn0 in gmb.input_nodes
+    assert gn1 in gmb.output_nodes
+
+    gmb.remove_input(gn0)
+    assert gn0 not in gmb.input_nodes
 
     gn = GraphNode()
     gmb.remove_input(gn)
     gmb.remove_output(gn)
+
+    assert len(gmb.output_nodes) == 4
 
 
 def test_GraphNode():
@@ -72,16 +82,38 @@ def test_GraphModule():
     with pytest.raises(ValueError):
         gm = GraphModule._convert_from(gm)
 
+    gn0 = GraphNode()
+    gn1 = GraphNode()
+
+    gm.add_input(gn0)
+    assert gn0 in gm.input_nodes
+    assert gm in gn0.sink_modules
+
+    gm.remove_input(gn0)
+    assert gn0 not in gm.input_nodes
+    assert gm not in gn0.sink_modules
+
+    gm.clear_inputs()
+    assert len(gm.input_nodes) == 0
+
+    gm.add_output(gn1)
+    assert gn1 in gm.output_nodes
+    assert gm in gn1.source_modules
+
+    gm.remove_output(gn1)
+    assert gn1 not in gm.output_nodes
+    assert gm not in gn1.source_modules
+
+    gm.clear_outputs()
+    assert len(gm.output_nodes) == 0
+
 
 def test_GraphHolder():
     from rockpool.graph import GraphHolder, GraphNode
 
     GraphHolder._factory(2, 3, "test")
     GraphHolder(
-        [GraphNode() for _ in range(2)],
-        [GraphNode() for _ in range(3)],
-        "test",
-        None,
+        [GraphNode() for _ in range(2)], [GraphNode() for _ in range(3)], "test", None,
     )
 
 
