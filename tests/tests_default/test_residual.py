@@ -82,7 +82,7 @@ def test_NativeResidual():
     N = 10
     T = 30
 
-    mod = Residual(Linear((N, 20)), Linear((20, N)),)
+    mod = Residual(Linear((N, 20)), Linear((20, N)))
 
     import numpy as np
 

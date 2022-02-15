@@ -2238,7 +2238,7 @@ class DynapseControl:
         return self.bufferedfilter
 
     def clear_buffered_event_filter(self):
-        """ clear_buffered_event_filter - Clear self.bufferedfilter if it exists."""
+        """clear_buffered_event_filter - Clear self.bufferedfilter if it exists."""
         if hasattr(self, "_bufferedfilter") and self.bufferedfilter is not None:
             self.bufferedfilter.clear()
             print("DynapseControl: Buffered event filter cleared")

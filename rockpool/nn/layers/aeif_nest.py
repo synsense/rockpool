@@ -27,7 +27,7 @@ class RecAEIFSpkInNestV1(RecIAFSpkInNestV1):
     """Spiking recurrent layer with spiking in- and outputs, with a NEST backend"""
 
     class NestProcess(_BaseNestProcessSpkInRec):
-        """ Class for running NEST in its own process """
+        """Class for running NEST in its own process"""
 
         def __init__(
             self,
@@ -55,7 +55,7 @@ class RecAEIFSpkInNestV1(RecIAFSpkInNestV1):
             record: bool = False,
             num_cores: int = 1,
         ):
-            """ initializes the process """
+            """initializes the process"""
             super().__init__(
                 request_q=request_q,
                 result_q=result_q,

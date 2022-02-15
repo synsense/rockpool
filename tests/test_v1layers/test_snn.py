@@ -11,7 +11,7 @@ def test_import():
 
 
 def test_pt_events():
-    """ Test PassThroughEvents layer"""
+    """Test PassThroughEvents layer"""
     from rockpool.nn.layers import PassThroughEvents
     from rockpool import TSEvent
 

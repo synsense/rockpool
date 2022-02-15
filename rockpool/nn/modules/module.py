@@ -556,22 +556,22 @@ class ModuleBase(ABC):
 
     @property
     def spiking_input(self) -> bool:
-        """ bool: If ``True``, this module receives spiking input. If ``False``, this module expects continuous input. """
+        """bool: If ``True``, this module receives spiking input. If ``False``, this module expects continuous input."""
         return self._spiking_input
 
     @property
     def spiking_output(self):
-        """ bool: If ``True``, this module sends spiking output. If ``False``, this module sends continuous output. """
+        """bool: If ``True``, this module sends spiking output. If ``False``, this module sends continuous output."""
         return self._spiking_output
 
     @property
     def shape(self) -> tuple:
-        """ tuple: The shape of this module """
+        """tuple: The shape of this module"""
         return self._shape
 
     @property
     def size(self) -> int:
-        """ int: (DEPRECATED) The output size of this module """
+        """int: (DEPRECATED) The output size of this module"""
         warn(
             "The `size` property is deprecated. Please use `size_out` instead.",
             DeprecationWarning,
@@ -580,12 +580,12 @@ class ModuleBase(ABC):
 
     @property
     def size_out(self) -> int:
-        """ int: The output size of this module """
+        """int: The output size of this module"""
         return self._shape[-1]
 
     @property
     def size_in(self) -> int:
-        """ int: The input size of this module """
+        """int: The input size of this module"""
         return self._shape[0]
 
     @abstractmethod
@@ -715,7 +715,10 @@ class Module(ModuleBase, ABC, metaclass=PostInitMetaMixin):
         )
 
     def _auto_batch(
-        self, data: np.ndarray, states: Tuple = (), target_shapes: Tuple = None,
+        self,
+        data: np.ndarray,
+        states: Tuple = (),
+        target_shapes: Tuple = None,
     ) -> (np.ndarray, Tuple[np.ndarray]):
         """
         Automatically replicate states over batches and verify input dimensions

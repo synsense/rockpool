@@ -78,7 +78,10 @@ class ParameterBase:
 
         # - Check type and configuration of `shape` argument
         if shape is not None:
-            if not isinstance(shape, (List, Tuple, int),):
+            if not isinstance(
+                shape,
+                (List, Tuple, int),
+            ):
                 raise TypeError(
                     f"`shape` must be a list, a tuple or an integer. Instead `shape` was a {type(shape).__name__}."
                 )
@@ -180,7 +183,7 @@ class ParameterBase:
         return f"{type(self).__name__}(data={self.data}, family={self.family}, init_func={self.init_func}, shape={self.shape})"
 
     def _tree_flatten(self) -> Tuple[tuple, tuple]:
-        """ FLatten this parameter / state for Jax """
+        """FLatten this parameter / state for Jax"""
         return (
             (
                 self.data,

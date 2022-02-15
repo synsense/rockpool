@@ -188,7 +188,9 @@ def test_wrapper():
 
     class net_mod(JaxModule):
         def __init__(
-            self, shape, dt: float = 1e-3,
+            self,
+            shape,
+            dt: float = 1e-3,
         ):
             super().__init__(shape=shape)
 
@@ -199,7 +201,9 @@ def test_wrapper():
             self.relu = RateEulerJax(self.size_out)
 
         def evolve(
-            self, input_data, record: bool = False,
+            self,
+            input_data,
+            record: bool = False,
         ):
             return self.relu(jnp.dot(input_data, self.weight), record=record)
 

@@ -52,7 +52,7 @@ def test_Sequential_mod():
     input_data = np.random.rand(100, 10)
 
     # - Test evolve
-    (output, _, _,) = seq(input_data)
+    (output, _, _) = seq(input_data)
     print(output.shape)
 
     # - Test parameters
@@ -90,7 +90,11 @@ def test_Sequential_jax():
     T = 10
     input_data = np.random.rand(T, Nin)
 
-    (output, new_state, recorded_state,) = seq(input_data)
+    (
+        output,
+        new_state,
+        recorded_state,
+    ) = seq(input_data)
     seq = seq.set_attributes(new_state)
     print("output: ", output.T)
 
@@ -101,7 +105,11 @@ def test_Sequential_jax():
 
     # - Test compilation
     je = jax.jit(seq)
-    (output_jit, _, _,) = je(input_data)
+    (
+        output_jit,
+        _,
+        _,
+    ) = je(input_data)
     print("jax.jit output: ", output_jit.T)
 
     # - Test differentiation
@@ -154,7 +162,11 @@ def test_Sequential_torch():
     input_data = torch.randn((100, 10))
 
     # - Test evolve
-    (output, _, _,) = seq(input_data)
+    (
+        output,
+        _,
+        _,
+    ) = seq(input_data)
     print(output.shape)
 
     # - Test parameters
@@ -182,13 +194,22 @@ def test_FFwdStack_mod():
         def evolve(self, input_data, record: bool = False):
             return input_data + self.bias, {}, {}
 
-    seq = FFwdStack(Mod(10), Mod(20), Mod(30), Mod(1),)
+    seq = FFwdStack(
+        Mod(10),
+        Mod(20),
+        Mod(30),
+        Mod(1),
+    )
     print(seq)
 
     input_data = np.random.rand(100, 10)
 
     # - Test evolve
-    (output, _, _,) = seq(input_data)
+    (
+        output,
+        _,
+        _,
+    ) = seq(input_data)
     print(output.shape)
 
     # - Test parameters
@@ -218,14 +239,23 @@ def test_FFwdStack_jax():
         def evolve(self, input_data, record: bool = False):
             return input_data + self.bias, {}, {}
 
-    seq = FFwdStack(Mod(10), Mod(20), Mod(30), Mod(1),)
+    seq = FFwdStack(
+        Mod(10),
+        Mod(20),
+        Mod(30),
+        Mod(1),
+    )
     print(seq)
 
     input_data = np.random.rand(100, 10)
 
     # - Test evolve
     seq_jit = jit(seq)
-    (output, _, _,) = seq_jit(input_data)
+    (
+        output,
+        _,
+        _,
+    ) = seq_jit(input_data)
     print(output.shape)
 
     # - Test parameters
@@ -234,7 +264,11 @@ def test_FFwdStack_jax():
 
     # - Test compilation
     je = jit(seq)
-    (output, _, _,) = seq(input_data)
+    (
+        output,
+        _,
+        _,
+    ) = seq(input_data)
 
 
 def test_FFwdStack_torch():
@@ -256,13 +290,22 @@ def test_FFwdStack_torch():
         def evolve(self, input_data, record: bool = False):
             return input_data + self.bias, {}, {}
 
-    seq = FFwdStack(Mod(10), Mod(20), Mod(30), Mod(1),)
+    seq = FFwdStack(
+        Mod(10),
+        Mod(20),
+        Mod(30),
+        Mod(1),
+    )
     print(seq)
 
     input_data = torch.rand((100, 10))
 
     # - Test evolve
-    (output, _, _,) = seq(input_data)
+    (
+        output,
+        _,
+        _,
+    ) = seq(input_data)
     print(output.shape)
 
     # - Test parameters

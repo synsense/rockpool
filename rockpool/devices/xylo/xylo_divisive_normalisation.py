@@ -164,7 +164,7 @@ class DivisiveNormalisation(Module):
             # - Load default LFSR sequence
             code_lfsr = build_lfsr(basedir / "lfsr_data.txt")
 
-        if code_lfsr.size != 2 ** self.bits_lfsr - 1:
+        if code_lfsr.size != 2**self.bits_lfsr - 1:
             raise ValueError(
                 f"Length of LFSR is not compatible with its number of bits. Expected {2 ** self.bits_lfsr - 1} entries, found {code_lfsr.size}."
             )
@@ -253,7 +253,7 @@ class DivisiveNormalisation(Module):
         E[0, :] += self.E_frame_counter.astype(int)
 
         # clip the counter to take the limited number of bits into account
-        E = np.clip(E, 0, 2 ** self.bits_counter)
+        E = np.clip(E, 0, 2**self.bits_counter)
 
         # Reset the value of E_frame_counter
         self.E_frame_counter = np.zeros(self.size_in, "int")
@@ -288,7 +288,7 @@ class DivisiveNormalisation(Module):
         # take the limited number of counter bits into account
         # we should make sure that the controller does not allow count-back to zero
         # i.e., it keeps the value of the counter at its maximum
-        M = np.clip(M, 0, 2 ** self.bits_lowpass - 1)
+        M = np.clip(M, 0, 2**self.bits_lowpass - 1)
         self.M_lowpass_state = M[-1, :]
 
         # use the value of E(t) at each frame t to produce a pseudo-random
@@ -488,7 +488,7 @@ class DivisiveNormalisationNoLFSR(DivisiveNormalisation):
         E[0, :] += self.E_frame_counter.astype(int)
 
         # clip the counter to take the limited number of bits into account
-        E = np.clip(E, 0, 2 ** self.bits_counter)
+        E = np.clip(E, 0, 2**self.bits_counter)
 
         # Reset the value of E_frame_counter
         self.E_frame_counter = np.zeros(self.size_in, "int")
@@ -523,7 +523,7 @@ class DivisiveNormalisationNoLFSR(DivisiveNormalisation):
         # take the limited number of counter bits into account
         # we should make sure that the controller does not allow count-back to zero
         # i.e., it keeps the value of the counter at its maximum
-        M = np.clip(M, 0, 2 ** self.bits_lowpass - 1)
+        M = np.clip(M, 0, 2**self.bits_lowpass - 1)
         self.M_lowpass_state = M[-1, :]
 
         # use the value of E(t) at each frame t to produce a pseudo-random

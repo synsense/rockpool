@@ -163,4 +163,4 @@ def test_submodules():
     print('All "weights" family:', net.parameters("weights"))
 
     # - Test an operation on collected weights
-    np.sum([np.sum(v ** 2) for v in net.parameters("weights").values()])
+    np.sum([np.sum(v**2) for v in net.parameters("weights").values()])

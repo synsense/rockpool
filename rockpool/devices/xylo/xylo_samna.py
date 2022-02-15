@@ -218,23 +218,24 @@ def config_from_specification(
     config.input.weight_bit_shift = weight_shift_in
     config.reservoir.weight_bit_shift = weight_shift_rec
     config.readout.weight_bit_shift = weight_shift_out
-    config.input.weights = weights_in[:, :, 0].astype("int")
-    config.reservoir.weights = weights_rec[:, :, 0].astype("int")
-    config.readout.weights = weights_out.astype("int")
+    config.input.weights = np.round(weights_in[:, :, 0]).astype("int")
+    config.reservoir.weights = np.round(weights_rec[:, :, 0]).astype("int")
+    config.readout.weights = np.round(weights_out).astype("int")
 
     if enable_isyn2:
-        config.input.syn2_weights = weights_in[:, :, 1].astype("int")
-        config.reservoir.syn2_weights = weights_rec[:, :, 1].astype("int")
+        config.input.syn2_weights = np.round(weights_in[:, :, 1]).astype("int")
+        config.reservoir.syn2_weights = np.round(weights_rec[:, :, 1]).astype("int")
 
     reservoir_neurons = []
     for i in range(len(weights_rec)):
         neuron = ReservoirNeuron()
         if aliases is not None and len(aliases[i]) > 0:
             neuron.alias_target = int(aliases[i][0])
-        neuron.i_syn_decay = dash_syn[i].astype("int")
-        neuron.i_syn2_decay = dash_syn_2[i].astype("int")
-        neuron.v_mem_decay = dash_mem[i].astype("int")
-        neuron.threshold = threshold[i].astype("int")
+
+        neuron.i_syn_decay = np.round(dash_syn[i]).astype("int")
+        neuron.i_syn2_decay = np.round(dash_syn_2[i]).astype("int")
+        neuron.v_mem_decay = np.round(dash_mem[i]).astype("int")
+        neuron.threshold = np.round(threshold[i]).astype("int")
         reservoir_neurons.append(neuron)
 
     config.reservoir.neurons = reservoir_neurons
@@ -242,9 +243,9 @@ def config_from_specification(
     readout_neurons = []
     for i in range(np.shape(weights_out)[1]):
         neuron = OutputNeuron()
-        neuron.i_syn_decay = dash_syn_out[i].astype("int")
-        neuron.v_mem_decay = dash_mem_out[i].astype("int")
-        neuron.threshold = threshold_out[i].astype("int")
+        neuron.i_syn_decay = np.round(dash_syn_out[i]).astype("int")
+        neuron.v_mem_decay = np.round(dash_mem_out[i]).astype("int")
+        neuron.threshold = np.round(threshold_out[i]).astype("int")
         readout_neurons.append(neuron)
 
     config.readout.neurons = readout_neurons

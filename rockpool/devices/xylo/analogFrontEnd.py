@@ -67,7 +67,6 @@ try:
 
         return jnp.array(data_up), final_state
 
-
 except:
 
     def _encode_spikes(
@@ -138,7 +137,7 @@ class AFE(Module):
         fs: int = 48000,
         manual_scaling: float = None,
         add_noise: bool = True,
-        seed: int = np.random.randint(2 ** 32 - 1),
+        seed: int = np.random.randint(2**32 - 1),
         num_workers: int = 1,
         *args,
         **kwargs,
@@ -296,7 +295,7 @@ class AFE(Module):
         self.fcs: P_array = Parameter(
             [fc1]
             + [
-                fc1 * (self.f_factor ** i) * (1 + self.fc_mismatch[i] / 100)
+                fc1 * (self.f_factor**i) * (1 + self.fc_mismatch[i] / 100)
                 for i in np.arange(1, self.size_out)
             ]
         )
@@ -520,7 +519,7 @@ class AFE(Module):
 
         #######   LNA - Gain  ##########
         lna_nonlinearity = self.DISTORTION / self.INPUT_AMP_MAX
-        lna_distortion = (y_scaled ** 2) * lna_nonlinearity
+        lna_distortion = (y_scaled**2) * lna_nonlinearity
         lna_gain_v = 2 ** (self.lna_gain_db / 6)
         lna_out = y_scaled * (1 + lna_distortion) * lna_gain_v + self.lna_offset
 

@@ -47,7 +47,11 @@ class InstantMixin:
         # - Store the function
         self.function: P_Callable = SimulationParameter(function)
 
-    def evolve(self, input, record: bool = False,) -> (tuple, tuple, tuple):
+    def evolve(
+        self,
+        input,
+        record: bool = False,
+    ) -> (tuple, tuple, tuple):
         return self.function(input), {}, {}
 
 
@@ -72,7 +76,6 @@ if backend_available("jax"):
             super().__init__(*args, **kwargs)
             self.function = Partial(self.function)
 
-
 else:
     InstantJax = missing_backend_shim("InstantJax", "jax")
 
@@ -84,7 +87,6 @@ if backend_available("torch"):
         """
         Wrap a callable function as an instantaneous Rockpool module, with a Torch backend
         """
-
 
 else:
     InstantTorch = missing_backend_shim("InstantTorch", "torch")

@@ -730,7 +730,7 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
     @property
     def input_type(self) -> type:
-        """ type: The :py:class:`.TimeSeries` class accepted by this module """
+        """type: The :py:class:`.TimeSeries` class accepted by this module"""
         if self.spiking_input:
             return TSEvent
         else:
@@ -738,7 +738,7 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
     @property
     def output_type(self) -> type:
-        """ type: The :py:class:`.TimeSeries` class returned by this module """
+        """type: The :py:class:`.TimeSeries` class returned by this module"""
         if self.spiking_output:
             return TSEvent
         else:
@@ -746,7 +746,7 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
     @property
     def t(self) -> float:
-        """ float: The current evolution time of this layer, in seconds """
+        """float: The current evolution time of this layer, in seconds"""
         return self._timestep * self.dt
 
     @t.setter
@@ -859,11 +859,11 @@ class TimedModuleWrapper(TimedModule):
 
     @property
     def module(self):
-        """ `Module`: The wrapped module """
+        """`Module`: The wrapped module"""
         return self._module
 
     def __repr__(self) -> str:
-        """ str: A representation of this module as a string """
+        """str: A representation of this module as a string"""
         return f"{super().__repr__()} with {self._module.full_name} as module"
 
     def evolve(
@@ -998,12 +998,12 @@ class LayerToTimedModule(TimedModule):
                 )
 
     def reset_time(self) -> None:
-        """ Reset the internal clock for this `TimedModule` """
+        """Reset the internal clock for this `TimedModule`"""
         super().reset_time()
         self._module.reset_time()
 
     def reset_state(self) -> None:
-        """ Reset the internal state for this `TimedModule` """
+        """Reset the internal state for this `TimedModule`"""
         super().reset_state()
         self._module.reset_state()
 

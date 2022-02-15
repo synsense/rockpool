@@ -11,7 +11,11 @@ def test_tracing():
 
     # - Sequential jax
     mod = Sequential(
-        Linear((2, 3)), LIF((3,)), Linear((3, 4)), LIF((4, 4)), Linear((4, 5)),
+        Linear((2, 3)),
+        LIF((3,)),
+        Linear((3, 4)),
+        LIF((4, 4)),
+        Linear((4, 5)),
     )
 
     # - Get a graph

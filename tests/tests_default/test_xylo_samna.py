@@ -90,13 +90,16 @@ def test_save_load():
         conf2.reservoir.neurons[0].i_syn2_decay,
     )
     np.testing.assert_allclose(
-        config.reservoir.neurons[0].threshold, conf2.reservoir.neurons[0].threshold,
+        config.reservoir.neurons[0].threshold,
+        conf2.reservoir.neurons[0].threshold,
     )
     np.testing.assert_allclose(
-        config.reservoir.neurons[0].i_syn_decay, conf2.reservoir.neurons[0].i_syn_decay,
+        config.reservoir.neurons[0].i_syn_decay,
+        conf2.reservoir.neurons[0].i_syn_decay,
     )
     np.testing.assert_allclose(
-        config.reservoir.neurons[0].v_mem_decay, conf2.reservoir.neurons[0].v_mem_decay,
+        config.reservoir.neurons[0].v_mem_decay,
+        conf2.reservoir.neurons[0].v_mem_decay,
     )
 
     np.testing.assert_allclose(config.readout.weights, conf2.readout.weights)
@@ -104,13 +107,16 @@ def test_save_load():
         config.readout.weight_bit_shift, conf2.readout.weight_bit_shift
     )
     np.testing.assert_allclose(
-        config.readout.neurons[0].threshold, conf2.readout.neurons[0].threshold,
+        config.readout.neurons[0].threshold,
+        conf2.readout.neurons[0].threshold,
     )
     np.testing.assert_allclose(
-        config.readout.neurons[0].i_syn_decay, conf2.readout.neurons[0].i_syn_decay,
+        config.readout.neurons[0].i_syn_decay,
+        conf2.readout.neurons[0].i_syn_decay,
     )
     np.testing.assert_allclose(
-        config.readout.neurons[0].v_mem_decay, conf2.readout.neurons[0].v_mem_decay,
+        config.readout.neurons[0].v_mem_decay,
+        conf2.readout.neurons[0].v_mem_decay,
     )
 
 

@@ -100,11 +100,11 @@ Once all dependencies are installed, you can build the PDF docs with
 Contributing
 ------------
 
-If you would like to contribute to |project|, then you should begin by forking the public repository at https://gitlab.com/synsense/rockpool to your own account. Then clone your fork to your development machine
+If you would like to contribute to |project|, then you should begin by forking the public repository at https://github.com/synsense/rockpool to your own account. Then clone your fork to your development machine
 
 .. code-block:: Bash
 
-    $ git clone https://gitlab.com/your-fork-location/rockpool.git rockpool
+    $ git clone https://github.com/your-fork-location/rockpool.git rockpool
 
 
 Install the package in development mode using ``pip``
@@ -140,7 +140,7 @@ Then push your new branch to your repository
 
 Use the `Black code formatter`_ on your submission during your final commit. This is required for us to merge your changes. If your modifications aren't already covered by a unit test, please include a unit test with your merge request. Unit tests go in the ``tests`` directory.
 
-Then when you're ready, make a merge request on gitlab.com, from the feature branch in your fork to https://github.com/synsense/rockpool.
+Then when you're ready, make a merge request on github.com, from the feature branch in your fork to https://github.com/synsense/rockpool.
 
 .. _`Black code formatter`: https://black.readthedocs.io/en/stable/
 

@@ -505,12 +505,12 @@ class RecFSSpikeEulerBT(Layer):
 
     @property
     def output_type(self):
-        """ (`TSEvent`) Output `TimeSeries` class (`TSEvent`) """
+        """(`TSEvent`) Output `TimeSeries` class (`TSEvent`)"""
         return TSEvent
 
     @property
     def tau_syn_r_f(self):
-        """ (flot) Fast synaptic time constant (s) """
+        """(flot) Fast synaptic time constant (s)"""
         return self.__tau_syn_r_f
 
     @tau_syn_r_f.setter
@@ -519,7 +519,7 @@ class RecFSSpikeEulerBT(Layer):
 
     @property
     def tau_syn_r_s(self):
-        """ (float) Slow synaptic time constant (s) """
+        """(float) Slow synaptic time constant (s)"""
         return self.__tau_syn_r_s
 
     @tau_syn_r_s.setter
@@ -528,7 +528,7 @@ class RecFSSpikeEulerBT(Layer):
 
     @property
     def v_thresh(self):
-        """ (float) Threshold potential """
+        """(float) Threshold potential"""
         return self.__thresh
 
     @v_thresh.setter
@@ -537,7 +537,7 @@ class RecFSSpikeEulerBT(Layer):
 
     @property
     def v_rest(self):
-        """ (float) Resting potential """
+        """(float) Resting potential"""
         return self.__rest
 
     @v_rest.setter
@@ -546,7 +546,7 @@ class RecFSSpikeEulerBT(Layer):
 
     @property
     def v_reset(self):
-        """ (float) Reset potential"""
+        """(float) Reset potential"""
         return self.__reset
 
     @v_reset.setter
