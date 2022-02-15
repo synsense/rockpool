@@ -376,3 +376,295 @@ class SampleGenerator:
         # Return the same shape processed signal batch
         _batch = _batch.reshape(size, 2, self.n_sample_duration)
         return _batch
+
+
+class TemporalXORData:
+    """
+    TemporalXORData is the data management module for temporal xor task. It creates
+    train, validation and test sets of the data samples and store in disk
+
+    :param train_val_test: train, validation, and test set split ratio, defaults to [0.88, 0.1, 0.02]
+    :type train_val_test: np.ndarray, optional
+    """
+
+    def __init__(
+        self, *args, train_val_test: np.ndarray = [0.88, 0.1, 0.02], **kwargs,
+    ) -> None:
+        """
+        __init__ Initialize ``TemporalXORData`` module. Parameters are explained in the class docstring.
+        """
+
+        # Sample Generator
+        self.sample_generator = SampleGenerator(*args, **kwargs)
+        self.num_samples = self.sample_generator.num_samples
+        self.n_sample_duration = self.sample_generator.n_sample_duration
+        n_sample = lambda _r: int(np.floor(self.num_samples * _r))
+
+        # Special setter with error checking
+        self.train_val_test = train_val_test
+
+        # Train / Val / Test samples
+        self.num_train_samples = n_sample(self.train_val_test[0])
+        self.num_val_samples = n_sample(self.train_val_test[1])
+        self.num_test_samples = (
+            self.num_samples - self.num_train_samples - self.num_val_samples
+        )
+
+    def fill_hdf5(self, hdf5_path: str) -> None:
+        """
+        fill_hdf5 initiate and fill an hdf5 database in one shot
+        Note that to generate and fill hdf5 dataset in one shot, a bigger memory space is required!
+
+        :param hdf5_path: the filepath for hdf to be created!
+        :type hdf5_path: str
+        """
+        if path.exists(hdf5_path):
+            remove(hdf5_path)
+            logging.warning(f"HDF5 file overwritten! : {hdf5_path}")
+
+        with h5py.File(hdf5_path, "w") as hdf:
+            for _subset in self.subsets:
+                group = hdf.create_group(_subset)
+
+                # (subset, batch, length) -> (subset, batch, length)
+                _input, _response = self.sample_generator.batch(
+                    self.offset[_subset], self.samples[_subset]
+                ).transpose(1, 0, 2)
+
+                # Fill datasets
+                group.create_dataset(self.datasets[0], data=_input)
+                group.create_dataset(self.datasets[1], data=_response)
+
+    def batch_size_array(self, subset: str, memory_batch: int) -> np.ndarray:
+        """
+        batch_size_array calls the `batch_split()` given the desired subset : train, val or test
+
+        :param subset: train, val or test
+        :type subset: str
+        :param memory_batch: the maximum number of samples to store at any time in memory (applies when disk storage is used). If None, then all samples are created and stored in memory at once
+        :type memory_batch: int
+        :return: batch size array, elements indicating the number of samples genrated in each iteration
+        :rtype: np.ndarray
+        """
+        num_samples = self.samples[subset]
+
+        if memory_batch >= num_samples:
+            logging.info(
+                f"Memory batch is greater than the number of samples generated! : {memory_batch} > {num_samples}"
+            )
+            return np.array([num_samples])
+
+        return self.batch_split(num_samples, memory_batch)
+
+    def setup_hdf5(self, hdf5_path: str) -> None:
+        """
+        setup_hdf5 initiate an empty hdf5 database
+
+        :param hdf5_path: the filepath for hdf to be created!
+        :type hdf5_path: str
+        """
+        if path.exists(hdf5_path):
+            remove(hdf5_path)
+            logging.warning(f"HDF5 file overwritten! : {hdf5_path}")
+
+        with h5py.File(hdf5_path, "w") as hdf:
+            for _subset in self.subsets:
+                group = hdf.create_group(_subset)
+                for _dataset in self.datasets:
+                    group.create_dataset(
+                        _dataset,
+                        shape=(0, self.n_sample_duration),
+                        chunks=True,
+                        maxshape=(None, self.n_sample_duration),
+                    )
+
+    def fill_batch(
+        self, hdf: h5py.File, subset: str, offset: int, batch_iterations: np.ndarray
+    ) -> None:
+        """
+        fill_batch fills an hdf database file in batch append mode
+
+        :param hdf: hdf file opened in append mode
+        :type hdf: h5py.File
+        :param subset: the subset to fill "train", "val", or "test"
+        :type subset: str
+        :param offset: the read index start offset
+        :type offset: int
+        :param batch_iterations: a list of a number of samples to be generated and written to disk in each iteration like [100,100,88]
+        :type batch_iterations: np.ndarray
+        """
+
+        def append(_dataset: str, data: np.ndarray) -> None:
+            """
+            append merges the data given to the existing dataset.
+            Note that the first dimension of the dataset would be extended but the second dimensions should match.
+
+            :param _dataset: the name of the dataset
+            :type _dataset: str
+            :param data: the data to be appended to the existing dataset
+            :type data: np.ndarray
+            """
+            _shape = hdf[subset][_dataset].shape[0]
+            _extend = data.shape[0]
+
+            # Resize and fill
+            hdf[subset][_dataset].resize(_shape + _extend, axis=0)
+            hdf[subset][_dataset][-_extend:] = data
+
+        # Fill in batch mode
+        for batch_size in batch_iterations:
+
+            # (batch, subset, length)
+            data = self.sample_generator.batch(offset, batch_size)
+            offset += batch_size
+
+            # (subset, batch, length)
+            _input, _response = data.transpose(1, 0, 2)
+            append("input", _input)
+            append("response", _response)
+
+    def save_disk(self, hdf5_path: str, memory_batch: Optional[int] = None) -> None:
+        """
+        save_disk creates a database consisting of train, validation and tests sets of temporal xor samples
+        with input and response signals, then save this to the disk. If free memory space is small, then
+        memory batch option provides an opportunity to create the samples in batches then saving to the disk 
+        in append mode
+
+        :param hdf5_path: the file path for the newly generated hdf5 database
+        :type hdf5_path: str
+        :param memory_batch: the maximum number of samples to store at any time in memory (applies when disk storage is used). If None, then all samples are created and stored in memory at once, defaults to None
+        :type memory_batch: Optional[int], optional
+        :raises OSError: File already exists!
+        """
+
+        # Check if exist
+        if path.exists(hdf5_path):
+            raise OSError(f"File already exists! : {hdf5_path}")
+
+        # Fill
+        if memory_batch is not None:
+            self.setup_hdf5(hdf5_path)
+            with h5py.File(hdf5_path, "a") as hdf:
+                for _sub in self.subsets:
+                    self.fill_batch(
+                        hdf,
+                        _sub,
+                        self.offset[_sub],
+                        self.batch_size_array(_sub, memory_batch),
+                    )
+        else:
+            self.fill_hdf5(hdf5_path)
+
+    @staticmethod
+    def batch_split(num_samples: int, batch_size: int) -> np.ndarray:
+        """
+        batch_split  creates a batch size array when memory batching is applied.
+        i.e. [100, 100, 88] means that in the first iteration, 100 samples
+        are fitted to the memory, in second 100, in the last 88.
+
+        :param num_samples: the total number of samples 
+        :type num_samples: int
+        :batch_size: the desired batch_size
+        :type batch_size: int
+        :return: batch size array, elements indicating the number of samples genrated in each iteration
+        :rtype: np.ndarray
+        """
+        n_iteration = num_samples // batch_size  # 288 // 100 = 2
+        iterations = np.full(n_iteration, batch_size)  # [100, 100]
+        last = num_samples - n_iteration * batch_size
+        if last != 0:
+            iterations = np.concatenate((iterations, [last]))  # [100, 100, 88]
+        return iterations
+
+    @property
+    def train_offset(self) -> int:
+        """
+        train_offset is the starting index for fetching training samples from the virtual samples stored in SampleGenerator
+        """
+        return 0
+
+    @property
+    def val_offset(self) -> int:
+        """
+        val_offset is the starting index for fetching validation samples from the virtual samples stored in SampleGenerator
+        """
+        return self.num_train_samples
+
+    @property
+    def test_offset(self) -> int:
+        """
+        test_offset is the starting index for fetching test samples from the virtual samples stored in SampleGenerator
+        """
+        return self.num_train_samples + self.num_val_samples
+
+    @property
+    def offset(self) -> Dict[str, int]:
+        """
+        offset returns a dictionary combining the train, val and test offsets
+        """
+        return {
+            "train": self.train_offset,
+            "val": self.val_offset,
+            "test": self.test_offset,
+        }
+
+    @property
+    def samples(self) -> Dict[str, int]:
+        """
+        samples returns a dictionary combining the number of train, val and test samples
+        """
+        return {
+            "train": self.num_train_samples,
+            "val": self.num_val_samples,
+            "test": self.num_test_samples,
+        }
+
+    @property
+    def subsets(self) -> List[str]:
+        """
+        subsets returns a list of subsets in the database
+        """
+        return ["train", "val", "test"]
+
+    @property
+    def datasets(self) -> List[str]:
+        """
+        subsets returns a list of datasets in the subsets of the database
+        """
+        return ["input", "response"]
+
+    @property
+    def train_val_test(self) -> np.ndarray:
+        """
+        train_val_test holds the train, validation, and test set split ratio, like [0.88, 0.1, 0.02]
+        """
+        return self._train_val_test
+
+    @train_val_test.setter
+    def train_val_test(self, value):
+        """
+        train_val_test setter checks if train_val_test ratio split is structured properly,
+        If OK, then set self._train_val_test
+
+        :param value: train, validation, and test set split ratio
+        :type value: np.ndarray
+        :raises ValueError: train_val_test includes more or less than 3 elements
+        :raises ValueError: any of the values less than 0
+        :raises ValueError: train_val_test does not add up to a value between 0 and 1
+        """
+
+        value = np.array(value)
+
+        if len(value) != 3:
+            raise ValueError("train_val_test tuple should include 3 numbers!")
+
+        if (value <= 0).any():
+            raise ValueError("All train_val_test values must be greater than 0!")
+
+        split_sum = np.sum(value)
+        if split_sum > 1.0 or split_sum < 0:
+            raise ValueError("Split ratio should add up to a number between 0 and 1!")
+
+        self._train_val_test = value
+
+
