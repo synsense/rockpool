@@ -2,7 +2,7 @@
 # net_deneve.py - Classes and functions for encapsulating Denève reservoirs
 ###
 
-raise ImportError("This module needs to be ported to teh v2 API.")
+raise ImportError("This module needs to be ported to the v2 API.")
 
 from rockpool.nn.networks.network import Network
 from rockpool.nn.layers import PassThrough, FFExpSyn
