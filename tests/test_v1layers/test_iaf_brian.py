@@ -2,6 +2,10 @@
 Test Brian-based spiking layers from layers.internal.iaf_brian and layers.recurrent.iaf_brian
 """
 
+import pytest
+
+pytest.importorskip("brian2")
+
 import numpy as np
 
 

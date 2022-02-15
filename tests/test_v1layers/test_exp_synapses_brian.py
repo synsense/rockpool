@@ -1,3 +1,8 @@
+import pytest
+
+pytest.importorskip("brian2")
+
+
 def test_imports():
     from rockpool.nn.layers.exp_synapses_brian import FFExpSynBrian
 
@@ -14,10 +19,7 @@ def test_FFExpSynBrian():
     dt = 1e-3
 
     # - Generate layer
-    lyr = FFExpSynBrian(
-        weights=np.random.rand(N_in, N),
-        dt=dt,
-    )
+    lyr = FFExpSynBrian(weights=np.random.rand(N_in, N), dt=dt,)
 
     # - Generate an input time trace
     ts_input = TSEvent.from_raster(

@@ -2,8 +2,6 @@
 Test library integrity
 """
 
-import sys
-
 
 def test_import():
     """
@@ -20,6 +18,4 @@ def test_submodule_import():
     import rockpool.training
     import rockpool.utilities
     import rockpool.parameters
-
-    # from rockpool.layers import recurrent
-    # from rockpool.layers import internal
+    import rockpool.nn.combinators
