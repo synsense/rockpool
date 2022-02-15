@@ -2,6 +2,11 @@
 Test Nest-based spiking layers from layers.internal.iaf_nest
 """
 
+import pytest
+
+pytest.importorskip("nest")
+
+
 import numpy as np
 
 from rockpool.timeseries import set_global_ts_plotting_backend
