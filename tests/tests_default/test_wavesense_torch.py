@@ -1,3 +1,8 @@
+import pytest
+
+pytest.importorskip("torch")
+
+
 def test_wavesense_import():
     from rockpool.nn.networks import WaveSenseNet
 

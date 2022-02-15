@@ -3,10 +3,32 @@ import pytest
 
 def test_tracing():
     from rockpool.nn.modules import (
+        LIF,
+        Linear,
+    )
+    from rockpool.nn.combinators import Sequential
+    from rockpool.graph import bag_graph
+
+    # - Sequential jax
+    mod = Sequential(
+        Linear((2, 3)), LIF((3,)), Linear((3, 4)), LIF((4, 4)), Linear((4, 5)),
+    )
+
+    # - Get a graph
+    g = mod.as_graph()
+
+    # - Test the graph
+    nodes, mods = bag_graph(g)
+    print(mods)
+    assert len(mods) == 5, "Wrong number of modules found"
+
+
+def test_tracing_jax():
+    pytest.importorskip("jax")
+
+    from rockpool.nn.modules import (
         LIFJax,
-        LIFTorch,
         LinearJax,
-        LinearTorch,
     )
     from rockpool.nn.combinators import Sequential
     from rockpool.graph import bag_graph
@@ -27,6 +49,14 @@ def test_tracing():
     nodes, mods = bag_graph(g)
     print(mods)
     assert len(mods) == 5, "Wrong number of modules found"
+
+
+def test_tracing_torch():
+    pytest.importorskip("jax")
+
+    from rockpool.nn.modules import LinearTorch, LIFTorch
+    from rockpool.nn.combinators import Sequential
+    from rockpool.graph import bag_graph
 
     # - Sequential torch
     mod = Sequential(

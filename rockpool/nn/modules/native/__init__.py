@@ -1,4 +1,4 @@
-"""Modules using numpy or numba as a backend"""
+"""Modules using numpy / scipy as a backend"""
 
 try:
     from .exp_syn import *
@@ -14,11 +14,11 @@ except:
         missing_backend_shim,
     )
 
-    if not backend_available("numpy", "numba", "scipy"):
-        ExpSyn = missing_backend_shim("ExpSyn", "numpy, numba, scipy")
-        Rate = missing_backend_shim("Rate", "numpy, numba, scipy")
-        LIF = missing_backend_shim("LIF", "numpy, numba, scipy")
-        Instant = missing_backend_shim("Instant", "numpy, numba, scipy")
-        Linear = missing_backend_shim("Linear", "numpy, numba, scipy")
-        ButterFilter = missing_backend_shim("ButterFilter", "numpy, numba, scipy")
-        ButterMelFilter = missing_backend_shim("ButterMelFilter", "numpy, numba, scipy")
+    if not backend_available("numpy", "scipy"):
+        ExpSyn = missing_backend_shim("ExpSyn", "numpy, scipy")
+        Rate = missing_backend_shim("Rate", "numpy, scipy")
+        LIF = missing_backend_shim("LIF", "numpy, scipy")
+        Instant = missing_backend_shim("Instant", "numpy, scipy")
+        Linear = missing_backend_shim("Linear", "numpy, scipy")
+        ButterFilter = missing_backend_shim("ButterFilter", "numpy, scipy")
+        ButterMelFilter = missing_backend_shim("ButterMelFilter", "numpy, scipy")

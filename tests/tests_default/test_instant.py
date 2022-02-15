@@ -15,16 +15,13 @@ def test_instant():
 
     # - Test evolution
     T = 10
-    o, ns, rs = mod(
-        np.random.rand(
-            T,
-            N,
-        )
-    )
+    o, ns, rs = mod(np.random.rand(T, N,))
     print(o, ns, rs)
 
 
 def test_instant_jax():
+    pytest.importorskip("jax")
+
     from rockpool.nn.modules import InstantJax
     import numpy as np
     import jax
@@ -36,22 +33,12 @@ def test_instant_jax():
 
     # - Test evolution
     T = 10
-    o, ns, rs = mod(
-        np.random.rand(
-            T,
-            N,
-        )
-    )
+    o, ns, rs = mod(np.random.rand(T, N,))
     print(o, ns, rs)
 
     # - Test compiled evolution
     je = jax.jit(mod)
-    o, ns, rs = je(
-        np.random.rand(
-            T,
-            N,
-        )
-    )
+    o, ns, rs = je(np.random.rand(T, N,))
     print(o, ns, rs)
 
     # - Test compiled gradient
@@ -61,22 +48,13 @@ def test_instant_jax():
         return jnp.mean((output - target) ** 2)
 
     vgf = jax.jit(jax.value_and_grad(loss))
-    l, g = vgf(
-        mod.parameters(),
-        mod,
-        np.random.rand(
-            T,
-            N,
-        ),
-        np.random.rand(
-            T,
-            N,
-        ),
-    )
+    l, g = vgf(mod.parameters(), mod, np.random.rand(T, N,), np.random.rand(T, N,),)
     print(l, g)
 
 
 def test_instant_torch():
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import InstantTorch
     import torch
 

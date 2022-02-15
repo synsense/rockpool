@@ -15,6 +15,7 @@ setup_args = {
     "install_requires": ["numpy", "scipy"],
     "extras_require": {
         "all": [
+            "numba",
             "tqdm",
             "brian2",
             "pytest>=6.0",
@@ -42,7 +43,7 @@ setup_args = {
         "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     ],
     "keywords": "spiking neural network SNN neuromorphic",
-    "python_requires": ">=3.6",
+    "python_requires": ">=3.7",
     "project_urls": {
         "Source Code": "https://github.com/SynSense/rockpool",
         "Documentation": "https://rockpool.ai",

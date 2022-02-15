@@ -1,5 +1,8 @@
 import pytest
 
+pytest.importorskip("xylosim")
+pytest.importorskip("samna")
+
 
 def test_imports():
     from rockpool.devices.xylo import (

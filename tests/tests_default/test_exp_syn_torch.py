@@ -1,5 +1,7 @@
 import pytest
 
+pytest.importorskip("torch")
+
 
 def test_ExpSynTorch():
     from rockpool.nn.modules.torch.exp_syn_torch import ExpSynTorch

@@ -6,7 +6,11 @@ import collections
 
 from rockpool.parameters import ParameterBase
 from rockpool.timeseries import TimeSeries
-from rockpool.graph.graph_base import GraphModuleBase
+
+try:
+    from rockpool.graph.graph_base import GraphModuleBase
+except:
+    GraphModuleBase = "GraphModuleBase"
 
 # - Other imports
 from abc import ABC, abstractmethod
@@ -711,10 +715,7 @@ class Module(ModuleBase, ABC, metaclass=PostInitMetaMixin):
         )
 
     def _auto_batch(
-        self,
-        data: np.ndarray,
-        states: Tuple = (),
-        target_shapes: Tuple = None,
+        self, data: np.ndarray, states: Tuple = (), target_shapes: Tuple = None,
     ) -> (np.ndarray, Tuple[np.ndarray]):
         """
         Automatically replicate states over batches and verify input dimensions

@@ -6,6 +6,11 @@ from rockpool.nn.modules import Module
 from rockpool.parameters import SimulationParameter
 from rockpool.typehints import P_Callable
 
+from rockpool.utilities.backend_management import (
+    backend_available,
+    missing_backend_shim,
+)
+
 from warnings import warn
 
 from typing import Callable, Union
@@ -42,11 +47,7 @@ class InstantMixin:
         # - Store the function
         self.function: P_Callable = SimulationParameter(function)
 
-    def evolve(
-        self,
-        input,
-        record: bool = False,
-    ) -> (tuple, tuple, tuple):
+    def evolve(self, input, record: bool = False,) -> (tuple, tuple, tuple):
         return self.function(input), {}, {}
 
 
@@ -58,7 +59,7 @@ class Instant(InstantMixin, Module):
     pass
 
 
-try:
+if backend_available("jax"):
     from rockpool.nn.modules.jax.jax_module import JaxModule
     from jax.tree_util import Partial
 
@@ -72,19 +73,11 @@ try:
             self.function = Partial(self.function)
 
 
-except (ImportError, ModuleNotFoundError) as err:
-    warn(
-        "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available.\n{err}"
-    )
-
-    class InstantJax:
-        def __init__(self, *_, **__):
-            raise ImportError(
-                "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available."
-            )
+else:
+    InstantJax = missing_backend_shim("InstantJax", "jax")
 
 
-try:
+if backend_available("torch"):
     from rockpool.nn.modules.torch.torch_module import TorchModule
 
     class InstantTorch(InstantMixin, TorchModule):
@@ -93,11 +86,5 @@ try:
         """
 
 
-except (ImportError, ModuleNotFoundError) as err:
-    # warn("'torch' backend not found. Modules that rely on Torch will not be available.")
-
-    class InstantTorch:
-        def __init__(self, *_, **__):
-            raise ImportError(
-                "'torch' backend not found. Modules that rely on Torch will not be available."
-            )
+else:
+    InstantTorch = missing_backend_shim("InstantTorch", "torch")

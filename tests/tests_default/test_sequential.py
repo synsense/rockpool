@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_imports():
     from rockpool.nn.combinators.sequential import (
         SequentialMixin,
@@ -58,6 +61,7 @@ def test_Sequential_mod():
 
 
 def test_Sequential_jax():
+    pytest.importorskip("jax")
     from rockpool.nn.combinators import Sequential
     from rockpool.nn.modules import RateJax
     from rockpool.nn.modules import LinearJax
@@ -118,6 +122,7 @@ def test_Sequential_jax():
 
 
 def test_Sequential_torch():
+    pytest.importorskip("torch")
     from rockpool.nn.combinators.sequential import Sequential
     from rockpool.nn.modules.torch.linear_torch import LinearTorch
     from rockpool.nn.modules.torch.torch_module import TorchModule
@@ -192,6 +197,7 @@ def test_FFwdStack_mod():
 
 
 def test_FFwdStack_jax():
+    pytest.importorskip("jax")
     from rockpool.nn.combinators import FFwdStack
     from rockpool.nn.modules import LinearJax
     from rockpool.nn.modules import JaxModule
@@ -232,6 +238,7 @@ def test_FFwdStack_jax():
 
 
 def test_FFwdStack_torch():
+    pytest.importorskip("torch")
     from rockpool.nn.combinators.ffwd_stack import FFwdStack
     from rockpool.nn.modules.native.linear import Linear
     from rockpool.nn.modules.torch.torch_module import TorchModule

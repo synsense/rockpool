@@ -6,6 +6,11 @@ from rockpool.nn.modules.module import Module, ModuleBase
 from rockpool.nn.combinators.sequential import SequentialMixin, JaxSequential
 from rockpool.graph import AliasConnection, as_GraphHolder
 
+from rockpool.utilities.backend_management import (
+    backend_available,
+    missing_backend_shim,
+)
+
 from typing import Tuple, Any
 
 
@@ -49,7 +54,7 @@ class ModResidual(ResidualMixin, Module):
     pass
 
 
-try:
+if backend_available("jax"):
     from rockpool.nn.modules.jax.jax_module import JaxModule
     from jax import numpy as jnp
 
@@ -61,20 +66,14 @@ try:
         pass
 
 
-except:
+else:
+    JaxResidual = missing_backend_shim("JaxResidual", "jax")
 
-    class JaxResidual:
-        """
-        The :py:class:`.Residual` combinator for jax modules
-        """
-
-        def __init__(self):
-            raise ImportError(
-                "'Jax' and 'Jaxlib' backend not found. Modules relying on Jax will not be available."
-            )
+    class JaxModule:
+        pass
 
 
-try:
+if backend_available("torch"):
     from rockpool.nn.modules.torch.torch_module import TorchModule
 
     class TorchResidual(ResidualMixin, TorchModule):
@@ -85,17 +84,11 @@ try:
         pass
 
 
-except:
+else:
+    TorchResidual = missing_backend_shim("TorchResidual", "torch")
 
-    class TorchResidual:
-        """
-        The :py:class:`.Residual` combinator for torch modules
-        """
-
-        def __init__(self):
-            raise ImportError(
-                "'Torch' backend not found. Modules relying on PyTorch will not be available."
-            )
+    class TorchModule:
+        pass
 
 
 def Residual(*args, **kwargs) -> ModuleBase:

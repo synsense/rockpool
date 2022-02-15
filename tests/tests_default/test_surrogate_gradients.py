@@ -1,3 +1,8 @@
+import pytest
+
+pytest.importorskip("torch")
+
+
 def test_spike_clipping():
     from rockpool.nn.modules.torch.lif_torch import StepPWL, PeriodicExponential
     from rockpool.nn.modules.torch import LIFBitshiftTorch

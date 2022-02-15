@@ -65,7 +65,6 @@ def test_module():
 
 
 def test_submodules():
-    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
     from rockpool.nn.modules.module import Module
     from rockpool.parameters import Parameter, SimulationParameter, State
     import numpy as np

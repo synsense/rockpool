@@ -1,5 +1,7 @@
 import pytest
 
+pytest.importorskip("torch")
+
 
 def test_LIFNeuronTorch():
     from rockpool.nn.modules.torch.lif_neuron_torch import LIFNeuronTorch

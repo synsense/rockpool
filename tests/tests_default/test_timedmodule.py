@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_imports():
     from rockpool.nn.modules.timed_module import TimedModule, TimedModuleWrapper
 
@@ -173,6 +176,7 @@ def test_submodules():
 
 
 def test_wrapper():
+    pytest.importorskip("jax")
     from rockpool.nn.modules.timed_module import TimedModuleWrapper
     from rockpool.nn.modules.jax.jax_module import JaxModule
     from rockpool.nn.modules.jax.rate_jax import RateEulerJax
@@ -184,9 +188,7 @@ def test_wrapper():
 
     class net_mod(JaxModule):
         def __init__(
-            self,
-            shape,
-            dt: float = 1e-3,
+            self, shape, dt: float = 1e-3,
         ):
             super().__init__(shape=shape)
 
@@ -197,9 +199,7 @@ def test_wrapper():
             self.relu = RateEulerJax(self.size_out)
 
         def evolve(
-            self,
-            input_data,
-            record: bool = False,
+            self, input_data, record: bool = False,
         ):
             return self.relu(jnp.dot(input_data, self.weight), record=record)
 

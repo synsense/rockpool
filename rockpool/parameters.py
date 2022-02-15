@@ -13,7 +13,14 @@ import numpy as np
 __all__ = ["Parameter", "State", "SimulationParameter", "Constant"]
 
 
-import torch
+from rockpool.utilities.backend_management import backend_available
+
+if backend_available("torch"):
+    from torch import Tensor
+else:
+
+    class Tensor:
+        pass
 
 
 class RP_Constant:
@@ -71,10 +78,7 @@ class ParameterBase:
 
         # - Check type and configuration of `shape` argument
         if shape is not None:
-            if not isinstance(
-                shape,
-                (List, Tuple, int),
-            ):
+            if not isinstance(shape, (List, Tuple, int),):
                 raise TypeError(
                     f"`shape` must be a list, a tuple or an integer. Instead `shape` was a {type(shape).__name__}."
                 )
@@ -119,7 +123,7 @@ class ParameterBase:
         def numel(x):
             if isinstance(x, np.ndarray):
                 return x.size
-            elif isinstance(x, torch.Tensor):
+            elif isinstance(x, Tensor):
                 return x.numel()
             else:
                 return np.size(x)

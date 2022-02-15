@@ -1,12 +1,13 @@
 import pytest
 
+pytest.importorskip("torch")
+pytest.importorskip("samna")
+pytest.importorskip("xylosim")
+
 
 def test_pipeline():
-    try:
-        from rockpool.devices.xylo import mapper, config_from_specification
-        from rockpool.devices.xylo.xylo_sim import XyloSim
-    except:
-        return
+    from rockpool.devices.xylo import mapper, config_from_specification
+    from rockpool.devices.xylo.xylo_sim import XyloSim
 
     import numpy as np
     import torch

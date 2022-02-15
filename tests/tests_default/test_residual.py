@@ -6,6 +6,8 @@ def test_imports():
 
 
 def test_JaxResidual():
+    pytest.importorskip("jax")
+
     from rockpool.nn.combinators import Residual
     from rockpool.nn.modules import LinearJax, LIFJax
     from rockpool.training import jax_loss as jl
@@ -56,6 +58,7 @@ def test_JaxResidual():
 
 
 def test_TorchResidual():
+    pytest.importorskip("torch")
     from rockpool.nn.combinators import Residual
     from rockpool.nn.modules import LinearTorch, LIFTorch
 

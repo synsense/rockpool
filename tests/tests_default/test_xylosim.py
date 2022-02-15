@@ -1,10 +1,10 @@
-def test_imports():
-    try:
-        import samna
-        import xylosim
-    except:
-        return
+import pytest
 
+pytest.importorskip("xylosim")
+pytest.importorskip("samna")
+
+
+def test_imports():
     from rockpool.devices import xylo
     import rockpool.devices.xylo.xylo_sim
     import rockpool.devices.xylo.xylo_samna

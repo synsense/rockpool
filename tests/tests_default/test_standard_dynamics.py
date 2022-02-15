@@ -1,3 +1,8 @@
+import pytest
+
+pytest.importorskip("jax")
+pytest.importorskip("torch")
+
 # - Set 64-bit mode
 from jax.config import config
 

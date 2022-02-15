@@ -1,10 +1,3 @@
-import pytest
-
-from jax.config import config
-
-config.update("jax_debug_nans", True)
-
-
 def test_imports():
     from rockpool.nn.modules import ExpSyn, ExpSynJax
 

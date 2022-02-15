@@ -1,3 +1,7 @@
+import pytest
+
+pytest.importorskip("jax")
+
 import jax
 from jax.config import config
 
