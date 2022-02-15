@@ -1,14 +1,6 @@
 """
 Implement a LIF Neuron Module, using a Torch backend
 """
-
-from importlib import util
-
-if util.find_spec("torch") is None:
-    raise ModuleNotFoundError(
-        "'Torch' backend not found. Modules that rely on Torch will not be available."
-    )
-
 from typing import Union, Tuple, Any
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
@@ -102,11 +94,7 @@ class LIFNeuronTorch(TorchModule):
 
         # - Initialize super-class
         super().__init__(
-            shape=shape,
-            spiking_input=False,
-            spiking_output=True,
-            *args,
-            **kwargs,
+            shape=shape, spiking_input=False, spiking_output=True, *args, **kwargs,
         )
 
         # # - Determine arguments for building tensors
@@ -162,12 +150,7 @@ class LIFNeuronTorch(TorchModule):
 
         # - Fill record dictionary
         record_dict = (
-            {
-                "vmem": self._vmem_rec,
-                "spikes": self._spikes_rec,
-            }
-            if record
-            else {}
+            {"vmem": self._vmem_rec, "spikes": self._spikes_rec,} if record else {}
         )
 
         # - Return output

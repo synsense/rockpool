@@ -12,6 +12,7 @@ try:
     from .rate_jax import *
     from .softmax_jax import *
     from .jax_lif_ode import *
+    from .linear_jax import *
 except:
     if not backend_available("jax"):
         JaxModule = missing_backend_shim("JaxModule", "jax")
@@ -20,3 +21,4 @@ except:
         LIFJax = missing_backend_shim("LIFJax", "jax")
         SoftmaxJax = missing_backend_shim("SoftmaxJax", "jax")
         LogSoftmaxJax = missing_backend_shim("LogSoftmaxJax", "jax")
+        LinearJax = missing_backend_shim("LinearJax", "jax")

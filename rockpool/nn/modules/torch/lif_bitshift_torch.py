@@ -2,19 +2,8 @@
 Implement a LIF Module with bit-shift decay, using a Torch backend
 """
 
-from importlib import util
-
-if util.find_spec("torch") is None:
-    raise ModuleNotFoundError(
-        "'Torch' backend not found. Modules that rely on Torch will not be available."
-    )
-
-from typing import Union, List, Tuple, Callable, Optional, Any
-import numpy as np
 import torch
-import torch.nn.functional as F
-from rockpool.nn.modules.torch.lif_torch import LIFTorch, StepPWL
-import rockpool.parameters as rp
+from rockpool.nn.modules.torch.lif_torch import LIFTorch
 from rockpool.typehints import *
 
 __all__ = ["LIFBitshiftTorch"]

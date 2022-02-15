@@ -2,19 +2,10 @@
 Implement a LIF Module, using a Sinabs backend
 """
 
-from importlib import util
-
-# if util.find_spec("sinabs") is None:
-#     raise ModuleNotFoundError(
-#         "'Sinabs' backend not found. Modules that rely on Sinabs will not be available."
-#     )
-
 from typing import Union, List, Tuple, Callable, Optional, Any
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
 import torch
-import torch.nn.functional as F
-import torch.nn.init as init
 import rockpool.parameters as rp
 
 from rockpool.typehints import *

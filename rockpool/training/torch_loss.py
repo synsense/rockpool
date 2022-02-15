@@ -2,11 +2,11 @@
 Torch loss functions and regularizers useful for training networks using Torch Modules.
 """
 
-from importlib import util
+from rockpool.utilities.backend_management import backend_available
 
-if util.find_spec("torch") is None:
+if not backend_available("torch"):
     raise ModuleNotFoundError(
-        "'Torch' backend not found. Modules that rely on Torch will not be available."
+        "`Torch` backend not found. Modules that rely on Torch will not be available."
     )
 
 from rockpool.nn.modules import TorchModule

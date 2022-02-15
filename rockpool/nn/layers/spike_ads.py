@@ -14,13 +14,6 @@ import numpy as np
 from typing import Union, Any, Tuple, Optional
 import copy
 
-from importlib import util
-
-if util.find_spec("numba") is None:
-    raise ModuleNotFoundError(
-        "'numba'backend not found. Modules that rely on numba will not be available."
-    )
-
 from numba import njit
 from warnings import warn
 

@@ -19,14 +19,8 @@ from .iaf_nest import (
     COMMAND_SET,
 )
 from rockpool.utilities.property_arrays import SetterArray, ImmutableArray
-
-import importlib
 from rockpool.nn.modules.timed_module import astimedmodule
 
-if importlib.util.find_spec("nest") is None:
-    raise ModuleNotFoundError(
-        "'NEST' backend not found. Modules that rely on NEST will not be available."
-    )
 
 # - RecAEIFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
 class RecAEIFSpkInNestV1(RecIAFSpkInNestV1):

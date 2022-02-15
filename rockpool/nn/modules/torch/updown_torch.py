@@ -1,19 +1,10 @@
 """
 Feedforward layer that converts each analogue input channel to one spiking up and one down channel
 """
-from importlib import util
-
-if util.find_spec("torch") is None:
-    raise ModuleNotFoundError(
-        "'Torch' backend not found. Modules that rely on Torch will not be available."
-    )
-
 from typing import Optional, Union, Tuple, Any
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
 import torch
-import torch.nn.functional as F
-import torch.nn.init as init
 import rockpool.parameters as rp
 from rockpool.typehints import FloatVector, P_float, P_tensor
 
@@ -94,11 +85,7 @@ class UpDownTorch(TorchModule):
 
         # - Call super constructor
         super().__init__(
-            shape=shape,
-            spiking_input=False,
-            spiking_output=True,
-            *args,
-            **kwargs,
+            shape=shape, spiking_input=False, spiking_output=True, *args, **kwargs,
         )
 
         # - Default tensor construction parameters
@@ -114,8 +101,7 @@ class UpDownTorch(TorchModule):
             thr_up = thr_up.view(1, -1)
 
         self.thr_up: P_tensor = rp.Parameter(
-            thr_up,
-            family="thresholds",
+            thr_up, family="thresholds",
         )
         """ (Tensor) Thresholds for creating up-spikes `(N_in,)` """
 
@@ -125,27 +111,18 @@ class UpDownTorch(TorchModule):
             thr_down = thr_up.view(1, -1)
 
         self.thr_down: P_tensor = rp.Parameter(
-            thr_down,
-            family="thresholds",
+            thr_down, family="thresholds",
         )
         """ (Tensor) Thresholds for creating down-spikes `(N_in,)` """
 
     def evolve(
-        self,
-        input_data: torch.Tensor,
-        record: bool = False,
+        self, input_data: torch.Tensor, record: bool = False,
     ) -> Tuple[Any, Any, Any]:
         # - Evolve with superclass evolution
         output_data, states, _ = super().evolve(input_data, record)
 
         # - Build state record
-        record_dict = (
-            {
-                "analog_value": self._analog_value_rec,
-            }
-            if record
-            else {}
-        )
+        record_dict = {"analog_value": self._analog_value_rec,} if record else {}
 
         return output_data, states, record_dict
 
@@ -235,12 +212,8 @@ class UpDownTorch(TorchModule):
 
             # - Interleave up and down channels so we have 2*k as up and 2*k + 1 as down channel of the k-th input channel
             # - Multiply by repeat_output to get the desired multiple of spikes
-            out_spikes[:, t, :] = (
-                self.repeat_output
-                * torch.stack(
-                    (up_channels, down_channels),
-                    dim=2,
-                ).view(n_batches, 2 * n_channels)
-            )
+            out_spikes[:, t, :] = self.repeat_output * torch.stack(
+                (up_channels, down_channels), dim=2,
+            ).view(n_batches, 2 * n_channels)
 
         return out_spikes

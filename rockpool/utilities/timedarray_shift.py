@@ -4,9 +4,9 @@ Implementation of `TimedArray`.
 
 import numpy as np
 
-from importlib import util
+from rockpool.utilities.backend_management import backend_available
 
-if util.find_spec("brian2") is None:
+if not backend_available("brian"):
     raise ModuleNotFoundError(
         "'Brian2' backend not found. Modules that rely on Brian will not be available."
     )

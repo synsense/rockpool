@@ -8,12 +8,11 @@ See Also:
 
 """
 
-# - Check that Samna is installed
-from importlib import util
+from rockpool.utilities.backend_management import backend_available
 
-if util.find_spec("samna") is None:
+if not backend_available("samna"):
     raise ModuleNotFoundError(
-        "'samna' not found. Modules that rely on Samna will not be available."
+        "`samna` not found. The Xylo HDK requires `samna` for interfacing."
     )
 
 # - `samna` imports
@@ -172,9 +171,7 @@ def find_xylo_boards() -> List[XyloHDK]:
     return xylo_hdk_list
 
 
-def new_xylo_read_buffer(
-    hdk: XyloHDK,
-) -> XyloReadBuffer:
+def new_xylo_read_buffer(hdk: XyloHDK,) -> XyloReadBuffer:
     """
     Create and connect a new buffer to read from a Xylo HDK
 
@@ -222,9 +219,7 @@ def new_xylo_write_buffer(hdk: XyloHDK) -> XyloWriteBuffer:
     return buffer
 
 
-def new_xylo_state_monitor_buffer(
-    hdk: XyloHDK,
-) -> XyloNeuronStateBuffer:
+def new_xylo_state_monitor_buffer(hdk: XyloHDK,) -> XyloNeuronStateBuffer:
     """
     Create a new buffer for monitoring neuron and synapse state and connect it
 
@@ -327,9 +322,7 @@ def initialise_xylo_hdk(write_buffer: XyloWriteBuffer) -> None:
 
 
 def write_register(
-    write_buffer: XyloWriteBuffer,
-    register: int,
-    data: int = 0,
+    write_buffer: XyloWriteBuffer, register: int, data: int = 0,
 ) -> None:
     """
     Write data to a register on a Xylo HDK
@@ -449,10 +442,7 @@ def read_memory(
     ]
 
 
-def generate_read_memory_events(
-    start_address: int,
-    count: int = 1,
-) -> List[Any]:
+def generate_read_memory_events(start_address: int, count: int = 1,) -> List[Any]:
     """
     Build a list of events that cause Xylo memory to be read
 
@@ -485,9 +475,7 @@ def generate_read_memory_events(
 
 
 def decode_memory_read_events(
-    events: List[Any],
-    start_address: int,
-    count: int = 1,
+    events: List[Any], start_address: int, count: int = 1,
 ) -> List:
     """
     Decode a list of events containing memory reads from a Xylo HDK
@@ -518,9 +506,7 @@ def decode_memory_read_events(
 
 
 def verify_xylo_version(
-    read_buffer: XyloReadBuffer,
-    write_buffer: XyloWriteBuffer,
-    timeout: float = 1.0,
+    read_buffer: XyloReadBuffer, write_buffer: XyloWriteBuffer, timeout: float = 1.0,
 ) -> bool:
     """
     Verify that the provided daughterbaord returns the correct version ID for Xylo
@@ -605,9 +591,7 @@ def write_memory(
         time.sleep(0.01)
 
 
-def zero_memory(
-    write_buffer: XyloWriteBuffer,
-) -> None:
+def zero_memory(write_buffer: XyloWriteBuffer,) -> None:
     """
     Clear all Xylo memory
 
@@ -643,9 +627,7 @@ def zero_memory(
 
 
 def reset_neuron_synapse_state(
-    hdk: XyloHDK,
-    read_buffer: XyloReadBuffer,
-    write_buffer: XyloWriteBuffer,
+    hdk: XyloHDK, read_buffer: XyloReadBuffer, write_buffer: XyloWriteBuffer,
 ) -> None:
     """
     Reset the neuron and synapse state on a Xylo HDK
@@ -941,10 +923,7 @@ def read_allram_state(
 
 
 def read_accel_mode_data(
-    monitor_buffer: XyloNeuronStateBuffer,
-    Nin: int,
-    Nhidden: int,
-    Nout: int,
+    monitor_buffer: XyloNeuronStateBuffer, Nin: int, Nhidden: int, Nout: int,
 ) -> XyloState:
     """
     Read accelerated simulation mode data from a Xylo HDK
@@ -1345,9 +1324,7 @@ def print_debug_ram(
 
 
 def export_registers(
-    read_buffer: XyloReadBuffer,
-    write_buffer: XyloWriteBuffer,
-    file,
+    read_buffer: XyloReadBuffer, write_buffer: XyloWriteBuffer, file,
 ) -> None:
     """
     Print register contents for debugging purposes
@@ -1465,8 +1442,7 @@ def export_registers(
 
 
 def print_debug_registers(
-    read_buffer: XyloReadBuffer,
-    write_buffer: XyloWriteBuffer,
+    read_buffer: XyloReadBuffer, write_buffer: XyloWriteBuffer,
 ) -> None:
     """
     Print register contents of a Xylo HDK for debugging purposes
@@ -1518,9 +1494,7 @@ def num_buffer_neurons(Nhidden: int) -> int:
 
 
 def get_current_timestamp(
-    read_buffer: XyloReadBuffer,
-    write_buffer: XyloWriteBuffer,
-    timeout: float = 3.0,
+    read_buffer: XyloReadBuffer, write_buffer: XyloWriteBuffer, timeout: float = 3.0,
 ) -> int:
     """
     Retrieve the current timestamp on a Xylo HDK
@@ -1644,9 +1618,7 @@ def to_hex(n: int, digits: int) -> str:
 
 
 def export_config(
-    path: Union[str, Path],
-    config: XyloConfiguration,
-    dt: float,
+    path: Union[str, Path], config: XyloConfiguration, dt: float,
 ) -> None:
     """
     Export a network configuration to a set of text files, for debugging purposes

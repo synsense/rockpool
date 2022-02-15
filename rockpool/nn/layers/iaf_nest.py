@@ -4,7 +4,6 @@ IAF neuron layers with a NEST backend
 
 
 import multiprocessing
-from importlib import util
 
 import numpy as np
 
@@ -19,11 +18,6 @@ from rockpool.timeseries import TSContinuous, TSEvent
 from rockpool.utilities.property_arrays import SetterArray, ImmutableArray
 from rockpool.nn.layers.layer import Layer
 from rockpool.nn.modules.timed_module import astimedmodule
-
-if util.find_spec("nest") is None:
-    raise ModuleNotFoundError(
-        "'NEST' backend not found. Modules that rely on NEST will not be available."
-    )
 
 # - Unit conversion functions
 U2mU = lambda x: x * 1e3
