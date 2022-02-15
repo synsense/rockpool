@@ -19,3 +19,11 @@ def test_submodule_import():
     import rockpool.utilities
     import rockpool.parameters
     import rockpool.nn.combinators
+
+
+def test_base_attributes():
+    import rockpool
+
+    print("Rockpool version", rockpool.__version__)
+
+    rockpool.list_backends()

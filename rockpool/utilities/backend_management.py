@@ -28,8 +28,8 @@ __backend_specs: Dict[str, tuple] = {
     "jax": (["jax", "jaxlib"],),
     "torch": (),
     "sinabs": (),
-    "sinabs-slayer": (["sinabs.slayer"],),
-    "brian": (),
+    "sinabs-slayer": (["sinabs", "sinabs.slayer"],),
+    "brian": (["brian2"]),
 }
 
 
@@ -143,3 +143,13 @@ def missing_backend_error(class_name, backend_name):
         )
 
     return __init__
+
+
+def list_backends():
+    """
+    Print a list of computational backends available in this session
+    """
+    print("Backends available to Rockpool:")
+
+    for backend in __backend_specs.keys():
+        print(f"{backend:>15}: {backend_available(backend)}")
