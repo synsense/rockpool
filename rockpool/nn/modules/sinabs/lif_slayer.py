@@ -16,7 +16,7 @@ import numpy as np
 from rockpool.typehints import *
 from rockpool.parameters import Constant
 
-from sinabs.exodus.spike import SpikeFunctionIterForward
+from sinabs.exodus.spike import IntegrateAndFire 
 from sinabs.exodus.leaky import LeakyIntegrator
 
 from sinabs.activation import Heaviside, SingleExponential
@@ -133,7 +133,7 @@ class LIFSlayer(LIFBaseTorch):
                 True,
             )
 
-        spikes, vmem_slayer = SpikeFunctionIterForward.apply(
+        spikes, vmem_slayer = IntegrateAndFire.apply(
             isyn_slayer.sum(1),  # input
             threshold[0],  # membrane subtract
             alpha[0],  # alpha
@@ -144,6 +144,9 @@ class LIFSlayer(LIFBaseTorch):
             self.surrogate_grad_fn,
             self.max_spikes_per_dt,
         )
+
+        # Subtract spikes from Vmem as exodus subtracts them starting from the next timestep
+        vmem_slayer.data = vmem_slayer.data - spikes.data * threshold[0]
 
         # Bring states to rockpool dimensions
         isyn_slayer = (
