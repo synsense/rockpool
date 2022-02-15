@@ -50,7 +50,7 @@ def test_linear_nobias():
 
 
 def test_jaxlinear():
-    from rockpool.nn.modules.native.linear import LinearJax
+    from rockpool.nn.modules import LinearJax
     import jax
     import jax.numpy as jnp
 
@@ -94,7 +94,7 @@ def test_jaxlinear():
 
 
 def test_jaxlinear_nobias():
-    from rockpool.nn.modules.native.linear import LinearJax
+    from rockpool.nn.modules import LinearJax
     import jax
     import jax.numpy as jnp
 

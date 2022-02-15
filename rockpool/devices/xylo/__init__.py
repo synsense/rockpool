@@ -7,42 +7,35 @@ See Also:
     Defines the classes :py:class:`XyloSim`, :py:class:`XyloSamna`, :py:class:`AFE`, :py:class:`DivisiveNormalisation`, :py:class:`DivisiveNormalisationNoLFSR`.
 """
 
-# - Import submodules to make them available
-import warnings
+from rockpool.utilities.backend_management import (
+    backend_available,
+    missing_backend_shim,
+)
 
 
 try:
     from .xylo_sim import *
 except (ImportError, ModuleNotFoundError) as err:
-    warnings.warn(f"{err}")
+    if not backend_available("xylosim", "samna"):
+        XyloSim = missing_backend_shim("XyloSim", "xylosim, samna")
+    else:
+        raise
 
 try:
     from .xylo_samna import *
 except (ImportError, ModuleNotFoundError) as err:
-    warnings.warn(f"{err}")
+    if not backend_available("samna"):
+        XyloSamna = missing_backend_shim("XyloSamna", "samna")
+    else:
+        raise
 
-try:
-    from .analogFrontEnd import *
-except (ImportError, ModuleNotFoundError) as err:
-    warnings.warn(f"{err}")
+from .analogFrontEnd import *
 
-try:
-    from .xylo_divisive_normalisation import *
-    from .xylo_divisive_normalisation import (
-        DivisiveNormalisation as DivisiveNormalization,
-        DivisiveNormalisationNoLFSR as DivisiveNormalizationNoLFSR,
-    )
-except Exception as inst:
-    warnings.warn(inst.msg)
+from .xylo_divisive_normalisation import *
+from .xylo_divisive_normalisation import (
+    DivisiveNormalisation as DivisiveNormalization,
+    DivisiveNormalisationNoLFSR as DivisiveNormalizationNoLFSR,
+)
 
-try:
-    from .xylo_graph_modules import *
-except Exception as inst:
-    warnings.warn(inst.msg)
-
-try:
-    from .xylo_mapper import *
-except Exception as inst:
-    warnings.warn(inst.msg)
-except (ImportError, ModuleNotFoundError) as err:
-    warnings.warn(f"{err}")
+from .xylo_graph_modules import *
+from .xylo_mapper import *

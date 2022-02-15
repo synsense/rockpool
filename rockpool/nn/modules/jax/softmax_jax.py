@@ -3,7 +3,7 @@ Spiking softmax modules, with Jax backends.
 """
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
-from rockpool.nn.modules.native.linear import LinearJax
+from rockpool.nn.modules.jax.linear_jax import LinearJax
 from rockpool.nn.modules.jax.exp_syn_jax import ExpSynJax
 from rockpool.training.jax_loss import softmax, logsoftmax
 
@@ -64,11 +64,7 @@ class WeightedSmoothBase(JaxModule):
         self.linear = LinearJax(
             shape=shape, weight=weight, bias=bias, has_bias=has_bias
         )
-        self.smooth = ExpSynJax(
-            shape=(shape[-1],),
-            tau=tau,
-            dt=dt,
-        )
+        self.smooth = ExpSynJax(shape=(shape[-1],), tau=tau, dt=dt,)
 
         self.activation_fn: P_Callable = SimulationParameter(Partial(activation_fun))
         """ (Callable) Activation function """

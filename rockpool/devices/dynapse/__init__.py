@@ -2,10 +2,13 @@
 DynapSE-family device simulations, deployment and HDK support
 """
 
-
-from warnings import warn
+from rockpool.utilities.backend_management import (
+    backend_available,
+    missing_backend_shim,
+)
 
 try:
-    from .virtual_dynapse import VirtualDynapse
-except (ModuleNotFoundError, ImportError) as err:
-    warn("Could not load package:" + str(err))
+    from .virtual_dynapse import *
+except:
+    if not backend_available("numpy"):
+        VirtualDynapse = missing_backend_shim("VirtualDynapse", "numpy")

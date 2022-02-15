@@ -7,11 +7,6 @@ from importlib import util
 from pathlib import Path
 from os import makedirs
 
-if util.find_spec("samna") is None:
-    raise ModuleNotFoundError(
-        "'samna' not found. Modules that rely on Samna will not be available."
-    )
-
 # - Samna imports
 import samna
 

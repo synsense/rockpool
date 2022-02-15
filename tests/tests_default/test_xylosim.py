@@ -62,12 +62,13 @@ def test_configure():
 
 
 def test_specification():
-    # - Samna imports
-    try:
-        from rockpool.devices.xylo import XyloSim
-        from rockpool.devices import xylo
-    except:
+    from rockpool.utilities.backend_management import backend_available
+
+    if not backend_available("xylosim", "samna"):
         return
+
+    from rockpool.devices.xylo import XyloSim
+    from rockpool.devices import xylo
 
     import numpy as np
 
