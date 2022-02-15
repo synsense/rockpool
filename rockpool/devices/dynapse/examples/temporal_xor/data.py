@@ -15,9 +15,9 @@ import numpy as np
 
 
 @dataclass
-class TemporalXORSample:
+class SampleGenerator:
     """
-    TemporalXORSample creates a signal including two pulses and one result representing
+    SampleGenerator creates a signal including two pulses and one result representing
     a temporal XOR task. The signal can be temporally shaped using the parameters.
     
     0 ^ 0 = 0 :   
@@ -349,23 +349,27 @@ class TemporalXORSample:
         _sample = self.pad_sample(input_signal, response_signal)
         return _sample
 
-    def batch(self, size: Optional[int] = None) -> np.ndarray:
+    def batch(self, offset: int = 0, size: Optional[int] = None) -> np.ndarray:
         """
         batch creates a batch of raw samples and then applies gaussian filter
-
+        
+        :param offset: the read index start offset, defaults to 0
+        :type offset: int, optional
         :param size: the size of the sample batch, should be smaller than or equal to the number of samples, defaults to None
         :type size: Optional[int], optional
-        :return: a batch of processed and smoothed samples
+        :return: a batch of processed and smoothed samples (batch, subset, length)
         :rtype: np.ndarray
         """
         if size is None:
             size = self.num_samples
 
         # Get a batch of samples
-        _batch = np.stack([self.raw_sample(idx) for idx in range(size)])
+        _batch = np.stack(
+            [self.raw_sample(idx) for idx in range(offset, offset + size)]
+        )
         _batch = _batch.reshape(-1, self.n_sample_duration)
 
-        # Convolve the each element
+        # Convolve each element
         _conv = lambda _b: np.convolve(_b, self.filter, "same")
         _batch = np.apply_along_axis(_conv, 1, _batch)
 
