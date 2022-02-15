@@ -6,7 +6,7 @@ import numpy as np
 
 from rockpool.utilities.backend_management import backend_available
 
-if not backend_available("brian"):
+if not backend_available("brian2"):
     raise ModuleNotFoundError(
         "'Brian2' backend not found. Modules that rely on Brian will not be available."
     )
