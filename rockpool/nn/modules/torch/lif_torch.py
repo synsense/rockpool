@@ -38,7 +38,7 @@ class StepPWL(torch.autograd.Function):
         ctx.save_for_backward(x, threshold)
         ctx.window = window
         nr_spikes = ((x >= threshold) * torch.floor(x / threshold)).float()
-        nr_spikes[nr_spikes > max_spikes_per_dt] = max_spikes_per_dt
+        nr_spikes[nr_spikes > max_spikes_per_dt] = max_spikes_per_dt.float()
         return nr_spikes
 
     @staticmethod
@@ -73,7 +73,7 @@ class PeriodicExponential(torch.autograd.Function):
         ctx.threshold = threshold
         ctx.window = window
         nr_spikes = ((data >= threshold) * torch.floor(data / threshold)).float()
-        nr_spikes[nr_spikes > max_spikes_per_dt] = max_spikes_per_dt
+        nr_spikes[nr_spikes > max_spikes_per_dt] = max_spikes_per_dt.float()
         return nr_spikes
 
     @staticmethod
@@ -266,7 +266,7 @@ class LIFBaseTorch(TorchModule):
         )
         """ (Callable) Spike generation function with surrograte gradient """
 
-        self.max_spikes_per_dt: P_int = rp.SimulationParameter(max_spikes_per_dt)
+        self.max_spikes_per_dt: P_int = rp.SimulationParameter(max_spikes_per_dt, cast_fn=to_float_tensor)
         """ (int) Maximum number of events that can be produced in each time-step """
 
         # placeholders for recordings
