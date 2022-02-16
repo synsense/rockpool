@@ -694,3 +694,159 @@ class TemporalXORData:
         self._train_val_test = value
 
 
+class TemporalXOR(Dataset):
+    """
+    TemporalXOR is the Tonic dataset handler for toy temporal xor task. It creates a database with desired number of samples
+    and saves it to the disk if the database is not present at the system, or if different sample properties are desired.
+
+    :Parameters:
+
+    :param save_to: location to save files to on disk
+    :type save_to: str
+    :param train: select the training set or not (least prior one when it comes to conflicts, default option), defaults to None
+    :type train: Optional[bool], optional
+    :param val: select the val set or not (have priority over train, not over test), defaults to None
+    :type val: Optional[bool], optional
+    :param test: select the test set or not (have priority over all), defaults to None
+    :type test: Optional[bool], optional
+    :param transform: a callable of transforms to apply to the data, defaults to None
+    :type transform: Optional[Callable], optional
+    :param target_transform: a callable of transforms to apply to the targets/labels, defaults to None
+    :type target_transform: Optional[Callable], optional
+    :param memory_batch: the maximum number of samples to store at any time in memory. Use if data files will be re-created and the number of samples are too big to fit into the memory. If None, then all samples are created and stored in memory at once, defaults to None
+    :type memory_batch: Optional[int], optional
+
+    :Instance Variables:
+    
+    :ivar subset: the name of the subset in database : "train", "val", or "test"
+    :type subset: str
+    :ivar data_file: h5py file opened for easy access
+    :type data_file: h5py.File
+    """
+
+    extension = ".hdf5"
+    filename = "txor" + extension
+
+    def __init__(
+        self,
+        save_to: str,
+        train: Optional[bool] = None,
+        val: Optional[bool] = None,
+        test: Optional[bool] = None,
+        transform: Optional[Callable] = None,
+        target_transform: Optional[Callable] = None,
+        memory_batch: Optional[int] = None,
+        *args,
+        **kwargs,
+    ) -> None:
+
+        super(TemporalXOR, self).__init__(
+            save_to, transform=transform, target_transform=target_transform
+        )
+
+        # If any input found in *arg or in **kwargs, then delete the existing database and re-create
+        if len(args) > 0 or len(kwargs) > 0:
+            os.remove(os.path.join(self.location_on_system, self.filename))
+
+        if not self._check_exists():
+            # Create & save
+            logging.warning(
+                f"The {self.filename} database in {self.location_on_system} is missing. It is being created just for once!."
+            )
+            TemporalXORData(*args, **kwargs).save_disk(
+                os.path.join(self.location_on_system, self.filename), memory_batch
+            )
+
+        self.subset = self.select_set(train, val, test)
+
+        # Open data file
+        self.data_file = h5py.File(
+            os.path.join(self.location_on_system, self.filename), "r"
+        )
+
+    def select_set(
+        self, train: Optional[bool], val: Optional[bool], test: Optional[bool]
+    ) -> str:
+        """
+        select_set selects the subset "train", "val" or "test"
+
+        :param train: select the training set or not (least prior one when it comes to conflicts, default option), defaults to None
+        :type train: Optional[bool], optional
+        :param val: select the val set or not (have priority over train, not over test), defaults to None
+        :type val: Optional[bool], optional
+        :param test: select the test set or not (have priority over all), defaults to None
+        :type test: Optional[bool], optional
+        :return: the name of the subset in database : "train", "val", or "test"
+        :rtype: str
+        """
+        _set = None
+
+        if test:
+            _set = "test"
+        elif val:
+            _set = "val"
+        elif train or (train is None and val is None and test is None):
+            _set = "train"
+
+        logging.info(f"Temporal xor {_set} set is ready!")
+        return _set
+
+    def __getitem__(self, index: int) -> Tuple[np.ndarray]:
+        """
+        __getitem__ fetches a data sample from the database, applies transforms and returns
+        the data sample and the target stacked together.
+
+        :param index: the index of the data sample inquired
+        :type index: int
+        :return: a sample instance including the data and the target (2, n_sample_duration)
+        :rtype: Tuple[np.ndarray]
+        """
+
+        # Fetch Data
+        data = np.array(self.data_file[self.subset]["input"][index])
+        target = np.array(self.data_file[self.subset]["response"][index])
+
+        # Apply transforms
+        if self.transform is not None:
+            data = self.transform(data)
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+
+        # Return
+        return data, target
+
+    def plot(self, index: int) -> None:
+        """
+        plot visualizes the data and target nicely and simply
+
+        :param index: the index of the data sample inquired
+        :type index: int
+        """
+
+        # Fetching
+        data, target = self.__getitem__(index)
+        duration = self.data_file.attrs["sample_duration"]
+        dt = self.data_file.attrs["dt"]
+        time_base = np.arange(0, duration, dt)
+
+        # Plotting
+        fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
+        ax1.set_title(f"XOR {self.subset} sample : data & target")
+        ax1.plot(time_base, data)
+        ax2.plot(time_base, target)
+        fig.supxlabel("Time (s)")
+        plt.show()
+
+    def __len__(self) -> int:
+        """
+        __len__ returns the length of the dataset
+        """
+        return len(self.data_file[self.subset]["response"])
+
+    def _check_exists(self) -> bool:
+        """
+        _check_exists checks if the hdf5 data file present in the expected location
+        """
+        return self._is_file_present() and self._folder_contains_at_least_n_files_of_type(
+            1, self.extension
+        )
