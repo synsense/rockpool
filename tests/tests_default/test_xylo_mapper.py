@@ -161,10 +161,14 @@ def test_network_too_large():
         mapper(smod.as_graph())
 
 
-def test_XyloCim_creation():
+def test_XyloSim_creation():
+    try:
+        from rockpool.devices.xylo import mapper, XyloSim
+    except:
+        return
+
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapper, XyloCim
 
     smod = Sequential(
         LinearTorch((5, 6)),
@@ -182,4 +186,4 @@ def test_XyloCim_creation():
 
     specs = mapper(smod.as_graph())
     specs.pop("mapped_graph")
-    xcmod = XyloCim.from_specification(**specs)
+    xcmod = XyloSim.from_specification(**specs)

@@ -7,7 +7,6 @@ def test_tracing():
         LIFTorch,
         LinearJax,
         LinearTorch,
-        RateEulerJax,
     )
     from rockpool.nn.combinators import Sequential
     from rockpool.graph import bag_graph
@@ -27,7 +26,7 @@ def test_tracing():
     # - Test the graph
     nodes, mods = bag_graph(g)
     print(mods)
-    assert len(mods) == 6, "Wrong number of modules found"
+    assert len(mods) == 5, "Wrong number of modules found"
 
     # - Sequential torch
     mod = Sequential(

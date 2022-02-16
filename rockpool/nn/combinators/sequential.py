@@ -3,6 +3,8 @@ Implement the :py:class:`.Sequential` combinator, with helper classes for Jax an
 """
 
 from rockpool.nn.modules.module import Module, ModuleBase
+from rockpool import TSContinuous, TSEvent
+
 from copy import copy
 from typing import Tuple, Any
 from abc import ABC
@@ -145,6 +147,37 @@ class SequentialMixin(ABC):
             self,
         )
 
+    def _wrap_recorded_state(self, state_dict: dict, t_start: float = 0.0) -> dict:
+        # - Wrap each sub-dictionary in turn
+        for mod_name in self._submodule_names:
+            mod = self.modules()[mod_name]
+            state_dict[mod_name].update(
+                mod._wrap_recorded_state(state_dict[mod_name], t_start)
+            )
+
+            # - Wrap recorded output for this module
+            output_key = f"{mod_name}_output"
+            dt = mod.dt if hasattr(mod, "dt") else self.dt
+            if mod.spiking_output:
+                ts_output = TSEvent.from_raster(
+                    state_dict[output_key][0],
+                    dt=dt,
+                    name=output_key,
+                    t_start=t_start,
+                )
+            else:
+                ts_output = TSContinuous.from_clocked(
+                    state_dict[output_key][0],
+                    dt=dt,
+                    name=output_key,
+                    t_start=t_start,
+                )
+
+            state_dict.update({output_key: ts_output})
+
+        # - Return wrapped dictionary
+        return state_dict
+
 
 class ModSequential(SequentialMixin, Module):
     """
@@ -166,7 +199,7 @@ try:
         @classmethod
         def tree_unflatten(cls, aux_data, children):
             """Unflatten a tree of modules from Jax to Rockpool"""
-            params, sim_params, state, modules = children
+            params, sim_params, state, modules, init_params = children
             _name, _shape, _submodulenames = aux_data
             modules = tuple(modules.values())
             obj = cls(*modules)
@@ -216,10 +249,18 @@ try:
                 if isinstance(item, torch_nn_module) and not isinstance(
                     item, TorchModule
                 ):
-                    TorchModule.from_torch(item, retain_torch_api=True)
+                    TorchModule.from_torch(item, retain_torch_api=False)
 
             # - Call super-class constructor
             super().__init__(*args, **kwargs)
+
+        def forward(self, *args, **kwargs):
+            # - By default, record state
+            record = kwargs.get("record", True)
+            kwargs["record"] = record
+
+            # - Return output
+            return self.evolve(*args, **kwargs)[0]
 
 
 except:

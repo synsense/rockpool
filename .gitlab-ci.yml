@@ -11,11 +11,12 @@ unit_tests:
 
   before_script:
     - pip install --upgrade pip
-    - git clone https://${GITLAB_USER}:${GITLAB_CLONE_API_KEY}@spinystellate.office.synsense.ai/research/cimulator.git cimulator_git
-    - pip install ./cimulator_git/
     - conda install nest-simulator
+    - conda install -c conda-forge cudatoolkit-dev
     - pip install --upgrade .[all] --no-cache-dir
     - python -c 'import samna'
+    - pip install git+https://dylan.muir:${GITLAB_CLONE_API_KEY}@spinystellate.office.synsense.ai/research/SCNN/sinabs.git@06ede3955c9d8dfe3bee981423f005a7dcade0f3
+#    - pip install git+https://dylan.muir:${GITLAB_CLONE_API_KEY}@spinystellate.office.synsense.ai/research/SCNN/sinabs-slayer.git
 
   script:
     - pytest -v tests/tests_default -n 4

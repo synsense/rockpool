@@ -72,15 +72,18 @@ Time series classes
 :py:class:`Module` subclasses
 -----------------------------
 
-.. .. seealso:: :ref:`layerssummary`, :ref:`/tutorials/building_reservoir.ipynb` and other tutorials.
-
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
-    nn.modules.RateEulerJax
+    nn.modules.Rate
+    nn.modules.RateJax
+    nn.modules.RateTorch
+
+    nn.modules.LIF
     nn.modules.LIFJax
     nn.modules.LIFTorch
+
     nn.modules.LIFNeuronTorch
     nn.modules.UpDownTorch
 
@@ -90,8 +93,10 @@ Time series classes
 
     nn.modules.Instant
     nn.modules.InstantJax
+    nn.modules.InstantTorch
 
-    nn.modules.ExpSmoothJax
+    nn.modules.ExpSyn
+    nn.modules.ExpSynJax
     nn.modules.ExpSynTorch
 
     nn.modules.SoftmaxJax
@@ -102,8 +107,6 @@ Time series classes
 
 :py:class:`Layer` subclasses from Rockpool v1
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. .. seealso:: :ref:`layerssummary`, :ref:`/tutorials/building_reservoir.ipynb` and other tutorials.
 
 .. autosummary::
     :toctree: _autosummary
@@ -214,7 +217,7 @@ Xylo hardware support and simulation
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.XyloCim
+    devices.xylo.XyloSim
     devices.xylo.XyloSamna
     devices.xylo.AFE
     devices.xylo.DivisiveNormalisation

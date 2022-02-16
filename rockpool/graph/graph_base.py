@@ -94,7 +94,8 @@ class GraphModuleBase:
 
     def __repr__(self) -> str:
         type_name = type(self).__name__
-        return f'{type_name} "{self.name}" with {len(self.input_nodes)} input nodes -> {len(self.output_nodes)} output nodes'
+        name_str = f' "{self.name}"' if len(self.name) > 0 else ""
+        return f"{type_name}{name_str} with {len(self.input_nodes)} input nodes -> {len(self.output_nodes)} output nodes"
 
     def add_input(self, node: "GraphNode") -> None:
         """
@@ -133,6 +134,22 @@ class GraphModuleBase:
         """
         if node in self.output_nodes:
             self.output_nodes.remove(node)
+
+    def clear_inputs(self) -> None:
+        """
+        Remove all :py:class:`.GraphNode` s as inputs of this module
+        """
+        input_nodes = copy.copy(self.input_nodes)
+        for i_n in input_nodes:
+            self.remove_input(i_n)
+
+    def clear_outputs(self) -> None:
+        """
+        Remove all :py:class:`.GraphNode` s as outputs of this module
+        """
+        output_nodes = copy.copy(self.output_nodes)
+        for o_n in output_nodes:
+            self.remove_output(o_n)
 
     @classmethod
     def _factory(
@@ -224,6 +241,54 @@ class GraphModule(GraphModuleBase):
         raise ValueError(
             f"No conversion rules implemented for the class {cls.__name__}."
         )
+
+    def add_input(self, node: "GraphNode") -> None:
+        """
+        Add a :py:class:`.GraphNode` as an input source to this module, and connect it
+
+        The new node will be appended after the last current input node. The node will be connected with this :py:class:`.GraphModule` as a sink.
+
+        Args:
+            node (GraphNode): The node to add as an input source
+        """
+        super().add_input(node)
+        node.add_sink(self)
+
+    def add_output(self, node: "GraphNode") -> None:
+        """
+        Add a :py:class:`.GraphNode` as an output of this module, and connect it
+
+        The new node will be appended after the last current output node. The node will be connected with this :py:class:`.GraphModule` as a source.
+
+        Args:
+            node (GraphNode): The node to add as an output
+        """
+        super().add_output(node)
+        node.add_source(self)
+
+    def remove_input(self, node: "GraphNode") -> None:
+        """
+        Remove a :py:class:`.GraphNode` as an input of this module, and disconnect it
+
+        The node will be disconnected from this :py:class:`.GraphModule` as a sink, and will be removed from the module.
+
+        Args:
+            node (GraphNode): The node to remove. If this node exists as an input to the module, it will be removed.
+        """
+        super().remove_input(node)
+        node.remove_sink(self)
+
+    def remove_output(self, node: "GraphNode") -> None:
+        """
+        Remove a :py:class:`.GraphNode` as an output of this module, and disconnect it
+
+        The node will be disconnected from this :py:class:`.GraphModule` as a source, and will be removed from the module.
+
+        Args:
+            node (GraphNode): The node to remove. If this node exists as an output to the module, it will be removed.
+        """
+        super().remove_output(node)
+        node.remove_source(self)
 
 
 @dataclass(eq=False, repr=False)

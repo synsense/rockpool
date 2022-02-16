@@ -74,3 +74,31 @@ def test_instant_jax():
         ),
     )
     print(l, g)
+
+
+def test_instant_torch():
+    from rockpool.nn.modules import InstantTorch
+    import torch
+
+    # - Construct module
+    N = 5
+    T = 10
+    batches = 3
+    mod = InstantTorch(N)
+
+    data = torch.randn(batches, T, N)
+    data.requires_grad = True
+    out, _, _ = mod(data)
+
+    assert out.shape == (batches, T, N)
+
+    out.sum().backward()
+
+    mod = InstantTorch(
+        N, function=lambda x: torch.clip(x, 0.0, torch.tensor(float("inf")))
+    )
+    out, _, _ = mod(data)
+
+    assert out.shape == (batches, T, N)
+
+    out.sum().backward()

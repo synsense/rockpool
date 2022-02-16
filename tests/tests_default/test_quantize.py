@@ -1,4 +1,11 @@
 def test_simple_network():
+    try:
+        from rockpool.devices.xylo import mapper
+        from rockpool.devices.xylo import config_from_specification
+        from rockpool.devices.xylo import XyloSim
+    except:
+        return
+
     import numpy as np
     import torch
     import copy
@@ -6,15 +13,13 @@ def test_simple_network():
 
     # from rockpool.nn.modules import LIFJax, LinearJax, JaxModule
     # from rockpool.nn.combinators import Sequential, Residual
-    from rockpool.nn.modules.torch import (
+    from rockpool.nn.modules import (
         TorchModule,
         LinearTorch,
         LIFTorch,
         LIFBitshiftTorch,
     )
-    from rockpool.devices.xylo import mapper
-    from rockpool.devices.xylo import config_from_specification
-    from rockpool.devices.xylo import XyloCim
+    from rockpool.parameters import Constant
     from rockpool.graph import (
         AliasConnection,
         GraphHolder,
@@ -51,11 +56,10 @@ def test_simple_network():
                 shape=(self.Nres, self.Nres),
                 tau_mem=0.002,
                 tau_syn=0.002,
-                has_bias=False,
+                bias=Constant(0.0),
                 threshold=self.threshold,
                 learning_window=self.learning_window,
                 dt=self.dt,
-                device=device,
             )
 
             self.lin_out = LinearTorch(shape=(self.Nres, self.Nout), has_bias=False)
@@ -63,11 +67,10 @@ def test_simple_network():
                 shape=(self.Nout, self.Nout),
                 tau_mem=0.002,
                 tau_syn=0.002,
-                has_bias=False,
+                bias=Constant(0.0),
                 threshold=self.threshold,
                 learning_window=self.learning_window,
                 dt=self.dt,
-                device=device,
             )
 
             self._record_dict = {}
@@ -161,11 +164,11 @@ def test_simple_network():
 
     _, _, recordings_f = mod(inp, record=True)
 
-    cim_g = XyloCim.from_config(xylo_conf_global, dt=dt)
+    cim_g = XyloSim.from_config(xylo_conf_global, dt=dt)
     cim_g.reset_state()
     spk_out_g, _, rec_cim_g = cim_g(inp[0].cpu().numpy(), record=True)
 
-    cim_c = XyloCim.from_config(xylo_conf_channel, dt=dt)
+    cim_c = XyloSim.from_config(xylo_conf_channel, dt=dt)
     cim_c.reset_state()
     spk_out_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
 
@@ -203,22 +206,25 @@ def test_simple_network():
 
 
 def test_complex_network():
+    try:
+        from rockpool.devices.xylo import mapper
+        from rockpool.devices.xylo import config_from_specification
+        from rockpool.devices.xylo import XyloSim
+    except:
+        return
+
     import numpy as np
     import torch
     import copy
     from rockpool.transform.quantize_methods import global_quantize, channel_quantize
 
-    # from rockpool.nn.modules import LIFJax, LinearJax, JaxModule
-    # from rockpool.nn.combinators import Sequential, Residual
-    from rockpool.nn.modules.torch import (
+    from rockpool.nn.modules import (
         TorchModule,
         LinearTorch,
         LIFTorch,
         LIFBitshiftTorch,
     )
-    from rockpool.devices.xylo import mapper
-    from rockpool.devices.xylo import config_from_specification
-    from rockpool.devices.xylo import XyloCim
+    from rockpool.parameters import Constant
     from rockpool.graph import (
         AliasConnection,
         GraphHolder,
@@ -259,11 +265,10 @@ def test_complex_network():
                 shape=(self.Nres1, self.Nres1),
                 tau_mem=0.002,
                 tau_syn=0.002,
-                has_bias=False,
+                bias=Constant(0.0),
                 threshold=self.threshold,
                 learning_window=self.learning_window,
                 dt=self.dt,
-                device=device,
             )
 
             self.lin_res2 = LinearTorch(shape=(self.Nres1, self.Nres2), has_bias=False)
@@ -271,11 +276,10 @@ def test_complex_network():
                 shape=(self.Nres2, self.Nres2),
                 tau_mem=0.002,
                 tau_syn=0.002,
-                has_bias=False,
+                bias=Constant(0.0),
                 threshold=self.threshold,
                 learning_window=self.learning_window,
                 dt=self.dt,
-                device=device,
             )
 
             self.lin_res3 = LinearTorch(shape=(self.Nres2, self.Nres3), has_bias=False)
@@ -283,11 +287,10 @@ def test_complex_network():
                 shape=(self.Nres3, self.Nres3),
                 tau_mem=0.002,
                 tau_syn=0.002,
-                has_bias=False,
+                bias=Constant(0.0),
                 threshold=self.threshold,
                 learning_window=self.learning_window,
                 dt=self.dt,
-                device=device,
             )
 
             self.lin_out = LinearTorch(shape=(self.Nres3, self.Nout), has_bias=False)
@@ -295,11 +298,10 @@ def test_complex_network():
                 shape=(self.Nout, self.Nout),
                 tau_mem=0.002,
                 tau_syn=0.002,
-                has_bias=False,
+                bias=Constant(0.0),
                 threshold=self.threshold,
                 learning_window=self.learning_window,
                 dt=self.dt,
-                device=device,
             )
 
             self._record_dict = {}
@@ -408,11 +410,11 @@ def test_complex_network():
 
     _, _, recordings_f = mod(inp, record=True)
 
-    cim_g = XyloCim.from_config(xylo_conf_global, dt=dt)
+    cim_g = XyloSim.from_config(xylo_conf_global, dt=dt)
     cim_g.reset_state()
     spk_out_g, _, rec_cim_g = cim_g(inp[0].cpu().numpy(), record=True)
 
-    cim_c = XyloCim.from_config(xylo_conf_channel, dt=dt)
+    cim_c = XyloSim.from_config(xylo_conf_channel, dt=dt)
     cim_c.reset_state()
     spk_out_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
 
@@ -459,6 +461,13 @@ def test_complex_network():
 
 
 def test_sequential_combinator():
+    try:
+        from rockpool.devices.xylo import mapper
+        from rockpool.devices.xylo import config_from_specification
+        from rockpool.devices.xylo import XyloSim
+    except:
+        return
+
     import numpy as np
     import torch
     import copy
@@ -466,15 +475,14 @@ def test_sequential_combinator():
 
     # from rockpool.nn.modules import LIFJax, LinearJax, JaxModule
     from rockpool.nn.combinators import Sequential, Residual
-    from rockpool.nn.modules.torch import (
+    from rockpool.parameters import Constant
+    from rockpool.nn.modules import (
         TorchModule,
         LinearTorch,
         LIFTorch,
         LIFBitshiftTorch,
     )
-    from rockpool.devices.xylo import mapper
-    from rockpool.devices.xylo import config_from_specification
-    from rockpool.devices.xylo import XyloCim
+    from rockpool.parameters import Constant
     from rockpool.graph import (
         AliasConnection,
         GraphHolder,
@@ -496,22 +504,20 @@ def test_sequential_combinator():
             shape=(Nres, Nres),
             tau_mem=0.002,
             tau_syn=0.002,
-            has_bias=False,
+            bias=Constant(0.0),
             threshold=1.0,
             learning_window=0.5,
             dt=0.001,
-            device="cpu",
         ),
         LinearTorch((Nres, Nout), has_bias=False),
         LIFBitshiftTorch(
             shape=(Nout, Nout),
             tau_mem=0.02,
             tau_syn=0.02,
-            has_bias=False,
+            bias=Constant(0.0),
             threshold=1.0,
             learning_window=0.5,
             dt=0.001,
-            device="cpu",
         ),
     )
 
@@ -557,11 +563,11 @@ def test_sequential_combinator():
     mod.reset_state()
     _, _, recordings_f = mod(inp, record=True)
 
-    cim_g = XyloCim.from_config(xylo_conf_global, dt=dt)
+    cim_g = XyloSim.from_config(xylo_conf_global, dt=dt)
     cim_g.reset_state()
     spk_out_g, _, rec_cim_g = cim_g(inp[0].cpu().numpy(), record=True)
 
-    cim_c = XyloCim.from_config(xylo_conf_channel, dt=dt)
+    cim_c = XyloSim.from_config(xylo_conf_channel, dt=dt)
     cim_c.reset_state()
     spk_out_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
 
@@ -609,6 +615,13 @@ def test_sequential_combinator():
 
 
 def test_residual_combinator():
+    try:
+        from rockpool.devices.xylo import mapper
+        from rockpool.devices.xylo import config_from_specification
+        from rockpool.devices.xylo import XyloSim
+    except:
+        return
+
     import numpy as np
     import torch
     import copy
@@ -616,15 +629,13 @@ def test_residual_combinator():
 
     # from rockpool.nn.modules import LIFJax, LinearJax, JaxModule
     from rockpool.nn.combinators import Sequential, Residual
-    from rockpool.nn.modules.torch import (
+    from rockpool.nn.modules import (
         TorchModule,
         LinearTorch,
         LIFTorch,
         LIFBitshiftTorch,
     )
-    from rockpool.devices.xylo import mapper
-    from rockpool.devices.xylo import config_from_specification
-    from rockpool.devices.xylo import XyloCim
+    from rockpool.parameters import Constant
     import warnings
 
     warnings.filterwarnings("ignore")
@@ -641,11 +652,10 @@ def test_residual_combinator():
             shape=(Nres1, Nres1),
             tau_mem=0.002,
             tau_syn=0.002,
-            has_bias=False,
+            bias=Constant(0.0),
             threshold=threshold,
             learning_window=0.5,
             dt=0.001,
-            device="cpu",
         ),
         Residual(
             LinearTorch((Nres1, Nres2)),
@@ -653,11 +663,10 @@ def test_residual_combinator():
                 shape=(Nres2, Nres2),
                 tau_mem=0.002,
                 tau_syn=0.002,
-                has_bias=False,
+                bias=Constant(0.0),
                 threshold=threshold,
                 learning_window=0.5,
                 dt=0.001,
-                device="cpu",
             ),
         ),
         LinearTorch((Nres2, Nout), has_bias=False),
@@ -665,11 +674,10 @@ def test_residual_combinator():
             shape=(Nout, Nout),
             tau_mem=0.02,
             tau_syn=0.02,
-            has_bias=False,
+            bias=Constant(0.0),
             threshold=threshold,
             learning_window=0.5,
             dt=0.001,
-            device="cpu",
         ),
     )
 
@@ -718,11 +726,11 @@ def test_residual_combinator():
     mod.reset_state()
     _, _, recordings_f = mod(inp, record=True)
 
-    cim_g = XyloCim.from_config(xylo_conf_global, dt=dt)
+    cim_g = XyloSim.from_config(xylo_conf_global, dt=dt)
     cim_g.reset_state()
     spk_out_g, _, rec_cim_g = cim_g(inp[0].cpu().numpy(), record=True)
 
-    cim_c = XyloCim.from_config(xylo_conf_channel, dt=dt)
+    cim_c = XyloSim.from_config(xylo_conf_channel, dt=dt)
     cim_c.reset_state()
     spk_out_c, _, rec_cim_c = cim_c(inp[0].cpu().numpy(), record=True)
 

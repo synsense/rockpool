@@ -14,11 +14,20 @@ from typing import Tuple, Any, Callable
 
 from abc import ABC
 
-__all__ = ["kaiming", "xavier", "Linear", "LinearJax"]
+__all__ = ["unit_eigs", "kaiming", "xavier", "Linear", "LinearJax"]
+
+
+def unit_eigs(s):
+    return onp.random.randn(*s) / onp.sqrt(s[0])
+
+
+def uniform_sqrt(s):
+    lim = onp.sqrt(1 / s[0])
+    return onp.random.uniform(-lim, lim, s)
 
 
 def kaiming(s):
-    lim = onp.sqrt(2 / s[0])
+    lim = onp.sqrt(6 / s[0])
     return onp.random.uniform(-lim, lim, s)
 
 
@@ -41,6 +50,7 @@ class LinearMixin(ABC):
         bias=None,
         has_bias: bool = True,
         weight_init_func: Callable = kaiming,
+        bias_init_func: Callable = uniform_sqrt,
         *args,
         **kwargs,
     ):
@@ -49,7 +59,7 @@ class LinearMixin(ABC):
 
         `.Linear` essentially wraps a single weight matrix, and passes data through by using the matrix as a set of weights. The shape of the matrix must be specified as a tuple ``(Nin, Nout)``.
 
-        A weight initialisation function may be specified. By default the weights will be Normally distributed around zero, and normalised by N_in.
+        A weight initialisation function may be specified. By default the weights will be use Kaiming initialisation (:py:func:`.kaiming`).
 
         Examples:
 
@@ -70,7 +80,7 @@ class LinearMixin(ABC):
 
         Args:
             shape (tuple): The desired shape of the weight matrix. Must have two entries ``(Nin, Nout)``
-            weight_init_func (Callable): The initialisation function to use for the weights. Default: Kaiming initialization; uniform on the range :math:`(\\sqrt(2/Nin), \\sqrt(2/Nin))`
+            weight_init_func (Callable): The initialisation function to use for the weights. Default: Kaiming initialization; uniform on the range :math:`(\\sqrt(6/Nin), \\sqrt(6/Nin))`
             weight (Optional[np.array]): A concrete weight matrix to assign to the weights on initialisation. ``weight.shape`` must match the ``shape`` argument
         """
         # - Base class must be `Module`
@@ -94,7 +104,7 @@ class LinearMixin(ABC):
         # - Specify bias parameter
         if has_bias or bias is not None:
             self.bias = Parameter(
-                bias, shape=self.size_out, init_func=weight_init_func, family="biases"
+                bias, shape=self.size_out, init_func=bias_init_func, family="biases"
             )
             """ Bias vector of this module """
         else:
@@ -104,14 +114,12 @@ class LinearMixin(ABC):
         return self._dot(input_data, self.weight) + self.bias, {}, {}
 
     def as_graph(self) -> GraphModuleBase:
-        return as_GraphHolder(
-            LinearWeights._factory(
-                self.size_in,
-                self.size_out,
-                f"{type(self).__name__}_{self.name}_{id(self)}",
-                self,
-                self.weight,
-            )
+        return LinearWeights._factory(
+            self.size_in,
+            self.size_out,
+            f"{type(self).__name__}_{self.name}_{id(self)}",
+            self,
+            self.weight,
         )
 
 

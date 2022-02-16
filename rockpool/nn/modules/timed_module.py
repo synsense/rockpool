@@ -269,7 +269,8 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
         # - Store number of layer time steps per global time step for each layer
         for _, mod in self.modules().items():
-            mod._parent_dt_factor = float(round(self.dt / mod.dt))
+            if hasattr(mod, "dt"):
+                mod._parent_dt_factor = float(round(self.dt / mod.dt))
 
     def _evolve_wrapper(
         self,
@@ -529,6 +530,9 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         Returns:
             TimeSeries: The data in ``output`` wrapped into a :py:class:`.TimeSeries` object
         """
+        if len(output.shape) > 2:
+            output = output[0]
+
         if self.spiking_output:
             return self._gen_tsevent(output, **kwargs)
         else:
