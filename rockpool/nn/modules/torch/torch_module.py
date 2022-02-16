@@ -521,6 +521,8 @@ class TorchModule(Module, nn.Module):
                     my_params[k].data = torch.tensor(param)
                 elif isinstance(my_params[k], TorchModuleParameters):
                     self.modules()[k].json_to_param(param)
+                elif my_params[k] == None:
+                    my_params[k] = param
                 else:
                     raise NotImplementedError(
                         f"{type(my_params[k])} not implemented to load. Please implement."

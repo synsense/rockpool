@@ -70,8 +70,6 @@ class LIFSlayer(LIFBaseTorch):
         )
 
         self.surrogate_grad_fn = Heaviside(self.learning_window)
-        if np.isinf(self.max_spikes_per_dt):
-            self.max_spikes_per_dt = None
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
@@ -142,7 +140,7 @@ class LIFSlayer(LIFBaseTorch):
             threshold[0],  # threshold
             None,  # threshold low
             self.surrogate_grad_fn,
-            self.max_spikes_per_dt,
+            None if torch.isinf(self.max_spikes_per_dt) else self.max_spikes_per_dt,
         )
 
         # Subtract spikes from Vmem as exodus subtracts them starting from the next timestep
