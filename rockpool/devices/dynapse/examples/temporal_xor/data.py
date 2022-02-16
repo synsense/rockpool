@@ -554,8 +554,18 @@ class TemporalXORData:
         """
 
         # Check if exist
-        if path.exists(hdf5_path):
+        if os.path.exists(hdf5_path):
             raise OSError(f"File already exists! : {hdf5_path}")
+
+        else:
+            dirname = os.path.dirname(hdf5_path)
+            os.makedirs(dirname, exist_ok=True)
+
+        with h5py.File(hdf5_path, "w") as hdf:
+            for key, value in self.sample_generator.__dict__.items():
+                if value is not None:
+                    hdf.attrs[key] = value
+            hdf.attrs["train_val_test"] = self.train_val_test
 
         # Fill
         if memory_batch is not None:
