@@ -9,11 +9,13 @@ E-mail : ugurcan.cakal@gmail.com
 
 from typing import Any, Callable, Dict, List, Optional, Tuple
 import logging
-from os import path, remove
+import os
 from dataclasses import dataclass
 import numpy as np
 import h5py
 from tonic.dataset import Dataset
+
+import matplotlib.pyplot as plt
 
 
 @dataclass
@@ -85,6 +87,7 @@ class SampleGenerator:
     :type seed: Optional[int], optional
 
     :Instance Variables:
+
     :ivar n_intro: number of time steps until first pulse starts (num_samples,)
     :type n_intro: np.ndarray
     :ivar n_pulse_width: the number of time steps for the first and the seconds pulse stacked together (num_samples, 2)
@@ -115,7 +118,7 @@ class SampleGenerator:
     amplitude: float = 1.0
     seed: Optional[int] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """
         __post_init__ randomly schedule the pulse widths and start times, then quantize the timing
         in order to be able to create discrete signal arrays.
@@ -385,8 +388,25 @@ class TemporalXORData:
     TemporalXORData is the data management module for temporal xor task. It creates
     train, validation and test sets of the data samples and store in disk
 
+    :Parameters:
+
     :param train_val_test: train, validation, and test set split ratio, defaults to [0.88, 0.1, 0.02]
     :type train_val_test: np.ndarray, optional
+
+    :Instance Variables:
+
+    :ivar sample_generator: sample generator object holding a virtual dataset with all the sample properties
+    :type sample_generator: SampleGenerator
+    :ivar num_samples: number of samples produced
+    :type num_samples: int
+    :ivar n_sample_duration: discrete sample duration, the number of timesteps
+    :type n_sample_duration: int
+    :ivar num_train_samples: the number of training samples
+    :type num_train_samples: int
+    :ivar num_val_samples: the number of validation samples
+    :type num_val_samples: int
+    :ivar num_test_samples: the number of test samples
+    :type num_test_samples: int
     """
 
     def __init__(
@@ -420,11 +440,8 @@ class TemporalXORData:
         :param hdf5_path: the filepath for hdf to be created!
         :type hdf5_path: str
         """
-        if path.exists(hdf5_path):
-            remove(hdf5_path)
-            logging.warning(f"HDF5 file overwritten! : {hdf5_path}")
 
-        with h5py.File(hdf5_path, "w") as hdf:
+        with h5py.File(hdf5_path, "a") as hdf:
             for _subset in self.subsets:
                 group = hdf.create_group(_subset)
 
@@ -465,11 +482,8 @@ class TemporalXORData:
         :param hdf5_path: the filepath for hdf to be created!
         :type hdf5_path: str
         """
-        if path.exists(hdf5_path):
-            remove(hdf5_path)
-            logging.warning(f"HDF5 file overwritten! : {hdf5_path}")
 
-        with h5py.File(hdf5_path, "w") as hdf:
+        with h5py.File(hdf5_path, "a") as hdf:
             for _subset in self.subsets:
                 group = hdf.create_group(_subset)
                 for _dataset in self.datasets:
