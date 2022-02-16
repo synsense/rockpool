@@ -831,10 +831,12 @@ class TemporalXOR(Dataset):
 
         # Plotting
         fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
-        ax1.set_title(f"XOR {self.subset} sample : data & target")
+        ax1.set_title(
+            f"XOR {self.subset} sample [{index}/{self.__len__()-1}]: data & target"
+        )
         ax1.plot(time_base, data)
         ax2.plot(time_base, target)
-        fig.supxlabel("Time (s)")
+        ax2.set_xlabel("Time (s)")
         plt.show()
 
     def __len__(self) -> int:
