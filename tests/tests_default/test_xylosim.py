@@ -1,7 +1,7 @@
 import pytest
 
-pytest.importorskip("xylosim")
 pytest.importorskip("samna")
+pytest.importorskip("xylosim")
 
 
 def test_imports():
@@ -259,6 +259,7 @@ def test_FF_equality_torch():
 
 
 def test_Rec_equality_torch():
+    pytest.importorskip("torch")
     import torch
     import numpy as np
     from xylosim.v1 import XyloSynapse, XyloLayer
@@ -352,11 +353,12 @@ def test_Rec_equality_torch():
 
 
 def test_FF_equality_slayer():
+    pytest.importorskip("torch")
     import torch
     import numpy as np
 
     if not torch.cuda.is_available():
-        return
+        pytest.skip("This test requires CUDA to continue.")
 
     quant_scaling = 100
     bitshift = 4
@@ -507,7 +509,7 @@ def test_xylo_vs_xylosim():
     xylo_hdk_nodes = xu.find_xylo_boards()
 
     if len(xylo_hdk_nodes) == 0:
-        return  # can't finish test, as no Xylo board in available
+        pytest.skip("This test requires a connected Xylo board to continue.")
 
     db = xylo_hdk_nodes[0]
 
