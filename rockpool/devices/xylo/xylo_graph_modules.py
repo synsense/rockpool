@@ -56,18 +56,11 @@ class XyloNeurons(GenericNeurons):
                 )
 
             # - Convert TCs to dash parameters
-            dash_mem = (
-                np.round(np.log2(np.array(mod.tau_mem) / mod.dt)).astype(int).tolist()
-            )
-            dash_syn = (
-                np.round(np.log2(np.array(mod.tau_syn) / mod.dt))
-                .flatten()
-                .astype(int)
-                .tolist()
-            )
+            dash_mem = np.log2(np.array(mod.tau_mem) / mod.dt).tolist()
+            dash_syn = np.log2(np.array(mod.tau_syn) / mod.dt).flatten().tolist()
 
             # - Get thresholds
-            thresholds = np.round(np.array(mod.threshold)).astype(int).tolist()
+            thresholds = np.array(mod.threshold).tolist()
 
             # - Build a new neurons module to insert into the graph
             neurons = cls._factory(
