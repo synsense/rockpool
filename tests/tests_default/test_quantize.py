@@ -1,10 +1,14 @@
+import pytest
+
+pytest.importorskip("torch")
+pytest.importorskip("xylosim")
+pytest.importorskip("samna")
+
+
 def test_simple_network():
-    try:
-        from rockpool.devices.xylo import mapper
-        from rockpool.devices.xylo import config_from_specification
-        from rockpool.devices.xylo import XyloSim
-    except:
-        return
+    from rockpool.devices.xylo import mapper
+    from rockpool.devices.xylo import config_from_specification
+    from rockpool.devices.xylo import XyloSim
 
     import numpy as np
     import torch
@@ -206,12 +210,9 @@ def test_simple_network():
 
 
 def test_complex_network():
-    try:
-        from rockpool.devices.xylo import mapper
-        from rockpool.devices.xylo import config_from_specification
-        from rockpool.devices.xylo import XyloSim
-    except:
-        return
+    from rockpool.devices.xylo import mapper
+    from rockpool.devices.xylo import config_from_specification
+    from rockpool.devices.xylo import XyloSim
 
     import numpy as np
     import torch
@@ -461,12 +462,9 @@ def test_complex_network():
 
 
 def test_sequential_combinator():
-    try:
-        from rockpool.devices.xylo import mapper
-        from rockpool.devices.xylo import config_from_specification
-        from rockpool.devices.xylo import XyloSim
-    except:
-        return
+    from rockpool.devices.xylo import mapper
+    from rockpool.devices.xylo import config_from_specification
+    from rockpool.devices.xylo import XyloSim
 
     import numpy as np
     import torch
@@ -615,12 +613,9 @@ def test_sequential_combinator():
 
 
 def test_residual_combinator():
-    try:
-        from rockpool.devices.xylo import mapper
-        from rockpool.devices.xylo import config_from_specification
-        from rockpool.devices.xylo import XyloSim
-    except:
-        return
+    from rockpool.devices.xylo import mapper
+    from rockpool.devices.xylo import config_from_specification
+    from rockpool.devices.xylo import XyloSim
 
     import numpy as np
     import torch

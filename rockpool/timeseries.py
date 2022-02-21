@@ -373,7 +373,7 @@ class TimeSeries:
         return np.size(self.times) == 0
 
     def print(self):
-        """ Print an overview of the time series"""
+        """Print an overview of the time series"""
         print(self.__repr__())
 
     def set_plotting_backend(self, backend: Union[str, None], verbose: bool = True):
@@ -510,7 +510,7 @@ class TimeSeries:
 
     @property
     def times(self):
-        """ (ArrayLike[float]) Array of sample times """
+        """(ArrayLike[float]) Array of sample times"""
         return self._times
 
     @times.setter
@@ -539,7 +539,7 @@ class TimeSeries:
 
     @property
     def t_start(self) -> float:
-        """ (float) Start time of time series"""
+        """(float) Start time of time series"""
         return self._t_start
 
     @t_start.setter
@@ -563,7 +563,7 @@ class TimeSeries:
 
     @property
     def t_stop(self) -> float:
-        """ (float) Stop time of time series (final sample) """
+        """(float) Stop time of time series (final sample)"""
         return self._t_stop
 
     @t_stop.setter
@@ -583,12 +583,12 @@ class TimeSeries:
 
     @property
     def duration(self) -> float:
-        """ (float) Duration of TimeSeries """
+        """(float) Duration of TimeSeries"""
         return self._t_stop - self._t_start
 
     @property
     def plotting_backend(self):
-        """ (str) Current plotting backend"""
+        """(str) Current plotting backend"""
         return (
             self._plotting_backend
             if self._plotting_backend is not None
@@ -1871,7 +1871,7 @@ class TSContinuous(TimeSeries):
         is_nan_other = np.isnan(base)
 
         # - Perform exponentiation
-        new_series.samples = base ** new_series.samples
+        new_series.samples = base**new_series.samples
 
         # - Fill in nans
         new_series.samples[np.logical_or(is_nan_self, is_nan_other)] = np.nan
@@ -1947,7 +1947,7 @@ class TSContinuous(TimeSeries):
     # - Extend setter of times to update interpolator
     @property
     def times(self):
-        """ (ArrayLike[float]) Array of sample times """
+        """(ArrayLike[float]) Array of sample times"""
         return self._times
 
     @times.setter
@@ -3096,7 +3096,7 @@ class TSEvent(TimeSeries):
 
     @property
     def times(self):
-        """ (ArrayLike[float]) Array of sample times """
+        """(ArrayLike[float]) Array of sample times"""
         return self._times
 
     @times.setter
@@ -3126,7 +3126,7 @@ class TSEvent(TimeSeries):
 
     @property
     def t_stop(self) -> float:
-        """ (float) Stop time of time series (final sample) """
+        """(float) Stop time of time series (final sample)"""
         return self._t_stop
 
     @t_stop.setter

@@ -164,7 +164,7 @@ try:
 
             # - Seed RNG
             if rng_key is None:
-                rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
+                rng_key = rand.PRNGKey(onp.random.randint(0, 2**63))
             _, rng_key = rand.split(jnp.array(rng_key, dtype=jnp.uint32))
 
             # - Initialise state
@@ -192,7 +192,6 @@ try:
             # - Make sure we return the new rng key for self as well
             new_state.update({"rng_key": mod.rng_key})
             return output_data, new_state, record_dict
-
 
 except (ImportError, ModuleNotFoundError) as err:
     warnings.warn(

@@ -1,4 +1,6 @@
-from pytest import raises
+import pytest
+
+pytest.importorskip("torch")
 
 
 def test_imports():
@@ -20,11 +22,11 @@ def test_linear_torch():
 
     assert output.shape == (1, 10, 10)
 
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         mod = LinearTorch(10)
 
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         mod = LinearTorch((10,))
 
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         mod = LinearTorch((10, 10, 10))

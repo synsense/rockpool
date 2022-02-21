@@ -2,13 +2,6 @@
 Implement a LIF Module, using a Slayer backend
 """
 
-from importlib import util
-
-if util.find_spec("sinabs") is None or util.find_spec("sinabs.slayer") is None:
-    raise ModuleNotFoundError(
-        "'Slayer' backend not found. Modules that rely on Sinabs-Slayer will not be available."
-    )
-
 from rockpool.nn.modules.torch.lif_torch import LIFBaseTorch
 import torch
 import numpy as np

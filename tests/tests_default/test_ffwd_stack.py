@@ -1,11 +1,9 @@
-import pytest
-
-
 def test_imports():
     from rockpool.nn.combinators.ffwd_stack import FFwdStackMixin, FFwdStack
 
 
 def test_FFwdStack_nojax():
+
     from rockpool.nn.combinators.ffwd_stack import FFwdStack
     from rockpool.nn.modules.module import Module
     from rockpool.parameters import State, Parameter
@@ -48,6 +46,10 @@ def test_FFwdStack_nojax():
 
 
 def test_FFwdStack_jax():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.nn.combinators.ffwd_stack import FFwdStack
     from rockpool.nn.modules.jax.jax_module import JaxModule
     from rockpool.parameters import State, Parameter

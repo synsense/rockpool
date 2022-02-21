@@ -1,5 +1,8 @@
 import pytest
 
+pytest.importorskip("samna")
+pytest.importorskip("xylosim")
+
 
 def test_imports():
     from rockpool.devices.xylo import (
@@ -120,32 +123,12 @@ def test_save_load():
 def test_XyloSamna():
     from rockpool.devices.xylo import XyloSamna, config_from_specification
     import rockpool.devices.xylo.xylo_devkit_utils as putils
-    import samna
     import numpy as np
 
-    # receiver and sender endpoints for the local nodes
-    # Use any free port number instead of 33378
-    receiver_endpoint = "tcp://0.0.0.0:31378"
-    sender_endpoint = "tcp://0.0.0.0:31379"
+    xylo_hdk_nodes = putils.find_xylo_boards()
 
-    # Every node must have a unique ID
-    node_id = 1
-    interpreter_id = 2
-
-    # Construct the device node from Python. To interact with it we will
-    # later need to connect to it as if it was a remote node.
-    samna_node = samna.SamnaNode(sender_endpoint, receiver_endpoint, node_id)
-
-    # Make a local node that can be interacted with from Python
-    samna.setup_local_node(receiver_endpoint, sender_endpoint, interpreter_id)
-
-    # Open the samna_node we first constructed as a remote node and give it the
-    # name "device_node".
-    # The contents of the node are now available as the Python submodule samna.device_node
-    samna.open_remote_node(node_id, "device_node")
-    xylo_hdk_nodes = putils.find_xylo_boards(samna.device_node)
-
-    assert len(xylo_hdk_nodes) > 0, "You must connect a Xylo dev kit to run this test"
+    if len(xylo_hdk_nodes) == 0:
+        pytest.skip("A connected Xylo HDK is required to run this test")
 
     daughterboard = xylo_hdk_nodes[0]
 

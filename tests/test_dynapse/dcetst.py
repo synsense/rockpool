@@ -157,7 +157,7 @@ assert np.sum(con.hwneurons_isavailable) == 4092
 
 # - Make sure dt is not too large
 with pytest.raises(ValueError):
-    con.fpga_isibase = (2 ** 16 + 1) * 1 / 9 * 1e-7
+    con.fpga_isibase = (2**16 + 1) * 1 / 9 * 1e-7
 
 
 ## -- Record from some neurons

@@ -13,7 +13,15 @@ from typing import Optional
 from rockpool.typehints import FloatVector
 
 import numpy as np
-import torch
+from rockpool.utilities.backend_management import backend_available
+
+if backend_available("torch"):
+    from torch import Tensor
+else:
+
+    class Tensor:
+        pass
+
 
 __all__ = [
     "LinearWeights",
@@ -43,10 +51,8 @@ class LinearWeights(GraphModule):
         super().__post_init__(*args, **kwargs)
 
         # - Convert weights to numpy array
-        if torch.is_tensor(self.weights):
-            self.weights = np.array(
-                self.weights.detach().cpu().numpy()
-            )  # for torch backend
+        if isinstance(self.weights, Tensor):
+            self.weights = np.array(self.weights.detach().cpu().numpy())
         else:
             self.weights = np.array(self.weights)
 

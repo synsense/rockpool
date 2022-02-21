@@ -1,5 +1,7 @@
 import pytest
 
+pytest.importorskip("torch")
+
 
 def test_LIFTorch_shapes():
     from rockpool.nn.modules.torch.lif_torch import LIFTorch

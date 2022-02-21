@@ -13,7 +13,14 @@ import numpy as np
 __all__ = ["Parameter", "State", "SimulationParameter", "Constant"]
 
 
-import torch
+from rockpool.utilities.backend_management import backend_available
+
+if backend_available("torch"):
+    from torch import Tensor
+else:
+
+    class Tensor:
+        pass
 
 
 class RP_Constant:
@@ -119,7 +126,7 @@ class ParameterBase:
         def numel(x):
             if isinstance(x, np.ndarray):
                 return x.size
-            elif isinstance(x, torch.Tensor):
+            elif isinstance(x, Tensor):
                 return x.numel()
             else:
                 return np.size(x)
@@ -176,7 +183,7 @@ class ParameterBase:
         return f"{type(self).__name__}(data={self.data}, family={self.family}, init_func={self.init_func}, shape={self.shape})"
 
     def _tree_flatten(self) -> Tuple[tuple, tuple]:
-        """ FLatten this parameter / state for Jax """
+        """FLatten this parameter / state for Jax"""
         return (
             (
                 self.data,

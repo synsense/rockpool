@@ -1,3 +1,8 @@
+import pytest
+
+pytest.importorskip("jax")
+pytest.importorskip("torch")
+
 # - Set 64-bit mode
 from jax.config import config
 
@@ -55,7 +60,7 @@ def get_torch_gradients(module, data):
     data = torch.tensor(data, requires_grad=True).float()
 
     out, _, _ = module(data)
-    (out ** 2).sum().backward()
+    (out**2).sum().backward()
 
     def extract_grads(params):
         grads = {}
@@ -78,12 +83,12 @@ def get_jax_gradients(module, data):
         jax.tree_unflatten(param_def, params)
         mod = module.set_attributes(params)
         out, _, _ = mod(data)
-        return (out ** 2).sum()
+        return (out**2).sum()
 
     def grad_check_dict(parameters):
         mod = module.set_attributes(parameters)
         out, _, _ = mod(data)
-        return (out ** 2).sum()
+        return (out**2).sum()
 
     check_grads(grad_check, params, order=2)
     return jax.grad(grad_check_dict)(module.parameters())
@@ -377,7 +382,12 @@ def test_lif_gradients():
         tau_mem=torch.tensor(tau_mem),
         tau_syn=torch.tensor(tau_syn),
     )
-    j_mod = LIFJax((Nin, Nout), threshold=threshold, tau_mem=tau_mem, tau_syn=tau_syn,)
+    j_mod = LIFJax(
+        (Nin, Nout),
+        threshold=threshold,
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+    )
 
     t_grads = get_torch_gradients(t_mod, input_data)
     j_grads = get_jax_gradients(j_mod, input_data)
@@ -424,7 +434,12 @@ def test_linearlif_gradients():
     )
     j_mod = Sequential(
         LinearJax((Nin, Nout), weight=weight, bias=bias),
-        LIFJax(Nout, threshold=threshold, tau_mem=tau_mem, tau_syn=tau_syn,),
+        LIFJax(
+            Nout,
+            threshold=threshold,
+            tau_mem=tau_mem,
+            tau_syn=tau_syn,
+        ),
     )
 
     t_grads = get_torch_gradients(t_mod, torch.tensor(input_data).float())
@@ -451,7 +466,7 @@ def test_linearlif_gradients():
             )
         ),
     )
-    atol_lif = 1e-8 * Nout ** 2 * T ** 2.4
+    atol_lif = 1e-8 * Nout**2 * T**2.4
     print("Tolerance", atol_lif)
 
     compare_value_tree(
@@ -460,7 +475,9 @@ def test_linearlif_gradients():
         atol=atol_weight,
     )
     compare_value_tree(
-        [j_grads["1_LIFJax"], t_grads["1_LIFTorch"]], [LIFJax, LIFTorch], atol=atol_lif,
+        [j_grads["1_LIFJax"], t_grads["1_LIFTorch"]],
+        [LIFJax, LIFTorch],
+        atol=atol_lif,
     )
 
 
@@ -492,7 +509,7 @@ def analytical_dSdx(x, t, window=0.5):
 
 
 def analytical_dSdt(x, t, window=0.5):
-    return -x / (t ** 2) * (x >= (t - window))
+    return -x / (t**2) * (x >= (t - window))
 
 
 def test_jax_surrogate():

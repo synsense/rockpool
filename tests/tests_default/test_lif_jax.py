@@ -1,3 +1,7 @@
+import pytest
+
+pytest.importorskip("jax")
+
 import jax
 from jax.config import config
 
@@ -48,7 +52,7 @@ def test_lif_jax():
     def grad_check(params, mod, input):
         mod = mod.set_attributes(params)
         out, _, _ = mod(input)
-        return np.sum(out ** 2)
+        return np.sum(out**2)
 
     print("evolving with jit")
     je = jit(lyr)
@@ -180,7 +184,7 @@ def test_ffwd_net():
 
     print(net.parameters("weights"))
 
-    print(np.sum([np.sum(v ** 2) for v in net.parameters("weights").values()]))
+    print(np.sum([np.sum(v**2) for v in net.parameters("weights").values()]))
 
 
 def test_sgd():

@@ -24,7 +24,6 @@ try:
             a = jnp.floor(param)
             return a + ((param - a) > rand.uniform(self.rng_key, shape=param.shape))
 
-
 except (ImportError, ModuleNotFoundError) as err:
     warnings.warn(f"Could not import module: {err}")
 

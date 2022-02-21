@@ -212,7 +212,6 @@ try:
 
             return obj
 
-
 except:
 
     class JaxModule:
@@ -261,7 +260,6 @@ try:
 
             # - Return output
             return self.evolve(*args, **kwargs)[0]
-
 
 except:
 

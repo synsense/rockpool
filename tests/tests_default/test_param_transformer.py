@@ -1,11 +1,16 @@
+import pytest
+
+pytest.importorskip("jax")
+
+
 def test_quantise():
     from rockpool.transform.quantize import StochasticQuantize
-    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
-    from rockpool.nn.combinators.ffwd_stack import FFwdStack
+    from rockpool.nn.modules import RateJax
+    from rockpool.nn.combinators import FFwdStack
 
     import numpy as np
 
-    mod = FFwdStack(RateEulerJax(10), RateEulerJax((5, 5)), RateEulerJax(1))
+    mod = FFwdStack(RateJax(10), RateJax((5, 5)), RateJax(1))
 
     sq = StochasticQuantize(mod, families="weights")
     p = sq.parameters()
@@ -21,12 +26,12 @@ def test_quantise():
 
 def test_dropout():
     from rockpool.transform.dropout import Dropout
-    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
-    from rockpool.nn.combinators.ffwd_stack import FFwdStack
+    from rockpool.nn.modules import RateJax
+    from rockpool.nn.combinators import FFwdStack
 
     import numpy as np
 
-    mod = FFwdStack(RateEulerJax(10), RateEulerJax((5, 5)), RateEulerJax(1))
+    mod = FFwdStack(RateJax(10), RateJax((5, 5)), RateJax(1))
 
     sq = Dropout(mod, "weights", 0.5)
     p = sq.parameters()

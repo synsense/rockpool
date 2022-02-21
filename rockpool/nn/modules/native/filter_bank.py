@@ -121,14 +121,14 @@ class FilterBankBase(Module):
         self._pool = Pool(self.num_workers)
 
     def _terminate(self):
-        """ Terminates all processes in the worker _pool """
+        """Terminates all processes in the worker _pool"""
 
         if self._pool is not None:
             self._pool.close()
 
     @staticmethod
     def _generate_chunks(l, n) -> list:
-        """ Generates chunks of data"""
+        """Generates chunks of data"""
 
         chunks = []
         for i in range(0, len(l), n):
@@ -140,7 +140,7 @@ class FilterBankBase(Module):
 
     @staticmethod
     def _process_filters(args) -> list:
-        """ Method for processing the filters each worker executes """
+        """Method for processing the filters each worker executes"""
 
         filters, params = args
         signal, filter_lowpass = params
@@ -376,15 +376,12 @@ class ButterFilter(FilterBankBase):
         self.bandwidth: P_float = SimulationParameter(bandwidth)
         """ (np.ndarray) Vector of bandwidths of each filter, in Hz"""
 
-        freq_bands = (
-            np.array(
-                [
-                    self.frequency - self.bandwidth / 2,
-                    self.frequency + self.bandwidth / 2,
-                ]
-            )
-            / (self.fs / 2)
-        )
+        freq_bands = np.array(
+            [
+                self.frequency - self.bandwidth / 2,
+                self.frequency + self.bandwidth / 2,
+            ]
+        ) / (self.fs / 2)
 
         # - Build the filters
         self._filters = list(

@@ -1,5 +1,5 @@
 """
-Implements linear weight matrix modules for numpy and Jax
+Implements linear weight matrix modules
 """
 
 
@@ -14,7 +14,7 @@ from typing import Tuple, Any, Callable
 
 from abc import ABC
 
-__all__ = ["unit_eigs", "kaiming", "xavier", "Linear", "LinearJax"]
+__all__ = ["unit_eigs", "kaiming", "xavier", "Linear"]
 
 
 def unit_eigs(s):
@@ -130,29 +130,3 @@ class Linear(LinearMixin, Module):
 
     _dot = staticmethod(onp.dot)
     pass
-
-
-# - Graceful failure if Jax is not available
-try:
-    from rockpool.nn.modules.jax.jax_module import JaxModule
-    import jax.numpy as jnp
-
-    class LinearJax(LinearMixin, JaxModule):
-        """
-        Encapsulates a linear weight matrix, with a Jax backend
-        """
-
-        _dot = staticmethod(jnp.dot)
-        pass
-
-
-except:
-    warn(
-        "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available."
-    )
-
-    class LinearJax:
-        def __init__(self):
-            raise ImportError(
-                "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available."
-            )

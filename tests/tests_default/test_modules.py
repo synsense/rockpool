@@ -65,7 +65,6 @@ def test_module():
 
 
 def test_submodules():
-    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
     from rockpool.nn.modules.module import Module
     from rockpool.parameters import Parameter, SimulationParameter, State
     import numpy as np
@@ -164,4 +163,4 @@ def test_submodules():
     print('All "weights" family:', net.parameters("weights"))
 
     # - Test an operation on collected weights
-    np.sum([np.sum(v ** 2) for v in net.parameters("weights").values()])
+    np.sum([np.sum(v**2) for v in net.parameters("weights").values()])

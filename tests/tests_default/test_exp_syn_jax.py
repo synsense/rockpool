@@ -1,5 +1,11 @@
 import pytest
 
+pytest.importorskip("jax")
+
+from jax.config import config
+
+config.update("jax_debug_nans", True)
+
 
 def test_ExpSynJax():
     from rockpool.nn.modules import ExpSynJax

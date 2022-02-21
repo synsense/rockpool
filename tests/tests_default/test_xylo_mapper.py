@@ -1,5 +1,8 @@
 import pytest
 
+pytest.importorskip("xylosim")
+pytest.importorskip("samna")
+
 
 def test_imports():
     from rockpool.devices.xylo import (
@@ -162,11 +165,12 @@ def test_network_too_large():
 
 
 def test_XyloSim_creation():
-    try:
-        from rockpool.devices.xylo import mapper, XyloSim
-    except:
+    from rockpool.utilities.backend_management import backend_available
+
+    if not backend_available("xylosim", "samna"):
         return
 
+    from rockpool.devices.xylo import mapper, XyloSim
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
 

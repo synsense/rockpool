@@ -129,7 +129,7 @@ class RateJax(JaxModule):
 
         # - Seed RNG
         if rng_key is None:
-            rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
+            rng_key = rand.PRNGKey(onp.random.randint(0, 2**63))
         _, rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
 
         self.rng_key: Union[np.ndarray, State] = State(

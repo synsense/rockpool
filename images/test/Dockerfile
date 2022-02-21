@@ -38,7 +38,6 @@ RUN eval "$(/root/miniconda/bin/conda shell.bash hook)" && conda init
 # Update the python environment
 RUN conda update --all
 RUN conda env update --name base --file base.yml
-RUN conda env update --name base --file extras.yml
 RUN pip install --upgrade jax jaxlib sphinx-rtd-theme sphinx-autobuild
 
 ENV CUDA_HOME=/usr/local/cuda-11.5

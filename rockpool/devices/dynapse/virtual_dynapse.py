@@ -41,7 +41,7 @@ class VirtualDynapseV1(Layer):
     _num_chips = params.NUM_CHIPS
     _num_cores_chip = params.NUM_CORES_CHIP
     _num_neurons_core = params.NUM_NEURONS_CORE
-    _weight_resolution = 2 ** params.BIT_RESOLUTION_WEIGHTS - 1
+    _weight_resolution = 2**params.BIT_RESOLUTION_WEIGHTS - 1
     _stddev_mismatch = params.STDDEV_MISMATCH
     _param_names = [
         "baseweight_e",

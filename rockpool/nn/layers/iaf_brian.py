@@ -1,33 +1,27 @@
-###
-# iaf_brian.py - Classes implementing recurrent and feedforward layers consisting of standard IAF neurons in brian2
-###
+"""
+IAF neurons layers with Brian2 backend
+"""
 
 
 # - Imports
 from warnings import warn
-
-from importlib import util
-
-if util.find_spec("brian2") is None:
-    raise ModuleNotFoundError(
-        "'Brian2'backend not found. Modules that rely on Brian will not be available."
-    )
 
 import brian2 as b2
 import brian2.numpy_ as np
 from brian2.units.stdunits import *
 from brian2.units.allunits import *
 
+from rockpool.utilities.timedarray_shift import TimedArray as TAShift
+
 from rockpool.timeseries import TSContinuous, TSEvent
 
 from rockpool.nn.layers.layer import Layer
-from rockpool.utilities.timedarray_shift import TimedArray as TAShift
 
+from rockpool.typehints import FloatVector
 from typing import Optional, Union, Tuple, List, Any
 
 # - Type alias for array-like objects
-ArrayLike = Union[np.ndarray, List, Tuple]
-FloatVector = Union[float, np.ndarray]
+ArrayLike = FloatVector
 
 from rockpool.nn.modules.timed_module import astimedmodule
 
@@ -224,18 +218,18 @@ class FFIAFBrianBase(Layer):
         self._net.store("reset")
 
     def reset_state(self):
-        """ Reset the internal state of the layer """
+        """Reset the internal state of the layer"""
         self._neuron_group.v = self.v_rest * volt
 
     def randomize_state(self):
-        """ Randomize the internal state of the layer """
+        """Randomize the internal state of the layer"""
         v_range = abs(self.v_thresh - self.v_reset)
         self._neuron_group.v = (
             np.random.rand(self.size) * v_range + self.v_reset
         ) * volt
 
     def reset_time(self):
-        """ Reset the internal clock of this layer """
+        """Reset the internal clock of this layer"""
 
         # - Sotre state variables
         v_state = np.copy(self._neuron_group.v) * volt
@@ -432,17 +426,17 @@ class FFIAFBrianBase(Layer):
 
     @property
     def output_type(self):
-        """ (`.TSEvent`) Output time series class for this layer (`.TSEvent`) """
+        """(`.TSEvent`) Output time series class for this layer (`.TSEvent`)"""
         return TSEvent
 
     @property
     def refractory(self):
-        """ Returns the refractory period """
+        """Returns the refractory period"""
         return self._neuron_group._refractory
 
     @property
     def state(self):
-        """ Returns the membrane potentials """
+        """Returns the membrane potentials"""
         return self._neuron_group.v_
 
     @state.setter
@@ -453,7 +447,7 @@ class FFIAFBrianBase(Layer):
 
     @property
     def tau_mem(self):
-        """ Return the membrane time constants """
+        """Return the membrane time constants"""
         return self._neuron_group.tau_m_
 
     @tau_mem.setter
@@ -464,7 +458,7 @@ class FFIAFBrianBase(Layer):
 
     @property
     def bias(self):
-        """ Retruns the biases """
+        """Retruns the biases"""
         return self._neuron_group.I_bias_
 
     @bias.setter
@@ -475,7 +469,7 @@ class FFIAFBrianBase(Layer):
 
     @property
     def v_thresh(self):
-        """ Returns the spiking threshold """
+        """Returns the spiking threshold"""
         return self._neuron_group.v_thresh_
 
     @v_thresh.setter
@@ -486,7 +480,7 @@ class FFIAFBrianBase(Layer):
 
     @property
     def v_rest(self):
-        """ Returns the resting potential """
+        """Returns the resting potential"""
         return self._neuron_group.v_rest_
 
     @v_rest.setter
@@ -497,7 +491,7 @@ class FFIAFBrianBase(Layer):
 
     @property
     def v_reset(self):
-        """ Returns the reset potential """
+        """Returns the reset potential"""
         return self._neuron_group.v_reset_
 
     @v_reset.setter
@@ -508,7 +502,7 @@ class FFIAFBrianBase(Layer):
 
     @property
     def t(self):
-        """ Returns the current time of the simulation """
+        """Returns the current time of the simulation"""
         return self._net.t_
 
     @Layer.dt.setter
@@ -741,7 +735,7 @@ class FFIAFSpkInBrian(FFIAFBrianBase):
         )
 
     def reset_time(self):
-        """ Resets the time of the simulation """
+        """Resets the time of the simulation"""
 
         # - Store state variables
         v_state = np.copy(self._neuron_group.v) * volt
@@ -988,17 +982,17 @@ class FFIAFSpkInBrian(FFIAFBrianBase):
 
     @property
     def input_type(self):
-        """ Returns input type class """
+        """Returns input type class"""
         return TSEvent
 
     @property
     def refractory(self):
-        """ Returns the refractory period """
+        """Returns the refractory period"""
         return self._neuron_group._refractory
 
     @property
     def weights(self):
-        """ Returns the weights of the connections """
+        """Returns the weights of the connections"""
         return np.array(self._inp_synapses.w).reshape(self.size_in, self.size)
 
     @weights.setter
@@ -1014,7 +1008,7 @@ class FFIAFSpkInBrian(FFIAFBrianBase):
 
     @property
     def tau_syn(self):
-        """ Returns the synaptic time constants """
+        """Returns the synaptic time constants"""
         return self._neuron_group.tau_s_
 
     @tau_syn.setter
@@ -1284,12 +1278,12 @@ class RecIAFBrianBase(Layer):
 
     @property
     def output_type(self):
-        """ (`.TSEvent`) Output time series data type for this layer (`.TSEvent`) """
+        """(`.TSEvent`) Output time series data type for this layer (`.TSEvent`)"""
         return TSEvent
 
     @property
     def weights(self):
-        """ (np.ndarray) Recurrent weights for this layer """
+        """(np.ndarray) Recurrent weights for this layer"""
         if hasattr(self, "_rec_synapses"):
             return np.reshape(self._rec_synapses.w, (self.size, -1))
         else:
@@ -1301,9 +1295,9 @@ class RecIAFBrianBase(Layer):
             self.name
         )
 
-        assert np.size(new_w) == self.size ** 2, (
+        assert np.size(new_w) == self.size**2, (
             "Layer `{}`: `new_w` must have ["
-            + str(self.size ** 2)
+            + str(self.size**2)
             + "] elements.".format(self.name)
         )
 
@@ -1316,7 +1310,7 @@ class RecIAFBrianBase(Layer):
 
     @property
     def state(self):
-        """ (np.ndarray) Membrane potential for the neurons in this layer [N,] """
+        """(np.ndarray) Membrane potential for the neurons in this layer [N,]"""
         return self._neuron_group.v_
 
     @state.setter
@@ -1327,12 +1321,12 @@ class RecIAFBrianBase(Layer):
 
     @property
     def refractory(self):
-        """ (np.ndarray) Refractory period for the neurons in this layer [N,] """
+        """(np.ndarray) Refractory period for the neurons in this layer [N,]"""
         return self._neuron_group._refractory
 
     @property
     def tau_mem(self):
-        """ (np.ndarray) Membrane time constants for the neurons in this layer [N,] """
+        """(np.ndarray) Membrane time constants for the neurons in this layer [N,]"""
         return self._neuron_group.tau_m_
 
     @tau_mem.setter
@@ -1343,7 +1337,7 @@ class RecIAFBrianBase(Layer):
 
     @property
     def tau_syn_r(self):
-        """ (np.ndarray) Synaptic time constants for recurrent synapses in this layer [N**2,] """
+        """(np.ndarray) Synaptic time constants for recurrent synapses in this layer [N**2,]"""
         return self._neuron_group.tau_s_
 
     @tau_syn_r.setter
@@ -1354,7 +1348,7 @@ class RecIAFBrianBase(Layer):
 
     @property
     def bias(self):
-        """ (np.ndarray) Bias currents for the neurons in this layer [N,] """
+        """(np.ndarray) Bias currents for the neurons in this layer [N,]"""
         return self._neuron_group.I_bias_
 
     @bias.setter
@@ -1365,7 +1359,7 @@ class RecIAFBrianBase(Layer):
 
     @property
     def v_thresh(self):
-        """ (np.ndarray) Threshold potentials for the neurons in this layer [N,] """
+        """(np.ndarray) Threshold potentials for the neurons in this layer [N,]"""
         return self._neuron_group.v_thresh_
 
     @v_thresh.setter
@@ -1376,7 +1370,7 @@ class RecIAFBrianBase(Layer):
 
     @property
     def v_rest(self):
-        """ (np.ndarray) Resting potential for the neurons in this layer [N,] """
+        """(np.ndarray) Resting potential for the neurons in this layer [N,]"""
         return self._neuron_group.v_rest_
 
     @v_rest.setter
@@ -1387,7 +1381,7 @@ class RecIAFBrianBase(Layer):
 
     @property
     def v_reset(self):
-        """ (np.ndarray) Reset potential for the neurons in this layer [N,] """
+        """(np.ndarray) Reset potential for the neurons in this layer [N,]"""
         return self._neuron_group.v_reset_
 
     @v_reset.setter
@@ -1398,7 +1392,7 @@ class RecIAFBrianBase(Layer):
 
     @property
     def t(self):
-        """ (float) Current layer time in s """
+        """(float) Current layer time in s"""
         return self._net.t_
 
     @Layer.dt.setter
@@ -1665,7 +1659,7 @@ class RecIAFSpkInBrian(RecIAFBrianBase):
         )
 
     def reset_time(self):
-        """ Reset the time for this layer """
+        """Reset the time for this layer"""
 
         # - Store state variables
         v_state = np.copy(self._neuron_group.v) * volt
@@ -1709,7 +1703,7 @@ class RecIAFSpkInBrian(RecIAFBrianBase):
         self._neuron_group.I_syn_rec = 0 * amp
 
     def reset_all(self, keep_params=True):
-        """ Reset all state of this layer (time and internal state) """
+        """Reset all state of this layer (time and internal state)"""
         if keep_params:
             # - Store parameters
             v_thresh = np.copy(self.v_thresh)
@@ -1769,12 +1763,12 @@ class RecIAFSpkInBrian(RecIAFBrianBase):
 
     @property
     def input_type(self):
-        """ (~.TSEvent`) Input time series class accepted by this layer (`.TSEvent`)"""
+        """(~.TSEvent`) Input time series class accepted by this layer (`.TSEvent`)"""
         return TSEvent
 
     @property
     def weights(self):
-        """ (np.ndarray) Recurrent synaptic weights for this layer [N, N] """
+        """(np.ndarray) Recurrent synaptic weights for this layer [N, N]"""
         return self.weights_rec
 
     @weights.setter
@@ -1783,7 +1777,7 @@ class RecIAFSpkInBrian(RecIAFBrianBase):
 
     @property
     def weights_in(self):
-        """ (np.ndarray) Input weights for this layer [M, N] """
+        """(np.ndarray) Input weights for this layer [M, N]"""
         return np.array(self._inp_synapses.w).reshape(self.size_in, self.size)
 
     @weights_in.setter
@@ -1803,7 +1797,7 @@ class RecIAFSpkInBrian(RecIAFBrianBase):
 
     @property
     def weights_rec(self):
-        """ (np.ndarray) Recurrent synaptic weights for this layer [N, N] """
+        """(np.ndarray) Recurrent synaptic weights for this layer [N, N]"""
         return np.array(self._rec_synapses.w).reshape(self.size, self.size)
 
     @weights_rec.setter
@@ -1823,7 +1817,7 @@ class RecIAFSpkInBrian(RecIAFBrianBase):
 
     @property
     def tau_syn_inp(self):
-        """ (np.ndarray) Input synaptic time constants for this layer [M, N] """
+        """(np.ndarray) Input synaptic time constants for this layer [M, N]"""
         return self._neuron_group.tau_syn_inp
 
     @tau_syn_inp.setter
@@ -1834,7 +1828,7 @@ class RecIAFSpkInBrian(RecIAFBrianBase):
 
     @property
     def tau_syn_rec(self):
-        """ (np.ndarray) Recurrent synaptic time constants for this layer [N, N] """
+        """(np.ndarray) Recurrent synaptic time constants for this layer [N, N]"""
         return self._neuron_group.tau_syn_rec
 
     @tau_syn_rec.setter

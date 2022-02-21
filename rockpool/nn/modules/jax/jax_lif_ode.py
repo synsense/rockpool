@@ -1,3 +1,7 @@
+"""
+An LIF spiking neuron with a Jax backend, implementing an explicit ODE solver
+"""
+
 from typing import Tuple
 
 from .lif_jax import LIFJax, step_pwl, sigmoid
@@ -9,8 +13,15 @@ import jax.random as rand
 
 
 class LIFODEJax(LIFJax):
+    """
+    An LIF spiking neuron module, implementing an explicit ODE system with a Jax backend
+
+    """
+
     def evolve(
-        self, input_data: np.ndarray, record: bool = False,
+        self,
+        input_data: np.ndarray,
+        record: bool = False,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
 
@@ -26,7 +37,11 @@ class LIFODEJax(LIFJax):
         input_data, (vmem, spikes, isyn) = self._auto_batch(
             input_data,
             (self.vmem, self.spikes, self.isyn),
-            ((self.size_out,), (self.size_out,), (self.size_out, self.n_synapses),),
+            (
+                (self.size_out,),
+                (self.size_out,),
+                (self.size_out, self.n_synapses),
+            ),
         )
         n_batches, n_timesteps, _ = input_data.shape
 

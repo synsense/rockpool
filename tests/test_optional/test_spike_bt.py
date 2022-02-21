@@ -10,7 +10,7 @@ def test_imports():
 
 
 def test_RecFSSpikeEulerBT():
-    """ Test RecFSSpikeEulerBT """
+    """Test RecFSSpikeEulerBT"""
     from rockpool import timeseries as ts
     from rockpool.nn.layers import RecFSSpikeEulerBT
 
@@ -52,7 +52,7 @@ def test_RecFSSpikeEulerBT():
 
 
 def test_SolveLinearSystem():
-    """ Test NetworkDeneve.SolveLinearSystem """
+    """Test NetworkDeneve.SolveLinearSystem"""
     from rockpool.nn.networks import NetworkDeneve
     import numpy as np
     from rockpool import TSContinuous

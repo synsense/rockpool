@@ -1,3 +1,7 @@
+"""
+Adaptive-exponential integrate-and-fire neurons with NEST backend
+"""
+
 import multiprocessing
 from warnings import warn
 from typing import Union, List, Dict
@@ -15,21 +19,15 @@ from .iaf_nest import (
     COMMAND_SET,
 )
 from rockpool.utilities.property_arrays import SetterArray, ImmutableArray
-
-import importlib
 from rockpool.nn.modules.timed_module import astimedmodule
 
-if importlib.util.find_spec("nest") is None:
-    raise ModuleNotFoundError(
-        "'NEST' backend not found. Modules that rely on NEST will not be available."
-    )
 
 # - RecAEIFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
 class RecAEIFSpkInNestV1(RecIAFSpkInNestV1):
     """Spiking recurrent layer with spiking in- and outputs, with a NEST backend"""
 
     class NestProcess(_BaseNestProcessSpkInRec):
-        """ Class for running NEST in its own process """
+        """Class for running NEST in its own process"""
 
         def __init__(
             self,
@@ -57,7 +55,7 @@ class RecAEIFSpkInNestV1(RecIAFSpkInNestV1):
             record: bool = False,
             num_cores: int = 1,
         ):
-            """ initializes the process """
+            """initializes the process"""
             super().__init__(
                 request_q=request_q,
                 result_q=result_q,

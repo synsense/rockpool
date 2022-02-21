@@ -5,6 +5,12 @@ Implement a combinator that creates feed-forward module stacks, by placing a lin
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import Parameter
 
+
+from rockpool.utilities.backend_management import (
+    backend_available,
+    missing_backend_shim,
+)
+
 from typing import Tuple, Any
 
 import numpy as onp
@@ -151,7 +157,7 @@ class ModFFwdStack(FFwdStackMixin, Module):
     pass
 
 
-try:
+if backend_available("jax"):
     from jax import numpy as jnp
     from rockpool.nn.modules.jax.jax_module import JaxModule
 
@@ -159,17 +165,14 @@ try:
         _dot = staticmethod(jnp.dot)
         pass
 
+else:
+    JaxFFwdStack = missing_backend_shim("JaxFFwdStack", "jax")
 
-except:
-
-    class JaxFFwdStack:
-        def __init__(self):
-            raise ImportError(
-                "'Jax' and 'Jaxlib' backend not found. Modules relying on Jax will not be available."
-            )
+    class JaxModule:
+        pass
 
 
-try:
+if backend_available("torch"):
     from rockpool.nn.modules.torch.torch_module import TorchModule
     import torch
 
@@ -177,14 +180,11 @@ try:
         _dot = staticmethod(torch.matmul)
         pass
 
+else:
+    TorchFFwdStack = missing_backend_shim("TorchFFwdStack", "torch")
 
-except:
-
-    class TorchFFwdStack:
-        def __init__(self):
-            raise ImportError(
-                "'Torch' backend not found. Modules relying on PyTorch will not be available."
-            )
+    class TorchModule:
+        pass
 
 
 def FFwdStack(*args, **kwargs):

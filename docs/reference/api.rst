@@ -108,63 +108,24 @@ Time series classes
 :py:class:`Layer` subclasses from Rockpool v1
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+These classes are deprecated, but are still usable via the high-level API, until they are converted to the v2 API.
+
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
-
-    nn.layers.RecRateEuler
-    nn.layers.FFRateEuler
-    nn.layers.PassThrough
-
-    nn.layers.ButterFilter
-    nn.layers.ButterMelFilter
+    nn.layers.Layer
 
     nn.layers.FFIAFBrian
     nn.layers.FFIAFSpkInBrian
     nn.layers.RecIAFBrian
     nn.layers.RecIAFSpkInBrian
-    nn.layers.PassThroughEvents
     nn.layers.FFExpSynBrian
     nn.layers.RecDIAF
-    nn.layers.FFUpDown
 
     nn.layers.FFIAFNest
     nn.layers.RecIAFSpkInNest
     nn.layers.RecAEIFSpkInNest
-
-    nn.layers.FFCLIAF
-    nn.layers.RecCLIAF
-
-    .. nn.layers.RecDynapSE
-    .. nn.layers.VirtualDynapse
-    .. nn.layers.RecFSSpikeEulerBT
-    .. nn.layers.RecFSSpikeADS
-    .. nn.layers.RecRateEulerJax
-    .. nn.layers.RecRateEulerJax_IO
-    .. nn.layers.FFRateEulerJax
-    .. nn.layers.ForceRateEulerJax_IO
-    .. nn.layers.FFExpSynTorch
-    .. nn.layers.FFIAFTorch
-    .. nn.layers.FFIAFRefrTorch
-    .. nn.layers.FFIAFSpkInTorch
-    .. nn.layers.FFIAFSpkInRefrTorch
-    .. nn.layers.RecIAFTorch
-    .. nn.layers.RecIAFRefrTorch
-    .. nn.layers.RecIAFSpkInTorch
-    .. nn.layers.RecIAFSpkInRefrTorch
-    .. nn.layers.RecIAFSpkInRefrCLTorch
-    .. nn.layers.CLIAF
-    .. nn.layers.SoftMaxLayer
-    .. nn.layers.FFExpSyn
-    .. nn.layers.RecLIFJax
-    .. nn.layers.RecLIFCurrentInJax
-    .. nn.layers.RecLIFJax_IO
-    .. nn.layers.RecLIFCurrentInJax_IO
-    .. nn.layers.FFLIFJax_IO
-    .. nn.layers.FFLIFCurrentInJax_SO
-    .. nn.layers.FFExpSynCurrentInJax
-    .. nn.layers.FFExpSynJax
 
 Conversion utilities
 --------------------

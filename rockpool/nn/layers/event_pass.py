@@ -1,3 +1,7 @@
+"""
+Pass-through layer that weights events
+"""
+
 import numpy as np
 from rockpool.timeseries import TSEvent
 from rockpool.nn.layers.layer import Layer
@@ -18,7 +22,7 @@ __all__ = ["PassThroughEvents"]
     # states=["_timestep"],
 )
 class PassThroughEvents(Layer):
-    """ Pass through events by routing to different channels """
+    """Pass through events by routing to different channels"""
 
     def __init__(
         self,
@@ -114,22 +118,22 @@ class PassThroughEvents(Layer):
         return event_out
 
     def to_dict(self):
-        """ Convert parameters of `self` to a dict if they are relevant for reconstructing an identical layer """
+        """Convert parameters of `self` to a dict if they are relevant for reconstructing an identical layer"""
         return super().to_dict()
 
     @property
     def input_type(self):
-        """ Returns input type class """
+        """Returns input type class"""
         return TSEvent
 
     @property
     def output_type(self):
-        """ Returns output type class """
+        """Returns output type class"""
         return TSEvent
 
     @property
     def weights(self):
-        """ Returns weights """
+        """Returns weights"""
         return self._weights
 
     @weights.setter

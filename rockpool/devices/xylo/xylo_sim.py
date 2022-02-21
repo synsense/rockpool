@@ -2,23 +2,11 @@
 XyloSim-backed module compatible with Xylo. Requires XyloSim
 """
 
-# - Check that XyloSim is installed
-from importlib import util
-
-if util.find_spec("xylosim") is None:
-    raise ModuleNotFoundError(
-        "'XyloSim' not found. Modules that rely on XyloSim will not be available."
-    )
-
-if util.find_spec("samna") is None:
-    raise ModuleNotFoundError(
-        "'samna' not found. Modules that rely on Samna will not be available."
-    )
-
 # - Rockpool imports
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import Parameter, State, SimulationParameter
 from rockpool import TSContinuous, TSEvent
+from rockpool.utilities.backend_management import backend_available
 
 
 # - Import XyloSim
@@ -249,6 +237,11 @@ class XyloSim(Module):
         Raises:
             ValueError: If ``verify_config`` is ``True`` and the configuration is not valid.
         """
+        if not backend_available("samna"):
+            raise ModuleNotFoundError(
+                "`samna` not installed. `samna` is required to generate and validate a HW configuration for Xylo."
+            )
+
         from rockpool.devices.xylo import config_from_specification
 
         # - Convert specification to xylo configuration
@@ -302,7 +295,7 @@ class XyloSim(Module):
         return output, {}, recording
 
     def reset_state(self) -> "XyloSim":
-        """ Reset the state of this module. """
+        """Reset the state of this module."""
         self._xylo_layer.reset_all()
         return self
 
