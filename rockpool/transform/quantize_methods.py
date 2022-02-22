@@ -72,7 +72,11 @@ def global_quantize(
         max_w = 0
         max_w = np.max([max_w, np.max(np.abs(w_in))])
         max_w = np.max([max_w, np.max(np.abs(w_rec))])
+        if not bias is None:
+            max_w = np.max([max_w, np.max(np.abs(bias))])
         max_w_out = np.max([0, np.max(np.abs(w_out))])
+        if not bias_out is None:
+            max_w_out = np.max([max_w_out, np.max(np.abs(bias_out))])
 
     # determine scaling value
     if max_w != 0:
