@@ -10,6 +10,8 @@ def global_quantize(
     weights_out: np.ndarray,
     threshold: np.ndarray,
     threshold_out: np.ndarray,
+    bias: np.ndarray = None,
+    bias_out: np.ndarray = None,
     fuzzy_scaling: bool = False,
     bits_per_weight: int = 8,
     bits_per_threshold: int = 16,
@@ -92,6 +94,14 @@ def global_quantize(
     threshold = np.round(threshold * scaling).astype(int)
     threshold_out = np.round(threshold_out * scaling_out).astype(int)
 
+    # bias
+    if not bias is None:
+        bias = np.round(bias * scaling).astype(int)
+
+    # bias out
+    if not bias_out is None:
+        bias_out = np.round(bias_out * scaling).astype(int)
+
     # if the threshold exceed boundary
     if np.abs(np.max(threshold)) > max_th_quan:
         limited_scaling = max_th_quan / np.max(threshold)
@@ -112,6 +122,11 @@ def global_quantize(
         "threshold": threshold,
         "threshold_out": threshold_out,
     }
+
+    if not bias is None:
+        model_quan['bias'] = bias
+    if not bias_out is None:
+        model_quan['bias_out'] = bias_out
 
     return model_quan
 

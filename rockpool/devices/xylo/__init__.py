@@ -18,6 +18,7 @@ try:
 except (ImportError, ModuleNotFoundError) as err:
     if not backend_available("xylosim", "samna"):
         XyloSim = missing_backend_shim("XyloSim", "xylosim, samna")
+        XyloSimV2 = missing_backend_shim("XyloSim", "xylosim, samna")
     else:
         raise
 
