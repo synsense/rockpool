@@ -743,9 +743,9 @@ class TemporalXOR(Dataset):
         super(TemporalXOR, self).__init__(
             save_to, transform=transform, target_transform=target_transform
         )
-
+        
+        if self._check_exists() and (len(args) > 0 or len(kwargs) > 0):
         # If any input found in *arg or in **kwargs, then delete the existing database and re-create
-        if len(args) > 0 or len(kwargs) > 0:
             os.remove(os.path.join(self.location_on_system, self.filename))
 
         if not self._check_exists():
@@ -805,6 +805,9 @@ class TemporalXOR(Dataset):
         # Fetch Data
         data = np.array(self.data_file[self.subset]["input"][index])
         target = np.array(self.data_file[self.subset]["response"][index])
+
+        data = np.expand_dims(data, -1)
+        target = np.expand_dims(target, -1)
 
         # Apply transforms
         if self.transform is not None:
