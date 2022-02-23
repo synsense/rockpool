@@ -53,7 +53,7 @@ def inv_calc_bitshift_decay(dash, dt):
 
 class LIFBitshiftTorch(LIFTorch):
     def __init__(
-        self, *args, max_spikes_per_dt: P_int = 15, **kwargs,
+        self, *args, max_spikes_per_dt: P_int = 31, **kwargs,
     ):
 
         # - Initialise superclass
