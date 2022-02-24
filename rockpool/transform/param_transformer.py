@@ -194,12 +194,8 @@ try:
             return output_data, new_state, record_dict
 
 except (ImportError, ModuleNotFoundError) as err:
-    warnings.warn(
-        f"Could not import Jax. Modules relying on Jax will not be available.\n{err}"
-    )
+    from rockpool.utilities.backend_management import missing_backend_shim
 
-    class JaxParameterTransformerMixin:
-        def __init__(self, *_, **__):
-            raise ImportError(
-                f"Required dependencies for {type(self).__name__} not available."
-            )
+    JaxParameterTransformerMixin = missing_backend_shim(
+        "JaxParameterTransformerMixin", "jax"
+    )

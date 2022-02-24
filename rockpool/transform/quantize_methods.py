@@ -1,3 +1,7 @@
+"""
+Quantisation methods for Xylo
+"""
+
 import numpy as np
 import copy
 
