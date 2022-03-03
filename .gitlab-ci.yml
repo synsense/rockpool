@@ -19,7 +19,7 @@ unit_tests:
 #    - pip install git+https://dylan.muir:${GITLAB_CLONE_API_KEY}@spinystellate.office.synsense.ai/research/SCNN/sinabs-slayer.git
 
   script:
-    - pytest -v tests/tests_default -n 4
+    - pytest -v tests/tests_default -n 4 --forked
     - pytest -v tests/test_v1layers -n 4
 
 nest_tests:

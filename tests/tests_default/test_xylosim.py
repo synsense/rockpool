@@ -12,7 +12,6 @@ def test_imports():
     import rockpool.devices.xylo.xylo_samna
     from rockpool.devices.xylo import XyloSim, XyloSamna
 
-
 def test_configure():
     # - Samna imports
     from samna.xylo.configuration import ReservoirNeuron, OutputNeuron
@@ -77,10 +76,8 @@ def test_configure():
 
     assert valid
 
-
 def test_specification():
     # - Samna imports
-    from rockpool.devices.xylo import XyloSim
     from rockpool.devices import xylo
 
     import numpy as np
@@ -95,7 +92,7 @@ def test_specification():
         "weights_out": np.ones((Nhidden, Nout), "int"),
     }
 
-    mod_xylo_sim = XyloSim.from_specification(**spec)
+    mod_xylo_sim = xylo.XyloSim.from_specification(**spec)
 
     # - Test complete spec
     spec = {
@@ -107,8 +104,8 @@ def test_specification():
         "dash_syn": np.ones(Nhidden, "int"),
         "dash_syn_2": np.ones(Nhidden, "int"),
         "dash_syn_out": np.ones(Nout, "int"),
-        "threshold": np.zeros(Nhidden, "int"),
-        "threshold_out": np.zeros(Nout, "int"),
+        "threshold": np.ones(Nhidden, "int"),
+        "threshold_out": np.ones(Nout, "int"),
         "weight_shift_in": 0,
         "weight_shift_rec": 0,
         "weight_shift_out": 0,
@@ -122,7 +119,6 @@ def test_specification():
     input_rate = 0.01
     input_raster = np.random.rand(T, Nin) < input_rate
     output_raster, _, _ = mod_xylo_sim(input_raster)
-
 
 def test_from_config():
     # - Samna imports

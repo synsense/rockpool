@@ -303,16 +303,14 @@ def channel_quantize(
         else:
             threshold_out_quan[i] = np.round(threshold_out[i])
 
-    # make sure matrix type is int
-    w_out_quan = w_out_quan.astype(int)
-    threshold_out_quan = threshold_out_quan.astype(int)
-
-    # round and cast all dashes to integer
+    # make sure all types are int
     dash_mem = np.round(dash_mem).astype(int)
     dash_mem_out = np.round(dash_mem_out).astype(int)
     dash_syn = np.round(dash_syn).astype(int)
     dash_syn_2 = np.round(dash_syn_2).astype(int)
     dash_syn_out = np.round(dash_syn_out).astype(int)
+    threshold = threshold_quan.astype(int)
+    threshold_out = threshold_out_quan.astype(int)
 
     if not bias is None:
         bias = np.round(bias).astype(int)

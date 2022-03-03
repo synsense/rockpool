@@ -510,9 +510,9 @@ class XyloSimV2(Module):
         dash_syn_2: Optional[np.ndarray] = None,
         dash_syn_out: Optional[np.ndarray] = None,
         threshold: Optional[np.ndarray] = None,
+        threshold_out: Optional[np.ndarray] = None,
         bias: Optional[np.ndarray] = None,
         bias_out: Optional[np.ndarray] = None,
-        threshold_out: Optional[np.ndarray] = None,
         weight_shift_in: int = 0,
         weight_shift_rec: int = 0,
         weight_shift_out: int = 0,
@@ -550,6 +550,39 @@ class XyloSimV2(Module):
             ValueError: If ``verify_config`` is ``True`` and the configuration is not valid.
         """
         from xylosim.v2 import XyloSynapse, XyloLayer
+
+        if weights_rec is None:
+            weights_rec = np.zeros((np.shape(weights_in)[1], np.shape(weights_in)[1], 2), int)
+
+        if dash_syn is None:
+            dash_syn = np.zeros((np.shape(weights_in)[1]), int)
+
+        if dash_syn_2 is None:
+            dash_syn_2 = np.zeros((np.shape(weights_in)[1]), int)
+
+        if dash_mem is None:
+            dash_mem = np.zeros((np.shape(weights_in)[1]), int)
+
+        if dash_syn_out is None:
+            dash_syn_out = np.zeros((np.shape(weights_out)[1]), int)
+
+        if dash_mem_out is None:
+            dash_mem_out = np.zeros((np.shape(weights_out)[1]), int)
+
+        if bias is None:
+            bias = np.zeros((np.shape(weights_in)[1]), int)
+
+        if bias_out is None:
+            bias_out = np.zeros((np.shape(weights_out)[1]), int)
+
+        if aliases is None:
+            aliases = [[] for _ in range(np.shape(weights_in)[1])] 
+
+        if threshold is None:
+            threshold = np.zeros((np.shape(weights_in)[1]), int)
+
+        if threshold_out is None:
+            threshold_out = np.zeros((np.shape(weights_out)[1]), int)
 
         # - Instantiate the class
         mod = cls(create_key=cls.__create_key, config=None, dt=dt)
