@@ -192,7 +192,7 @@ def config_from_specification(
         or weights_out.dtype.kind not in "ui"
     ):
         warn(
-            "`weights...` arguments should be provided as `int` data types. I am casting these to `int`."
+            "`weights...` arguments should be provided as `int` data types. I am rounding and casting these to `int`."
         )
 
     if (
@@ -204,8 +204,26 @@ def config_from_specification(
         or dash_mem_out.dtype.kind not in "ui"
     ):
         warn(
-            "Neuron and synapse parameter arguments should be provided as `int` data types. I am casting these to `int`."
+            "Neuron and synapse parameter arguments should be provided as `int` data types. I am rounding and casting these to `int`."
         )
+
+    # - Round and cast all parameters to integer
+    weights_in = np.round(weights_in).astype("int")
+    weights_out = np.round(weights_out).astype("int")
+    weights_rec = np.round(weights_rec).astype("int")
+    dash_mem = np.round(dash_mem).astype("int")
+    dash_mem_out = np.round(dash_mem_out).astype("int")
+    dash_syn = np.round(dash_syn).astype("int")
+    dash_syn_2 = np.round(dash_syn_2).astype("int")
+    dash_syn_out = np.round(dash_syn_out).astype("int")
+    threshold = np.round(threshold).astype("int")
+    threshold_out = np.round(threshold_out).astype("int")
+    weight_shift_in = np.round(weight_shift_in).astype("int")
+    weight_shift_rec = np.round(weight_shift_rec).astype("int")
+    weight_shift_out = np.round(weight_shift_out).astype("int")
+    if aliases is not None:
+        aliases = [np.round(a).astype("int") for a in aliases]
+
 
     # - Build the configuration
     config = XyloConfiguration()
@@ -219,24 +237,24 @@ def config_from_specification(
     config.input.weight_bit_shift = weight_shift_in
     config.reservoir.weight_bit_shift = weight_shift_rec
     config.readout.weight_bit_shift = weight_shift_out
-    config.input.weights = np.round(weights_in[:, :, 0]).astype("int")
-    config.reservoir.weights = np.round(weights_rec[:, :, 0]).astype("int")
-    config.readout.weights = np.round(weights_out).astype("int")
+    config.input.weights = weights_in[:, :, 0]
+    config.reservoir.weights = weights_rec[:, :, 0]
+    config.readout.weights = weights_out
 
     if enable_isyn2:
-        config.input.syn2_weights = np.round(weights_in[:, :, 1]).astype("int")
-        config.reservoir.syn2_weights = np.round(weights_rec[:, :, 1]).astype("int")
+        config.input.syn2_weights = weights_in[:, :, 1]
+        config.reservoir.syn2_weights = weights_rec[:, :, 1]
 
     reservoir_neurons = []
     for i in range(len(weights_rec)):
         neuron = ReservoirNeuron()
         if aliases is not None and len(aliases[i]) > 0:
-            neuron.alias_target = int(aliases[i][0])
+            neuron.alias_target = aliases[i][0]
 
-        neuron.i_syn_decay = np.round(dash_syn[i]).astype("int")
-        neuron.i_syn2_decay = np.round(dash_syn_2[i]).astype("int")
-        neuron.v_mem_decay = np.round(dash_mem[i]).astype("int")
-        neuron.threshold = np.round(threshold[i]).astype("int")
+        neuron.i_syn_decay = dash_syn[i]
+        neuron.i_syn2_decay = dash_syn_2[i]
+        neuron.v_mem_decay = dash_mem[i]
+        neuron.threshold = threshold[i]
         reservoir_neurons.append(neuron)
 
     config.reservoir.neurons = reservoir_neurons
@@ -244,9 +262,9 @@ def config_from_specification(
     readout_neurons = []
     for i in range(np.shape(weights_out)[1]):
         neuron = OutputNeuron()
-        neuron.i_syn_decay = np.round(dash_syn_out[i]).astype("int")
-        neuron.v_mem_decay = np.round(dash_mem_out[i]).astype("int")
-        neuron.threshold = np.round(threshold_out[i]).astype("int")
+        neuron.i_syn_decay = dash_syn_out[i]
+        neuron.v_mem_decay = dash_mem_out[i]
+        neuron.threshold = threshold_out[i]
         readout_neurons.append(neuron)
 
     config.readout.neurons = readout_neurons

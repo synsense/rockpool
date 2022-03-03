@@ -1,3 +1,7 @@
+"""
+Quantisation methods for Xylo
+"""
+
 import numpy as np
 import copy
 
@@ -12,6 +16,11 @@ def global_quantize(
     threshold_out: np.ndarray,
     bias: np.ndarray = None,
     bias_out: np.ndarray = None,
+    dash_mem: np.ndarray,
+    dash_mem_out: np.ndarray,
+    dash_syn: np.ndarray,
+    dash_syn_2: np.ndarray,
+    dash_syn_out: np.ndarray,
     fuzzy_scaling: bool = False,
     bits_per_weight: int = 8,
     bits_per_threshold: int = 16,
@@ -21,7 +30,7 @@ def global_quantize(
     """
     Quantize a Xylo model for deployment, using global parameter scaling
 
-    The figure below illustrates the groups of weights which are considered for quantization. Under this global method, all weights in the network are considered together when scaling and quantizing weights and thresholds. Input and recurrent weights are considered together as a group; output weights are considered separately when quantizing.
+    The figure below illustrates the groups of weights which are considered for quantization. Under this global method, all weights in the network are considered together when scaling and quantizing weights and thresholds. Input and recurrent weights are considered together as a group; output weights are considered separately when quantizing. Dashes are rounded and cast to integer.
 
                  target
            -------------------
@@ -44,6 +53,13 @@ def global_quantize(
         weights_out (np.ndarray): Output weight matrix
         threshold (np.ndarray): Firing threshold for hidden neurons
         threshold_out (np.ndarray): Firing threshold for output neurons
+        bias (np.ndarray): Bias for hidden neurons
+        bias_out (np.ndarray): Bias for output neurons
+        dash_mem (np.ndarray): Dash for membrane potential of hidden neurons
+        dash_mem_out (np.ndarray): Dash for membrane potential of output neurons
+        dash_syn (np.ndarray): Dash for synaptic current of hidden neurons
+        dash_syn_2 (np.ndarray): Dash for second synaptic current of hidden neurons
+        dash_syn_out (np.ndarray): Dash for synaptic current of output neurons
         fuzzy_scaling (bool): If ``True``, scale and clip weights to 2*std dev. If ``False`` (default), scale and clip to maximum absolute weight.
         bits_per_weight (int): Number of bits per integer signed weight. Default: ``8``
         bits_per_threshold (int): Number of bits per integer signed threshold. Default: ``16``
@@ -119,12 +135,24 @@ def global_quantize(
         weights_out = np.round(w_out * limited_scaling).astype(int)
         weights_rec = np.round(w_rec * limited_scaling).astype(int)
 
+    # round and cast all dashes to integer
+    dash_mem = np.round(dash_mem).astype(int)
+    dash_mem_out = np.round(dash_mem_out).astype(int)
+    dash_syn = np.round(dash_syn).astype(int)
+    dash_syn_2 = np.round(dash_syn_2).astype(int)
+    dash_syn_out = np.round(dash_syn_out).astype(int)
+
     model_quan = {
         "weights_in": weights_in,
         "weights_rec": weights_rec,
         "weights_out": weights_out,
         "threshold": threshold,
         "threshold_out": threshold_out,
+        "dash_mem": dash_mem,
+        "dash_mem_out": dash_mem_out,
+        "dash_syn": dash_syn,
+        "dash_syn_2": dash_syn_2,
+        "dash_syn_out": dash_syn_out,
     }
 
     if not bias is None:
@@ -141,6 +169,11 @@ def channel_quantize(
     weights_out: np.ndarray,
     threshold: np.ndarray,
     threshold_out: np.ndarray,
+    dash_mem: np.ndarray,
+    dash_mem_out: np.ndarray,
+    dash_syn: np.ndarray,
+    dash_syn_2: np.ndarray,
+    dash_syn_out: np.ndarray,
     bits_per_weight: int = 8,
     bits_per_threshold: int = 16,
     *_,
@@ -149,7 +182,7 @@ def channel_quantize(
     """
     Quantize a Xylo model for deployment, using per-channel parameter scaling
 
-    The figure below illustrates the groups of weights which are considered for quantization. Under this per-channel method, all input weights to a single target neuron are considered together when scaling and quantizing weights and thresholds. Input and recurrent weights are considered together as a group; output weights are considered separately when quantizing.
+    The figure below illustrates the groups of weights which are considered for quantization. Under this per-channel method, all input weights to a single target neuron are considered together when scaling and quantizing weights and thresholds. Input and recurrent weights are considered together as a group; output weights are considered separately when quantizing. Dashes are rounded and cast to integer.
 
                  target
            -------------------
@@ -172,6 +205,11 @@ def channel_quantize(
         weights_out (np.ndarray): Output weight matrix
         threshold (np.ndarray): Firing threshold for hidden neurons
         threshold_out (np.ndarray): Firing threshold for output neurons
+        dash_mem (np.ndarray): Dash for membrane potential of hidden neurons
+        dash_mem_out (np.ndarray): Dash for membrane potential of output neurons
+        dash_syn (np.ndarray): Dash for synaptic current of hidden neurons
+        dash_syn_2 (np.ndarray): Dash for second synaptic current of hidden neurons
+        dash_syn_out (np.ndarray): Dash for synaptic current of output neurons
         bits_per_weight (int): Number of bits per integer signed weight. Default: ``8``
         bits_per_threshold (int): Number of bits per integer signed threshold. Default: ``16``
 
@@ -260,12 +298,24 @@ def channel_quantize(
     w_out_quan = w_out_quan.astype(int)
     threshold_out_quan = threshold_out_quan.astype(int)
 
+    # round and cast all dashes to integer
+    dash_mem = np.round(dash_mem).astype(int)
+    dash_mem_out = np.round(dash_mem_out).astype(int)
+    dash_syn = np.round(dash_syn).astype(int)
+    dash_syn_2 = np.round(dash_syn_2).astype(int)
+    dash_syn_out = np.round(dash_syn_out).astype(int)
+
     model_quan = {
-        "weights_in": w_in_quan,
-        "weights_rec": w_rec_quan,
-        "weights_out": w_out_quan,
-        "threshold": threshold_quan,
-        "threshold_out": threshold_out_quan,
+        "weights_in": weights_in,
+        "weights_rec": weights_rec,
+        "weights_out": weights_out,
+        "threshold": threshold,
+        "threshold_out": threshold_out,
+        "dash_mem": dash_mem,
+        "dash_mem_out": dash_mem_out,
+        "dash_syn": dash_syn,
+        "dash_syn_2": dash_syn_2,
+        "dash_syn_out": dash_syn_out,
     }
 
     return model_quan
