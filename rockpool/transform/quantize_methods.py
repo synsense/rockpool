@@ -14,13 +14,13 @@ def global_quantize(
     weights_out: np.ndarray,
     threshold: np.ndarray,
     threshold_out: np.ndarray,
-    bias: np.ndarray = None,
-    bias_out: np.ndarray = None,
     dash_mem: np.ndarray,
     dash_mem_out: np.ndarray,
     dash_syn: np.ndarray,
     dash_syn_2: np.ndarray,
     dash_syn_out: np.ndarray,
+    bias: np.ndarray = None,
+    bias_out: np.ndarray = None,
     fuzzy_scaling: bool = False,
     bits_per_weight: int = 8,
     bits_per_threshold: int = 16,
@@ -53,13 +53,13 @@ def global_quantize(
         weights_out (np.ndarray): Output weight matrix
         threshold (np.ndarray): Firing threshold for hidden neurons
         threshold_out (np.ndarray): Firing threshold for output neurons
-        bias (np.ndarray): Bias for hidden neurons
-        bias_out (np.ndarray): Bias for output neurons
         dash_mem (np.ndarray): Dash for membrane potential of hidden neurons
         dash_mem_out (np.ndarray): Dash for membrane potential of output neurons
         dash_syn (np.ndarray): Dash for synaptic current of hidden neurons
         dash_syn_2 (np.ndarray): Dash for second synaptic current of hidden neurons
         dash_syn_out (np.ndarray): Dash for synaptic current of output neurons
+        bias (np.ndarray): Bias for hidden neurons
+        bias_out (np.ndarray): Bias for output neurons
         fuzzy_scaling (bool): If ``True``, scale and clip weights to 2*std dev. If ``False`` (default), scale and clip to maximum absolute weight.
         bits_per_weight (int): Number of bits per integer signed weight. Default: ``8``
         bits_per_threshold (int): Number of bits per integer signed threshold. Default: ``16``
@@ -174,6 +174,8 @@ def channel_quantize(
     dash_syn: np.ndarray,
     dash_syn_2: np.ndarray,
     dash_syn_out: np.ndarray,
+    bias: np.ndarray = None,
+    bias_out: np.ndarray = None,
     bits_per_weight: int = 8,
     bits_per_threshold: int = 16,
     *_,
@@ -210,6 +212,8 @@ def channel_quantize(
         dash_syn (np.ndarray): Dash for synaptic current of hidden neurons
         dash_syn_2 (np.ndarray): Dash for second synaptic current of hidden neurons
         dash_syn_out (np.ndarray): Dash for synaptic current of output neurons
+        bias (np.ndarray): Bias for hidden neurons
+        bias_out (np.ndarray): Bias for output neurons
         bits_per_weight (int): Number of bits per integer signed weight. Default: ``8``
         bits_per_threshold (int): Number of bits per integer signed threshold. Default: ``16``
 
@@ -242,6 +246,8 @@ def channel_quantize(
                 w_in_quan[:, i, :] = np.round(w_in[:, i, :] * scaling)
                 w_rec_quan[:, i, :] = np.round(w_rec[:, i, :] * scaling)
                 threshold_quan[i] = np.round(threshold[i] * scaling)
+                if not bias is None:
+                    bias[i] = np.round(bias[i] * scaling)
                 # if the threshold exceed boundary
                 if np.abs(threshold[i]) > max_th_quan:
                     limited_scaling = max_th_quan / threshold[i]
@@ -250,6 +256,7 @@ def channel_quantize(
                     w_rec_quan[:, i, :] = np.round(w_rec[:, i, :] * limited_scaling)
             else:
                 threshold_quan[i] = np.round(threshold[i])
+
 
         # if only one synaptic connection is used
         elif len(w_in.shape) == 2:
@@ -286,6 +293,8 @@ def channel_quantize(
             scaling = max_w_quan / max_w
             w_out_quan[:, i] = np.round(w_out[:, i] * scaling)
             threshold_out_quan[i] = np.round(threshold_out[i] * scaling)
+            if not bias_out is None:
+                bias_out[i] = np.round(bias[i] * scaling)
             # if the threshold exceed boundary
             if np.abs(threshold_out_quan[i]) > max_th_quan:
                 limited_scaling = max_th_quan / threshold_out[i]
@@ -305,6 +314,11 @@ def channel_quantize(
     dash_syn_2 = np.round(dash_syn_2).astype(int)
     dash_syn_out = np.round(dash_syn_out).astype(int)
 
+    if not bias is None:
+        bias = np.round(bias).astype(int)
+    if not bias_out is None:
+        bias_out = np.round(bias_out).astype(int)
+
     model_quan = {
         "weights_in": weights_in,
         "weights_rec": weights_rec,
@@ -317,5 +331,10 @@ def channel_quantize(
         "dash_syn_2": dash_syn_2,
         "dash_syn_out": dash_syn_out,
     }
+
+    if not bias is None:
+        model_quan['bias'] = bias
+    if not bias_out is None:
+        model_quan['bias_out'] = bias_out
 
     return model_quan
