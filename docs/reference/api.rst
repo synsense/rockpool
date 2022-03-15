@@ -33,6 +33,11 @@ Attribute types
     parameters.State
     parameters.SimulationParameter
 
+.. autosummary::
+    :toctree: _autosummary
+
+    parameters.Constant
+
 
 Alternative base classes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
