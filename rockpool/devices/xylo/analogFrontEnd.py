@@ -19,6 +19,9 @@ P_int = Union[int, ParameterBase]
 P_float = Union[float, ParameterBase]
 P_array = Union[np.array, ParameterBase]
 
+# - Define exports
+__all__ = ["AFE"]
+
 # - Try to use Jax as speedup
 try:
     import jax

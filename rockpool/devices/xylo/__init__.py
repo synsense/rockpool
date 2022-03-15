@@ -26,6 +26,9 @@ try:
 except (ImportError, ModuleNotFoundError) as err:
     if not backend_available("samna"):
         XyloSamna = missing_backend_shim("XyloSamna", "samna")
+        config_from_specification = missing_backend_shim("config_from_specification", "samna")
+        save_config = missing_backend_shim("save_config", "samna")
+        load_config = missing_backend_shim("load_config", "samna")
     else:
         raise
 
