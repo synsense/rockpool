@@ -1,7 +1,7 @@
 .. _installation:
 
-Installing |project|
-====================
+Getting started with |project|
+==============================
 
 Base requirements
 -----------------
@@ -26,8 +26,8 @@ You can also install |project| using ``conda``, from the ``conda-forge`` channel
 
     conda install -c conda-forge rockpool
 
-Version
--------
+|project| version
+-----------------
 
 To check your |project| version, access the :py:attr:`.__version__` attribute of the module:
 
@@ -40,7 +40,7 @@ To check your |project| version, access the :py:attr:`.__version__` attribute of
 Dependencies
 ------------
 
-|project| has several dependencies for various aspects of the package. However, these dependencies are compartmentalised as much as possible. For example, Jax_ is required to use the Jax_-backed modules (e.g. :py:class:`.RateJax`); PyTorch_ is required to use the Torch_-backed modules, and so on. But if these dependencies are not available, the remainder of |project| is still usable.
+|project| has several dependencies for various aspects of the library. However, these dependencies are compartmentalised as much as possible. For example, Jax_ is required to use the Jax_-backed modules (e.g. :py:class:`.RateJax`); PyTorch_ is required to use the Torch_-backed modules, and so on. But if these dependencies are not available, the remainder of |project| is still usable.
 
 * scipy_ for scipy_-backed modules
 * numba_ for numba_-backed modules
@@ -87,6 +87,8 @@ To build a live, locally-hosted HTML version of the docs, use the command
 
     $ cd docs
     $ make clean html
+
+Once built, the documentation will be placed in ``rockpool\docs\_build\html``. Open ``index.html`` in a web browser to start using the documentation.
 
 To build a PDF version of the docs, you need to install ``imagemagick`` on your system, as well as a working version of ``latex`` and ``pdflatex``. You will need to install these dependencies manually.
 

@@ -24,10 +24,42 @@ else:
 
 
 class RP_Constant:
+    """
+    Represent a concrete initialisation value as a constant parameter, which should not be trained
+
+
+    See Also:
+         Use :py:func:`Constant` to wrap an intialisation as a constant argument.
+    """
+
     pass
 
 
-def Constant(obj):
+def Constant(obj: Any) -> RP_Constant:
+    """
+    Identify an initialisation argument as a constant (non-trainable) parameter
+
+    Examples
+        >>> mod = LIFJax(1)
+        >>> mod.parameters('taus')
+        {'tau_mem': DeviceArray([0.02], dtype=float32),
+         'tau_syn': DeviceArray([[0.02]], dtype=float32)}
+        >>> mod.simulation_parameters('taus')
+        {}
+
+        >>> mod = LIFJax(1, tau_mem = Constant(10e-3))
+        >>> mod.parameters('taus')
+        {'tau_syn': DeviceArray([[0.02]], dtype=float32)}
+        >>> mod.simulation_parameters('taus')
+        {'tau_mem': DeviceArray(0.01, dtype=float32)}
+
+    Args:
+        obj (Any): The initialisation object to wrap
+
+    Returns:
+        A wrapped object, of the same class as ``obj``.
+    """
+
     class ConstantPatch(obj.__class__, RP_Constant):
         pass
 

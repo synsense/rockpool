@@ -25,6 +25,19 @@ About |project|
 .. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.3773845.svg
    :target: https://doi.org/10.5281/zenodo.3773845
 
+Citing Rockpool
+---------------
+
+If you use Rockpool in your academic work, we would appreciate a citation! You can cite us as
+
+    Muir, Dylan, Bauer, Felix, & Weidel, Philipp. (2019). Rockpool Documentaton. Zenodo. https://doi.org/10.5281/zenodo.3773845
+
+Or using the bibtext block::
+
+    @article{muir, dylan_bauer, felix_weidel, philipp_2019, title={Rockpool Documentaton}, DOI={10.5281/zenodo.3773845}, abstractNote={<p>Rockpool is a Python package for working with dynamical neural network architectures, particularly for designing event-driven networks for Neuromorphic computing hardware. Rockpool provides a convenient interface for designing, training and evaluating recurrent networks, which can operate both with continuous-time dynamics and event-driven dynamics.</p>}, publisher={Zenodo}, author={Muir, Dylan and Bauer, Felix and Weidel, Philipp}, year={2019}, month={Sep} }
+
+
+
 About SynSense
 --------------
 
