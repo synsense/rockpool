@@ -75,6 +75,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
 
    advanced/graph_overview.ipynb
    advanced/graph_mapping.ipynb
+   reference/params_types.ipynb
    reference/api
    advanced/developers_notes
    advanced/CHANGELOG
