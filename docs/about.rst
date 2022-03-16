@@ -32,7 +32,7 @@ If you use Rockpool in your academic work, we would appreciate a citation! You c
 
     DR Muir, F Bauer & P Weidel. (2019). Rockpool Documentaton. Zenodo. https://doi.org/10.5281/zenodo.3773845
 
-Or using the bibtext block::
+Or using the bibtex block::
 
     @misc{muir_dylan_2019_4639684,
       author       = {Muir, Dylan R. and
