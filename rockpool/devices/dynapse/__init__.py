@@ -10,5 +10,5 @@ from rockpool.utilities.backend_management import (
 try:
     from .virtual_dynapse import *
 except:
-    if not backend_available("numpy"):
-        VirtualDynapse = missing_backend_shim("VirtualDynapse", "numpy")
+    if not backend_available("numpy", "nest"):
+        VirtualDynapse = missing_backend_shim("VirtualDynapse", "numpy, nest")
