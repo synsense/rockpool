@@ -9,10 +9,12 @@ def test_spike_clipping():
     from rockpool.nn.modules import LIFTorch
     import torch
 
+    max_spikes_per_dt = 31
+
     n_synapses = 5
     n_neurons = 10
     n_batches = 3
-    T = 20
+    T = 40
     tau_mem = torch.rand(n_neurons)
     tau_syn = 0.05
     threshold = 1.34
@@ -27,7 +29,7 @@ def test_spike_clipping():
         noise_std=0.0,
         spike_generation_fn=StepPWL,
         threshold=threshold,
-        max_spikes_per_dt=15,
+        max_spikes_per_dt=max_spikes_per_dt,
     )
     mod_xylo_periodic = LIFTorch(
         shape=(n_synapses * n_neurons, n_neurons),
@@ -38,7 +40,7 @@ def test_spike_clipping():
         noise_std=0.0,
         spike_generation_fn=PeriodicExponential,
         threshold=threshold,
-        max_spikes_per_dt=15,
+        max_spikes_per_dt=max_spikes_per_dt,
     )
     mod = LIFTorch(
         shape=(n_synapses * n_neurons, n_neurons),
@@ -69,16 +71,16 @@ def test_spike_clipping():
     # - test default gradient of xylo
     out_bitshift, _, _ = mod_bitshift(input_data, record=True)
 
-    assert torch.any(out > 15)
-    assert torch.all(out_xylo_step <= 15)
-    assert torch.all(out_xylo_periodic <= 15)
-    assert torch.all(out_bitshift <= 15)
+    assert torch.any(out > max_spikes_per_dt), 'Test not possible: No time-points where neurons produced more than spike limit'
+    assert torch.all(out_xylo_step <= max_spikes_per_dt), 'Some time-steps had too many events'
+    assert torch.all(out_xylo_periodic <= max_spikes_per_dt), 'Some time-steps had too many events'
+    assert torch.all(out_bitshift <= max_spikes_per_dt), 'Some time-steps had too many events'
 
     # - test that membrane potential is not reset entirely when spikes are clipped
     batch = 0
     neuron = 0
 
-    t_spike = torch.where(out[batch, :, neuron] > 15)[0][0]
+    t_spike = torch.where(out[batch, :, neuron] > max_spikes_per_dt)[0][0]
     vmem = rd["vmem"][batch, :, neuron]
     vmem_xylo_step = rd_xylo_step["vmem"][batch, :, neuron]
     spike_diff = (
@@ -108,7 +110,7 @@ def test_spike_clipping():
             dt=1e-3,
             noise_std=0.0,
             threshold=threshold,
-            max_spikes_per_dt=15,
+            max_spikes_per_dt=max_spikes_per_dt,
         ).cuda()
 
         out_slayer, _, rd_slayer = mod_slayer(input_data.cuda(), record=True)
@@ -116,8 +118,8 @@ def test_spike_clipping():
             input_data.cuda(), record=True
         )
 
-        assert torch.any(out_slayer > 15)
-        assert torch.all(out_slayer_xylo <= 15)
+        assert torch.any(out_slayer > max_spikes_per_dt), 'Test not possible: No time-points where neurons produced more than spike limit'
+        assert torch.all(out_slayer_xylo <= max_spikes_per_dt), 'Some time-steps had too many events'
 
         t_spike = torch.where(out_slayer[batch, :, neuron] > 15)[0][0]
         vmem = rd_slayer["vmem"][batch, :, neuron]
