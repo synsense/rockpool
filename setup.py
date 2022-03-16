@@ -1,7 +1,5 @@
-import logging
 from distutils.core import setup
 import setuptools
-from setuptools import Extension
 
 # - Read version
 exec(open("rockpool/version.py").read())
