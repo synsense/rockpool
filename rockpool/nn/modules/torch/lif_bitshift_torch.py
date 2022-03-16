@@ -44,7 +44,7 @@ class LIFBitshiftTorch(LIFTorch):
     def __init__(
         self,
         *args,
-        max_spikes_per_dt: P_int = 15,
+        max_spikes_per_dt: P_int = 31,
         **kwargs,
     ):
 
