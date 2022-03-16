@@ -33,14 +33,10 @@ All notable changes between Rockpool releases will be documented in this file.
  - Improved type casting and device handling for Torch modules
  - Fixed bug in Module, where `modules()` would return a non-ordered dict. This caused issues with `JaxModule`
 
-### Deprecated
-
-
 ### Removed
 
  - Removed several obsolete `Layer`s and `Network`s from Rockpool v1
 
-### Security
 
 ## [v2.2] -- 2021-09-09
 
