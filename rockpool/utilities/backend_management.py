@@ -123,11 +123,16 @@ def missing_backend_shim(class_name: str, backend_name: str):
         Class: A class that raises an error on construction
     """
 
-    class MissingBackendShim:
+    class MBSMeta(type):
+        def __getattr__(cls, *args):
+            raise ModuleNotFoundError(
+                f"Missing the `{backend_name}` backend. `{class_name}` objects, and others relying on `{backend_name}` are not available."
+            )
+
+    class MissingBackendShim(metaclass=MBSMeta):
         """
         BACKEND MISSING FOR THIS CLASS
         """
-
         def __init__(self, *args, **kwargs):
             raise ModuleNotFoundError(
                 f"Missing the `{backend_name}` backend. `{class_name}` objects, and others relying on `{backend_name}` are not available."
