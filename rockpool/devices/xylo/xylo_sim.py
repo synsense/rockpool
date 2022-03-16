@@ -52,11 +52,12 @@ class XyloSim(Module):
             Use the factory methods :py:meth:`.XyloSim.from_config` and :py:meth:`XyloSim.from_specfication` to construct a :py:class:`.XyloSim` module.
         """
 
+        from xylosim.v1 import XyloLayer
 
         # - Check that we are creating the object using a factory function
         if create_key is not XyloSim.__create_key:
             raise NotImplementedError(
-                "XyloSim may only be instantiated using factory methods `from_config` or `from_weights`."
+                "XyloSim may only be instantiated using factory methods `from_config` or `from_specification`."
             )
 
         # - Initialise the superclass
@@ -355,11 +356,12 @@ class XyloSimV2(Module):
         """
 
         # - Import XyloSim
+        from xylosim.v2 import XyloLayer
 
         # - Check that we are creating the object using a factory function
         if create_key is not XyloSimV2.__create_key:
             raise NotImplementedError(
-                "XyloSim may only be instantiated using factory methods `from_config` or `from_weights`."
+                "XyloSim may only be instantiated using factory methods `from_config` or `from_specification`."
             )
 
         # - Initialise the superclass
