@@ -25,6 +25,28 @@ About |project|
 .. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.3773845.svg
    :target: https://doi.org/10.5281/zenodo.3773845
 
+Citing Rockpool
+---------------
+
+If you use Rockpool in your academic work, we would appreciate a citation! You can cite us as
+
+    DR Muir, F Bauer & P Weidel. (2019). Rockpool Documentaton. Zenodo. https://doi.org/10.5281/zenodo.3773845
+
+Or using the bibtext block::
+
+    @misc{muir_dylan_2019_4639684,
+      author       = {Muir, Dylan R. and
+                      Bauer, Felix and
+                      Weidel, Philipp},
+      title        = {Rockpool Documentaton},
+      month        = sep,
+      year         = 2019,
+      publisher    = {Zenodo},
+      doi          = {10.5281/zenodo.3773845},
+      url          = {https://doi.org/10.5281/zenodo.3773845}
+    }
+
+
 About SynSense
 --------------
 
