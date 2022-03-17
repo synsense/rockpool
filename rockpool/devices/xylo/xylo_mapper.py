@@ -559,7 +559,6 @@ def mapper(
     }
 
 
-
 def mapperV2(
     graph: GraphModuleBase,
     weight_dtype: Union[np.dtype, str] = "int8",

@@ -266,7 +266,9 @@ class LIFBaseTorch(TorchModule):
         )
         """ (Callable) Spike generation function with surrograte gradient """
 
-        self.max_spikes_per_dt: P_int = rp.SimulationParameter(max_spikes_per_dt, cast_fn=to_float_tensor)
+        self.max_spikes_per_dt: P_int = rp.SimulationParameter(
+            max_spikes_per_dt, cast_fn=to_float_tensor
+        )
         """ (int) Maximum number of events that can be produced in each time-step """
 
         # placeholders for recordings

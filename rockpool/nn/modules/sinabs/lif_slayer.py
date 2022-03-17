@@ -9,7 +9,7 @@ import numpy as np
 from rockpool.typehints import *
 from rockpool.parameters import Constant
 
-from sinabs.exodus.spike import IntegrateAndFire 
+from sinabs.exodus.spike import IntegrateAndFire
 from sinabs.exodus.leaky import LeakyIntegrator
 
 from sinabs.activation import Heaviside, SingleExponential

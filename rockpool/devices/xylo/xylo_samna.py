@@ -48,7 +48,6 @@ except ModuleNotFoundError:
 __all__ = ["config_from_specification", "save_config", "load_config", "XyloSamna"]
 
 
-
 def config_from_specification(
     weights_in: np.ndarray,
     weights_out: np.ndarray,
@@ -224,7 +223,6 @@ def config_from_specification(
     if aliases is not None:
         aliases = [np.round(a).astype("int") for a in aliases]
 
-
     # - Build the configuration
     config = XyloConfiguration()
 
@@ -272,6 +270,7 @@ def config_from_specification(
     # - Validate the configuration and return
     is_valid, message = validate_configuration(config)
     return config, is_valid, message
+
 
 def save_config(config: XyloConfiguration, filename: str) -> None:
     """

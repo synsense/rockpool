@@ -12,6 +12,7 @@ def test_imports():
     import rockpool.devices.xylo.xylo_samna
     from rockpool.devices.xylo import XyloSim, XyloSamna
 
+
 def test_configure():
     # - Samna imports
     from samna.xylo.configuration import ReservoirNeuron, OutputNeuron
@@ -76,6 +77,7 @@ def test_configure():
 
     assert valid
 
+
 def test_specification():
     # - Samna imports
     from rockpool.devices import xylo
@@ -119,6 +121,7 @@ def test_specification():
     input_rate = 0.01
     input_raster = np.random.rand(T, Nin) < input_rate
     output_raster, _, _ = mod_xylo_sim(input_raster)
+
 
 def test_from_config():
     # - Samna imports

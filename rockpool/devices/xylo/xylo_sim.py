@@ -9,7 +9,6 @@ from rockpool import TSContinuous, TSEvent
 from rockpool.utilities.backend_management import backend_available
 
 
-
 # - Numpy
 import numpy as np
 
@@ -325,6 +324,7 @@ class XyloSim(Module):
             ),
         }
 
+
 class XyloSimV2(Module):
     """
     A :py:class:`.Module` simulating a digital SNN on Xylo, using XyloSim as a back-end.
@@ -400,7 +400,9 @@ class XyloSimV2(Module):
 
         """
 
-        raise NotImplementedError("from_config() not implemented for XylonSimV2 due to lacking samna support.")
+        raise NotImplementedError(
+            "from_config() not implemented for XylonSimV2 due to lacking samna support."
+        )
 
         from xylosim.v2 import XyloSynapse, XyloLayer
 
@@ -554,7 +556,9 @@ class XyloSimV2(Module):
         from xylosim.v2 import XyloSynapse, XyloLayer
 
         if weights_rec is None:
-            weights_rec = np.zeros((np.shape(weights_in)[1], np.shape(weights_in)[1], 2), int)
+            weights_rec = np.zeros(
+                (np.shape(weights_in)[1], np.shape(weights_in)[1], 2), int
+            )
 
         if dash_syn is None:
             dash_syn = np.zeros((np.shape(weights_in)[1]), int)
@@ -578,7 +582,7 @@ class XyloSimV2(Module):
             bias_out = np.zeros((np.shape(weights_out)[1]), int)
 
         if aliases is None:
-            aliases = [[] for _ in range(np.shape(weights_in)[1])] 
+            aliases = [[] for _ in range(np.shape(weights_in)[1])]
 
         if threshold is None:
             threshold = np.zeros((np.shape(weights_in)[1]), int)
@@ -598,7 +602,7 @@ class XyloSimV2(Module):
         # - Convert input weights to XyloSynapse objects
         if len(weights_in.shape) == 2:
             weights_in = weights_in[:, np.newaxis]
-            
+
         _xylo_sim_params.synapses_in = []
         for pre, w_pre in enumerate(weights_in[:, :, 0]):
             tmp = []
@@ -615,7 +619,7 @@ class XyloSimV2(Module):
         # - Convert recurrent weights to XyloSynapse objects
         if len(weights_rec.shape) == 2:
             weights_rec = weights_rec[:, np.newaxis]
-        
+
         _xylo_sim_params.synapses_rec = []
         for pre, w_pre in enumerate(weights_rec[:, :, 0]):
             tmp = []
@@ -637,26 +641,27 @@ class XyloSimV2(Module):
                 tmp.append(XyloSynapse(post, 0, w_pre[post]))
             _xylo_sim_params.synapses_out.append(tmp)
 
-        
         # - Configure reservoir neurons
-        _xylo_sim_params.threshold = threshold 
+        _xylo_sim_params.threshold = threshold
         _xylo_sim_params.dash_syn = [list(l) for l in list(zip(dash_syn, dash_syn_2))]
-        _xylo_sim_params.dash_mem = dash_mem 
-        _xylo_sim_params.aliases = aliases 
-        _xylo_sim_params.bias = bias 
+        _xylo_sim_params.dash_mem = dash_mem
+        _xylo_sim_params.aliases = aliases
+        _xylo_sim_params.bias = bias
 
         # - Configure readout neurons
-        _xylo_sim_params.threshold_out = threshold_out 
-        _xylo_sim_params.dash_syn_out = dash_syn_out 
+        _xylo_sim_params.threshold_out = threshold_out
+        _xylo_sim_params.dash_syn_out = dash_syn_out
         _xylo_sim_params.dash_syn_out = [[d] for d in dash_syn_out]
-        _xylo_sim_params.dash_mem_out = dash_mem_out 
-        _xylo_sim_params.bias_out = bias_out 
+        _xylo_sim_params.dash_mem_out = dash_mem_out
+        _xylo_sim_params.bias_out = bias_out
 
         _xylo_sim_params.weight_shift_inp = weight_shift_in
         _xylo_sim_params.weight_shift_rec = weight_shift_rec
         _xylo_sim_params.weight_shift_out = weight_shift_out
 
-        _xylo_sim_params.has_bias = any([b != 0 for b in bias]) or any([b != 0 for b in bias_out]) 
+        _xylo_sim_params.has_bias = any([b != 0 for b in bias]) or any(
+            [b != 0 for b in bias_out]
+        )
 
         # - Instantiate a Xylo Simulation layer
         mod._xylo_layer = XyloLayer(

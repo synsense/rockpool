@@ -1,11 +1,10 @@
-
 def test_imports_V2():
     from rockpool.devices.xylo import XyloSimV2, mapperV2
 
 
 def test_specification_V2():
     # - Samna imports
-    from rockpool.devices.xylo import XyloSimV2 
+    from rockpool.devices.xylo import XyloSimV2
 
     import numpy as np
 
@@ -48,5 +47,3 @@ def test_specification_V2():
     input_rate = 0.01
     input_raster = np.random.rand(T, Nin) < input_rate
     output_raster, _, _ = mod_xylo_sim(input_raster)
-
-

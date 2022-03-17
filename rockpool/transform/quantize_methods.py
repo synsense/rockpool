@@ -156,9 +156,9 @@ def global_quantize(
     }
 
     if not bias is None:
-        model_quan['bias'] = bias
+        model_quan["bias"] = bias
     if not bias_out is None:
-        model_quan['bias_out'] = bias_out
+        model_quan["bias_out"] = bias_out
 
     return model_quan
 
@@ -257,7 +257,6 @@ def channel_quantize(
             else:
                 threshold_quan[i] = np.round(threshold[i])
 
-
         # if only one synaptic connection is used
         elif len(w_in.shape) == 2:
             max_w = 0
@@ -331,8 +330,8 @@ def channel_quantize(
     }
 
     if not bias is None:
-        model_quan['bias'] = bias
+        model_quan["bias"] = bias
     if not bias_out is None:
-        model_quan['bias_out'] = bias_out
+        model_quan["bias_out"] = bias_out
 
     return model_quan
