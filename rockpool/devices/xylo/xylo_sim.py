@@ -596,6 +596,9 @@ class XyloSimV2(Module):
         _xylo_sim_params = _()
 
         # - Convert input weights to XyloSynapse objects
+        if len(weights_in.shape) == 2:
+            weights_in = weights_in[:, np.newaxis]
+            
         _xylo_sim_params.synapses_in = []
         for pre, w_pre in enumerate(weights_in[:, :, 0]):
             tmp = []
@@ -610,6 +613,9 @@ class XyloSimV2(Module):
             _xylo_sim_params.synapses_in.append(tmp)
 
         # - Convert recurrent weights to XyloSynapse objects
+        if len(weights_rec.shape) == 2:
+            weights_rec = weights_rec[:, np.newaxis]
+        
         _xylo_sim_params.synapses_rec = []
         for pre, w_pre in enumerate(weights_rec[:, :, 0]):
             tmp = []
