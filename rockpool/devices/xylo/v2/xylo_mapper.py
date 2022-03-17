@@ -21,8 +21,17 @@ from rockpool.graph import (
     find_modules_of_subclass,
     find_recurrent_modules,
 )
-from rockpool.devices.xylo.xylo_graph_modules import XyloHiddenNeurons, XyloOutputNeurons, XyloNeurons
-from rockpool.devices.xylo.syns61300.xylo_mapper import xylo_drc, DRCError, check_drc, assign_ids_to_class
+from rockpool.devices.xylo.xylo_graph_modules import (
+    XyloHiddenNeurons,
+    XyloOutputNeurons,
+    XyloNeurons,
+)
+from rockpool.devices.xylo.syns61300.xylo_mapper import (
+    xylo_drc,
+    DRCError,
+    check_drc,
+    assign_ids_to_class,
+)
 
 from typing import List, Callable, Set, Optional, Union
 

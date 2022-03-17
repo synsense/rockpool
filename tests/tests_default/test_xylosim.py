@@ -72,6 +72,7 @@ def test_configure():
 
     assert valid
 
+
 def test_specification():
     # - Samna imports
     from rockpool.devices import xylo
@@ -115,6 +116,7 @@ def test_specification():
     input_rate = 0.01
     input_raster = np.random.rand(T, Nin) < input_rate
     output_raster, _, _ = mod_xylo_sim(input_raster)
+
 
 def test_from_config():
     # - Samna imports

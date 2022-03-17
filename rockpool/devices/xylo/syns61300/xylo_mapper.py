@@ -21,7 +21,11 @@ from rockpool.graph import (
     find_modules_of_subclass,
     find_recurrent_modules,
 )
-from rockpool.devices.xylo.xylo_graph_modules import XyloHiddenNeurons, XyloOutputNeurons, XyloNeurons
+from rockpool.devices.xylo.xylo_graph_modules import (
+    XyloHiddenNeurons,
+    XyloOutputNeurons,
+    XyloNeurons,
+)
 
 
 from typing import List, Callable, Set, Optional, Union
@@ -557,5 +561,3 @@ def mapper(
         "aliases": list_aliases,
         "dt": dt,
     }
-
-

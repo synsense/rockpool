@@ -1,4 +1,3 @@
-
 def test_imports_V2():
     from rockpool.devices.xylo.v2 import XyloSim, mapper
 
@@ -48,5 +47,3 @@ def test_specification_V2():
     input_rate = 0.01
     input_raster = np.random.rand(T, Nin) < input_rate
     output_raster, _, _ = mod_xylo_sim(input_raster)
-
-
