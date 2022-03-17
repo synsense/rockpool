@@ -5,8 +5,12 @@ pytest.importorskip("samna")
 
 
 def test_imports():
+    from rockpool.devices.xylo.v2 import (
+        mapper
+    )
+    
     from rockpool.devices.xylo import (
-        mapperV2,
+    
         XyloNeurons,
         XyloHiddenNeurons,
         XyloOutputNeurons,
@@ -16,7 +20,7 @@ def test_imports():
 def test_mapper():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapperV2
+    from rockpool.devices.xylo.v2 import mapper
 
     smod = Sequential(
         LinearTorch((5, 6)),
@@ -34,7 +38,7 @@ def test_mapper():
 
     g = smod.as_graph()
 
-    specs = mapperV2(g)
+    specs = mapper(g)
 
 
 def test_output_nodes_have_neurons_as_source():
@@ -56,7 +60,7 @@ def test_output_nodes_have_neurons_as_source():
 def test_input_to_neurons_is_a_weight():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapperV2, DRCError
+    from rockpool.devices.xylo.v2 import mapper, DRCError
 
     # - Neuron to neuron connection with no weights
     smod = Sequential(
@@ -66,13 +70,13 @@ def test_input_to_neurons_is_a_weight():
     )
 
     with pytest.raises(DRCError):
-        mapperV2(smod.as_graph())
+        mapper(smod.as_graph())
 
 
 def test_first_module_is_a_weight():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapperV2, DRCError
+    from rockpool.devices.xylo.v2 import mapper, DRCError
 
     # - Network with no weights on input
     smod = Sequential(
@@ -82,13 +86,13 @@ def test_first_module_is_a_weight():
     )
 
     with pytest.raises(DRCError):
-        mapperV2(smod.as_graph())
+        mapper(smod.as_graph())
 
 
 def test_le_16_input_channels():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapperV2, DRCError
+    from rockpool.devices.xylo.v2 import mapper, DRCError
 
     # - Network with no weights on input
     smod = Sequential(
@@ -99,13 +103,13 @@ def test_le_16_input_channels():
     )
 
     with pytest.raises(DRCError):
-        mapperV2(smod.as_graph())
+        mapper(smod.as_graph())
 
 
 def test_all_neurons_have_same_dt():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapperV2, DRCError
+    from rockpool.devices.xylo.v2 import mapper, DRCError
 
     # - Network with no weights on input
     smod = Sequential(
@@ -116,13 +120,13 @@ def test_all_neurons_have_same_dt():
     )
 
     with pytest.raises(DRCError):
-        mapperV2(smod.as_graph())
+        mapper(smod.as_graph())
 
 
 def test_output_neurons_cannot_be_recurrent():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapperV2, DRCError
+    from rockpool.devices.xylo.v2 import mapper, DRCError
 
     # - Network with no weights on input
     smod = Sequential(
@@ -133,13 +137,13 @@ def test_output_neurons_cannot_be_recurrent():
     )
 
     with pytest.raises(DRCError):
-        mapperV2(smod.as_graph())
+        mapper(smod.as_graph())
 
 
 def test_network_too_large():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapperV2, DRCError
+    from rockpool.devices.xylo.v2 import mapper, DRCError
 
     # - Network with too many hidden neurons
     smod = Sequential(
@@ -150,7 +154,7 @@ def test_network_too_large():
     )
 
     with pytest.raises(DRCError):
-        mapperV2(smod.as_graph())
+        mapper(smod.as_graph())
 
     # - Network with too many output neurons
     smod = Sequential(
@@ -161,7 +165,7 @@ def test_network_too_large():
     )
 
     with pytest.raises(DRCError):
-        mapperV2(smod.as_graph())
+        mapper(smod.as_graph())
 
 
 def test_XyloSim_creation():
@@ -170,7 +174,7 @@ def test_XyloSim_creation():
     if not backend_available("xylosim", "samna"):
         return
 
-    from rockpool.devices.xylo import mapperV2, XyloSimV2
+    from rockpool.devices.xylo.v2 import mapper, XyloSim
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
 
@@ -188,6 +192,6 @@ def test_XyloSim_creation():
         LIFTorch((3, 3), has_rec=False),
     )
 
-    specs = mapperV2(smod.as_graph())
+    specs = mapper(smod.as_graph())
     specs.pop("mapped_graph")
-    xcmod = XyloSimV2.from_specification(**specs)
+    xcmod = XyloSim.from_specification(**specs)

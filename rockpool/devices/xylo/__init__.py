@@ -14,11 +14,10 @@ from rockpool.utilities.backend_management import (
 
 
 try:
-    from .xylo_sim import *
+    from .syns61300.xylo_sim import *
 except (ImportError, ModuleNotFoundError) as err:
     if not backend_available("xylosim", "samna"):
         XyloSim = missing_backend_shim("XyloSim", "xylosim, samna")
-        XyloSimV2 = missing_backend_shim("XyloSimV2", "xylosim, samna")
     else:
         raise
 
@@ -33,13 +32,16 @@ except (ImportError, ModuleNotFoundError) as err:
     else:
         raise
 
-from .analogFrontEnd import *
+from .syns65300.analogFrontEnd import *
 
-from .xylo_divisive_normalisation import *
-from .xylo_divisive_normalisation import (
+from .v3.xylo_divisive_normalisation import *
+from .v3.xylo_divisive_normalisation import (
     DivisiveNormalisation as DivisiveNormalization,
     DivisiveNormalisationNoLFSR as DivisiveNormalizationNoLFSR,
 )
 
 from .xylo_graph_modules import *
-from .xylo_mapper import *
+from .syns61300.xylo_mapper import *
+
+import rockpool.devices.xylo.syns61300 as pollen
+import rockpool.devices.xylo.syns65300 as v1
