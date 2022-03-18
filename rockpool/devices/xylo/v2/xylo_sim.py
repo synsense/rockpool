@@ -7,8 +7,7 @@ from rockpool import TSContinuous, TSEvent
 
 from rockpool.devices.xylo.syns61300.xylo_sim import XyloSim as XyloSimV1
 
-from xylosim.v2 import XyloSynapse as XyloSynapseV2
-from xylosim.v2 import XyloLayer as XyloLayerV2
+from xylosim.v2 import XyloSynapse, XyloLayer
 
 
 # - Numpy
@@ -65,12 +64,12 @@ class XyloSim(XyloSimV1):
         for pre, w_pre in enumerate(config.input.weights):
             tmp = []
             for post in np.where(w_pre)[0]:
-                tmp.append(XyloSynapseV2(post, 0, w_pre[post]))
+                tmp.append(XyloSynapse(post, 0, w_pre[post]))
 
             if config.synapse2_enable:
                 w2_pre = config.input.syn2_weights[pre]
                 for post in np.where(w2_pre)[0]:
-                    tmp.append(XyloSynapseV2(post, 1, w2_pre[post]))
+                    tmp.append(XyloSynapse(post, 1, w2_pre[post]))
 
             _xylo_sim_params.synapses_in.append(tmp)
 
@@ -79,12 +78,12 @@ class XyloSim(XyloSimV1):
         for pre, w_pre in enumerate(config.reservoir.weights):
             tmp = []
             for post in np.where(w_pre)[0]:
-                tmp.append(XyloSynapseV2(post, 0, w_pre[post]))
+                tmp.append(XyloSynapse(post, 0, w_pre[post]))
 
             if config.synapse2_enable:
                 w2_pre = config.reservoir.syn2_weights[pre]
                 for post in np.where(w2_pre)[0]:
-                    tmp.append(XyloSynapseV2(post, 1, w2_pre[post]))
+                    tmp.append(XyloSynapse(post, 1, w2_pre[post]))
 
             _xylo_sim_params.synapses_rec.append(tmp)
 
@@ -93,7 +92,7 @@ class XyloSim(XyloSimV1):
         for pre, w_pre in enumerate(config.readout.weights):
             tmp = []
             for post in np.where(w_pre)[0]:
-                tmp.append(XyloSynapseV2(post, 0, w_pre[post]))
+                tmp.append(XyloSynapse(post, 0, w_pre[post]))
             _xylo_sim_params.synapses_out.append(tmp)
 
         # - Configure reservoir neurons
@@ -126,7 +125,7 @@ class XyloSim(XyloSimV1):
         _xylo_sim_params.weight_shift_out = config.readout.weight_bit_shift
 
         # - Instantiate a Xylo Simulation layer
-        mod._xylo_layer = XyloLayerV2(
+        mod._xylo_layer = XyloLayer(
             synapses_in=_xylo_sim_params.synapses_in,
             synapses_rec=_xylo_sim_params.synapses_rec,
             synapses_out=_xylo_sim_params.synapses_out,
@@ -251,12 +250,12 @@ class XyloSim(XyloSimV1):
         for pre, w_pre in enumerate(weights_in[:, :, 0]):
             tmp = []
             for post in np.where(w_pre)[0]:
-                tmp.append(XyloSynapseV2(post, 0, w_pre[post]))
+                tmp.append(XyloSynapse(post, 0, w_pre[post]))
 
             if weights_in.shape[2] == 2:
                 w2_pre = weights_in[:, :, 1][pre]
                 for post in np.where(w2_pre)[0]:
-                    tmp.append(XyloSynapseV2(post, 1, w2_pre[post]))
+                    tmp.append(XyloSynapse(post, 1, w2_pre[post]))
 
             _xylo_sim_params.synapses_in.append(tmp)
 
@@ -268,12 +267,12 @@ class XyloSim(XyloSimV1):
         for pre, w_pre in enumerate(weights_rec[:, :, 0]):
             tmp = []
             for post in np.where(w_pre)[0]:
-                tmp.append(XyloSynapseV2(post, 0, w_pre[post]))
+                tmp.append(XyloSynapse(post, 0, w_pre[post]))
 
             if weights_rec.shape[2] == 2:
                 w2_pre = weights_rec[:, :, 1][pre]
                 for post in np.where(w2_pre)[0]:
-                    tmp.append(XyloSynapseV2(post, 1, w2_pre[post]))
+                    tmp.append(XyloSynapse(post, 1, w2_pre[post]))
 
             _xylo_sim_params.synapses_rec.append(tmp)
 
@@ -282,7 +281,7 @@ class XyloSim(XyloSimV1):
         for pre, w_pre in enumerate(weights_out):
             tmp = []
             for post in np.where(w_pre)[0]:
-                tmp.append(XyloSynapseV2(post, 0, w_pre[post]))
+                tmp.append(XyloSynapse(post, 0, w_pre[post]))
             _xylo_sim_params.synapses_out.append(tmp)
 
         # - Configure reservoir neurons
@@ -308,7 +307,7 @@ class XyloSim(XyloSimV1):
         )
 
         # - Instantiate a Xylo Simulation layer
-        mod._xylo_layer = XyloLayerV2(
+        mod._xylo_layer = XyloLayer(
             synapses_in=_xylo_sim_params.synapses_in,
             synapses_rec=_xylo_sim_params.synapses_rec,
             synapses_out=_xylo_sim_params.synapses_out,
