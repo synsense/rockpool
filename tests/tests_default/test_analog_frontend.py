@@ -8,13 +8,13 @@ def test_imports():
 
 
 def test_init():
-    from devices.xylo.syns65300.analogFrontEnd import AFE
+    from rockpool.devices.xylo import AFE
 
     afe = AFE()
 
 
 def test_evolve():
-    from devices.xylo.syns65300.analogFrontEnd import AFE
+    from rockpool.devices.xylo import AFE
     from rockpool.timeseries import TSContinuous
     import numpy as np
 
@@ -63,7 +63,7 @@ def test_evolve():
 
 
 def test_zero_input():
-    from devices.xylo.syns65300.analogFrontEnd import AFE
+    from rockpool.devices.xylo import AFE
     import numpy as np
 
     T = 1000
