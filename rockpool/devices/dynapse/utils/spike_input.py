@@ -185,7 +185,7 @@ def random_spike_train(
     """
 
     steps = int(np.round(duration / dt))
-    input_sp_raster = np.random.poisson(rate / steps, (steps, n_channels))
+    input_sp_raster = np.random.poisson(rate * dt, (steps, n_channels))
     if not any(input_sp_raster.flatten()):
         raise ValueError(
             "No spike generated at all due to low firing rate or short simulation time duration!"
