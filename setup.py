@@ -41,7 +41,7 @@ setup_args = {
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     ],
-    "keywords": "spiking neural network SNN neuromorphic",
+    "keywords": "spiking neural network SNN neuromorphic machine learning ML",
     "python_requires": ">=3.7",
     "project_urls": {
         "Source Code": "https://github.com/SynSense/rockpool",
