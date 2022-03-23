@@ -4,10 +4,18 @@ Encapsulate a simple instantaneous function as a jax module
 
 from rockpool.nn.modules import Module
 from rockpool.parameters import SimulationParameter
+from rockpool.typehints import P_Callable
+
+from rockpool.utilities.backend_management import (
+    backend_available,
+    missing_backend_shim,
+)
 
 from warnings import warn
 
 from typing import Callable, Union
+
+__all__ = ["Instant", "InstantJax", "InstantTorch"]
 
 
 class InstantMixin:
@@ -17,7 +25,7 @@ class InstantMixin:
 
     def __init__(
         self,
-        shape: tuple = None,
+        shape: Union[int, tuple] = None,
         function: Callable = lambda x: x,
         *args,
         **kwargs,
@@ -37,9 +45,7 @@ class InstantMixin:
         super().__init__(shape=shape, *args, **kwargs)
 
         # - Store the function
-        self.function: Union[Callable, SimulationParameter] = SimulationParameter(
-            function
-        )
+        self.function: P_Callable = SimulationParameter(function)
 
     def evolve(
         self,
@@ -57,8 +63,8 @@ class Instant(InstantMixin, Module):
     pass
 
 
-try:
-    from rockpool.nn.modules import JaxModule
+if backend_available("jax"):
+    from rockpool.nn.modules.jax.jax_module import JaxModule
     from jax.tree_util import Partial
 
     class InstantJax(InstantMixin, JaxModule):
@@ -70,14 +76,17 @@ try:
             super().__init__(*args, **kwargs)
             self.function = Partial(self.function)
 
+else:
+    InstantJax = missing_backend_shim("InstantJax", "jax")
 
-except:
-    warn(
-        "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available."
-    )
 
-    class InstantJax:
-        def __init__(self):
-            raise ImportError(
-                "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available."
-            )
+if backend_available("torch"):
+    from rockpool.nn.modules.torch.torch_module import TorchModule
+
+    class InstantTorch(InstantMixin, TorchModule):
+        """
+        Wrap a callable function as an instantaneous Rockpool module, with a Torch backend
+        """
+
+else:
+    InstantTorch = missing_backend_shim("InstantTorch", "torch")

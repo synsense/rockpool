@@ -1,5 +1,9 @@
+"""
+IAF neuron layers with a NEST backend
+"""
+
+
 import multiprocessing
-from importlib import util
 
 import numpy as np
 
@@ -14,11 +18,6 @@ from rockpool.timeseries import TSContinuous, TSEvent
 from rockpool.utilities.property_arrays import SetterArray, ImmutableArray
 from rockpool.nn.layers.layer import Layer
 from rockpool.nn.modules.timed_module import astimedmodule
-
-if util.find_spec("nest") is None:
-    raise ModuleNotFoundError(
-        "'NEST' backend not found. Modules that rely on NEST will not be available."
-    )
 
 # - Unit conversion functions
 U2mU = lambda x: x * 1e3
@@ -47,7 +46,7 @@ COMMAND_EXEC = 4
 
 
 class _BaseNestProcess(multiprocessing.Process):
-    """Base Class for running NEST in its own process """
+    """Base Class for running NEST in its own process"""
 
     def __init__(
         self,
@@ -64,7 +63,7 @@ class _BaseNestProcess(multiprocessing.Process):
         record: bool = False,
         num_cores: int = 1,
     ):
-        """ initializes the process """
+        """initializes the process"""
 
         multiprocessing.Process.__init__(self, daemon=True)
 
@@ -90,12 +89,12 @@ class _BaseNestProcess(multiprocessing.Process):
         return exec(command)
 
     def get_param(self, name):
-        """ IPC command for getting a parameter """
+        """IPC command for getting a parameter"""
         vms = self.nest_module.GetStatus(self._pop, name)
         return vms
 
     def set_param(self, name, value):
-        """ IPC command for setting a parameter """
+        """IPC command for setting a parameter"""
         try:
             params = [{name: val} for val in value[: self.size]]
         except TypeError:
@@ -419,7 +418,7 @@ class _BaseNestProcess(multiprocessing.Process):
             connection_exists[(idcs_pre, idcs_post)] = True
 
     def run(self):
-        """ start the process. Initializes the network, defines IPC commands and waits for commands. """
+        """start the process. Initializes the network, defines IPC commands and waits for commands."""
 
         self.init_nest()
         self.setup_nest_network()
@@ -443,7 +442,7 @@ class _BaseNestProcess(multiprocessing.Process):
 
 
 class _BaseNestProcessSpkInRec(_BaseNestProcess):
-    """ Class for running NEST in its own process """
+    """Class for running NEST in its own process"""
 
     def __init__(
         self,
@@ -466,7 +465,7 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
         record: bool = False,
         num_cores: int = 1,
     ):
-        """initializes the process """
+        """initializes the process"""
         super().__init__(
             request_q=request_q,
             result_q=result_q,
@@ -497,7 +496,7 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
     ######### DEFINE IPC COMMANDS ######
 
     def get_param(self, name):
-        """ IPC command for getting a parameter """
+        """IPC command for getting a parameter"""
         if name == "weights_in":
             vms = self.read_weights(pop_pre=self._sg, pop_post=self._pop)
         elif name == "weights_rec":
@@ -512,7 +511,7 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
         return vms
 
     def set_param(self, name, value):
-        """ IPC command for setting a parameter """
+        """IPC command for setting a parameter"""
 
         if name == "weights_in":
             weights_old = self.weights_in.copy()
@@ -614,7 +613,7 @@ class FFIAFNestV1(Layer):
     """
 
     class NestProcess(_BaseNestProcess):
-        """ Class for running NEST in its own process """
+        """Class for running NEST in its own process"""
 
         def __init__(
             self,
@@ -632,7 +631,7 @@ class FFIAFNestV1(Layer):
             record: bool = False,
             num_cores: int = 1,
         ):
-            """ initialize the process"""
+            """initialize the process"""
 
             super().__init__(
                 request_q=request_q,
@@ -668,7 +667,7 @@ class FFIAFNestV1(Layer):
             super().setup_nest_network()
 
         def set_all_connections(self):
-            """ Set connections from step current generator to neuron population """
+            """Set connections from step current generator to neuron population"""
             self.set_connections(
                 pop_pre=self._scg,
                 pop_post=self._pop,
@@ -678,7 +677,7 @@ class FFIAFNestV1(Layer):
             )
 
         def generate_nest_params_list(self) -> List[Dict[str, np.ndarray]]:
-            """ Initialize nest neuron parameters and return as list """
+            """Initialize nest neuron parameters and return as list"""
 
             params = super().generate_nest_params_list()
             for n in range(self.size):
@@ -689,7 +688,7 @@ class FFIAFNestV1(Layer):
         ######### DEFINE IPC COMMANDS ######
 
         def get_param(self, name):
-            """ IPC command for getting a parameter """
+            """IPC command for getting a parameter"""
             if name == "weights":
                 vms = self.read_weights(pop_pre=self._scg, pop_post=self._pop)
             else:
@@ -697,7 +696,7 @@ class FFIAFNestV1(Layer):
             return vms
 
         def set_param(self, name, value):
-            """ IPC command for setting a parameter """
+            """IPC command for setting a parameter"""
 
             if name == "weights":
                 weights_old = self.weights.copy()
@@ -984,17 +983,17 @@ class FFIAFNestV1(Layer):
 
     @property
     def output_type(self):
-        """ (`.TSEvent`) Output time series class (`.TSEvent`) """
+        """(`.TSEvent`) Output time series class (`.TSEvent`)"""
         return TSEvent
 
     @property
     def weights(self):
-        """ (np.ndarray) Feedforward weights for this layer, in nA """
+        """(np.ndarray) Feedforward weights for this layer, in nA"""
         return SetterArray(self._weights, owner=self, name="weights")
 
     @property
     def weights_(self):
-        """ (np.ndarray) Feedforward weights matrix for this layer, in nA """
+        """(np.ndarray) Feedforward weights matrix for this layer, in nA"""
         self.request_q.put([COMMAND_GET, "weights"])
         weights = nA2uA(self.result_q.get())
         return ImmutableArray(weights, name=self.start_print)
@@ -1006,7 +1005,7 @@ class FFIAFNestV1(Layer):
 
     @property
     def refractory(self):
-        """ (np.ndarray) Refractory parameter for this layer """
+        """(np.ndarray) Refractory parameter for this layer"""
         return SetterArray(self._refractory, owner=self, name="refractory")
 
     @refractory.setter
@@ -1019,7 +1018,7 @@ class FFIAFNestV1(Layer):
 
     @property
     def capacity(self):
-        """ Capacity of this layer (?) """
+        """Capacity of this layer (?)"""
         return SetterArray(self._capacity, owner=self, name="capaity")
 
     @capacity.setter
@@ -1032,7 +1031,7 @@ class FFIAFNestV1(Layer):
 
     @property
     def Vmem(self):
-        """ (np.ndarray) Membrane potential $V_m$ of the neurons in this layer """
+        """(np.ndarray) Membrane potential $V_m$ of the neurons in this layer"""
         self.request_q.put([COMMAND_GET, "V_m"])
         vms = np.array(self.result_q.get())
         return SetterArray(mV2V(vms), owner=self, name="state")
@@ -1044,7 +1043,7 @@ class FFIAFNestV1(Layer):
 
     @property
     def tau_mem(self):
-        """ (np.ndarray) Membrane time constants $\\tau_m$ of the neurons in this layer """
+        """(np.ndarray) Membrane time constants $\\tau_m$ of the neurons in this layer"""
         return SetterArray(self._tau_mem, owner=self, name="tau_mem")
 
     @tau_mem.setter
@@ -1055,7 +1054,7 @@ class FFIAFNestV1(Layer):
 
     @property
     def bias(self):
-        """ (np.ndarray) Bias currents of the neurons in this layer """
+        """(np.ndarray) Bias currents of the neurons in this layer"""
         return SetterArray(self._bias, owner=self, name="bias")
 
     @bias.setter
@@ -1066,7 +1065,7 @@ class FFIAFNestV1(Layer):
 
     @property
     def v_thresh(self):
-        """ (np.ndarray) Threshold potential $V_{thresh}$ of the neurons of this layer"""
+        """(np.ndarray) Threshold potential $V_{thresh}$ of the neurons of this layer"""
         return SetterArray(self._v_thresh, owner=self, name="v_thresh")
 
     @v_thresh.setter
@@ -1079,7 +1078,7 @@ class FFIAFNestV1(Layer):
 
     @property
     def v_reset(self):
-        """ (np.ndarray) Reset potential $v_{reset}$ of the neurons of this layer"""
+        """(np.ndarray) Reset potential $v_{reset}$ of the neurons of this layer"""
         return SetterArray(self._v_reset, owner=self, name="v_reset")
 
     @v_reset.setter
@@ -1090,7 +1089,7 @@ class FFIAFNestV1(Layer):
 
     @property
     def v_rest(self):
-        """ (np.ndarray) Resting potential $V_{rest}$ of the neurons of this layer """
+        """(np.ndarray) Resting potential $V_{rest}$ of the neurons of this layer"""
         return SetterArray(self._v_rest, owner=self, name="v_rest")
 
     @v_rest.setter
@@ -1101,7 +1100,7 @@ class FFIAFNestV1(Layer):
 
     @property
     def t(self):
-        """ (float) Current time of this layer"""
+        """(float) Current time of this layer"""
         return self._timestep * self.dt
 
     @Layer.dt.setter
@@ -1110,12 +1109,12 @@ class FFIAFNestV1(Layer):
 
     @property
     def record(self):
-        """ Record state of this layer """
+        """Record state of this layer"""
         return self._record
 
     @property
     def num_cores(self):
-        """ (int) Number of cores used by the NEST backend for this layer """
+        """(int) Number of cores used by the NEST backend for this layer"""
         return self._num_cores
 
 
@@ -1126,7 +1125,7 @@ class RecIAFSpkInNestV1(FFIAFNestV1):
     """
 
     class NestProcess(_BaseNestProcessSpkInRec):
-        """ Base class for running NEST in its own process (recurrent layers, spike input)"""
+        """Base class for running NEST in its own process (recurrent layers, spike input)"""
 
         def __init__(
             self,
@@ -1388,17 +1387,17 @@ class RecIAFSpkInNestV1(FFIAFNestV1):
 
     @property
     def input_type(self):
-        """ (`.TSEvent`) Input time series class for this layer (`.TSEvent`) """
+        """(`.TSEvent`) Input time series class for this layer (`.TSEvent`)"""
         return TSEvent
 
     @property
     def weights_in(self):
-        """ (np.ndarray) Input weights for this layer, in nA """
+        """(np.ndarray) Input weights for this layer, in nA"""
         return SetterArray(self._weights_in, owner=self, name="weights_in")
 
     @property
     def weights_in_(self):
-        """ (np.ndarray) Input weights for this layer, in nA """
+        """(np.ndarray) Input weights for this layer, in nA"""
         self.request_q.put([COMMAND_GET, "weights_in"])
         weights = nA2uA(self.result_q.get())
         return ImmutableArray(weights, name=self.start_print)
@@ -1412,12 +1411,12 @@ class RecIAFSpkInNestV1(FFIAFNestV1):
 
     @property
     def weights_rec(self):
-        """ (np.ndarray) Recurrent weights for this layer, in nA """
+        """(np.ndarray) Recurrent weights for this layer, in nA"""
         return SetterArray(self._weights_rec, owner=self, name="weights_rec")
 
     @property
     def weights_rec_(self):
-        """ (np.ndarray) Recurrent weights for this layer, in nA """
+        """(np.ndarray) Recurrent weights for this layer, in nA"""
         self.request_q.put([COMMAND_GET, "weights_rec"])
         weights = nA2uA(self.result_q.get())
         return ImmutableArray(weights, name=self.start_print)
@@ -1431,7 +1430,7 @@ class RecIAFSpkInNestV1(FFIAFNestV1):
 
     @property
     def delay_in(self):
-        """ (float) Input delay for this layer """
+        """(float) Input delay for this layer"""
         return SetterArray(self._delay_in, owner=self, name="delay_in")
 
     @delay_in.setter
@@ -1456,7 +1455,7 @@ class RecIAFSpkInNestV1(FFIAFNestV1):
 
     @property
     def tau_syn(self):
-        """ (np.ndarray) Synaptic time constant in s"""
+        """(np.ndarray) Synaptic time constant in s"""
         return SetterArray(self._tau_syn, owner=self, name="tau_syn")
 
     @tau_syn.setter
@@ -1471,7 +1470,7 @@ class RecIAFSpkInNestV1(FFIAFNestV1):
 
     @property
     def tau_syn_exc(self):
-        """ (np.ndarray) Excitatory synaptic time constant in s"""
+        """(np.ndarray) Excitatory synaptic time constant in s"""
         return SetterArray(self._tau_syn_exc, owner=self, name="tau_syn_exc")
 
     @tau_syn_exc.setter
@@ -1486,7 +1485,7 @@ class RecIAFSpkInNestV1(FFIAFNestV1):
 
     @property
     def tau_syn_inh(self):
-        """ (np.ndarray) Inhibitory synaptic time constant in s"""
+        """(np.ndarray) Inhibitory synaptic time constant in s"""
         return SetterArray(self._tau_syn_inh, owner=self, name="tau_syn_inh")
 
     @tau_syn_inh.setter

@@ -1,5 +1,7 @@
 import pytest
 
+pytest.importorskip("torch")
+
 
 def test_UpDownTorch():
     from rockpool.nn.modules.torch.updown_torch import UpDownTorch

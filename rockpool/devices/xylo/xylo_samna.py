@@ -7,29 +7,24 @@ from importlib import util
 from pathlib import Path
 from os import makedirs
 
-if util.find_spec("samna") is None:
-    raise ModuleNotFoundError(
-        "'samna' not found. Modules that rely on Samna will not be available."
-    )
-
 # - Samna imports
 import samna
 
-from samna.pollen.configuration import (
+from samna.xylo.configuration import (
     ReservoirNeuron,
     OutputNeuron,
 )
-from samna.pollen.configuration import PollenConfiguration as XyloConfiguration
+from samna.xylo.configuration import XyloConfiguration as XyloConfiguration
 
-from samna.pollen import validate_configuration
+from samna.xylo import validate_configuration
 
 # - Rockpool imports
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 from rockpool import TSContinuous, TSEvent
 
-from ..xylo import xylo_devkit_utils as putils
-from ..xylo.xylo_devkit_utils import XyloDaughterBoard
+from . import xylo_devkit_utils as hdkutils
+from .xylo_devkit_utils import XyloHDK
 
 # - Numpy
 import numpy as np
@@ -68,6 +63,8 @@ def config_from_specification(
     weight_shift_rec: int = 0,
     weight_shift_out: int = 0,
     aliases: Optional[List[List[int]]] = None,
+    *args,
+    **kwargs,
 ) -> (XyloConfiguration, bool, str):
     """
     Convert a full network specification to a xylo config and validate it
@@ -76,7 +73,7 @@ def config_from_specification(
         For detailed information about the networks supported on Xylo, see :ref:`/devices/xylo-overview.ipynb`
 
     Args:
-        weights_in (np.ndarray): A quantised 8-bit input weight matrix ``(Nin, Nin_res, 2)``. The third dimension specifies connections onto the second input synapse for each neuron. ``Nin_res`` indicates the number of hidfden-layer neurons that receive input from the input channels.
+        weights_in (np.ndarray): A quantised 8-bit input weight matrix ``(Nin, Nin_res, 2)``. The third dimension specifies connections onto the second input synapse for each neuron. ``Nin_res`` indicates the number of hidden-layer neurons that receive input from the input channels.
         weights_rec (np.ndarray): A quantised 8-bit recurrent weight matrix ``(Nhidden, Nhidden, 2)``. The third dimension specified connections onto the second input synapse for each neuron. Default: ``0``
         weights_out (np.ndarray): A quantised 8-bit output weight matrix ``(Nhidden, Nout)``.
         dash_mem (np.ndarray): A vector or list ``(Nhidden,)`` specifing decay bitshift for neuron state for each hidden layer neuron. Default: ``1``
@@ -91,7 +88,7 @@ def config_from_specification(
         weight_shift_out (int): The number of bits to left-shift each output layer weight. Default: ``0``
         aliases (Optional[List[List[int]]]): For each neuron in the hidden population, a list containing the alias targets for that neuron
 
-    Returns: (:py:class:`.samna.pollen.PollenConfiguration`, bool, str): config, is_valid, message
+    Returns: (:py:class:`.samna.xylo.XyloConfiguration`, bool, str): config, is_valid, message
         ``config`` will be a `XyloConfiguration`.
         ``is_valid`` will be a boolean flag ``True`` iff the configuration is valid.
         ``message`` will be an empty string if the configuration is valid, or a message indicating why the configuration is invalid.
@@ -99,7 +96,7 @@ def config_from_specification(
     # - Check input weights
     if weights_in.ndim < 2:
         raise ValueError(
-            "Input weights must be at least 2 dimensional `(Nhidden, Nout, [2])`"
+            f"Input weights must be at least 2 dimensional `(Nin, Nin_res, [2])`. Found {weights_in.shape}"
         )
 
     enable_isyn2 = True
@@ -194,7 +191,7 @@ def config_from_specification(
         or weights_out.dtype.kind not in "ui"
     ):
         warn(
-            "`weights...` arguments should be provided as `int` data types. I am casting these to `int`."
+            "`weights...` arguments should be provided as `int` data types. I am rounding and casting these to `int`."
         )
 
     if (
@@ -206,8 +203,25 @@ def config_from_specification(
         or dash_mem_out.dtype.kind not in "ui"
     ):
         warn(
-            "Neuron and synapse parameter arguments should be provided as `int` data types. I am casting these to `int`."
+            "Neuron and synapse parameter arguments should be provided as `int` data types. I am rounding and casting these to `int`."
         )
+
+    # - Round and cast all parameters to integer
+    weights_in = np.round(weights_in).astype("int")
+    weights_out = np.round(weights_out).astype("int")
+    weights_rec = np.round(weights_rec).astype("int")
+    dash_mem = np.round(dash_mem).astype("int")
+    dash_mem_out = np.round(dash_mem_out).astype("int")
+    dash_syn = np.round(dash_syn).astype("int")
+    dash_syn_2 = np.round(dash_syn_2).astype("int")
+    dash_syn_out = np.round(dash_syn_out).astype("int")
+    threshold = np.round(threshold).astype("int")
+    threshold_out = np.round(threshold_out).astype("int")
+    weight_shift_in = np.round(weight_shift_in).astype("int")
+    weight_shift_rec = np.round(weight_shift_rec).astype("int")
+    weight_shift_out = np.round(weight_shift_out).astype("int")
+    if aliases is not None:
+        aliases = [np.round(a).astype("int") for a in aliases]
 
     # - Build the configuration
     config = XyloConfiguration()
@@ -221,23 +235,24 @@ def config_from_specification(
     config.input.weight_bit_shift = weight_shift_in
     config.reservoir.weight_bit_shift = weight_shift_rec
     config.readout.weight_bit_shift = weight_shift_out
-    config.input.weights = weights_in[:, :, 0].astype("int")
-    config.reservoir.weights = weights_rec[:, :, 0].astype("int")
-    config.readout.weights = weights_out.astype("int")
+    config.input.weights = weights_in[:, :, 0]
+    config.reservoir.weights = weights_rec[:, :, 0]
+    config.readout.weights = weights_out
 
     if enable_isyn2:
-        config.input.syn2_weights = weights_in[:, :, 1].astype("int")
-        config.reservoir.syn2_weights = weights_rec[:, :, 1].astype("int")
+        config.input.syn2_weights = weights_in[:, :, 1]
+        config.reservoir.syn2_weights = weights_rec[:, :, 1]
 
     reservoir_neurons = []
     for i in range(len(weights_rec)):
         neuron = ReservoirNeuron()
         if aliases is not None and len(aliases[i]) > 0:
-            neuron.alias_target = int(aliases[i][0])
-        neuron.i_syn_decay = dash_syn[i].astype("int")
-        neuron.i_syn2_decay = dash_syn_2[i].astype("int")
-        neuron.v_mem_decay = dash_mem[i].astype("int")
-        neuron.threshold = threshold[i].astype("int")
+            neuron.alias_target = aliases[i][0]
+
+        neuron.i_syn_decay = dash_syn[i]
+        neuron.i_syn2_decay = dash_syn_2[i]
+        neuron.v_mem_decay = dash_mem[i]
+        neuron.threshold = threshold[i]
         reservoir_neurons.append(neuron)
 
     config.reservoir.neurons = reservoir_neurons
@@ -245,9 +260,9 @@ def config_from_specification(
     readout_neurons = []
     for i in range(np.shape(weights_out)[1]):
         neuron = OutputNeuron()
-        neuron.i_syn_decay = dash_syn_out[i].astype("int")
-        neuron.v_mem_decay = dash_mem_out[i].astype("int")
-        neuron.threshold = threshold_out[i].astype("int")
+        neuron.i_syn_decay = dash_syn_out[i]
+        neuron.v_mem_decay = dash_mem_out[i]
+        neuron.threshold = threshold_out[i]
         readout_neurons.append(neuron)
 
     config.readout.neurons = readout_neurons
@@ -304,7 +319,7 @@ class XyloSamna(Module):
 
     def __init__(
         self,
-        device: XyloDaughterBoard,
+        device: XyloHDK,
         config: XyloConfiguration = None,
         dt: float = 1e-3,
         *args,
@@ -314,7 +329,7 @@ class XyloSamna(Module):
         Instantiate a Module with Xylo dev-kit backend
 
         Args:
-            device (XyloDaughterBoard): An opened `samna` device to a Xylo dev kit
+            device (XyloHDK): An opened `samna` device to a Xylo dev kit
             config (XyloConfiguraration): A Xylo configuration from `samna`
             dt (float): The simulation time-step to use for this Module
         """
@@ -324,7 +339,7 @@ class XyloSamna(Module):
 
         # - Get a default configuration
         if config is None:
-            config = samna.pollen.configuration.XyloConfiguration()
+            config = samna.xylo.configuration.XyloConfiguration()
 
         # - Get the network shape
         Nin, Nhidden = np.shape(config.input.weights)
@@ -335,20 +350,25 @@ class XyloSamna(Module):
             shape=(Nin, Nhidden, Nout), spiking_input=True, spiking_output=True
         )
 
+        # - Register buffers to read and write events, monitor state
+        self._read_buffer = hdkutils.new_xylo_read_buffer(device)
+        self._write_buffer = hdkutils.new_xylo_write_buffer(device)
+        self._state_buffer = hdkutils.new_xylo_state_monitor_buffer(device)
+
         # - Initialise the xylo HDK
-        putils.initialise_xylo_hdk(device)  # dummy 'TriggerProcessing' signal
+        hdkutils.initialise_xylo_hdk(self._write_buffer)
 
-        # - Register a buffer to read events from Xylo
-        self._event_buffer = putils.new_xylo_read_buffer(device)
-        self._state_buffer = putils.new_xylo_state_monitor_buffer(device)
-
-        # - Check that we can access the device node, and that it's a Xylo HDK daughterboard
-        if not putils.verify_xylo_version(device, self._event_buffer, timeout=10.0):
-            raise ValueError("`device` must be an opened Xylo HDK daughter board.")
+        # - Check that we can access the device node, and that it's a Xylo HDK
+        if not hdkutils.verify_xylo_version(
+            self._read_buffer, self._write_buffer, timeout=10.0
+        ):
+            raise ValueError(
+                "Cannot verify HDK version. `device` must be an opened Xylo HDK."
+            )
 
         # - Store the device
-        self._device: XyloDaughterBoard = device
-        """ `.XyloDaughterBoard`: The Xylo HDK used by this module """
+        self._device: XyloHDK = device
+        """ `.XyloHDK`: The Xylo HDK used by this module """
 
         # - Store the configuration (and apply it)
         self.config: Union[
@@ -375,19 +395,23 @@ class XyloSamna(Module):
     @config.setter
     def config(self, new_config):
         # - Test for a valid configuration
-        is_valid, msg = samna.pollen.validate_configuration(new_config)
+        is_valid, msg = samna.xylo.validate_configuration(new_config)
         if not is_valid:
             raise ValueError(f"Invalid configuration for the Xylo HDK: {msg}")
 
         # - Write the configuration to the device
-        putils.apply_configuration(self._device, new_config, self._event_buffer)
+        hdkutils.apply_configuration(
+            self._device, new_config, self._read_buffer, self._write_buffer
+        )
 
         # - Store the configuration locally
         self._config = new_config
 
     def reset_state(self) -> "XyloSamna":
         # - Reset neuron and synapse state on Xylo
-        putils.reset_neuron_synapse_state(self._device, self._event_buffer)
+        hdkutils.reset_neuron_synapse_state(
+            self._device, self._read_buffer, self._write_buffer
+        )
         return self
 
     def _configure_accel_time_mode(
@@ -410,7 +434,7 @@ class XyloSamna(Module):
             m_Nout = Nout if record else 0
 
             # - Applies the configuration via `self.config`
-            self.config, state_buffer = putils.configure_accel_time_mode(
+            self.config, state_buffer = hdkutils.configure_accel_time_mode(
                 self._config, self._state_buffer, m_Nhidden, m_Nout
             )
 
@@ -448,7 +472,9 @@ class XyloSamna(Module):
         self._configure_accel_time_mode(Nhidden, Nout, record)
 
         # - Get current timestamp
-        start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
+        start_timestep = hdkutils.get_current_timestamp(
+            self._read_buffer, self._write_buffer
+        )
         final_timestep = start_timestep + len(input) - 1
 
         # -- Encode input events
@@ -461,25 +487,25 @@ class XyloSamna(Module):
         # - Generate input events
         for timestep, channel, count in zip(spikes[:, 0], spikes[:, 1], counts):
             for _ in range(count):
-                event = samna.pollen.event.Spike()
+                event = samna.xylo.event.Spike()
                 event.neuron_id = channel
                 event.timestamp = start_timestep + timestep
                 input_events_list.append(event)
 
         # - Add an extra event to ensure readout for entire input extent
-        event = samna.pollen.event.Spike()
+        event = samna.xylo.event.Spike()
         event.timestamp = final_timestep + 1
         input_events_list.append(event)
 
         # - Clear the input event count register to make sure the dummy event is ignored
         for addr in [0x0C, 0x0D, 0x0E, 0x0F]:
-            event = samna.pollen.event.WriteRegisterValue()
+            event = samna.xylo.event.WriteRegisterValue()
             event.address = addr
             input_events_list.append(event)
 
         # - Clear the read and state buffers
         self._state_buffer.reset()
-        self._event_buffer.get_events()
+        self._read_buffer.get_events()
 
         # - Write the events and trigger the simulation
         self._device.get_model().write(input_events_list)
@@ -490,8 +516,8 @@ class XyloSamna(Module):
             read_timeout = read_timeout * 10.0 if record else read_timeout
 
         # - Wait until the simulation is finished
-        read_events, is_timeout = putils.blocking_read(
-            self._event_buffer,
+        read_events, is_timeout = hdkutils.blocking_read(
+            self._read_buffer,
             timeout=max(read_timeout, 1.0),
             target_timestamp=final_timestep,
         )
@@ -505,7 +531,9 @@ class XyloSamna(Module):
             raise TimeoutError(message)
 
         # - Read the simulation output data
-        xylo_data = putils.read_accel_mode_data(self._state_buffer, Nin, Nhidden, Nout)
+        xylo_data = hdkutils.read_accel_mode_data(
+            self._state_buffer, Nin, Nhidden, Nout
+        )
 
         if record:
             # - Build a recorded state dictionary
@@ -536,7 +564,7 @@ class XyloSamna(Module):
         **kwargs,
     ) -> (np.ndarray, dict, dict):
         """
-        Evolve a network on the Xylo HDK in single-step manual mode. For debug purposes only. Uses 'samna.pollen.OperationMode.Manual' in samna.
+        Evolve a network on the Xylo HDK in single-step manual mode. For debug purposes only. Uses 'samna.xylo.OperationMode.Manual' in samna.
 
         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
 
@@ -560,20 +588,22 @@ class XyloSamna(Module):
 
         # - Select single-step simulation mode
         # - Applies the configuration via `self.config`
-        self.config = putils.configure_single_step_time_mode(self.config)
+        self.config = hdkutils.configure_single_step_time_mode(self.config)
 
         # - Wait until xylo is ready
         t_start = time.time()
-        while not putils.is_xylo_ready(self._device, self._event_buffer):
+        while not hdkutils.is_xylo_ready(self._read_buffer, self._write_buffer):
             if time.time() - t_start > read_timeout:
                 raise TimeoutError("Timed out waiting for Xylo to be ready.")
 
         # - Get current timestamp
-        start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
+        start_timestep = hdkutils.get_current_timestamp(
+            self._read_buffer, self._write_buffer
+        )
         final_timestep = start_timestep + len(input) - 1
 
         # - Reset input spike registers
-        putils.reset_input_spikes(self._device)
+        hdkutils.reset_input_spikes(self._write_buffer)
 
         # - Initialise lists for recording state
         vmem_ts = []
@@ -587,15 +617,15 @@ class XyloSamna(Module):
         # - Loop over time steps
         for timestep in tqdm(range(len(input))):
             # - Send input events for this time-step
-            putils.send_immediate_input_spikes(self._device, input[timestep])
+            hdkutils.send_immediate_input_spikes(self._write_buffer, input[timestep])
 
             # - Evolve one time-step on Xylo
-            putils.advance_time_step(self._device)
+            hdkutils.advance_time_step(self._write_buffer)
 
             # - Wait until xylo has finished the simulation of this time step
             t_start = time.time()
             is_timeout = False
-            while not putils.is_xylo_ready(self._device, self._event_buffer):
+            while not hdkutils.is_xylo_ready(self._read_buffer, self._write_buffer):
                 if time.time() - t_start > read_timeout:
                     is_timeout = True
                     break
@@ -605,8 +635,8 @@ class XyloSamna(Module):
 
             # - Read all synapse and neuron states for this time step
             if record:
-                this_state = putils.read_neuron_synapse_state(
-                    self._device, self._event_buffer, Nhidden, Nout
+                this_state = hdkutils.read_neuron_synapse_state(
+                    self._read_buffer, self._write_buffer, Nhidden, Nout
                 )
                 vmem_ts.append(this_state.V_mem_hid)
                 isyn_ts.append(this_state.I_syn_hid)
@@ -616,7 +646,9 @@ class XyloSamna(Module):
                 spikes_ts.append(this_state.Spikes_hid)
 
             # - Read the output event register
-            output_events = putils.read_output_events(self._device, self._event_buffer)
+            output_events = hdkutils.read_output_events(
+                self._read_buffer, self._write_buffer
+            )
             output_ts.append(output_events)
 
         if record:
@@ -645,7 +677,7 @@ class XyloSamna(Module):
         **kwargs,
     ) -> (np.ndarray, dict, dict):
         """
-        Evolve a network on the Xylo HDK in single-step manual mode, while recording the entire RAM contents of Xylo. Uses 'samna.pollen.OperationMode.Manual' in samna.
+        Evolve a network on the Xylo HDK in single-step manual mode, while recording the entire RAM contents of Xylo. Uses 'samna.xylo.OperationMode.Manual' in samna.
 
         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
 
@@ -668,20 +700,22 @@ class XyloSamna(Module):
         Nin, Nhidden, Nout = self.shape
 
         # - Select single-step simulation mode
-        self.config = putils.configure_single_step_time_mode(self.config)
+        self.config = hdkutils.configure_single_step_time_mode(self.config)
 
         # - Wait until xylo is ready
         t_start = time.time()
-        while not putils.is_xylo_ready(self._device, self._event_buffer):
+        while not hdkutils.is_xylo_ready(self._read_buffer, self._write_buffer):
             if time.time() - t_start > read_timeout:
                 raise TimeoutError("Timed out waiting for Xylo to be ready.")
 
         # - Get current timestamp
-        start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
+        start_timestep = hdkutils.get_current_timestamp(
+            self._read_buffer, self._write_buffer
+        )
         final_timestep = start_timestep + len(input) - 1
 
         # - Reset input spike registers
-        putils.reset_input_spikes(self._device)
+        hdkutils.reset_input_spikes(self._write_buffer)
 
         # - Initialise lists for internal all RAM state
         vmem_ts = []
@@ -709,15 +743,15 @@ class XyloSamna(Module):
         # - Loop over time steps
         for timestep in tqdm(range(len(input))):
             # - Send input events for this time-step
-            putils.send_immediate_input_spikes(self._device, input[timestep])
+            hdkutils.send_immediate_input_spikes(self._write_buffer, input[timestep])
 
             # - Evolve one time-step on Xylo
-            putils.advance_time_step(self._device)
+            hdkutils.advance_time_step(self._write_buffer)
 
             # - Wait until xylo has finished the simulation of this time step
             t_start = time.time()
             is_timeout = False
-            while not putils.is_xylo_ready(self._device, self._event_buffer):
+            while not hdkutils.is_xylo_ready(self._read_buffer, self._write_buffer):
                 if time.time() - t_start > read_timeout:
                     is_timeout = True
                     break
@@ -727,8 +761,8 @@ class XyloSamna(Module):
 
             # - Read all RAM states for this time step
             if record:
-                this_state = putils.read_allram_state(
-                    self._device, self._event_buffer, Nin, Nhidden, Nout
+                this_state = hdkutils.read_allram_state(
+                    self._read_buffer, self._write_buffer, Nin, Nhidden, Nout
                 )
                 vmem_ts.append(this_state.V_mem_hid)
                 isyn_ts.append(this_state.I_syn_hid)
@@ -754,7 +788,9 @@ class XyloSamna(Module):
                 output_weight_ram_ts.append(this_state.OWTRAM_state)
 
             # - Read the output event register
-            output_events = putils.read_output_events(self._device, self._event_buffer)
+            output_events = hdkutils.read_output_events(
+                self._read_buffer, self._write_buffer
+            )
             output_ts.append(output_events)
 
         if record:
@@ -798,9 +834,9 @@ class XyloSamna(Module):
         **kwargs,
     ) -> (np.ndarray, dict, dict):
         """
-        Evolve a network on the Xylo HDK in single-step manual mode, while recording the entire RAM and register contents of Xylo. Uses 'samna.pollen.OperationMode.Manual' in samna.
+        Evolve a network on the Xylo HDK in single-step manual mode, while recording the entire RAM and register contents of Xylo. Uses 'samna.xylo.OperationMode.Manual' in samna.
 
-        Evolve a network on the Xylo HDK with manual mode. It is through 'samna.pollen.OperationMode.Manual' in samna.
+        Evolve a network on the Xylo HDK with manual mode. It is through 'samna.xylo.OperationMode.Manual' in samna.
 
         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
 
@@ -822,7 +858,7 @@ class XyloSamna(Module):
         Nin, Nhidden, Nout = self.shape
 
         # - Select single-step simulation mode
-        self.config = putils.configure_single_step_time_mode(self.config)
+        self.config = hdkutils.configure_single_step_time_mode(self.config)
 
         # - Initialise lists for recording state
         vmem_ts = []
@@ -848,70 +884,71 @@ class XyloSamna(Module):
         output_weight_ram_ts = []
 
         # - Read all ram and register before evolve_manual
-        if record:
-            this_state = putils.read_allram_state(
-                self._device, self._event_buffer, Nin, Nhidden, Nout
-            )
-            vmem_ts.append(this_state.V_mem_hid)
-            isyn_ts.append(this_state.I_syn_hid)
-            isyn2_ts.append(this_state.I_syn2_hid)
-            vmem_out_ts.append(this_state.V_mem_out)
-            isyn_out_ts.append(this_state.I_syn_out)
-            spikes_ts.append(this_state.Spikes_hid)
+        this_state = hdkutils.read_allram_state(
+            self._read_buffer, self._write_buffer, Nin, Nhidden, Nout
+        )
+        vmem_ts.append(this_state.V_mem_hid)
+        isyn_ts.append(this_state.I_syn_hid)
+        isyn2_ts.append(this_state.I_syn2_hid)
+        vmem_out_ts.append(this_state.V_mem_out)
+        isyn_out_ts.append(this_state.I_syn_out)
+        spikes_ts.append(this_state.Spikes_hid)
 
-            input_weight_ram_ts.append(this_state.IWTRAM_state)
-            input_weight_2ram_ts.append(this_state.IWT2RAM_state)
-            neuron_dash_syn_ram_ts.append(this_state.NDSRAM_state)
-            reservoir_dash_syn_2ram_ts.append(this_state.RDS2RAM_state)
-            neuron_dash_mem_ram_ts.append(this_state.NDMRAM_state)
-            neuron_threshold_ram_ts.append(this_state.NTHRAM_state)
-            reservoir_config_ram_ts.append(this_state.RCRAM_state)
-            reservoir_aliasing_ram_ts.append(this_state.RARAM_state)
-            reservoir_effective_fanout_count_ram_ts.append(this_state.REFOCRAM_state)
-            recurrent_fanout_ram_ts.append(this_state.RFORAM_state)
-            recurrent_weight_ram_ts.append(this_state.RWTRAM_state)
-            recurrent_weight_2ram_ts.append(this_state.RWT2RAM_state)
-            output_weight_ram_ts.append(this_state.OWTRAM_state)
+        input_weight_ram_ts.append(this_state.IWTRAM_state)
+        input_weight_2ram_ts.append(this_state.IWT2RAM_state)
+        neuron_dash_syn_ram_ts.append(this_state.NDSRAM_state)
+        reservoir_dash_syn_2ram_ts.append(this_state.RDS2RAM_state)
+        neuron_dash_mem_ram_ts.append(this_state.NDMRAM_state)
+        neuron_threshold_ram_ts.append(this_state.NTHRAM_state)
+        reservoir_config_ram_ts.append(this_state.RCRAM_state)
+        reservoir_aliasing_ram_ts.append(this_state.RARAM_state)
+        reservoir_effective_fanout_count_ram_ts.append(this_state.REFOCRAM_state)
+        recurrent_fanout_ram_ts.append(this_state.RFORAM_state)
+        recurrent_weight_ram_ts.append(this_state.RWTRAM_state)
+        recurrent_weight_2ram_ts.append(this_state.RWT2RAM_state)
+        output_weight_ram_ts.append(this_state.OWTRAM_state)
 
-            # - Create a folder to save register state in each timestamp
-            folder = "./registers/"
-            newFolder = Path(folder)
-            if not newFolder.exists():
-                makedirs(newFolder)
+        # - Create a folder to save register state in each timestamp
+        folder = "./registers/"
+        newFolder = Path(folder)
+        if not newFolder.exists():
+            makedirs(newFolder)
 
-            # - Save the register state before evolve_manual as '-1' timestamp.
-            file = folder + "register_-1.txt"
-            putils.export_registers(self._device, self._event_buffer, file)
+        # - Save the register state before evolve_manual as '-1' timestamp.
+        file = folder + "register_-1.txt"
+        hdkutils.export_registers(self._read_buffer, self._write_buffer, file)
 
         # - Wait until xylo is ready
         t_start = time.time()
-        while not putils.is_xylo_ready(self._device, self._event_buffer):
+        while not hdkutils.is_xylo_ready(self._read_buffer, self._write_buffer):
             if time.time() - t_start > read_timeout:
                 raise TimeoutError("Timed out waiting for Xylo to be ready.")
 
         # - Get current timestamp
-        start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
+        start_timestep = hdkutils.get_current_timestamp(
+            self._read_buffer, self._write_buffer
+        )
         final_timestep = start_timestep + len(input) - 1
 
         # - Reset input spike registers
-        putils.reset_input_spikes(self._device)
+        hdkutils.reset_input_spikes(self._write_buffer)
 
         # - Loop over time steps
         for timestep in tqdm(range(len(input))):
             # - Send input events for this time-step
-            putils.send_immediate_input_spikes(self._device, input[timestep])
+            hdkutils.send_immediate_input_spikes(self._write_buffer, input[timestep])
 
             # - Save register just after give input but before evolve_manual for each timestamp
             file = folder + f"register_{timestep}_spkin.txt"
-            putils.export_registers(self._device, self._event_buffer, file)
+            hdkutils.export_registers(self._read_buffer, self._write_buffer, file)
 
             # - Evolve one time-step on Xylo HDK
-            putils.advance_time_step(self._device)
+            hdkutils.advance_time_step(self._write_buffer)
 
             # - Wait until Xylo HDK has finished the simulation of this time step
             t_start = time.time()
             is_timeout = False
-            while not putils.is_xylo_ready(self._device, self._event_buffer):
+            while not hdkutils.is_xylo_ready(self._read_buffer, self._write_buffer):
                 if time.time() - t_start > read_timeout:
                     is_timeout = True
                     break
@@ -921,8 +958,8 @@ class XyloSamna(Module):
 
             # - Read all RAM and register state for this time step
             if record:
-                this_state = putils.read_allram_state(
-                    self._device, self._event_buffer, Nin, Nhidden, Nout
+                this_state = hdkutils.read_allram_state(
+                    self._read_buffer, self._write_buffer, Nin, Nhidden, Nout
                 )
                 vmem_ts.append(this_state.V_mem_hid)
                 isyn_ts.append(this_state.I_syn_hid)
@@ -949,10 +986,12 @@ class XyloSamna(Module):
 
                 # - Save register after evolve_manual for each timestamp
                 file = folder + f"register_{timestep}.txt"
-                putils.export_registers(self._device, self._event_buffer, file)
+                hdkutils.export_registers(self._read_buffer, self._write_buffer, file)
 
             # - Read the output event register
-            output_events = putils.read_output_events(self._device, self._event_buffer)
+            output_events = hdkutils.read_output_events(
+                self._read_buffer, self._write_buffer
+            )
             output_ts.append(output_events)
 
         if record:

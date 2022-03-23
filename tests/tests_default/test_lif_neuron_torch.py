@@ -1,5 +1,7 @@
 import pytest
 
+pytest.importorskip("torch")
+
 
 def test_LIFNeuronTorch():
     from rockpool.nn.modules.torch.lif_neuron_torch import LIFNeuronTorch
@@ -17,14 +19,7 @@ def test_LIFNeuronTorch():
 
     # - Test maximal initialisation
     mod = LIFNeuronTorch(
-        shape=n_neurons,
-        tau_mem=tau_mem,
-        bias=bias,
-        has_bias=True,
-        dt=1e-3,
-        noise_std=0.1,
-        device=None,
-        dtype=None,
+        shape=n_neurons, tau_mem=tau_mem, bias=bias, dt=1e-3, noise_std=0.1
     )
 
     # - Generate some data
@@ -40,6 +35,6 @@ def test_LIFNeuronTorch():
 
     assert out.shape == input_data.shape
     for _, obj in ns.items():
-        assert obj.shape == (1, n_neurons)
+        assert obj.shape == (n_neurons,)
     for _, obj in rd.items():
         assert obj.shape == input_data.shape

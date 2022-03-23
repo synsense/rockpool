@@ -1,12 +1,14 @@
 import pytest
 
+pytest.importorskip("jax")
+
 
 def test_imports():
-    from rockpool.nn.modules import ExpSmoothJax
+    from rockpool.nn.modules.jax.exp_smooth_jax import ExpSmoothJax
 
 
 def test_ExpSmoothJax():
-    from rockpool.nn.modules import ExpSmoothJax
+    from rockpool.nn.modules.jax.exp_smooth_jax import ExpSmoothJax
     import numpy as np
     import jax.numpy as jnp
     import jax

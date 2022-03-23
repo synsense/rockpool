@@ -1,7 +1,7 @@
 """
-updown.py - Feedforward layer that converts each analogue input channel to one spiking up and one down channel
-            Runs in batch mode like UpDownTorch to save memory, but does not use pytorch. UpDownTorch seems
-            to be slower..
+Feedforward layer that converts each analogue input channel to one spiking up and one down channel
+
+Runs in batch mode like UpDownTorch to save memory, but does not use pytorch. UpDownTorch seems to be slower...
 """
 
 from typing import Optional, Union, Tuple
@@ -301,7 +301,7 @@ class FFUpDownV1(Layer):
 
     @property
     def output_type(self):
-        """ Returns the output type class """
+        """Returns the output type class"""
         return TSEvent
 
     # @property
@@ -319,7 +319,7 @@ class FFUpDownV1(Layer):
 
     @property
     def thr_up(self):
-        """ Returns the spiking threshold of the ``up`` channel """
+        """Returns the spiking threshold of the ``up`` channel"""
         return self._vfThrUp
 
     @thr_up.setter
@@ -332,7 +332,7 @@ class FFUpDownV1(Layer):
 
     @property
     def thr_down(self):
-        """ Returns the spiking threshold of the ``down`` channel """
+        """Returns the spiking threshold of the ``down`` channel"""
         return self._vfThrDown
 
     @thr_down.setter
@@ -344,7 +344,7 @@ class FFUpDownV1(Layer):
 
     @property
     def tau_decay(self):
-        """ Returns the decay time constant """
+        """Returns the decay time constant"""
         tau = np.repeat(None, self.size_in)
         # - Treat decay factors of 1 as not decaying (i.e. set them None)
         vbDecay = self._vfDecayFactor != 1

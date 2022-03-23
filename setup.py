@@ -1,7 +1,5 @@
-import logging
 from distutils.core import setup
 import setuptools
-from setuptools import Extension
 
 # - Read version
 exec(open("rockpool/version.py").read())
@@ -15,6 +13,7 @@ setup_args = {
     "install_requires": ["numpy", "scipy"],
     "extras_require": {
         "all": [
+            "numba",
             "tqdm",
             "brian2",
             "pytest>=6.0",
@@ -23,13 +22,15 @@ setup_args = {
             "torchvision",
             "jax>=0.2.13",
             "jaxlib>=0.1.66",
-            "samna",
             "sphinx",
             "nbsphinx",
             "sphinx-autobuild",
             "sphinx-rtd-theme",
             "recommonmark",
             "pandoc",
+            "sinabs",
+            "xylosim",
+            "samna>=0.10.32.0",
         ]
     },
     "description": "A Python package for developing, simulating and training spiking neural networks, and deploying on neuromorphic hardware",
@@ -40,34 +41,14 @@ setup_args = {
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     ],
-    "keywords": "spiking neural network SNN neuromorphic",
-    "python_requires": ">=3.6",
+    "keywords": "spiking neural network SNN neuromorphic machine learning ML",
+    "python_requires": ">=3.7",
     "project_urls": {
-        "Source Code": "https://gitlab.com/SynSense/rockpool",
+        "Source Code": "https://github.com/SynSense/rockpool",
         "Documentation": "https://rockpool.ai",
-        "Bug Tracker": "https://gitlab.com/SynSense/rockpool/-/issues",
+        "Bug Tracker": "https://github.com/SynSense/rockpool/issues",
     },
+    "include_package_data": True,
 }
 
-try:
-    from torch.utils import cpp_extension
-
-    # cpp extensions
-    ext_modules = [
-        cpp_extension.CppExtension(
-            name="torch_lif_cpp",
-            sources=[
-                "rockpool/nn/modules/torch/cpp/lif.cpp",
-                "rockpool/nn/modules/torch/cpp/threshold.cpp",
-                "rockpool/nn/modules/torch/cpp/bitshift.cpp",
-            ],
-            extra_compile_args=["-O3"],
-        ),
-    ]
-
-    cmdclass = {"build_ext": cpp_extension.BuildExtension}
-
-    setup(ext_modules=ext_modules, cmdclass=cmdclass, **setup_args)
-except:
-    logging.warning("The Torch C++ extension could not be compiled")
-    setup(**setup_args)
+setup(**setup_args)

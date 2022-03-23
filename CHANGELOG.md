@@ -2,6 +2,42 @@
 
 All notable changes between Rockpool releases will be documented in this file.
 
+## [v2.3] -- 2022-03-16
+
+### Added
+
+ - Standard dynamics introduced for LIF, Rate, Linear, Instant, ExpSyn. These are standardised across Jax, Torch and Numpy backends. We make efforts to guarantee identical dynamics for the standard modules across these backends, down to numerical precision
+ - LIF modules can now train threhsolds and biases as well as time constants
+ - New `JaxODELIF` module, which implements a trainable LIF neuron following common dynamical equations for LIF neurons
+ - New addition of the WaveSense network architecture, for temporal signal processing with SNNs. This is available in `rockpool.networks`, and is documented with a tutorial
+ - A new system for managing computational graphs, and mapping these graphs onto hardware architectures was introduced. These are documented in the Xylo quick-start tutorial, and in more detail in tutorials covering Computational Graphs and Graph Mapping. The mapping system performs design-rule checks for Xylo HDK
+ - Included methods for post-traning quantisation for Xylo, in `rockpool.transform`
+ - Added simulation of a divisive normalisation block for Xylo audio applications
+ - Added a `Residual` combinator, for convenient generation of networks with residual blocks
+ - Support for `sinabs` layers and Exodus
+ - `Module`, `JaxModule` and `TorchModule` provide facility for auto-batching of input data. Input data shape is `(B, T, Nin)`, or `(T, Nin)` when only a single batch is provided 
+ - Expanded documentation on parameters and type-hinting
+
+### Changed
+
+ - Python > 3.6 is now required
+ - Improved import handling, when various computational back-ends are missing
+ - Updated for new versions of `samna`
+ - Renamed Cimulator -> XyloSim
+ - Better parameter handling and rockpool/torch parameter registration for Torch modules
+ - (Most) modules can accept batched input data
+ - Improved / additional documentation for Xylo
+ 
+### Fixed
+
+ - Improved type casting and device handling for Torch modules
+ - Fixed bug in Module, where `modules()` would return a non-ordered dict. This caused issues with `JaxModule`
+
+### Removed
+
+ - Removed several obsolete `Layer`s and `Network`s from Rockpool v1
+
+
 ## [v2.2] -- 2021-09-09
 
 ### Added

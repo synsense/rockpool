@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_imports():
     from rockpool.nn.modules.timed_module import TimedModule, TimedModuleWrapper
 
@@ -173,6 +176,7 @@ def test_submodules():
 
 
 def test_wrapper():
+    pytest.importorskip("jax")
     from rockpool.nn.modules.timed_module import TimedModuleWrapper
     from rockpool.nn.modules.jax.jax_module import JaxModule
     from rockpool.nn.modules.jax.rate_jax import RateEulerJax

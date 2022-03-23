@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_imports():
     from rockpool.nn.combinators.sequential import (
         SequentialMixin,
@@ -49,7 +52,7 @@ def test_Sequential_mod():
     input_data = np.random.rand(100, 10)
 
     # - Test evolve
-    (output, _, _,) = seq(input_data)
+    (output, _, _) = seq(input_data)
     print(output.shape)
 
     # - Test parameters
@@ -58,10 +61,11 @@ def test_Sequential_mod():
 
 
 def test_Sequential_jax():
-    from rockpool.nn.combinators.sequential import Sequential
-    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
-    from rockpool.nn.modules.native.linear import LinearJax
-    from rockpool.nn.modules.jax.jax_module import JaxModule
+    pytest.importorskip("jax")
+    from rockpool.nn.combinators import Sequential
+    from rockpool.nn.modules import RateJax
+    from rockpool.nn.modules import LinearJax
+    from rockpool.nn.modules import JaxModule
     from rockpool.parameters import State, Parameter
     from copy import deepcopy
 
@@ -76,9 +80,9 @@ def test_Sequential_jax():
     # - Use 'tanh' in neuron layers, to make sure we don't have vanishing gradients
     seq = Sequential(
         LinearJax((Nin, Nhidden)),
-        RateEulerJax(Nhidden, activation_func="tanh"),
+        RateJax(Nhidden, activation_func="tanh"),
         LinearJax((Nhidden, Nout)),
-        RateEulerJax(Nout, activation_func="tanh"),
+        RateJax(Nout, activation_func="tanh"),
     )
     print("network:", seq)
 
@@ -86,7 +90,11 @@ def test_Sequential_jax():
     T = 10
     input_data = np.random.rand(T, Nin)
 
-    (output, new_state, recorded_state,) = seq(input_data)
+    (
+        output,
+        new_state,
+        recorded_state,
+    ) = seq(input_data)
     seq = seq.set_attributes(new_state)
     print("output: ", output.T)
 
@@ -97,7 +105,11 @@ def test_Sequential_jax():
 
     # - Test compilation
     je = jax.jit(seq)
-    (output_jit, _, _,) = je(input_data)
+    (
+        output_jit,
+        _,
+        _,
+    ) = je(input_data)
     print("jax.jit output: ", output_jit.T)
 
     # - Test differentiation
@@ -118,6 +130,7 @@ def test_Sequential_jax():
 
 
 def test_Sequential_torch():
+    pytest.importorskip("torch")
     from rockpool.nn.combinators.sequential import Sequential
     from rockpool.nn.modules.torch.linear_torch import LinearTorch
     from rockpool.nn.modules.torch.torch_module import TorchModule
@@ -149,7 +162,11 @@ def test_Sequential_torch():
     input_data = torch.randn((100, 10))
 
     # - Test evolve
-    (output, _, _,) = seq(input_data)
+    (
+        output,
+        _,
+        _,
+    ) = seq(input_data)
     print(output.shape)
 
     # - Test parameters
@@ -177,13 +194,22 @@ def test_FFwdStack_mod():
         def evolve(self, input_data, record: bool = False):
             return input_data + self.bias, {}, {}
 
-    seq = FFwdStack(Mod(10), Mod(20), Mod(30), Mod(1),)
+    seq = FFwdStack(
+        Mod(10),
+        Mod(20),
+        Mod(30),
+        Mod(1),
+    )
     print(seq)
 
     input_data = np.random.rand(100, 10)
 
     # - Test evolve
-    (output, _, _,) = seq(input_data)
+    (
+        output,
+        _,
+        _,
+    ) = seq(input_data)
     print(output.shape)
 
     # - Test parameters
@@ -192,9 +218,10 @@ def test_FFwdStack_mod():
 
 
 def test_FFwdStack_jax():
-    from rockpool.nn.combinators.ffwd_stack import FFwdStack
-    from rockpool.nn.modules.native.linear import LinearJax
-    from rockpool.nn.modules.jax.jax_module import JaxModule
+    pytest.importorskip("jax")
+    from rockpool.nn.combinators import FFwdStack
+    from rockpool.nn.modules import LinearJax
+    from rockpool.nn.modules import JaxModule
     from rockpool.parameters import State, Parameter
 
     import numpy as np
@@ -212,14 +239,23 @@ def test_FFwdStack_jax():
         def evolve(self, input_data, record: bool = False):
             return input_data + self.bias, {}, {}
 
-    seq = FFwdStack(Mod(10), Mod(20), Mod(30), Mod(1),)
+    seq = FFwdStack(
+        Mod(10),
+        Mod(20),
+        Mod(30),
+        Mod(1),
+    )
     print(seq)
 
     input_data = np.random.rand(100, 10)
 
     # - Test evolve
     seq_jit = jit(seq)
-    (output, _, _,) = seq_jit(input_data)
+    (
+        output,
+        _,
+        _,
+    ) = seq_jit(input_data)
     print(output.shape)
 
     # - Test parameters
@@ -228,10 +264,15 @@ def test_FFwdStack_jax():
 
     # - Test compilation
     je = jit(seq)
-    (output, _, _,) = seq(input_data)
+    (
+        output,
+        _,
+        _,
+    ) = seq(input_data)
 
 
 def test_FFwdStack_torch():
+    pytest.importorskip("torch")
     from rockpool.nn.combinators.ffwd_stack import FFwdStack
     from rockpool.nn.modules.native.linear import Linear
     from rockpool.nn.modules.torch.torch_module import TorchModule
@@ -249,13 +290,22 @@ def test_FFwdStack_torch():
         def evolve(self, input_data, record: bool = False):
             return input_data + self.bias, {}, {}
 
-    seq = FFwdStack(Mod(10), Mod(20), Mod(30), Mod(1),)
+    seq = FFwdStack(
+        Mod(10),
+        Mod(20),
+        Mod(30),
+        Mod(1),
+    )
     print(seq)
 
     input_data = torch.rand((100, 10))
 
     # - Test evolve
-    (output, _, _,) = seq(input_data)
+    (
+        output,
+        _,
+        _,
+    ) = seq(input_data)
     print(output.shape)
 
     # - Test parameters

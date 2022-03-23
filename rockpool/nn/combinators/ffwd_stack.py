@@ -5,6 +5,12 @@ Implement a combinator that creates feed-forward module stacks, by placing a lin
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import Parameter
 
+
+from rockpool.utilities.backend_management import (
+    backend_available,
+    missing_backend_shim,
+)
+
 from typing import Tuple, Any
 
 import numpy as onp
@@ -22,7 +28,9 @@ class FFwdStackMixin(ABC):
     _dot = None
 
     def __init__(
-        self, *args, **kwargs,
+        self,
+        *args,
+        **kwargs,
     ):
         # - Check that `shape` wasn't provided as a keyword argument
         if "shape" in kwargs:
@@ -87,13 +95,19 @@ class FFwdStackMixin(ABC):
             setattr(
                 self,
                 w_name,
-                Parameter(shape=w_shape, family="weights", init_func=weight_init_func,),
+                Parameter(
+                    shape=w_shape,
+                    family="weights",
+                    init_func=weight_init_func,
+                ),
             )
 
         # - Assign modules as submodules
         for (mod_name, submod) in zip(submod_names, submods):
             setattr(
-                self, mod_name, submod,
+                self,
+                mod_name,
+                submod,
             )
 
         # - Record module and weight lists
@@ -117,7 +131,10 @@ class FFwdStackMixin(ABC):
             input_data, substate, subrec = mod(input_data, record=record)
             new_state_dict.update({submod_name: substate})
             record_dict.update(
-                {submod_name: subrec, f"{submod_name}_output": input_data,}
+                {
+                    submod_name: subrec,
+                    f"{submod_name}_output": input_data,
+                }
             )
 
             # - Push data through weight
@@ -140,7 +157,7 @@ class ModFFwdStack(FFwdStackMixin, Module):
     pass
 
 
-try:
+if backend_available("jax"):
     from jax import numpy as jnp
     from rockpool.nn.modules.jax.jax_module import JaxModule
 
@@ -148,17 +165,14 @@ try:
         _dot = staticmethod(jnp.dot)
         pass
 
+else:
+    JaxFFwdStack = missing_backend_shim("JaxFFwdStack", "jax")
 
-except:
-
-    class JaxFFwdStack:
-        def __init__(self):
-            raise ImportError(
-                "'Jax' and 'Jaxlib' backend not found. Modules relying on Jax will not be available."
-            )
+    class JaxModule:
+        pass
 
 
-try:
+if backend_available("torch"):
     from rockpool.nn.modules.torch.torch_module import TorchModule
     import torch
 
@@ -166,14 +180,11 @@ try:
         _dot = staticmethod(torch.matmul)
         pass
 
+else:
+    TorchFFwdStack = missing_backend_shim("TorchFFwdStack", "torch")
 
-except:
-
-    class TorchFFwdStack:
-        def __init__(self):
-            raise ImportError(
-                "'Torch' backend not found. Modules relying on PyTorch will not be available."
-            )
+    class TorchModule:
+        pass
 
 
 def FFwdStack(*args, **kwargs):

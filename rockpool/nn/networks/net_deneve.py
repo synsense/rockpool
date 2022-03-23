@@ -2,7 +2,7 @@
 # net_deneve.py - Classes and functions for encapsulating Denève reservoirs
 ###
 
-raise ImportError("This module needs to be ported to teh v2 API.")
+raise ImportError("This module needs to be ported to the v2 API.")
 
 from rockpool.nn.networks.network import Network
 from rockpool.nn.layers import PassThrough, FFExpSyn
@@ -92,11 +92,11 @@ class NetworkDeneve(Network):
 
         v_t = (
             nu * lambda_d
-            + mu * lambda_d ** 2
+            + mu * lambda_d**2
             + np.sum(abs(gamma.T), -1, keepdims=True) ** 2
         ) / 2
 
-        omega_f = gamma.T @ gamma + mu * lambda_d ** 2 * np.identity(net_size)
+        omega_f = gamma.T @ gamma + mu * lambda_d**2 * np.identity(net_size)
         omega_s = gamma.T @ (a + lambda_d * np.identity(nJ)) @ gamma
 
         # - Scale problem to arbitrary membrane potential ranges and time constants

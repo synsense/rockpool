@@ -1,4 +1,4 @@
-from pytest import raises
+import pytest
 
 
 def test_linear():
@@ -15,13 +15,13 @@ def test_linear():
 
     assert output.shape == (10, 10)
 
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         mod = Linear(10)
 
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         mod = Linear((10,))
 
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         mod = Linear((10, 10, 10))
 
 
@@ -39,18 +39,20 @@ def test_linear_nobias():
 
     assert output.shape == (10, 10)
 
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         mod = Linear(10, has_bias=False)
 
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         mod = Linear((10,), has_bias=False)
 
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         mod = Linear((10, 10, 10), has_bias=False)
 
 
 def test_jaxlinear():
-    from rockpool.nn.modules.native.linear import LinearJax
+    pytest.importorskip("jax")
+
+    from rockpool.nn.modules import LinearJax
     import jax
     import jax.numpy as jnp
 
@@ -65,13 +67,13 @@ def test_jaxlinear():
 
     assert output.shape == (10, 10)
 
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         mod = LinearJax(10)
 
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         mod = LinearJax((10,))
 
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         mod = LinearJax((10, 10, 10))
 
     # - Test compiled
@@ -94,7 +96,9 @@ def test_jaxlinear():
 
 
 def test_jaxlinear_nobias():
-    from rockpool.nn.modules.native.linear import LinearJax
+    pytest.importorskip("jax")
+
+    from rockpool.nn.modules import LinearJax
     import jax
     import jax.numpy as jnp
 
@@ -109,13 +113,13 @@ def test_jaxlinear_nobias():
 
     assert output.shape == (10, 10)
 
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         mod = LinearJax(10, has_bias=False)
 
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         mod = LinearJax((10,), has_bias=False)
 
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         mod = LinearJax((10, 10, 10), has_bias=False)
 
     # - Test compiled

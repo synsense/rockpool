@@ -1,17 +1,10 @@
-###
-# exp_synapses_brian.py - Class implementing a spike-to-current layer with exponential synapses
-###
+"""
+Spike-to-current layer with exponential synapses, with a Brian2 backend
+"""
 
 
 # - Imports
 from warnings import warn
-
-from importlib import util
-
-if util.find_spec("brian2") is None:
-    raise ModuleNotFoundError(
-        "'Brian2' backend not found. Modules that rely on Brian will not be available."
-    )
 
 import brian2 as b2
 import brian2.numpy_ as np

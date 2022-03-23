@@ -269,7 +269,8 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
         # - Store number of layer time steps per global time step for each layer
         for _, mod in self.modules().items():
-            mod._parent_dt_factor = float(round(self.dt / mod.dt))
+            if hasattr(mod, "dt"):
+                mod._parent_dt_factor = float(round(self.dt / mod.dt))
 
     def _evolve_wrapper(
         self,
@@ -529,6 +530,9 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         Returns:
             TimeSeries: The data in ``output`` wrapped into a :py:class:`.TimeSeries` object
         """
+        if len(output.shape) > 2:
+            output = output[0]
+
         if self.spiking_output:
             return self._gen_tsevent(output, **kwargs)
         else:
@@ -726,7 +730,7 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
     @property
     def input_type(self) -> type:
-        """ type: The :py:class:`.TimeSeries` class accepted by this module """
+        """type: The :py:class:`.TimeSeries` class accepted by this module"""
         if self.spiking_input:
             return TSEvent
         else:
@@ -734,7 +738,7 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
     @property
     def output_type(self) -> type:
-        """ type: The :py:class:`.TimeSeries` class returned by this module """
+        """type: The :py:class:`.TimeSeries` class returned by this module"""
         if self.spiking_output:
             return TSEvent
         else:
@@ -742,7 +746,7 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
     @property
     def t(self) -> float:
-        """ float: The current evolution time of this layer, in seconds """
+        """float: The current evolution time of this layer, in seconds"""
         return self._timestep * self.dt
 
     @t.setter
@@ -855,11 +859,11 @@ class TimedModuleWrapper(TimedModule):
 
     @property
     def module(self):
-        """ `Module`: The wrapped module """
+        """`Module`: The wrapped module"""
         return self._module
 
     def __repr__(self) -> str:
-        """ str: A representation of this module as a string """
+        """str: A representation of this module as a string"""
         return f"{super().__repr__()} with {self._module.full_name} as module"
 
     def evolve(
@@ -994,12 +998,12 @@ class LayerToTimedModule(TimedModule):
                 )
 
     def reset_time(self) -> None:
-        """ Reset the internal clock for this `TimedModule` """
+        """Reset the internal clock for this `TimedModule`"""
         super().reset_time()
         self._module.reset_time()
 
     def reset_state(self) -> None:
-        """ Reset the internal state for this `TimedModule` """
+        """Reset the internal state for this `TimedModule`"""
         super().reset_state()
         self._module.reset_state()
 
@@ -1069,7 +1073,7 @@ class LayerToTimedModule(TimedModule):
             Any: The value of the attribute
 
         """
-        if key is "_ModuleBase__registered_attributes" or key is "_ModuleBase__modules":
+        if key == "_ModuleBase__registered_attributes" or key == "_ModuleBase__modules":
             raise AttributeError
 
         # - Get attribute from module if registered

@@ -1,24 +1,23 @@
 """
 Utilities for working with the Xylo HDK.
 
-Ideally you should not need to use these utility functions. You should try using :py:class:`.XyloSamna` and :py:class:`.XyloCim` for high-level interfaces to Xylo.
+Ideally you should not need to use these utility functions. You should try using :py:class:`.XyloSamna` and :py:class:`.XyloSim` for high-level interfaces to Xylo.
 
 See Also:
     The tutorials in :ref:`/devices/xylo-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-xylo.ipynb`.
 
 """
 
-# - Check that Samna is installed
-from importlib import util
+from rockpool.utilities.backend_management import backend_available
 
-if util.find_spec("samna") is None:
+if not backend_available("samna"):
     raise ModuleNotFoundError(
-        "'samna' not found. Modules that rely on Samna will not be available."
+        "`samna` not found. The Xylo HDK requires `samna` for interfacing."
     )
 
 # - `samna` imports
 import samna
-from samna.pollen.configuration import PollenConfiguration as XyloConfiguration
+from samna.xylo.configuration import XyloConfiguration
 
 # - Other imports
 from warnings import warn
@@ -31,10 +30,10 @@ import json
 # - Typing and useful proxy types
 from typing import Any, List, Iterable, Optional, NamedTuple, Union, Tuple
 
-XyloDaughterBoard = Any
-SamnaDeviceNode = Any
-XyloReadBuffer = samna.BufferSinkNode_pollen_event_output_event
-XyloNeuronStateBuffer = samna.pollen.NeuronStateSinkNode
+XyloHDK = Any
+XyloReadBuffer = samna.BasicSinkNode_xylo_event_output_event
+XyloWriteBuffer = samna.BasicSourceNode_xylo_event_input_event
+XyloNeuronStateBuffer = samna.xylo.NeuronStateSinkNode
 
 
 class XyloState(NamedTuple):
@@ -150,69 +149,45 @@ class XyloAllRam(NamedTuple):
     """ np.ndarray: Contents of OWTRAM """
 
 
-def find_xylo_boards(device_node: SamnaDeviceNode) -> List[XyloDaughterBoard]:
+def find_xylo_boards() -> List[XyloHDK]:
     """
-    Search for and return a list of Xylo HDK daughterboards
+    Search for and return a list of Xylo HDK hdks
 
-    Iterate over devices and search for Xylo HDK daughterboards. Return a list of available Xylo daughterboards, or an empty list if none are found.
-
-    Notes:
-        This function will open any unopened devices on the device node.
-
-    Args:
-        device_node (SamnaDeviceNode): An opened Samna device node
+    Iterate over devices and search for Xylo HDK hdks. Return a list of available Xylo hdks, or an empty list if none are found.
 
     Returns:
-        List[XyloDaughterBoard]: A (possibly empty) list of Xylo HDK daughterboards.
+        List[XyloDaughterBoard]: A (possibly empty) list of Xylo HDK hdks.
     """
-    # - Get a list of unopened devices
-    unopened_devices = device_node.DeviceController.get_unopened_devices()
-
-    # - Open the devices
-    for d in unopened_devices:
-        n = 0
-        try:
-            device_node.DeviceController.open_device(d, f"board{n}")
-        except:
-            pass
-
-    # - Get a list of opened devices
-    device_list = device_node.DeviceController.get_opened_devices()
+    # - Get a list of devices
+    device_list = samna.device.get_all_devices()
 
     # - Search for a xylo dev kit
     xylo_hdk_list = [
-        getattr(device_node, d.name)
+        samna.device.open_device(d)
         for d in device_list
-        if d.device_info.device_type_name == "PollenDevKit"
+        if d.device_type_name == "XyloDevKit" or d.device_type_name == "XyloTestBoard"
     ]
 
-    # - Search for xylo boards
-    xylo_daughterboard_list = []
-    for d in xylo_hdk_list:
-        daughterboard = d.get_daughter_board(0)
-        if "PollenDaughterBoard" in str(type(daughterboard)):
-            xylo_daughterboard_list.append(daughterboard)
-
-    return xylo_daughterboard_list
+    return xylo_hdk_list
 
 
 def new_xylo_read_buffer(
-    daughterboard: XyloDaughterBoard,
+    hdk: XyloHDK,
 ) -> XyloReadBuffer:
     """
     Create and connect a new buffer to read from a Xylo HDK
 
     Args:
-        daughterboard (XyloDaughterBoard):
+        hdk (XyloDaughterBoard):
 
     Returns:
-        samna.BufferSinkNode_xylo_event_output_event: Output buffer receiving events from Xylo HDK
+        samna.BasicSinkNode_xylo_event_output_event: Output buffer receiving events from Xylo HDK
     """
     # - Register a buffer to read events from Xylo
     buffer = XyloReadBuffer()
 
     # - Get the device model
-    model = daughterboard.get_model()
+    model = hdk.get_model()
     # print("   got model")
 
     # - Get Xylo output event source node
@@ -230,14 +205,30 @@ def new_xylo_read_buffer(
     return buffer
 
 
+def new_xylo_write_buffer(hdk: XyloHDK) -> XyloWriteBuffer:
+    """
+    Create a new buffer for writing events to a Xylo HDK
+
+    Args:
+        hdk (XyloDaughterBoard): A Xylo HDK to create a new buffer for
+
+    Returns:
+        XyloWriteBuffer: A connected event write buffer
+    """
+    buffer = XyloWriteBuffer()
+    sink = hdk.get_model().get_sink_node()
+    buffer.add_destination(sink.get_input_node())
+    return buffer
+
+
 def new_xylo_state_monitor_buffer(
-    daughterboard: XyloDaughterBoard,
+    hdk: XyloHDK,
 ) -> XyloNeuronStateBuffer:
     """
     Create a new buffer for monitoring neuron and synapse state and connect it
 
     Args:
-        daughterboard (XyloDaughterBoard): A Xylo HDK to configure
+        hdk (XyloDaughterBoard): A Xylo HDK to configure
 
     Returns:
         XyloNeuronStateBuffer: A connected neuron / synapse state monitor buffer
@@ -246,7 +237,7 @@ def new_xylo_state_monitor_buffer(
     buffer = XyloNeuronStateBuffer()
 
     # - Get the device model
-    model = daughterboard.get_model()
+    model = hdk.get_model()
 
     # - Get Xylo output event source node
     source_node = model.get_source_node()
@@ -260,7 +251,7 @@ def new_xylo_state_monitor_buffer(
 
 
 def blocking_read(
-    buffer: XyloReadBuffer,
+    read_buffer: XyloReadBuffer,
     target_timestamp: Optional[int] = None,
     count: Optional[int] = None,
     timeout: Optional[float] = None,
@@ -271,7 +262,7 @@ def blocking_read(
     You should not provide `count` and `target_timestamp` together.
 
     Args:
-        buffer (XyloReadBuffer): A buffer to read from
+        read_buffer (XyloReadBuffer): A buffer to read from
         target_timestamp (Optional[int]): The desired final timestamp. Read until this timestamp is returned in an event. Default: ``None``, don't wait until a particular timestamp is read.
         count (Optional[int]): The count of required events. Default: ``None``, just wait for any data.
         timeout (Optional[float]): The time in seconds to wait for a result. Default: ``None``, no timeout: block until a read is made.
@@ -288,7 +279,7 @@ def blocking_read(
     start_time = time.time()
     while continue_read:
         # - Perform a read and save events
-        events = buffer.get_events()
+        events = read_buffer.get_events()
         all_events.extend(events)
 
         # - Check if we reached the desired timestamp
@@ -317,25 +308,25 @@ def blocking_read(
             continue_read &= len(all_events) == 0
 
     # - Perform one final read for good measure
-    all_events.extend(buffer.get_events())
+    all_events.extend(read_buffer.get_events())
 
     # - Return read events
     return all_events, is_timeout
 
 
-def initialise_xylo_hdk(daughterboard: XyloDaughterBoard) -> None:
+def initialise_xylo_hdk(write_buffer: XyloWriteBuffer) -> None:
     """
     Initialise the Xylo HDK
 
     Args:
-        daughterboard (XyloDaughterBoard): A Xylo daughterboard to initialise
+        write_buffer (XyloWriteBuffer): A write buffer connected to a Xylo HDK to initialise
     """
     # - Always need to advance one time-step to initialise
-    advance_time_step(daughterboard)
+    advance_time_step(write_buffer)
 
 
 def write_register(
-    daughterboard: XyloDaughterBoard,
+    write_buffer: XyloWriteBuffer,
     register: int,
     data: int = 0,
 ) -> None:
@@ -343,19 +334,19 @@ def write_register(
     Write data to a register on a Xylo HDK
 
     Args:
-        daughterboard (XyloDaughterboard): A xylo HDK daughterboard to write to
+        write_buffer (XyloWriteBuffer): A connected write buffer to the desintation Xylo HDK
         register (int): The address of the register to write to
         data (int): The data to write. Default: 0x0
     """
-    wwv_ev = samna.pollen.event.WriteRegisterValue()
+    wwv_ev = samna.xylo.event.WriteRegisterValue()
     wwv_ev.address = register
     wwv_ev.data = data
-    daughterboard.get_model().write([wwv_ev])
+    write_buffer.write([wwv_ev])
 
 
 def read_register(
-    daughterboard: XyloDaughterBoard,
-    buffer: XyloReadBuffer,
+    read_buffer: XyloReadBuffer,
+    write_buffer: XyloWriteBuffer,
     address: int,
     timeout: float = 2.0,
 ) -> List[int]:
@@ -363,8 +354,8 @@ def read_register(
     Read the contents of a register
 
     Args:
-        daughterboard (XyloDaughterBoard):
-        buffer (samna.BufferSinkNode_xylo_event_output_event):
+        read_buffer (XyloReadBuffer): A connected read buffer to the XYlo HDK
+        write_buffer (XyloWriteBuffer): A connected write buffer to the Xylo HDK
         address (int): The register address to read
         timeout (float): A timeout in seconds
 
@@ -372,18 +363,18 @@ def read_register(
         List[int]: A list of events returned from the read
     """
     # - Set up a register read
-    rrv_ev = samna.pollen.event.ReadRegisterValue()
+    rrv_ev = samna.xylo.event.ReadRegisterValue()
     rrv_ev.address = address
 
     # - Request read
-    daughterboard.get_model().write([rrv_ev])
+    write_buffer.write([rrv_ev])
 
     # - Wait for data and read it
     start_t = time.time()
     continue_read = True
     while continue_read:
         # - Read from the buffer
-        events = buffer.get_events()
+        events = read_buffer.get_events()
 
         # - Filter returned events for the desired address
         ev_filt = [e for e in events if hasattr(e, "address") and e.address == address]
@@ -401,8 +392,8 @@ def read_register(
 
 
 def read_memory(
-    daughterboard: XyloDaughterBoard,
-    buffer: XyloReadBuffer,
+    read_buffer: XyloReadBuffer,
+    write_buffer: XyloWriteBuffer,
     start_address: int,
     count: int = 1,
     read_timeout: float = 2.0,
@@ -411,8 +402,8 @@ def read_memory(
     Read a block of memory from a Xylo HDK
 
     Args:
-        daughterboard (XyloDaughterboard):
-        buffer (samna.BufferSinkNode_xylo_event_output_event): A connected output buffer to use in reading
+        read_buffer (XyloReadBuffer): A connected read buffer to the desired Xylo HDK
+        write_buffer (XyloWriteBuffer): A connected write buffer to the desired Xylo HDK
         start_address (int): The base address to start reading from
         count (int): The number of elements to read
 
@@ -423,23 +414,25 @@ def read_memory(
     read_events_list = []
 
     # - Insert an extra read to avoid zero data
-    rmv_ev = samna.pollen.event.ReadMemoryValue()
+    rmv_ev = samna.xylo.event.ReadMemoryValue()
     rmv_ev.address = start_address
     read_events_list.append(rmv_ev)
 
     for elem in range(count):
-        rmv_ev = samna.pollen.event.ReadMemoryValue()
+        rmv_ev = samna.xylo.event.ReadMemoryValue()
         rmv_ev.address = start_address + elem
         read_events_list.append(rmv_ev)
 
     # - Clear buffer
-    buffer.get_events()
+    read_buffer.get_events()
 
     # - Request read
-    daughterboard.get_model().write(read_events_list)
+    write_buffer.write(read_events_list)
 
     # - Read data
-    events, is_timeout = blocking_read(buffer, count=count + 1, timeout=read_timeout)
+    events, is_timeout = blocking_read(
+        read_buffer, count=count + 1, timeout=read_timeout
+    )
     if is_timeout:
         raise TimeoutError(
             f"Memory read timed out after {read_timeout} s. Reading @{start_address}+{count}."
@@ -478,12 +471,12 @@ def generate_read_memory_events(
     read_events_list = []
 
     # - Insert an extra read to avoid zero data
-    rmv_ev = samna.pollen.event.ReadMemoryValue()
+    rmv_ev = samna.xylo.event.ReadMemoryValue()
     rmv_ev.address = start_address
     read_events_list.append(rmv_ev)
 
     for elem in range(count):
-        rmv_ev = samna.pollen.event.ReadMemoryValue()
+        rmv_ev = samna.xylo.event.ReadMemoryValue()
         rmv_ev.address = start_address + elem
         read_events_list.append(rmv_ev)
 
@@ -524,35 +517,33 @@ def decode_memory_read_events(
 
 
 def verify_xylo_version(
-    daughterboard: XyloDaughterBoard,
-    buffer: XyloReadBuffer,
+    read_buffer: XyloReadBuffer,
+    write_buffer: XyloWriteBuffer,
     timeout: float = 1.0,
 ) -> bool:
     """
     Verify that the provided daughterbaord returns the correct version ID for Xylo
 
     Args:
-        daughterboard (XyloDaughterBoard): A daughter-board object to test
-        buffer (samna.BufferSinkNode_xylo_event_output_event): A read buffer
+        read_buffer (XyloReadBuffer): A read buffer connected to the Xylo HDK
+        write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK
         timeout (float): Timeout for checking in seconds
 
     Returns:
         bool: ``True`` iff the version ID is correct for Xylo
     """
     # - Clear the read buffer
-    buffer.get_events()
+    read_buffer.get_events()
 
     # - Read the version register
-    daughterboard.get_model().write([samna.pollen.event.ReadVersion()])
+    write_buffer.write([samna.xylo.event.ReadVersion()])
 
     # - Read events until timeout
     filtered_events = []
     t_end = time.time() + timeout
     while len(filtered_events) == 0:
-        events = buffer.get_events()
-        filtered_events = [
-            e for e in events if isinstance(e, samna.pollen.event.Version)
-        ]
+        events = read_buffer.get_events()
+        filtered_events = [e for e in events if isinstance(e, samna.xylo.event.Version)]
 
         # - Check timeout
         if time.time() > t_end:
@@ -566,7 +557,7 @@ def verify_xylo_version(
 
 
 def write_memory(
-    daughterboard: XyloDaughterBoard,
+    write_buffer: XyloWriteBuffer,
     start_address: int,
     count: Optional[int] = None,
     data: Optional[Iterable] = None,
@@ -576,7 +567,7 @@ def write_memory(
     Write data to Xylo memory
 
     Args:
-        daughterboard (XyloDaughterBoard): A Xylo daughterboard to write to
+        write_buffer (XyloWriteBuffer): A write buffer connected to the desired Xylo HDK
         start_address (int): The base address to start writing from
         count (int): The number of entries to write. Default: ``len(data)``
         data (Iterable): A list of data to write to memory. Default: Write zeros.
@@ -597,7 +588,7 @@ def write_memory(
     # - Set up a list of write events
     write_event_list = []
     for elem in range(count):
-        wmv_ev = samna.pollen.event.WriteMemoryValue()
+        wmv_ev = samna.xylo.event.WriteMemoryValue()
         wmv_ev.address = start_address + elem
 
         if data is not None:
@@ -608,15 +599,13 @@ def write_memory(
     # - Write the list of data events
     written = 0
     while written < len(write_event_list):
-        daughterboard.get_model().write(
-            write_event_list[written : (written + chunk_size)]
-        )
+        write_buffer.write(write_event_list[written : (written + chunk_size)])
         written += chunk_size
         time.sleep(0.01)
 
 
 def zero_memory(
-    daughterboard: XyloDaughterBoard,
+    write_buffer: XyloWriteBuffer,
 ) -> None:
     """
     Clear all Xylo memory
@@ -624,7 +613,7 @@ def zero_memory(
     This function writes zeros to all memory banks on a Xylo HDK.
 
     Args:
-        daughterboard (XyloDaughterboard): The Xylo HDK to zero memory on
+        write_buffer (XyloWriteBuffer): A write buffer connected to the desired Xylo HDK
     """
     # - Define the memory banks
     memory_table = {
@@ -649,56 +638,63 @@ def zero_memory(
 
     # - Zero each bank in turn
     for bank in memory_table.values():
-        write_memory(daughterboard, *bank)
+        write_memory(write_buffer, *bank)
 
 
 def reset_neuron_synapse_state(
-    daughterboard: XyloDaughterBoard, buffer: XyloReadBuffer
+    hdk: XyloHDK,
+    read_buffer: XyloReadBuffer,
+    write_buffer: XyloWriteBuffer,
 ) -> None:
     """
     Reset the neuron and synapse state on a Xylo HDK
 
     Args:
-        daughterboard (XyloDaughterboard): The Xylo HDK daughterboard to reset
+        hdk (XyloHDK): The Xylo HDK hdk to reset
+        read_buffer (XyloReadBuffer): A read buffer connected to the Xylo HDK to reset
+        write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK to reset
     """
     # - Get the current configuration
-    config = daughterboard.get_model().get_configuration()
+    config = hdk.get_model().get_configuration()
 
     # - Reset via configuration
     config.clear_network_state = True
-    apply_configuration(daughterboard, config, buffer)
+    apply_configuration(hdk, config, read_buffer, write_buffer)
 
 
 def apply_configuration(
-    daughterboard: XyloDaughterBoard,
+    hdk: XyloHDK,
     config: XyloConfiguration,
-    buffer: XyloReadBuffer,
+    read_buffer: XyloReadBuffer,
+    write_buffer: XyloWriteBuffer,
 ) -> None:
     """
     Apply a configuration to the Xylo HDK
 
     Args:
-        daughterboard (XyloDaughterboard): The Xylo HDK to write the configuration to
+        hdk (XyloHDK): The Xylo HDK to write the configuration to
         config (XyloConfiguration): A configuration for Xylo
+        read_buffer (XyloReadBuffer): A connected read buffer for the Xylo HDK
+        write_buffer (XyloWriteBuffer): A connected write buffer for the Xylo HDK
     """
     # - WORKAROUND: Manually enable debug clock
     config.debug.clock_enable = True
     config.debug.ram_power_enable = True
 
     # - Ideal -- just write the configuration using samna
-    daughterboard.get_model().apply_configuration(config)
+    hdk.get_model().apply_configuration(config)
 
     # - WORKAROUND: Design bug, where aliasing is not computed correctly
-    rcram = read_memory(daughterboard, buffer, 0x9980, 1000)
+    rcram = read_memory(read_buffer, write_buffer, 0x9980, 1000)
     for i in range(1000):
         if rcram[i] == 2:
             rcram[i] = 3
-    write_memory(daughterboard, 0x9980, 1000, rcram)
+    write_memory(write_buffer, 0x9980, 1000, rcram)
 
 
 def read_neuron_synapse_state(
-    daughterboard: XyloDaughterBoard,
-    buffer: XyloReadBuffer,
+    read_buffer: XyloReadBuffer,
+    write_buffer: XyloWriteBuffer,
     Nhidden: int = 1000,
     Nout: int = 8,
 ) -> XyloState:
@@ -706,8 +702,8 @@ def read_neuron_synapse_state(
     Read and return the current neuron and synaptic state of neurons
 
     Args:
-        daughterboard (XyloDaughterboard): The Xylo HDK to query
-        buffer (XyloReadBuffer): A read buffer connected to the Xylo HDK
+        read_buffer (XyloReadBuffer): A read buffer connected to the Xylo HDK
+        write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK
         Nhidden (int): Number of hidden neurons to read. Default: ``1000`` (all neurons).
         Nout (int): Number of output neurons to read. Default: ``8`` (all neurons).
 
@@ -725,25 +721,25 @@ def read_neuron_synapse_state(
 
     # - Read synaptic currents
     Isyn = read_memory(
-        daughterboard,
-        buffer,
+        read_buffer,
+        write_buffer,
         memory_table["nscram"],
         Nhidden + Nout + num_buffer_neurons(Nhidden),
     )
 
     # - Read synaptic currents 2
-    Isyn2 = read_memory(daughterboard, buffer, memory_table["rsc2ram"], Nhidden)
+    Isyn2 = read_memory(read_buffer, write_buffer, memory_table["rsc2ram"], Nhidden)
 
     # - Read membrane potential
     Vmem = read_memory(
-        daughterboard,
-        buffer,
+        read_buffer,
+        write_buffer,
         memory_table["nmpram"],
         Nhidden + Nout + num_buffer_neurons(Nhidden),
     )
 
     # - Read reservoir spikes
-    Spikes = read_memory(daughterboard, buffer, memory_table["rspkram"], Nhidden)
+    Spikes = read_memory(read_buffer, write_buffer, memory_table["rspkram"], Nhidden)
 
     # - Return the state
     return XyloState(
@@ -755,13 +751,13 @@ def read_neuron_synapse_state(
         np.array(Isyn[-Nout:], "int16"),
         np.array(Isyn2, "int16"),
         np.array(Spikes, "bool"),
-        read_output_events(daughterboard, buffer)[:Nout],
+        read_output_events(read_buffer, write_buffer)[:Nout],
     )
 
 
 def read_allram_state(
-    daughterboard: XyloDaughterBoard,
-    buffer: XyloReadBuffer,
+    read_buffer: XyloReadBuffer,
+    write_buffer: XyloWriteBuffer,
     Nin: int = 16,
     Nhidden: int = 1000,
     Nout: int = 8,
@@ -770,8 +766,8 @@ def read_allram_state(
     Read and return the all ram in each step as a state
 
     Args:
-        daughterboard (XyloDaughterboard): The Xylo HDK to query
-        buffer (XyloReadBuffer): A read buffer connected to the Xylo HDK
+        read_buffer (XyloReadBuffer): A read buffer connected to the Xylo HDK
+        write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK
 
     Returns:
         :py:class:`.XyloState`: The recorded state as a ``NamedTuple``. Contains keys ``V_mem_hid``,  ``V_mem_out``, ``I_syn_hid``, ``I_syn_out``, ``I_syn2_hid``, ``Nhidden``, ``Nout``. This state has **no time axis**; the first axis is the neuron ID.
@@ -800,115 +796,115 @@ def read_allram_state(
 
     # - Read synaptic currents
     Isyn = read_memory(
-        daughterboard,
-        buffer,
+        read_buffer,
+        write_buffer,
         memory_table["nscram"],
         Nhidden + Nout + num_buffer_neurons(Nhidden),
     )
 
     # - Read synaptic currents 2
-    Isyn2 = read_memory(daughterboard, buffer, memory_table["rsc2ram"], Nhidden)
+    Isyn2 = read_memory(read_buffer, write_buffer, memory_table["rsc2ram"], Nhidden)
 
     # - Read membrane potential
     Vmem = read_memory(
-        daughterboard,
-        buffer,
+        read_buffer,
+        write_buffer,
         memory_table["nmpram"],
         Nhidden + Nout + num_buffer_neurons(Nhidden),
     )
 
     # - Read reservoir spikes
-    Spikes = read_memory(daughterboard, buffer, memory_table["rspkram"], Nhidden)
+    Spikes = read_memory(read_buffer, write_buffer, memory_table["rspkram"], Nhidden)
 
     # - Read config RAM including buffer neuron(s)
     input_weight_ram = read_memory(
-        daughterboard,
-        buffer,
+        read_buffer,
+        write_buffer,
         memory_table["IWTRAM"],
         Nin * (Nhidden + num_buffer_neurons(Nhidden)),
     )
 
     input_weight_2ram = read_memory(
-        daughterboard,
-        buffer,
+        read_buffer,
+        write_buffer,
         memory_table["IWT2RAM"],
         Nin * (Nhidden + num_buffer_neurons(Nhidden)),
     )
 
     neuron_dash_syn_ram = read_memory(
-        daughterboard,
-        buffer,
+        read_buffer,
+        write_buffer,
         memory_table["NDSRAM"],
         Nhidden + Nout + num_buffer_neurons(Nhidden),
     )
 
     reservoir_dash_syn_2ram = read_memory(
-        daughterboard,
-        buffer,
+        read_buffer,
+        write_buffer,
         memory_table["RDS2RAM"],
         Nhidden + num_buffer_neurons(Nhidden),
     )
 
     neuron_dash_mem_ram = read_memory(
-        daughterboard,
-        buffer,
+        read_buffer,
+        write_buffer,
         memory_table["NDMRAM"],
         Nhidden + Nout + num_buffer_neurons(Nhidden),
     )
 
     neuron_threshold_ram = read_memory(
-        daughterboard,
-        buffer,
+        read_buffer,
+        write_buffer,
         memory_table["NTHRAM"],
         Nhidden + Nout + num_buffer_neurons(Nhidden),
     )
 
     reservoir_config_ram = read_memory(
-        daughterboard,
-        buffer,
+        read_buffer,
+        write_buffer,
         memory_table["RCRAM"],
         Nhidden + num_buffer_neurons(Nhidden),
     )
 
     reservoir_aliasing_ram = read_memory(
-        daughterboard,
-        buffer,
+        read_buffer,
+        write_buffer,
         memory_table["RARAM"],
         Nhidden + num_buffer_neurons(Nhidden),
     )
 
     reservoir_effective_fanout_count_ram = read_memory(
-        daughterboard,
-        buffer,
+        read_buffer,
+        write_buffer,
         memory_table["REFOCRAM"],
         # Nhidden + num_buffer_neurons(Nhidden), --> dummy neuron
         Nhidden,
     )
 
     recurrent_fanout_ram = read_memory(
-        daughterboard,
-        buffer,
+        read_buffer,
+        write_buffer,
         memory_table["RFORAM"],
         np.sum(np.array(reservoir_effective_fanout_count_ram, "int16")),
     )
 
     recurrent_weight_ram = read_memory(
-        daughterboard,
-        buffer,
+        read_buffer,
+        write_buffer,
         memory_table["RWTRAM"],
         np.sum(np.array(reservoir_effective_fanout_count_ram, "int16")),
     )
 
     recurrent_weight_2ram = read_memory(
-        daughterboard,
-        buffer,
+        read_buffer,
+        write_buffer,
         memory_table["RWT2RAM"],
         np.sum(np.array(reservoir_effective_fanout_count_ram, "int16")),
     )
 
     output_weight_ram = read_memory(
-        daughterboard,
-        buffer,
+        read_buffer,
+        write_buffer,
         memory_table["OWTRAM"],
         Nout * (Nhidden + num_buffer_neurons(Nhidden)),
     )
@@ -925,7 +921,7 @@ def read_allram_state(
         np.array(Isyn[-Nout:], "int16"),
         np.array(Isyn2, "int16"),
         np.array(Spikes, "int16"),
-        read_output_events(daughterboard, buffer)[:Nout],
+        read_output_events(read_buffer, write_buffer)[:Nout],
         # - config RAM
         np.array(input_weight_ram, "int16"),
         np.array(input_weight_2ram, "int16"),
@@ -1035,12 +1031,12 @@ def decode_accel_mode_data(
     # - Loop over events and decode
     for e in events:
         # - Handle an output spike event
-        if isinstance(e, samna.pollen.event.Spike):
+        if isinstance(e, samna.xylo.event.Spike):
             # - Save this output event
             spikes_out_ts[e.timestamp - 1][e.neuron_id] = True
 
         # - Handle a memory value read event
-        if isinstance(e, samna.pollen.event.MemoryValue):
+        if isinstance(e, samna.xylo.event.MemoryValue):
             # - Find out which memory block this event corresponds to
             memory_block = [
                 block
@@ -1067,7 +1063,7 @@ def decode_accel_mode_data(
                     spikes_ts[-1][e.address - memory_table["rspkram"][0]] = e.data
 
         # - Handle the readout event, which signals the *end* of a time step
-        if isinstance(e, samna.pollen.event.Readout):
+        if isinstance(e, samna.xylo.event.Readout):
             # - Advance the timestep counter
             timestep = e.timestamp
             times.append(timestep)
@@ -1116,49 +1112,49 @@ def decode_accel_mode_data(
     )
 
 
-def is_xylo_ready(daughterboard: XyloDaughterBoard, buffer: XyloReadBuffer) -> None:
+def is_xylo_ready(read_buffer: XyloReadBuffer, write_buffer: XyloWriteBuffer) -> None:
     """
     Query a Xylo HDK to see if it is ready for a time-step
 
     Args:
-        daughterboard (XyloDaughterboard): The Xylo HDK to query
-        buffer (XyloReadBuffer): A buffer to use while reading
+        read_buffer (XyloReadBuffer): A buffer to use while reading
+        write_buffer (XyloWriteBuffer): A buffer to use while writing
 
     Returns: ``True`` iff the Xylo HDK has finished all processing
     """
-    return read_register(daughterboard, buffer, 0x10)[-1] & (1 << 16) is not 0
+    return read_register(read_buffer, write_buffer, 0x10)[-1] & (1 << 16) is not 0
 
 
-def advance_time_step(daughterboard: XyloDaughterBoard) -> None:
+def advance_time_step(write_buffer: XyloWriteBuffer) -> None:
     """
     Take a single manual time-step on a Xylo HDK
 
     Args:
-        daughterboard (XyloDaughterboard): The Xylo HDK to access
+        write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK
     """
-    e = samna.pollen.event.TriggerProcessing()
-    daughterboard.get_model().write([e])
+    e = samna.xylo.event.TriggerProcessing()
+    write_buffer.write([e])
 
 
-def reset_input_spikes(daughterboard: XyloDaughterBoard) -> None:
+def reset_input_spikes(write_buffer: XyloWriteBuffer) -> None:
     """
     Reset the input spike registers on a Xylo HDK
 
     Args:
-        daughterboard (XyloDaughterboard): The Xylo HDK to access
+        write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK to access
     """
     for register in range(4):
-        write_register(daughterboard, 0x0C + register)
+        write_register(write_buffer, 0x0C + register)
 
 
 def send_immediate_input_spikes(
-    daughterboard: XyloDaughterBoard, spike_counts: Iterable[int]
+    write_buffer: XyloWriteBuffer, spike_counts: Iterable[int]
 ) -> None:
     """
     Send input events with no timestamp to a Xylo HDK
 
     Args:
-        daughterboard (XyloDaughterboard): A Xylo HDK to send events to
+        write_buffer (XyloWriteBuffer): A write buffer connected to a Xylo HDK
         spike_counts (Iterable[int]): An Iterable containing one slot per input channel. Each entry indicates how many events should be sent to the corresponding input channel.
     """
     # - Encode input events
@@ -1166,29 +1162,29 @@ def send_immediate_input_spikes(
     for input_channel, event in enumerate(spike_counts):
         if event:
             for _ in range(int(event)):
-                s_event = samna.pollen.event.Spike()
+                s_event = samna.xylo.event.Spike()
                 s_event.neuron_id = input_channel
                 events_list.append(s_event)
 
     # - Send input spikes for this time-step
-    daughterboard.get_model().write(events_list)
+    write_buffer.write(events_list)
 
 
 def read_output_events(
-    daughterboard: XyloDaughterBoard, buffer: XyloReadBuffer
+    read_buffer: XyloReadBuffer, write_buffer: XyloWriteBuffer
 ) -> np.ndarray:
     """
     Read the spike flags from the output neurons on a Xylo HDK
 
     Args:
-        daughterboard (XyloDaughterBoard): The Xylo HDK to query
-        buffer (XyloReadBuffer): A read buffer to use
+        read_buffer (XyloReadBuffer): A read buffer to use
+        write_buffer (XyloWriteBuffer): A write buffer to use
 
     Returns:
         np.ndarray: A boolean array of output event flags
     """
     # - Read the status register
-    status = read_register(daughterboard, buffer, 0x10)
+    status = read_register(read_buffer, write_buffer, 0x10)
 
     # - Convert to neuron events and return
     string = format(int(status[-1]), "0>32b")[-8:]
@@ -1196,8 +1192,8 @@ def read_output_events(
 
 
 def print_debug_ram(
-    daughterboard: XyloDaughterBoard,
-    buffer: XyloReadBuffer,
+    read_buffer: XyloReadBuffer,
+    write_buffer: XyloWriteBuffer,
     Nin: int = 10,
     Nhidden: int = 10,
     Nout: int = 2,
@@ -1206,120 +1202,141 @@ def print_debug_ram(
     Print memory contents for debugging purposes
 
     Args:
-        daughterboard (XyloDaughterboard): A Xylo daughterboard to debug
-        buffer (XyloReadBuffer): A connected Xylo read buffer to use when reading memory
+        read_buffer (XyloReadBuffer): A connected Xylo read buffer to use when reading memory
+        write_buffer (XyloWriteBuffer): A connected Xylo write buffer to use
         Nin (int): Number of input neurons to display. Default: ``10``.
         Nhidden (int): Number of hidden neurons to display. Default: ``10``.
     """
     print(
         "iwtram",
         read_memory(
-            daughterboard, buffer, 0x100, Nin * (Nhidden + num_buffer_neurons(Nhidden))
+            read_buffer,
+            write_buffer,
+            0x100,
+            Nin * (Nhidden + num_buffer_neurons(Nhidden)),
         ),
     )
     print(
         "iwt2ram",
         read_memory(
-            daughterboard, buffer, 0x3F80, Nin * (Nhidden + num_buffer_neurons(Nhidden))
+            read_buffer,
+            write_buffer,
+            0x3F80,
+            Nin * (Nhidden + num_buffer_neurons(Nhidden)),
         ),
     )
 
     print(
         "nscram",
         read_memory(
-            daughterboard, buffer, 0x7E00, Nhidden + Nout + num_buffer_neurons(Nhidden)
+            read_buffer,
+            write_buffer,
+            0x7E00,
+            Nhidden + Nout + num_buffer_neurons(Nhidden),
         ),
     )
     print(
         "rsc2ram",
         read_memory(
-            daughterboard, buffer, 0x81F0, Nhidden + num_buffer_neurons(Nhidden)
+            read_buffer, write_buffer, 0x81F0, Nhidden + num_buffer_neurons(Nhidden)
         ),
     )
     print(
         "nmpram",
         read_memory(
-            daughterboard, buffer, 0x85D8, Nhidden + Nout + num_buffer_neurons(Nhidden)
+            read_buffer,
+            write_buffer,
+            0x85D8,
+            Nhidden + Nout + num_buffer_neurons(Nhidden),
         ),
     )
 
     print(
         "ndsram",
         read_memory(
-            daughterboard, buffer, 0x89C8, Nhidden + Nout + num_buffer_neurons(Nhidden)
+            read_buffer,
+            write_buffer,
+            0x89C8,
+            Nhidden + Nout + num_buffer_neurons(Nhidden),
         ),
     )
     print(
         "rds2ram",
         read_memory(
-            daughterboard, buffer, 0x8DB8, Nhidden + num_buffer_neurons(Nhidden)
+            read_buffer, write_buffer, 0x8DB8, Nhidden + num_buffer_neurons(Nhidden)
         ),
     )
     print(
         "ndmram",
         read_memory(
-            daughterboard, buffer, 0x91A0, Nhidden + Nout + num_buffer_neurons(Nhidden)
+            read_buffer,
+            write_buffer,
+            0x91A0,
+            Nhidden + Nout + num_buffer_neurons(Nhidden),
         ),
     )
 
     print(
         "nthram",
         read_memory(
-            daughterboard, buffer, 0x9590, Nhidden + Nout + num_buffer_neurons(Nhidden)
+            read_buffer,
+            write_buffer,
+            0x9590,
+            Nhidden + Nout + num_buffer_neurons(Nhidden),
         ),
     )
 
     print(
         "rcram",
         read_memory(
-            daughterboard, buffer, 0x9980, Nhidden + num_buffer_neurons(Nhidden)
+            read_buffer, write_buffer, 0x9980, Nhidden + num_buffer_neurons(Nhidden)
         ),
     )
     print(
         "raram",
         read_memory(
-            daughterboard, buffer, 0x9D68, Nhidden + num_buffer_neurons(Nhidden)
+            read_buffer, write_buffer, 0x9D68, Nhidden + num_buffer_neurons(Nhidden)
         ),
     )
 
     print(
         "rspkram",
         read_memory(
-            daughterboard, buffer, 0xA150, Nhidden + num_buffer_neurons(Nhidden)
+            read_buffer, write_buffer, 0xA150, Nhidden + num_buffer_neurons(Nhidden)
         ),
     )
 
     print(
         "refocram",
         read_memory(
-            daughterboard, buffer, 0xA538, Nhidden + num_buffer_neurons(Nhidden)
+            read_buffer, write_buffer, 0xA538, Nhidden + num_buffer_neurons(Nhidden)
         ),
     )
     print(
         "rforam",
         read_memory(
-            daughterboard, buffer, 0xA920, Nhidden + num_buffer_neurons(Nhidden)
+            read_buffer, write_buffer, 0xA920, Nhidden + num_buffer_neurons(Nhidden)
         ),
     )
 
     print(
         "rwtram",
         read_memory(
-            daughterboard, buffer, 0x12620, Nhidden + num_buffer_neurons(Nhidden)
+            read_buffer, write_buffer, 0x12620, Nhidden + num_buffer_neurons(Nhidden)
         ),
     )
     print(
         "rwt2ram",
         read_memory(
-            daughterboard, buffer, 0x1A320, Nhidden + num_buffer_neurons(Nhidden)
+            read_buffer, write_buffer, 0x1A320, Nhidden + num_buffer_neurons(Nhidden)
         ),
     )
 
     print(
         "owtram",
         read_memory(
-            daughterboard,
-            buffer,
+            read_buffer,
+            write_buffer,
             0x22020,
             (Nhidden + num_buffer_neurons(Nhidden) * Nout),
         ),
@@ -1327,161 +1344,162 @@ def print_debug_ram(
 
 
 def export_registers(
-    daughterboard: XyloDaughterBoard,
-    buffer: XyloReadBuffer,
+    read_buffer: XyloReadBuffer,
+    write_buffer: XyloWriteBuffer,
     file,
 ) -> None:
     """
     Print register contents for debugging purposes
 
     Args:
-        daughterboard (XyloDaughterBoard): A Xylo daughterboard to debug
-        buffer (XyloReadBuffer): A connected Xylo read buffer to use in reading registers
+        read_buffer (XyloReadBuffer): A connected Xylo read buffer to use in reading registers
+        write_buffer (XyloWriteBuffer): A write buffer connected to a Xylo HDK
         file: a file to save the registers
     """
 
     with open(file, "w+") as f:
         f.write("ctrl1 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x1)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x1)[0]))
         f.write("\n")
 
         f.write("ctrl2 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x2)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x2)[0]))
         f.write("\n")
 
         f.write("ctrl3 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x3)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x3)[0]))
         f.write("\n")
 
         f.write("pwrctrl1 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x04)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x04)[0]))
         f.write("\n")
 
         f.write("pwrctrl2 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x05)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x05)[0]))
         f.write("\n")
 
         f.write("pwrctrl3 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x06)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x06)[0]))
         f.write("\n")
 
         f.write("pwrctrl4 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x07)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x07)[0]))
         f.write("\n")
 
         f.write("ie ")
-        f.write(hex(read_register(daughterboard, buffer, 0x08)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x08)[0]))
         f.write("\n")
 
         f.write("ctrl4 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x09)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x09)[0]))
         f.write("\n")
 
         f.write("baddr ")
-        f.write(hex(read_register(daughterboard, buffer, 0x0A)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x0A)[0]))
         f.write("\n")
 
         f.write("blen ")
-        f.write(hex(read_register(daughterboard, buffer, 0x0B)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x0B)[0]))
         f.write("\n")
 
         f.write("ispkreg00 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x0C)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x0C)[0]))
         f.write("\n")
 
         f.write("ispkreg01 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x0D)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x0D)[0]))
         f.write("\n")
 
         f.write("ispkreg10 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x0E)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x0E)[0]))
         f.write("\n")
 
         f.write("ispkreg11 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x0F)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x0F)[0]))
         f.write("\n")
 
         f.write("stat ")
-        f.write(hex(read_register(daughterboard, buffer, 0x10)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x10)[0]))
         f.write("\n")
 
         f.write("int ")
-        f.write(hex(read_register(daughterboard, buffer, 0x11)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x11)[0]))
         f.write("\n")
 
         f.write("omp_stat0 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x12)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x12)[0]))
         f.write("\n")
 
         f.write("omp_stat1 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x13)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x13)[0]))
         f.write("\n")
 
         f.write("omp_stat2 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x14)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x14)[0]))
         f.write("\n")
 
         f.write("omp_stat3 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x15)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x15)[0]))
         f.write("\n")
 
         f.write("monsel0 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x16)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x16)[0]))
         f.write("\n")
 
         f.write("monsel1 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x17)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x17)[0]))
         f.write("\n")
 
         f.write("dbg_ctrl1 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x18)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x18)[0]))
         f.write("\n")
 
         f.write("dbg_stat1 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x19)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x19)[0]))
         f.write("\n")
 
         f.write("tr_cntr_stat ")
-        f.write(hex(read_register(daughterboard, buffer, 0x1A)[0]))
+        f.write(hex(read_register(read_buffer, write_buffer, 0x1A)[0]))
         f.write("\n")
 
 
 def print_debug_registers(
-    daughterboard: XyloDaughterBoard, buffer: XyloReadBuffer
+    read_buffer: XyloReadBuffer,
+    write_buffer: XyloWriteBuffer,
 ) -> None:
     """
     Print register contents of a Xylo HDK for debugging purposes
 
     Args:
-        daughterboard (XyloDaughterBoard): A Xylo daughterboard to debug
-        buffer (XyloReadBuffer): A connected Xylo read buffer to use when reading registers
+        write_buffer (XyloWriteBuffer): A connected write buffer to a Xylo HDK
+        read_buffer (XyloReadBuffer): A connected Xylo read buffer to use when reading registers
     """
-    print("ctrl1", hex(read_register(daughterboard, buffer, 0x1)[0]))
-    print("ctrl2", hex(read_register(daughterboard, buffer, 0x2)[0]))
-    print("ctrl3", hex(read_register(daughterboard, buffer, 0x3)[0]))
-    print("pwrctrl1", hex(read_register(daughterboard, buffer, 0x04)[0]))
-    print("pwrctrl2", hex(read_register(daughterboard, buffer, 0x05)[0]))
-    print("pwrctrl3", hex(read_register(daughterboard, buffer, 0x06)[0]))
-    print("pwrctrl4", hex(read_register(daughterboard, buffer, 0x07)[0]))
-    print("ie", hex(read_register(daughterboard, buffer, 0x08)[0]))
-    print("ctrl4", hex(read_register(daughterboard, buffer, 0x09)[0]))
-    print("baddr", hex(read_register(daughterboard, buffer, 0x0A)[0]))
-    print("blen", hex(read_register(daughterboard, buffer, 0x0B)[0]))
-    print("ispkreg00", hex(read_register(daughterboard, buffer, 0x0C)[0]))
-    print("ispkreg01", hex(read_register(daughterboard, buffer, 0x0D)[0]))
-    print("ispkreg10", hex(read_register(daughterboard, buffer, 0x0E)[0]))
-    print("ispkreg11", hex(read_register(daughterboard, buffer, 0x0F)[0]))
-    print("stat", hex(read_register(daughterboard, buffer, 0x10)[0]))
-    print("int", hex(read_register(daughterboard, buffer, 0x11)[0]))
-    print("omp_stat0", hex(read_register(daughterboard, buffer, 0x12)[0]))
-    print("omp_stat1", hex(read_register(daughterboard, buffer, 0x13)[0]))
-    print("omp_stat2", hex(read_register(daughterboard, buffer, 0x14)[0]))
-    print("omp_stat3", hex(read_register(daughterboard, buffer, 0x15)[0]))
-    print("monsel0", hex(read_register(daughterboard, buffer, 0x16)[0]))
-    print("monsel1", hex(read_register(daughterboard, buffer, 0x17)[0]))
-    print("dbg_ctrl1", hex(read_register(daughterboard, buffer, 0x18)[0]))
-    print("dbg_stat1", hex(read_register(daughterboard, buffer, 0x19)[0]))
-    print("tr_cntr_stat", hex(read_register(daughterboard, buffer, 0x1A)[0]))
+    print("ctrl1", hex(read_register(read_buffer, write_buffer, 0x1)[0]))
+    print("ctrl2", hex(read_register(read_buffer, write_buffer, 0x2)[0]))
+    print("ctrl3", hex(read_register(read_buffer, write_buffer, 0x3)[0]))
+    print("pwrctrl1", hex(read_register(read_buffer, write_buffer, 0x04)[0]))
+    print("pwrctrl2", hex(read_register(read_buffer, write_buffer, 0x05)[0]))
+    print("pwrctrl3", hex(read_register(read_buffer, write_buffer, 0x06)[0]))
+    print("pwrctrl4", hex(read_register(read_buffer, write_buffer, 0x07)[0]))
+    print("ie", hex(read_register(read_buffer, write_buffer, 0x08)[0]))
+    print("ctrl4", hex(read_register(read_buffer, write_buffer, 0x09)[0]))
+    print("baddr", hex(read_register(read_buffer, write_buffer, 0x0A)[0]))
+    print("blen", hex(read_register(read_buffer, write_buffer, 0x0B)[0]))
+    print("ispkreg00", hex(read_register(read_buffer, write_buffer, 0x0C)[0]))
+    print("ispkreg01", hex(read_register(read_buffer, write_buffer, 0x0D)[0]))
+    print("ispkreg10", hex(read_register(read_buffer, write_buffer, 0x0E)[0]))
+    print("ispkreg11", hex(read_register(read_buffer, write_buffer, 0x0F)[0]))
+    print("stat", hex(read_register(read_buffer, write_buffer, 0x10)[0]))
+    print("int", hex(read_register(read_buffer, write_buffer, 0x11)[0]))
+    print("omp_stat0", hex(read_register(read_buffer, write_buffer, 0x12)[0]))
+    print("omp_stat1", hex(read_register(read_buffer, write_buffer, 0x13)[0]))
+    print("omp_stat2", hex(read_register(read_buffer, write_buffer, 0x14)[0]))
+    print("omp_stat3", hex(read_register(read_buffer, write_buffer, 0x15)[0]))
+    print("monsel0", hex(read_register(read_buffer, write_buffer, 0x16)[0]))
+    print("monsel1", hex(read_register(read_buffer, write_buffer, 0x17)[0]))
+    print("dbg_ctrl1", hex(read_register(read_buffer, write_buffer, 0x18)[0]))
+    print("dbg_stat1", hex(read_register(read_buffer, write_buffer, 0x19)[0]))
+    print("tr_cntr_stat", hex(read_register(read_buffer, write_buffer, 0x1A)[0]))
 
 
 def num_buffer_neurons(Nhidden: int) -> int:
@@ -1499,16 +1517,16 @@ def num_buffer_neurons(Nhidden: int) -> int:
 
 
 def get_current_timestamp(
-    daughterboard: XyloDaughterBoard,
-    buffer: XyloReadBuffer,
+    read_buffer: XyloReadBuffer,
+    write_buffer: XyloWriteBuffer,
     timeout: float = 3.0,
 ) -> int:
     """
     Retrieve the current timestamp on a Xylo HDK
 
     Args:
-        daughterboard (XyloDaughterBoard): A Xylo HDK
-        buffer (XyloReadBuffer): A connected read buffer for the xylo HDK
+        read_buffer (XyloReadBuffer): A connected read buffer for the xylo HDK
+        write_buffer (XyloWriteBuffer): A connected write buffer for the Xylo HDK
         timeout (float): A timeout for reading
 
     Returns:
@@ -1516,21 +1534,19 @@ def get_current_timestamp(
     """
 
     # - Clear read buffer
-    buffer.get_events()
+    read_buffer.get_events()
 
     # - Trigger a readout event on Xylo
-    e = samna.pollen.event.TriggerReadout()
-    daughterboard.get_model().write([e])
+    e = samna.xylo.event.TriggerReadout()
+    write_buffer.write([e])
 
     # - Wait for the readout event to be sent back, and extract the timestamp
     timestamp = None
     continue_read = True
     start_t = time.time()
     while continue_read:
-        readout_events = buffer.get_events()
-        ev_filt = [
-            e for e in readout_events if isinstance(e, samna.pollen.event.Readout)
-        ]
+        readout_events = read_buffer.get_events()
+        ev_filt = [e for e in readout_events if isinstance(e, samna.xylo.event.Readout)]
         if ev_filt:
             timestamp = ev_filt[0].timestamp
             continue_read = False
@@ -1552,7 +1568,7 @@ def configure_accel_time_mode(
     monitor_Noutput: Optional[int] = 0,
 ) -> (XyloConfiguration, XyloNeuronStateBuffer):
     """
-    Switch on accelerated-time mode on a Xylo daughterboard, and configure network monitoring
+    Switch on accelerated-time mode on a Xylo hdk, and configure network monitoring
 
     Notes:
         Use :py:func:`new_xylo_state_monitor_buffer` to generate a buffer to monitor neuron and synapse state.
@@ -1567,27 +1583,27 @@ def configure_accel_time_mode(
         (XyloConfiguration, XyloNeuronStateBuffer): `config` and `monitor_buffer`
     """
     # - Select accelerated time mode
-    config.operation_mode = samna.pollen.OperationMode.AcceleratedTime
+    config.operation_mode = samna.xylo.OperationMode.AcceleratedTime
 
     # - Configure reading out of neuron state during evolution
     perform_readout = monitor_Nhidden + monitor_Noutput > 0
     config.debug.monitor_neuron_i_syn = (
-        samna.pollen.configuration.NeuronRange(0, monitor_Nhidden + monitor_Noutput)
+        samna.xylo.configuration.NeuronRange(0, monitor_Nhidden + monitor_Noutput)
         if perform_readout
         else None
     )
     config.debug.monitor_neuron_i_syn2 = (
-        samna.pollen.configuration.NeuronRange(0, monitor_Nhidden)
+        samna.xylo.configuration.NeuronRange(0, monitor_Nhidden)
         if perform_readout
         else None
     )
     config.debug.monitor_neuron_spike = (
-        samna.pollen.configuration.NeuronRange(0, monitor_Nhidden)
+        samna.xylo.configuration.NeuronRange(0, monitor_Nhidden)
         if perform_readout
         else None
     )
     config.debug.monitor_neuron_v_mem = (
-        samna.pollen.configuration.NeuronRange(0, monitor_Nhidden + monitor_Noutput)
+        samna.xylo.configuration.NeuronRange(0, monitor_Nhidden + monitor_Noutput)
         if perform_readout
         else None
     )
@@ -1601,14 +1617,14 @@ def configure_accel_time_mode(
 
 def configure_single_step_time_mode(config: XyloConfiguration) -> XyloConfiguration:
     """
-    Switch on single-step model on a Xylo daughterboard
+    Switch on single-step model on a Xylo hdk
 
     Args:
-        daughterboard (XyloBaughterBoard): The Xylo HDK to configure
+        hdk (XyloBaughterBoard): The Xylo HDK to configure
         config (XyloConfiguration): The desired Xylo configuration to use
     """
     # - Write the configuration
-    config.operation_mode = samna.pollen.OperationMode.Manual
+    config.operation_mode = samna.xylo.OperationMode.Manual
     return config
 
 
@@ -1646,11 +1662,11 @@ def export_config(
     if not path.exists():
         makedirs(path)
 
-    # - Generate a XyloCim module from the config
-    from rockpool.devices.xylo import XyloCim
+    # - Generate a XyloSim module from the config
+    from rockpool.devices.xylo import XyloSim
 
-    cim = XyloCim.from_config(config, dt=dt)
-    model = cim._xylo_layer
+    sim = XyloSim.from_config(config, dt=dt)
+    model = sim._xylo_layer
 
     inp_size = len(model.synapses_in)
     num_neurons = len(model.synapses_rec)
@@ -1868,7 +1884,7 @@ def export_config(
 
         # dt
         conf["time_resolution_wrap"] = config.time_resolution_wrap
-        conf["DT"] = cim.dt
+        conf["DT"] = sim.dt
 
         # number of synapses
         n_syns = 1

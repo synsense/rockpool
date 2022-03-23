@@ -1,9 +1,9 @@
-###
-# weights.py -- Utility functions for generating and manipulating networks
-###
+"""
+Utility functions for generating and manipulating networks
+"""
 
+import copy
 from typing import Callable, Optional, Tuple, Union
-from mpmath import mp
 from copy import deepcopy
 import random
 import numpy as np
@@ -70,10 +70,10 @@ def rndm_sparse_ei_net(
     ratio_exc = np.clip(ratio_exc, 0, 1)
 
     # - Number of non-zero elements in matrix
-    nNumWeights = int(connectivity * res_size ** 2)
+    nNumWeights = int(connectivity * res_size**2)
 
     # - Array for storing connection strengths
-    mfWeights = np.zeros(res_size ** 2)
+    mfWeights = np.zeros(res_size**2)
     # - Draw non-zero weights
     mfWeights[:nNumWeights] = rndm_weight_fct(nNumWeights)
 
@@ -1159,8 +1159,8 @@ def in_res_digital(
     vnWeights = np.zeros(nNumInputs)
 
     # - Determine value range of unnormalized weights
-    nMinWeight = int(-(2 ** bit_resolution) / 2)
-    nMaxWeight = int(2 ** bit_resolution / 2)
+    nMinWeight = int(-(2**bit_resolution) / 2)
+    nMaxWeight = int(2**bit_resolution / 2)
     # - Generate excitatory weights
     vnWeights[:nNumExcIn] = fScale * np.random.randint(1, nMaxWeight, size=nNumExcIn)
     # - Generate inhibitory weights
@@ -1210,7 +1210,7 @@ def iaf_sparse_net(
 
     # - Randomise recurrent weights
     weights = (
-        np.random.randn(res_size ** 2) * np.asarray(std) + np.asarray(mean)
+        np.random.randn(res_size**2) * np.asarray(std) + np.asarray(mean)
     ) * vbConnection
     return weights.reshape(res_size, res_size)
 
@@ -1273,7 +1273,7 @@ def gen_sparse_partitioned_network(
         # - For each neuron in the partition, find a set of random inputs
         for dest in part_indices:
             # - Get in-partition sources
-            sources_in = list(copy(part_indices))
+            sources_in = list(copy.deepcopy(part_indices))
             shuffle(sources_in)
             sources_in = sources_in[:num_internal_inputs]
 
@@ -1281,7 +1281,7 @@ def gen_sparse_partitioned_network(
             weights[sources_in, dest] = 1
 
             # - Get out-partition sources
-            sources_out = list(copy(nonpart_indices))
+            sources_out = list(copy.deepcopy(nonpart_indices))
             shuffle(sources_out)
             sources_out = sources_out[:num_between_inputs]
 

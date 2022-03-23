@@ -1,3 +1,8 @@
+import pytest
+
+pytest.importorskip("jax")
+
+
 def test_imports():
     from rockpool.training.adversarial_jax import (
         pga_attack,

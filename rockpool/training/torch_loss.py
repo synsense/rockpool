@@ -2,17 +2,17 @@
 Torch loss functions and regularizers useful for training networks using Torch Modules.
 """
 
-from importlib import util
+from rockpool.utilities.backend_management import backend_available
 
-if util.find_spec("torch") is None:
+if not backend_available("torch"):
     raise ModuleNotFoundError(
-        "'Torch' backend not found. Modules that rely on Torch will not be available."
+        "`Torch` backend not found. Modules that rely on Torch will not be available."
     )
 
 from rockpool.nn.modules import TorchModule
 import torch
 
-__all__ = ["ParameterBoundaryRegularizer"]
+__all__ = ["summed_exp_boundary_loss", "ParameterBoundaryRegularizer"]
 
 
 def summed_exp_boundary_loss(data, lower_bound=None, upper_bound=None):
@@ -75,7 +75,7 @@ def summed_exp_boundary_loss(data, lower_bound=None, upper_bound=None):
         # - Only count the loss when a violation occured, in which case exp(y_i - y_upper) > 1
         upper_loss = torch.sum(upper_loss[upper_loss > 1])
     else:
-        upper_loss = 0
+        upper_loss = 0.0
 
     # - If lower_bound is given, calculate the loss, otherwise skip it
     if lower_bound:
@@ -84,7 +84,7 @@ def summed_exp_boundary_loss(data, lower_bound=None, upper_bound=None):
         # - Only count the loss when a violation occured, in which case exp(y_lower - y_i) > 1
         lower_loss = torch.sum(lower_loss[lower_loss > 1])
     else:
-        lower_loss = 0
+        lower_loss = 0.0
 
     return lower_loss + upper_loss
 

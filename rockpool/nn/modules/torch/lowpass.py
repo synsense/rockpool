@@ -1,17 +1,10 @@
 """"
-Implements an exponential low-pass synapse usinga Torch backend
+Implements an exponential low-pass synapse using Torch backend
 """
-
-from importlib import util
-
-if util.find_spec("torch") is None:
-    raise ModuleNotFoundError(
-        "'Torch' backend not found. Modules that rely on Torch will not be available."
-    )
+import warnings
 
 import torch
 import numpy as np
-from torch import nn
 from typing import Union, List, Tuple
 from rockpool.nn.modules.torch.torch_module import TorchModule
 
@@ -21,7 +14,9 @@ __all__ = ["LowPass"]
 
 
 class LowPass(TorchModule):
-    def __init__(self, n_neurons: int, dt: float, tau_mem: Union[float, List]):
+    def __init__(
+        self, n_neurons: int, dt: float, tau_mem: Union[float, List], *args, **kwargs
+    ):
         """
 
         Parameters
@@ -33,11 +28,17 @@ class LowPass(TorchModule):
         tau_mem: float / (n_neurons)
             decay time constant in units of simulation time steps
         """
-        torch.nn.Module.__init__(self)
+        warnings.warn(
+            DeprecationWarning("`LowPass` is deprecated. Use `ExpSynTorch` instead.")
+        )
+
+        super().__init__(*args, **kwargs)
+
         # Initialize class variables
         self.n_neurons = n_neurons
         self.tau_mem = np.array(tau_mem)
         self.dt = dt
+
         # Initialize states
         self.register_buffer("vmem", torch.zeros((1, self.n_neurons)))
 

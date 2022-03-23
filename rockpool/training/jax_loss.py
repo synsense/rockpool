@@ -13,6 +13,8 @@ import jax.tree_util as tu
 
 from typing import Tuple
 
+from .ctc_loss import ctc_loss_jax
+
 
 def mse(output: np.array, target: np.array) -> float:
     """
@@ -152,7 +154,7 @@ def l2sqr_norm(params: dict) -> float:
     """
     # - Compute the L2 norm of each parameter individually
     params, _ = tu.tree_flatten(params)
-    l22_norms = np.array(list(map(lambda p: np.nanmean(p ** 2), params)))
+    l22_norms = np.array(list(map(lambda p: np.nanmean(p**2), params)))
 
     # - Return the mean of each L2-sqr norm
     return np.nanmean(l22_norms)
@@ -172,6 +174,9 @@ def l0_norm_approx(params: dict, sigma: float = 1e-4) -> float:
 
     where :math:`\\sigma`` is a small regularisation value (by default ``1e-4``).
 
+    References:
+        Wei et. al 2018. "Gradient Projection with Approximate L0 Norm Minimization for Sparse Reconstruction in Compressed Sensing", Sensors 18 (3373). doi: 10.3390/s18103373
+
     Args:
         params (dict): A parameter dictionary over which to compute the L_0 norm
         sigma (float): A small value to use as a regularisation parameter. Default: ``1e-4``.
@@ -184,7 +189,7 @@ def l0_norm_approx(params: dict, sigma: float = 1e-4) -> float:
         np.array(
             list(
                 map(
-                    lambda p: np.nanmean(np.atleast_2d(p ** 4 / (p ** 4 + sigma))),
+                    lambda p: np.nanmean(np.atleast_2d(p**4 / (p**4 + sigma))),
                     params,
                 )
             )

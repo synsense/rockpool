@@ -1,18 +1,13 @@
 """
 Implement a linear module, using a Torch backend
 """
-
-from importlib import util
-
-if util.find_spec("torch") is None:
-    raise ModuleNotFoundError(
-        "'Torch' backend not found. Modules that rely on Torch will not be available."
-    )
-
 import math
-from typing import Union, Optional
+from typing import Union, Optional, Callable
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
+from rockpool.graph import GraphModuleBase, LinearWeights, as_GraphHolder
+from rockpool.typehints import P_tensor
+
 import torch
 import torch.nn.init as init
 import torch.nn.functional as F
@@ -30,24 +25,17 @@ class LinearTorch(TorchModule):
 
     This module supports :ref:`TensorFloat32<tf32_on_ampere>`.
 
-    Args:
-        shape (tuple): ``(in_features, out_features)``
-        bias: If set to ``False``, the layer will not learn an additive bias. Default: ``True``
-
-    Shape:
-        - Input: :math:`(N, *, H_{in})` where :math:`*` means any number of additional dimensions and :math:`H_{in} = \\text{in_features}`
-        - Output: :math:`(N, *, H_{out})` where all but the last dimension are the same shape as the input and :math:`H_{out} = \\text{out_features}`.
-
-    Attributes:
-        weight: the learnable weights of the module of shape :math:`(\\text{out_features}, \\text{in_features})`. The values are initialized from :math:`\\mathcal{U}(-\\sqrt{k}, \\sqrt{k})`, where :math:`k = \\frac{2}{\\text{in_features}}`
-        bias:   the learnable bias of the module of shape :math:`(\\text{out_features})`. If :attr:`bias` is ``True``, the values are initialized from :math:`\\mathcal{U}(-\\sqrt{k}, \\sqrt{k})` where :math:`k = \\frac{2}{\\text{in_features}}`
-
     Examples::
         >>> m = LinearTorch((20, 30))
         >>> input = torch.randn(128, 20)
         >>> output, _, _ = m(input)
         >>> print(output.size())
         torch.Size([128, 30])
+
+        >>> m = LinearTorch((2, 3), has_bias = False)
+        >>> m.parameters()
+        {'weight': tensor([[ 0.6433, -0.7139, -0.2954],
+         [ 0.9858,  0.3872,  0.6614]])}
     """
 
     def __init__(
@@ -56,20 +44,24 @@ class LinearTorch(TorchModule):
         weight=None,
         bias=None,
         has_bias: bool = True,
-        device: Optional[str] = None,
-        dtype: Optional[str] = None,
+        weight_init_func: Optional[Callable] = lambda s: init.kaiming_uniform_(
+            torch.empty((s[1], s[0]))
+        ).T,
+        *args,
+        **kwargs,
     ) -> None:
         """
         Initialise a LinearTorch layer
 
         Args:
             shape (tuple): The shape of this layer ``(Nin, Nout)``
+            weight (Tensor): Concrete initialisation data for the weights ``(Nin, Nout)``
+            bias (Tensor): Concrete initialisation data for the biases ``(Nout,)`` Default: ``0.0``
             has_bias (bool): Iff ``True``, this layer includes a bias. Default: ``True``
-            device (Optional[str]): Initialise the tensors on the supplied device.
-            dtype (Optional[str]): Initialise the tensors with the supplied dtype.
+            weight_init_func (Callable): Random initialisation function for weights. Default: Kaiming initialisation
         """
         # - Initialise superclass
-        super().__init__(shape=shape)
+        super().__init__(shape=shape, *args, **kwargs)
 
         # - Check arguments
         if len(self.shape) != 2:
@@ -78,15 +70,11 @@ class LinearTorch(TorchModule):
             )
 
         # - Set up parameters
-        factory_kwargs = {"device": device, "dtype": dtype}
-        self.weight: Union[torch.Tensor, rp.Parameter] = rp.Parameter(
+        w_rec_shape = (self.size_in, self.size_out)
+        self.weight: P_tensor = rp.Parameter(
             weight,
-            shape=shape,
-            init_func=lambda s: init.uniform_(
-                torch.empty(s, **factory_kwargs),
-                -math.sqrt(2 / s[0]),
-                math.sqrt(2 / s[0]),
-            ),
+            shape=w_rec_shape,
+            init_func=weight_init_func,
             family="weights",
         )
         """ (torch.Tensor) Weight matrix with shape ``(Nin, Nout)`` """
@@ -94,11 +82,11 @@ class LinearTorch(TorchModule):
         if has_bias:
             self.bias: Union[torch.Tensor, rp.Parameter] = rp.Parameter(
                 bias,
-                shape=shape[-1],
+                shape=[(self.size_out,), ()],
                 init_func=lambda s: init.uniform_(
-                    torch.empty(s[-1], **factory_kwargs),
-                    -math.sqrt(2 / s[0]),
-                    math.sqrt(2 / s[0]),
+                    torch.empty(s[-1]),
+                    -math.sqrt(1 / s[0]),
+                    math.sqrt(1 / s[0]),
                 ),
                 family="biases",
             )
@@ -107,9 +95,28 @@ class LinearTorch(TorchModule):
             self.bias = None
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        return F.linear(input, self.weight.T, self.bias)
+        input, _ = self._auto_batch(input)
+
+        return (
+            F.linear(
+                input,
+                self.weight.T,
+                self.bias,
+            )
+            if self.bias is not None
+            else F.linear(input, self.weight.T)
+        )
 
     def _extra_repr(self) -> str:
         return "in_features={}, out_features={}, bias={}".format(
             self.shape[0], self.shape[1], self.bias is not None
+        )
+
+    def as_graph(self) -> GraphModuleBase:
+        return LinearWeights._factory(
+            self.size_in,
+            self.size_out,
+            f"{type(self).__name__}_{self.name}_{id(self)}",
+            self,
+            self.weight.detach().numpy(),
         )

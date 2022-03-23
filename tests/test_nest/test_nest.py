@@ -2,6 +2,11 @@
 Test Nest-based spiking layers from layers.internal.iaf_nest
 """
 
+import pytest
+
+pytest.importorskip("nest")
+
+
 import numpy as np
 
 from rockpool.timeseries import set_global_ts_plotting_backend
@@ -179,7 +184,7 @@ def test_chargeAndSpikeSingleNeuron():
 
 
 def test_FFNestLayer():
-    """ Test FFIAFNest"""
+    """Test FFIAFNest"""
     from rockpool import timeseries as ts
     from rockpool.nn.layers.iaf_nest import FFIAFNest
 
@@ -219,7 +224,7 @@ def test_FFNestLayer():
 
 
 def test_RecNestLayer():
-    """ Test RecIAFNest"""
+    """Test RecIAFNest"""
     from rockpool.nn.layers.iaf_nest import RecIAFSpkInNest
     import numpy as np
 
@@ -259,7 +264,7 @@ def test_RecNestLayer():
 
 
 def test_setWeightsIn():
-    """ Test weight setting"""
+    """Test weight setting"""
     from rockpool.nn.layers.iaf_nest import FFIAFNest, RecIAFSpkInNest
     from rockpool.nn.layers.aeif_nest import RecAEIFSpkInNest
     from rockpool import TSEvent, TSContinuous
@@ -380,7 +385,7 @@ def test_setWeightsIn():
 
 
 def test_setWeightsRec():
-    """ Test RecIAFNest"""
+    """Test RecIAFNest"""
     from rockpool.nn.layers.iaf_nest import RecIAFSpkInNest
     from rockpool import TSEvent
     import numpy as np
@@ -439,7 +444,7 @@ def test_setWeightsRec():
 
 
 def test_FFToRecLayer():
-    """ Test FFToRecNest"""
+    """Test FFToRecNest"""
     from rockpool import timeseries as ts
     from rockpool.nn.layers.iaf_nest import FFIAFNest, RecIAFSpkInNest
     from rockpool.nn.combinators.sequential import Sequential
@@ -519,7 +524,7 @@ def test_FFToRecLayer():
 
 
 def test_randomizeStateRec():
-    """ test Randomize State """
+    """test Randomize State"""
 
     """ Test RecIAFNest"""
     from rockpool.nn.layers.iaf_nest import RecIAFSpkInNest
@@ -557,7 +562,7 @@ def test_randomizeStateRec():
 
 
 def test_randomizeStateFF():
-    """ Test FFIAFNest"""
+    """Test FFIAFNest"""
     from rockpool.nn.layers.iaf_nest import FFIAFNest
 
     # - Generic parameters
@@ -586,7 +591,7 @@ def test_randomizeStateFF():
 
 
 def test_recording():
-    """ tests if the shape of recording is correct """
+    """tests if the shape of recording is correct"""
 
     import numpy as np
     from rockpool import timeseries as ts
@@ -620,7 +625,7 @@ def test_recording():
 
 
 def test_FFToRecLayerRepeat():
-    """ Test FFToRecNest"""
+    """Test FFToRecNest"""
     from rockpool import timeseries as ts
     from rockpool.nn.layers.iaf_nest import FFIAFNest, RecIAFSpkInNest
     from rockpool.nn.combinators.sequential import Sequential
@@ -705,7 +710,7 @@ def test_FFToRecLayerRepeat():
 
 
 def test_DefaultParams():
-    """ Test RecIAFNest"""
+    """Test RecIAFNest"""
     from rockpool.nn.layers.iaf_nest import RecIAFSpkInNest, FFIAFNest
     from rockpool import timeseries as ts
     from rockpool.nn.combinators.sequential import Sequential
@@ -791,7 +796,7 @@ def test_DefaultParams():
 
 
 def test_timeconstants():
-    """ test delays """
+    """test delays"""
     from rockpool import timeseries as ts
     from rockpool.nn.layers.iaf_nest import FFIAFNest, RecIAFSpkInNest
     from rockpool.nn.combinators.sequential import Sequential
@@ -866,7 +871,7 @@ def test_timeconstants():
 
 
 def test_delays():
-    """ test delays """
+    """test delays"""
     from rockpool import timeseries as ts
     from rockpool.nn.layers.iaf_nest import FFIAFNest, RecIAFSpkInNest
     from rockpool.nn.combinators.sequential import Sequential
@@ -964,7 +969,7 @@ def test_delays():
 
 
 def test_IAF2AEIFNest():
-    """ Test RecIAFNest to RecAEIFNest """
+    """Test RecIAFNest to RecAEIFNest"""
     from rockpool.nn.layers.iaf_nest import RecIAFSpkInNest
     from rockpool.nn.layers.aeif_nest import RecAEIFSpkInNest
     from rockpool import timeseries as ts

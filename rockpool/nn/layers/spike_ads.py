@@ -14,13 +14,6 @@ import numpy as np
 from typing import Union, Any, Tuple, Optional
 import copy
 
-from importlib import util
-
-if util.find_spec("numba") is None:
-    raise ModuleNotFoundError(
-        "'numba'backend not found. Modules that rely on numba will not be available."
-    )
-
 from numba import njit
 from warnings import warn
 
@@ -122,7 +115,7 @@ def quantize_weights_dynapse_II(N, M, num_synapses_available=None, use_dense=Tru
     number_sparse_cores = num_cores_total - number_dense_cores
 
     # - Quantize
-    base_weight = (np.max(np.abs(M)) - np.min(np.abs(M))) / (2 ** 5 - 1)
+    base_weight = (np.max(np.abs(M)) - np.min(np.abs(M))) / (2**5 - 1)
     if base_weight == 0.0:
         return np.zeros(M.shape)
     num_base_weights_needed = np.round(M / base_weight)
@@ -769,7 +762,7 @@ class RecFSSpikeADS(Layer):
             np.fill_diagonal(dot_W_slow_batched, 0)
 
             # - Normalize the update to have frobenius norm 1.0
-            dot_W_slow_batched /= np.sum(np.abs(dot_W_slow_batched)) / self.size ** 2
+            dot_W_slow_batched /= np.sum(np.abs(dot_W_slow_batched)) / self.size**2
 
             # - Apply the learning rate
             dot_W_slow_batched *= self.eta
@@ -977,12 +970,12 @@ class RecFSSpikeADS(Layer):
 
     @property
     def output_type(self):
-        """ (`TSEvent`) Output `TimeSeries` class (`TSEvent`) """
+        """(`TSEvent`) Output `TimeSeries` class (`TSEvent`)"""
         return TSEvent
 
     @property
     def tau_syn_r_f(self):
-        """ (float) Fast synaptic time constant (s) """
+        """(float) Fast synaptic time constant (s)"""
         return self.__tau_syn_r_f
 
     @tau_syn_r_f.setter
@@ -991,7 +984,7 @@ class RecFSSpikeADS(Layer):
 
     @property
     def tau_syn_r_s(self):
-        """ (float) Slow synaptic time constant (s) """
+        """(float) Slow synaptic time constant (s)"""
         return self.__tau_syn_r_s
 
     @tau_syn_r_s.setter
@@ -1000,7 +993,7 @@ class RecFSSpikeADS(Layer):
 
     @property
     def v_thresh(self):
-        """ (float) Threshold potential """
+        """(float) Threshold potential"""
         return self.__thresh
 
     @v_thresh.setter
@@ -1009,7 +1002,7 @@ class RecFSSpikeADS(Layer):
 
     @property
     def v_rest(self):
-        """ (float) Resting potential """
+        """(float) Resting potential"""
         return self.__rest
 
     @v_rest.setter
@@ -1018,7 +1011,7 @@ class RecFSSpikeADS(Layer):
 
     @property
     def v_reset(self):
-        """ (float) Reset potential"""
+        """(float) Reset potential"""
         return self.__reset
 
     @v_reset.setter
@@ -1027,7 +1020,7 @@ class RecFSSpikeADS(Layer):
 
     @property
     def bias(self):
-        """ (float) Bias potential"""
+        """(float) Bias potential"""
         return self.__bias
 
     @bias.setter

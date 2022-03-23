@@ -3,6 +3,13 @@ Full API summary for |project|
 
 .. py:currentmodule::rockpool
 
+.. autosummary::
+    :toctree: _autosummary
+    :recursive:
+
+    rockpool
+
+
 Base classes
 ------------
 
@@ -26,6 +33,11 @@ Attribute types
     parameters.State
     parameters.SimulationParameter
 
+.. autosummary::
+    :toctree: _autosummary
+
+    parameters.Constant
+
 
 Alternative base classes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -46,6 +58,7 @@ Combinator modules
 
     nn.combinators.FFwdStack
     nn.combinators.Sequential
+    nn.combinators.Residual
 
 
 Time series classes
@@ -64,15 +77,18 @@ Time series classes
 :py:class:`Module` subclasses
 -----------------------------
 
-.. .. seealso:: :ref:`layerssummary`, :ref:`/tutorials/building_reservoir.ipynb` and other tutorials.
-
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
-    nn.modules.RateEulerJax
+    nn.modules.Rate
+    nn.modules.RateJax
+    nn.modules.RateTorch
+
+    nn.modules.LIF
     nn.modules.LIFJax
     nn.modules.LIFTorch
+
     nn.modules.LIFNeuronTorch
     nn.modules.UpDownTorch
 
@@ -82,75 +98,39 @@ Time series classes
 
     nn.modules.Instant
     nn.modules.InstantJax
+    nn.modules.InstantTorch
 
-    nn.modules.ExpSmoothJax
+    nn.modules.ExpSyn
+    nn.modules.ExpSynJax
     nn.modules.ExpSynTorch
 
     nn.modules.SoftmaxJax
     nn.modules.LogSoftmaxJax
 
+    nn.modules.ButterMelFilter
+    nn.modules.ButterFilter
+
 :py:class:`Layer` subclasses from Rockpool v1
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. .. seealso:: :ref:`layerssummary`, :ref:`/tutorials/building_reservoir.ipynb` and other tutorials.
+These classes are deprecated, but are still usable via the high-level API, until they are converted to the v2 API.
 
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
-
-    nn.layers.RecRateEuler
-    nn.layers.FFRateEuler
-    nn.layers.PassThrough
-
-    nn.layers.ButterFilter
-    nn.layers.ButterMelFilter
+    nn.layers.Layer
 
     nn.layers.FFIAFBrian
     nn.layers.FFIAFSpkInBrian
     nn.layers.RecIAFBrian
     nn.layers.RecIAFSpkInBrian
-    nn.layers.PassThroughEvents
     nn.layers.FFExpSynBrian
     nn.layers.RecDIAF
-    nn.layers.FFUpDown
 
     nn.layers.FFIAFNest
     nn.layers.RecIAFSpkInNest
     nn.layers.RecAEIFSpkInNest
-
-    nn.layers.FFCLIAF
-    nn.layers.RecCLIAF
-
-    .. nn.layers.RecDynapSE
-    .. nn.layers.VirtualDynapse
-    .. nn.layers.RecFSSpikeEulerBT
-    .. nn.layers.RecFSSpikeADS
-    .. nn.layers.RecRateEulerJax
-    .. nn.layers.RecRateEulerJax_IO
-    .. nn.layers.FFRateEulerJax
-    .. nn.layers.ForceRateEulerJax_IO
-    .. nn.layers.FFExpSynTorch
-    .. nn.layers.FFIAFTorch
-    .. nn.layers.FFIAFRefrTorch
-    .. nn.layers.FFIAFSpkInTorch
-    .. nn.layers.FFIAFSpkInRefrTorch
-    .. nn.layers.RecIAFTorch
-    .. nn.layers.RecIAFRefrTorch
-    .. nn.layers.RecIAFSpkInTorch
-    .. nn.layers.RecIAFSpkInRefrTorch
-    .. nn.layers.RecIAFSpkInRefrCLTorch
-    .. nn.layers.CLIAF
-    .. nn.layers.SoftMaxLayer
-    .. nn.layers.FFExpSyn
-    .. nn.layers.RecLIFJax
-    .. nn.layers.RecLIFCurrentInJax
-    .. nn.layers.RecLIFJax_IO
-    .. nn.layers.RecLIFCurrentInJax_IO
-    .. nn.layers.FFLIFJax_IO
-    .. nn.layers.FFLIFCurrentInJax_SO
-    .. nn.layers.FFExpSynCurrentInJax
-    .. nn.layers.FFExpSynJax
 
 Conversion utilities
 --------------------
@@ -189,8 +169,8 @@ Conversion utilities
 
     training.torch_loss
 
-Hardware support and simulation
--------------------------------
+Xylo hardware support and simulation
+------------------------------------
 
 .. autosummary::
     :toctree: _autosummary
@@ -203,12 +183,63 @@ Hardware support and simulation
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.XyloCim
+    devices.xylo.XyloSim
     devices.xylo.XyloSamna
     devices.xylo.AFE
+    devices.xylo.DivisiveNormalisation
 
 .. autosummary::
     :toctree: _autosummary
     :template: module.rst
 
+    devices.xylo
     devices.xylo.xylo_devkit_utils
+
+.. autosummary::
+    :toctree: _autosummary
+
+    devices.xylo.mapper
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    devices.xylo.XyloHiddenNeurons
+    devices.xylo.XyloOutputNeurons
+
+Graph tracing and mapping
+-------------------------
+
+Base modules
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    graph.GraphModuleBase
+    graph.GraphModule
+    graph.GraphNode
+    graph.GraphHolder
+
+.. autosummary::
+    :toctree: _autosummary
+
+    graph.graph_base.as_GraphHolder
+
+Computational graph modules
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    graph.LinearWeights
+    graph.GenericNeurons
+    graph.AliasConnection
+    graph.LIFNeuronWithSynsRealValue
+    graph.RateNeuronWithSynsRealValue
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: module.rst
+
+    graph.utils

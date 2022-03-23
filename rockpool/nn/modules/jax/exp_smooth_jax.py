@@ -11,6 +11,12 @@ from jax.tree_util import Partial
 
 from typing import Tuple, Union, Any, Callable, Optional
 
+__all__ = ["ExpSmoothJax"]
+
+import warnings
+
+warnings.warn("The module ExpSmoothJax is deprecated. Use ExpSynJax instead.")
+
 
 class ExpSmoothJax(JaxModule):
     """
@@ -72,6 +78,10 @@ class ExpSmoothJax(JaxModule):
             SimulationParameter, Callable[[float], float]
         ] = SimulationParameter(Partial(activation_fun))
         """ (Callable[[np.ndarray], np.ndarray]) Activation function of this module. """
+
+        self._init_args = {
+            "activation_fun": Partial(activation_fun),
+        }
 
     def evolve(
         self, input_data: np.ndarray, record: bool = False
