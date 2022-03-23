@@ -315,10 +315,11 @@ def test_LIFTorch_reset():
     import torch
 
     if not torch.cuda.is_available():
-        return
+        pytest.skip("CUDA required to test reset to device")
 
     mod = LIFTorch(10).to("cuda")
     device = mod.isyn.device
+    print(device)
 
     mod.reset_state()
     assert mod.isyn.device == device
