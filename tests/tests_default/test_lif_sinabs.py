@@ -54,7 +54,7 @@ import pytest
 
 pytest.importorskip("torch")
 pytest.importorskip("sinabs")
-pytest.importorskip("sinabs.slayer")
+pytest.importorskip("sinabs.exodus")
 
 
 def test_FF_equality_slayer():

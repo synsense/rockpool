@@ -1,7 +1,7 @@
 import pytest
 
 pytest.importorskip("torch")
-pytest.importorskip("sinabs.slayer")
+pytest.importorskip("sinabs.exodus")
 
 
 def test_spike_clipping():

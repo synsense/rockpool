@@ -354,7 +354,7 @@ def test_Rec_equality_torch():
 
 def test_FF_equality_slayer():
     pytest.importorskip("torch")
-    pytest.importorskip("sinabs.slayer")
+    pytest.importorskip("sinabs.exodus")
     import torch
     import numpy as np
 
