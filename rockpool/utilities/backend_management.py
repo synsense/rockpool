@@ -133,6 +133,7 @@ def missing_backend_shim(class_name: str, backend_name: str):
         """
         BACKEND MISSING FOR THIS CLASS
         """
+
         def __init__(self, *args, **kwargs):
             raise ModuleNotFoundError(
                 f"Missing the `{backend_name}` backend. `{class_name}` objects, and others relying on `{backend_name}` are not available."
