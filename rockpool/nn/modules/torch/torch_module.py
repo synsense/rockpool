@@ -314,6 +314,8 @@ class TorchModule(Module, nn.Module):
                 if isinstance(value, torch.Tensor)
                 else new_value
             )
+            if isinstance(value, torch.nn.Parameter):
+                new_value = torch.nn.Parameter(new_value)
             setattr(self, name, new_value)
 
         return self

@@ -326,6 +326,6 @@ def test_LIFTorch_reset():
 
     mod.reset_parameters()
     assert mod.tau_syn.device == device
-    assert mod.tau_mem.detach == device
+    assert mod.tau_mem.device == device
     assert mod.threshold.device == device
     assert mod.bias.device == device
