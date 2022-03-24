@@ -2,6 +2,14 @@
 
 All notable changes between Rockpool releases will be documented in this file.
 
+## [v2.3.1] -- 2022-03-24
+
+### Hotfix
+
+ - Improved CI pipeline such that pipline is not blocked with sinabs.exodus cannot be installed
+ - Fixed UserWarning raised by some torch-backed modules
+ - Improved some unit tests
+
 ## [v2.3] -- 2022-03-16
 
 ### Added

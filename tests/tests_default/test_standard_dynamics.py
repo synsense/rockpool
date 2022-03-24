@@ -57,7 +57,8 @@ def compare_value_tree(results: List[Tree], Classes: List[type], atol: float = 1
 
 
 def get_torch_gradients(module, data):
-    data = torch.tensor(data, requires_grad=True).float()
+    data = torch.as_tensor(data, dtype=torch.float)
+    data.requires_grad = True
 
     out, _, _ = module(data)
     (out**2).sum().backward()

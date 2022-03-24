@@ -172,7 +172,7 @@ class LIFBaseTorch(TorchModule):
         """ (float) Euler simulator time-step in seconds"""
 
         # - To-float-tensor conversion utility
-        to_float_tensor = lambda x: torch.tensor(x).float()
+        to_float_tensor = lambda x: torch.as_tensor(x, dtype=torch.float)
 
         # - Initialise recurrent weights
         w_rec_shape = (self.size_out, self.size_in)
