@@ -115,7 +115,7 @@ class LIFNeuronTorch(TorchModule):
         self.noise_std: P_float = rp.SimulationParameter(noise_std)
         """ (float) Std. Dev. of noise injected into neurons on each time-step """
 
-        to_float_tensor = lambda x: torch.tensor(x).float()
+        to_float_tensor = lambda x: torch.as_tensor(x, dtype=torch.float)
 
         self.tau_mem: P_tensor = rp.Parameter(
             tau_mem,

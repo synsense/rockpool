@@ -333,6 +333,7 @@ def test_wavesense_reset():
     T = 20
 
     # input
+    torch.manual_seed(0)
     inp = torch.rand(n_batches, T, n_inp_neurons) * 10
 
     # forward

@@ -58,7 +58,7 @@ class ExpSynTorch(TorchModule):
         )
 
         # - To-float-tensor conversion utility
-        to_float_tensor = lambda x: torch.tensor(x).float()
+        to_float_tensor = lambda x: torch.as_tensor(x, dtype=torch.float)
 
         # - Initialise tau
         self.tau: rt.P_tensor = rp.Parameter(
