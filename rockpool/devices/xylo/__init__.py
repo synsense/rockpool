@@ -47,3 +47,4 @@ from .syns61300.xylo_mapper import *
 
 import rockpool.devices.xylo.syns61300 as pollen
 import rockpool.devices.xylo.syns65300 as v1
+import rockpool.devices.xylo.syns61201 as v2

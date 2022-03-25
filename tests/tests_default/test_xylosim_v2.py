@@ -1,10 +1,10 @@
 def test_imports_V2():
-    from rockpool.devices.xylo.v2 import XyloSim, mapper
+    from rockpool.devices.xylo.syns61201 import XyloSim, mapper
 
 
 def test_specification_V2():
     # - Samna imports
-    from rockpool.devices.xylo.v2 import XyloSim
+    from rockpool.devices.xylo.syns61201 import XyloSim
 
     import numpy as np
 

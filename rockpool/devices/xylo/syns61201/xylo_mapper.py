@@ -45,9 +45,9 @@ def mapper(
     dash_dtype: Union[np.dtype, str] = "uint8",
 ) -> dict:
     """
-    Map a computational graph onto the Xylo v2 architecture
+    Map a computational graph onto the Xylo v2 (SYNS61201) architecture
 
-    This function performs a DRC of the computational graph to ensure it can be mapped onto the Xylo v2 architecture.
+    This function performs a DRC of the computational graph to ensure it can be mapped onto the Xylo v2 (SYNS61201) architecture.
 
     Warnings:
         :py:func:`mapper` operates **in-place** on the graph, and may modify it. If you need the un-mapped graph, you may need to call :py:meth:`.Module.as_graph` again on your :py:class:`.Module`.
