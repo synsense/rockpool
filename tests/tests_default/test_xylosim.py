@@ -5,12 +5,8 @@ pytest.importorskip("xylosim")
 
 
 def test_imports():
-    import samna
-    import xylosim
-    from rockpool.devices import xylo
-    import rockpool.devices.xylo.xylo_sim
-    import rockpool.devices.xylo.xylo_samna
-    from rockpool.devices.xylo import XyloSim, XyloSamna
+    pass
+
 
 
 def test_configure():
@@ -126,7 +122,6 @@ def test_specification():
 def test_from_config():
     # - Samna imports
     from rockpool.devices import xylo
-    from rockpool.devices.xylo import config_from_specification
     from samna.xylo import validate_configuration
     import numpy as np
 
@@ -374,7 +369,7 @@ def test_FF_equality_slayer():
     weight = quant_scaling
 
     # - init LIFTorch
-    from rockpool.nn.modules import LIFSlayer, LIFBitshiftTorch
+    from rockpool.nn.modules import LIFSlayer
     from rockpool.nn.modules.torch.lif_bitshift_torch import calc_bitshift_decay
 
     dash_mem = calc_bitshift_decay(torch.Tensor([tau_mem]), dt).item()
@@ -454,7 +449,6 @@ def test_FF_equality_slayer():
 def test_xylo_vs_xylosim():
     # - Samna imports
     from rockpool.devices import xylo
-    from rockpool.devices.xylo import config_from_specification
     from samna.xylo import validate_configuration
 
     import samna

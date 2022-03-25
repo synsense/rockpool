@@ -1,10 +1,10 @@
 def test_imports_V2():
-    from rockpool.devices.xylo import XyloSimV2, mapperV2
+    from rockpool.devices.xylo.syns61201 import XyloSim, mapper
 
 
 def test_specification_V2():
     # - Samna imports
-    from rockpool.devices.xylo import XyloSimV2
+    from rockpool.devices.xylo.syns61201 import XyloSim
 
     import numpy as np
 
@@ -18,7 +18,7 @@ def test_specification_V2():
         "weights_out": np.ones((Nhidden, Nout), "int"),
     }
 
-    mod_xylo_sim = XyloSimV2.from_specification(**spec)
+    mod_xylo_sim = XyloSim.from_specification(**spec)
 
     # - Test complete spec
     spec = {
@@ -40,7 +40,7 @@ def test_specification_V2():
         "aliases": None,
     }
 
-    mod_xylo_sim = XyloSimV2.from_specification(**spec)
+    mod_xylo_sim = XyloSim.from_specification(**spec)
 
     # - Simulate the evolution of the network on Xylo
     T = 1000
