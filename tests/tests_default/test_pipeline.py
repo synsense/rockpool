@@ -7,7 +7,7 @@ pytest.importorskip("xylosim")
 
 def test_pipeline():
     from rockpool.devices.xylo import mapper, config_from_specification
-    from devices.xylo.syns61300.xylo_sim import XyloSim
+    from rockpool.devices.xylo import XyloSim
 
     import numpy as np
     import torch
