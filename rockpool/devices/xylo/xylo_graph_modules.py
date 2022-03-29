@@ -32,6 +32,9 @@ class XyloNeurons(GenericNeurons):
     threshold: Union[IntVector, FloatVector] = field(default_factory=list)
     """ IntVector: The threshold parameters for each neuron ``(N,)`` """
 
+    bias: Union[IntVector, FloatVector] = field(default_factory=list)
+    # """ IntVector: The bias parameters for each neuron ``(N,)
+
     dash_mem: Union[IntVector, FloatVector] = field(default_factory=list)
     """ IntVector: The membrane decay parameters for each neuron ``(N,)`` """
 
@@ -62,6 +65,9 @@ class XyloNeurons(GenericNeurons):
             # - Get thresholds
             thresholds = np.array(mod.threshold).tolist()
 
+            # - Get biases
+            bias = np.array(mod.bias).tolist()
+
             # - Build a new neurons module to insert into the graph
             neurons = cls._factory(
                 len(mod.input_nodes),
@@ -70,6 +76,7 @@ class XyloNeurons(GenericNeurons):
                 mod.computational_module,
                 [],  # Empty list for HW IDs
                 thresholds,
+                bias,
                 dash_mem,
                 dash_syn,
                 mod.dt,
