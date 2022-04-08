@@ -34,20 +34,10 @@ from rockpool.devices.dynapse.config.circuits import (
 
 _SAMNA_AVAILABLE = True
 
-from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1Parameter
-
-try:
-    from samna.dynapse1 import (
-        Dynapse1Configuration,
-    )
-except Exception as e:
-    Dynapse1Configuration = Any
-
-    print(
-        e,
-        "\nDynapSE1SimCore object cannot be factored from a samna config object!",
-    )
-    _SAMNA_AVAILABLE = False
+from rockpool.devices.dynapse.samna_alias.dynapse1 import (
+    Dynapse1Parameter,
+    Dynapse1Configuration,
+)
 
 
 @dataclass

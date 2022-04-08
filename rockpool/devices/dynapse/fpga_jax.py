@@ -22,19 +22,7 @@ from rockpool.parameters import Parameter
 from rockpool.devices.dynapse.infrastructure.router import Router
 from rockpool.devices.dynapse.config.simconfig import DynapSE1SimBoard
 from rockpool.devices.dynapse.base import DynapSE, NeuronKey
-
-_SAMNA_AVAILABLE = True
-
-try:
-    from samna.dynapse1 import Dynapse1Configuration
-except ModuleNotFoundError as e:
-    Dynapse1Configuration = Any
-    print(
-        e,
-        "\DynapSEFPGA module can only be constructed manually."
-        "automatic factory methods depends on samna!",
-    )
-    _SAMNA_AVAILABLE = False
+from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1Configuration
 
 
 class DynapSEFPGA(JaxModule):
@@ -196,7 +184,10 @@ class DynapSEFPGA(JaxModule):
         :rtype: Tuple[jnp.DeviceArray, None, None]
         """
 
-        def forward(state: Any, spike_inputs_ts: jnp.DeviceArray,) -> jnp.DeviceArray:
+        def forward(
+            state: Any,
+            spike_inputs_ts: jnp.DeviceArray,
+        ) -> jnp.DeviceArray:
             """
             forward implements single time-step delivery of input spikes to device neuron's synaptic gates
 

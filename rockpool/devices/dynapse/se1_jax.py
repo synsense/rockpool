@@ -35,25 +35,11 @@ from rockpool.devices.dynapse.lookup import param_name
 param_name_se1 = param_name.se1
 param_name_table = param_name.table
 
-
-_SAMNA_AVAILABLE = True
-
-try:
-    from samna.dynapse1 import (
-        Dynapse1Configuration,
-        Dynapse1ParameterGroup,
-        Dynapse1Parameter,
-    )
-except ModuleNotFoundError as e:
-    Dynapse1Configuration = Any
-    Dynapse1ParameterGroup = Any
-    Dynapse1Parameter = Any
-    print(
-        e,
-        "\DynapSE1Jax module can only be used for simulation purposes."
-        "Deployment utilities depends on samna!",
-    )
-    _SAMNA_AVAILABLE = False
+from rockpool.devices.dynapse.samna_alias.dynapse1 import (
+    Dynapse1ParameterGroup,
+    Dynapse1Parameter,
+    Dynapse1Configuration,
+)
 
 
 class DynapSE1Jax(DynapSEAdExpLIFJax):
@@ -187,7 +173,13 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
             for bias in self.biases
         ]
 
-        group = {"value0": {"paramMap": param_map, "chipId": chipID, "coreId": coreID,}}
+        group = {
+            "value0": {
+                "paramMap": param_map,
+                "chipId": chipID,
+                "coreId": coreID,
+            }
+        }
 
         return group
 
@@ -280,7 +272,10 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
         # Obtain a TimedModuleWrapper and sequentially combine input layer with simulation layer
         fpga = DynapSEFPGA(fpga_shape, sim_config, w_in, idx_map_in)
         se1 = DynapSE1Jax(se1_shape, sim_config, has_rec, w_rec, idx_map_rec)
-        simulator = TimedModuleWrapper(Sequential(fpga, se1), dt=se1.dt,)
+        simulator = TimedModuleWrapper(
+            Sequential(fpga, se1),
+            dt=se1.dt,
+        )
 
         return simulator
 
