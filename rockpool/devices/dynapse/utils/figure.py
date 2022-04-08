@@ -16,21 +16,10 @@ from rockpool.devices.dynapse.utils.spike_input import custom_spike_train
 from rockpool.devices.dynapse.adexplif_jax import DynapSEAdExpLIFJax
 from rockpool.devices.dynapse.fpga_jax import DynapSEFPGA
 from rockpool.devices.dynapse.base import ArrayLike, NeuronKey
+from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1SynType
 
 import matplotlib
 import matplotlib.pyplot as plt
-
-
-_SAMNA_AVAILABLE = True
-
-try:
-    from samna.dynapse1 import Dynapse1SynType
-except ModuleNotFoundError as e:
-    Dynapse1SynType = Any
-    print(
-        e, "\nFigure module cannot interact with samna objects",
-    )
-    _SAMNA_AVAILABLE = False
 
 
 class Figure:
@@ -614,7 +603,13 @@ class Figure:
         # AHP handler
         if syn_name != "AHP":
             spikes_ts, labels = Figure.spike_input_post(
-                modSE, input_ts, output_ts, post, syn_type, modIn, title="",
+                modSE,
+                input_ts,
+                output_ts,
+                post,
+                syn_type,
+                modIn,
+                title="",
             )
         else:
             weighted_mask = np.zeros(output_ts.num_channels)
@@ -622,7 +617,11 @@ class Figure:
             idx_map = None if not hasattr(modSE, "idx_map") else modSE.idx_map
 
             spikes_ts, labels = Figure.select_input_channels(
-                output_ts, weighted_mask, virtual=False, idx_map=idx_map, title="",
+                output_ts,
+                weighted_mask,
+                virtual=False,
+                idx_map=idx_map,
+                title="",
             )
 
         scatter = Figure.plot_spikes_label(
