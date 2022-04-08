@@ -20,29 +20,13 @@ from rockpool.devices.dynapse.base import (
 
 import numpy as np
 
-from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1SynType
-
-_SAMNA_AVAILABLE = True
-
-try:
-    from samna.dynapse1 import (
-        Dynapse1Configuration,
-        Dynapse1Destination,
-        Dynapse1Synapse,
-        Dynapse1Neuron,
-    )
-except Exception as e:
-    Dynapse1Configuration = Any
-    Dynapse1Destination = Any
-    Dynapse1Synapse = Any
-    Dynapse1Neuron = Any
-
-    print(
-        e,
-        "Router functions can only used manually."
-        "Automatic connection and CAM matrix extraction from samna configuration utilities depends on samna!",
-    )
-    _SAMNA_AVAILABLE = False
+from rockpool.devices.dynapse.samna_alias.dynapse1 import (
+    Dynapse1SynType,
+    Dynapse1Neuron,
+    Dynapse1Synapse,
+    Dynapse1Destination,
+    Dynapse1Configuration,
+)
 
 
 class Router(DynapSE):
