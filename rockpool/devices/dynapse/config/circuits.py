@@ -20,21 +20,10 @@ from rockpool.devices.dynapse.infrastructure.biasgen import BiasGenSE1, BiasGenS
 from rockpool.devices.dynapse.config.layout import DynapSELayout
 from rockpool.devices.dynapse.lookup import param_name
 
-_SAMNA_SE2_AVAILABLE = True
-
 param_name_table = param_name.table
 
 from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1Parameter
-
-try:
-    from samna.dynapse2 import Dynapse2Parameter
-except Exception as e:
-    Dynapse2Parameter = Any
-    print(
-        e,
-        "\nDynapSE2SimCore object cannot be factored from a samna config object!",
-    )
-    _SAMNA_SE2_AVAILABLE = False
+from rockpool.devices.dynapse.samna_alias.dynapse2 import Dynapse2Parameter
 
 
 @dataclass

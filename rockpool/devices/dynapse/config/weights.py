@@ -36,21 +36,8 @@ from rockpool.devices.dynapse.config.autoencoder import (
     AnalogAutoEncoder,
 )
 from rockpool.devices.dynapse.base import ArrayLike
-
-_SAMNA_SE2_AVAILABLE = True
-
 from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1Parameter
-
-try:
-    from samna.dynapse2 import Dynapse2Parameter
-except ModuleNotFoundError as e:
-    Dynapse2Parameter = Any
-    print(
-        e,
-        "\nDynapSE2SimCore object cannot be factored from a samna config object!",
-    )
-    _SAMNA_SE2_AVAILABLE = False
-
+from rockpool.devices.dynapse.samna_alias.dynapse2 import Dynapse2Parameter
 
 WeightRecord = Tuple[
     jnp.DeviceArray,

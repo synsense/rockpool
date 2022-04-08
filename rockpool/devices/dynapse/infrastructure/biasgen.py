@@ -19,18 +19,8 @@ from rockpool.devices.dynapse.lookup import (
     scaling_factor,
     scaling_factor_se1,
 )
-
 from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1Parameter
-
-try:
-    from samna.dynapse2 import Dynapse2Parameter
-except Exception as e:
-    Dynapse2Parameter = Any
-    print(
-        e,
-        "\nA bias current value from `Dynapse2Parameter` cannot be obtained!",
-    )
-    _SAMNA_AVAILABLE = False
+from rockpool.devices.dynapse.samna_alias.dynapse2 import Dynapse2Parameter
 
 COARSE_BASE_EXT = [
     1.5e-11,  # I0
