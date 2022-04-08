@@ -20,6 +20,8 @@ from rockpool.devices.dynapse.base import (
 
 import numpy as np
 
+from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1SynType
+
 _SAMNA_AVAILABLE = True
 
 try:
@@ -27,14 +29,12 @@ try:
         Dynapse1Configuration,
         Dynapse1Destination,
         Dynapse1Synapse,
-        Dynapse1SynType,
         Dynapse1Neuron,
     )
-except ModuleNotFoundError as e:
+except Exception as e:
     Dynapse1Configuration = Any
     Dynapse1Destination = Any
     Dynapse1Synapse = Any
-    Dynapse1SynType = Any
     Dynapse1Neuron = Any
 
     print(
@@ -311,7 +311,9 @@ class Router(DynapSE):
 
         # Pre-synaptic neurons to listen across 4 chips
         pre_list = Router.get_UID_combination(
-            chipID=None, coreID=listen_core_id, neuronID=listen_neuron_id,
+            chipID=None,
+            coreID=listen_core_id,
+            neuronID=listen_neuron_id,
         )
 
         # Post-synaptic neuron
@@ -391,11 +393,17 @@ class Router(DynapSE):
 
         # Pre-synaptic neurons to broadcast spike events
         post_list = Router.get_UID_combination(
-            chipID=target_chip_id, coreID=cores_to_send, neuronID=None,
+            chipID=target_chip_id,
+            coreID=cores_to_send,
+            neuronID=None,
         )
 
         # Pre-synaptic neuron
-        pre = Router.get_UID(chip_id, virtual_core_id, neuron_id,)  # pretend
+        pre = Router.get_UID(
+            chip_id,
+            virtual_core_id,
+            neuron_id,
+        )  # pretend
 
         connections = Router.connect_pre_post(pre, post_list)
         return connections
@@ -603,7 +611,9 @@ class Router(DynapSE):
         # Traverse the virtual connection dictionary
         for virtual_UID, (chip_ID, core_mask) in target_dict.items():
             fpga_out += Router.broadcasting_connections(
-                neuron_UID=virtual_UID, target_chip_id=chip_ID, core_mask=core_mask,
+                neuron_UID=virtual_UID,
+                target_chip_id=chip_ID,
+                core_mask=core_mask,
             )
 
         return fpga_out
@@ -770,7 +780,8 @@ class Router(DynapSE):
 
     @staticmethod
     def fpga_neurons(
-        virtual_synapses: Dict[NeuronConnectionSynType, int], decode_UID: bool = True,
+        virtual_synapses: Dict[NeuronConnectionSynType, int],
+        decode_UID: bool = True,
     ) -> List[Union[NeuronKey, np.uint16]]:
         """
         fpga_neurons finds the active virtual neurons, that are sending events to other neurons. It uses the virtual synapse dictionary for searching.
@@ -1180,7 +1191,8 @@ class Router(DynapSE):
 
     @staticmethod
     def CAMs_from_config(
-        config: Dynapse1Configuration, return_maps: bool = False,
+        config: Dynapse1Configuration,
+        return_maps: bool = False,
     ) -> Dict[str, Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]]:
         """
         CAMs_from_config Use `Router.synapses_from_config()` and `Router.CAM_matrix()` functions together to extract
