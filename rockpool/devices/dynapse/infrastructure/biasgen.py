@@ -20,24 +20,15 @@ from rockpool.devices.dynapse.lookup import (
     scaling_factor_se1,
 )
 
-_SAMNA_AVAILABLE = True
-
-try:
-    from samna.dynapse1 import Dynapse1Parameter
-except ModuleNotFoundError as e:
-    Dynapse1Parameter = Any
-
-    print(
-        e, "\nA bias current value from `Dynapse1Parameter` cannot be obtained!",
-    )
-    _SAMNA_AVAILABLE = False
+from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1Parameter
 
 try:
     from samna.dynapse2 import Dynapse2Parameter
-except ModuleNotFoundError as e:
+except Exception as e:
     Dynapse2Parameter = Any
     print(
-        e, "\nA bias current value from `Dynapse2Parameter` cannot be obtained!",
+        e,
+        "\nA bias current value from `Dynapse2Parameter` cannot be obtained!",
     )
     _SAMNA_AVAILABLE = False
 
@@ -100,7 +91,10 @@ class BiasGen:
             raise IndexError(f"Fine Value: {fine} is out of limits! [0,255]")
 
     def get_bias(
-        self, coarse: np.uint8, fine: np.uint8, scaling_factor: Optional[float] = 1.0,
+        self,
+        coarse: np.uint8,
+        fine: np.uint8,
+        scaling_factor: Optional[float] = 1.0,
     ) -> np.float64:
         """
         get_bias obtains a bias current value using the theoretical conversion.
@@ -282,7 +276,11 @@ class BiasGen:
             raise ValueError("Scale factor lookup table is missing!")
         scale = self.scaling_factor_table[param_name] if scale_lookup else 1.0
         bias = self.get_bias(
-            param.coarse_value, param.fine_value, scale, *args, **kwargs,
+            param.coarse_value,
+            param.fine_value,
+            scale,
+            *args,
+            **kwargs,
         )
         return bias
 
@@ -371,7 +369,7 @@ class BiasGenSE2(BiasGen):
         lookup: Optional[bool] = True,
     ) -> np.float64:
         """
-        get_bias overwrites the common get_bias() method and extend it's capabilities such as transistor type 
+        get_bias overwrites the common get_bias() method and extend it's capabilities such as transistor type
         specific bias current calculation and lookup table usage
 
         :param coarse: integer coarse value :math:`C \\in [0,5]`
@@ -420,4 +418,3 @@ class BiasGenSE2(BiasGen):
             param_name, param, scale_lookup, param.type, bias_lookup
         )
         return bias
-

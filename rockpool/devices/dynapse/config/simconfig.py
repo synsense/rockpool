@@ -34,17 +34,18 @@ from rockpool.devices.dynapse.config.circuits import (
 
 _SAMNA_AVAILABLE = True
 
+from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1Parameter
+
 try:
     from samna.dynapse1 import (
         Dynapse1Configuration,
-        Dynapse1Parameter,
     )
-except ModuleNotFoundError as e:
+except Exception as e:
     Dynapse1Configuration = Any
-    Dynapse1Parameter = Any
 
     print(
-        e, "\nDynapSE1SimCore object cannot be factored from a samna config object!",
+        e,
+        "\nDynapSE1SimCore object cannot be factored from a samna config object!",
     )
     _SAMNA_AVAILABLE = False
 
@@ -236,26 +237,36 @@ class DynapSE1SimCore:
 
         # Slow inhibitory
         gaba_b = GABABParameters.from_samna_parameters(
-            samna_parameters, layout, C=capacitance.gaba_b,
+            samna_parameters,
+            layout,
+            C=capacitance.gaba_b,
         )
 
         # Fast inhibitory (shunt)
         gaba_a = GABAAParameters.from_samna_parameters(
-            samna_parameters, layout, C=capacitance.gaba_a,
+            samna_parameters,
+            layout,
+            C=capacitance.gaba_a,
         )
 
         # Slow Excitatory
         nmda = NMDAParameters.from_samna_parameters(
-            samna_parameters, layout, C=capacitance.nmda,
+            samna_parameters,
+            layout,
+            C=capacitance.nmda,
         )
 
         # Fast Excitatory
         ampa = AMPAParameters.from_samna_parameters(
-            samna_parameters, layout, C=capacitance.ampa,
+            samna_parameters,
+            layout,
+            C=capacitance.ampa,
         )
 
         ahp = AHPParameters.from_samna_parameters(
-            samna_parameters, layout, C=capacitance.ahp,
+            samna_parameters,
+            layout,
+            C=capacitance.ahp,
         )
 
         weights = WeightParameters.from_samna_parameters(samna_parameters, layout)
@@ -283,7 +294,7 @@ class DynapSE1SimCore:
         """
         neuron_property fetches an attribute from a neuron subcircuit and create a property array covering all the neurons allocated
             i.e. Itau_mem :jnp.DeviceArray = self.neuron_property("mem", "Itau")
-            
+
         :param subcircuit: The subcircuit harboring the desired property like "mem", "ahp" or "layout"
         :type subcircuit: str
         :param attr: An attribute stored inside the given subcircuit like "Itau", "Ith" or etc.
@@ -823,7 +834,8 @@ class DynapSE1SimBoard:
         """
         # Find unique chip-core ID pairs
         chip_core = np.unique(
-            list(map(lambda nid: nid[0:2], idx_map.values())), axis=0,
+            list(map(lambda nid: nid[0:2], idx_map.values())),
+            axis=0,
         )
         core_index = list(map(lambda t: tuple(t), chip_core))
 
@@ -936,7 +948,10 @@ class DynapSE1SimBoard:
         return mod
 
     @classmethod
-    def from_idx_map(cls, idx_map: Dict[int, NeuronKey],) -> DynapSE1SimBoard:
+    def from_idx_map(
+        cls,
+        idx_map: Dict[int, NeuronKey],
+    ) -> DynapSE1SimBoard:
         """
         from_idx_map is a class factory method for DynapSE1SimBoard object such that the default parameters
         are used but the neurons ids and the shape is obtained from the idx_map.

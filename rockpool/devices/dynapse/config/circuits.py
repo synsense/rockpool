@@ -20,27 +20,19 @@ from rockpool.devices.dynapse.infrastructure.biasgen import BiasGenSE1, BiasGenS
 from rockpool.devices.dynapse.config.layout import DynapSELayout
 from rockpool.devices.dynapse.lookup import param_name
 
-_SAMNA_SE1_AVAILABLE = True
 _SAMNA_SE2_AVAILABLE = True
 
 param_name_table = param_name.table
 
-try:
-    from samna.dynapse1 import Dynapse1Parameter
-except ModuleNotFoundError as e:
-    Dynapse1Parameter = Any
-
-    print(
-        e, "\nDynapSE1SimCore object cannot be factored from a samna config object!",
-    )
-    _SAMNA_SE1_AVAILABLE = False
+from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1Parameter
 
 try:
     from samna.dynapse2 import Dynapse2Parameter
-except ModuleNotFoundError as e:
+except Exception as e:
     Dynapse2Parameter = Any
     print(
-        e, "\nDynapSE2SimCore object cannot be factored from a samna config object!",
+        e,
+        "\nDynapSE2SimCore object cannot be factored from a samna config object!",
     )
     _SAMNA_SE2_AVAILABLE = False
 
@@ -48,7 +40,7 @@ except ModuleNotFoundError as e:
 @dataclass
 class DynapSEParamGen:
     """
-    DynapSEParamGen encapsulates common Dynap-SE1/SE2 paramter configuration -> bias current 
+    DynapSEParamGen encapsulates common Dynap-SE1/SE2 paramter configuration -> bias current
     conversion methods and serve as a top level class.
 
     :param version: the processor version. either 1 or 2
@@ -143,7 +135,7 @@ class SimulationParameters:
 
     def nominal(self, name: str):
         """
-        nominal abstracts the invisible conversion to find the nominal current value that 
+        nominal abstracts the invisible conversion to find the nominal current value that
         the simulation paramter need to have depending on the device configuration.
 
         * Provided the name of the simulation current parameter, find the respected device parameter name
@@ -548,7 +540,7 @@ class MembraneParameters(DPIParameters):
     ) -> MembraneParameters:
         """
         from_samna_parameters is a `MembraneParameters` factory method with hardcoded bias parameter names
-        
+
         :param samna_parameters: a parameter dictionary inside samna config object for setting the parameter group within one core
         :type samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]]
         :param layout: constant values that are related to the exact silicon layout of a chip
