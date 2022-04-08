@@ -37,31 +37,25 @@ from rockpool.devices.dynapse.config.autoencoder import (
 )
 from rockpool.devices.dynapse.base import ArrayLike
 
-_SAMNA_SE1_AVAILABLE = True
 _SAMNA_SE2_AVAILABLE = True
 
-try:
-    from samna.dynapse1 import Dynapse1Parameter
-except ModuleNotFoundError as e:
-    Dynapse1Parameter = Any
-
-    print(
-        e, "\nDynapSE1SimCore object cannot be factored from a samna config object!",
-    )
-    _SAMNA_SE1_AVAILABLE = False
+from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1Parameter
 
 try:
     from samna.dynapse2 import Dynapse2Parameter
 except ModuleNotFoundError as e:
     Dynapse2Parameter = Any
     print(
-        e, "\nDynapSE2SimCore object cannot be factored from a samna config object!",
+        e,
+        "\nDynapSE2SimCore object cannot be factored from a samna config object!",
     )
     _SAMNA_SE2_AVAILABLE = False
 
 
 WeightRecord = Tuple[
-    jnp.DeviceArray, jnp.DeviceArray, jnp.DeviceArray,  # loss  # w_en  # w_dec
+    jnp.DeviceArray,
+    jnp.DeviceArray,
+    jnp.DeviceArray,  # loss  # w_en  # w_dec
 ]
 
 
@@ -506,7 +500,7 @@ class WeightParameters:
         if __name == "mux" and __value is not None:
             __value = jnp.array(__value)
             if hasattr(self, "code_length") and self.code_length is not None:
-                if (__value > (2 ** self.code_length - 1)).any():
+                if (__value > (2**self.code_length - 1)).any():
                     raise ValueError(
                         "Mux includes elements exceeding the coding capacity!"
                     )
