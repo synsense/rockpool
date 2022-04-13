@@ -1,19 +1,10 @@
 """
 Feedforward layer that converts each analogue input channel to one spiking up and one down channel
 """
-from importlib import util
-
-if util.find_spec("torch") is None:
-    raise ModuleNotFoundError(
-        "'Torch' backend not found. Modules that rely on Torch will not be available."
-    )
-
 from typing import Optional, Union, Tuple, Any
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
 import torch
-import torch.nn.functional as F
-import torch.nn.init as init
 import rockpool.parameters as rp
 from rockpool.typehints import FloatVector, P_float, P_tensor
 
@@ -235,12 +226,9 @@ class UpDownTorch(TorchModule):
 
             # - Interleave up and down channels so we have 2*k as up and 2*k + 1 as down channel of the k-th input channel
             # - Multiply by repeat_output to get the desired multiple of spikes
-            out_spikes[:, t, :] = (
-                self.repeat_output
-                * torch.stack(
-                    (up_channels, down_channels),
-                    dim=2,
-                ).view(n_batches, 2 * n_channels)
-            )
+            out_spikes[:, t, :] = self.repeat_output * torch.stack(
+                (up_channels, down_channels),
+                dim=2,
+            ).view(n_batches, 2 * n_channels)
 
         return out_spikes

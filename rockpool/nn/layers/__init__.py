@@ -9,31 +9,26 @@ from .layer import *
 try:
     from .iaf_brian import *
     from .exp_synapses_brian import *
-except (ImportError, ModuleNotFoundError) as err:
-    print(f"Could not import package: {err}")
+except:
+    pass
 
 # - Native (numpy / scipy) modules
 try:
-    from .rate import *
-    from .exp_synapses_manual import *
-    from .iaf_cl import *
-    from .iaf_digital import *
     from .updown import *
-    from .filter_bank import *
     from .event_pass import *
-except (ImportError, ModuleNotFoundError) as err:
-    print(f"Could not import package: {err}")
+except:
+    pass
 
 # - Numba modules
 try:
     from .spike_bt import *
     from .spike_ads import *
-except (ImportError, ModuleNotFoundError) as err:
-    print(f"Could not import package: {err}")
+except:
+    pass
 
 # - NEST modules
 try:
     from iaf_nest import *
     from aeif_nest import *
-except (ImportError, ModuleNotFoundError) as err:
-    print(f"Could not import package: {err}")
+except:
+    pass

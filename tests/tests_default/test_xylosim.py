@@ -1,10 +1,12 @@
+import pytest
+
+pytest.importorskip("samna")
+pytest.importorskip("xylosim")
+
+
 def test_imports():
-    import samna
-    import xylosim
-    from rockpool.devices import xylo
-    import rockpool.devices.xylo.xylo_sim
-    import rockpool.devices.xylo.xylo_samna
-    from rockpool.devices.xylo import XyloSim, XyloSamna
+    pass
+
 
 
 def test_configure():
@@ -20,21 +22,21 @@ def test_configure():
     Nin = 10
     Nhidden = 3
     Nout = 2
-    
+
     # - Quantise the network
-    
+
     # - Build a Xylo configuration
     c = XyloConfiguration()
-    
+
     w_in = np.ones((Nin, Nhidden), "int")
     c.input.weights = w_in
     c.input.syn2_weights = w_in
     c.synapse2_enable = True
-    
+
     w_rec = np.zeros((Nhidden, Nhidden), "int")
     c.reservoir.weights = w_rec
     c.reservoir.syn2_weights = w_rec
-    
+
     hidden_neurons = []
     for _ in range(Nhidden):
         n = ReservoirNeuron()
@@ -42,12 +44,12 @@ def test_configure():
         n.v_mem_decay = 4
         n.threshold = 484
         hidden_neurons.append(n)
-    
+
     c.reservoir.neurons = hidden_neurons
-    
+
     w_out = np.ones((Nhidden, Nout), "int")
     c.readout.weights = w_out
-    
+
     readout_neurons = []
     for _ in range(Nout):
         n = OutputNeuron()
@@ -55,26 +57,25 @@ def test_configure():
         n.v_mem_decay = 4
         n.threshold = 484
         readout_neurons.append(n)
-    
+
     c.readout.neurons = readout_neurons
-    
+
     valid, message = validate_configuration(c)
-    
+
     # - Build a simulated Xylo Module
     mod_xylo_sim = xylo.XyloSim.from_config(c, dt=dt)
-    
+
     # - Simulate the evolution of the network on Xylo
     T = 1000
     input_rate = 0.01
     input_raster = np.random.rand(T, Nin) < input_rate
     output_raster, _, _ = mod_xylo_sim(input_raster)
-    
+
     assert valid
-    
+
 
 def test_specification():
     # - Samna imports
-    from rockpool.devices.xylo import XyloSim
     from rockpool.devices import xylo
 
     import numpy as np
@@ -89,7 +90,7 @@ def test_specification():
         "weights_out": np.ones((Nhidden, Nout), "int"),
     }
 
-    mod_xylo_sim = XyloSim.from_specification(**spec)
+    mod_xylo_sim = xylo.XyloSim.from_specification(**spec)
 
     # - Test complete spec
     spec = {
@@ -101,8 +102,8 @@ def test_specification():
         "dash_syn": np.ones(Nhidden, "int"),
         "dash_syn_2": np.ones(Nhidden, "int"),
         "dash_syn_out": np.ones(Nout, "int"),
-        "threshold": np.zeros(Nhidden, "int"),
-        "threshold_out": np.zeros(Nout, "int"),
+        "threshold": np.ones(Nhidden, "int"),
+        "threshold_out": np.ones(Nout, "int"),
         "weight_shift_in": 0,
         "weight_shift_rec": 0,
         "weight_shift_out": 0,
@@ -121,7 +122,6 @@ def test_specification():
 def test_from_config():
     # - Samna imports
     from rockpool.devices import xylo
-    from rockpool.devices.xylo import config_from_specification
     from samna.xylo import validate_configuration
     import numpy as np
 
@@ -137,7 +137,7 @@ def test_from_config():
 
     c, _, _ = xylo.config_from_specification(**spec)
     valid, message = validate_configuration(c)
-    
+
     mod_xylo_sim = xylo.XyloSim.from_config(c)
     mod_xylo_sim.timed()
 
@@ -151,6 +151,7 @@ def test_from_config():
 
 
 def test_FF_equality_torch():
+    pytest.importorskip("torch")
     import torch
     import numpy as np
     from xylosim.v1 import XyloSynapse, XyloLayer
@@ -192,7 +193,7 @@ def test_FF_equality_torch():
     dash_mem = calc_bitshift_decay(torch.Tensor([tau_mem]), dt).item()
     dash_syn = calc_bitshift_decay(torch.Tensor([tau_syn]), dt).item()
 
-    # - init XyloLayer from XyloSim 
+    # - init XyloLayer from XyloSim
     lif_xylo = XyloLayer(
         synapses_in=[[syn]],
         synapses_rec=[[]],
@@ -252,6 +253,7 @@ def test_FF_equality_torch():
 
 
 def test_Rec_equality_torch():
+    pytest.importorskip("torch")
     import torch
     import numpy as np
     from xylosim.v1 import XyloSynapse, XyloLayer
@@ -345,11 +347,13 @@ def test_Rec_equality_torch():
 
 
 def test_FF_equality_slayer():
+    pytest.importorskip("torch")
+    pytest.importorskip("sinabs.exodus")
     import torch
     import numpy as np
 
     if not torch.cuda.is_available():
-        return
+        pytest.skip("This test requires CUDA to continue.")
 
     quant_scaling = 100
     bitshift = 4
@@ -366,7 +370,7 @@ def test_FF_equality_slayer():
     weight = quant_scaling
 
     # - init LIFTorch
-    from rockpool.nn.modules import LIFSlayer, LIFBitshiftTorch
+    from rockpool.nn.modules import LIFSlayer
     from rockpool.nn.modules.torch.lif_bitshift_torch import calc_bitshift_decay
 
     dash_mem = calc_bitshift_decay(torch.Tensor([tau_mem]), dt).item()
@@ -446,20 +450,19 @@ def test_FF_equality_slayer():
 def test_xylo_vs_xylosim():
     # - Samna imports
     from rockpool.devices import xylo
-    from rockpool.devices.xylo import config_from_specification
     from samna.xylo import validate_configuration
 
     import samna
     from rockpool.devices.xylo import xylo_devkit_utils as xu
     from rockpool.devices import xylo as x
-    
+
     import numpy as np
-    
+
     T = 1000
     Nin = 8
     Nhidden = 3
     Nout = 2
-    
+
     # - Test full random spec
     spec = {
         "weights_in": np.random.randint(-128, 128, (Nin, Nhidden, 2)),
@@ -476,48 +479,44 @@ def test_xylo_vs_xylosim():
         "weight_shift_rec": np.random.randint(1, 8),
         "weight_shift_out": np.random.randint(1, 8),
         "aliases": [[], [2], []],
-     
     }
-    
+
     # - Create configuration object
     conf, _, _ = xylo.config_from_specification(**spec)
 
     # - Check for validity
     valid, message = validate_configuration(conf)
     assert valid
-    
+
     # - Create XyloSim object
     mod_xylo_sim = xylo.XyloSim.from_config(conf)
     mod_xylo_sim.timed()
-    
+
     # - Generate random input
     input_raster = np.random.randint(0, 16, (T, Nin))
 
     # - Simulate the evolution of the network on Xylo
     out_sim, _, rec_sim = mod_xylo_sim(input_raster.clip(0, 15), record=True)
-    
+
     # - Init Samna
     samna.init_samna()
     xylo_hdk_nodes = xu.find_xylo_boards()
-    
+
     if len(xylo_hdk_nodes) == 0:
-        return # can't finish test, as no Xylo board in available
-    
+        pytest.skip("This test requires a connected Xylo board to continue.")
+
     db = xylo_hdk_nodes[0]
 
     # - Init Xylo
-    mod_xylo = x.XyloSamna(db, conf, dt = 1e-3)
-    
+    mod_xylo = x.XyloSamna(db, conf, dt=1e-3)
+
     # - Evolve Xylo
-    out_xylo, _, rec_xylo = mod_xylo(input_raster, record = True)
-    
+    out_xylo, _, rec_xylo = mod_xylo(input_raster, record=True)
+
     # - Assert equality for all outputs and recordings
     assert np.all(out_sim == out_xylo)
-    assert np.all(rec_sim['Vmem'] == rec_xylo['Vmem'])
-    assert np.all(rec_sim['Isyn'] == rec_xylo['Isyn'])
-    assert np.all(rec_sim['Vmem_out'] == rec_xylo['Vmem_out'])
-    assert np.all(rec_sim['Isyn_out'] == rec_xylo['Isyn_out'])
-    assert np.all(rec_sim['Spikes'] == rec_xylo['Spikes'])
-    
- 
-
+    assert np.all(rec_sim["Vmem"] == rec_xylo["Vmem"])
+    assert np.all(rec_sim["Isyn"] == rec_xylo["Isyn"])
+    assert np.all(rec_sim["Vmem_out"] == rec_xylo["Vmem_out"])
+    assert np.all(rec_sim["Isyn_out"] == rec_xylo["Isyn_out"])
+    assert np.all(rec_sim["Spikes"] == rec_xylo["Spikes"])

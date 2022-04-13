@@ -1,5 +1,7 @@
 import pytest
 
+pytest.importorskip("jax")
+
 
 def test_imports():
     from rockpool.nn.modules import SoftmaxJax, LogSoftmaxJax

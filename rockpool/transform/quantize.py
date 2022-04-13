@@ -10,7 +10,6 @@ from rockpool.transform.param_transformer import (
 )
 
 import numpy as onp
-import warnings
 
 __all__ = ["StochasticQuantize"]
 
@@ -24,13 +23,13 @@ try:
             a = jnp.floor(param)
             return a + ((param - a) > rand.uniform(self.rng_key, shape=param.shape))
 
-
 except (ImportError, ModuleNotFoundError) as err:
-    warnings.warn(f"Could not import module: {err}")
+    from rockpool.utilities.backend_management import missing_backend_shim
 
-    class JaxStochasticQuantize:
-        def __init__(self, *_, **__):
-            raise ImportError("Jax backend not found.")
+    JaxStochasticQuantize = missing_backend_shim("JaxStochasticQuantize", "jax")
+
+    class JaxModule:
+        pass
 
 
 class ModStochasticQuantize(ParameterTransformerMixin, Module):

@@ -1,13 +1,7 @@
 """
 Provide a base class for build Torch-compatible modules
 """
-from importlib import util
-
-if util.find_spec("torch") is None:
-    raise ModuleNotFoundError(
-        "'Torch' backend not found. Modules that rely on Torch will not be available."
-    )
-
+__all__ = ["TorchModule", "TorchModuleParameters"]
 
 from rockpool.nn.modules.module import Module
 
@@ -21,8 +15,6 @@ import types
 import rockpool.parameters as rp
 
 from typing import Tuple, Any, Generator, Union, List
-
-__all__ = ["TorchModule", "TorchModuleParameters"]
 
 
 class TorchModuleParameters(dict):
@@ -196,7 +188,10 @@ class TorchModule(Module, nn.Module):
         return output_data, new_states, record_dict
 
     def _auto_batch(
-        self, data: torch.Tensor, states: Tuple = (), target_shapes: Tuple = None,
+        self,
+        data: torch.Tensor,
+        states: Tuple = (),
+        target_shapes: Tuple = None,
     ) -> (torch.Tensor, Tuple[torch.Tensor]):
         """
         Automatically replicate states over batches and verify input dimensions
@@ -319,6 +314,8 @@ class TorchModule(Module, nn.Module):
                 if isinstance(value, torch.Tensor)
                 else new_value
             )
+            if isinstance(value, torch.nn.Parameter):
+                new_value = torch.nn.Parameter(new_value)
             setattr(self, name, new_value)
 
         return self
@@ -521,6 +518,8 @@ class TorchModule(Module, nn.Module):
                     my_params[k].data = torch.tensor(param)
                 elif isinstance(my_params[k], TorchModuleParameters):
                     self.modules()[k].json_to_param(param)
+                elif my_params[k] == None:
+                    my_params[k] = param
                 else:
                     raise NotImplementedError(
                         f"{type(my_params[k])} not implemented to load. Please implement."

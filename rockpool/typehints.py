@@ -1,5 +1,8 @@
 """
 Module to provide useful types for Rockpool
+
+See :ref:`/reference/params_types.ipynb` for more information on the available types.
+
 """
 
 import numpy as np

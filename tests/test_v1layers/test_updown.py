@@ -6,7 +6,7 @@ import numpy as np
 
 
 def test_updown():
-    """ Test FFUpDown """
+    """Test FFUpDown"""
     from rockpool import TSContinuous
     from rockpool.nn.layers import FFUpDown
 

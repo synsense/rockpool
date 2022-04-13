@@ -1,7 +1,10 @@
-import numpy as np
+import pytest
+
+pytest.importorskip("nest")
 
 
 def test_change_baseweight():
+    import numpy as np
     from rockpool.devices.dynapse import VirtualDynapse
     from rockpool import TSEvent
 

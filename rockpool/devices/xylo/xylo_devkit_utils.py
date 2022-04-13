@@ -8,12 +8,11 @@ See Also:
 
 """
 
-# - Check that Samna is installed
-from importlib import util
+from rockpool.utilities.backend_management import backend_available
 
-if util.find_spec("samna") is None:
+if not backend_available("samna"):
     raise ModuleNotFoundError(
-        "'samna' not found. Modules that rely on Samna will not be available."
+        "`samna` not found. The Xylo HDK requires `samna` for interfacing."
     )
 
 # - `samna` imports

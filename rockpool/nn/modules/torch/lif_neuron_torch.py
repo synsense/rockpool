@@ -1,14 +1,6 @@
 """
 Implement a LIF Neuron Module, using a Torch backend
 """
-
-from importlib import util
-
-if util.find_spec("torch") is None:
-    raise ModuleNotFoundError(
-        "'Torch' backend not found. Modules that rely on Torch will not be available."
-    )
-
 from typing import Union, Tuple, Any
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
@@ -123,7 +115,7 @@ class LIFNeuronTorch(TorchModule):
         self.noise_std: P_float = rp.SimulationParameter(noise_std)
         """ (float) Std. Dev. of noise injected into neurons on each time-step """
 
-        to_float_tensor = lambda x: torch.tensor(x).float()
+        to_float_tensor = lambda x: torch.as_tensor(x, dtype=torch.float)
 
         self.tau_mem: P_tensor = rp.Parameter(
             tau_mem,

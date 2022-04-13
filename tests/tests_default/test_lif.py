@@ -8,8 +8,6 @@ def test_imports():
 def test_lif():
     from rockpool.nn.modules import LIF
 
-    from jax import jit
-
     import numpy as np
 
     batches = 2

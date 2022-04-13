@@ -2,13 +2,6 @@
 Implement a exponential synapse module, using a Torch backend
 """
 
-from importlib import util
-
-if util.find_spec("torch") is None:
-    raise ModuleNotFoundError(
-        "'Torch' backend not found. Modules that rely on Torch will not be available."
-    )
-
 from typing import Optional, Tuple, Any, Union
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
@@ -65,7 +58,7 @@ class ExpSynTorch(TorchModule):
         )
 
         # - To-float-tensor conversion utility
-        to_float_tensor = lambda x: torch.tensor(x).float()
+        to_float_tensor = lambda x: torch.as_tensor(x, dtype=torch.float)
 
         # - Initialise tau
         self.tau: rt.P_tensor = rp.Parameter(
@@ -130,7 +123,7 @@ class ExpSynTorch(TorchModule):
         beta = torch.exp(-self.dt / self.tau)
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
 
-        data = data + noise_zeta * torch.randn(data.shape)
+        data = data + noise_zeta * torch.randn(data.shape, device = data.device)
 
         # - Loop over time
         for t in range(time_steps):

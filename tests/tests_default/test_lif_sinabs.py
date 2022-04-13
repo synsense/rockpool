@@ -50,6 +50,12 @@
 #    assert torch.all(ns_torch == ns_sinabs)
 #    assert torch.all(rd_torch == rd_sinabs)
 
+import pytest
+
+pytest.importorskip("torch")
+pytest.importorskip("sinabs")
+pytest.importorskip("sinabs.exodus")
+
 
 def test_FF_equality_slayer():
     import torch

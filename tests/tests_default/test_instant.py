@@ -25,6 +25,8 @@ def test_instant():
 
 
 def test_instant_jax():
+    pytest.importorskip("jax")
+
     from rockpool.nn.modules import InstantJax
     import numpy as np
     import jax
@@ -77,6 +79,8 @@ def test_instant_jax():
 
 
 def test_instant_torch():
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import InstantTorch
     import torch
 

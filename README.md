@@ -8,9 +8,9 @@ Rockpool is a Python package for developing signal processing applications with 
 
 # Documentation and getting started
 
-The best place to start with Rockpool is the [documentation](https://rockpool.ai), which contains several tutorials and getting started guides.
+The best place to start with Rockpool is the [documentation](https://rockpool.ai), which contains tutorials and getting started guides.
 
-The documentation is hosted online: [https://rockpool.ai/](https://rockpool.ai/)
+The documentation is hosted online: [https://rockpool.ai/](https://rockpool.ai/), or can be built and hosted locally with Sphinx. Much of the documentation is available as Jupyter notebooks, to be used interactively.
 
 # Installation instructions
 

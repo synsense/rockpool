@@ -1,3 +1,8 @@
+import pytest
+
+pytest.importorskip("torch")
+
+
 def test_wavesense_import():
     from rockpool.nn.networks import WaveSenseNet
 
@@ -180,6 +185,7 @@ def test_wavesense_backward():
     T = 20
 
     # input
+    torch.manual_seed(0)
     inp = torch.rand(n_batches, T, n_inp_neurons) * 10
     inp.requires_grad = True
 
@@ -327,6 +333,7 @@ def test_wavesense_reset():
     T = 20
 
     # input
+    torch.manual_seed(0)
     inp = torch.rand(n_batches, T, n_inp_neurons) * 10
 
     # forward

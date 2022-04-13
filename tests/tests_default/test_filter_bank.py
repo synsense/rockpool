@@ -1,3 +1,8 @@
+import pytest
+
+pytest.importorskip("scipy")
+
+
 def test_butter_mel_filter():
 
     ## IMPORT ##

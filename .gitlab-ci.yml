@@ -15,11 +15,12 @@ unit_tests:
     - conda install -c conda-forge cudatoolkit-dev
     - pip install --upgrade .[all] --no-cache-dir
     - python -c 'import samna'
-    - pip install git+https://dylan.muir:${GITLAB_CLONE_API_KEY}@spinystellate.office.synsense.ai/research/SCNN/sinabs.git@06ede3955c9d8dfe3bee981423f005a7dcade0f3
-#    - pip install git+https://dylan.muir:${GITLAB_CLONE_API_KEY}@spinystellate.office.synsense.ai/research/SCNN/sinabs-slayer.git
-
+    - pip install sinabs
+    - pip install git+https://dylan.muir:${GITLAB_CLONE_API_KEY}@spinystellate.office.synsense.ai/research/SCNN/sinabs-exodus.git@main || exit_code=$?
+    - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
+    
   script:
-    - pytest -v tests/tests_default -n 4
+    - pytest -v tests/tests_default -n 4 --forked
     - pytest -v tests/test_v1layers -n 4
 
 nest_tests:

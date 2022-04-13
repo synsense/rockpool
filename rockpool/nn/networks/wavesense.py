@@ -1,12 +1,11 @@
 """
 Implements the WaveSense architecture for temporal signal processing
 
-The WaveSense architecture is described in Weidel et al 2021 [1]
-[1] https://arxiv.org/abs/2111.01456
+The WaveSense architecture is described in Weidel et al 2021 [https://arxiv.org/abs/2111.01456]
 
-See Also
+.. rubric:: See Also
 
-    :ref:`/tutorials/wavesense_temporal_xor.ipynb`
+:ref:`/tutorials/wavesense_training.ipynb`
 
 """
 

@@ -174,7 +174,6 @@ try:
             aa_final[seq_length - 2][l_], aa_final[seq_length - 2][l_ - 1]
         )
 
-
 except (ModuleNotFoundError, ImportError) as err:
     warnings.warn(f"Could not import dependencies for ctc_loss_jax: {err}.")
 
@@ -249,7 +248,6 @@ try:
                 aa[i][j] += log_prob[i][label_[j]]
 
         return -my_log_add_exp(aa[seq_length - 1][l_], aa[seq_length - 1][l_ - 1])
-
 
 except (ModuleNotFoundError, ImportError) as err:
     warnings.warn(f"Could not import dependencies for ctc_loss_torch: {err}.")

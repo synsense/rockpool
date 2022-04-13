@@ -1,3 +1,8 @@
+import pytest
+
+pytest.importorskip("brian2")
+
+
 def test_imports():
     from rockpool.nn.layers.exp_synapses_brian import FFExpSynBrian
 

@@ -1,6 +1,11 @@
 """
 Unit tests for jax training utilities, loss functions
 """
+
+import pytest
+
+pytest.importorskip("jax")
+
 # - Ensure that NaNs in compiled functions are errors
 from jax.config import config
 

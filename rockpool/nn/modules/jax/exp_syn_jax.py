@@ -3,7 +3,7 @@ An exponential synapse layer, with a Jax backend.
 """
 
 # - Rockpool imports
-from rockpool.nn.modules import JaxModule
+from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
 
 # - Other imports
@@ -67,7 +67,7 @@ class ExpSynJax(JaxModule):
 
         # - Seed RNG
         if rng_key is None:
-            rng_key = jax.random.PRNGKey(onp.random.randint(0, 2 ** 63))
+            rng_key = jax.random.PRNGKey(onp.random.randint(0, 2**63))
         _, rng_key = jax.random.split(np.array(rng_key, dtype=np.uint32))
 
         # - Initialise state

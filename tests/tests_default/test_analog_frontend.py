@@ -1,15 +1,20 @@
+import pytest
+
+pytest.importorskip("scipy")
+
+
 def test_imports():
     pass
 
 
 def test_init():
-    from rockpool.devices.xylo.analogFrontEnd import AFE
+    from rockpool.devices.xylo import AFE
 
     afe = AFE()
 
 
 def test_evolve():
-    from rockpool.devices.xylo.analogFrontEnd import AFE
+    from rockpool.devices.xylo import AFE
     from rockpool.timeseries import TSContinuous
     import numpy as np
 
@@ -49,7 +54,7 @@ def test_evolve():
     c = (f0 + f1) / T
     p0 = 0
     time = np.arange(0, T, dt)
-    inp = np.sin(p0 + 2 * np.pi * ((c / 2) * time ** 2 + f0 * time))
+    inp = np.sin(p0 + 2 * np.pi * ((c / 2) * time**2 + f0 * time))
 
     ts_inp = TSContinuous.from_clocked(inp, dt=dt, t_start=0)
     out, state, rec = afe.evolve(ts_inp)
@@ -58,7 +63,7 @@ def test_evolve():
 
 
 def test_zero_input():
-    from rockpool.devices.xylo.analogFrontEnd import AFE
+    from rockpool.devices.xylo import AFE
     import numpy as np
 
     T = 1000

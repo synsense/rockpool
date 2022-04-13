@@ -1,5 +1,7 @@
 import pytest
 
+pytest.importorskip("torch")
+
 
 def test_imports():
     from rockpool.nn.modules.torch.lif_bitshift_torch import LIFBitshiftTorch

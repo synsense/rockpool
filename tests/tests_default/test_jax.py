@@ -1,5 +1,7 @@
 import pytest
 
+pytest.importorskip("jax")
+
 from jax.config import config
 
 config.update("jax_log_compiles", True)
@@ -44,13 +46,8 @@ def test_rate_jax():
     # - Generate module
     lyr = RateJax(
         shape=2,
-        tau=np.random.rand(
-            2,
-        )
-        * 10,
-        bias=np.random.rand(
-            2,
-        ),
+        tau=np.random.rand(2) * 10,
+        bias=np.random.rand(2),
         activation_func="relu",
     )
     lyr = lyr.reset_state()
@@ -172,15 +169,8 @@ def test_ffwd_net():
                     ),
                 )
 
-                tau = (
-                    np.random.rand(
-                        N_out,
-                    )
-                    * 10
-                )
-                bias = np.random.rand(
-                    N_out,
-                )
+                tau = np.random.rand(N_out) * 10
+                bias = np.random.rand(N_out)
                 setattr(self, f"iaf_{index}", RateJax(N_out, tau=tau, bias=bias))
 
         def evolve(self, input, record: bool = False):
@@ -234,7 +224,7 @@ def test_ffwd_net():
 
     print(net.parameters("weights"))
 
-    print(np.sum([np.sum(v ** 2) for v in net.parameters("weights").values()]))
+    print(np.sum([np.sum(v**2) for v in net.parameters("weights").values()]))
 
 
 def test_sgd():

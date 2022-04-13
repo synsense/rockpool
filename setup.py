@@ -1,7 +1,5 @@
-import logging
 from distutils.core import setup
 import setuptools
-from setuptools import Extension
 
 # - Read version
 exec(open("rockpool/version.py").read())
@@ -15,6 +13,7 @@ setup_args = {
     "install_requires": ["numpy", "scipy"],
     "extras_require": {
         "all": [
+            "numba",
             "tqdm",
             "brian2",
             "pytest>=6.0",
@@ -29,6 +28,7 @@ setup_args = {
             "sphinx-rtd-theme",
             "recommonmark",
             "pandoc",
+            "sinabs",
             "xylosim",
             "samna>=0.10.32.0",
         ]
@@ -41,8 +41,8 @@ setup_args = {
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     ],
-    "keywords": "spiking neural network SNN neuromorphic",
-    "python_requires": ">=3.6",
+    "keywords": "spiking neural network SNN neuromorphic machine learning ML",
+    "python_requires": ">=3.7",
     "project_urls": {
         "Source Code": "https://github.com/SynSense/rockpool",
         "Documentation": "https://rockpool.ai",

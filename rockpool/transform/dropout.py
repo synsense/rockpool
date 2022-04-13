@@ -3,7 +3,6 @@ Provide a Dropout parameter transformation
 """
 
 from rockpool.nn.modules.module import Module
-from rockpool.nn.modules.jax.jax_module import JaxModule
 
 from rockpool.transform.param_transformer import (
     ParameterTransformerMixin,
@@ -16,14 +15,24 @@ import numpy as onp
 
 __all__ = ["Dropout"]
 
+try:
+    from rockpool.nn.modules.jax.jax_module import JaxModule
 
-class JaxDropout(JaxParameterTransformerMixin, JaxModule):
-    def _transform(
-        self, param: jnp.ndarray, prob_dropout: float = 0.5, *args, **kwargs
-    ) -> jnp.ndarray:
-        return param * rand.bernoulli(
-            self.rng_key, p=jnp.array(1.0 - prob_dropout), shape=param.shape
-        )
+    class JaxDropout(JaxParameterTransformerMixin, JaxModule):
+        def _transform(
+            self, param: jnp.ndarray, prob_dropout: float = 0.5, *args, **kwargs
+        ) -> jnp.ndarray:
+            return param * rand.bernoulli(
+                self.rng_key, p=jnp.array(1.0 - prob_dropout), shape=param.shape
+            )
+
+except (ImportError, ModuleNotFoundError) as err:
+    from rockpool.utilities.backend_management import missing_backend_shim
+
+    JaxDropout = missing_backend_shim("JaxDropout", "jax")
+
+    class JaxModule:
+        pass
 
 
 class ModDropout(ParameterTransformerMixin, Module):

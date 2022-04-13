@@ -12,8 +12,8 @@ from rockpool.graph import (
 
 import numpy as np
 
-from typing import List, Optional
-from rockpool.typehints import IntVector
+from typing import List, Optional, Union
+from rockpool.typehints import IntVector, FloatVector
 
 from dataclasses import dataclass, field
 
@@ -26,16 +26,19 @@ class XyloNeurons(GenericNeurons):
     Base class for all Xylo graph module classes
     """
 
-    hw_ids: IntVector = field(default_factory=list)
+    hw_ids: Union[IntVector, FloatVector] = field(default_factory=list)
     """ IntVector: The HW neuron IDs allocated to this graph module ``(N,)``. Empty means than no HW IDs have been allocated."""
 
-    threshold: IntVector = field(default_factory=list)
+    threshold: Union[IntVector, FloatVector] = field(default_factory=list)
     """ IntVector: The threshold parameters for each neuron ``(N,)`` """
 
-    dash_mem: IntVector = field(default_factory=list)
+    bias: Union[IntVector, FloatVector] = field(default_factory=list)
+    # """ IntVector: The bias parameters for each neuron ``(N,)
+
+    dash_mem: Union[IntVector, FloatVector] = field(default_factory=list)
     """ IntVector: The membrane decay parameters for each neuron ``(N,)`` """
 
-    dash_syn: IntVector = field(default_factory=list)
+    dash_syn: Union[IntVector, FloatVector] = field(default_factory=list)
     """ IntVector: The synapse decay parameters for each neuron. Either ``(N,)`` if only one synapse is used per neuron, or ``(2N,)`` if two synapses are used for each neuron (i.e. syn2). In this case, elements ``dash_syn[0:1]`` refer to the synapses of neuron ``0``, and so on. """
 
     dt: Optional[float] = None
@@ -62,6 +65,9 @@ class XyloNeurons(GenericNeurons):
             # - Get thresholds
             thresholds = np.array(mod.threshold).tolist()
 
+            # - Get biases
+            bias = np.array(mod.bias).tolist()
+
             # - Build a new neurons module to insert into the graph
             neurons = cls._factory(
                 len(mod.input_nodes),
@@ -70,6 +76,7 @@ class XyloNeurons(GenericNeurons):
                 mod.computational_module,
                 [],  # Empty list for HW IDs
                 thresholds,
+                bias,
                 dash_mem,
                 dash_syn,
                 mod.dt,
@@ -90,7 +97,9 @@ class XyloNeurons(GenericNeurons):
 
             # - Make a new module
             neurons = cls._factory(
-                len(mod.input_nodes), len(mod.output_nodes), mod.name,
+                len(mod.input_nodes),
+                len(mod.output_nodes),
+                mod.name,
             )
 
             # - Replace the target module

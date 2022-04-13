@@ -1,5 +1,7 @@
 import pytest
 
+pytest.importorskip("torch")
+
 
 def test_LIFTorch_shapes():
     from rockpool.nn.modules.torch.lif_torch import LIFTorch
@@ -313,10 +315,11 @@ def test_LIFTorch_reset():
     import torch
 
     if not torch.cuda.is_available():
-        return
+        pytest.skip("CUDA required to test reset to device")
 
     mod = LIFTorch(10).to("cuda")
     device = mod.isyn.device
+    print(device)
 
     mod.reset_state()
     assert mod.isyn.device == device
@@ -324,6 +327,6 @@ def test_LIFTorch_reset():
 
     mod.reset_parameters()
     assert mod.tau_syn.device == device
-    assert mod.tau_mem.detach == device
+    assert mod.tau_mem.device == device
     assert mod.threshold.device == device
     assert mod.bias.device == device

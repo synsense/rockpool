@@ -13,14 +13,53 @@ import numpy as np
 __all__ = ["Parameter", "State", "SimulationParameter", "Constant"]
 
 
-import torch
+from rockpool.utilities.backend_management import backend_available
+
+if backend_available("torch"):
+    from torch import Tensor
+else:
+
+    class Tensor:
+        pass
 
 
 class RP_Constant:
+    """
+    Represent a concrete initialisation value as a constant parameter, which should not be trained
+
+
+    See Also:
+         Use :py:func:`Constant` to wrap an intialisation as a constant argument.
+    """
+
     pass
 
 
-def Constant(obj):
+def Constant(obj: Any) -> RP_Constant:
+    """
+    Identify an initialisation argument as a constant (non-trainable) parameter
+
+    Examples
+        >>> mod = LIFJax(1)
+        >>> mod.parameters('taus')
+        {'tau_mem': DeviceArray([0.02], dtype=float32),
+         'tau_syn': DeviceArray([[0.02]], dtype=float32)}
+        >>> mod.simulation_parameters('taus')
+        {}
+
+        >>> mod = LIFJax(1, tau_mem = Constant(10e-3))
+        >>> mod.parameters('taus')
+        {'tau_syn': DeviceArray([[0.02]], dtype=float32)}
+        >>> mod.simulation_parameters('taus')
+        {'tau_mem': DeviceArray(0.01, dtype=float32)}
+
+    Args:
+        obj (Any): The initialisation object to wrap
+
+    Returns:
+        A wrapped object, of the same class as ``obj``.
+    """
+
     class ConstantPatch(obj.__class__, RP_Constant):
         pass
 
@@ -119,7 +158,7 @@ class ParameterBase:
         def numel(x):
             if isinstance(x, np.ndarray):
                 return x.size
-            elif isinstance(x, torch.Tensor):
+            elif isinstance(x, Tensor):
                 return x.numel()
             else:
                 return np.size(x)
@@ -176,7 +215,7 @@ class ParameterBase:
         return f"{type(self).__name__}(data={self.data}, family={self.family}, init_func={self.init_func}, shape={self.shape})"
 
     def _tree_flatten(self) -> Tuple[tuple, tuple]:
-        """ FLatten this parameter / state for Jax """
+        """FLatten this parameter / state for Jax"""
         return (
             (
                 self.data,

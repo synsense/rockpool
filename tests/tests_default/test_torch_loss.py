@@ -1,3 +1,8 @@
+import pytest
+
+pytest.importorskip("torch")
+
+
 def test_imports():
     from rockpool.training.torch_loss import (
         ParameterBoundaryRegularizer,

@@ -1,7 +1,6 @@
-import dataclasses
-
 import pytest
-import torch
+
+pytest.importorskip("torch")
 
 
 def test_import():
@@ -49,10 +48,10 @@ def test_parameters():
     Parameter(Constant(3))
     Parameter(Constant([3]))
     Parameter(Constant(np.array(3)))
-    Parameter(Constant(torch.tensor(3)))
+    Parameter(Constant(t.tensor(3)))
     assert isinstance(Constant(np.array(3)), np.ndarray)
     assert isinstance(Constant(np.array(3)), RP_Constant)
-    assert isinstance(Constant(torch.tensor(4)), torch.Tensor)
+    assert isinstance(Constant(t.tensor(4)), t.Tensor)
 
     class TestMod(Module):
         def __init__(self, shape, param):
@@ -63,15 +62,11 @@ def test_parameters():
             pass
 
     mod = TestMod(
-        None,
-        Parameter(shape=[(), (1,)], init_func=np.random.standard_normal),
+        None, Parameter(shape=[(), (1,)], init_func=np.random.standard_normal)
     )
     assert np.shape(mod.param) == ()
     assert "param" in mod.parameters()
 
-    mod = TestMod(
-        None,
-        Parameter(Constant(3)),
-    )
+    mod = TestMod(None, Parameter(Constant(3)))
     assert "param" not in mod.parameters()
     assert "param" in mod.simulation_parameters()

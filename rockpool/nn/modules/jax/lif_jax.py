@@ -68,7 +68,7 @@ def step_pwl_jvp(primals, tangents):
     x_dot, threshold_dot, window_dot, max_spikes_per_dt_dot = tangents
     primal_out = step_pwl(*primals)
     tangent_out = (x >= (threshold - window)) * (
-        x_dot / threshold - threshold_dot * x / (threshold ** 2)
+        x_dot / threshold - threshold_dot * x / (threshold**2)
     )
     return primal_out, tangent_out
 
@@ -157,7 +157,7 @@ class LIFJax(JaxModule):
 
         # - Seed RNG
         if rng_key is None:
-            rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
+            rng_key = rand.PRNGKey(onp.random.randint(0, 2**63))
         _, rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
 
         # - Initialise state
