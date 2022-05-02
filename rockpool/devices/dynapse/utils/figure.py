@@ -13,7 +13,7 @@ import numpy as np
 from rockpool.timeseries import TSEvent, TSContinuous
 
 from rockpool.devices.dynapse.utils.spike_input import custom_spike_train
-from rockpool.devices.dynapse.adexplif_jax import DynapSEAdExpLIFJax
+from rockpool.devices.dynapse.adexplif_jax import DynapSim
 from rockpool.devices.dynapse.fpga_jax import DynapSEFPGA
 from rockpool.devices.dynapse.base import ArrayLike, NeuronKey
 from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1SynType
@@ -148,7 +148,7 @@ class Figure:
 
     @staticmethod
     def spike_input_post(
-        modSE: DynapSEAdExpLIFJax,
+        modSE: DynapSim,
         input_ts: TSEvent,
         output_ts: TSEvent,
         post: Union[NeuronKey, int],
@@ -167,10 +167,10 @@ class Figure:
         the pre-synaptic neurons should also obey the same format in the `idx_map`.
 
         :param modSE: The simulator module to investigate
-        :type modSE: DynapSEAdExpLIFJax
-        :param input_ts: Input spike trains fed to DynapSEFPGA or DynapSEAdExpLIFJax object
+        :type modSE: DynapSim
+        :param input_ts: Input spike trains fed to DynapSEFPGA or DynapSim object
         :type input_ts: TSEvent
-        :param output_ts: Output spike trains of DynapSEAdExpLIFJax object
+        :param output_ts: Output spike trains of DynapSim object
         :type output_ts: TSEvent
         :param post: matrix index(if idx_map absent) or NeuronKey(if idx_map provided) of the post synaptic neuron defined inside the `mod`
         :type post: Union[NeuronKey, int]
@@ -512,7 +512,7 @@ class Figure:
 
     @staticmethod
     def plot_Isyn_trace(
-        modSE: DynapSEAdExpLIFJax,
+        modSE: DynapSim,
         input_ts: TSEvent,
         output_ts: TSEvent,
         record_dict: Dict[str, np.ndarray],
@@ -532,10 +532,10 @@ class Figure:
         guide lines from the spikes to increments on the synaptic current can be drawn.
 
         :param modSE: The simulator module to investigate
-        :type modSE: DynapSEAdExpLIFJax
-        :param input_ts: Input spike trains fed to DynapSEFPGA or DynapSEAdExpLIFJax object
+        :type modSE: DynapSim
+        :param input_ts: Input spike trains fed to DynapSEFPGA or DynapSim object
         :type input_ts: TSEvent
-        :param output_ts: Output spike trains of DynapSEAdExpLIFJax object
+        :param output_ts: Output spike trains of DynapSim object
         :type output_ts: TSEvent
         :param record_dict: is a dictionary containing the recorded state variables of `mod` during the evolution at each time step
         :type record_dict: Dict[str, np.ndarray]

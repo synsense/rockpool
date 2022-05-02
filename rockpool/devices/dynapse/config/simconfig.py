@@ -1,5 +1,5 @@
 """
-Dynap-SE Parameter classes to be used to configure DynapSEAdExpLIFJax simulation modules
+Dynap-SE Parameter classes to be used to configure DynapSim simulation modules
 
 renamed : dynapse1_simconfig.py -> simconfig.py @ 211208
 
@@ -205,7 +205,7 @@ class DynapSE1SimCore:
         :type layout: Optional[DynapSE1Layout], optional
         :param capacitance: subcircuit capacitance values that are related to each other and depended on exact silicon layout of a chip, defaults to None
         :type capacitance: Optional[DynapSE1Capacitance], optional
-        :return: simulator config object to construct a `DynapSEAdExpLIFJax` object
+        :return: simulator config object to construct a `DynapSim` object
         :rtype: DynapSE1SimCore
         """
 

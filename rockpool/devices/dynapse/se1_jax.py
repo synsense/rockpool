@@ -24,7 +24,7 @@ import numpy as np
 from rockpool.nn.modules import TimedModuleWrapper
 from rockpool.nn.combinators import Sequential
 
-from rockpool.devices.dynapse.adexplif_jax import DynapSEAdExpLIFJax
+from rockpool.devices.dynapse.adexplif_jax import DynapSim
 from rockpool.devices.dynapse.fpga_jax import DynapSEFPGA
 from rockpool.devices.dynapse.config.simconfig import DynapSE1SimBoard
 from rockpool.devices.dynapse.infrastructure.router import Router
@@ -42,10 +42,10 @@ from rockpool.devices.dynapse.samna_alias.dynapse1 import (
 )
 
 
-class DynapSE1Jax(DynapSEAdExpLIFJax):
+class DynapSE1Jax(DynapSim):
     """
-    DynapSE1Jax is an extension to DynapSEAdExpLIFJax module with device specific deployment utilities.
-    The parameters and pipeline are explained in the superclass `DynapSEAdExpLIFJax` doctring
+    DynapSE1Jax is an extension to DynapSim module with device specific deployment utilities.
+    The parameters and pipeline are explained in the superclass `DynapSim` doctring
 
     :Parameters:
     :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique neuron keys. if index map is in proper format, a core dictionary can be inferred without an error
@@ -71,7 +71,7 @@ class DynapSE1Jax(DynapSEAdExpLIFJax):
     }
     """
 
-    __doc__ += DynapSEAdExpLIFJax.__doc__
+    __doc__ += DynapSim.__doc__
 
     biases = list(param_name_se1.keys())
 

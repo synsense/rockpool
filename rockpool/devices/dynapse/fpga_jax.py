@@ -27,8 +27,8 @@ from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1Configuration
 
 class DynapSEFPGA(JaxModule):
     """
-    DynapSEFPGA implements the input layer for a `DynapSEAdExpLIFJax` module. It's similar to LinearJax module but since
-    the DynapSEAdExpLIFJax modules have a specific requirement that each computational unit gets 4 input spikes,
+    DynapSEFPGA implements the input layer for a `DynapSim` module. It's similar to LinearJax module but since
+    the DynapSim modules have a specific requirement that each computational unit gets 4 input spikes,
     The DynapSEFPGA is necessary.
 
     :param shape: Should be 2 dimensional first representing the number of virtual neurons and the second representing the real neurons in device (Nin,Nrec), defaults to None

@@ -81,9 +81,9 @@ def step_pwl(
     return spikes, grad_func
 
 
-class DynapSEAdExpLIFJax(JaxModule, DynapSE):
+class DynapSim(JaxModule, DynapSE):
     """
-    DynapSEAdExpLIFJax solves dynamical chip equations for the DPI neuron and synapse models.
+    DynapSim solves dynamical chip equations for the DPI neuron and synapse models.
     Receives configuration as bias currents and solves membrane and synapse dynamics using ``jax`` backend.
     One block has
         - 4 synapses receiving spikes from the other circuits,
@@ -197,7 +197,7 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
     :type spiking_input: bool, optional
     :param spiking_output: Whether this module produces spiking output, defaults to True
     :type spiking_output: bool, optional
-    
+
     :Instance Variables:
 
     :ivar SYN: A dictionary storing default indexes(order) of the synapse types
@@ -292,11 +292,11 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
         **kwargs,
     ) -> None:
         """
-        __init__ Initialize ``DynapSEAdExpLIFJax`` module. Parameters are explained in the class docstring.
+        __init__ Initialize ``DynapSim`` module. Parameters are explained in the class docstring.
         """
         self._shape_check(shape)
 
-        super(DynapSEAdExpLIFJax, self).__init__(
+        super(DynapSim, self).__init__(
             shape=shape,
             spiking_input=spiking_input,
             spiking_output=spiking_output,
@@ -494,8 +494,8 @@ class DynapSEAdExpLIFJax(JaxModule, DynapSE):
         self, input_data: jnp.DeviceArray, record: bool = True
     ) -> Tuple[jnp.DeviceArray, Dict[str, jnp.DeviceArray], Dict[str, jnp.DeviceArray]]:
         """
-        evolve implements raw rockpool JAX evolution function for a DynapSEAdExpLIFJax module.
-        The function solves the dynamical equations introduced at the ``DynapSEAdExpLIFJax`` module definition
+        evolve implements raw rockpool JAX evolution function for a DynapSim module.
+        The function solves the dynamical equations introduced at the ``DynapSim`` module definition
 
         :param input_data: Input array of shape ``(T, Nrec, 4)`` to evolve over. Represents number of spikes at that timebin for different synaptic gates
         :type input_data: jnp.DeviceArray

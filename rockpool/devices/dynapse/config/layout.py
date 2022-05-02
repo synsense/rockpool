@@ -1,5 +1,5 @@
 """
-Dynap-SE circuit layout classes to configure DynapSEAdExpLIFJax simulation modules
+Dynap-SE circuit layout classes to configure DynapSim simulation modules
 
 renamed : dynapse1_simconfig.py -> simconfig.py @ 211208
 split_from : simconfig.py -> layout.py @ 220114

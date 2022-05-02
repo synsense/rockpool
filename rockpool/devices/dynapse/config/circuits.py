@@ -1,5 +1,5 @@
 """
-Dynap-SE Parameter classes to be used to configure DynapSEAdExpLIFJax simulation modules
+Dynap-SE Parameter classes to be used to configure DynapSim simulation modules
 
 renamed : dynapse1_simconfig.py -> simconfig.py @ 211208
 
