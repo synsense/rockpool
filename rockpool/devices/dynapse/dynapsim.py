@@ -4,6 +4,7 @@ Solves the characteristic equations to simulate the circuits.
 Trainable parameters
 
 renamed: dynapse1_neuron_synapse_jax.py -> adexplif_jax.py @ 211206
+renamed: adexplif_jax.py -> dynapsim.py @ 220502
 
 References:
 [1] E. Chicca, F. Stefanini, C. Bartolozzi and G. Indiveri,
