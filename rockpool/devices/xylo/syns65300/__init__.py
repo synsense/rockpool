@@ -1,2 +1,2 @@
 from ..syns61300 import *
-from .analogFrontEnd import *
+from .afe_sim import *

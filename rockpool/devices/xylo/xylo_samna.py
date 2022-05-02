@@ -2,8 +2,7 @@
 Samna-backed bridge to Xylo dev kit
 """
 
-# - Check that Samna is installed
-from importlib import util
+# - System imports
 from pathlib import Path
 from os import makedirs
 
@@ -14,7 +13,7 @@ from samna.xylo.configuration import (
     ReservoirNeuron,
     OutputNeuron,
 )
-from samna.xylo.configuration import XyloConfiguration as XyloConfiguration
+from samna.xylo.configuration import XyloConfiguration
 
 from samna.xylo import validate_configuration
 

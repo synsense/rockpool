@@ -31,6 +31,7 @@ import json
 from typing import Any, List, Iterable, Optional, NamedTuple, Union, Tuple
 
 XyloHDK = Any
+AFEHDK = Any
 XyloReadBuffer = samna.BasicSinkNode_xylo_event_output_event
 XyloWriteBuffer = samna.BasicSourceNode_xylo_event_input_event
 XyloNeuronStateBuffer = samna.xylo.NeuronStateSinkNode
@@ -151,12 +152,12 @@ class XyloAllRam(NamedTuple):
 
 def find_xylo_boards() -> List[XyloHDK]:
     """
-    Search for and return a list of Xylo HDK hdks
+    Search for and return a list of Xylo HDK
 
-    Iterate over devices and search for Xylo HDK hdks. Return a list of available Xylo hdks, or an empty list if none are found.
+    Iterate over devices and search for Xylo HDKs. Return a list of available Xylo HDKs, or an empty list if none are found.
 
     Returns:
-        List[XyloDaughterBoard]: A (possibly empty) list of Xylo HDK hdks.
+        List[XyloHDK]: A (possibly empty) list of Xylo HDK hdks.
     """
     # - Get a list of devices
     device_list = samna.device.get_all_devices()
@@ -169,6 +170,27 @@ def find_xylo_boards() -> List[XyloHDK]:
     ]
 
     return xylo_hdk_list
+
+def find_xylo_afe_boards() -> List[AFEHDK]:
+    """
+    Search for and return a list of Xylo AFE V2 HDKs
+
+    Iterate over devices and search for Xylo AFE V2 HDK nodes. Return a list of available AFE HDKs, or an empty list if none are found.
+
+    Returns:
+        List[AFEHDK]: A (possibly empty) list of AFE HDK nodes.
+    """
+    # - Get a list of devices
+    device_list = samna.device.get_all_devices()
+
+    # - Search for a xylo dev kit
+    afev2_hdk_list = [
+        samna.device.open_device(d)
+        for d in device_list
+        if d.device_type_name == "XyloA2TestBoard"
+    ]
+
+    return afev2_hdk_list
 
 
 def new_xylo_read_buffer(

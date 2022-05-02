@@ -34,7 +34,7 @@ except (ImportError, ModuleNotFoundError) as err:
     else:
         raise
 
-from .syns65300.analogFrontEnd import *
+from .syns65300.afe_sim import *
 
 from .v3.xylo_divisive_normalisation import *
 from .v3.xylo_divisive_normalisation import (
