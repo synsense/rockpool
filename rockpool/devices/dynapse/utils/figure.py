@@ -13,7 +13,7 @@ import numpy as np
 from rockpool.timeseries import TSEvent, TSContinuous
 
 from rockpool.devices.dynapse.utils.spike_input import custom_spike_train
-from rockpool.devices.dynapse.adexplif_jax import DynapSim
+from rockpool.devices.dynapse.dynapsim import DynapSim
 from rockpool.devices.dynapse.fpga_jax import DynapSEFPGA
 from rockpool.devices.dynapse.base import ArrayLike, NeuronKey
 from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1SynType

@@ -24,7 +24,7 @@ import numpy as np
 from rockpool.nn.modules import TimedModuleWrapper
 from rockpool.nn.combinators import Sequential
 
-from rockpool.devices.dynapse.adexplif_jax import DynapSim
+from rockpool.devices.dynapse.dynapsim import DynapSim
 from rockpool.devices.dynapse.fpga_jax import DynapSEFPGA
 from rockpool.devices.dynapse.config.simconfig import DynapSE1SimBoard
 from rockpool.devices.dynapse.infrastructure.router import Router
