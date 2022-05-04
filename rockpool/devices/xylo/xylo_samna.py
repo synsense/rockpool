@@ -507,7 +507,7 @@ class XyloSamna(Module):
         self._read_buffer.get_events()
 
         # - Write the events and trigger the simulation
-        self._device.get_model().write(input_events_list)
+        self._write_buffer.write(input_events_list)
 
         # - Determine a reasonable read timeout
         if read_timeout is None:

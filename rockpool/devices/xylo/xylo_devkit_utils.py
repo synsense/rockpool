@@ -31,11 +31,9 @@ import json
 from typing import Any, List, Iterable, Optional, NamedTuple, Union, Tuple
 
 XyloHDK = Any
-AFEHDK = Any
 XyloReadBuffer = samna.BasicSinkNode_xylo_event_output_event
 XyloWriteBuffer = samna.BasicSourceNode_xylo_event_input_event
 XyloNeuronStateBuffer = samna.xylo.NeuronStateSinkNode
-
 
 class XyloState(NamedTuple):
     """
@@ -149,6 +147,7 @@ class XyloAllRam(NamedTuple):
     OWTRAM_state: np.ndarray
     """ np.ndarray: Contents of OWTRAM """
 
+from .syns61201.afe2_devkit_utils import find_xylo_afe2_boards
 
 def find_xylo_boards() -> List[XyloHDK]:
     """
@@ -171,28 +170,6 @@ def find_xylo_boards() -> List[XyloHDK]:
 
     return xylo_hdk_list
 
-def find_xylo_afe_boards() -> List[AFEHDK]:
-    """
-    Search for and return a list of Xylo AFE V2 HDKs
-
-    Iterate over devices and search for Xylo AFE V2 HDK nodes. Return a list of available AFE HDKs, or an empty list if none are found.
-
-    Returns:
-        List[AFEHDK]: A (possibly empty) list of AFE HDK nodes.
-    """
-    # - Get a list of devices
-    device_list = samna.device.get_all_devices()
-
-    # - Search for a xylo dev kit
-    afev2_hdk_list = [
-        samna.device.open_device(d)
-        for d in device_list
-        if d.device_type_name == "XyloA2TestBoard"
-    ]
-
-    return afev2_hdk_list
-
-
 def new_xylo_read_buffer(
     hdk: XyloHDK,
 ) -> XyloReadBuffer:
@@ -210,18 +187,13 @@ def new_xylo_read_buffer(
 
     # - Get the device model
     model = hdk.get_model()
-    # print("   got model")
 
     # - Get Xylo output event source node
     source_node = model.get_source_node()
-    # print("   got source node")
 
     # - Add the buffer as a destination for the Xylo output events
-    ic = buffer.get_input_channel()  # source_node -> ic -> buffer (filter)
-    # print("   got input channel")
-
-    success = source_node.add_destination(ic)
-    assert success, "Error connecting the new buffer."
+    graph = samna.graph.EventFilterGraph()
+    graph.sequential([source_node, buffer])
 
     # - Return the buffer
     return buffer
@@ -239,7 +211,9 @@ def new_xylo_write_buffer(hdk: XyloHDK) -> XyloWriteBuffer:
     """
     buffer = XyloWriteBuffer()
     sink = hdk.get_model().get_sink_node()
-    buffer.add_destination(sink.get_input_node())
+    graph = samna.graph.EventFilterGraph()
+    graph.sequential([buffer, sink])
+    
     return buffer
 
 
