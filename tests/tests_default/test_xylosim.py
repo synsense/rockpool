@@ -498,8 +498,7 @@ def test_xylo_vs_xylosim():
     # - Simulate the evolution of the network on Xylo
     out_sim, _, rec_sim = mod_xylo_sim(input_raster.clip(0, 15), record=True)
 
-    # - Init Samna
-    samna.init_samna()
+    # - Get a Xylo HDK board
     xylo_hdk_nodes = xu.find_xylo_boards()
 
     if len(xylo_hdk_nodes) == 0:

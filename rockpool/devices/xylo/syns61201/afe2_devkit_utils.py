@@ -159,14 +159,37 @@ def read_afe2_events_blocking(afe2hdk: AFE2HDK, write_buffer: AFE2WriteBuffer, a
 def afe2_test_config_c(afe_write_buf: AFE2WriteBuffer) -> None:
     """
     Configure an AFE2 HDK for a "reasonable" performance
+    
+    Args:
+        afe_write_buf (AFE2WriteBuffer): A connected AFE2 write buffer
     """
-    write_afe2_register(afe_write_buf, 0x1, 0x71317)  # all top bias enable
-    write_afe2_register(afe_write_buf, 0x02, 0xffffffff)  # all-channel enable
-    write_afe2_register(afe_write_buf, 0x04, 0x2100)  # lna vcm
-    write_afe2_register(afe_write_buf, 0x05, 0x62000000)  # top vcm 
-    write_afe2_register(afe_write_buf, 0x06, 0x20550)  # lna 0db gain
-    write_afe2_register(afe_write_buf, 0x07, 0x883704)  # bpf 100-10khz q=5,space=1.35
-    write_afe2_register(afe_write_buf, 0x14, 0x30000)  # disable mgm bias  
-    write_afe2_register(afe_write_buf, 0x10, 0x23112400)
-    write_afe2_register(afe_write_buf, 0x11, 0x15000104)
-    write_afe2_register(afe_write_buf, 0xf, 0x88888f88)
+    write_afe2_register(afe_write_buf, 0x1, 0x71317)        # ANA_CTRL1: all top bias enable
+    write_afe2_register(afe_write_buf, 0x02, 0xffffffff)    # ANA_CTRL2: all-channel enable
+    write_afe2_register(afe_write_buf, 0x04, 0x2100)        # ANA_CTRL4: lna vcm
+    write_afe2_register(afe_write_buf, 0x05, 0x62000000)    # BIAS_CTRL: top vcm 
+    write_afe2_register(afe_write_buf, 0x06, 0x20550)       # LNA_CTRL: lna 0db gain
+    write_afe2_register(afe_write_buf, 0x07, 0x883704)      # bpf 100-10khz q=5,space=1.35
+    write_afe2_register(afe_write_buf, 0x14, 0x30000)       # disable mgm bias  
+    write_afe2_register(afe_write_buf, 0x10, 0x23112400)    # IAF_CTRL4: 
+    write_afe2_register(afe_write_buf, 0x11, 0x15000104)    # IAF_CTRL5: 
+    write_afe2_register(afe_write_buf, 0xf, 0x88888f88)     # IAF_CTRL3: 
+
+def afe2_test_config_d(afe_write_buf: AFE2WriteBuffer) -> None:
+    """
+    Configure an AFE2 HDK, including self-calibration
+
+    Args:
+        afe_write_buf (AFE2WriteBuffer): A connected AFE2 write buffer
+    """
+    write_afe2_register(afe_write_buf, 0x01, 0x71317)       # ANA_CTRL1: all top bias enable
+    write_afe2_register(afe_write_buf, 0x02, 0xffffffff)    # ANA_CTRL2: all-channel enable
+    write_afe2_register(afe_write_buf, 0x04, 0x2100)        # ANA_CTRL4: lna vcm
+    write_afe2_register(afe_write_buf, 0x05, 0x62000000)    # BIAS_CTRL: top vcm 
+    write_afe2_register(afe_write_buf, 0x06, 0x20550)       # LNA_CTRL: lna 0db gain
+    write_afe2_register(afe_write_buf, 0x07, 0x883704)      # BPF_CTRL1: bpf 100-10khz q=5,space=1.35
+    write_afe2_register(afe_write_buf, 0x14, 0x30000)       # IAF_CTRL2: disable mgm bias  
+    time.sleep(30)
+    write_afe2_register(afe_write_buf, 0x1f, 0x80)          # CAL_CTRL2: 
+    write_afe2_register(afe_write_buf, 0x20, 0x98968)       # CAL_CTRL3: 
+    write_afe2_register(afe_write_buf, 0x21, 0x200186a)     # CAL_CTRL4: 
+    write_afe2_register(afe_write_buf, 0x1e, 0x11)          # CAL_CTRL1: 
