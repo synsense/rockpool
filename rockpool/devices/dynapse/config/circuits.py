@@ -29,7 +29,7 @@ from rockpool.devices.dynapse.samna_alias.dynapse2 import Dynapse2Parameter
 @dataclass
 class DynapSEParamGen:
     """
-    DynapSEParamGen encapsulates common Dynap-SE1/SE2 paramter configuration -> bias current
+    DynapSEParamGen encapsulates common Dynap-SE1/SE2 parameter configuration -> bias current
     conversion methods and serve as a top level class.
 
     :param version: the processor version. either 1 or 2
