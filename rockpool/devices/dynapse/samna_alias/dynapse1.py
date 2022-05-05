@@ -14,7 +14,7 @@ import numpy as np
 
 from rockpool.devices.dynapse.lookup import param_name as _params
 
-se1_params = list(_params.se1.keys())
+se1_params = list(_params.se1_bias.keys())
 
 
 class Dynapse1SynType(Enum):
