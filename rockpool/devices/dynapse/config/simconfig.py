@@ -96,7 +96,7 @@ class DynapSE1SimCore:
 
     # Static counters for default construction
     matrix_id_iter = itertools.count()
-    chip_core_iter = itertools.count(step=Router.NUM_NEURONS)
+    chip_core_iter = itertools.count(step=DynapSE.NUM_NEURONS)
 
     def __post_init__(self) -> None:
         """
@@ -227,36 +227,26 @@ class DynapSE1SimCore:
 
         # Slow inhibitory
         gaba_b = GABABParameters.from_samna_parameters(
-            samna_parameters,
-            layout,
-            C=capacitance.gaba_b,
+            samna_parameters, layout, C=capacitance.gaba_b,
         )
 
         # Fast inhibitory (shunt)
         gaba_a = GABAAParameters.from_samna_parameters(
-            samna_parameters,
-            layout,
-            C=capacitance.gaba_a,
+            samna_parameters, layout, C=capacitance.gaba_a,
         )
 
         # Slow Excitatory
         nmda = NMDAParameters.from_samna_parameters(
-            samna_parameters,
-            layout,
-            C=capacitance.nmda,
+            samna_parameters, layout, C=capacitance.nmda,
         )
 
         # Fast Excitatory
         ampa = AMPAParameters.from_samna_parameters(
-            samna_parameters,
-            layout,
-            C=capacitance.ampa,
+            samna_parameters, layout, C=capacitance.ampa,
         )
 
         ahp = AHPParameters.from_samna_parameters(
-            samna_parameters,
-            layout,
-            C=capacitance.ahp,
+            samna_parameters, layout, C=capacitance.ahp,
         )
 
         weights = WeightParameters.from_samna_parameters(samna_parameters, layout)
@@ -824,8 +814,7 @@ class DynapSE1SimBoard:
         """
         # Find unique chip-core ID pairs
         chip_core = np.unique(
-            list(map(lambda nid: nid[0:2], idx_map.values())),
-            axis=0,
+            list(map(lambda nid: nid[0:2], idx_map.values())), axis=0,
         )
         core_index = list(map(lambda t: tuple(t), chip_core))
 
@@ -938,10 +927,7 @@ class DynapSE1SimBoard:
         return mod
 
     @classmethod
-    def from_idx_map(
-        cls,
-        idx_map: Dict[int, NeuronKey],
-    ) -> DynapSE1SimBoard:
+    def from_idx_map(cls, idx_map: Dict[int, NeuronKey],) -> DynapSE1SimBoard:
         """
         from_idx_map is a class factory method for DynapSE1SimBoard object such that the default parameters
         are used but the neurons ids and the shape is obtained from the idx_map.
