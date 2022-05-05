@@ -32,7 +32,7 @@ from rockpool.devices.dynapse.infrastructure.biasgen import BiasGenSE1
 from rockpool.devices.dynapse.base import NeuronKey
 from rockpool.devices.dynapse.lookup import param_name
 
-param_name_se1 = param_name.se1
+param_name_se1 = param_name.se1_bias
 param_name_table = param_name.table
 
 from rockpool.devices.dynapse.samna_alias.dynapse1 import (
