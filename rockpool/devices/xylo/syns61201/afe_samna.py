@@ -86,6 +86,11 @@ class AFESamna(Module):
         graph = samna.graph.EventFilterGraph()
         graph.sequential([self._afe_write_buf, self._device.get_afe_model_sink_node()])
 
+        # - Check that we have a correct device version
+        self._chip_version, self._chip_revision = hdu.afe2_chip_version(self._afe_read_buf, self._afe_write_buf)
+        if self._chip_version != 1 or self._chip_revision != 0:
+            raise ValueError(f'AFE version is {(self._chip_version, self._chip_revision)}; expected (1, 0).')
+
         # - Configure the HDK
         device_io.write_config(0x1002, 1)
         # time.sleep(0.5)
@@ -100,7 +105,10 @@ class AFESamna(Module):
         # xylo_handler = device_io.get_xylo_handler()
         
         # - Set up known good configuration
-        hdu.afe2_test_config_c(self._afe_write_buf)
+        print('Configuring AFE...')
+        hdu.apply_test_config(self._device)
+        # hdu.afe2_test_config_d(self._afe_write_buf)
+        print('Configured AFE')
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
         # - Handle auto batching
@@ -114,7 +122,17 @@ class AFESamna(Module):
         
         # - Convert to an event raster
         events_ts = TSEvent(timestamps, channels,
-                            t_start=0., t_stop=duration).raster(self.dt, add_events=True)
+                            t_start=0., t_stop=duration, num_channels=self.size_out).raster(self.dt, add_events=True)
         
         # - Return output, state, record dict
         return events_ts, self.state(), {}
+
+    @property
+    def _version(self) -> (int, int):
+        """
+        Return the version and revision numbers of the connected AFE2 chip
+        
+        Returns:
+            (int, int): version, revision
+        """
+        return (self._chip_version, self._chip_revision)

@@ -193,3 +193,53 @@ def afe2_test_config_d(afe_write_buf: AFE2WriteBuffer) -> None:
     write_afe2_register(afe_write_buf, 0x20, 0x98968)       # CAL_CTRL3: 
     write_afe2_register(afe_write_buf, 0x21, 0x200186a)     # CAL_CTRL4: 
     write_afe2_register(afe_write_buf, 0x1e, 0x11)          # CAL_CTRL1: 
+
+
+def apply_test_config(afe2hdk: AFE2HDK) -> None:
+    c = samna.afe2.configuration.AfeConfiguration()
+
+    c.analog_top.enable = True
+    c.debug.enable_event_monitor = False
+
+    c.analog_top.bpf.bias = 2
+    c.analog_top.fwr.bias = 6
+
+    c.analog_top.lna.ci_tune = 5
+    c.analog_top.lna.cf_tune = 5
+
+    c.analog_top.bpf.scale = True
+
+    afe2hdk.get_afe_model().apply_configuration(c)
+
+    time.sleep(45)
+
+    c.aer_2_saer.calibration.mode = 1
+    c.aer_2_saer.calibration.reset = True
+
+    c.aer_2_saer.calibration.afe_stable_time = 0x80
+    c.aer_2_saer.calibration.leak_timing_window = 0x98968
+
+    c.aer_2_saer.calibration.leak_td = 6250
+    c.aer_2_saer.calibration.leak_target_spike_number = 2
+
+    afe2hdk.get_afe_model().apply_configuration(c)
+
+def afe2_chip_version(afe_read_buf: AFE2ReadBuffer, afe_write_buf: AFE2WriteBuffer) -> (int, int):
+    """
+    Return the version and revision numbers for a connected AFE2 HDK
+    
+    Args:
+        afe_read_buf (AFE2ReadBuffer): A connected AFE2 read buffer
+        afe_write_buf (AFE2WriteBuffer): A connected AFE2 write buffer
+
+    Returns: 
+        (int, int): version, revision numbers of the connected chip
+    """
+    # - Read the version register
+    version_revision = read_afe2_register(afe_read_buf, afe_write_buf, 0x0)[0]
+    
+    # - Separate version and revision
+    version = (version_revision & 0xffff0000) >> 16
+    revision = version_revision & 0x0000ffff
+    
+    return version, revision
