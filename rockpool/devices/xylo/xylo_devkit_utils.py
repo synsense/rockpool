@@ -35,7 +35,6 @@ XyloReadBuffer = samna.BasicSinkNode_xylo_event_output_event
 XyloWriteBuffer = samna.BasicSourceNode_xylo_event_input_event
 XyloNeuronStateBuffer = samna.xylo.NeuronStateSinkNode
 
-
 class XyloState(NamedTuple):
     """
     `.NamedTuple` that encapsulates a recorded Xylo HDK state
@@ -188,18 +187,13 @@ def new_xylo_read_buffer(
 
     # - Get the device model
     model = hdk.get_model()
-    # print("   got model")
 
     # - Get Xylo output event source node
     source_node = model.get_source_node()
-    # print("   got source node")
 
     # - Add the buffer as a destination for the Xylo output events
-    ic = buffer.get_input_channel()  # source_node -> ic -> buffer (filter)
-    # print("   got input channel")
-
-    success = source_node.add_destination(ic)
-    assert success, "Error connecting the new buffer."
+    graph = samna.graph.EventFilterGraph()
+    graph.sequential([source_node, buffer])
 
     # - Return the buffer
     return buffer
@@ -217,7 +211,9 @@ def new_xylo_write_buffer(hdk: XyloHDK) -> XyloWriteBuffer:
     """
     buffer = XyloWriteBuffer()
     sink = hdk.get_model().get_sink_node()
-    buffer.add_destination(sink.get_input_node())
+    graph = samna.graph.EventFilterGraph()
+    graph.sequential([buffer, sink])
+    
     return buffer
 
 
