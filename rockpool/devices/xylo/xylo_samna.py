@@ -321,7 +321,7 @@ class XyloSamna(Module):
         device: XyloHDK,
         config: XyloConfiguration = None,
         dt: float = 1e-3,
-        mode = "Isyn",
+        mode: str = "Isyn",
         *args,
         **kwargs,
     ):
@@ -332,6 +332,7 @@ class XyloSamna(Module):
             device (XyloHDK): An opened `samna` device to a Xylo dev kit
             config (XyloConfiguraration): A Xylo configuration from `samna`
             dt (float): The simulation time-step to use for this Module
+            mode (str): The readout mode for xylo device
         """
         # - Check input arguments
         if device is None:
@@ -433,7 +434,7 @@ class XyloSamna(Module):
             self._last_record_mode = record
 
             # - Configure Xylo for accel-time mode
-            if self.mode == "Spikes":
+            if self.mode == "Spike":
                 m_Nhidden = Nhidden if record else 0
                 m_Nout = Nout if record else 0
             else:
@@ -565,7 +566,7 @@ class XyloSamna(Module):
         new_state = {}
 
         # - Return spike output, new state and record dictionary
-        if self.mode == "Spikes":
+        if self.mode == "Spike":
             return xylo_data.Spikes_out, new_state, rec_dict
         elif self.mode == "Isyn":
             return xylo_data.I_syn_out, new_state, rec_dict
