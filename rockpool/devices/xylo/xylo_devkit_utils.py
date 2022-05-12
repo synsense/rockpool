@@ -1562,6 +1562,9 @@ def configure_accel_time_mode(
     state_monitor_buffer: XyloNeuronStateBuffer,
     monitor_Nhidden: Optional[int] = 0,
     monitor_Noutput: Optional[int] = 0,
+    i_syn_start: Optional[int] = 0,
+    i_syn2_start: Optional[int] = 0,
+    v_mem_start: Optional[int] = 0,
 ) -> (XyloConfiguration, XyloNeuronStateBuffer):
     """
     Switch on accelerated-time mode on a Xylo hdk, and configure network monitoring
@@ -1584,12 +1587,12 @@ def configure_accel_time_mode(
     # - Configure reading out of neuron state during evolution
     perform_readout = monitor_Nhidden + monitor_Noutput > 0
     config.debug.monitor_neuron_i_syn = (
-        samna.xylo.configuration.NeuronRange(0, monitor_Nhidden + monitor_Noutput)
+        samna.xylo.configuration.NeuronRange(i_syn_start, monitor_Nhidden + monitor_Noutput)
         if perform_readout
         else None
     )
     config.debug.monitor_neuron_i_syn2 = (
-        samna.xylo.configuration.NeuronRange(0, monitor_Nhidden)
+        samna.xylo.configuration.NeuronRange(i_syn2_start, monitor_Nhidden)
         if perform_readout
         else None
     )
@@ -1599,10 +1602,74 @@ def configure_accel_time_mode(
         else None
     )
     config.debug.monitor_neuron_v_mem = (
-        samna.xylo.configuration.NeuronRange(0, monitor_Nhidden + monitor_Noutput)
+        samna.xylo.configuration.NeuronRange(v_mem_start, monitor_Nhidden + monitor_Noutput)
         if perform_readout
         else None
     )
+
+    # - Configure the monitor buffer
+    state_monitor_buffer.set_configuration(config)
+
+    # - Return the configuration and buffer
+    return config, state_monitor_buffer
+
+
+def custom_configure_accel_time_mode(
+    config: XyloConfiguration,
+    state_monitor_buffer: XyloNeuronStateBuffer,
+    monitor_Nhidden: Optional[int] = 0,
+    monitor_Noutput: Optional[int] = 0,
+    i_syn_start: Optional[int] = 0,
+    i_syn2_start: Optional[int] = 0,
+    v_mem_start: Optional[int] = 0,
+    readout = "Isyn",
+) -> (XyloConfiguration, XyloNeuronStateBuffer):
+    """
+    Switch on accelerated-time mode on a Xylo hdk, and configure network monitoring
+
+    Notes:
+        Use :py:func:`new_xylo_state_monitor_buffer` to generate a buffer to monitor neuron and synapse state.
+
+    Args:
+        config (XyloConfiguration): The desired Xylo configuration to use
+        state_monitor_buffer (XyloNeuronStateBuffer): A connected neuron state monitor buffer
+        monitor_Nhidden (Optional[int]): The number of hidden neurons for which to monitor state during evolution. Default: ``0``, don't monitor any hidden neurons.
+        monitor_Noutput (Optional[int]): The number of output neurons for which to monitor state during evolution. Default: ``0``, don't monitor any output neurons.
+
+    Returns:
+        (XyloConfiguration, XyloNeuronStateBuffer): `config` and `monitor_buffer`
+    """
+    assert readout in ["Isyn", "Vmem", "Spikes"], f"{readout} is not supported."
+
+    # - Select accelerated time mode
+    config.operation_mode = samna.xylo.OperationMode.AcceleratedTime
+
+    # - Configure reading out of neuron state during evolution
+    perform_readout = monitor_Nhidden + monitor_Noutput > 0
+
+    if readout == "Isyn":
+        config.debug.monitor_neuron_i_syn = (
+            samna.xylo.configuration.NeuronRange(i_syn_start, monitor_Nhidden + monitor_Noutput)
+            if perform_readout
+            else None
+        )
+    # config.debug.monitor_neuron_i_syn2 = (
+    #     samna.xylo.configuration.NeuronRange(i_syn2_start, monitor_Nhidden)
+    #     if perform_readout
+    #     else None
+    # )
+    elif readout == "Spikes":
+        config.debug.monitor_neuron_spike = (
+            samna.xylo.configuration.NeuronRange(0, monitor_Nhidden)
+            if perform_readout
+            else None
+        )
+    elif readout == "Vmem":
+        config.debug.monitor_neuron_v_mem = (
+            samna.xylo.configuration.NeuronRange(v_mem_start, monitor_Nhidden + monitor_Noutput)
+            if perform_readout
+            else None
+        )
 
     # - Configure the monitor buffer
     state_monitor_buffer.set_configuration(config)
