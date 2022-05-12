@@ -321,6 +321,7 @@ class XyloSamna(Module):
         device: XyloHDK,
         config: XyloConfiguration = None,
         dt: float = 1e-3,
+        mode = "Isyn",
         *args,
         **kwargs,
     ):
@@ -335,6 +336,9 @@ class XyloSamna(Module):
         # - Check input arguments
         if device is None:
             raise ValueError("`device` must be a valid, opened Xylo HDK device.")
+
+        assert mode in ["Spike", "Isyn", "Vmem"], f"{mode} is not supported."
+        self.mode = mode
 
         # - Get a default configuration
         if config is None:
@@ -429,12 +433,20 @@ class XyloSamna(Module):
             self._last_record_mode = record
 
             # - Configure Xylo for accel-time mode
-            m_Nhidden = Nhidden if record else 0
-            m_Nout = Nout if record else 0
+            if self.mode == "Spikes":
+                m_Nhidden = Nhidden if record else 0
+                m_Nout = Nout if record else 0
+            else:
+                m_Nhidden = Nhidden
+                m_Nout = Nout
 
             # - Applies the configuration via `self.config`
-            self.config, state_buffer = hdkutils.configure_accel_time_mode(
-                self._config, self._state_buffer, m_Nhidden, m_Nout
+            # self.config, state_buffer = hdkutils.configure_accel_time_mode(
+            #     self._config, self._state_buffer, m_Nhidden, m_Nout
+            # )
+            self.config, state_buffer = hdkutils.custom_configure_accel_time_mode(
+                self._config, self._state_buffer, m_Nhidden, m_Nout, readout=self.mode,
+                i_syn_start=m_Nhidden, v_mem_start=m_Nhidden
             )
 
     def evolve(
@@ -464,6 +476,7 @@ class XyloSamna(Module):
         Raises:
             `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
         """
+
         # - Get the network size
         Nin, Nhidden, Nout = self.shape[:]
 
@@ -552,7 +565,12 @@ class XyloSamna(Module):
         new_state = {}
 
         # - Return spike output, new state and record dictionary
-        return xylo_data.Spikes_out, new_state, rec_dict
+        if self.mode == "Spikes":
+            return xylo_data.Spikes_out, new_state, rec_dict
+        elif self.mode == "Isyn":
+            return xylo_data.I_syn_out, new_state, rec_dict
+        elif self.mode == "Vmem":
+            return xylo_data.V_mem_out, new_state, rec_dict
 
     def _evolve_manual(
         self,
