@@ -444,10 +444,7 @@ class XyloSamna(Module):
                 m_Nout = Nout
 
             # - Applies the configuration via `self.config`
-            # self.config, state_buffer = hdkutils.configure_accel_time_mode(
-            #     self._config, self._state_buffer, m_Nhidden, m_Nout
-            # )
-            self.config, state_buffer = hdkutils.custom_configure_accel_time_mode(
+            self.config, state_buffer = hdkutils.configure_accel_time_mode(
                 self._config, self._state_buffer, m_Nhidden, m_Nout, readout=self._output_mode,
                 i_syn_start=m_Nhidden, v_mem_start=m_Nhidden
             )
