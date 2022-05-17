@@ -321,7 +321,7 @@ class XyloSamna(Module):
         device: XyloHDK,
         config: XyloConfiguration = None,
         dt: float = 1e-3,
-        mode: str = "Isyn",
+        output_mode: str = "Spike",
         *args,
         **kwargs,
     ):
@@ -332,14 +332,16 @@ class XyloSamna(Module):
             device (XyloHDK): An opened `samna` device to a Xylo dev kit
             config (XyloConfiguraration): A Xylo configuration from `samna`
             dt (float): The simulation time-step to use for this Module
-            mode (str): The readout mode for xylo device
+            output_mode (str): The readout mode for the Xylo device. This must be one of ["Spike", "Isyn", "Vmem"]. Default: "Spike", return events from the output layer.
         """
         # - Check input arguments
         if device is None:
             raise ValueError("`device` must be a valid, opened Xylo HDK device.")
 
-        assert mode in ["Spike", "Isyn", "Vmem"], f"{mode} is not supported."
-        self.mode = mode
+        # - Check output mode specification
+        if output_mode not in ["Spike", "Isyn", "Vmem"]:
+            raise ValueError(f'{output_mode} is not supported. Must be one of `["Spike", "Isyn", "Vmem"]`.')
+        self._output_mode = output_mode
 
         # - Get a default configuration
         if config is None:
@@ -434,7 +436,7 @@ class XyloSamna(Module):
             self._last_record_mode = record
 
             # - Configure Xylo for accel-time mode
-            if self.mode == "Spike":
+            if self._output_mode == "Spike":
                 m_Nhidden = Nhidden if record else 0
                 m_Nout = Nout if record else 0
             else:
@@ -446,7 +448,7 @@ class XyloSamna(Module):
             #     self._config, self._state_buffer, m_Nhidden, m_Nout
             # )
             self.config, state_buffer = hdkutils.custom_configure_accel_time_mode(
-                self._config, self._state_buffer, m_Nhidden, m_Nout, readout=self.mode,
+                self._config, self._state_buffer, m_Nhidden, m_Nout, readout=self._output_mode,
                 i_syn_start=m_Nhidden, v_mem_start=m_Nhidden
             )
 
@@ -566,11 +568,11 @@ class XyloSamna(Module):
         new_state = {}
 
         # - Return spike output, new state and record dictionary
-        if self.mode == "Spike":
+        if self._output_mode == "Spike":
             return xylo_data.Spikes_out, new_state, rec_dict
-        elif self.mode == "Isyn":
+        elif self._output_mode == "Isyn":
             return xylo_data.I_syn_out, new_state, rec_dict
-        elif self.mode == "Vmem":
+        elif self._output_mode == "Vmem":
             return xylo_data.V_mem_out, new_state, rec_dict
 
     def _evolve_manual(
