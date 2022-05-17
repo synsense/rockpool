@@ -1639,7 +1639,7 @@ def custom_configure_accel_time_mode(
     Returns:
         (XyloConfiguration, XyloNeuronStateBuffer): `config` and `monitor_buffer`
     """
-    assert readout in ["Isyn", "Vmem", "Spikes"], f"{readout} is not supported."
+    assert readout in ["Isyn", "Vmem", "Spike"], f"{readout} is not supported."
 
     # - Select accelerated time mode
     config.operation_mode = samna.xylo.OperationMode.AcceleratedTime
