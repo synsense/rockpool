@@ -1566,7 +1566,7 @@ def configure_accel_time_mode(
     i_syn_start: Optional[int] = 0,
     i_syn2_start: Optional[int] = 0,
     v_mem_start: Optional[int] = 0,
-    readout = "Isyn",
+    readout = "Spike",
 ) -> (XyloConfiguration, XyloNeuronStateBuffer):
     """
     Switch on accelerated-time mode on a Xylo hdk, and configure network monitoring
@@ -1602,7 +1602,7 @@ def configure_accel_time_mode(
     #     if perform_readout
     #     else None
     # )
-    elif readout == "Spikes":
+    elif readout == "Spike":
         config.debug.monitor_neuron_spike = (
             samna.xylo.configuration.NeuronRange(0, monitor_Nhidden)
             if perform_readout
