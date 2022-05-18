@@ -1,1195 +1,803 @@
 """
-Dynap-SE router simulator. Create a CAM matrix using SRAM and CAM content
+Dynap-SE common router simulator 
+
+split_from : router_aliased.py -> router.py @ 220509
 
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
-13/09/2021
+09/05/2021
+
+[] TODO : Implement samna aliases
+[] TODO : connection alias option
+[] TODO : Multiple CAMs defined between neurons
+[] TODO : n_gate = 4, syn=none options for se2
 """
+from __future__ import annotations
+from dataclasses import dataclass
 
-from typing import Optional, Tuple, Any, Iterable, Dict, Union, List
-
-from rockpool.devices.dynapse.base import (
-    DynapSE,
-    ArrayLike,
-    Numeric,
-    NeuronKey,
-    NeuronConnection,
-    NeuronConnectionSynType,
+from typing import (
+    Callable,
+    Optional,
+    Tuple,
+    Any,
+    Dict,
+    Union,
+    List,
 )
 
 import numpy as np
 
-from rockpool.devices.dynapse.samna_alias.dynapse1 import (
-    Dynapse1SynType,
-    Dynapse1Neuron,
-    Dynapse1Synapse,
-    Dynapse1Destination,
-    Dynapse1Configuration,
-)
+from rockpool.devices.dynapse.base import CoreKey, NeuronKey
 
 
-class Router(DynapSE):
-    @staticmethod
-    def get_UID(chipID: np.uint8, coreID: np.uint8, neuronID: np.uint16) -> np.uint16:
+Dynapse1Configuration = Any
+Dynapse2Configuration = Any
+Dynapse1Synapse = Any
+Dynapse2Synapse = Any
+Dynapse1Destination = Any
+Dynapse2Destination = Any
+SynDict = Dict[NeuronKey, List[Union[Dynapse1Synapse, Dynapse2Synapse]]]
+DestDict = Dict[NeuronKey, List[Union[Dynapse1Destination, Dynapse2Destination]]]
+
+
+@dataclass
+class Router:
+    """
+    Router stores the weight_mask reading of the memory and the neuron-to-neuron connections indicated
+
+    :param n_chips: number of chips installed in the system, defaults to None
+    :type n_chips: np.uint8, optional
+    :param n_cores: maximum number of cores that a chip has in the system, defaults to None
+    :type n_cores: np.uint8, optional
+    :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys, defaults to None
+    :type idx_map: Dict[int, NeuronKey], optional
+    :param weight_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), defaults to None
+    :type weight_mask: np.ndarray, optional
+    """
+
+    n_chips: np.uint8 = None
+    n_cores: np.uint8 = None
+    idx_map: Dict[int, NeuronKey] = None
+    weight_mask: np.ndarray = None
+
+    def __post_init__(self) -> None:
         """
-        get_ID produce a globally unique id for a neuron on the board
+        __post_init__ runs after init and validates the router configuration
 
-        :param chipID: Unique chip ID
-        :type chipID: np.uint8
-        :param coreID: Non-unique core ID
-        :type coreID: np.uint8
-        :param neuronID: Non-unique neuron ID
-        :type neuronID: np.uint16
-        :raises ValueError: chipID out of bounds
-        :raises ValueError: coreID out of bounds
-        :raises ValueError: neuronID out of bounds
-        :return: Globally unique neuron ID
-        :rtype: np.uint16
+        :raises ValueError: number of chips given and indicated does not match
+        :raises ValueError: number of cores indicated and given does not match
         """
-        if chipID >= Router.NUM_CHIPS or chipID < 0:
+        n_chips = len(np.unique(list(map(lambda nkey: nkey[0], self.idx_map.values()))))
+        n_cores = len(np.unique(list(map(lambda nkey: nkey[1], self.idx_map.values()))))
+
+        if self.n_chips < n_chips:
             raise ValueError(
-                f"chipID out of bounds. 0 <= chipID:{chipID} < {Router.NUM_CHIPS}"
+                f"More than {self.n_chips} different chips ({n_chips}) found in  in active neuron list!"
             )
 
-        if coreID >= Router.NUM_CORES or coreID < 0:
+        if self.n_cores < n_cores:
             raise ValueError(
-                f"coreID out of bounds. 0 <= coreID:{coreID} < {Router.NUM_CORES}"
+                f"More than {self.n_cores} different cores ({n_cores}) found in  in active neuron list!"
             )
 
-        if neuronID >= Router.NUM_NEURONS or coreID < 0:
-            raise ValueError(
-                f"neuronID out of bounds. 0 <= neuronID:{neuronID} < {Router.NUM_NEURONS}"
-            )
-
-        uid = (
-            Router.NUM_NEURONS * Router.NUM_CORES * chipID
-            + Router.NUM_NEURONS * coreID
-            + neuronID
-        )
-        return np.uint16(uid)
-
-    @staticmethod
-    def decode_UID(UID: np.uint16) -> NeuronKey:
+    @classmethod
+    def __from_samna(
+        cls,
+        config: Union[Dynapse1Configuration, Dynapse2Configuration],
+        active_synapse: Callable[[Union[Dynapse1Synapse, Dynapse2Synapse]], bool],
+        active_destination: Callable[
+            [Union[Dynapse1Destination, Dynapse2Destination]], bool
+        ],
+        get_mem_connect: Callable[[SynDict, DestDict], MemConnect],
+    ) -> Router:
         """
-        decode_UID decodes the uniquie neuron ID to neuron keys (chipID, coreID, neuronID)
+        __from_samna is the common configurable class factory method for both DynapSE1 and DynapSE2 architectures
 
-        :param UID: Globally unique neuron ID
-        :type UID: np.uint16
-        :return: the neuron key composed of chipID, coreID and neuronID in order
-        :rtype: NeuronKey
-        """
-
-        # CHIP
-        chipID = UID // (Router.NUM_NEURONS * Router.NUM_CORES)
-
-        # CORE
-        UID -= Router.NUM_NEURONS * Router.NUM_CORES * chipID
-        coreID = UID // Router.NUM_NEURONS
-
-        # NEURON
-        neuronID = UID - Router.NUM_NEURONS * coreID
-
-        ID_tuple = (np.uint8(chipID), np.uint8(coreID), np.uint16(neuronID))
-        return ID_tuple
-
-    @staticmethod
-    def get_UID_combination(
-        chipID: Optional[Union[ArrayLike, Numeric]] = None,
-        coreID: Optional[Union[ArrayLike, Numeric]] = None,
-        neuronID: Optional[Union[ArrayLike, Numeric]] = None,
-    ) -> List[np.uint16]:
-        """
-        get_UID_combination get_ID_range provides uniquie IDs obtained by all the combinations of
-        given chip ID, core ID, and neuron IDs
-
-        :param chipID: It can be provided as a fixed number, an array of different values to be investigated, or None. If None, all possible values are considered. defaults to None
-        :type chipID: Optional[Union[ArrayLike, Numeric]], optional
-        :param coreID: Handling is the same as the chipID, defaults to None
-        :type coreID: Optional[Union[ArrayLike, Numeric]], optional
-        :param neuronID: Handling is the same as the chipID, defaults to None
-        :type neuronID: Optional[Union[ArrayLike, Numeric]], optional
-        :return: List of unique neuron IDs
-        :rtype: List[np.uint16]
+        :param config: a samna configuration object used to configure all the system level properties
+        :type config: Union[Dynapse1Configuration, Dynapse2Configuration]
+        :param active_synapse: a method to identify active synapses from inactive synapses
+        :type active_synapse: Callable[[Union[Dynapse1Synapse, Dynapse2Synapse]], bool]
+        :param active_destination: a method to identify active destinations from inactive destinations
+        :type active_destination: Callable[ [Union[Dynapse1Destination, Dynapse2Destination]], bool ]
+        :param get_mem_connect: a method to get a device specific memory connector object
+        :type get_mem_connect: Callable[[SynDict, DestDict], MemConnect]
+        :return: a Router simulation object whose parameters are imported from a device configuration object
+        :rtype: Router
         """
 
-        def ID_list(
-            ID: Union[ArrayLike, Numeric], ID_max: Union[np.uint8, np.uint16]
-        ) -> Iterable:
-            """
-            ID_list Check if given ID type and the values are in the proper range and provides a iterable for traversing.
-
-            :param ID: A fixed number, an array of different values to be investigated, or None. If None, all possible values are considered
-            :type ID: Union[ArrayLike, Numeric]
-            :param ID_max: The maximum number that the ID can take
-            :type ID_max: Union[np.uint8, np.uint16]
-            :raises TypeError: Given ID type is not compatible with Optional[Union[ArrayLike, Numeric]]
-            :raises ValueError: In the given ID or ID list, the maximum value is greater than the upper limit
-            :raises ValueError: In the given ID or ID list, the minimum value is less than 0
-            :return: an array like object or a range generator to traverse a list of IDs.
-            :rtype: Iterable
-            """
-            if ID is None:  # Full range
-                ID = range(ID_max)
-
-            elif not isinstance(
-                ID, (tuple, list, np.ndarray)
-            ):  # The ID is a fixed number. Still, it should be iterable.
-                try:
-                    dtype = type(ID_max)
-                    ID = [dtype(ID)]
-                except:
-                    raise TypeError(
-                        "ID can only be an arraylike : [np.ndarray, List, Tuple] or a number [int, float, complex, np.number] "
-                    )
-
-            else:
-                if np.max(ID) > ID_max:
-                    raise ValueError(
-                        f"An ID[{np.argmax(ID)}] = {np.max(ID)} should not be greater than {ID_max}"
-                    )
-
-                if np.min(ID) < 0:
-                    raise ValueError(
-                        f"An ID[{np.argmin(ID)}] = {np.min(ID)} should not be less than 0!"
-                    )
-                ID = np.sort(ID)
-
-            return ID
-
-        chipID = ID_list(chipID, Router.NUM_CHIPS)
-        coreID = ID_list(coreID, Router.NUM_CORES)
-        neuronID = ID_list(neuronID, Router.NUM_NEURONS)
-
-        id_list = []
-
-        # Traverse the given chip, core and neuron ID iterables
-        for chip in chipID:
-            for core in coreID:
-                for neuron in neuronID:
-                    id_list.append(Router.get_UID(chip, core, neuron))
-
-        return id_list
-
-    @staticmethod
-    def bitmask_select(bitmask: np.uint8) -> np.ndarray:
-        """
-        bitmask_select apply 8-bit mask to select bits (or coreIDs in coremask case)
-        00000001 -> selected bit: 0
-        00001000 -> selected bit: 3
-        00000101 -> selected bit 0 and 2
-
-        :param bitmask: Binary mask to select core IDs
-        :type bitmask: np.uint8
-        :return: an array of indices of selected bits
-        :rtype: np.ndarray
-        """
-
-        if bitmask > 255 or bitmask < 0:
-            raise IndexError(
-                "Given bit mask is out of range! 8-bit mask are accepted (at max 255 as integer value)"
-            )
-
-        bits = range(8)  # [0,1,2,3,4,5,6,7]
-        bit_pattern = lambda n: (1 << n)  # 2^n
-
-        # Indexes of the IDs to be selected in bits list
-        idx = np.array([bitmask & bit_pattern(bit) for bit in bits], dtype=bool)
-        idx_selected = np.array(bits, dtype=np.uint8)[idx]
-        return idx_selected
-
-    @staticmethod
-    def pair_uid_to_key(
-        connections: Union[NeuronConnection, List[NeuronConnection]]
-    ) -> Union[NeuronKey, List[NeuronKey]]:
-        """
-        pair_uid_to_key convert a single neuron connection pair or a list of neuron connection pairs
-        consisting of their uniquie IDs to a neuron key or a list of neuron keys consisting of
-        a tuple of chipID, coreID and neuronID
-
-        :param connections: a tuple of UIDs or a list of tuples of UIDs
-        :type connections: Union[NeuronConnection, List[NeuronConnection]]
-        :raises TypeError: When UID cannot be casted to np.uint16
-        :raises TypeError: When connections are not a tuple of UIDs or a list of tuples of UIDs!
-        :return: A neuron key with chipID, coreID and neuronID or a list of neuron keys.
-        :rtype: Union[NeuronKey, List[NeuronKey]]
-        """
-
-        pair_decoder = lambda pair: tuple(map(Router.decode_UID, pair))
-
-        if isinstance(connections, (tuple, list, np.ndarray)):
-
-            # List of pairs
-            if isinstance(connections[0], (tuple, list, np.ndarray)):
-                connections = list(map(pair_decoder, connections))
-
-            # Single pair
-            else:
-                try:
-                    np.uint16(connections[0])
-                    np.uint16(connections[1])
-                except:
-                    raise TypeError(f"UID should be casted to np.uint16")
-
-                connections = pair_decoder(connections)
-
-        else:
-            raise TypeError(
-                "Connections can be a tuple of UIDs or a list of tuples of UIDs!"
-            )
-
-        return connections
-
-    @staticmethod
-    def receiving_connections(
-        neuron: Optional[Dynapse1Neuron] = None,
-        synapse: Optional[Dynapse1Synapse] = None,
-        neuron_UID: Optional[np.uint16] = None,
-        listen_core_id: Optional[np.uint8] = None,
-        listen_neuron_id: Optional[np.uint8] = None,
-        syn_type: Optional[Union[Dynapse1SynType, np.uint8]] = None,
-    ) -> List[NeuronConnectionSynType]:
-        """
-        receiving_connections produce a list of spike receiving connections given
-        samna neuron and synapse objects or neuronID and it's event accepting conditions.
-        From the device's point of view, in each CAM(Content Addressable Memory) cell
-        the neuron can be set to listen to (i.e. receive events from) one other neuron with a specified synapse type.
-        In the CAM, the core and neuron IDs can be set, but there is no space to set the chipID.
-        Therefore, a post-synaptic neuron listens all the pre-synaptic neurons having the
-        same core and neuron ID across different chips.
-
-        Note that samna objects have priority over the ID definitions. For example, if both Dynapse1Neuron
-        object and neuronUID is given, funciton considers only the Dynapse1Neuron object.
-
-        :param neuron: The neuron at the post-synaptic side, defaults to None
-        :type neuron: Optional[Dynapse1Neuron], optional
-        :param synapse: High level content of a CAM cell, defaults to None
-                        "syn_type": 2,
-                        "listen_neuron_id": 0,
-                        "listen_core_id": 0
-        :type synapse: Optional[Dynapse1Synapse], optional
-        :param neuron_UID: post-synaptic universal neuron ID, defaults to None
-        :type neuron_UID: Optional[np.uint16], optional
-        :param listen_core_id: the event sending core ID to listen, defaults to None
-        :type listen_core_id: Optional[np.uint8], optional
-        :param listen_neuron_id: the event sending neuron ID to listen, defaults to None
-        :type listen_neuron_id: Optional[np.uint8], optional
-        :param syn_type: the type of the synapse to process the events, defaults to None
-        :type syn_type: Optional[Union[Dynapse1SynType, np.uint8]], optional
-        :return: List of unique IDs of all neuron connection pairs in the (pre, post, syn_type) order.
-        :rtype: List[NeuronConnectionSynType]
-        """
-
-        # Get the required info from the samna objects or explicit definitions
-        chip_id, core_id, neuron_id = (
-            Router.decode_UID(neuron_UID)
-            if neuron is None
-            else (neuron.chip_id, neuron.core_id, neuron.neuron_id)
-        )
-
-        listen_core_id = listen_core_id if synapse is None else synapse.listen_core_id
-        listen_neuron_id = (
-            listen_neuron_id if synapse is None else synapse.listen_neuron_id
-        )
-        syn_type = syn_type if synapse is None else synapse.syn_type
-
-        # Pre-synaptic neurons to listen across 4 chips
-        pre_list = Router.get_UID_combination(
-            chipID=None,
-            coreID=listen_core_id,
-            neuronID=listen_neuron_id,
-        )
-
-        # Post-synaptic neuron
-        post = Router.get_UID(chip_id, core_id, neuron_id)
-        connections = Router.connect_pre_post(pre_list, post, syn_type)
-
-        return connections
-
-    @staticmethod
-    def broadcasting_connections(
-        neuron: Optional[Dynapse1Neuron] = None,
-        destination: Optional[Dynapse1Destination] = None,
-        neuron_UID: Optional[np.uint16] = None,
-        target_chip_id: Optional[np.uint8] = None,
-        core_mask: Optional[np.uint8] = None,
-        virtual_core_id: Optional[np.uint8] = None,
-    ) -> List[NeuronConnection]:
-        """
-        broadcasting_connections produce a list of spike boardcasting connections given a neuron and a destination object or
-        given exact neuron_UID sending the events and it's target chip ID, core mask, and virtual core ID if exist.
-        From device's point of view, in each SRAM(Static Random Access Memory) cell
-        the neuron can be set to broadcast it's spikes to one other chip. In the SRAM, one can also
-        set a core mask to narrow down the number of neruons receiving the spikes. However, there is no
-        space to set the neuronID. Therefore, a pre-synaptic neuron broadcast it's spike output
-        to all the neuron in the specified core. The neurons at the post-synaptic side decide on listening or not.
-
-        Note that samna objects have priority over the ID definitions. For example, if both Dynapse1Neuron
-        object and neuronUID is given, funciton considers only the Dynapse1Neuron object.
-
-        :param neuron: The neuron at the pre-synaptic side, defaults to None
-        :type neuron: Optional[Dynapse1Neuron], optional
-        :param destination: High level content of the SRAM cell, defaults to None
-                            "targetChipId": 0,
-                            "inUse": false,
-                            "virtualCoreId": 0,
-                            "coreMask": 0,
-                            "sx": 0,
-                            "sy": 0,
-                            "dx": 0,
-                            "dy": 0
-        :type destination: Optional[Dynapse1Destination], optional
-        :param neuron_UID: pre-synaptic universal neuron ID, defaults to None
-        :type neuron_UID: Optional[np.uint16], optional
-        :param target_chip_id: the chip ID to broadcast the events, defaults to None
-        :type target_chip_id: Optional[np.uint8], optional
-        :param core_mask: the core mask used while sending the events, defaults to None
-            1111 means all 4 cores are on the target
-            0010 means events will be arrived at core 2 only
-        :type core_mask: Optional[np.uint8], optional
-        :param virtual_core_id: virtual core ID of the sending side to pretend. If None, neuron core ID is used instead, defaults to None
-        :type virtual_core_id: Optional[np.uint8], optional
-        :return: List of unique IDs of all neuron connection pairs in the (pre, post) order.
-        :rtype: List[NeuronConnection]
-        """
-
-        # If there is no target core, there is no need to calculate the rest!
-        core_mask = core_mask if destination is None else destination.core_mask
-        cores_to_send = Router.bitmask_select(core_mask)
-        if len(cores_to_send) == 0:
-            return []
-
-        # Get the required info from the samna objects or explicit definitions
-        target_chip_id = (
-            target_chip_id if destination is None else destination.target_chip_id
-        )
-        virtual_core_id = (
-            virtual_core_id if destination is None else destination.virtual_core_id
-        )
-        chip_id, core_id, neuron_id = (
-            Router.decode_UID(neuron_UID)
-            if neuron is None
-            else (neuron.chip_id, neuron.core_id, neuron.neuron_id)
-        )
-
-        # No need to define the virtual core id, it's equal to core id if not defined!
-        virtual_core_id = core_id if virtual_core_id is None else virtual_core_id
-
-        # Pre-synaptic neurons to broadcast spike events
-        post_list = Router.get_UID_combination(
-            chipID=target_chip_id,
-            coreID=cores_to_send,
-            neuronID=None,
-        )
-
-        # Pre-synaptic neuron
-        pre = Router.get_UID(
-            chip_id,
-            virtual_core_id,
-            neuron_id,
-        )  # pretend
-
-        connections = Router.connect_pre_post(pre, post_list)
-        return connections
-
-    @staticmethod
-    def connect_pre_post(
-        preUID: Union[np.uint16, ArrayLike],
-        postUID: Union[np.uint16, ArrayLike],
-        syn_type: Optional[Union[Dynapse1SynType, np.uint8]] = None,
-    ) -> Union[List[NeuronConnection], List[NeuronConnectionSynType]]:
-        """
-        connect_pre_post produce a list of connections between neurons like List[(preUID, postUID)].
-        The pre and post can be given as a list or a single ID. If a single ID is given, a repeating
-        UID list having the same shape with the others is created.
-
-        :param preUID: a unique pre-synaptic neuron ID or a list of IDs
-        :type preUID: Union[np.uint16, ArrayLike]
-        :param postUID: a unique post-synaptic neuron ID or a list of IDs
-        :type postUID: Union[np.uint16, ArrayLike]
-        :param syn_type: The synapse type of the connection, defaults to None
-        :type syn_type: Optional[Union[Dynapse1SynType, np.uint8]], optional
-        :raises ValueError: When the size of the preUID and postUID arrays are not the same
-        :raises ValueError: When the size of syn_type is different than the number of connections
-        :raises TypeError: preUID or postUID is not ArraLike or a type which can casted to np.uint16
-        :return: connections between neruons in the form of tuple(preUID, postUID) or tuple(preUID, postUID, synType)
-        :rtype: Union[List[NeuronConnection], List[NeuronConnectionSynType]]:
-        """
-
-        def to_list(uid: Numeric, dtype: type = np.uint16) -> List[Numeric]:
-            """
-            to_list creates a repeating list given a single element
-
-            :param uid: a single unique neuron id
-            :type uid: Numeric
-            :raises TypeError: If the neuron id cannot be casted to dtype.
-            :return: a repeating list of given uid with the shape of the second uid list provided to the upper level function.
-            :rtype: List[Numeric]
-            """
-            try:
-                uid = dtype(uid)
-            except:
-                raise TypeError(
-                    f"data provided should be casted to data type: {dtype}!"
-                )
-            uid_list = [uid] * n_connections
-
-            return uid_list
-
-        # Find the number of connections defined implicitly by the size of one of the arrays provided
-        n_connections = 1
-
-        if isinstance(preUID, (tuple, list, np.ndarray)):
-            n_connections = len(preUID)
-            if n_connections == 1:
-                preUID = preUID[0]
-
-        if isinstance(postUID, (tuple, list, np.ndarray)):
-            if n_connections == 1:
-                n_connections = len(postUID)
-                if n_connections == 1:
-                    postUID = postUID[0]
-            else:
-                if n_connections != len(postUID):
-                    raise ValueError(
-                        f"number of pre-synaptic and post-synaptic neurons does not match {len(preUID)} != {len(postUID)}"
-                    )
-
-        # syn_type is defined
-        if syn_type is not None:
-            if isinstance(syn_type, (tuple, list, np.ndarray)):
-                if n_connections != len(syn_type):
-                    raise ValueError(
-                        f"number of synapse types does not match with n_connections {len(syn_type)} != {n_connections}"
-                    )
-                else:
-                    syn_type = list(map(np.uint8, syn_type))
-            else:
-                syn_type = to_list(syn_type, np.uint8)
-
-        # If both preUID and postUID is numeric
-        if n_connections == 1:
-            preUID = to_list(preUID)
-            postUID = to_list(postUID)
-
-        else:
-            if isinstance(preUID, (tuple, list, np.ndarray)):
-                postUID = to_list(postUID)
-
-            elif isinstance(postUID, (tuple, list, np.ndarray)):
-                preUID = to_list(preUID)
-
-            else:
-                raise TypeError(
-                    f"preUID and postUID should be an ArraLike or a type which can be casted to uint16"
-                )
-        if syn_type is not None:
-            connections = list(zip(preUID, postUID, syn_type))
-        else:
-            connections = list(zip(preUID, postUID))
-
-        return connections
-
-    @staticmethod
-    def connect_input(
-        virtual_connections: List[NeuronConnection],
-        virtual_neurons: Optional[List[np.uint16]] = None,
-    ) -> Dict[np.uint16, Tuple[np.uint8, np.uint8]]:
-        """
-        connect_input create a dictionary of FPGA->DynapSE connections to be used in the creation of a list of
-        spike boardcasting connections using `Router.broadcasting_connections()`. FPGA neuron are not actual neruons
-        with state, instead they generate events given a timestep and necessary credientials. They just forward
-        the spiking events to desired locations. Due to the architecture of the router, it's impossible to define a
-        unique destination for an FPGA-generated event. Instead, one can define a target chip and a core mask to
-        select one core or multiple cores to broadcast an event. Then on the destination side, neurons decide on listening or not.
-
-        :param virtual_connections: a list of tuples of pre-synaptic neuron UID and post-synaptic neuron UID defining the connections from the FPGA neurons to device neurons.
-        :type virtual_connections: List[NeuronConnection]
-        :param virtual_neurons: explicitly defined virtual neurons, defaults to None
-        :type virtual_neurons: Optional[List[np.uint16]], optional
-        :raises ValueError: Virtual pre-synaptic neuron is not given in virtual_neurons (in the case virtual neruons defined)
-        :raises ValueError: A virtual neuron cannot broadcast to more than one chips!
-        :return: a dictionary of virtual(FPGA) pre-synaptic neuron UID mapping to it's destination (chipID, coreMask)
-        :rtype: Dict[np.uint16, Tuple[np.uint8, np.uint8]]
-        """
-
-        # If a virtual neuron broadcast to multiple cores inside the chip, update the core_mask accordingly
-        update_core_mask = lambda core_mask, core_ID: core_mask | (1 << core_ID)
-
-        # If virtual neurons are given explicitly, any other neuron UID encountered will raise a ValueError
-        if virtual_neurons is not None:
-            target_dict = dict.fromkeys(virtual_neurons)
-        else:
-            target_dict = {}
-
-        # Traverse the virtual FPGA->device connections
-        for pre, post in virtual_connections:
-
-            target_chip, target_core, _ = Router.decode_UID(post)
-
-            # Illegal Key
-            if virtual_neurons is not None and pre not in target_dict:
-                raise ValueError(
-                    f"Virtual neuron {pre} is not given in virtual_neurons : {virtual_neurons}!"
-                )
-
-            # First occurance
-            elif pre not in target_dict or target_dict[pre] is None:
-                target_dict[pre] = (target_chip, update_core_mask(0, target_core))
-
-            # Update the core mask
-            else:
-                chipID, coreMask = target_dict[pre]
-
-                # ChipID is different than expected!
-                if chipID != target_chip:
-                    raise ValueError(
-                        f"A virtual neuron cannot broadcast to more than one chips!\n"
-                        f"Virtual UID:{pre} -> Chip:{chipID}, cores:{Router.bitmask_select(coreMask)} (existing destination)\n"
-                        f"Virtual UID:{pre} -> Chip:{target_chip}, core:{target_core}, (post-synaptic neuron:{post})"
-                    )
-
-                # Legal update
-                else:
-                    target_dict[pre] = (
-                        chipID,
-                        update_core_mask(coreMask, target_core),
-                    )
-
-        return target_dict
-
-    @staticmethod
-    def virtual_fan_out(
-        target_dict: Optional[Dict[np.uint16, Tuple[np.uint8, np.uint8]]] = None,
-        virtual_connections: Optional[List[NeuronConnection]] = None,
-    ) -> List[NeuronConnection]:
-        """
-        virtual_fan_out produce a list of spike boardcasting connections specific for FPGA-to-device broadcast
-        given a target dictionary or a list of virtual connections. The target dictionary provides us with a virtual
-        pre-synaptic neurons and their target chip and core/cores to broadcast the events.
-        From device's point of view, in each SRAM(Static Random Access Memory) cell
-        the neuron can be set to broadcast it's spikes to one other chip. In the SRAM, one can also
-        set a core mask to narrow down the number of neruons receiving the spikes. However, there is no
-        space to set the neuronID. Therefore, a pre-synaptic neuron broadcast it's spike output
-        to all the neuron in the specified core. The neurons at the post-synaptic side decide on listening or not.
-
-        :param target_dict: a dictionary of targets of the virtual neurons pre_UID: (target_chip_ID, core_mask), defaults to None
-        :type target_dict: Optional[Dict[np.uint16, Tuple[np.uint8, np.uint8]]], optional
-        :param virtual_connections: [description], defaults to None
-        :type virtual_connections: Optional[List[NeuronConnection]], optional
-        :raises ValueError: Either target_dict or virtual_connections must be provided!
-        :return: List of unique IDs of all virtual-real neuron connection pairs in the (pre, post) order.
-        :rtype: List[NeuronConnection]
-        """
-        if target_dict is None and virtual_connections is None:
-            raise ValueError(
-                "Either target_dict or virtual_connections must be provided!"
-            )
-
-        fpga_out = []
-
-        # First get a dictionary for virtual input connections. pre_UID: (target_chip_ID, core_mask)
-        if target_dict is None:
-            target_dict = Router.connect_input(virtual_connections)
-
-        # Traverse the virtual connection dictionary
-        for virtual_UID, (chip_ID, core_mask) in target_dict.items():
-            fpga_out += Router.broadcasting_connections(
-                neuron_UID=virtual_UID,
-                target_chip_id=chip_ID,
-                core_mask=core_mask,
-            )
-
-        return fpga_out
-
-    @staticmethod
-    def real_synapses(
-        fan_in: List[NeuronConnectionSynType],
-        fan_out: Optional[List[NeuronConnection]] = None,
-    ) -> Dict[NeuronConnectionSynType, int]:
-        """
-        real_synapses produce a dictionary of synapses indicating the occurance of each synapses between
-        the active neurons indicated in the active connection list. If only the fan_in is provided,
-        then all the neurons in the fan_in list considered as active neurons.
-
-        :param fan_in: Receving connection indicated in the listening side(CAM cells). list consisting of tuples : (preUID, postUID, syn_type)
-        :type fan_in: List[NeuronConnectionSynType]
-        :param fan_out: Sending connection indicated in the sending side(SRAM cells). list consisting of tuples : (preUID, postUID, syn_type), defaults to None
-        :type fan_out: Optional[List[NeuronConnection]], optional
-        :return: a dictionary for number of occurances of each synapses addressed by (preUID, postUID, syn_type) key
-        :rtype: Dict[NeuronConnectionSynType, int]
-        """
-
-        # Get the number of occurances of the synapses in the fan_in list (preUID, postUID, syn_type)
-        synapses, s_count = np.unique(fan_in, axis=0, return_counts=True)
-
-        if fan_out is not None:
-            # Skip the synapse type
-            fan_in_no_type = np.unique(np.array(fan_in)[:, 0:2], axis=0)
-            fan_out = np.unique(fan_out, axis=0)
-
-            # Intersection of connections indicated in the sending side and the connections indicated in the listening side
-            connections = list(
-                set(map(tuple, fan_in_no_type)) & set(map(tuple, fan_out))
-            )
-
-        real_synapses = {}
-        # key = preUID, postUID, syn_sype
-        for i, key in enumerate(synapses):
-            if fan_out is None or (key[0], key[1]) in connections:
-                real_synapses[tuple(key)] = s_count[i]
-
-        return real_synapses
-
-    @staticmethod
-    def virtual_synapses(
-        fan_in: List[NeuronConnectionSynType],
-        fan_out: Optional[List[NeuronConnection]] = None,
-        real_synapses: Optional[Dict[NeuronConnectionSynType, int]] = None,
-    ) -> Dict[NeuronConnectionSynType, int]:
-        """
-        virtual_synapses finds the pure virtual neurons indicated in the samna configuration object. Pure virtual neurons
-        are the ones we can see in the fan_in list but we cannot see any of the 4 peers indicated by one CAM entry in the final connections list.
-        One can should provide a fan_in list and choose to provide one of synapse dictionary and fan_out to obtain the virtual synapses.
-
-        Please note that if a device neuron having the same ID with the virtual one is allocated, then this approach cannot find the implied virtual neuron
-
-        :param fan_in: Receving connection indicated in the listening side(CAM cells). list consisting of tuples : (preUID, postUID, syn_type), defaults to None
-        :type fan_in: List[NeuronConnectionSynType]
-        :param fan_out: Sending connection indicated in the sending side(SRAM cells). list consisting of tuples : (preUID, postUID, syn_type), defaults to None
-        :type fan_out: Optional[List[NeuronConnection]], optional
-        :param real_synapses: a dictionary for number of occurances of each real(device-device) synapses addressed by(preUID, postUID, syn_type) key, defaults to None
-        :type real_synapses: Optional[Dict[NeuronConnectionSynType, int]], optional
-        :raises ValueError: Either provide a synanpse_dict & fan_in list or provide a fan_in & fan_out lists
-        :return: a dictionary for number of occurances of each virtual(FPGA-DynapSE) synapses addressed by (preUID, postUID, syn_type) key
-        :rtype: Dict[NeuronConnectionSynType, int]
-        """
-
-        if real_synapses is not None:
-            connections = list(real_synapses.keys())
-        elif fan_in is not None and fan_out is not None:
-            connections = list(Router.real_synapses(fan_in, fan_out).keys())
-        else:
-            raise ValueError(
-                "Either provide a synanpse_dict & fan_in list or provide a fan_in & fan_out lists"
-            )
-
-        # Find the all four counterparts of one device-device connection indicated by CAM in the fan_in list
-        real_fan_in = []
-        for preUID, postUID, syn_type in connections:
-            _, coreID, neuronID = Router.decode_UID(preUID)
-            real_fan_in += Router.receiving_connections(
-                neuron_UID=postUID,
-                listen_core_id=coreID,
-                listen_neuron_id=neuronID,
-                syn_type=syn_type,
-            )
-
-        # Virtual connections are the connections exist in the full fan_in list but missing in the real list
-        virtual_fan_in = [vc for vc in fan_in if vc not in real_fan_in]
-
-        # Virtual neurons can only have a chipID = 0
-        virtual_connections = []
-        for connection in virtual_fan_in:
-            chipID, coreID, neuronID = Router.decode_UID(connection[0])
-            if chipID == 0:
-                virtual_connections.append(connection)
-
-        virtual_synapses = Router.real_synapses(virtual_connections)
-        return virtual_synapses
-
-    @staticmethod
-    def syn_type_map() -> Dict[int, str]:
-        """
-        syn_type_map creates a dictionary mapping the synapse type index to synapse type name
-
-        :return: a dictionary of integer synapse type index keys and their names
-        :rtype: Dict[int, str]
-        """
-
-        type_convert = lambda syn_type: (
-            Dynapse1SynType(syn_type).value,
-            Dynapse1SynType(syn_type).name,
-        )
-
-        return dict(map(type_convert, range(4)))
-
-    @staticmethod
-    def device_neurons(
-        real_synapses: Dict[NeuronConnectionSynType, int],
-        virtual_synapses: Optional[Dict[NeuronConnectionSynType, int]] = None,
-        decode_UID: bool = True,
-    ) -> List[Union[NeuronKey, np.uint16]]:
-        """
-        device_neurons finds the active neurons, that are either sending events to other neurons or accepting an events from others.
-        It uses the real synapse and virtual synapse dictionaries for searching. Virtual synapse dictionary is optional but recommended
-        because the post-synaptic neurons indicated there might refer to neurons which are missing in the real_synapse dictionary.
-        These neurons are the ones whose only accept events from virtual(FPGA) neurons and does not have any incoming or outgoing connections with the other in-device neurons.
-
-        :param real_synapses: a dictionary for number of occurances of each in-device synapse addressed by (preUID, postUID, syn_type) key
-        :type real_synapses: Dict[NeuronConnectionSynType, int]
-        :param virtual_synapses: a dictionary for number of occurances of each fpga-to-device synapse addressed by (preUID, postUID, syn_type) key, defaults to None
-        :type virtual_synapses: Optional[Dict[NeuronConnectionSynType, int]], optional
-        :param decode_UID: return a list of NeuronKey (chipID, coreID, neuronID) if true, return a list of NeuronUID (np.uint16) if false, defaults to True
-        :type decode_UID: bool, optional
-        :return: a unique list of active neurons in device (either sending or receiving events)
-        :rtype: List[Union[NeuronKey, np.uint16]]
-        """
-
-        device_pre_post = np.empty(0)
-        input_post = np.empty(0)
-
-        # Extract the neurons from the synapse dictionaries
-        if real_synapses:
-            device_pre_post = np.array(list(real_synapses.keys()))[:, 0:2]
-            device_pre_post = device_pre_post.flatten()
-
-        # Destinations of the virtual synapses might indicate other neurons
-        if virtual_synapses is not None:
-            if virtual_synapses:
-                input_post = np.array(list(virtual_synapses.keys()))[:, 1]
-
-            device_neurons = np.unique(np.hstack((device_pre_post, input_post)))
-        else:
-            device_neurons = np.unique(device_pre_post)
-
-        # Return
-        if decode_UID:
-            device_neurons = list(map(lambda t: Router.decode_UID(t), device_neurons))
-
-        else:
-            device_neurons = list(device_neurons)
-
-        return device_neurons
-
-    @staticmethod
-    def fpga_neurons(
-        virtual_synapses: Dict[NeuronConnectionSynType, int],
-        decode_UID: bool = True,
-    ) -> List[Union[NeuronKey, np.uint16]]:
-        """
-        fpga_neurons finds the active virtual neurons, that are sending events to other neurons. It uses the virtual synapse dictionary for searching.
-
-        :param virtual_synapses: a dictionary for number of occurances of each fpga-to-device synapse addressed by (preUID, postUID, syn_type) key
-        :type virtual_synapses: Dict[NeuronConnectionSynType, int]
-        :param decode_UID: return a list of NeuronKey (chipID, coreID, neuronID) if true, return a list of NeuronUID (np.uint16) if false, defaults to True
-        :type decode_UID: bool, optional
-        :return: a unique list of active virtual neurons (which are sending events to in-device neurons)
-        :rtype: List[Union[NeuronKey, np.uint16]]
-        """
-
-        input_pre = np.empty(0)
-
-        if virtual_synapses:
-            input_pre = np.array(list(virtual_synapses.keys()))[:, 0]
-
-        # Obtain the neruons
-        fpga_neruons = np.unique(input_pre)
-
-        # Return
-        if decode_UID:
-            fpga_neruons = list(map(lambda t: Router.decode_UID(t), fpga_neruons))
-
-        else:
-            fpga_neruons = list(fpga_neruons)
-
-        return fpga_neruons
-
-    @staticmethod
-    def get_CAM_matrix(
-        synapses: Dict[NeuronConnectionSynType, int],
-        pre_neurons: np.ndarray,
-        post_neurons: Optional[np.ndarray] = None,
-    ) -> Tuple[np.ndarray, Dict[int, NeuronKey]]:
-        """
-        get_CAM_matrix generates and fills a CAM matrix, the number of CAM defined per connection given the synapse dictionary, pre-synaptic neurons and the post-synaptic neurons.
-        If post-synaptic neurons are not given, it's assumed that pre-synaptic and post-synaptic neurons are the same and connections are recurrent.
-
-        :param synapses: a dictionary for number of occurances of each synapses addressed by (preUID, postUID, syn_type) key
-        :type synapses: Dict[NeuronConnectionSynType, int]
-        :param pre_neurons: a unique list of pre-synaptic neuron UIDs
-        :type pre_neurons: np.ndarray
-        :param post_neurons: a unique list of post-synaptic neuron UIDs, defaults to None
-        :type post_neurons: Optional[np.ndarray], optional
-        :return: CAM_matrix, idx_map
-                :CAM_matrix: CAM matrix generated using the synapses dictionary
-                :idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
-        :rtype: Tuple[np.ndarray, Dict[int, NeuronKey]]
-        """
-        pre_idx = dict(zip(pre_neurons, range(len(pre_neurons))))
-
-        if post_neurons is None:
-            # Then it's assumed that a recurrent CAM matrix is demanded
-            shape = (len(pre_neurons), len(pre_neurons), 4)
-            post_idx = pre_idx
-        else:
-            # Rectangular input CAM matrix
-            shape = (len(pre_neurons), len(post_neurons), 4)
-            post_idx = dict(zip(post_neurons, range(len(post_neurons))))
-
-        CAM_matrix = np.zeros(shape=shape, dtype=np.uint8)
-
-        for (pre, post, syn_type), count in synapses.items():
-            CAM_matrix[pre_idx[pre]][post_idx[post]][syn_type] = count
-
-        idx_map = {pre_idx[n]: Router.decode_UID(n) for n in pre_neurons}
-
-        return CAM_matrix, idx_map
-
-    @staticmethod
-    def core_matrix_from_idx_map(idx_map) -> np.ndarray:
-        core_matrix = np.empty(len(idx_map), dtype=tuple)
-        for idx, (chipID, coreID, _) in idx_map.items():
-            core_matrix[idx] = (chipID, coreID)
-        return core_matrix
-
-    @staticmethod
-    def CAM_in(
-        device_synapses: Dict[NeuronConnectionSynType, int],
-        input_synapses: Dict[NeuronConnectionSynType, int],
-        return_maps: bool = True,
-    ) -> Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]:
-        """
-        CAM_in creates a 3D rectangular shaped input CAM matrix given synapse dictionaries. The dictionary should
-        have the number of occurances of each synapses indicated with (preUID, postUID, syn_type) key.
-        The third dimension of the CAM matrix holds the different synapse types. For example,
-        CAM[:,:,0] stands for the GABA_B connections. CAM[:,:,1] stands for the GABA_A connections and so on.
-        The first dimension of the CAM matrix is for pre-synaptic neurons and the second dimension is for
-        the post-synaptic neurons. The numbers stored indicate the number of synapses between respected neurons.
-        If CAM[1][2][0] == 5, that means that there are 5 GABA_B connections from neuron 1 to neuron 2.
-
-        :param device_synapses: a dictionary for number of occurances of each in-device synapses indicated with (preUID, postUID, syn_type) key
-        :type device_synapses: Dict[NeuronConnectionSynType, int]
-        :param input_synapses: a dictionary for number of occurances of each fpga-to-device synapses indicated with (preUID, postUID, syn_type) key
-        :type input_synapses: Dict[NeuronConnectionSynType, int]
-        :param return_maps: return the index-to-key map or not, defaults to True
-        :type return_maps: bool, optional
-        :return: CAM_in, in_idx
-            :CAM_in: input CAM matrix (3D, NinxNrecx4)
-            :in_idx: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
-        :rtype: Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]
-        """
-
-        CAM_in = np.empty(0)
-        in_idx = {}
-
-        # Extract the neurons from the synapse dictionaries
-        device_neurons = Router.device_neurons(
-            device_synapses, input_synapses, decode_UID=False
-        )
-
-        fpga_neurons = Router.fpga_neurons(input_synapses, decode_UID=False)
-        CAM_in, in_idx = Router.get_CAM_matrix(
-            input_synapses, fpga_neurons, device_neurons
-        )
-
-        # Return
-        if not return_maps:
-            return CAM_in
-
-        else:
-            return CAM_in, in_idx
-
-    @staticmethod
-    def CAM_rec(
-        device_synapses: Dict[NeuronConnectionSynType, int],
-        input_synapses: Optional[Dict[NeuronConnectionSynType, int]] = None,
-        return_map: bool = True,
-    ) -> Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]:
-        """
-        CAM_rec creates a 3D square shaped recurrent CAM matrix given synapse dictionaries. The dictionary should
-        have the number of occurances of each synapses indicated with (preUID, postUID, syn_type) key.
-        The third dimension of the CAM matrix holds the different synapse types. For example,
-        CAM[:,:,0] stands for the GABA_B connections. CAM[:,:,1] stands for the GABA_A connections and so on.
-        The first dimension of the CAM matrix is for pre-synaptic neurons and the second dimension is for
-        the post-synaptic neurons. The numbers stored indicate the number of synapses between respected neurons.
-        If CAM[1][2][0] == 5, that means that there are 5 GABA_B connections from neuron 1 to neuron 2.
-
-        :param device_synapses: a dictionary for number of occurances of each in-device synapses indicated with (preUID, postUID, syn_type) key
-        :type device_synapses: Dict[NeuronConnectionSynType, int]
-        :param input_synapses: a dictionary for number of occurances of each fpga-to-device synapses indicated with (preUID, postUID, syn_type) key, defaults to None
-        :type input_synapses: Optional[Dict[NeuronConnectionSynType, int]], optional
-        :param return_maps: return the index-to-key map or not, defaults to True
-        :type return_maps: bool, optional
-        :return: CAM_rec, rec_idx
-            :CAM_rec: recurrent CAM matrix (3D, NrecxNrecx4)
-            :rec_idx: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
-        :rtype: Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]
-        """
-
-        CAM_rec = np.empty(0)
-        rec_idx = {}
-
-        # Extract the neurons from the synapse dictionaries
-        device_neurons = Router.device_neurons(
-            device_synapses, input_synapses, decode_UID=False
-        )
-
-        CAM_rec, rec_idx = Router.get_CAM_matrix(device_synapses, device_neurons)
-
-        # Return
-        if not return_map:
-            return CAM_rec
-
-        else:
-            return CAM_rec, rec_idx
-
-    @staticmethod
-    def CAM_matrix(
-        device_synapses: Dict[NeuronConnectionSynType, int],
-        input_synapses: Optional[Dict[NeuronConnectionSynType, int]] = None,
-        return_maps: bool = True,
-    ) -> Dict[str, Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]]:
-        """
-        CAM_matrix runs `Router.CAM_in()` and `Router.CAM_rec()` together and creates a dictionary storing both the input
-        and the recurrent CAM matrices. (For more detail, please look at `Router.CAM_in()` and `Router.CAM_rec()`)
-
-        :param device_synapses: a dictionary for number of occurances of each in-device synapses indicated with (preUID, postUID, syn_type) key
-        :type device_synapses: Dict[NeuronConnectionSynType, int]
-        :param input_synapses: a dictionary for number of occurances of each fpga-to-device synapses indicated with (preUID, postUID, syn_type) key, defaults to None
-        :type input_synapses: Optional[Dict[NeuronConnectionSynType, int]], optional
-        :param return_maps: return the index-to-key map or not, defaults to True
-        :type return_maps: bool, optional
-        :return: a dictionary of tuples of input and recurrent dictionaries and their index maps. (For more detail, please look at Please look at `Router.CAM_in()` and `Router.CAM_rec()`)
-        :rtype: Dict[str, Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]]
-        """
-        CAM_in = np.empty(0)
-
-        if input_synapses is not None:
-            CAM_in = Router.CAM_in(device_synapses, input_synapses, return_maps)
-
-        CAM_rec = Router.CAM_rec(device_synapses, input_synapses, return_maps)
-
-        # Return
-        CAM_dict = {"CAM_in": CAM_in, "CAM_rec": CAM_rec}
-        return CAM_dict
-
-    # --- FROM CONFIG METHODS --- #
-
-    @staticmethod
-    def fan_from_config(
-        config: Dynapse1Configuration,
-    ) -> Tuple[List[NeuronConnectionSynType], List[NeuronConnectionSynType]]:
-        """
-        fan_from_config traverses the config object for neuron synapses and destinations.
-        Produces a fan_in list which consists of all the possible connections indicated by CAM. 4 possibile connections indicated by 1 entry.
-        Produces a fan_out list which consists of all the possible connections indicated by SRAM. 256 possible connections indicated by 1 entry.
-
-        :param config: samna Dynapse1 configuration object used to configure a network on the chip
-        :type config: Dynapse1Configuration
-        :return: fan_in, fan_out
-            :fan_in: Receving connection indicated in the listening side(CAM cells). list consisting of tuples : (preUID, postUID, syn_type)
-            :fan_out: Sending connection indicated in the sending side(SRAM cells). list consisting of tuples : (preUID, postUID, syn_type)
-        :rtype: Tuple[List[NeuronConnectionSynType], List[NeuronConnectionSynType]]
-        """
-
-        fan_in = []
-        fan_out = []
-
-        # Traverse the chip for neruon-neuron connections
-        for chip in config.chips:  # 4
-            for core in chip.cores:  # 4
-                for neuron in core.neurons:  # 256
+        synapses = {}
+        destinations = {}
+
+        # Traverse the chip for active neruon-neuron connections
+        for h, chip in enumerate(config.chips):  # 1-4
+            for c, core in enumerate(chip.cores):  # 4
+                for n, neuron in enumerate(core.neurons):  # 256
+                    syn_list = []
+                    dest_list = []
 
                     # FAN-IN (64 connections) CAM
                     for syn in neuron.synapses:
-                        # An active synapse
-                        if syn.listen_neuron_id != 0:
-                            fan_in += Router.receiving_connections(neuron, syn)
+                        if active_synapse(syn):
+                            syn_list.append((syn))
 
                     # FAN-OUT (4 chips) SRAM
                     for dest in neuron.destinations:
-                        # An active destination
-                        if dest.target_chip_id != 16 and dest.target_chip_id != 0:
-                            fan_out += Router.broadcasting_connections(neuron, dest)
+                        if active_destination(dest):
+                            dest_list.append(dest)
 
-        return fan_in, fan_out
+                    if syn_list:
+                        synapses[(h, c, n)] = syn_list
 
-    @staticmethod
-    def real_synapses_from_config(
-        config: Dynapse1Configuration,
-    ) -> Dict[NeuronConnectionSynType, int]:
+                    if dest_list:
+                        destinations[(h, c, n)] = dest_list
+
+        connector = get_mem_connect(synapses, destinations)
+
+        _mod = cls(
+            n_chips=len(config.chips),
+            n_cores=max([len(chip.cores) for chip in config.chips]),
+            idx_map=connector.idx_map,
+            weight_mask=connector.weight_mask,
+        )
+        return _mod
+
+    @classmethod
+    def from_Dynapse1Configuration(cls, config: Dynapse1Configuration) -> Router:
         """
-        real_synapses_from_config extracts the real(in-device) synapses from the samna config object
+        from_Dynapse1Configuration is a class factory method which uses Dynapse1Configuration object to extract Router simulator parameters
 
-        :param config: samna Dynapse1 configuration object used to configure a network on the chip
+        :param config: a samna Dynapse1Configuration object used to configure all the system level parameters
         :type config: Dynapse1Configuration
-        :return: a real synapse dictionary for number of occurances of each device-device synapses addressed by (preUID, postUID, syn_type) keys
-        :rtype: Dict[NeuronConnectionSynType, int]
+        :return: a router simulator object whose parameters are imported from a device configuration object
+        :rtype: Router
         """
-
-        fan_in, fan_out = Router.fan_from_config(config)
-        real_synapses = Router.real_synapses(fan_in, fan_out)
-
-        return real_synapses
-
-    @staticmethod
-    def virtual_synapses_from_config(
-        config: Dynapse1Configuration,
-    ) -> Dict[NeuronConnectionSynType, int]:
-        """
-        virtual_synapses_from_config extracts the virtual(FPGA-to-device) synapses from the samna config object
-
-        :param config: samna Dynapse1 configuration object used to configure a network on the chip
-        :type config: Dynapse1Configuration
-        :return: a virtual synapse dictionary for number of occurances of each FPGA-device synapses addressed by (preUID, postUID, syn_type) keys
-        :rtype: Dict[NeuronConnectionSynType, int]
-        """
-
-        fan_in, fan_out = Router.fan_from_config(config)
-        virtual_synapses = Router.virtual_synapses(fan_in=fan_in, fan_out=fan_out)
-        return virtual_synapses
-
-    @staticmethod
-    def synapses_from_config(
-        config: Dynapse1Configuration,
-    ) -> Dict[str, Dict[NeuronConnectionSynType, int]]:
-        """
-        synapses_from_config builts a synapse dictionary by traversing a samna DynapSE1 device configuration object
-
-        :param config: samna Dynapse1 configuration object used to configure a network on the chip
-        :type config: Dynapse1Configuration
-        :return: a super dictionary of `virtual` and `real` synapse dictionaries for number of occurances of each synapses addressed by (preUID, postUID, syn_type) keys
-        :rtype: Dict[str, Dict[NeuronConnectionSynType, int]]
-        """
-
-        fan_in, fan_out = Router.fan_from_config(config)
-        real_synapses = Router.real_synapses(fan_in, fan_out)
-        virtual_synapses = Router.virtual_synapses(
-            fan_in=fan_in, real_synapses=real_synapses
+        return cls.__from_samna(
+            config=config,
+            active_synapse=lambda syn: syn.listen_neuron_id != 0,
+            active_destination=lambda dest: dest.target_chip_id != 16 and dest.in_use,
+            get_mem_connect=MemConnect.from_content_se1,
         )
 
-        synapses = {
-            "real": real_synapses,
-            "virtual": virtual_synapses,
-        }
-
-        return synapses
-
-    @staticmethod
-    def device_neurons_from_config(
-        config: Dynapse1Configuration, decode_UID: bool = True
-    ) -> List[Union[NeuronKey, np.uint16]]:
+    @classmethod
+    def from_Dynapse2Configuration(
+        cls, config: Dynapse2Configuration, pos_map: Dict[int, Tuple[int]] = {0: (1, 0)}
+    ) -> Router:
         """
-        device_neurons_from_config extracts the device neruon ids from the samna configuraiton object. Also look at `Router.device_neurons()`
-
-        :param config: samna Dynapse1 configuration object used to configure a network on the chip
-        :type config: Dynapse1Configuration
-        :param decode_UID: return a list of NeuronKey (chipID, coreID, neuronID) if true, return a list of NeuronUID (np.uint16) if false, defaults to True
-        :type decode_UID: bool, optional
-        :return: a unique list of active neurons in device (either sending or receiving events)
-        :rtype: List[Union[NeuronKey, np.uint16]]
+        from_Dynapse2Configuration is a class factory method which uses Dynapse2Configuration object to extract Router simulator parameters
+        :param config: a samna Dynapse2Configuration object used to configure all the system level parameters
+        :type config: Dynapse2Configuration
+        :param pos_map: a dictionary holding the relative coordinate positions of the chips installed, defaults to {0: (1, 0)}
+        :type pos_map: Dict[int, Tuple[int]]
+        :return: a router simulator object whose parameters are imported from a device configuration object
+        :rtype: Router
         """
-        synapses = Router.synapses_from_config(config)
-        return Router.device_neurons(synapses["real"], synapses["virtual"], decode_UID)
+        if len(pos_map.keys()) != len(config.chips):
+            raise IndexError(
+                f"Position map does not represent the configuration object"
+            )
 
-    @staticmethod
-    def fpga_neurons_from_config(
-        config: Dynapse1Configuration, decode_UID: bool = True
-    ) -> List[Union[NeuronKey, np.uint16]]:
-        """
-        fpga_neurons_from_config extracts the virtual FPGA neruon ids from the samna configuraiton object. Also look at `Router.fpga_neurons()`
-
-        :param config: samna Dynapse1 configuration object used to configure a network on the chip
-        :type config: Dynapse1Configuration
-        :param decode_UID: return a list of NeuronKey (chipID, coreID, neuronID) if true, return a list of NeuronUID (np.uint16) if false, defaults to True
-        :type decode_UID: bool, optional
-        :return: a unique list of active virtual neurons (which are sending events to in-device neurons)
-        :rtype: List[Union[NeuronKey, np.uint16]]
-        """
-        virtual_synapses = Router.virtual_synapses_from_config(config)
-        return Router.fpga_neurons(virtual_synapses, decode_UID)
-
-    @staticmethod
-    def neurons_from_config(
-        config: Dynapse1Configuration, decode_UID: bool = True
-    ) -> Dict[str, List[Union[NeuronKey, np.uint16]]]:
-        """
-        neurons_from_config builts a neurons key dictionary by traversing a samna DynapSE1 device configuration object
-
-        :param config: samna Dynapse1 configuration object used to configure a network on the chip
-        :type config: Dynapse1Configuration
-        :param decode_UID: return a list of NeuronKey (chipID, coreID, neuronID) if true, return a list of NeuronUID (np.uint16) if false, defaults to True
-        :type decode_UID: bool, optional
-        :return: a unique list of active neurons in device (either sending or receiving events)
-        :rtype: Dict[str, List[Union[NeuronKey, np.uint16]]]
-        """
-
-        synapses = Router.synapses_from_config(config)
-
-        device_neurons = Router.device_neurons(
-            synapses["real"], synapses["virtual"], decode_UID
+        return cls.__from_samna(
+            config=config,
+            active_synapse=lambda syn: sum(syn.weight) > 0,
+            active_destination=lambda dest: sum(dest.core) > 0,
+            get_mem_connect=lambda syns, dests: MemConnect.from_content_se2(
+                syns, dests, pos_map
+            ),
         )
-        fpga_neurons = Router.fpga_neurons(synapses["virtual"], decode_UID)
 
-        neurons = {
-            "real": device_neurons,
-            "virtual": fpga_neurons,
-        }
 
-        return neurons
+@dataclass
+class MemConnect:
+    """
+    MemConnect encapsulates binary weight mask and index map which project
+    the connections between neurons obtained from the device memory content
+
+    :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys, defaults to None
+    :type idx_map: Dict[int, NeuronKey], optional
+    :param weight_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), defaults to None
+    :type weight_mask: np.ndarray, optional
+    """
+
+    idx_map: Dict[int, NeuronKey]
+    weight_mask: np.ndarray
+
+    @classmethod
+    def __from_content(
+        cls,
+        synapses: SynDict,
+        destinations: DestDict,
+        get_connector: Callable[[Dict[int, NeuronKey], __Connect]],
+    ) -> MemConnect:
+        """
+        __from_content is the common configurable class factory method for both Dynap-SE1 and Dynap-SE2 architectures
+
+        :param synapses: a dictionary of active synapses
+        :type synapses: SynDict
+        :param destinations: a dictionary of active destinations
+        :type destinations: DestDict
+        :param get_connector: a method to a device specific connector object
+        :type get_connector: Callable[[Dict[int, NeuronKey], __Connect]]
+        :return: a MemConnect object whose parameters are obtained from the active synapse and destination lists
+        :rtype: MemConnect
+        """
+
+        idx_map = cls.__idx_map_from_content(synapses, destinations)
+        syn_connections = cls.__connect_synapses(synapses, idx_map)
+
+        # --- Device specific implementation --- #
+        connector = get_connector(idx_map=idx_map)
+        dest_connections = connector.connect_destinations(destinations)
+        connections = connector.intersect_connections(syn_connections, dest_connections)
+        # ---o--- #
+
+        weight_mask = cls.__get_weight_mask(connections, n_neuron=len(idx_map))
+        _mod = cls(idx_map=idx_map, weight_mask=weight_mask)
+        return _mod
+
+    @classmethod
+    def from_content_se1(
+        cls,
+        synapses: Dict[NeuronKey, List[Dynapse1Synapse]],
+        destinations: Dict[NeuronKey, List[Dynapse1Destination]],
+    ) -> MemConnect:
+        """
+        from_content_se1 is a class factory method which uses Dynap-SE1 synapse and destination lists
+
+        :param synapses: a dictionary of active synapses
+        :type synapses: Dict[NeuronKey, List[Dynapse1Synapse]]
+        :param destinations: a dictionary of active destinations
+        :type destinations: Dict[NeuronKey, List[Dynapse1Destination]]
+        :return: a MemConnect object whose parameters are obtained from the active synapse and destination lists
+        :rtype: MemConnect
+        """
+        return cls.__from_content(
+            synapses=synapses,
+            destinations=destinations,
+            get_connector=ConnectSE1.from_maps,
+        )
+
+    @classmethod
+    def from_content_se2(
+        cls,
+        synapses: Dict[NeuronKey, List[Dynapse2Synapse]],
+        destinations: Dict[NeuronKey, List[Dynapse2Destination]],
+        pos_map: Dict[int, Tuple[int]],
+    ) -> MemConnect:
+        """
+        from_content_se2 is a class factory method which uses Dynap-SE2 synapse and destination lists
+
+        :param synapses: a dictionary of active synapses
+        :type synapses: Dict[NeuronKey, List[Dynapse2Synapse]]
+        :param destinations: a dictionary of active destinations
+        :type destinations: Dict[NeuronKey, List[Dynapse2Destination]]
+        :param pos_map: a dictionary holding the relative coordinate positions of the chips installed
+        :type pos_map: Dict[int, Tuple[int]]
+        :return: a MemConnect object whose parameters are obtained from the active synapse and destination lists
+        :rtype: MemConnect
+        """
+        return cls.__from_content(
+            synapses=synapses,
+            destinations=destinations,
+            get_connector=lambda idx_map: ConnectSE2.from_maps(
+                idx_map=idx_map, pos_map=pos_map
+            ),
+        )
 
     @staticmethod
-    def CAM_in_from_config(
-        config: Dynapse1Configuration, return_maps: bool = False
-    ) -> Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]:
+    def __idx_map_from_content(
+        synapses: SynDict, destinations: DestDict
+    ) -> Dict[int, NeuronKey]:
         """
-        CAM_in_from_config Use `Router.synapses_from_config()` and `Router.CAM_in()` functions together to extract
-        the input CAM matrix from a samna config object. `Router.synapses_from_config()` creates the
-        synapse dictionaries from a configuration object and `Router.CAM_in()` converts the dictionary to a CAM matrix.
-        For details of the algorithms, please check the functions.
+        __idx_map_from_content obtains an index map from active synapse and destinations dictionaries
 
-        :param config: samna Dynapse1 configuration object used to configure a network on the chip
-        :type config: Dynapse1Configuration
-        :param return_maps: return the index-to-key map or not, defaults to True
-        :type return_maps: bool, optional
-        :return: CAM_in, in_idx
-            :CAM_in: input CAM matrix (3D, NinxNrecx4)
-            :in_idx: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
-        :rtype: Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]
+        :param synapses: a dictionary of active synapses
+        :type synapses: SynDict
+        :param destinations: a dictionary of active destinations
+        :type destinations: DestDict
+        :return: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
+        :rtype: Dict[int, NeuronKey]
         """
-        syn_dict = Router.synapses_from_config(config)
-        return Router.CAM_in(syn_dict["real"], syn_dict["virtual"], return_maps)
 
-    @staticmethod
-    def CAM_rec_from_config(
-        config: Dynapse1Configuration, return_maps: bool = False
-    ) -> Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]:
-        """
-        CAM_rec_from_config Use `Router.synapses_from_config()` and `Router.CAM_rec()` functions together to extract
-        the input CAM matrix from a samna config object. `Router.synapses_from_config()` creates the
-        synapse dictionaries from a configuration object and `Router.CAM_rec()` converts the dictionary to a CAM matrix.
-        For details of the algorithms, please check the functions.
-
-        :param config: samna Dynapse1 configuration object used to configure a network on the chip
-        :type config: Dynapse1Configuration
-        :param return_maps: return the index-to-key map or not, defaults to True
-        :type return_maps: bool, optional
-        :return: CAM_rec, rec_idx
-            :CAM_rec: recurrent CAM matrix (3D, NrecxNrecx4)
-            :rec_idx: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
-        :rtype: Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]
-        """
-        syn_dict = Router.synapses_from_config(config)
-        return Router.CAM_rec(syn_dict["real"], syn_dict["virtual"], return_maps)
+        keys = list(synapses.keys()) if synapses is not None else []
+        keys += list(destinations.keys()) if destinations is not None else []
+        keys = sorted(list(set(keys))) if keys else []
+        idx_map = dict(zip(range(len(keys)), keys))
+        return idx_map
 
     @staticmethod
-    def CAMs_from_config(
-        config: Dynapse1Configuration,
-        return_maps: bool = False,
-    ) -> Dict[str, Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]]:
+    def __connect_synapses(
+        synapses: SynDict, idx_map: Dict[int, NeuronKey]
+    ) -> List[Tuple[int, int, Union[Dynapse1Synapse, Dynapse2Synapse]]]:
         """
-        CAMs_from_config Use `Router.synapses_from_config()` and `Router.CAM_matrix()` functions together to extract
-        the input and recurrent CAM matrices from a samna config object. `Router.synapses_from_config()` creates the
-        synapse dictionaries from a configuration object and `Router.CAM_matrix()` converts the dictionary to a CAM matrix.
-        For details of the algorithms, please check the functions.
+        __connect_synapses creates a list of all possible connections between neurons indicated by the CAM content stored in synapse objects
 
-        :param config: samna Dynapse1 configuration object used to configure a network on the chip
-        :type config: Dynapse1Configuration
-        :param return_maps: return the index-to-key map or not, defaults to True
-        :type return_maps: bool, optional
-        :return: a dictionary of tuples of input and recurrent dictionaries and their index maps. (For more detail, please look at Please look at `Router.CAM_in()` and `Router.CAM_rec()`)
-        :rtype: Dict[str, Union[np.ndarray, Tuple[np.ndarray, Dict[int, NeuronKey]]]]
+        :param synapses: a dictionary of active synapses
+        :type synapses: SynDict
+        :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
+        :type idx_map: Dict[int, NeuronKey]
+        :return: a list of all possible connections indicated by synapse object content
+        :rtype: List[Tuple[int, int, Union[Dynapse1Synapse, Dynapse2Synapse]]]
         """
-        syn_dict = Router.synapses_from_config(config)
-        return Router.CAM_matrix(syn_dict["real"], syn_dict["virtual"], return_maps)
+        __conn = []
+        r_idx_map = {v: k for k, v in idx_map.items()}
+
+        for nkey, syn_list in synapses.items():
+            for syn in syn_list:
+                # Any indexed neuron can send spikes to the post-synaptic neuron
+                __conn += [(pre_idx, r_idx_map[nkey], syn) for pre_idx in idx_map]
+
+        return __conn
+
+    @staticmethod
+    def __get_weight_mask(
+        connections: List[Tuple[int, int, int, int]], n_neuron: int, n_gate: int = 4
+    ) -> np.ndarray:
+        """
+        __get_weight_mask creates and fills a weight mask object using a intersected connection list
+
+        :param connections: the neuron to neuron connection list [(pre_idx, post_idx, gate_idx, weight_mask)]
+        :type connections: List[Tuple[int, int, int, int]]
+        :param n_neuron: number of neurons (1st and 2nd dimensions)
+        :type n_neuron: int
+        :param n_gate: then number of gates (3rd dimension), defaults to 4
+        :type n_gate: int, optional
+        :return: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate)
+        :rtype: np.ndarray
+        """
+        weight_mask = np.zeros((n_neuron, n_neuron, n_gate))
+
+        for pre, post, gate, weight in connections:
+            weight_mask[pre, post, gate] = weight
+
+        return weight_mask
+
+    @staticmethod
+    def int_to_binary(number: int, n_bits: Optional[int] = 0) -> List[bool]:
+        """
+        int_to_binary converts an integer value to its binary representation in the form of list of boolean values
+
+            7 -> [1,1,1]
+            8 -> [0,0,0,1]
+            9 -> [1,0,0,1]
+
+        :param number: the integer value to be decoded
+        :type number: int
+        :param n_bits: the minimum number of bits, defaults to 0
+        :type n_bits: Optional[int], optional
+        :raises ValueError: Numeric value should be greater than 0!
+        :return: the binary representation of the numerical value
+        :rtype: List[bool]
+        """
+        if number < 0:
+            raise ValueError("Numeric value should be greater than 0!")
+        __binary = []
+
+        while number != 0:
+            __binary.append(1) if number & 1 else __binary.append(0)
+            number = number >> 1
+
+        if n_bits > len(__binary):
+            __binary += [0] * (n_bits - len(__binary))
+
+        return __binary
+
+    @staticmethod
+    def binary_to_int(binary: List[bool]) -> int:
+        """
+        binary_to_int converts the binary representation of a number into an integer.
+
+            [1,1,1] -> 7
+            [0,0,0,1] -> 8
+            [1,0,0,1] -> 9
+
+        :param binary: the binary representation of a numerical value
+        :type binary: List[bool]
+        :return: the integer value of the binary
+        :rtype: int
+        """
+        __number = 0
+        for bit in reversed(binary):
+            __number = (__number << 1) | bit
+        return __number
+
+
+@dataclass
+class __Connect:
+    """
+    __Connect is a boilerplate class to be inherited by SE1 and SE2 modules for version specific connectivity implementation
+
+    :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
+    :type idx_map: Dict[int, NeuronKey], optional
+    """
+
+    idx_map: Dict[int, NeuronKey]
+
+    def __post_init__(self) -> None:
+        self.neuron_dict = self.neuron_dict_from_idx_map(self.idx_map)
+        self.r_idx_map = {v: k for k, v in self.idx_map.items()}
+
+    @staticmethod
+    def neuron_dict_from_idx_map(idx_map) -> Dict[CoreKey, List[np.uint8]]:
+        """
+        neuron_dict_from_idx_map converts an index map to a dictionary that presents the active cores and their active neruons.
+
+            core_key : List[neurons]
+            (0,0) : [1,5,7,2]
+            (0,1) : [0,18,201]
+
+        :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
+        :type idx_map: _type_
+        :return: a dictionary of the mapping between active cores and list of active neurons
+        :rtype: Dict[CoreKey, List[np.uint8]]
+        """
+        __dict: Dict[CoreKey, List[np.uint8]] = {}
+        for h, c, n in idx_map.values():
+            if (h, c) not in __dict:
+                __dict[h, c] = [n]
+            else:
+                __dict[h, c].append(n)
+
+        return __dict
+
+    def connect_destinations(
+        self, *args, **kwargs
+    ) -> List[int, int, Union[Dynapse1Destination, Dynapse2Destination]]:
+        """
+        connect_destinations is an abstract method. The class inheriting `__Connect` should implement this
+
+        :return: a list of possible connections indicated by destination object content
+        :rtype: List[int, int, Union[Dynapse1Destination, Dynapse2Destination]]
+        """
+        raise NotImplementedError("Version specific implementation required!")
+
+    def intersect_connections(self, *args, **kwargs) -> List[Tuple[int, int, int, int]]:
+        """
+        connect_destinations is an abstract method. The class inheriting `__Connect` should implement this
+
+        :return: the neuron to neuron connection list [(pre_idx, post_idx, gate_idx, weight_mask)]
+        :rtype: List[Tuple[int, int, int, int]]
+        """
+        raise NotImplementedError("Version specific implementation required!")
+
+
+@dataclass
+class ConnectSE1(__Connect):
+    """
+    ConnectSE1 encapsulates Dynap-SE1 specific router connectivity utilities
+
+    :Attributes:
+
+    :attr syn_weight_map: Dynap-SE1 does not have connection specific weight mask facility.
+        Instead, it has fixed current parameters per synapse gate. Therefore, syn_weight_map
+        has the mapping from the synapse gate index to definite weight mask.
+    :type syn_weight_map: Dict[int, int]
+    """
+
+    syn_weight_map = {
+        0: 0b0001,  # GABA
+        1: 0b0010,  # SHUNT
+        2: 0b0100,  # NMDA
+        3: 0b1000,  # AMPA
+    }
+
+    @classmethod
+    def from_maps(cls, idx_map: Dict[int, NeuronKey]) -> ConnectSE1:
+        """
+        from_maps is a class factory method which construct a `ConnectSE1` object using index map
+
+        :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
+        :type idx_map: Dict[int, NeuronKey]
+        :return: a ConnectSE1 object obtained from the index map
+        :rtype: ConnectSE1
+        """
+        return cls(idx_map=idx_map)
+
+    @staticmethod
+    def target_core_keys(dest: Dynapse1Destination) -> List[CoreKey]:
+        """
+        target_core_keys lists the cores that the destination object provided aims to convey the events.
+
+        :param dest: DynapSE1 destination object containing SRAM content
+        :type dest: Dynapse1Destination
+        :return: list of cores targeted
+        :rtype: List[CoreKey]
+        """
+        core = MemConnect.int_to_binary(dest.core_mask)
+        dest_cores = np.argwhere(core).flatten()
+        target_list = [(dest.target_chip_id, dest_core) for dest_core in dest_cores]
+        return target_list
+
+    def connect_destinations(
+        self, destinations: Dict[NeuronKey, List[Dynapse1Destination]]
+    ) -> List[Tuple[int, int, Dynapse1Destination]]:
+        """
+        connect_destinations creates a list of all possible connections between neurons indicated by the SRAM content stored in the destination object.
+
+        :param destinations: a dictionary of an active destinations
+        :type destinations: Dict[NeuronKey, List[Dynapse1Destination]]
+        :return: a list of all possible connections indicated by destination object content
+        :rtype: List[Tuple[int, int, Dynapse1Destination]]
+        """
+
+        candidates = []
+
+        for (h, c, n), dest_list in destinations.items():
+            for dest in dest_list:
+                cv = dest.virtual_core_id
+
+                # Get target cores from the destination object
+                for th, tc in self.target_core_keys(dest):
+
+                    # If the core indicated has some active neurons
+                    if (th, tc) in self.neuron_dict:
+                        neurons = self.neuron_dict[th, tc]
+
+                        # Extend candidate list
+                        if (h, cv, n) in self.r_idx_map:
+                            candidates += [
+                                (
+                                    self.r_idx_map[h, cv, n],
+                                    self.r_idx_map[th, tc, tn],
+                                    dest,
+                                )
+                                for tn in neurons
+                            ]
+
+        return candidates
+
+    def intersect_connections(
+        self,
+        syn_connections: List[Tuple[int, int, Dynapse1Synapse]],
+        dest_connections: List[Tuple[int, int, Dynapse1Destination]],
+    ) -> List[Tuple[int, int, int, int]]:
+        """
+        intersect_connections finds the common connections infered by both the SRAM and CAM.
+        That is if a connection is allowed in the CAMs and it's listed in the SRAMs,
+        there is a link between those two neurons. If one sends an event, the other one catches.
+        `intersect_connections` finds those links.
+
+        :param syn_connections: a list of all possible connections indicated by synapse object content
+        :type syn_connections: List[Tuple[int, int, Dynapse1Synapse]]
+        :param dest_connections: a list of all possible connections indicated by destination object content
+        :type dest_connections: List[Tuple[int, int, Dynapse1Destination]]
+        :return: the neuron to neuron connection list [(pre_idx, post_idx, gate_idx, weight_mask)]
+        :rtype: List[Tuple[int, int, int, int]]
+        """
+
+        def __match_dest_connection(
+            dest_connection: Tuple[int, int, Dynapse1Destination]
+        ) -> Tuple[int, int, np.uint8, np.uint8]:
+            """
+            __match_dest_connection processes the destination connection candidates and creates a comparable identity
+
+            :param dest_connection:  a connection candidate that is obtained from a destination object
+            :type dest_connection: Tuple[int, int, Dynapse1Destination]
+            :return: a standard form connection candidate which can be compared against any other SE1 connection candidate
+            :rtype: Tuple[int, int, np.uint8, np.uint8]
+            """
+            pre_idx, post_idx, dest = dest_connection
+            pre_chip_idx, pre_core_idx, pre_neuron_idx = self.idx_map[pre_idx]
+            return pre_idx, post_idx, pre_core_idx, pre_neuron_idx
+
+        def __match_syn_connection(
+            syn_connection: Tuple[int, int, Dynapse1Synapse]
+        ) -> Tuple[int, int, np.uint8, np.uint8]:
+            """
+            __match_syn_connection processes the synapse connection candidates and creates a comparable identity
+
+            :param syn_connection: A connection candidate that is obtained from a synapse object
+            :type syn_connection: Tuple[int, int, Dynapse1Synapse]
+            :return: a standard from connection candidate which can be compared against any other SE1 connection candidate
+            :rtype: Tuple[int, int, np.uint8, np.uint8]
+            """
+            pre_idx, post_idx, syn = syn_connection
+            return pre_idx, post_idx, syn.listen_core_id, syn.listen_neuron_id
+
+        def __read_syn_connection(
+            syn_connection: Tuple[int, int, Dynapse1Synapse]
+        ) -> Tuple[int, int, int, int]:
+            """
+            __read_syn_connection processes the synapse connection identities and returns a version-invariant connection list identity
+
+            :param syn_connection: A connection candidate that is obtained from a synapse object
+            :type syn_connection: Tuple[int, int, Dynapse1Synapse]
+            :return: a version invariant connection list identity
+            :rtype: Tuple[int, int, int, int]
+            """
+            pre_idx, post_idx, syn = syn_connection
+            gate = syn.syn_type.value
+            weight = ConnectSE1.syn_weight_map[syn.syn_type.value]
+            return pre_idx, post_idx, gate, weight
+
+        dest_candidates = set(map(__match_dest_connection, dest_connections))
+
+        __intersection = [
+            __read_syn_connection(connection)
+            for connection in syn_connections
+            if __match_syn_connection(connection) in dest_candidates
+        ]
+        return __intersection
+
+
+@dataclass
+class ConnectSE2(__Connect):
+    """
+    ConnectSE2  encapsulates Dynap-SE2 specific router connectivity utilities
+
+    :Attributes:
+
+    :attr pos_map: a dictionary holding the relative coordinate positions of the chips installed
+    :type pos_map: Dict[int, Tuple[int]]
+    :attr syn_map: the mapping between Dynap-SE2 binary synapse values and gate indices
+    :type syn_map: Dict[int, int]
+    """
+
+    pos_map: Dict[int, Tuple[int]]
+    syn_map = {
+        1024: 3,  # AMPA
+        512: 0,  # GABA
+        256: 2,  # NMDA
+        128: 1,  # SHUNT
+    }
+
+    @classmethod
+    def from_maps(
+        cls, idx_map: Dict[int, NeuronKey], pos_map: Dict[int, Tuple[int]]
+    ) -> ConnectSE2:
+        """
+        from_maps is a class factory method which construct a `ConnectSE2` object using index and position maps
+
+        :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
+        :type idx_map: Dict[int, NeuronKey]
+        :param pos_map: a dictionary holding the relative coordinate positions of the chips installed
+        :type pos_map: Dict[int, Tuple[int]]
+        :return: a ConnectSE2 object obtained from the index and position maps
+        :rtype: ConnectSE2
+        """
+        return cls(idx_map=idx_map, pos_map=pos_map)
+
+    def route_AER(self, src_chip: np.uint8, dest: Dynapse2Destination) -> int:
+        """
+        route_AER finds the destination chip id using the destination object and the position map
+
+        :param src_chip: the departure chip ID
+        :type src_chip: np.uint8
+        :param dest: Dynap-SE2 destination object containing SRAM content
+        :type dest: Dynapse2Destination
+        :return: the arrival chip ID
+        :rtype: int
+        """
+        r_pos_map = {v: k for k, v in self.pos_map.items()}
+
+        x_src, y_src = self.pos_map[src_chip]
+        x_dest = x_src + dest.x_hop
+        y_dest = y_src + dest.y_hop
+
+        if (x_dest, y_dest) in r_pos_map:
+            chip_id = r_pos_map[x_dest, y_dest]
+            return chip_id
+        else:
+            return -1
+
+    def target_core_keys(
+        self, src_chip: np.uint8, dest: Dynapse2Destination
+    ) -> List[CoreKey]:
+        """
+        target_core_keys lists the cores that the destination object provided aims to convey the events.
+
+        :param src_chip: the departure chip ID
+        :type src_chip: np.uint8
+        :param dest: DynapSE2 destination object containing SRAM content
+        :type dest: Dynapse1Destination
+        :return: list of cores targeted
+        :rtype: List[CoreKey]
+        """
+
+        dest_chip = self.route_AER(src_chip, dest)
+        dest_cores = np.argwhere(dest.core).flatten()
+        target_list = [(dest_chip, dest_core) for dest_core in dest_cores]
+        return target_list
+
+    def connect_destinations(
+        self, destinations: Dict[NeuronKey, List[Dynapse2Destination]]
+    ) -> List[Tuple[int, int, Dynapse2Destination]]:
+        """
+        connect_destinations creates a list of all possible connections between neurons indicated by the SRAM content stored in the destination object.
+
+        :param destinations: a dictionary of an active destinations
+        :type destinations: Dict[NeuronKey, List[Dynapse2Destination]]
+        :return: a list of all possible connections indicated by destination object content
+        :rtype: List[Tuple[int, int, Dynapse2Destination]]
+        """
+        candidates = []
+
+        for (h, c, n), dest_list in destinations.items():
+            for dest in dest_list:
+
+                # Get target cores from the source chip and the destination object
+                for th, tc in self.target_core_keys(h, dest):
+
+                    # If the core indicated has some active neurons
+                    if (th, tc) in self.neuron_dict:
+                        neurons = self.neuron_dict[th, tc]
+
+                        # Extend candidate list
+                        candidates += [
+                            (self.r_idx_map[h, c, n], self.r_idx_map[th, tc, tn], dest)
+                            for tn in neurons
+                        ]
+
+        return candidates
+
+    @staticmethod
+    def intersect_connections(
+        syn_connections: List[Tuple[int, int, Dynapse2Synapse]],
+        dest_connections: List[Tuple[int, int, Dynapse2Destination]],
+    ) -> List[Tuple[int, int, int, int]]:
+        """
+        intersect_connections finds the common connections infered by both the SRAM and CAM.
+        That is if a connection is allowed in the CAMs and it's listed in the SRAMs,
+        there is a link between those two neurons. If one sends an event, the other one catches.
+        `intersect_connections` finds those links.
+
+        :param syn_connections: a list of all possible connections indicated by synapse object content
+        :type syn_connections: List[Tuple[int, int, Dynapse2Synapse]]
+        :param dest_connections: a list of all possible connections indicated by destination object content
+        :type dest_connections: List[Tuple[int, int, Dynapse2Destination]]
+        :return: the neuron to neuron connection list [(pre_idx, post_idx, gate_idx, weight_mask)]
+        :rtype: List[Tuple[int, int, int, int]]
+        """
+
+        def __match_dest_connection(
+            dest_connection: Tuple[int, int, Dynapse2Destination]
+        ) -> Tuple[int, int, np.uint8, np.uint8]:
+            """
+            __match_dest_connection processes the destination connection candidates and creates a comparable identity
+
+            :param dest_connection:  a connection candidate that is obtained from a destination object
+            :type dest_connection: Tuple[int, int, Dynapse2Destination]
+            :return: a standard form connection candidate which can be compared against any other SE2 connection candidate
+            :rtype: Tuple[int, int, np.uint8, np.uint8]
+            """
+            pre_idx, post_idx, dest = dest_connection
+            return pre_idx, post_idx, dest.tag
+
+        def __match_syn_connection(
+            syn_connection: Tuple[int, int, Dynapse2Synapse]
+        ) -> Tuple[int, int, np.uint8, np.uint8]:
+            """
+            __match_syn_connection processes the synapse connection candidates and creates a comparable identity
+
+            :param syn_connection: A connection candidate that is obtained from a synapse object
+            :type syn_connection: Tuple[int, int, Dynapse2Synapse]
+            :return: a standard from connection candidate which can be compared against any other SE2 connection candidate
+            :rtype: Tuple[int, int, np.uint8, np.uint8]
+            """
+            pre_idx, post_idx, syn = syn_connection
+            return pre_idx, post_idx, syn.tag
+
+        def __read_syn_connection(
+            syn_connection: Tuple[int, int, Dynapse2Synapse]
+        ) -> Tuple[int, int, int, int]:
+            """
+            __read_syn_connection processes the synapse connection identities and returns a version-invariant connection list identity
+
+            :param syn_connection: A connection candidate that is obtained from a synapse object
+            :type syn_connection: Tuple[int, int, Dynapse2Synapse]
+            :return: a version invariant connection list identity
+            :rtype: Tuple[int, int, int, int]
+            """
+            pre_idx, post_idx, syn = syn_connection
+            gate = ConnectSE2.syn_map[syn.dendrite.value]
+            weight = MemConnect.binary_to_int(syn.weight)
+            return pre_idx, post_idx, gate, weight
+
+        dest_candidates = set(map(__match_dest_connection, dest_connections))
+
+        __intersection = [
+            __read_syn_connection(connection)
+            for connection in syn_connections
+            if __match_syn_connection(connection) in dest_candidates
+        ]
+        return __intersection
