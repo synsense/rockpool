@@ -1564,7 +1564,6 @@ def configure_accel_time_mode(
     monitor_Nhidden: Optional[int] = 0,
     monitor_Noutput: Optional[int] = 0,
     i_syn_start: Optional[int] = 0,
-    i_syn2_start: Optional[int] = 0,
     v_mem_start: Optional[int] = 0,
     readout = "Spike",
 ) -> (XyloConfiguration, XyloNeuronStateBuffer):
@@ -1579,6 +1578,9 @@ def configure_accel_time_mode(
         state_monitor_buffer (XyloNeuronStateBuffer): A connected neuron state monitor buffer
         monitor_Nhidden (Optional[int]): The number of hidden neurons for which to monitor state during evolution. Default: ``0``, don't monitor any hidden neurons.
         monitor_Noutput (Optional[int]): The number of output neurons for which to monitor state during evolution. Default: ``0``, don't monitor any output neurons.
+        i_syn_start (Optional[int]): The initial neuron position for which to monitor Isyn during evolution. Default: ``0``, start from the first neuron.
+        v_mem_start (Optional[int]): The initial neuron position for which to monitor Vmem during evolution. Default: ``0``, start from the first neuron.
+        readout: The readout out mode for which to output neuron states. Default: ``Spike''.
 
     Returns:
         (XyloConfiguration, XyloNeuronStateBuffer): `config` and `monitor_buffer`
