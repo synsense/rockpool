@@ -14,7 +14,6 @@ E-mail : ugurcan.cakal@gmail.com
 [] TODO : n_gate = 4, syn=none options for se2
 [] TODO : common intersect connections
 [] TODO : FIX NONE = AMPA
-[] TODO : Unify DynapSE1 tagger tag = listen_neuron_id + listen_core_id*4
 """
 from __future__ import annotations
 from dataclasses import dataclass
@@ -525,6 +524,11 @@ class ConnectSE1(__Connect):
         3: 0b1000,  # AMPA
     }
 
+    __tagger = lambda core_id, neuron_id: neuron_id + (core_id * DynapSE.NUM_CORES)
+    __tag_syn = lambda syn: ConnectSE1.__tagger(
+        syn.listen_core_id, syn.listen_neuron_id
+    )
+
     @classmethod
     def from_maps(cls, idx_map: Dict[int, NeuronKey]) -> ConnectSE1:
         """
@@ -603,7 +607,7 @@ class ConnectSE1(__Connect):
         """
         pre_idx, post_idx, dest = dest_connection
         pre_chip_idx, pre_core_idx, pre_neuron_idx = self.idx_map[pre_idx]
-        return pre_idx, post_idx, pre_core_idx, pre_neuron_idx
+        return pre_idx, post_idx, ConnectSE1.__tagger(pre_core_idx, pre_neuron_idx)
 
     @staticmethod
     def __match_syn_connection(
@@ -618,7 +622,7 @@ class ConnectSE1(__Connect):
         :rtype: Tuple[int, int, np.uint8, np.uint8]
         """
         pre_idx, post_idx, syn = syn_connection
-        return pre_idx, post_idx, syn.listen_core_id, syn.listen_neuron_id
+        return pre_idx, post_idx, ConnectSE1.__tag_syn(syn)
 
     @staticmethod
     def __read_syn_connection(
