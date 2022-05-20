@@ -52,6 +52,8 @@ class Router:
     :type n_cores: np.uint8, optional
     :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys, defaults to None
     :type idx_map: Dict[int, NeuronKey], optional
+    :param core_map:a dictionary of the mapping between active cores and list of active neurons, defaults to None
+    :type core_map: Dict[CoreKey, List[np.uint8]], optional
     :param weight_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), defaults to None
     :type weight_mask: np.ndarray, optional
     """
@@ -59,6 +61,7 @@ class Router:
     n_chips: np.uint8 = None
     n_cores: np.uint8 = None
     idx_map: Dict[int, NeuronKey] = None
+    core_map: Dict[CoreKey, List[np.uint8]] = None
     weight_mask: np.ndarray = None
 
     def __post_init__(self) -> None:
@@ -138,6 +141,7 @@ class Router:
             n_chips=len(config.chips),
             n_cores=max([len(chip.cores) for chip in config.chips]),
             idx_map=connector.idx_map,
+            core_map=connector.core_map,
             weight_mask=connector.weight_mask,
         )
         return _mod
@@ -193,13 +197,16 @@ class MemConnect:
     MemConnect encapsulates binary weight mask and index map which project
     the connections between neurons obtained from the device memory content
 
-    :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys, defaults to None
-    :type idx_map: Dict[int, NeuronKey], optional
+    :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
+    :type idx_map: Dict[int, NeuronKey]
+    :param core_map:a dictionary of the mapping between active cores and list of active neurons
+    :type core_map: Dict[CoreKey, List[np.uint8]]
     :param weight_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), defaults to None
     :type weight_mask: np.ndarray, optional
     """
 
     idx_map: Dict[int, NeuronKey]
+    core_map: Dict[CoreKey, List[np.uint8]]
     weight_mask: np.ndarray
 
     @classmethod
@@ -232,7 +239,9 @@ class MemConnect:
         # ---o--- #
 
         weight_mask = cls.__get_weight_mask(connections, n_neuron=len(idx_map))
-        _mod = cls(idx_map=idx_map, weight_mask=weight_mask)
+        _mod = cls(
+            idx_map=idx_map, core_map=connector.core_map, weight_mask=weight_mask
+        )
         return _mod
 
     @classmethod
@@ -414,20 +423,22 @@ class __Connect:
     idx_map: Dict[int, NeuronKey]
 
     def __post_init__(self) -> None:
-        self.neuron_dict = self.neuron_dict_from_idx_map(self.idx_map)
+        self.core_map = self.core_map_from_idx_map(self.idx_map)
         self.r_idx_map = {v: k for k, v in self.idx_map.items()}
 
     @staticmethod
-    def neuron_dict_from_idx_map(idx_map) -> Dict[CoreKey, List[np.uint8]]:
+    def core_map_from_idx_map(
+        idx_map: Dict[int, NeuronKey]
+    ) -> Dict[CoreKey, List[np.uint8]]:
         """
-        neuron_dict_from_idx_map converts an index map to a dictionary that presents the active cores and their active neruons.
+        core_map_from_idx_map converts an index map to a dictionary that presents the active cores and their active neruons.
 
             core_key : List[neurons]
             (0,0) : [1,5,7,2]
             (0,1) : [0,18,201]
 
         :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
-        :type idx_map: _type_
+        :type idx_map: Dict[int, NeuronKey]
         :return: a dictionary of the mapping between active cores and list of active neurons
         :rtype: Dict[CoreKey, List[np.uint8]]
         """
@@ -530,8 +541,8 @@ class ConnectSE1(__Connect):
                 for th, tc in self.target_core_keys(dest):
 
                     # If the core indicated has some active neurons
-                    if (th, tc) in self.neuron_dict:
-                        neurons = self.neuron_dict[th, tc]
+                    if (th, tc) in self.core_map:
+                        neurons = self.core_map[th, tc]
 
                         # Extend candidate list
                         if (h, cv, n) in self.r_idx_map:
@@ -635,6 +646,7 @@ class ConnectSE2(__Connect):
 
     pos_map: Dict[int, Tuple[int]]
     syn_map = {
+        0: 3,  # AMPA !!!!! DO NOT DO IT !!!!!!
         1024: 3,  # AMPA
         512: 0,  # GABA
         256: 2,  # NMDA
@@ -719,8 +731,8 @@ class ConnectSE2(__Connect):
                 for th, tc in self.target_core_keys(h, dest):
 
                     # If the core indicated has some active neurons
-                    if (th, tc) in self.neuron_dict:
-                        neurons = self.neuron_dict[th, tc]
+                    if (th, tc) in self.core_map:
+                        neurons = self.core_map[th, tc]
 
                         # Extend candidate list
                         candidates += [
