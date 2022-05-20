@@ -17,6 +17,7 @@ from jax import numpy as jnp
 ArrayLike = Union[np.ndarray, List, Tuple]
 Numeric = Union[int, float, complex, np.number]
 NeuronKey = Tuple[np.uint8, np.uint8, np.uint16]
+CoreKey = Tuple[np.uint8, np.uint8]
 NeuronConnection = Tuple[np.uint16, np.uint16]
 NeuronConnectionSynType = Tuple[np.uint16, np.uint16, np.uint8]
 
@@ -131,7 +132,7 @@ class DynapSE:
         def bit_select(bitmask: np.ndarray) -> jnp.DeviceArray:
             """
             bit_select apply 4-bit mask to select bits
-                
+
                 0001 -> selected bit: 0
                 1000 -> selected bit: 3
                 0101 -> selected bit 0 and 2
@@ -209,4 +210,3 @@ class DynapSE:
         weight = np.concatenate(columns, axis=-1, dtype=np.float32)
 
         return weight
-
