@@ -12,6 +12,9 @@ E-mail : ugurcan.cakal@gmail.com
 [] TODO : connection alias option
 [] TODO : Multiple CAMs defined between neurons
 [] TODO : n_gate = 4, syn=none options for se2
+[] TODO : common intersect connections
+[] TODO : FIX NONE = AMPA
+[] TODO : Unify DynapSE1 tagger tag = listen_neuron_id + listen_core_id*4
 """
 from __future__ import annotations
 from dataclasses import dataclass
@@ -28,7 +31,7 @@ from typing import (
 
 import numpy as np
 
-from rockpool.devices.dynapse.base import CoreKey, NeuronKey
+from rockpool.devices.dynapse.base import CoreKey, NeuronKey, DynapSE
 
 
 Dynapse1Configuration = Any
@@ -50,10 +53,12 @@ class Router:
     :type n_chips: np.uint8, optional
     :param n_cores: maximum number of cores that a chip has in the system, defaults to None
     :type n_cores: np.uint8, optional
-    :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys, defaults to None
+    :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys. Used to interpret the recurrent weight matrix, defaults to None
     :type idx_map: Dict[int, NeuronKey], optional
     :param core_map:a dictionary of the mapping between active cores and list of active neurons, defaults to None
     :type core_map: Dict[CoreKey, List[np.uint8]], optional
+    :param tag_map: a dictionary of the mapping between matrix indexes of the events and their tags. Used to interpret the input weight matrix, defaults to None
+    :type tag_map: Dict[int, int], optional
     :param w_rec_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), for recurrent connections, defaults to None
     :type w_rec_mask: np.ndarray, optional
     :param w_in_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), for input connections, defaults to None
@@ -64,6 +69,7 @@ class Router:
     n_cores: np.uint8 = None
     idx_map: Dict[int, NeuronKey] = None
     core_map: Dict[CoreKey, List[np.uint8]] = None
+    tag_map: Dict[int, int] = None
     w_rec_mask: np.ndarray = None
     w_in_mask: np.ndarray = None
 
@@ -144,6 +150,7 @@ class Router:
             n_chips=len(config.chips),
             n_cores=max([len(chip.cores) for chip in config.chips]),
             idx_map=connector.idx_map,
+            tag_map=connector.tag_map,
             core_map=connector.core_map,
             w_rec_mask=connector.w_rec_mask,
             w_in_mask=connector.w_in_mask,
@@ -201,10 +208,12 @@ class MemConnect:
     MemConnect encapsulates binary weight mask and index map which project
     the connections between neurons obtained from the device memory content
 
-    :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
-    :type idx_map: Dict[int, NeuronKey]
+    :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys. Used to interpret the recurrent weight matrix, defaults to None
+    :type idx_map: Dict[int, NeuronKey
     :param core_map:a dictionary of the mapping between active cores and list of active neurons
     :type core_map: Dict[CoreKey, List[np.uint8]]
+    :param tag_map: a dictionary of the mapping between matrix indexes of the events and their tags. Used to interpret the input weight matrix
+    :type tag_map: Dict[int, int]
     :param w_rec_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), for recurrent connections, defaults to None
     :type w_rec_mask: np.ndarray, optional
     :param w_in_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), for input connections, defaults to None
@@ -213,6 +222,7 @@ class MemConnect:
 
     idx_map: Dict[int, NeuronKey]
     core_map: Dict[CoreKey, List[np.uint8]]
+    tag_map: Dict[int, int]
     w_rec_mask: np.ndarray
     w_in_mask: np.ndarray
 
@@ -241,6 +251,7 @@ class MemConnect:
 
         # --- Device specific implementation --- #
         connector: __Connect = get_connector(idx_map=idx_map)
+        tag_map = connector.tag_map_from_synapses(synapses)
         dest_connections = connector.connect_destinations(destinations)
         recurrent_connections = connector.intersect_connections(
             syn_connections, dest_connections
@@ -251,6 +262,7 @@ class MemConnect:
         _mod = cls(
             idx_map=idx_map,
             core_map=connector.core_map,
+            tag_map=tag_map,
             w_rec_mask=w_rec_mask,
             w_in_mask=None,
         )
@@ -467,7 +479,7 @@ class __Connect:
         self, *args, **kwargs
     ) -> List[int, int, Union[Dynapse1Destination, Dynapse2Destination]]:
         """
-        connect_destinations is an abstract method. The class inheriting `__Connect` should implement this
+        connect_destinations is an abstract method. Any class inheriting `__Connect` should implement this
 
         :return: a list of possible connections indicated by destination object content
         :rtype: List[int, int, Union[Dynapse1Destination, Dynapse2Destination]]
@@ -476,16 +488,20 @@ class __Connect:
 
     def intersect_connections(self, *args, **kwargs) -> List[Tuple[int, int, int, int]]:
         """
-        connect_destinations is an abstract method. The class inheriting `__Connect` should implement this
+        connect_destinations is an abstract method. Any class inheriting `__Connect` should implement this
 
         :return: the neuron to neuron connection list [(pre_idx, post_idx, gate_idx, weight_mask)]
         :rtype: List[Tuple[int, int, int, int]]
         """
         raise NotImplementedError("Version specific implementation required!")
 
-    def read_syn_connections(
-        self, *args, **kwargs
-    ) -> List[Tuple[int, int, int, int]]:
+    def tag_map_from_synapses(self, *args, **kwargs) -> Dict[int, int]:
+        """
+        tag_map_from_synapses is an abstract method. Any class inheriting `__Connect` should implement this
+
+        :return: a dictionary of the mapping between matrix indexes of the events and their tags
+        :rtype: Dict[int, int]
+        """
         raise NotImplementedError("Version specific implementation required!")
 
 
@@ -648,6 +664,27 @@ class ConnectSE1(__Connect):
             if self.__match_syn_connection(connection) in dest_candidates
         ]
         return __intersection
+
+    @staticmethod
+    def tag_map_from_synapses(
+        synapses: Dict[NeuronKey, List[Dynapse1Synapse]],
+        n_cores: int = DynapSE.NUM_CORES,
+    ) -> Dict[int, int]:
+        """
+        tag_map_from_synapses extracts the tag map from a dictionary of active synapses
+
+        :param synapses: a dictionary of active synapses
+        :type synapses: Dict[NeuronKey, List[Dynapse1Synapse]]
+        :param n_cores: number of cores per neuron, defaults to DynapSE.NUM_CORES = 4
+        :type n_cores: int, optional
+        :return: a dictionary of the mapping between matrix indexes of the events and their tags
+        :rtype: Dict[int, int]
+        """
+        _tag = lambda syn: syn.listen_neuron_id + (syn.listen_core_id * n_cores)
+        tags = [_tag(syn) for _list in synapses.values() for syn in _list]
+        tags = sorted(list(set(tags)))
+        tag_map = dict(zip(range(len(tags)), tags))
+        return tag_map
 
 
 @dataclass
@@ -835,3 +872,20 @@ class ConnectSE2(__Connect):
             if ConnectSE2.__match_syn_connection(connection) in dest_candidates
         ]
         return __intersection
+
+    @staticmethod
+    def tag_map_from_synapses(
+        synapses: Dict[NeuronKey, List[Dynapse2Synapse]]
+    ) -> Dict[int, int]:
+        """
+        tag_map_from_synapses _summary_
+
+        :param synapses: a dictionary of active synapses
+        :type synapses: Dict[NeuronKey, List[Dynapse2Synapse]]
+        :return: a dictionary of the mapping between matrix indexes of the events and their tags
+        :rtype: Dict[int, int]
+        """
+        tags = [syn.tag for _list in synapses.values() for syn in _list]
+        tags = sorted(list(set(tags)))
+        tag_map = dict(zip(range(len(tags)), tags))
+        return tag_map
