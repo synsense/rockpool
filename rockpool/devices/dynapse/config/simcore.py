@@ -12,7 +12,6 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 03/05/2022
 
-[] TODO : Biasgen type
 [] TODO : add C_pulse_ahp
 [] TODO : Add r_spkthr to gain
 [] TODO :     
@@ -35,6 +34,7 @@ import logging
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from dataclasses import dataclass, replace, field
+import numpy as np
 
 from rockpool.devices.dynapse.infrastructure.biasgen import (
     BiasGen,
@@ -49,6 +49,97 @@ Dynapse1Configuration = Any
 Dynapse1Core = Any
 Dynapse2Configuration = Any
 Dynapse2Core = Any
+
+
+@dataclass
+class DynapSimCurrents:
+    """
+    DynapSimCurrents contains the common simulation current values of Dynap-SE chips
+
+    :param Idc: Constant DC current injected to membrane in Amperes
+    :type Idc: float
+    :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes
+    :type If_nmda: float
+    :param Igain_ahp: gain bias current of the spike frequency adaptation block in Amperes
+    :type Igain_ahp: float
+    :param Igain_ampa: gain bias current of excitatory AMPA synapse in Amperes
+    :type Igain_ampa: float
+    :param Igain_gaba: gain bias current of inhibitory GABA synapse in Amperes
+    :type Igain_gaba: float
+    :param Igain_nmda: gain bias current of excitatory NMDA synapse in Amperes
+    :type Igain_nmda: float
+    :param Igain_shunt: gain bias current of the inhibitory SHUNT synapse in Amperes
+    :type Igain_shunt: float
+    :param Igain_soma: gain bias current for neuron membrane in Amperes
+    :type Igain_soma: float
+    :param Ipulse_ahp: bias current setting the pulse width for spike frequency adaptation block `t_pulse_ahp` in Amperes
+    :type Ipulse_ahp: float
+    :param Ipulse: bias current setting the pulse width for neuron soma `t_pulse` in Amperes
+    :type Ipulse: float
+    :param Iref: bias current setting the refractory period `t_ref` in Amperes
+    :type Iref: float
+    :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes
+    :type Ispkthr: float
+    :param Itau_ahp: Spike frequency adaptation leakage current setting the time constant `tau_ahp` in Amperes
+    :type Itau_ahp: float
+    :param Itau_ampa: AMPA synapse leakage current setting the time constant `tau_ampa` in Amperes
+    :type Itau_ampa: float
+    :param Itau_gaba: GABA synapse leakage current setting the time constant `tau_gaba` in Amperes
+    :type Itau_gaba: float
+    :param Itau_nmda: NMDA synapse leakage current setting the time constant `tau_nmda` in Amperes
+    :type Itau_nmda: float
+    :param Itau_shunt: SHUNT synapse leakage current setting the time constant `tau_shunt` in Amperes
+    :type Itau_shunt: float
+    :param Itau_soma: Neuron soma leakage current setting the time constant `tau_soma` in Amperes
+    :type Itau_soma: float
+    :param Iw_0: weight bit 0 current of the neurons of the core in Amperes
+    :type Iw_0: float
+    :param Iw_1: weight bit 1 current of the neurons of the core in Amperes
+    :type Iw_1: float
+    :param Iw_2: weight bit 2 current of the neurons of the core in Amperes
+    :type Iw_2: float
+    :param Iw_3: weight bit 3 current of the neurons of the core in Amperes
+    :type Iw_3: float
+    :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes
+    :type Iw_ahp: float
+    """
+
+    Idc: Optional[Union[float, np.ndarray]] = None
+    If_nmda: Optional[Union[float, np.ndarray]] = None
+    Igain_ahp: Optional[Union[float, np.ndarray]] = None
+    Igain_ampa: Optional[Union[float, np.ndarray]] = None
+    Igain_gaba: Optional[Union[float, np.ndarray]] = None
+    Igain_nmda: Optional[Union[float, np.ndarray]] = None
+    Igain_shunt: Optional[Union[float, np.ndarray]] = None
+    Igain_soma: Optional[Union[float, np.ndarray]] = None
+    Ipulse_ahp: Optional[Union[float, np.ndarray]] = None
+    Ipulse: Optional[Union[float, np.ndarray]] = None
+    Iref: Optional[Union[float, np.ndarray]] = None
+    Ispkthr: Optional[Union[float, np.ndarray]] = None
+    Itau_ahp: Optional[Union[float, np.ndarray]] = None
+    Itau_ampa: Optional[Union[float, np.ndarray]] = None
+    Itau_gaba: Optional[Union[float, np.ndarray]] = None
+    Itau_nmda: Optional[Union[float, np.ndarray]] = None
+    Itau_shunt: Optional[Union[float, np.ndarray]] = None
+    Itau_soma: Optional[Union[float, np.ndarray]] = None
+    Iw_0: Optional[Union[float, np.ndarray]] = None
+    Iw_1: Optional[Union[float, np.ndarray]] = None
+    Iw_2: Optional[Union[float, np.ndarray]] = None
+    Iw_3: Optional[Union[float, np.ndarray]] = None
+    Iw_ahp: Optional[Union[float, np.ndarray]] = None
+
+    def get_full(self, size: int) -> Dict[str, np.ndarray]:
+        """
+        get_full creates a dictionary with respect to the object, with arrays of current values
+
+        :param size: the lengths of the current arrays
+        :type size: int
+        :return: the object dictionary with current arrays given the size
+        :rtype: Dict[str, np.ndarray]
+        """
+        __get__ = lambda name: np.full(size, self.__getattribute__(name))
+        _dict = {name: __get__(name) for name in DynapSimCurrents.__annotations__}
+        return _dict
 
 
 @dataclass
@@ -103,88 +194,18 @@ class DynapSimLayout:
 
 
 @dataclass
-class DynapSimCore:
+class DynapSimCore(DynapSimCurrents):
     """
     DynapSE1SimCore stores the simulation currents and manages the conversion from configuration objects
     It also provides easy update mechanisms using coarse&fine values, high-level parameter representations and etc.
 
     :param layout: constant values that are related to the exact silicon layout of a chip, defaults to None
     :type layout: Optional[DynapSimLayout], optional
-    :param size: the number of neurons allocated in the simulation core, defaults to None
-    :type size: Optional[int], optional
-    :param Idc: Constant DC current injected to membrane in Amperes
-    :type Idc: float
-    :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes
-    :type If_nmda: float
-    :param Igain_ahp: gain bias current of the spike frequency adaptation block in Amperes
-    :type Igain_ahp: float
-    :param Igain_ampa: gain bias current of excitatory AMPA synapse in Amperes
-    :type Igain_ampa: float
-    :param Igain_gaba: gain bias current of inhibitory GABA synapse in Amperes
-    :type Igain_gaba: float
-    :param Igain_nmda: gain bias current of excitatory NMDA synapse in Amperes
-    :type Igain_nmda: float
-    :param Igain_shunt: gain bias current of the inhibitory SHUNT synapse in Amperes
-    :type Igain_shunt: float
-    :param Igain_soma: gain bias current for neuron membrane in Amperes
-    :type Igain_soma: float
-    :param Ipulse_ahp: bias current setting the pulse width for spike frequency adaptation block `t_pulse_ahp` in Amperes
-    :type Ipulse_ahp: float
-    :param Ipulse: bias current setting the pulse width for neuron soma `t_pulse` in Amperes
-    :type Ipulse: float
-    :param Iref: bias current setting the refractory period `t_ref` in Amperes
-    :type Iref: float
-    :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes
-    :type Ispkthr: float
-    :param Itau_ahp: Spike frequency adaptation leakage current setting the time constant `tau_ahp` in Amperes
-    :type Itau_ahp: float
-    :param Itau_ampa: AMPA synapse leakage current setting the time constant `tau_ampa` in Amperes
-    :type Itau_ampa: float
-    :param Itau_gaba: GABA synapse leakage current setting the time constant `tau_gaba` in Amperes
-    :type Itau_gaba: float
-    :param Itau_nmda: NMDA synapse leakage current setting the time constant `tau_nmda` in Amperes
-    :type Itau_nmda: float
-    :param Itau_shunt: SHUNT synapse leakage current setting the time constant `tau_shunt` in Amperes
-    :type Itau_shunt: float
-    :param Itau_soma: Neuron soma leakage current setting the time constant `tau_soma` in Amperes
-    :type Itau_soma: float
-    :param Iw_0: weight bit 0 current of the neurons of the core in Amperes
-    :type Iw_0: float
-    :param Iw_1: weight bit 1 current of the neurons of the core in Amperes
-    :type Iw_1: float
-    :param Iw_2: weight bit 2 current of the neurons of the core in Amperes
-    :type Iw_2: float
-    :param Iw_3: weight bit 3 current of the neurons of the core in Amperes
-    :type Iw_3: float
-    :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes
-    :type Iw_ahp: float
     """
 
+    __doc__ += "\nDynapSimCurrents" + DynapSimCurrents.__doc__
+
     layout: Optional[DynapSimLayout] = field(default=None, repr=False)
-    size: Optional[int] = None
-    Idc: Optional[float] = None
-    If_nmda: Optional[float] = None
-    Igain_ahp: Optional[float] = None
-    Igain_ampa: Optional[float] = None
-    Igain_gaba: Optional[float] = None
-    Igain_nmda: Optional[float] = None
-    Igain_shunt: Optional[float] = None
-    Igain_soma: Optional[float] = None
-    Ipulse_ahp: Optional[float] = None
-    Ipulse: Optional[float] = None
-    Iref: Optional[float] = None
-    Ispkthr: Optional[float] = None
-    Itau_ahp: Optional[float] = None
-    Itau_ampa: Optional[float] = None
-    Itau_gaba: Optional[float] = None
-    Itau_nmda: Optional[float] = None
-    Itau_shunt: Optional[float] = None
-    Itau_soma: Optional[float] = None
-    Iw_0: Optional[float] = None
-    Iw_1: Optional[float] = None
-    Iw_2: Optional[float] = None
-    Iw_3: Optional[float] = None
-    Iw_ahp: Optional[float] = None
 
     def __post_init__(self) -> None:
         if self.layout is None:
@@ -193,7 +214,6 @@ class DynapSimCore:
     @classmethod
     def from_specificaiton(
         cls,
-        size: int,
         layout: Optional[DynapSimLayout] = None,
         Idc: float = None,
         If_nmda: float = None,
@@ -223,8 +243,6 @@ class DynapSimCore:
         from_specificaiton is a class factory method helping DynapSimCore object construction
         using higher level representaitons of the currents like gain ratio or time constant whenever applicable.
 
-        :param size: the number of neurons allocated in the simulation core
-        :type size: int
         :param layout: constant values that are related to the exact silicon layout of a chip, defaults to None
         :type layout: Optional[DynapSimLayout], optional
         :param Idc: Constant DC current injected to membrane in Amperes, defaults to None
@@ -284,7 +302,6 @@ class DynapSimCore:
 
         # Construct the core with compulsory low level current parameters
         _core = cls(
-            size=size,
             layout=layout,
             Idc=Idc,
             If_nmda=If_nmda,
@@ -344,7 +361,7 @@ class DynapSimCore:
         """
         _current = lambda name: biasgen.param_to_bias(name, param_getter(name))
         _dict = {sim: _current(param) for sim, param in param_map.items()}
-        _mod = cls(size=None, **_dict)
+        _mod = cls(**_dict)
         return _mod
 
     @classmethod
