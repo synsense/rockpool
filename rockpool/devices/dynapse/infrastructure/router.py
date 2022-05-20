@@ -44,7 +44,7 @@ DestDict = Dict[NeuronKey, List[Union[Dynapse1Destination, Dynapse2Destination]]
 @dataclass
 class Router:
     """
-    Router stores the weight_mask reading of the memory and the neuron-to-neuron connections indicated
+    Router stores the weight_mask readings of the memory and the neuron-to-neuron connections indicated
 
     :param n_chips: number of chips installed in the system, defaults to None
     :type n_chips: np.uint8, optional
@@ -54,15 +54,18 @@ class Router:
     :type idx_map: Dict[int, NeuronKey], optional
     :param core_map:a dictionary of the mapping between active cores and list of active neurons, defaults to None
     :type core_map: Dict[CoreKey, List[np.uint8]], optional
-    :param weight_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), defaults to None
-    :type weight_mask: np.ndarray, optional
+    :param w_rec_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), for recurrent connections, defaults to None
+    :type w_rec_mask: np.ndarray, optional
+    :param w_in_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), for input connections, defaults to None
+    :type w_in_mask: np.ndarray, optional
     """
 
     n_chips: np.uint8 = None
     n_cores: np.uint8 = None
     idx_map: Dict[int, NeuronKey] = None
     core_map: Dict[CoreKey, List[np.uint8]] = None
-    weight_mask: np.ndarray = None
+    w_rec_mask: np.ndarray = None
+    w_in_mask: np.ndarray = None
 
     def __post_init__(self) -> None:
         """
@@ -142,7 +145,8 @@ class Router:
             n_cores=max([len(chip.cores) for chip in config.chips]),
             idx_map=connector.idx_map,
             core_map=connector.core_map,
-            weight_mask=connector.weight_mask,
+            w_rec_mask=connector.w_rec_mask,
+            w_in_mask=connector.w_in_mask,
         )
         return _mod
 
@@ -201,13 +205,16 @@ class MemConnect:
     :type idx_map: Dict[int, NeuronKey]
     :param core_map:a dictionary of the mapping between active cores and list of active neurons
     :type core_map: Dict[CoreKey, List[np.uint8]]
-    :param weight_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), defaults to None
-    :type weight_mask: np.ndarray, optional
+    :param w_rec_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), for recurrent connections, defaults to None
+    :type w_rec_mask: np.ndarray, optional
+    :param w_in_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), for input connections, defaults to None
+    :type w_in_mask: np.ndarray, optional
     """
 
     idx_map: Dict[int, NeuronKey]
     core_map: Dict[CoreKey, List[np.uint8]]
-    weight_mask: np.ndarray
+    w_rec_mask: np.ndarray
+    w_in_mask: np.ndarray
 
     @classmethod
     def __from_content(
@@ -233,14 +240,19 @@ class MemConnect:
         syn_connections = cls.__connect_synapses(synapses, idx_map)
 
         # --- Device specific implementation --- #
-        connector = get_connector(idx_map=idx_map)
+        connector: __Connect = get_connector(idx_map=idx_map)
         dest_connections = connector.connect_destinations(destinations)
-        connections = connector.intersect_connections(syn_connections, dest_connections)
-        # ---o--- #
+        recurrent_connections = connector.intersect_connections(
+            syn_connections, dest_connections
+        )  # ---o--- #
 
-        weight_mask = cls.__get_weight_mask(connections, n_neuron=len(idx_map))
+        w_rec_mask = cls.__get_weight_mask(recurrent_connections, n_neuron=len(idx_map))
+
         _mod = cls(
-            idx_map=idx_map, core_map=connector.core_map, weight_mask=weight_mask
+            idx_map=idx_map,
+            core_map=connector.core_map,
+            w_rec_mask=w_rec_mask,
+            w_in_mask=None,
         )
         return _mod
 
@@ -354,7 +366,7 @@ class MemConnect:
         :return: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate)
         :rtype: np.ndarray
         """
-        weight_mask = np.zeros((n_neuron, n_neuron, n_gate))
+        weight_mask = np.zeros((n_neuron, n_neuron, n_gate), dtype=int)
 
         for pre, post, gate, weight in connections:
             weight_mask[pre, post, gate] = weight
@@ -471,6 +483,11 @@ class __Connect:
         """
         raise NotImplementedError("Version specific implementation required!")
 
+    def read_syn_connections(
+        self, *args, **kwargs
+    ) -> List[Tuple[int, int, int, int]]:
+        raise NotImplementedError("Version specific implementation required!")
+
 
 @dataclass
 class ConnectSE1(__Connect):
@@ -557,6 +574,53 @@ class ConnectSE1(__Connect):
 
         return candidates
 
+    def __match_dest_connection(
+        self, dest_connection: Tuple[int, int, Dynapse1Destination]
+    ) -> Tuple[int, int, np.uint8, np.uint8]:
+        """
+        __match_dest_connection processes the destination connection candidates and creates a comparable identity
+
+        :param dest_connection:  a connection candidate that is obtained from a destination object
+        :type dest_connection: Tuple[int, int, Dynapse1Destination]
+        :return: a standard form connection candidate which can be compared against any other SE1 connection candidate
+        :rtype: Tuple[int, int, np.uint8, np.uint8]
+        """
+        pre_idx, post_idx, dest = dest_connection
+        pre_chip_idx, pre_core_idx, pre_neuron_idx = self.idx_map[pre_idx]
+        return pre_idx, post_idx, pre_core_idx, pre_neuron_idx
+
+    @staticmethod
+    def __match_syn_connection(
+        syn_connection: Tuple[int, int, Dynapse1Synapse]
+    ) -> Tuple[int, int, np.uint8, np.uint8]:
+        """
+        __match_syn_connection processes the synapse connection candidates and creates a comparable identity
+
+        :param syn_connection: A connection candidate that is obtained from a synapse object
+        :type syn_connection: Tuple[int, int, Dynapse1Synapse]
+        :return: a standard from connection candidate which can be compared against any other SE1 connection candidate
+        :rtype: Tuple[int, int, np.uint8, np.uint8]
+        """
+        pre_idx, post_idx, syn = syn_connection
+        return pre_idx, post_idx, syn.listen_core_id, syn.listen_neuron_id
+
+    @staticmethod
+    def __read_syn_connection(
+        syn_connection: Tuple[int, int, Dynapse1Synapse]
+    ) -> Tuple[int, int, int, int]:
+        """
+        __read_syn_connection processes the synapse connection identities and returns a version-invariant connection list identity
+
+        :param syn_connection: A connection candidate that is obtained from a synapse object
+        :type syn_connection: Tuple[int, int, Dynapse1Synapse]
+        :return: a version invariant connection list identity
+        :rtype: Tuple[int, int, int, int]
+        """
+        pre_idx, post_idx, syn = syn_connection
+        gate = syn.syn_type.value
+        weight = ConnectSE1.syn_weight_map[syn.syn_type.value]
+        return pre_idx, post_idx, gate, weight
+
     def intersect_connections(
         self,
         syn_connections: List[Tuple[int, int, Dynapse1Synapse]],
@@ -576,57 +640,12 @@ class ConnectSE1(__Connect):
         :rtype: List[Tuple[int, int, int, int]]
         """
 
-        def __match_dest_connection(
-            dest_connection: Tuple[int, int, Dynapse1Destination]
-        ) -> Tuple[int, int, np.uint8, np.uint8]:
-            """
-            __match_dest_connection processes the destination connection candidates and creates a comparable identity
-
-            :param dest_connection:  a connection candidate that is obtained from a destination object
-            :type dest_connection: Tuple[int, int, Dynapse1Destination]
-            :return: a standard form connection candidate which can be compared against any other SE1 connection candidate
-            :rtype: Tuple[int, int, np.uint8, np.uint8]
-            """
-            pre_idx, post_idx, dest = dest_connection
-            pre_chip_idx, pre_core_idx, pre_neuron_idx = self.idx_map[pre_idx]
-            return pre_idx, post_idx, pre_core_idx, pre_neuron_idx
-
-        def __match_syn_connection(
-            syn_connection: Tuple[int, int, Dynapse1Synapse]
-        ) -> Tuple[int, int, np.uint8, np.uint8]:
-            """
-            __match_syn_connection processes the synapse connection candidates and creates a comparable identity
-
-            :param syn_connection: A connection candidate that is obtained from a synapse object
-            :type syn_connection: Tuple[int, int, Dynapse1Synapse]
-            :return: a standard from connection candidate which can be compared against any other SE1 connection candidate
-            :rtype: Tuple[int, int, np.uint8, np.uint8]
-            """
-            pre_idx, post_idx, syn = syn_connection
-            return pre_idx, post_idx, syn.listen_core_id, syn.listen_neuron_id
-
-        def __read_syn_connection(
-            syn_connection: Tuple[int, int, Dynapse1Synapse]
-        ) -> Tuple[int, int, int, int]:
-            """
-            __read_syn_connection processes the synapse connection identities and returns a version-invariant connection list identity
-
-            :param syn_connection: A connection candidate that is obtained from a synapse object
-            :type syn_connection: Tuple[int, int, Dynapse1Synapse]
-            :return: a version invariant connection list identity
-            :rtype: Tuple[int, int, int, int]
-            """
-            pre_idx, post_idx, syn = syn_connection
-            gate = syn.syn_type.value
-            weight = ConnectSE1.syn_weight_map[syn.syn_type.value]
-            return pre_idx, post_idx, gate, weight
-
-        dest_candidates = set(map(__match_dest_connection, dest_connections))
+        dest_candidates = set(map(self.__match_dest_connection, dest_connections))
 
         __intersection = [
-            __read_syn_connection(connection)
+            self.__read_syn_connection(connection)
             for connection in syn_connections
-            if __match_syn_connection(connection) in dest_candidates
+            if self.__match_syn_connection(connection) in dest_candidates
         ]
         return __intersection
 
@@ -646,7 +665,7 @@ class ConnectSE2(__Connect):
 
     pos_map: Dict[int, Tuple[int]]
     syn_map = {
-        0: 3,  # AMPA !!!!! DO NOT DO IT !!!!!!
+        0: 3,  # AMPA [] TODO !!!!! DO NOT DO IT !!!!!!
         1024: 3,  # AMPA
         512: 0,  # GABA
         256: 2,  # NMDA
@@ -743,6 +762,53 @@ class ConnectSE2(__Connect):
         return candidates
 
     @staticmethod
+    def __match_dest_connection(
+        dest_connection: Tuple[int, int, Dynapse2Destination]
+    ) -> Tuple[int, int, np.uint8, np.uint8]:
+        """
+        __match_dest_connection processes the destination connection candidates and creates a comparable identity
+
+        :param dest_connection:  a connection candidate that is obtained from a destination object
+        :type dest_connection: Tuple[int, int, Dynapse2Destination]
+        :return: a standard form connection candidate which can be compared against any other SE2 connection candidate
+        :rtype: Tuple[int, int, np.uint8, np.uint8]
+        """
+        pre_idx, post_idx, dest = dest_connection
+        return pre_idx, post_idx, dest.tag
+
+    @staticmethod
+    def __match_syn_connection(
+        syn_connection: Tuple[int, int, Dynapse2Synapse]
+    ) -> Tuple[int, int, np.uint8, np.uint8]:
+        """
+        __match_syn_connection processes the synapse connection candidates and creates a comparable identity
+
+        :param syn_connection: A connection candidate that is obtained from a synapse object
+        :type syn_connection: Tuple[int, int, Dynapse2Synapse]
+        :return: a standard from connection candidate which can be compared against any other SE2 connection candidate
+        :rtype: Tuple[int, int, np.uint8, np.uint8]
+        """
+        pre_idx, post_idx, syn = syn_connection
+        return pre_idx, post_idx, syn.tag
+
+    @staticmethod
+    def __read_syn_connection(
+        syn_connection: Tuple[int, int, Dynapse2Synapse]
+    ) -> Tuple[int, int, int, int]:
+        """
+        __read_syn_connection processes the synapse connection identities and returns a version-invariant connection list identity
+
+        :param syn_connection: A connection candidate that is obtained from a synapse object
+        :type syn_connection: Tuple[int, int, Dynapse2Synapse]
+        :return: a version invariant connection list identity
+        :rtype: Tuple[int, int, int, int]
+        """
+        pre_idx, post_idx, syn = syn_connection
+        gate = ConnectSE2.syn_map[syn.dendrite.value]
+        weight = MemConnect.binary_to_int(syn.weight)
+        return pre_idx, post_idx, gate, weight
+
+    @staticmethod
     def intersect_connections(
         syn_connections: List[Tuple[int, int, Dynapse2Synapse]],
         dest_connections: List[Tuple[int, int, Dynapse2Destination]],
@@ -761,55 +827,11 @@ class ConnectSE2(__Connect):
         :rtype: List[Tuple[int, int, int, int]]
         """
 
-        def __match_dest_connection(
-            dest_connection: Tuple[int, int, Dynapse2Destination]
-        ) -> Tuple[int, int, np.uint8, np.uint8]:
-            """
-            __match_dest_connection processes the destination connection candidates and creates a comparable identity
-
-            :param dest_connection:  a connection candidate that is obtained from a destination object
-            :type dest_connection: Tuple[int, int, Dynapse2Destination]
-            :return: a standard form connection candidate which can be compared against any other SE2 connection candidate
-            :rtype: Tuple[int, int, np.uint8, np.uint8]
-            """
-            pre_idx, post_idx, dest = dest_connection
-            return pre_idx, post_idx, dest.tag
-
-        def __match_syn_connection(
-            syn_connection: Tuple[int, int, Dynapse2Synapse]
-        ) -> Tuple[int, int, np.uint8, np.uint8]:
-            """
-            __match_syn_connection processes the synapse connection candidates and creates a comparable identity
-
-            :param syn_connection: A connection candidate that is obtained from a synapse object
-            :type syn_connection: Tuple[int, int, Dynapse2Synapse]
-            :return: a standard from connection candidate which can be compared against any other SE2 connection candidate
-            :rtype: Tuple[int, int, np.uint8, np.uint8]
-            """
-            pre_idx, post_idx, syn = syn_connection
-            return pre_idx, post_idx, syn.tag
-
-        def __read_syn_connection(
-            syn_connection: Tuple[int, int, Dynapse2Synapse]
-        ) -> Tuple[int, int, int, int]:
-            """
-            __read_syn_connection processes the synapse connection identities and returns a version-invariant connection list identity
-
-            :param syn_connection: A connection candidate that is obtained from a synapse object
-            :type syn_connection: Tuple[int, int, Dynapse2Synapse]
-            :return: a version invariant connection list identity
-            :rtype: Tuple[int, int, int, int]
-            """
-            pre_idx, post_idx, syn = syn_connection
-            gate = ConnectSE2.syn_map[syn.dendrite.value]
-            weight = MemConnect.binary_to_int(syn.weight)
-            return pre_idx, post_idx, gate, weight
-
-        dest_candidates = set(map(__match_dest_connection, dest_connections))
+        dest_candidates = set(map(ConnectSE2.__match_dest_connection, dest_connections))
 
         __intersection = [
-            __read_syn_connection(connection)
+            ConnectSE2.__read_syn_connection(connection)
             for connection in syn_connections
-            if __match_syn_connection(connection) in dest_candidates
+            if ConnectSE2.__match_syn_connection(connection) in dest_candidates
         ]
         return __intersection
