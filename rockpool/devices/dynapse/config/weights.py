@@ -40,9 +40,7 @@ from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1Parameter
 from rockpool.devices.dynapse.samna_alias.dynapse2 import Dynapse2Parameter
 
 WeightRecord = Tuple[
-    jnp.DeviceArray,
-    jnp.DeviceArray,
-    jnp.DeviceArray,  # loss  # w_en  # w_dec
+    jnp.DeviceArray, jnp.DeviceArray, jnp.DeviceArray,  # loss  # w_en  # w_dec
 ]
 
 
@@ -213,7 +211,7 @@ class WeightParameters:
         bits_trans = self.quantize_mux(self.code_length, self.mux.transpose(1, 0, 2)).T
         # Restore the shape : (gate, pre, post) -> pre, post, gate
         Iw = self.Iw if self.Iw is not None else jnp.zeros(self.code_length)
-        w_rec = jnp.sum(bits_trans * Iw, axis=-1).transpose(1, 2, 0)
+        w_rec = jnp.sum(bits_trans * Iw.T, axis=-1).transpose(1, 2, 0)
         return w_rec
 
     def get_code_length(self) -> int:
@@ -487,7 +485,7 @@ class WeightParameters:
         if __name == "mux" and __value is not None:
             __value = jnp.array(__value)
             if hasattr(self, "code_length") and self.code_length is not None:
-                if (__value > (2**self.code_length - 1)).any():
+                if (__value > (2 ** self.code_length - 1)).any():
                     raise ValueError(
                         "Mux includes elements exceeding the coding capacity!"
                     )
@@ -553,7 +551,7 @@ class WeightParameters:
                 "Weight matrix provided does not have a proper shape! It should be 3-dimensional with (pre,post,gate)!"
             )
 
-        diff = jnp.max(weights) - jnp.min(weights)
+        diff = jnp.max(weights) - jnp.min(weights) if len(weights) > 0 else 0
         scale = 1.0 / diff if diff > 0 else 1.0
         idx_nonzero = weights.astype(bool)
 
