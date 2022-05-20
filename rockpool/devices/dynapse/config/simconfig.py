@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from jax import numpy as jnp
 import numpy as np
 
-from rockpool.devices.dynapse.infrastructure.router import Router
+from rockpool.devices.dynapse.infrastructure.router_aliased import Router
 from rockpool.devices.dynapse.base import DynapSE, NeuronKey
 from rockpool.devices.dynapse.config.layout import DynapSELayout, DynapSECapacitance
 from rockpool.devices.dynapse.config.circuits import (
