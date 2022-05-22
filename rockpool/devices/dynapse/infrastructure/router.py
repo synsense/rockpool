@@ -184,9 +184,7 @@ class Router:
         )
 
     @classmethod
-    def from_Dynapse2Configuration(
-        cls, config: Dynapse2Configuration, pos_map: Dict[int, Tuple[int]] = {0: (1, 0)}
-    ) -> Router:
+    def from_Dynapse2Configuration(cls, config: Dynapse2Configuration) -> Router:
         """
         from_Dynapse2Configuration is a class factory method which uses Dynapse2Configuration object to extract Router simulator parameters
         :param config: a samna Dynapse2Configuration object used to configure all the system level parameters
@@ -196,10 +194,6 @@ class Router:
         :return: a router simulator object whose parameters are imported from a device configuration object
         :rtype: Router
         """
-        if len(pos_map.keys()) != len(config.chips):
-            raise IndexError(
-                f"Position map does not represent the configuration object"
-            )
 
         return cls.__from_samna(
             config=config,
