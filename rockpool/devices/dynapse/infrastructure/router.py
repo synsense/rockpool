@@ -54,30 +54,30 @@ class Router:
     :type n_chips: np.uint8, optional
     :param n_cores: maximum number of cores that a chip has in the system, defaults to None
     :type n_cores: np.uint8, optional
-    :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys. Used to interpret the recurrent weight matrix, defaults to None
-    :type idx_map: Dict[int, NeuronKey], optional
     :param core_map:a dictionary of the mapping between active cores and list of active neurons, defaults to None
     :type core_map: Dict[CoreKey, List[np.uint8]], optional
     :param tag_map_in: a dictionary of the mapping between matrix indexes of the incoming events and their tags. Used to interpret the input weight matrix, defaults to None
     :type tag_map_in: Dict[int, int], optional
+    :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys. Used to interpret the recurrent weight matrix, defaults to None
+    :type idx_map: Dict[int, NeuronKey], optional
     :param tag_map_out: a dictionary of the mapping between matrix indexes of the outgoing events and their tags. Used to interpret the output weight matrix, defaults to None
     :type tag_map_out: Dict[int, int], optional
-    :param w_rec_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), for recurrent connections, defaults to None
-    :type w_rec_mask: np.ndarray, optional
     :param w_in_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (tag_in, post, gate), for input connections, defaults to None
     :type w_in_mask: np.ndarray, optional
+    :param w_rec_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), for recurrent connections, defaults to None
+    :type w_rec_mask: np.ndarray, optional
     :param w_out_mask: A boolean output mask revealing the relation between neurons and their sram tags, (pre, tag_out) defaults to None
     :type w_out_mask: np.ndarray, optional
     """
 
     n_chips: np.uint8 = None
     n_cores: np.uint8 = None
-    idx_map: Dict[int, NeuronKey] = None
     core_map: Dict[CoreKey, List[np.uint8]] = None
     tag_map_in: Dict[int, int] = None
+    idx_map: Dict[int, NeuronKey] = None
     tag_map_out: Dict[int, int] = None
-    w_rec_mask: np.ndarray = None
     w_in_mask: np.ndarray = None
+    w_rec_mask: np.ndarray = None
     w_out_mask: np.ndarray = None
 
     def __post_init__(self) -> None:
@@ -156,12 +156,12 @@ class Router:
         _mod = cls(
             n_chips=len(config.chips),
             n_cores=max([len(chip.cores) for chip in config.chips]),
-            idx_map=connector.get_idx_map(),
-            tag_map_in=connector.get_tag_map_in(),
-            tag_map_out=connector.get_tag_map_out(),
             core_map=connector.get_core_map(),
-            w_rec_mask=connector.get_w_rec_mask(),
+            tag_map_in=connector.get_tag_map_in(),
+            idx_map=connector.get_idx_map(),
+            tag_map_out=connector.get_tag_map_out(),
             w_in_mask=connector.get_w_in_mask(),
+            w_rec_mask=connector.get_w_rec_mask(),
             w_out_mask=connector.get_w_out_mask(),
         )
         return _mod
