@@ -14,7 +14,7 @@ import numpy as np
 
 from rockpool.timeseries import TSEvent, TSContinuous
 
-from rockpool.devices.dynapse.infrastructure.router import Router
+from rockpool.devices.dynapse.infrastructure.router_aliased import Router
 from rockpool.devices.dynapse.base import ArrayLike
 
 import matplotlib.pyplot as plt
