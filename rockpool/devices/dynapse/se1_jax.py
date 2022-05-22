@@ -27,7 +27,7 @@ from rockpool.nn.combinators import Sequential
 from rockpool.devices.dynapse.dynapsim import DynapSim
 from rockpool.devices.dynapse.fpga_jax import DynapSEFPGA
 from rockpool.devices.dynapse.config.simconfig import DynapSE1SimBoard
-from rockpool.devices.dynapse.infrastructure.router import Router
+from rockpool.devices.dynapse.infrastructure.router_aliased import Router
 from rockpool.devices.dynapse.infrastructure.biasgen import BiasGenSE1
 from rockpool.devices.dynapse.base import NeuronKey
 from rockpool.devices.dynapse.lookup import param_name
