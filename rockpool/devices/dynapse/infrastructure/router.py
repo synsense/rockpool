@@ -162,6 +162,7 @@ class Router:
             core_map=connector.get_core_map(),
             w_rec_mask=connector.get_w_rec_mask(),
             w_in_mask=connector.get_w_in_mask(),
+            w_out_mask=connector.get_w_out_mask(),
         )
         return _mod
 
@@ -499,6 +500,25 @@ class Connector(ABC):
             self.input_connections(), n_pre=self.n_tag_in, n_post=self.n_neuron
         )
         return w_in_mask
+
+    def get_w_out_mask(self) -> np.ndarray:
+        """
+        get_w_out_mask creates the output weight mask using output connecitons
+
+        :return: A boolean output mask revealing the relation between neurons and their sram tags, (pre, tag_out) for output cconnections
+        :rtype: np.ndarray
+        """
+        r_idx_map = self.get_r_idx_map()
+        r_tag_map_out = self.get_r_tag_map_out()
+        w_out_mask = np.zeros((self.n_neuron, self.n_tag_out))
+
+        for (h, c, n), _list in self.destinations.items():
+            for dest in _list:
+                w_out_mask[
+                    r_idx_map[(h, c, n)], r_tag_map_out[self.sram_tag(dest, n)]
+                ] = 1
+
+        return w_out_mask
 
     def get_w_rec_mask(self) -> np.ndarray:
         """
