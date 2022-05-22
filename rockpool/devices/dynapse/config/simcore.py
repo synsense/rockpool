@@ -52,7 +52,27 @@ Dynapse2Core = Any
 
 
 @dataclass
-class DynapSimCurrents:
+class DynapSimProperty:
+    """
+    DynapSimProperty stands for a commmon base class for all implementations
+    """
+
+    def get_full(self, size: int) -> Dict[str, np.ndarray]:
+        """
+        get_full creates a dictionary with respect to the object, with arrays of current values
+
+        :param size: the lengths of the current arrays
+        :type size: int
+        :return: the object dictionary with current arrays given the size
+        :rtype: Dict[str, np.ndarray]
+        """
+        __get__ = lambda name: np.full(size, self.__getattribute__(name))
+        _dict = {name: __get__(name) for name in self.__dict__.keys()}
+        return _dict
+
+
+@dataclass
+class DynapSimCurrents(DynapSimProperty):
     """
     DynapSimCurrents contains the common simulation current values of Dynap-SE chips
 
@@ -128,22 +148,9 @@ class DynapSimCurrents:
     Iw_3: Optional[Union[float, np.ndarray]] = None
     Iw_ahp: Optional[Union[float, np.ndarray]] = None
 
-    def get_full(self, size: int) -> Dict[str, np.ndarray]:
-        """
-        get_full creates a dictionary with respect to the object, with arrays of current values
-
-        :param size: the lengths of the current arrays
-        :type size: int
-        :return: the object dictionary with current arrays given the size
-        :rtype: Dict[str, np.ndarray]
-        """
-        __get__ = lambda name: np.full(size, self.__getattribute__(name))
-        _dict = {name: __get__(name) for name in DynapSimCurrents.__annotations__}
-        return _dict
-
 
 @dataclass
-class DynapSimLayout:
+class DynapSimLayout(DynapSimProperty):
     """
     DynapSimLayout contains the constant values used in simulation that are related to the exact silicon layout of a Dynap-SE chips.
 
