@@ -14,9 +14,11 @@ E-mail : ugurcan.cakal@gmail.com
 [] TODO : n_gate = 4, syn=none options for se2
 [] TODO : common intersect connections
 [] TODO : FIX NONE = AMPA
+[] TODO : Solve pos_map issue
 """
 from __future__ import annotations
 from dataclasses import dataclass
+from abc import ABC, abstractclassmethod, abstractmethod
 
 from typing import (
     Callable,
@@ -100,7 +102,7 @@ class Router:
         active_destination: Callable[
             [Union[Dynapse1Destination, Dynapse2Destination]], bool
         ],
-        get_mem_connect: Callable[[SynDict, DestDict], MemConnect],
+        get_connector: Callable[[SynDict, DestDict], Connector],
     ) -> Router:
         """
         __from_samna is the common configurable class factory method for both DynapSE1 and DynapSE2 architectures
@@ -112,7 +114,7 @@ class Router:
         :param active_destination: a method to identify active destinations from inactive destinations
         :type active_destination: Callable[ [Union[Dynapse1Destination, Dynapse2Destination]], bool ]
         :param get_mem_connect: a method to get a device specific memory connector object
-        :type get_mem_connect: Callable[[SynDict, DestDict], MemConnect]
+        :type get_mem_connect: Callable[[SynDict, DestDict], Connector]
         :return: a Router simulation object whose parameters are imported from a device configuration object
         :rtype: Router
         """
@@ -143,16 +145,16 @@ class Router:
                     if dest_list:
                         destinations[(h, c, n)] = dest_list
 
-        connector = get_mem_connect(synapses, destinations)
+        connector: Connector = get_connector(synapses, destinations)
 
         _mod = cls(
             n_chips=len(config.chips),
             n_cores=max([len(chip.cores) for chip in config.chips]),
-            idx_map=connector.idx_map,
-            tag_map=connector.tag_map,
-            core_map=connector.core_map,
-            w_rec_mask=connector.w_rec_mask,
-            w_in_mask=connector.w_in_mask,
+            idx_map=connector.get_idx_map(),
+            tag_map=connector.get_tag_map(),
+            core_map=connector.get_core_map(),
+            w_rec_mask=connector.get_w_rec_mask(),
+            w_in_mask=connector.get_w_in_mask(),
         )
         return _mod
 
@@ -170,7 +172,7 @@ class Router:
             config=config,
             active_synapse=lambda syn: syn.listen_neuron_id != 0,
             active_destination=lambda dest: dest.target_chip_id != 16 and dest.in_use,
-            get_mem_connect=MemConnect.from_content_se1,
+            get_connector=lambda syns, dests: ConnectorSE1(syns, dests),
         )
 
     @classmethod
@@ -195,178 +197,295 @@ class Router:
             config=config,
             active_synapse=lambda syn: sum(syn.weight) > 0,
             active_destination=lambda dest: sum(dest.core) > 0,
-            get_mem_connect=lambda syns, dests: MemConnect.from_content_se2(
-                syns, dests, pos_map
-            ),
+            get_connector=lambda syns, dests: ConnectorSE2(syns, dests),
         )
 
 
 @dataclass
-class MemConnect:
+class Connector(ABC):
     """
-    MemConnect encapsulates binary weight mask and index map which project
-    the connections between neurons obtained from the device memory content
+    Connector encapsulates binary weight mask and index map which project the connections between neurons obtained from the device memory content
+    It also provide a abstract base class for device specific implementations
 
-    :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys. Used to interpret the recurrent weight matrix, defaults to None
-    :type idx_map: Dict[int, NeuronKey
-    :param core_map:a dictionary of the mapping between active cores and list of active neurons
-    :type core_map: Dict[CoreKey, List[np.uint8]]
-    :param tag_map: a dictionary of the mapping between matrix indexes of the events and their tags. Used to interpret the input weight matrix
-    :type tag_map: Dict[int, int]
-    :param w_rec_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), for recurrent connections, defaults to None
-    :type w_rec_mask: np.ndarray, optional
-    :param w_in_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), for input connections, defaults to None
-    :type w_in_mask: np.ndarray, optional
+    :param synapses: a dictionary of active synapses
+    :type synapses: SynDict
+    :param destinations: a dictionary of active destinations
+    :type destinations: DestDict
     """
 
-    idx_map: Dict[int, NeuronKey]
-    core_map: Dict[CoreKey, List[np.uint8]]
-    tag_map: Dict[int, int]
-    w_rec_mask: np.ndarray
-    w_in_mask: np.ndarray
+    synapses: Optional[SynDict] = None
+    destinations: Optional[DestDict] = None
 
-    @classmethod
-    def __from_content(
-        cls,
-        synapses: SynDict,
-        destinations: DestDict,
-        get_connector: Callable[[Dict[int, NeuronKey], __Connect]],
-    ) -> MemConnect:
-        """
-        __from_content is the common configurable class factory method for both Dynap-SE1 and Dynap-SE2 architectures
+    def __post_init__(self) -> None:
+        self.__idx_map = None
+        self.__core_map = None
+        self.__tag_map = None
+        self.__r_idx_map = None
+        self.__r_tag_map = None
 
-        :param synapses: a dictionary of active synapses
-        :type synapses: SynDict
-        :param destinations: a dictionary of active destinations
-        :type destinations: DestDict
-        :param get_connector: a method to a device specific connector object
-        :type get_connector: Callable[[Dict[int, NeuronKey], __Connect]]
-        :return: a MemConnect object whose parameters are obtained from the active synapse and destination lists
-        :rtype: MemConnect
-        """
+    @property
+    def n_tag(self) -> int:
+        """number of tags"""
+        return len(self.get_tag_map())
 
-        idx_map = cls.__idx_map_from_content(synapses, destinations)
-        syn_connections = cls.__connect_synapses(synapses, idx_map)
+    @property
+    def n_neuron(self) -> int:
+        """number of neurons"""
+        return len(self.get_idx_map())
 
-        # --- Device specific implementation --- #
-        connector: __Connect = get_connector(idx_map=idx_map)
-        tag_map = connector.tag_map_from_synapses(synapses)
-        dest_connections = connector.connect_destinations(destinations)
-        recurrent_connections = connector.intersect_connections(
-            syn_connections, dest_connections
-        )  # ---o--- #
-
-        w_rec_mask = cls.__get_weight_mask(recurrent_connections, n_neuron=len(idx_map))
-
-        _mod = cls(
-            idx_map=idx_map,
-            core_map=connector.core_map,
-            tag_map=tag_map,
-            w_rec_mask=w_rec_mask,
-            w_in_mask=None,
-        )
-        return _mod
-
-    @classmethod
-    def from_content_se1(
-        cls,
-        synapses: Dict[NeuronKey, List[Dynapse1Synapse]],
-        destinations: Dict[NeuronKey, List[Dynapse1Destination]],
-    ) -> MemConnect:
-        """
-        from_content_se1 is a class factory method which uses Dynap-SE1 synapse and destination lists
-
-        :param synapses: a dictionary of active synapses
-        :type synapses: Dict[NeuronKey, List[Dynapse1Synapse]]
-        :param destinations: a dictionary of active destinations
-        :type destinations: Dict[NeuronKey, List[Dynapse1Destination]]
-        :return: a MemConnect object whose parameters are obtained from the active synapse and destination lists
-        :rtype: MemConnect
-        """
-        return cls.__from_content(
-            synapses=synapses,
-            destinations=destinations,
-            get_connector=ConnectSE1.from_maps,
-        )
-
-    @classmethod
-    def from_content_se2(
-        cls,
-        synapses: Dict[NeuronKey, List[Dynapse2Synapse]],
-        destinations: Dict[NeuronKey, List[Dynapse2Destination]],
-        pos_map: Dict[int, Tuple[int]],
-    ) -> MemConnect:
-        """
-        from_content_se2 is a class factory method which uses Dynap-SE2 synapse and destination lists
-
-        :param synapses: a dictionary of active synapses
-        :type synapses: Dict[NeuronKey, List[Dynapse2Synapse]]
-        :param destinations: a dictionary of active destinations
-        :type destinations: Dict[NeuronKey, List[Dynapse2Destination]]
-        :param pos_map: a dictionary holding the relative coordinate positions of the chips installed
-        :type pos_map: Dict[int, Tuple[int]]
-        :return: a MemConnect object whose parameters are obtained from the active synapse and destination lists
-        :rtype: MemConnect
-        """
-        return cls.__from_content(
-            synapses=synapses,
-            destinations=destinations,
-            get_connector=lambda idx_map: ConnectSE2.from_maps(
-                idx_map=idx_map, pos_map=pos_map
-            ),
-        )
-
-    @staticmethod
-    def __idx_map_from_content(
-        synapses: SynDict, destinations: DestDict
-    ) -> Dict[int, NeuronKey]:
-        """
-        __idx_map_from_content obtains an index map from active synapse and destinations dictionaries
-
-        :param synapses: a dictionary of active synapses
-        :type synapses: SynDict
-        :param destinations: a dictionary of active destinations
-        :type destinations: DestDict
-        :return: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
-        :rtype: Dict[int, NeuronKey]
-        """
-
-        keys = list(synapses.keys()) if synapses is not None else []
-        keys += list(destinations.keys()) if destinations is not None else []
-        keys = sorted(list(set(keys))) if keys else []
-        idx_map = dict(zip(range(len(keys)), keys))
-        return idx_map
-
-    @staticmethod
-    def __connect_synapses(
-        synapses: SynDict, idx_map: Dict[int, NeuronKey]
+    def synapse_connections(
+        self,
     ) -> List[Tuple[int, int, Union[Dynapse1Synapse, Dynapse2Synapse]]]:
         """
-        __connect_synapses creates a list of all possible connections between neurons indicated by the CAM content stored in synapse objects
+        synapse_connections creates a list of all possible connections between neurons indicated by the CAM content stored in synapse objects
 
-        :param synapses: a dictionary of active synapses
-        :type synapses: SynDict
         :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
         :type idx_map: Dict[int, NeuronKey]
         :return: a list of all possible connections indicated by synapse object content
         :rtype: List[Tuple[int, int, Union[Dynapse1Synapse, Dynapse2Synapse]]]
         """
         __conn = []
-        r_idx_map = {v: k for k, v in idx_map.items()}
+        idx_map = self.get_idx_map()
+        r_idx_map = self.get_r_idx_map()
 
-        for nkey, syn_list in synapses.items():
+        for nkey, syn_list in self.synapses.items():
             for syn in syn_list:
                 # Any indexed neuron can send spikes to the post-synaptic neuron
                 __conn += [(pre_idx, r_idx_map[nkey], syn) for pre_idx in idx_map]
 
         return __conn
 
+    def destination_connections(
+        self,
+    ) -> List[Tuple[int, int, Union[Dynapse1Destination, Dynapse2Destination]]]:
+        """
+        destination_connections creates a list of all possible connections between neurons indicated by the SRAM content stored in the destination object.
+
+        :param destinations: a dictionary of an active destinations
+        :type destinations: Dict[NeuronKey, List[Dynapse2Destination]]
+        :return: a list of all possible connections indicated by destination object content
+        :rtype: List[Tuple[int, int, Dynapse2Destination]]
+        """
+        core_map = self.get_core_map()
+        r_idx_map = self.get_r_idx_map()
+
+        candidates = []
+
+        for (h, c, n), dest_list in self.destinations.items():
+            for dest in dest_list:
+
+                # Get target cores from the source chip and the destination object
+                for th, tc in self.route(h, dest):
+
+                    # If the core indicated has some active neurons
+                    if (th, tc) in core_map:
+                        neurons = core_map[th, tc]
+
+                        # Extend candidate list
+                        candidates += [
+                            (
+                                r_idx_map[h, c, n],
+                                r_idx_map[th, tc, tn],
+                                dest,
+                            )
+                            for tn in neurons
+                        ]
+
+        return candidates
+
+    def input_connections(self) -> List[Tuple[int, int, int, int]]:
+        """
+        input_connections finds the input connections inferred by the CAM content.
+        It includes both the FPGA to neuron connections and neuron to neuron connections
+
+        :return: the input to neuron conneciton list [(tag_idx, neuron_idx, gate_idx, weight_mask)]
+        :rtype: List[Tuple[int, int, int, int]]
+        """
+        r_idx_map = self.get_r_idx_map()
+        r_tag_map = self.get_r_tag_map()
+
+        __connections = [
+            self.read_syn_connection(
+                (r_tag_map[self.cam_tag(syn)], r_idx_map[nkey], syn)
+            )
+            for nkey, _list in self.synapses.items()
+            for syn in _list
+        ]
+        return __connections
+
+    def intersect_connections(
+        self,
+        syn_connections: List[Tuple[int, int, Union[Dynapse1Synapse, Dynapse2Synapse]]],
+        dest_connections: List[
+            Tuple[int, int, Union[Dynapse1Destination, Dynapse2Destination]]
+        ],
+    ) -> List[Tuple[int, int, int, int]]:
+        """
+        intersect_connections finds the common connections infered by both the SRAM and CAM.
+        That is if a connection is allowed in the CAMs and it's listed in the SRAMs,
+        there is a link between those two neurons. If one sends an event, the other one catches.
+        `intersect_connections` finds those links.
+
+        :param syn_connections: a list of all possible connections indicated by synapse object content
+        :type syn_connections: List[Tuple[int, int, Dynapse1Synapse]]
+        :param dest_connections: a list of all possible connections indicated by destination object content
+        :type dest_connections: List[Tuple[int, int, Dynapse1Destination]]
+        :return: the neuron to neuron connection list [(pre_idx, post_idx, gate_idx, weight_mask)]
+        :rtype: List[Tuple[int, int, int, int]]
+        """
+
+        dest_candidates = set(map(self.match_dest_connection, dest_connections))
+
+        __intersection = [
+            self.read_syn_connection(connection)
+            for connection in syn_connections
+            if self.match_syn_connection(connection) in dest_candidates
+        ]
+        return __intersection
+
+    def match_syn_connection(
+        self, syn_connection: Tuple[int, int, Union[Dynapse1Synapse, Dynapse2Synapse]]
+    ) -> Tuple[int, int, int]:
+        """
+        match_syn_connection processes the synapse connection candidates and creates a comparable identity
+
+        :param syn_connection: A connection candidate that is obtained from a synapse object
+        :type syn_connection: Tuple[int, int, Union[Dynapse1Synapse, Dynapse2Synapse]]
+        :return: a standard from connection candidate which can be compared against any other connection candidate (pre, post, tag)
+        :rtype: Tuple[int, int, int]
+        """
+        pre_idx, post_idx, syn = syn_connection
+        return pre_idx, post_idx, self.cam_tag(syn)
+
+    ### --- Getters --- ###
+
+    def get_idx_map(self) -> Dict[int, NeuronKey]:
+        """
+        get_idx_map obtains an index map from active synapse and destinations dictionaries
+
+        :return: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
+        :rtype: Dict[int, NeuronKey]
+        """
+        if self.__idx_map is not None:
+            return self.__idx_map
+
+        syn_keys = list(self.synapses.keys()) if self.synapses is not None else []
+        dest_keys = (
+            list(self.destinations.keys()) if self.destinations is not None else []
+        )
+        keys = sorted(list(set(syn_keys + dest_keys)))
+        self.__idx_map = dict(zip(range(len(keys)), keys))
+        return self.__idx_map
+
+    def get_core_map(self) -> Dict[CoreKey, List[np.uint8]]:
+        """
+        get_core_map converts an index map to a dictionary that presents the active cores and their active neruons.
+
+            core_key : List[neurons]
+            (0,0) : [1,5,7,2]
+            (0,1) : [0,18,201]
+
+        :return: a dictionary of the mapping between active cores and list of active neurons
+        :rtype: Dict[CoreKey, List[np.uint8]]
+        """
+        if self.__core_map is not None:
+            return self.__core_map
+
+        # Initiate
+        self.__core_map: Dict[CoreKey, List[np.uint8]] = {}
+        idx_map = self.get_idx_map()
+
+        # Iterate
+        for h, c, n in idx_map.values():
+            if (h, c) not in self.__core_map:
+                self.__core_map[h, c] = [n]
+            else:
+                self.__core_map[h, c].append(n)
+
+        return self.__core_map
+
+    def get_tag_map(self) -> Dict[int, int]:
+        """
+        get_tag_map obtains a tag map from active synapses searching for all the tags given to any connection
+
+        :return: a dictionary of the mapping between matrix indexes of the events and their tags
+        :rtype: Dict[int, int]
+        """
+        if self.__tag_map is not None:
+            return self.__tag_map
+
+        tags = [self.cam_tag(syn) for _list in self.synapses.values() for syn in _list]
+        tags = sorted(list(set(tags)))
+        self.__tag_map = dict(zip(range(len(tags)), tags))
+        return self.__tag_map
+
+    def get_r_idx_map(self) -> Dict[NeuronKey, int]:
+        """
+        get_r_idx_map inverts index map. See also `Connect.get_idx_map()`
+
+        :return: inverted index map
+        :rtype: Dict[NeuronKey, int]
+        """
+        if self.__r_idx_map is not None:
+            return self.__r_idx_map
+        self.__r_idx_map = self.invert_dict(self.get_idx_map())
+        return self.__r_idx_map
+
+    def get_r_tag_map(self) -> Dict[int, int]:
+        """
+        get_r_tag_map inverts tag map. See also `Connect.get_tag_map()`
+
+        :return: inverted tag map
+        :rtype: Dict[int, int]
+        """
+        if self.__r_tag_map is not None:
+            return self.__r_tag_map
+        self.__r_tag_map = self.invert_dict(self.get_tag_map())
+        return self.__r_tag_map
+
+    def get_w_in_mask(self) -> np.ndarray:
+        """
+        get_w_in_mask creates the input weight mask using input connecitons
+
+        :return: a matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), for input connections
+        :rtype: np.ndarray
+        """
+        w_in_mask = self.fill_weight_mask(
+            self.input_connections(), n_pre=self.n_tag, n_post=self.n_neuron
+        )
+        return w_in_mask
+
+    def get_w_rec_mask(self) -> np.ndarray:
+        """
+        get_w_rec_mask creates the recurrent weight matrix using the intersection of destination connections and input connections
+
+        :return: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), for recurrent connections
+        :rtype: np.ndarray
+        """
+        syn_connections = self.synapse_connections()
+        dest_connections = self.destination_connections()
+
+        # Connect candidates
+        recurrent_connections = self.intersect_connections(
+            syn_connections, dest_connections
+        )
+
+        w_rec_mask = self.fill_weight_mask(
+            recurrent_connections, n_pre=self.n_neuron, n_post=self.n_neuron
+        )
+        return w_rec_mask
+
+    ### --- Utilities --- ###
+
     @staticmethod
-    def __get_weight_mask(
-        connections: List[Tuple[int, int, int, int]], n_neuron: int, n_gate: int = 4
+    def fill_weight_mask(
+        connections: List[Tuple[int, int, int, int]],
+        n_pre: int,
+        n_post: int,
+        n_gate: int = 4,
     ) -> np.ndarray:
         """
-        __get_weight_mask creates and fills a weight mask object using a intersected connection list
+        fill_weight_mask creates and fills a weight mask object using a intersected connection list
 
         :param connections: the neuron to neuron connection list [(pre_idx, post_idx, gate_idx, weight_mask)]
         :type connections: List[Tuple[int, int, int, int]]
@@ -377,7 +496,7 @@ class MemConnect:
         :return: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate)
         :rtype: np.ndarray
         """
-        weight_mask = np.zeros((n_neuron, n_neuron, n_gate), dtype=int)
+        weight_mask = np.zeros((n_pre, n_post, n_gate), dtype=int)
 
         for pre, post, gate, weight in connections:
             weight_mask[pre, post, gate] = weight
@@ -433,89 +552,83 @@ class MemConnect:
             __number = (__number << 1) | bit
         return __number
 
+    @staticmethod
+    def invert_dict(__dict: Dict[Any]) -> Dict[Any]:
+        """
+        invert_dict inverts any dictioary, keys become values and the values become keys
 
-@dataclass
-class __Connect:
-    """
-    __Connect is a boilerplate class to be inherited by SE1 and SE2 modules for version specific connectivity implementation
+        :param __dict: any dictionary
+        :type __dict: Dict[Any]
+        :return: inverted dictionary
+        :rtype: Dict[Any]
+        """
+        return {v: k for k, v in __dict.items()}
 
-    :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
-    :type idx_map: Dict[int, NeuronKey], optional
-    """
-
-    idx_map: Dict[int, NeuronKey]
-
-    def __post_init__(self) -> None:
-        self.core_map = self.core_map_from_idx_map(self.idx_map)
-        self.r_idx_map = {v: k for k, v in self.idx_map.items()}
+    ### --- Device Specific Implementation Required --- ###
 
     @staticmethod
-    def core_map_from_idx_map(
-        idx_map: Dict[int, NeuronKey]
-    ) -> Dict[CoreKey, List[np.uint8]]:
+    @abstractclassmethod
+    def cam_tag(syn: Union[Dynapse1Synapse, Dynapse2Synapse]) -> int:
         """
-        core_map_from_idx_map converts an index map to a dictionary that presents the active cores and their active neruons.
+        cam_tag obtains the cam tag from the samna synapse objects
 
-            core_key : List[neurons]
-            (0,0) : [1,5,7,2]
-            (0,1) : [0,18,201]
-
-        :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
-        :type idx_map: Dict[int, NeuronKey]
-        :return: a dictionary of the mapping between active cores and list of active neurons
-        :rtype: Dict[CoreKey, List[np.uint8]]
+        :param syn: a synapse object
+        :type syn: Union[Dynapse1Synapse, Dynapse2Synapse]
+        :return: the CAM tag indicated in the synapse object
+        :rtype: int
         """
-        __dict: Dict[CoreKey, List[np.uint8]] = {}
-        for h, c, n in idx_map.values():
-            if (h, c) not in __dict:
-                __dict[h, c] = [n]
-            else:
-                __dict[h, c].append(n)
+        pass
 
-        return __dict
-
-    def connect_destinations(
-        self, *args, **kwargs
-    ) -> List[int, int, Union[Dynapse1Destination, Dynapse2Destination]]:
+    @abstractclassmethod
+    def route(
+        self, src_chip: np.uint8, dest: Union[Dynapse1Destination, Dynapse2Destination]
+    ) -> List[CoreKey]:
         """
-        connect_destinations is an abstract method. Any class inheriting `__Connect` should implement this
+        route lists the cores that the destination object provided aims to convey the events.
 
-        :return: a list of possible connections indicated by destination object content
-        :rtype: List[int, int, Union[Dynapse1Destination, Dynapse2Destination]]
+        :param src_chip: the departure chip ID
+        :type src_chip: np.uint8
+        :param dest: DynapSE1 destination object containing SRAM content
+        :type dest: Union[Dynapse1Destination, Dynapse2Destination]
+        :return: list of cores targeted
+        :rtype: List[CoreKey]
         """
-        raise NotImplementedError("Version specific implementation required!")
+        pass
 
-    def intersect_connections(self, *args, **kwargs) -> List[Tuple[int, int, int, int]]:
+    @abstractclassmethod
+    def match_dest_connection(
+        self,
+        dest_connection: Tuple[
+            int, int, Union[Dynapse1Destination, Dynapse2Destination]
+        ],
+    ) -> Tuple[int, int, int]:
         """
-        connect_destinations is an abstract method. Any class inheriting `__Connect` should implement this
+        match_dest_connection processes the destination connection candidates and creates a comparable identity
 
-        :return: the neuron to neuron connection list [(pre_idx, post_idx, gate_idx, weight_mask)]
-        :rtype: List[Tuple[int, int, int, int]]
+        :param dest_connection: a connection candidate that is obtained from a destination object
+        :type dest_connection: Tuple[ int, int, Union[Dynapse1Destination, Dynapse2Destination] ]
+        :return: a standard form connection candidate which can be compared against any other connection candidate (pre, post, tag)
+        :rtype: Tuple[int, int, int]
         """
-        raise NotImplementedError("Version specific implementation required!")
+        pass
 
-    def tag_map_from_synapses(self, *args, **kwargs) -> Dict[int, int]:
+    @abstractclassmethod
+    def read_syn_connection(
+        self, syn_connection: Tuple[int, int, Union[Dynapse1Synapse, Dynapse2Synapse]]
+    ) -> Tuple[int, int, int, int]:
         """
-        tag_map_from_synapses is an abstract method. Any class inheriting `__Connect` should implement this
+        read_syn_connection processes the synapse connection identities and returns a version-invariant connection list identity
 
-        :return: a dictionary of the mapping between matrix indexes of the events and their tags
-        :rtype: Dict[int, int]
+        :param syn_connection: A connection candidate that is obtained from a synapse object
+        :type syn_connection: Tuple[int, int, Union[Dynapse1Synapse, Dynapse2Synapse]]
+        :return: a version invariant connection list identity
+        :rtype: Tuple[int, int, int, int]
         """
-        raise NotImplementedError("Version specific implementation required!")
+        pass
 
 
 @dataclass
-class ConnectSE1(__Connect):
-    """
-    ConnectSE1 encapsulates Dynap-SE1 specific router connectivity utilities
-
-    :Attributes:
-
-    :attr syn_weight_map: Dynap-SE1 does not have connection specific weight mask facility.
-        Instead, it has fixed current parameters per synapse gate. Therefore, syn_weight_map
-        has the mapping from the synapse gate index to definite weight mask.
-    :type syn_weight_map: Dict[int, int]
-    """
+class ConnectorSE1(Connector):
 
     syn_weight_map = {
         0: 0b0001,  # GABA
@@ -524,187 +637,60 @@ class ConnectSE1(__Connect):
         3: 0b1000,  # AMPA
     }
 
-    __tagger = lambda core_id, neuron_id: neuron_id + (core_id * DynapSE.NUM_CORES)
-    __tag_syn = lambda syn: ConnectSE1.__tagger(
-        syn.listen_core_id, syn.listen_neuron_id
-    )
-
-    @classmethod
-    def from_maps(cls, idx_map: Dict[int, NeuronKey]) -> ConnectSE1:
+    @staticmethod
+    def __tagger(core_id: np.uint8, neuron_id: np.uint8) -> int:
         """
-        from_maps is a class factory method which construct a `ConnectSE1` object using index map
-
-        :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
-        :type idx_map: Dict[int, NeuronKey]
-        :return: a ConnectSE1 object obtained from the index map
-        :rtype: ConnectSE1
+        __tagger calculates the tag using the core id and neuron id
         """
-        return cls(idx_map=idx_map)
+        return neuron_id + (core_id * DynapSE.NUM_CORES)
 
     @staticmethod
-    def target_core_keys(dest: Dynapse1Destination) -> List[CoreKey]:
+    def sram_tag(dest: Dynapse1Destination, neuron_id: int) -> int:
         """
-        target_core_keys lists the cores that the destination object provided aims to convey the events.
+        sram_tag obtains the sram tag from the samna synapse destination object
 
-        :param dest: DynapSE1 destination object containing SRAM content
+        :param dest: a destination object
         :type dest: Dynapse1Destination
-        :return: list of cores targeted
-        :rtype: List[CoreKey]
+        :param neuron_id: the pre-synaptic neuron id
+        :type neuron_id: int
+        :return: the SRAM tag indicated in the destination object
+        :rtype: int
         """
-        core = MemConnect.int_to_binary(dest.core_mask)
+        return ConnectorSE1.__tagger(dest.virtual_core_id, neuron_id)
+
+    ### --- Abstract methods --- ###
+
+    @staticmethod
+    def cam_tag(syn: Dynapse1Synapse) -> int:
+        return ConnectorSE1.__tagger(syn.listen_core_id, syn.listen_neuron_id)
+
+    def route(self, src_chip: np.uint8, dest: Dynapse1Destination) -> List[CoreKey]:
+        core = self.int_to_binary(dest.core_mask)
         dest_cores = np.argwhere(core).flatten()
         target_list = [(dest.target_chip_id, dest_core) for dest_core in dest_cores]
         return target_list
 
-    def connect_destinations(
-        self, destinations: Dict[NeuronKey, List[Dynapse1Destination]]
-    ) -> List[Tuple[int, int, Dynapse1Destination]]:
-        """
-        connect_destinations creates a list of all possible connections between neurons indicated by the SRAM content stored in the destination object.
-
-        :param destinations: a dictionary of an active destinations
-        :type destinations: Dict[NeuronKey, List[Dynapse1Destination]]
-        :return: a list of all possible connections indicated by destination object content
-        :rtype: List[Tuple[int, int, Dynapse1Destination]]
-        """
-
-        candidates = []
-
-        for (h, c, n), dest_list in destinations.items():
-            for dest in dest_list:
-                cv = dest.virtual_core_id
-
-                # Get target cores from the destination object
-                for th, tc in self.target_core_keys(dest):
-
-                    # If the core indicated has some active neurons
-                    if (th, tc) in self.core_map:
-                        neurons = self.core_map[th, tc]
-
-                        # Extend candidate list
-                        if (h, cv, n) in self.r_idx_map:
-                            candidates += [
-                                (
-                                    self.r_idx_map[h, cv, n],
-                                    self.r_idx_map[th, tc, tn],
-                                    dest,
-                                )
-                                for tn in neurons
-                            ]
-
-        return candidates
-
-    def __match_dest_connection(
-        self, dest_connection: Tuple[int, int, Dynapse1Destination]
-    ) -> Tuple[int, int, np.uint8, np.uint8]:
-        """
-        __match_dest_connection processes the destination connection candidates and creates a comparable identity
-
-        :param dest_connection:  a connection candidate that is obtained from a destination object
-        :type dest_connection: Tuple[int, int, Dynapse1Destination]
-        :return: a standard form connection candidate which can be compared against any other SE1 connection candidate
-        :rtype: Tuple[int, int, np.uint8, np.uint8]
-        """
+    def match_dest_connection(
+        self,
+        dest_connection: Tuple[int, int, Dynapse1Destination],
+    ) -> Tuple[int, int, int]:
+        idx_map = self.get_idx_map()
         pre_idx, post_idx, dest = dest_connection
-        pre_chip_idx, pre_core_idx, pre_neuron_idx = self.idx_map[pre_idx]
-        return pre_idx, post_idx, ConnectSE1.__tagger(pre_core_idx, pre_neuron_idx)
+        pre_chip_idx, pre_core_idx, pre_neuron_idx = idx_map[pre_idx]
+        return pre_idx, post_idx, self.sram_tag(dest, pre_neuron_idx)
 
-    @staticmethod
-    def __match_syn_connection(
-        syn_connection: Tuple[int, int, Dynapse1Synapse]
-    ) -> Tuple[int, int, np.uint8, np.uint8]:
-        """
-        __match_syn_connection processes the synapse connection candidates and creates a comparable identity
-
-        :param syn_connection: A connection candidate that is obtained from a synapse object
-        :type syn_connection: Tuple[int, int, Dynapse1Synapse]
-        :return: a standard from connection candidate which can be compared against any other SE1 connection candidate
-        :rtype: Tuple[int, int, np.uint8, np.uint8]
-        """
-        pre_idx, post_idx, syn = syn_connection
-        return pre_idx, post_idx, ConnectSE1.__tag_syn(syn)
-
-    @staticmethod
-    def __read_syn_connection(
-        syn_connection: Tuple[int, int, Dynapse1Synapse]
+    def read_syn_connection(
+        self, syn_connection: Tuple[int, int, Dynapse1Synapse]
     ) -> Tuple[int, int, int, int]:
-        """
-        __read_syn_connection processes the synapse connection identities and returns a version-invariant connection list identity
-
-        :param syn_connection: A connection candidate that is obtained from a synapse object
-        :type syn_connection: Tuple[int, int, Dynapse1Synapse]
-        :return: a version invariant connection list identity
-        :rtype: Tuple[int, int, int, int]
-        """
         pre_idx, post_idx, syn = syn_connection
         gate = syn.syn_type.value
-        weight = ConnectSE1.syn_weight_map[syn.syn_type.value]
+        weight = self.syn_weight_map[syn.syn_type.value]
         return pre_idx, post_idx, gate, weight
-
-    def intersect_connections(
-        self,
-        syn_connections: List[Tuple[int, int, Dynapse1Synapse]],
-        dest_connections: List[Tuple[int, int, Dynapse1Destination]],
-    ) -> List[Tuple[int, int, int, int]]:
-        """
-        intersect_connections finds the common connections infered by both the SRAM and CAM.
-        That is if a connection is allowed in the CAMs and it's listed in the SRAMs,
-        there is a link between those two neurons. If one sends an event, the other one catches.
-        `intersect_connections` finds those links.
-
-        :param syn_connections: a list of all possible connections indicated by synapse object content
-        :type syn_connections: List[Tuple[int, int, Dynapse1Synapse]]
-        :param dest_connections: a list of all possible connections indicated by destination object content
-        :type dest_connections: List[Tuple[int, int, Dynapse1Destination]]
-        :return: the neuron to neuron connection list [(pre_idx, post_idx, gate_idx, weight_mask)]
-        :rtype: List[Tuple[int, int, int, int]]
-        """
-
-        dest_candidates = set(map(self.__match_dest_connection, dest_connections))
-
-        __intersection = [
-            self.__read_syn_connection(connection)
-            for connection in syn_connections
-            if self.__match_syn_connection(connection) in dest_candidates
-        ]
-        return __intersection
-
-    @staticmethod
-    def tag_map_from_synapses(
-        synapses: Dict[NeuronKey, List[Dynapse1Synapse]],
-        n_cores: int = DynapSE.NUM_CORES,
-    ) -> Dict[int, int]:
-        """
-        tag_map_from_synapses extracts the tag map from a dictionary of active synapses
-
-        :param synapses: a dictionary of active synapses
-        :type synapses: Dict[NeuronKey, List[Dynapse1Synapse]]
-        :param n_cores: number of cores per neuron, defaults to DynapSE.NUM_CORES = 4
-        :type n_cores: int, optional
-        :return: a dictionary of the mapping between matrix indexes of the events and their tags
-        :rtype: Dict[int, int]
-        """
-        _tag = lambda syn: syn.listen_neuron_id + (syn.listen_core_id * n_cores)
-        tags = [_tag(syn) for _list in synapses.values() for syn in _list]
-        tags = sorted(list(set(tags)))
-        tag_map = dict(zip(range(len(tags)), tags))
-        return tag_map
 
 
 @dataclass
-class ConnectSE2(__Connect):
-    """
-    ConnectSE2  encapsulates Dynap-SE2 specific router connectivity utilities
-
-    :Attributes:
-
-    :attr pos_map: a dictionary holding the relative coordinate positions of the chips installed
-    :type pos_map: Dict[int, Tuple[int]]
-    :attr syn_map: the mapping between Dynap-SE2 binary synapse values and gate indices
-    :type syn_map: Dict[int, int]
-    """
-
-    pos_map: Dict[int, Tuple[int]]
+class ConnectorSE2(Connector):
+    pos_map = {0: (1, 0)}
     syn_map = {
         0: 3,  # AMPA [] TODO !!!!! DO NOT DO IT !!!!!!
         1024: 3,  # AMPA
@@ -713,21 +699,9 @@ class ConnectSE2(__Connect):
         128: 1,  # SHUNT
     }
 
-    @classmethod
-    def from_maps(
-        cls, idx_map: Dict[int, NeuronKey], pos_map: Dict[int, Tuple[int]]
-    ) -> ConnectSE2:
-        """
-        from_maps is a class factory method which construct a `ConnectSE2` object using index and position maps
-
-        :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
-        :type idx_map: Dict[int, NeuronKey]
-        :param pos_map: a dictionary holding the relative coordinate positions of the chips installed
-        :type pos_map: Dict[int, Tuple[int]]
-        :return: a ConnectSE2 object obtained from the index and position maps
-        :rtype: ConnectSE2
-        """
-        return cls(idx_map=idx_map, pos_map=pos_map)
+    def __post_init__(self) -> None:
+        self.__r_pos_map = {v: k for k, v in self.pos_map.items()}
+        super().__post_init__()
 
     def route_AER(self, src_chip: np.uint8, dest: Dynapse2Destination) -> int:
         """
@@ -740,156 +714,38 @@ class ConnectSE2(__Connect):
         :return: the arrival chip ID
         :rtype: int
         """
-        r_pos_map = {v: k for k, v in self.pos_map.items()}
-
         x_src, y_src = self.pos_map[src_chip]
         x_dest = x_src + dest.x_hop
         y_dest = y_src + dest.y_hop
 
-        if (x_dest, y_dest) in r_pos_map:
-            chip_id = r_pos_map[x_dest, y_dest]
+        if (x_dest, y_dest) in self.__r_pos_map:
+            chip_id = self.__r_pos_map[x_dest, y_dest]
             return chip_id
         else:
             return -1
 
-    def target_core_keys(
-        self, src_chip: np.uint8, dest: Dynapse2Destination
-    ) -> List[CoreKey]:
-        """
-        target_core_keys lists the cores that the destination object provided aims to convey the events.
+    ### --- Abstract methods --- ###
 
-        :param src_chip: the departure chip ID
-        :type src_chip: np.uint8
-        :param dest: DynapSE2 destination object containing SRAM content
-        :type dest: Dynapse1Destination
-        :return: list of cores targeted
-        :rtype: List[CoreKey]
-        """
+    @staticmethod
+    def cam_tag(syn: Dynapse2Synapse) -> int:
+        return syn.tag
 
+    def route(self, src_chip: np.uint8, dest: Dynapse2Destination) -> List[CoreKey]:
         dest_chip = self.route_AER(src_chip, dest)
         dest_cores = np.argwhere(dest.core).flatten()
         target_list = [(dest_chip, dest_core) for dest_core in dest_cores]
         return target_list
 
-    def connect_destinations(
-        self, destinations: Dict[NeuronKey, List[Dynapse2Destination]]
-    ) -> List[Tuple[int, int, Dynapse2Destination]]:
-        """
-        connect_destinations creates a list of all possible connections between neurons indicated by the SRAM content stored in the destination object.
+    def match_dest_connection(
+        self,
+        dest_connection: Tuple[int, int, Dynapse2Destination],
+    ) -> Tuple[int, int, int]:
+        return self.match_syn_connection(dest_connection)
 
-        :param destinations: a dictionary of an active destinations
-        :type destinations: Dict[NeuronKey, List[Dynapse2Destination]]
-        :return: a list of all possible connections indicated by destination object content
-        :rtype: List[Tuple[int, int, Dynapse2Destination]]
-        """
-        candidates = []
-
-        for (h, c, n), dest_list in destinations.items():
-            for dest in dest_list:
-
-                # Get target cores from the source chip and the destination object
-                for th, tc in self.target_core_keys(h, dest):
-
-                    # If the core indicated has some active neurons
-                    if (th, tc) in self.core_map:
-                        neurons = self.core_map[th, tc]
-
-                        # Extend candidate list
-                        candidates += [
-                            (self.r_idx_map[h, c, n], self.r_idx_map[th, tc, tn], dest)
-                            for tn in neurons
-                        ]
-
-        return candidates
-
-    @staticmethod
-    def __match_dest_connection(
-        dest_connection: Tuple[int, int, Dynapse2Destination]
-    ) -> Tuple[int, int, np.uint8, np.uint8]:
-        """
-        __match_dest_connection processes the destination connection candidates and creates a comparable identity
-
-        :param dest_connection:  a connection candidate that is obtained from a destination object
-        :type dest_connection: Tuple[int, int, Dynapse2Destination]
-        :return: a standard form connection candidate which can be compared against any other SE2 connection candidate
-        :rtype: Tuple[int, int, np.uint8, np.uint8]
-        """
-        pre_idx, post_idx, dest = dest_connection
-        return pre_idx, post_idx, dest.tag
-
-    @staticmethod
-    def __match_syn_connection(
-        syn_connection: Tuple[int, int, Dynapse2Synapse]
-    ) -> Tuple[int, int, np.uint8, np.uint8]:
-        """
-        __match_syn_connection processes the synapse connection candidates and creates a comparable identity
-
-        :param syn_connection: A connection candidate that is obtained from a synapse object
-        :type syn_connection: Tuple[int, int, Dynapse2Synapse]
-        :return: a standard from connection candidate which can be compared against any other SE2 connection candidate
-        :rtype: Tuple[int, int, np.uint8, np.uint8]
-        """
-        pre_idx, post_idx, syn = syn_connection
-        return pre_idx, post_idx, syn.tag
-
-    @staticmethod
-    def __read_syn_connection(
-        syn_connection: Tuple[int, int, Dynapse2Synapse]
+    def read_syn_connection(
+        self, syn_connection: Tuple[int, int, Dynapse2Synapse]
     ) -> Tuple[int, int, int, int]:
-        """
-        __read_syn_connection processes the synapse connection identities and returns a version-invariant connection list identity
-
-        :param syn_connection: A connection candidate that is obtained from a synapse object
-        :type syn_connection: Tuple[int, int, Dynapse2Synapse]
-        :return: a version invariant connection list identity
-        :rtype: Tuple[int, int, int, int]
-        """
         pre_idx, post_idx, syn = syn_connection
-        gate = ConnectSE2.syn_map[syn.dendrite.value]
-        weight = MemConnect.binary_to_int(syn.weight)
+        gate = self.syn_map[syn.dendrite.value]
+        weight = self.binary_to_int(syn.weight)
         return pre_idx, post_idx, gate, weight
-
-    @staticmethod
-    def intersect_connections(
-        syn_connections: List[Tuple[int, int, Dynapse2Synapse]],
-        dest_connections: List[Tuple[int, int, Dynapse2Destination]],
-    ) -> List[Tuple[int, int, int, int]]:
-        """
-        intersect_connections finds the common connections infered by both the SRAM and CAM.
-        That is if a connection is allowed in the CAMs and it's listed in the SRAMs,
-        there is a link between those two neurons. If one sends an event, the other one catches.
-        `intersect_connections` finds those links.
-
-        :param syn_connections: a list of all possible connections indicated by synapse object content
-        :type syn_connections: List[Tuple[int, int, Dynapse2Synapse]]
-        :param dest_connections: a list of all possible connections indicated by destination object content
-        :type dest_connections: List[Tuple[int, int, Dynapse2Destination]]
-        :return: the neuron to neuron connection list [(pre_idx, post_idx, gate_idx, weight_mask)]
-        :rtype: List[Tuple[int, int, int, int]]
-        """
-
-        dest_candidates = set(map(ConnectSE2.__match_dest_connection, dest_connections))
-
-        __intersection = [
-            ConnectSE2.__read_syn_connection(connection)
-            for connection in syn_connections
-            if ConnectSE2.__match_syn_connection(connection) in dest_candidates
-        ]
-        return __intersection
-
-    @staticmethod
-    def tag_map_from_synapses(
-        synapses: Dict[NeuronKey, List[Dynapse2Synapse]]
-    ) -> Dict[int, int]:
-        """
-        tag_map_from_synapses _summary_
-
-        :param synapses: a dictionary of active synapses
-        :type synapses: Dict[NeuronKey, List[Dynapse2Synapse]]
-        :return: a dictionary of the mapping between matrix indexes of the events and their tags
-        :rtype: Dict[int, int]
-        """
-        tags = [syn.tag for _list in synapses.values() for syn in _list]
-        tags = sorted(list(set(tags)))
-        tag_map = dict(zip(range(len(tags)), tags))
-        return tag_map
