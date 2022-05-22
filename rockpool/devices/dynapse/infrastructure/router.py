@@ -60,10 +60,14 @@ class Router:
     :type core_map: Dict[CoreKey, List[np.uint8]], optional
     :param tag_map_in: a dictionary of the mapping between matrix indexes of the incoming events and their tags. Used to interpret the input weight matrix, defaults to None
     :type tag_map_in: Dict[int, int], optional
+    :param tag_map_out: a dictionary of the mapping between matrix indexes of the outgoing events and their tags. Used to interpret the output weight matrix, defaults to None
+    :type tag_map_out: Dict[int, int], optional
     :param w_rec_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), for recurrent connections, defaults to None
     :type w_rec_mask: np.ndarray, optional
-    :param w_in_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), for input connections, defaults to None
+    :param w_in_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (tag_in, post, gate), for input connections, defaults to None
     :type w_in_mask: np.ndarray, optional
+    :param w_out_mask: A boolean output mask revealing the relation between neurons and their sram tags, (pre, tag_out) defaults to None
+    :type w_out_mask: np.ndarray, optional
     """
 
     n_chips: np.uint8 = None
@@ -71,8 +75,10 @@ class Router:
     idx_map: Dict[int, NeuronKey] = None
     core_map: Dict[CoreKey, List[np.uint8]] = None
     tag_map_in: Dict[int, int] = None
+    tag_map_out: Dict[int, int] = None
     w_rec_mask: np.ndarray = None
     w_in_mask: np.ndarray = None
+    w_out_mask: np.ndarray = None
 
     def __post_init__(self) -> None:
         """
@@ -152,6 +158,7 @@ class Router:
             n_cores=max([len(chip.cores) for chip in config.chips]),
             idx_map=connector.get_idx_map(),
             tag_map_in=connector.get_tag_map_in(),
+            tag_map_out=connector.get_tag_map_out(),
             core_map=connector.get_core_map(),
             w_rec_mask=connector.get_w_rec_mask(),
             w_in_mask=connector.get_w_in_mask(),
@@ -220,13 +227,20 @@ class Connector(ABC):
         self.__idx_map = None
         self.__core_map = None
         self.__tag_map_in = None
+        self.__tag_map_out = None
         self.__r_idx_map = None
         self.__r_tag_map_in = None
+        self.__r_tag_map_out = None
 
     @property
     def n_tag_in(self) -> int:
         """number of input tags"""
         return len(self.get_tag_map_in())
+
+    @property
+    def n_tag_out(self) -> int:
+        """number of output tags"""
+        return len(self.get_tag_map_out())
 
     @property
     def n_neuron(self) -> int:
@@ -275,7 +289,7 @@ class Connector(ABC):
             for dest in dest_list:
 
                 # Get target cores from the source chip and the destination object
-                for th, tc in self.route(h, dest):
+                for th, tc in self.route(dest, h):
 
                     # If the core indicated has some active neurons
                     if (th, tc) in core_map:
@@ -408,7 +422,7 @@ class Connector(ABC):
         """
         get_tag_map_in obtains a tag map from active synapses searching for all the tags given to any input connection
 
-        :return: a dictionary of the mapping between matrix indexes of the events and their tags
+        :return: a dictionary of the mapping between matrix indexes of all the incoming events and their tags
         :rtype: Dict[int, int]
         """
         if self.__tag_map_in is not None:
@@ -418,6 +432,25 @@ class Connector(ABC):
         tags = sorted(list(set(tags)))
         self.__tag_map_in = dict(zip(range(len(tags)), tags))
         return self.__tag_map_in
+
+    def get_tag_map_out(self) -> Dict[int, int]:
+        """
+        get_tag_map_out obtains a tag map from active destinations searching for all the tags given to any output connection
+
+        :return: a dictionary of the mapping between matrix indexes of all the outcoming events and their tags
+        :rtype: Dict[int, int]
+        """
+        if self.__tag_map_out is not None:
+            return self.__tag_map_out
+
+        tags = [
+            self.sram_tag(dest, n)
+            for (h, c, n), _list in self.destinations.items()
+            for dest in _list
+        ]
+        tags = sorted(list(set(tags)))
+        self.__tag_map_out = dict(zip(range(len(tags)), tags))
+        return self.__tag_map_out
 
     def get_r_idx_map(self) -> Dict[NeuronKey, int]:
         """
@@ -433,7 +466,7 @@ class Connector(ABC):
 
     def get_r_tag_map_in(self) -> Dict[int, int]:
         """
-        get_r_tag_map_in inverts tag map. See also `Connect.get_tag_map_in()`
+        get_r_tag_map_in inverts input tag map. See also `Connect.get_tag_map_in()`
 
         :return: inverted tag map
         :rtype: Dict[int, int]
@@ -442,6 +475,18 @@ class Connector(ABC):
             return self.__r_tag_map_in
         self.__r_tag_map_in = self.invert_dict(self.get_tag_map_in())
         return self.__r_tag_map_in
+
+    def get_r_tag_map_out(self) -> Dict[int, int]:
+        """
+        get_r_tag_map_out inverts output tag map. See also `Connect.get_tag_map_out()`
+
+        :return: inverted tag map
+        :rtype: Dict[int, int]
+        """
+        if self.__r_tag_map_out is not None:
+            return self.__r_tag_map_out
+        self.__r_tag_map_out = self.invert_dict(self.get_tag_map_out())
+        return self.__r_tag_map_out
 
     def get_w_in_mask(self) -> np.ndarray:
         """
@@ -568,7 +613,7 @@ class Connector(ABC):
 
     @staticmethod
     @abstractclassmethod
-    def cam_tag(syn: Union[Dynapse1Synapse, Dynapse2Synapse]) -> int:
+    def cam_tag(syn: Union[Dynapse1Synapse, Dynapse2Synapse], *args, **kwargs) -> int:
         """
         cam_tag obtains the cam tag from the samna synapse objects
 
@@ -579,15 +624,30 @@ class Connector(ABC):
         """
         pass
 
+    @staticmethod
+    def sram_tag(
+        dest: Union[Dynapse1Destination, Dynapse2Destination], *args, **kwargs
+    ) -> int:
+        """
+        sram_tag obtains the sram tag from the samna synapse destination object
+
+        :param dest: a destination object
+        :type dest: Union[Dynapse1Destination, Dynapse2Destination]
+        :return: the SRAM tag indicated in the destination object
+        :rtype: int
+        """
+        pass
+
     @abstractclassmethod
     def route(
-        self, src_chip: np.uint8, dest: Union[Dynapse1Destination, Dynapse2Destination]
+        self,
+        dest: Union[Dynapse1Destination, Dynapse2Destination],
+        *args,
+        **kwargs,
     ) -> List[CoreKey]:
         """
         route lists the cores that the destination object provided aims to convey the events.
 
-        :param src_chip: the departure chip ID
-        :type src_chip: np.uint8
         :param dest: DynapSE1 destination object containing SRAM content
         :type dest: Union[Dynapse1Destination, Dynapse2Destination]
         :return: list of cores targeted
@@ -601,6 +661,8 @@ class Connector(ABC):
         dest_connection: Tuple[
             int, int, Union[Dynapse1Destination, Dynapse2Destination]
         ],
+        *args,
+        **kwargs,
     ) -> Tuple[int, int, int]:
         """
         match_dest_connection processes the destination connection candidates and creates a comparable identity
@@ -614,7 +676,10 @@ class Connector(ABC):
 
     @abstractclassmethod
     def read_syn_connection(
-        self, syn_connection: Tuple[int, int, Union[Dynapse1Synapse, Dynapse2Synapse]]
+        self,
+        syn_connection: Tuple[int, int, Union[Dynapse1Synapse, Dynapse2Synapse]],
+        *args,
+        **kwargs,
     ) -> Tuple[int, int, int, int]:
         """
         read_syn_connection processes the synapse connection identities and returns a version-invariant connection list identity
@@ -644,35 +709,24 @@ class ConnectorSE1(Connector):
         """
         return neuron_id + (core_id * DynapSE.NUM_CORES)
 
-    @staticmethod
-    def sram_tag(dest: Dynapse1Destination, neuron_id: int) -> int:
-        """
-        sram_tag obtains the sram tag from the samna synapse destination object
-
-        :param dest: a destination object
-        :type dest: Dynapse1Destination
-        :param neuron_id: the pre-synaptic neuron id
-        :type neuron_id: int
-        :return: the SRAM tag indicated in the destination object
-        :rtype: int
-        """
-        return ConnectorSE1.__tagger(dest.virtual_core_id, neuron_id)
-
     ### --- Abstract methods --- ###
 
     @staticmethod
-    def cam_tag(syn: Dynapse1Synapse) -> int:
+    def cam_tag(syn: Dynapse1Synapse, *args, **kwargs) -> int:
         return ConnectorSE1.__tagger(syn.listen_core_id, syn.listen_neuron_id)
 
-    def route(self, src_chip: np.uint8, dest: Dynapse1Destination) -> List[CoreKey]:
+    @staticmethod
+    def sram_tag(dest: Dynapse1Destination, neuron_id: int, *args, **kwargs) -> int:
+        return ConnectorSE1.__tagger(dest.virtual_core_id, neuron_id)
+
+    def route(self, dest: Dynapse1Destination, *args, **kwargs) -> List[CoreKey]:
         core = self.int_to_binary(dest.core_mask)
         dest_cores = np.argwhere(core).flatten()
         target_list = [(dest.target_chip_id, dest_core) for dest_core in dest_cores]
         return target_list
 
     def match_dest_connection(
-        self,
-        dest_connection: Tuple[int, int, Dynapse1Destination],
+        self, dest_connection: Tuple[int, int, Dynapse1Destination], *args, **kwargs
     ) -> Tuple[int, int, int]:
         idx_map = self.get_idx_map()
         pre_idx, post_idx, dest = dest_connection
@@ -680,7 +734,7 @@ class ConnectorSE1(Connector):
         return pre_idx, post_idx, self.sram_tag(dest, pre_neuron_idx)
 
     def read_syn_connection(
-        self, syn_connection: Tuple[int, int, Dynapse1Synapse]
+        self, syn_connection: Tuple[int, int, Dynapse1Synapse], *args, **kwargs
     ) -> Tuple[int, int, int, int]:
         pre_idx, post_idx, syn = syn_connection
         gate = syn.syn_type.value
@@ -703,7 +757,7 @@ class ConnectorSE2(Connector):
         self.__r_pos_map = {v: k for k, v in self.pos_map.items()}
         super().__post_init__()
 
-    def route_AER(self, src_chip: np.uint8, dest: Dynapse2Destination) -> int:
+    def route_AER(self, dest: Dynapse2Destination, src_chip: np.uint8) -> int:
         """
         route_AER finds the destination chip id using the destination object and the position map
 
@@ -727,18 +781,23 @@ class ConnectorSE2(Connector):
     ### --- Abstract methods --- ###
 
     @staticmethod
-    def cam_tag(syn: Dynapse2Synapse) -> int:
+    def cam_tag(syn: Dynapse2Synapse, *args, **kwargs) -> int:
         return syn.tag
 
-    def route(self, src_chip: np.uint8, dest: Dynapse2Destination) -> List[CoreKey]:
-        dest_chip = self.route_AER(src_chip, dest)
+    @staticmethod
+    def sram_tag(dest: Dynapse2Destination, *args, **kwargs) -> int:
+        return ConnectorSE2.cam_tag(dest)
+
+    def route(
+        self, dest: Dynapse2Destination, src_chip: np.uint8, *args, **kwargs
+    ) -> List[CoreKey]:
+        dest_chip = self.route_AER(dest, src_chip)
         dest_cores = np.argwhere(dest.core).flatten()
         target_list = [(dest_chip, dest_core) for dest_core in dest_cores]
         return target_list
 
     def match_dest_connection(
-        self,
-        dest_connection: Tuple[int, int, Dynapse2Destination],
+        self, dest_connection: Tuple[int, int, Dynapse2Destination], *args, **kwargs
     ) -> Tuple[int, int, int]:
         return self.match_syn_connection(dest_connection)
 
