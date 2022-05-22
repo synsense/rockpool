@@ -58,8 +58,8 @@ class Router:
     :type idx_map: Dict[int, NeuronKey], optional
     :param core_map:a dictionary of the mapping between active cores and list of active neurons, defaults to None
     :type core_map: Dict[CoreKey, List[np.uint8]], optional
-    :param tag_map: a dictionary of the mapping between matrix indexes of the events and their tags. Used to interpret the input weight matrix, defaults to None
-    :type tag_map: Dict[int, int], optional
+    :param tag_map_in: a dictionary of the mapping between matrix indexes of the incoming events and their tags. Used to interpret the input weight matrix, defaults to None
+    :type tag_map_in: Dict[int, int], optional
     :param w_rec_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), for recurrent connections, defaults to None
     :type w_rec_mask: np.ndarray, optional
     :param w_in_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), for input connections, defaults to None
@@ -70,7 +70,7 @@ class Router:
     n_cores: np.uint8 = None
     idx_map: Dict[int, NeuronKey] = None
     core_map: Dict[CoreKey, List[np.uint8]] = None
-    tag_map: Dict[int, int] = None
+    tag_map_in: Dict[int, int] = None
     w_rec_mask: np.ndarray = None
     w_in_mask: np.ndarray = None
 
@@ -151,7 +151,7 @@ class Router:
             n_chips=len(config.chips),
             n_cores=max([len(chip.cores) for chip in config.chips]),
             idx_map=connector.get_idx_map(),
-            tag_map=connector.get_tag_map(),
+            tag_map_in=connector.get_tag_map_in(),
             core_map=connector.get_core_map(),
             w_rec_mask=connector.get_w_rec_mask(),
             w_in_mask=connector.get_w_in_mask(),
@@ -219,14 +219,14 @@ class Connector(ABC):
     def __post_init__(self) -> None:
         self.__idx_map = None
         self.__core_map = None
-        self.__tag_map = None
+        self.__tag_map_in = None
         self.__r_idx_map = None
-        self.__r_tag_map = None
+        self.__r_tag_map_in = None
 
     @property
-    def n_tag(self) -> int:
-        """number of tags"""
-        return len(self.get_tag_map())
+    def n_tag_in(self) -> int:
+        """number of input tags"""
+        return len(self.get_tag_map_in())
 
     @property
     def n_neuron(self) -> int:
@@ -302,11 +302,11 @@ class Connector(ABC):
         :rtype: List[Tuple[int, int, int, int]]
         """
         r_idx_map = self.get_r_idx_map()
-        r_tag_map = self.get_r_tag_map()
+        r_tag_map_in = self.get_r_tag_map_in()
 
         __connections = [
             self.read_syn_connection(
-                (r_tag_map[self.cam_tag(syn)], r_idx_map[nkey], syn)
+                (r_tag_map_in[self.cam_tag(syn)], r_idx_map[nkey], syn)
             )
             for nkey, _list in self.synapses.items()
             for syn in _list
@@ -404,20 +404,20 @@ class Connector(ABC):
 
         return self.__core_map
 
-    def get_tag_map(self) -> Dict[int, int]:
+    def get_tag_map_in(self) -> Dict[int, int]:
         """
-        get_tag_map obtains a tag map from active synapses searching for all the tags given to any connection
+        get_tag_map_in obtains a tag map from active synapses searching for all the tags given to any input connection
 
         :return: a dictionary of the mapping between matrix indexes of the events and their tags
         :rtype: Dict[int, int]
         """
-        if self.__tag_map is not None:
-            return self.__tag_map
+        if self.__tag_map_in is not None:
+            return self.__tag_map_in
 
         tags = [self.cam_tag(syn) for _list in self.synapses.values() for syn in _list]
         tags = sorted(list(set(tags)))
-        self.__tag_map = dict(zip(range(len(tags)), tags))
-        return self.__tag_map
+        self.__tag_map_in = dict(zip(range(len(tags)), tags))
+        return self.__tag_map_in
 
     def get_r_idx_map(self) -> Dict[NeuronKey, int]:
         """
@@ -431,17 +431,17 @@ class Connector(ABC):
         self.__r_idx_map = self.invert_dict(self.get_idx_map())
         return self.__r_idx_map
 
-    def get_r_tag_map(self) -> Dict[int, int]:
+    def get_r_tag_map_in(self) -> Dict[int, int]:
         """
-        get_r_tag_map inverts tag map. See also `Connect.get_tag_map()`
+        get_r_tag_map_in inverts tag map. See also `Connect.get_tag_map_in()`
 
         :return: inverted tag map
         :rtype: Dict[int, int]
         """
-        if self.__r_tag_map is not None:
-            return self.__r_tag_map
-        self.__r_tag_map = self.invert_dict(self.get_tag_map())
-        return self.__r_tag_map
+        if self.__r_tag_map_in is not None:
+            return self.__r_tag_map_in
+        self.__r_tag_map_in = self.invert_dict(self.get_tag_map_in())
+        return self.__r_tag_map_in
 
     def get_w_in_mask(self) -> np.ndarray:
         """
@@ -451,7 +451,7 @@ class Connector(ABC):
         :rtype: np.ndarray
         """
         w_in_mask = self.fill_weight_mask(
-            self.input_connections(), n_pre=self.n_tag, n_post=self.n_neuron
+            self.input_connections(), n_pre=self.n_tag_in, n_post=self.n_neuron
         )
         return w_in_mask
 
