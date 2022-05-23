@@ -69,6 +69,7 @@ class Router:
     """
 
     n_chips: np.uint8 = None
+    shape: Tuple[int] = None
     core_map: Dict[CoreKey, List[np.uint8]] = None
     tag_map_in: Dict[int, int] = None
     idx_map: Dict[int, NeuronKey] = None
@@ -146,6 +147,7 @@ class Router:
 
         _mod = cls(
             n_chips=len(config.chips),
+            shape=connector.shape,
             core_map=connector.get_core_map(),
             tag_map_in=connector.get_tag_map_in(),
             idx_map=connector.get_idx_map(),
@@ -216,6 +218,11 @@ class Connector(ABC):
         self.__r_idx_map = None
         self.__r_tag_map_in = None
         self.__r_tag_map_out = None
+
+    @property
+    def shape(self) -> Tuple[int]:
+        """shape o the network indicated"""
+        return (self.n_tag_in, self.n_neuron, self.n_tag_out)
 
     @property
     def n_tag_in(self) -> int:
