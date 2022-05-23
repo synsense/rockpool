@@ -37,8 +37,10 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 13/07/2021
 [] TODO : Ith or f_gain should be an option to set or optimize
+[] TODO : Optional mismatch
 """
 
+from __future__ import annotations
 import logging
 
 from typing import Any, Callable, Dict, Optional, Tuple, Union
@@ -56,6 +58,9 @@ from rockpool.parameters import Parameter, State, SimulationParameter
 from rockpool.devices.dynapse.infrastructure.mismatch import MismatchDevice
 from rockpool.devices.dynapse.config.simconfig import DynapSE1SimBoard
 from rockpool.devices.dynapse.base import DynapSE, DynapSERecord, DynapSEState
+
+Dynapse1Configuration = Any
+Dynapse2Configuration = Any
 
 
 @custom_gradient
@@ -414,6 +419,16 @@ class DynapSim(JaxModule, DynapSE):
         self._one = jnp.array(1.0)
         self._two = jnp.array(2.0)
 
+    @classmethod
+    def from_Dynapse1Configuration(cls, config: Dynapse1Configuration) -> DynapSim:
+        # Parameters
+        # Weights
+        None
+
+    @classmethod
+    def from_Dynapse2Configuration(cls, config: Dynapse2Configuration) -> DynapSim:
+        None
+
     def _shape_check(self, shape: Tuple[int]) -> None:
         """
         _shape_check Controls the shape of module and complains if not appropriate.
@@ -722,6 +737,12 @@ class DynapSim(JaxModule, DynapSE):
             }
 
         return spikes_ts, states, record_dict
+
+    def export_Dynapse1Configuration(self) -> Dynapse1Configuration:
+        None
+
+    def export_Dynapse2Configuration(self) -> Dynapse2Configuration:
+        None
 
     @property
     def t_ref(self) -> jnp.DeviceArray:
