@@ -401,17 +401,9 @@ class Connector(ABC):
             return self.__core_map
 
         # Initiate
-        self.__core_map: Dict[CoreKey, List[np.uint8]] = {}
         idx_map = self.get_idx_map()
-
-        # Iterate
-        for h, c, n in idx_map.values():
-            if (h, c) not in self.__core_map:
-                self.__core_map[h, c] = [n]
-            else:
-                self.__core_map[h, c].append(n)
-
-        return self.__core_map
+        self.core_map = self.core_map_from_idx_map(idx_map)
+        return self.core_map
 
     def get_tag_map_in(self) -> Dict[int, int]:
         """
@@ -535,6 +527,29 @@ class Connector(ABC):
         return w_rec_mask
 
     ### --- Utilities --- ###
+
+    @staticmethod
+    def core_map_from_idx_map(
+        idx_map: Dict[int, NeuronKey]
+    ) -> Dict[CoreKey, List[np.uint8]]:
+        """
+        core_map_from_idx_map is a utility function used to get a core map from index map
+
+        :param idx_map: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
+        :type idx_map: Dict[int, NeuronKey]
+        :return: a dictionary of the mapping between active cores and list of active neurons
+        :rtype: Dict[CoreKey, List[np.uint8]]
+        """
+
+        __core_map: Dict[CoreKey, List[np.uint8]] = {}
+
+        for h, c, n in idx_map.values():
+            if (h, c) not in __core_map:
+                __core_map[h, c] = [n]
+            else:
+                __core_map[h, c].append(n)
+
+        return __core_map
 
     @staticmethod
     def fill_weight_mask(
