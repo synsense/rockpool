@@ -59,7 +59,12 @@ from jax.tree_util import Partial
 from jax import numpy as jnp
 import numpy as np
 from rockpool.devices.dynapse.config.board import DynapSimConfig
-from rockpool.devices.dynapse.config.simcore import DynapSimCurrents, DynapSimLayout
+from rockpool.devices.dynapse.config.simcore import (
+    DynapSimCurrents,
+    DynapSimLayout,
+    DynapSimCoreTime,
+    DynapSimCoreGain,
+)
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
@@ -309,7 +314,6 @@ class DynapSim(JaxModule, DynapSE):
         # - Seed RNG
         if rng_key is None:
             rng_key = rand.PRNGKey(np.random.randint(0, 2 ** 63))
-        _, rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
 
         self.SYN = dict(zip(self.syn_types, range(len(self.syn_types))))
 
@@ -347,7 +351,7 @@ class DynapSim(JaxModule, DynapSE):
         #     )
 
         # --- Parameters & States --- #
-        init_current = lambda s: jnp.full(s, sim_config.Io)
+        init_current = lambda s: jnp.full(tuple(reversed(s)), sim_config.Io).T
         # [] TODO : parametrize!
         init_weight = lambda s: sim_config.weight_matrix(self.poisson_CAM(s))
 
@@ -378,7 +382,6 @@ class DynapSim(JaxModule, DynapSE):
             "Itau_ahp",
             "Iw_ahp",
             "Itau_mem",
-            "Itau2_mem",
             "Idc",
             "If_nmda",
             "Iref",
@@ -423,6 +426,7 @@ class DynapSim(JaxModule, DynapSE):
         self._attr_list.remove("Iw_1")
         self._attr_list.remove("Iw_2")
         self._attr_list.remove("Iw_3")
+        self._attr_list.remove("Itau2_mem")
         self._attr_list += [
             "imem",
             "isyn",
@@ -557,7 +561,7 @@ class DynapSim(JaxModule, DynapSE):
 
         ## --- Synapses --- ## Nrec, 4
         Itau_syn_clip = jnp.clip(self.md.Itau_syn.T, self.md.Io).T
-        Igain_syn_clip = jnp.clip(self.md.Igain_syn, self.md.Io)
+        Igain_syn_clip = jnp.clip(self.md.Igain_syn.T, self.md.Io).T
 
         ## --- Spike frequency adaptation --- ## Nrec
         Itau_ahp_clip = jnp.clip(self.md.Itau_ahp, self.md.Io)
