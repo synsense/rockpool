@@ -40,7 +40,9 @@ from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1Parameter
 from rockpool.devices.dynapse.samna_alias.dynapse2 import Dynapse2Parameter
 
 WeightRecord = Tuple[
-    jnp.DeviceArray, jnp.DeviceArray, jnp.DeviceArray,  # loss  # w_en  # w_dec
+    jnp.DeviceArray,
+    jnp.DeviceArray,
+    jnp.DeviceArray,  # loss  # w_en  # w_dec
 ]
 
 
@@ -463,7 +465,8 @@ class WeightParameters:
 
         ## Update mux
         mux_flat = self.multiplex_bitmask(self.ae.n_code, self.ae.bitmask)
-        self.mux = jnp.round(self.mux.at[self.idx_nonzero].set(mux_flat)).astype(int)
+        mux_round = jnp.round(self.mux.at[self.idx_nonzero].set(mux_flat)).astype(int)
+        self.mux = jnp.clip(mux_round, 0, None)
 
         ## Update Iws
         code = self.ae.encode(self.w_flat)
