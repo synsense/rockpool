@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import logging
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import jax.numpy as jnp
 import numpy as np
@@ -79,8 +79,9 @@ class DynapSE1Jax(DynapSim):
         self,
         shape: Optional[Tuple] = None,
         sim_config: Optional[DynapSE1SimBoard] = None,
-        has_rec: bool = True,
         w_rec: Optional[jnp.DeviceArray] = None,
+        has_rec: bool = True,
+        weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = None,
         idx_map: Optional[Dict[int, NeuronKey]] = None,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
@@ -106,8 +107,9 @@ class DynapSE1Jax(DynapSim):
         super(DynapSE1Jax, self).__init__(
             shape,
             sim_config,
-            has_rec,
             w_rec,
+            has_rec,
+            weight_init_func,
             dt,
             rng_key,
             spiking_input,
@@ -173,13 +175,7 @@ class DynapSE1Jax(DynapSim):
             for bias in self.biases
         ]
 
-        group = {
-            "value0": {
-                "paramMap": param_map,
-                "chipId": chipID,
-                "coreId": coreID,
-            }
-        }
+        group = {"value0": {"paramMap": param_map, "chipId": chipID, "coreId": coreID,}}
 
         return group
 
@@ -272,10 +268,7 @@ class DynapSE1Jax(DynapSim):
         # Obtain a TimedModuleWrapper and sequentially combine input layer with simulation layer
         fpga = DynapSEFPGA(fpga_shape, sim_config, w_in, idx_map_in)
         se1 = DynapSE1Jax(se1_shape, sim_config, has_rec, w_rec, idx_map_rec)
-        simulator = TimedModuleWrapper(
-            Sequential(fpga, se1),
-            dt=se1.dt,
-        )
+        simulator = TimedModuleWrapper(Sequential(fpga, se1), dt=se1.dt,)
 
         return simulator
 
