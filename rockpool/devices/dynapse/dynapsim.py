@@ -44,6 +44,7 @@ E-mail : ugurcan.cakal@gmail.com
 [] TODO : Length check simconfig
 [] TODO : Check LIFjax dfor core.Tracer and all the other things
 [] TODO : max spikes per dt
+[] TODO : bias : DynapSimCurrents
 """
 
 from __future__ import annotations
@@ -236,8 +237,8 @@ class DynapSim(JaxModule, DynapSE):
     :type Itau_syn: jnp.DeviceArray
     :ivar Itau_ahp: Array of spike frequency adaptation leakage currents of the neurons with shape (Nrec,)
     :type Itau_ahp: jnp.DeviceArray
-    :ivar Itau_mem: Array of membrane leakage currents of the neurons with shape (Nrec,)
-    :type Itau_mem: jnp.DeviceArray
+    :ivar Itau_soma: Array of membrane leakage currents of the neurons with shape (Nrec,)
+    :type Itau_soma: jnp.DeviceArray
     :ivar Iw_ahp: Array of spike frequency adaptation weight currents of the neurons with shape (Nrec,)
     :type Iw_ahp: jnp.DeviceArray
     :ivar Idc: Array of constant DC current in Amperes, injected to membrane with shape (Nrec,)
@@ -378,24 +379,27 @@ class DynapSim(JaxModule, DynapSE):
         self.Igain_syn = Parameter(Igain_syn, shape=(self.size_out, 4))
 
         ## Membrane
-        for name in [
-            "Itau_ahp",
-            "Iw_ahp",
-            "Itau_mem",
-            "Idc",
-            "If_nmda",
-            "Iref",
-            "Ipulse",
-            "Ispkthr",
-        ]:
-            config_setter(Parameter, name, (self.size_out,))
 
-        # GAIN #
+        # NO PROBLEM #
+        self.Itau_ahp = Parameter(sim_config.Itau_ahp, shape=(self.size_out,))
+        self.Iw_ahp = Parameter(sim_config.Iw_ahp, shape=(self.size_out,))
+        self.Idc = Parameter(sim_config.Idc, shape=(self.size_out,))
+        self.If_nmda = Parameter(sim_config.If_nmda, shape=(self.size_out,))
+        self.Ispkthr = Parameter(sim_config.Ispkthr, shape=(self.size_out,))
+        self.Iref = Parameter(sim_config.Iref, shape=(self.size_out,))
+        self.Ipulse = Parameter(sim_config.Ipulse, shape=(self.size_out,))
+
+        # --- CHANGE --- #
+        self.Itau_soma = Parameter(sim_config.Itau_mem, shape=(self.size_out,))
+
+        ## GAIN ##
         Igain_ahp = sim_config.Itau_ahp * sim_config.f_gain_ahp
         self.Igain_ahp = Parameter(Igain_ahp, shape=(self.size_out,))
 
         Igain_soma = sim_config.Itau_mem * sim_config.f_gain_mem
         self.Igain_soma = Parameter(Igain_soma, shape=(self.size_out,))
+
+        # ---- CHANGE DONE --- #
 
         # --- Simulation Parameters --- #
         self.dt = SimulationParameter(dt, shape=())
@@ -403,9 +407,6 @@ class DynapSim(JaxModule, DynapSE):
 
         for name in [
             "kappa",
-            "Ut",
-            "Io",
-            "Ireset",
             "f_tau_mem",
             "f_tau_ahp",
             "f_pulse_ahp",
@@ -414,26 +415,38 @@ class DynapSim(JaxModule, DynapSE):
         ]:
             config_setter(SimulationParameter, name, shape=(self.size_out,))
 
-        # self._attr_list = np.subtract(sim_config._attr_list, ["Imem", "Isyn", "Iahp"])
-        self._attr_list = sim_config._attr_list
-        self._attr_list.remove("Imem")
-        self._attr_list.remove("Isyn")
-        self._attr_list.remove("Iahp")
-        self._attr_list.remove("f_gain_ahp")
-        self._attr_list.remove("f_gain_mem")
-        self._attr_list.remove("f_gain_syn")
-        self._attr_list.remove("Iw_0")
-        self._attr_list.remove("Iw_1")
-        self._attr_list.remove("Iw_2")
-        self._attr_list.remove("Iw_3")
-        self._attr_list.remove("Itau2_mem")
-        self._attr_list += [
+        self.Ut = Parameter(sim_config.Ut, shape=(self.size_out,))
+        self.Io = Parameter(sim_config.Io, shape=(self.size_out,))
+        self.Ireset = SimulationParameter(
+            shape=(self.size_out,), init_func=init_current
+        )
+
+        self._attr_list = [
+            "Itau_syn",
+            "Itau_ahp",
+            "Iw_ahp",
+            "kappa",
+            "Ut",
+            "Io",
+            "f_tau_mem",
+            "f_tau_syn",
+            "f_tau_ahp",
+            "f_ref",
+            "f_pulse",
+            "f_pulse_ahp",
+            "Iref",
+            "Ipulse",
+            "Ispkthr",
+            "Ireset",
+            "Idc",
+            "If_nmda",
             "imem",
             "isyn",
             "iahp",
             "Igain_ahp",
             "Igain_soma",
             "Igain_syn",
+            "Itau_soma",
             "w_rec",
         ]
         attr = {name: self.__getattribute__(name) for name in self._attr_list}
@@ -568,7 +581,7 @@ class DynapSim(JaxModule, DynapSE):
         Igain_ahp_clip = jnp.clip(self.md.Igain_ahp, self.md.Io)
 
         ## -- Membrane -- ## Nrec
-        Itau_mem_clip = jnp.clip(self.md.Itau_mem, self.md.Io)
+        Itau_soma_clip = jnp.clip(self.md.Itau_soma, self.md.Io)
         Igain_soma_clip = jnp.clip(self.md.Igain_soma, self.md.Io)
 
         # Both (T, Nrecx4), and (T, Nrec, 4) shaped inputs are accepted
@@ -677,13 +690,13 @@ class DynapSim(JaxModule, DynapSE):
             Iin = jnp.clip(Iin, self.md.Io)
 
             # Igaba_a (shunting) contributes to the membrane leak instead of subtracting from Iin
-            Ileak = Itau_mem_clip + Igaba_a
+            Ileak = Itau_soma_clip + Igaba_a
             tau_mem_prime = (
                 self.md.f_tau_mem / Ileak * (self._one + (Igain_soma_clip / imem))
             )
 
             ## Steady state current
-            imem_inf = (Igain_soma_clip / Itau_mem_clip) * (Iin - iahp - Ileak)
+            imem_inf = (Igain_soma_clip / Itau_soma_clip) * (Iin - iahp - Ileak)
 
             ## Positive feedback
             Ifb = self.md.Io * f_feedback
@@ -800,7 +813,7 @@ class DynapSim(JaxModule, DynapSE):
         """
         tau_mem holds an array of time constants in seconds for neurons with shape = (Nrec,)
         """
-        return self.f_tau_mem / self.Itau_mem
+        return self.f_tau_mem / self.Itau_soma
 
     @property
     def tau_syn(self) -> jnp.DeviceArray:
@@ -884,7 +897,7 @@ class DynapSim(JaxModule, DynapSE):
     #     """
     #     Igain_soma create an array of membrane threshold(a.k.a gain) currents with shape = (Nrec,)
     #     """
-    #     return self.Itau_mem * self.f_gain_mem
+    #     return self.Itau_soma * self.f_gain_mem
 
     # @property
     # def Igain_syn(self) -> jnp.DeviceArray:
