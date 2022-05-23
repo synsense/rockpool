@@ -36,7 +36,6 @@ Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 13/07/2021
-[] TODO : Ith or f_gain should be an option to set or optimize
 [] TODO : Optional mismatch
 [] TODO : Deal with SYN
 [] TODO : from specifications
@@ -234,22 +233,8 @@ class DynapSim(JaxModule, DynapSE):
     :type Itau_ahp: jnp.DeviceArray
     :ivar Itau_mem: Array of membrane leakage currents of the neurons with shape (Nrec,)
     :type Itau_mem: jnp.DeviceArray
-    :ivar f_gain_syn: 2D array of synapse gain parameters of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape (4,Nrec)
-    :type f_gain_syn: jnp.DeviceArray
-    :ivar f_gain_ahp: Array of spike frequency adaptation gain parameters of the neurons with shape (Nrec,)
-    :type f_gain_ahp: jnp.DeviceArray
-    :ivar f_gain_mem: Array of membrane gain parameter of the neurons with shape (Nrec,)
-    :type f_gain_mem: jnp.DeviceArray
     :ivar Iw_ahp: Array of spike frequency adaptation weight currents of the neurons with shape (Nrec,)
     :type Iw_ahp: jnp.DeviceArray
-    :ivar Iw_0: Array of weight bit 0 currents of the neurons with shape (Nrec,)
-    :type Iw_0: jnp.DeviceArray
-    :ivar Iw_1: Array of weight bit 1 currents of the neurons with shape (Nrec,)
-    :type Iw_1: jnp.DeviceArray
-    :ivar Iw_2: Array of weight bit 2 currents of the neurons with shape (Nrec,)
-    :type Iw_2: jnp.DeviceArray
-    :ivar Iw_3: Array of weight bit 3 currents of the neurons with shape (Nrec,)
-    :type Iw_3: jnp.DeviceArray
     :ivar Idc: Array of constant DC current in Amperes, injected to membrane with shape (Nrec,)
     :type Idc: jnp.DeviceArray
     :ivar If_nmda: Array of the NMDA gate current in Amperes setting the NMDA gating voltage. If :math:`V_{mem} > V_{nmda}` : The :math:`I_{syn_{NMDA}}` current is added up to the input current, else it cannot with shape (Nrec,)
@@ -381,21 +366,19 @@ class DynapSim(JaxModule, DynapSE):
         self.__weight_init(has_rec, init_weight, w_rec)
 
         ## Synapse
-        for name in ["Itau_syn", "f_gain_syn"]:
+        for name in ["Itau_syn"]:
             config_setter(Parameter, name, (self.size_out, 4))
+
+        # GAIN #
+        Igain_syn = sim_config.Itau_syn * sim_config.f_gain_syn
+        self.Igain_syn = Parameter(Igain_syn, shape=(self.size_out, 4))
 
         ## Membrane
         for name in [
             "Itau_ahp",
-            "f_gain_ahp",
             "Iw_ahp",
-            "Iw_0",
-            "Iw_1",
-            "Iw_2",
-            "Iw_3",
             "Itau_mem",
             "Itau2_mem",
-            "f_gain_mem",
             "Idc",
             "If_nmda",
             "Iref",
@@ -403,6 +386,13 @@ class DynapSim(JaxModule, DynapSE):
             "Ispkthr",
         ]:
             config_setter(Parameter, name, (self.size_out,))
+
+        # GAIN #
+        Igain_ahp = sim_config.Itau_ahp * sim_config.f_gain_ahp
+        self.Igain_ahp = Parameter(Igain_ahp, shape=(self.size_out,))
+
+        Igain_soma = sim_config.Itau_mem * sim_config.f_gain_mem
+        self.Igain_soma = Parameter(Igain_soma, shape=(self.size_out,))
 
         # --- Simulation Parameters --- #
         self.dt = SimulationParameter(dt, shape=())
@@ -426,8 +416,22 @@ class DynapSim(JaxModule, DynapSE):
         self._attr_list.remove("Imem")
         self._attr_list.remove("Isyn")
         self._attr_list.remove("Iahp")
-        # self._attr_list.remove("Vmem")
-        self._attr_list += ["imem", "isyn", "iahp", "w_rec"]
+        self._attr_list.remove("f_gain_ahp")
+        self._attr_list.remove("f_gain_mem")
+        self._attr_list.remove("f_gain_syn")
+        self._attr_list.remove("Iw_0")
+        self._attr_list.remove("Iw_1")
+        self._attr_list.remove("Iw_2")
+        self._attr_list.remove("Iw_3")
+        self._attr_list += [
+            "imem",
+            "isyn",
+            "iahp",
+            "Igain_ahp",
+            "Igain_soma",
+            "Igain_syn",
+            "w_rec",
+        ]
         attr = {name: self.__getattribute__(name) for name in self._attr_list}
         self.md = MismatchDevice(self.rng_key, **attr)
 
@@ -553,15 +557,15 @@ class DynapSim(JaxModule, DynapSE):
 
         ## --- Synapses --- ## Nrec, 4
         Itau_syn_clip = jnp.clip(self.md.Itau_syn.T, self.md.Io).T
-        Ith_syn_clip = self.md.f_gain_syn * Itau_syn_clip
+        Igain_syn_clip = jnp.clip(self.md.Igain_syn, self.md.Io)
 
         ## --- Spike frequency adaptation --- ## Nrec
         Itau_ahp_clip = jnp.clip(self.md.Itau_ahp, self.md.Io)
-        Ith_ahp_clip = self.md.f_gain_ahp * Itau_ahp_clip
+        Igain_ahp_clip = jnp.clip(self.md.Igain_ahp, self.md.Io)
 
         ## -- Membrane -- ## Nrec
         Itau_mem_clip = jnp.clip(self.md.Itau_mem, self.md.Io)
-        Ith_mem_clip = self.md.f_gain_mem * Itau_mem_clip
+        Igain_soma_clip = jnp.clip(self.md.Igain_soma, self.md.Io)
 
         # Both (T, Nrecx4), and (T, Nrec, 4) shaped inputs are accepted
         input_data = jnp.reshape(input_data, (input_data.shape[0], -1, 4))
@@ -601,12 +605,12 @@ class DynapSim(JaxModule, DynapSE):
             Iws = Iws_internal + Iw_input
 
             # isyn_inf is the current that a synapse current would reach with a sufficiently long pulse
-            isyn_inf = (self.md.f_gain_syn * Iws) - Ith_syn_clip
+            isyn_inf = ((Igain_syn_clip / Itau_syn_clip) * Iws) - Igain_syn_clip
             isyn_inf = jnp.clip(isyn_inf, self._zero)
 
-            # synaptic time constant is practically much more longer than expected when isyn << Ith
+            # synaptic time constant is practically much more longer than expected when isyn << Igain
             tau_syn_prime = (self.md.f_tau_syn / Itau_syn_clip) * (
-                1 + (Ith_syn_clip / isyn)
+                1 + (Igain_syn_clip / isyn)
             )
 
             ## Exponential charge, discharge positive feedback factor arrays
@@ -629,10 +633,10 @@ class DynapSim(JaxModule, DynapSE):
             # ------------------------------------------------------ #
 
             Iws_ahp = self.md.Iw_ahp * spikes  # 0 if no spike, Iw_ahp if spike
-            iahp_inf = (self.md.f_gain_ahp * Iws_ahp) - Ith_ahp_clip
+            iahp_inf = ((Igain_ahp_clip / Itau_ahp_clip) * Iws_ahp) - Igain_ahp_clip
 
             tau_ahp_prime = (self.md.f_tau_ahp / Itau_ahp_clip) * (
-                self._one + (Ith_ahp_clip / iahp)
+                self._one + (Igain_ahp_clip / iahp)
             )
 
             # Calculate charge and discharge factors
@@ -671,15 +675,15 @@ class DynapSim(JaxModule, DynapSE):
             # Igaba_a (shunting) contributes to the membrane leak instead of subtracting from Iin
             Ileak = Itau_mem_clip + Igaba_a
             tau_mem_prime = (
-                self.md.f_tau_mem / Ileak * (self._one + (Ith_mem_clip / imem))
+                self.md.f_tau_mem / Ileak * (self._one + (Igain_soma_clip / imem))
             )
 
             ## Steady state current
-            imem_inf = self.md.f_gain_mem * (Iin - iahp - Ileak)
+            imem_inf = (Igain_soma_clip / Itau_mem_clip) * (Iin - iahp - Ileak)
 
             ## Positive feedback
             Ifb = self.md.Io * f_feedback
-            f_imem = ((Ifb) / (Ileak)) * (imem + Ith_mem_clip)
+            f_imem = ((Ifb) / (Ileak)) * (imem + Igain_soma_clip)
 
             ## Forward Euler Update
             del_imem = (self._one / tau_mem_prime) * (
@@ -871,51 +875,51 @@ class DynapSim(JaxModule, DynapSE):
 
     ### --- THRESHOLD (A.K.A GAIN) --- ###
 
-    @property
-    def Ith_mem(self) -> jnp.DeviceArray:
-        """
-        Ith_mem create an array of membrane threshold(a.k.a gain) currents with shape = (Nrec,)
-        """
-        return self.Itau_mem * self.f_gain_mem
+    # @property
+    # def Igain_soma(self) -> jnp.DeviceArray:
+    #     """
+    #     Igain_soma create an array of membrane threshold(a.k.a gain) currents with shape = (Nrec,)
+    #     """
+    #     return self.Itau_mem * self.f_gain_mem
+
+    # @property
+    # def Igain_syn(self) -> jnp.DeviceArray:
+    #     """
+    #     Igain_syn create an array of synaptic threshold(a.k.a gain) currents in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,Nrec)
+    #     """
+    #     return self.Itau_syn * self.f_gain_syn
+
+    # @property
+    # def Igain_ahp(self) -> jnp.DeviceArray:
+    #     """
+    #     Igain_ahp create an array of spike frequency adaptation threshold(a.k.a gain) currents with shape = (Nrec,)
+    #     """
+    #     return self.Itau_ahp * self.f_gain_ahp
 
     @property
-    def Ith_syn(self) -> jnp.DeviceArray:
+    def Igain_gaba_b(self) -> jnp.DeviceArray:
         """
-        Ith_syn create an array of synaptic threshold(a.k.a gain) currents in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,Nrec)
+        Igain_gaba_b holds an array of gain bias current in Amperes for GABA_B synapse of the neurons with shape = (Nrec,)
         """
-        return self.Itau_syn * self.f_gain_syn
+        return self.Igain_syn[self.SYN["GABA_B"]]
 
     @property
-    def Ith_ahp(self) -> jnp.DeviceArray:
+    def Igain_gaba_a(self) -> jnp.DeviceArray:
         """
-        Ith_ahp create an array of spike frequency adaptation threshold(a.k.a gain) currents with shape = (Nrec,)
+        Igain_gaba_a holds an array of gain bias current in Amperes for GABA_A synapse of the neurons with shape = (Nrec,)
         """
-        return self.Itau_ahp * self.f_gain_ahp
+        return self.Igain_syn[self.SYN["GABA_A"]]
 
     @property
-    def Ith_gaba_b(self) -> jnp.DeviceArray:
+    def Igain_nmda(self) -> jnp.DeviceArray:
         """
-        Ith_gaba_b holds an array of gain bias current in Amperes for GABA_B synapse of the neurons with shape = (Nrec,)
+        Igain_nmda holds an array of gain bias current in Amperes for NMDA synapse of the neurons with shape = (Nrec,)
         """
-        return self.Ith_syn[self.SYN["GABA_B"]]
+        return self.Igain_syn[self.SYN["NMDA"]]
 
     @property
-    def Ith_gaba_a(self) -> jnp.DeviceArray:
+    def Igain_ampa(self) -> jnp.DeviceArray:
         """
-        Ith_gaba_a holds an array of gain bias current in Amperes for GABA_A synapse of the neurons with shape = (Nrec,)
+        Igain_ampa holds an array of gain bias current in Amperes for AMPA synapse of the neurons with shape = (Nrec,)
         """
-        return self.Ith_syn[self.SYN["GABA_A"]]
-
-    @property
-    def Ith_nmda(self) -> jnp.DeviceArray:
-        """
-        Ith_nmda holds an array of gain bias current in Amperes for NMDA synapse of the neurons with shape = (Nrec,)
-        """
-        return self.Ith_syn[self.SYN["NMDA"]]
-
-    @property
-    def Ith_ampa(self) -> jnp.DeviceArray:
-        """
-        Ith_ampa holds an array of gain bias current in Amperes for AMPA synapse of the neurons with shape = (Nrec,)
-        """
-        return self.Ith_syn[self.SYN["AMPA"]]
+        return self.Igain_syn[self.SYN["AMPA"]]
