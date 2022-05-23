@@ -45,6 +45,7 @@ E-mail : ugurcan.cakal@gmail.com
 [] TODO : Check LIFjax dfor core.Tracer and all the other things
 [] TODO : max spikes per dt
 [] TODO : bias : DynapSimCurrents
+[] TODO : handle device arrays
 """
 
 from __future__ import annotations
@@ -288,7 +289,7 @@ class DynapSim(JaxModule, DynapSE):
     def __init__(
         self,
         shape: Optional[Tuple[int]] = None,
-        sim_config: Optional[DynapSE1SimBoard] = None,
+        sim_config: Optional[DynapSimConfig] = None,
         w_rec: Optional[jnp.DeviceArray] = None,
         has_rec: bool = True,
         weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = None,
@@ -318,33 +319,10 @@ class DynapSim(JaxModule, DynapSE):
 
         self.SYN = dict(zip(self.syn_types, range(len(self.syn_types))))
 
-        def config_setter(
-            cls: Union[State, Parameter, SimulationParameter],
-            name: str,
-            shape: Tuple[int],
-            init: Optional[Callable] = None,
-        ) -> None:
-            """
-            config_setter set a `State`, `Parameter` or `SimulationParameter` object by of the module using the data
-            from simulation configuraiton `sim_config` object
-
-            :param cls: `State`, `Parameter` or `SimulationParameter` to call depending on the situation
-            :type cls: Union[State, Parameter, SimulationParameter]
-            :param name: the name of the attribute. Note that it will be the same in the sim_config object and in the simulator module
-            :type name: str
-            :param shape: the shape of the data frame
-            :type shape: Tuple[int]
-            :param init: the initialization function to be used when `.reset()` called, defaults to None
-            :type init: Optional[Callable], optional
-            """
-            val = sim_config.__getattribute__(name)
-            attr = cls(val, init_func=init, shape=shape)
-            self.__setattr__(name, attr)
-
         # --- Deal with Optinal Arguments --- #
 
         if sim_config is None:
-            sim_config = DynapSE1SimBoard(size=self.size_out)
+            sim_config = DynapSimConfig.from_specification(shape=self.size_out)
 
         # if len(sim_config) != self.size_out:
         #     raise ValueError(
@@ -354,7 +332,7 @@ class DynapSim(JaxModule, DynapSE):
         # --- Parameters & States --- #
         init_current = lambda s: jnp.full(tuple(reversed(s)), sim_config.Io).T
         # [] TODO : parametrize!
-        init_weight = lambda s: sim_config.weight_matrix(self.poisson_CAM(s))
+        init_weight = lambda s: sim_config.w_rec
 
         # --- States --- #
         self.isyn = State(shape=(self.size_out, 4), init_func=init_current)
@@ -370,12 +348,28 @@ class DynapSim(JaxModule, DynapSE):
         ## Weights
         self.__weight_init(has_rec, init_weight, w_rec)
 
+        ### CHANGE ###
         ## Synapse
-        for name in ["Itau_syn"]:
-            config_setter(Parameter, name, (self.size_out, 4))
+        Isyn = np.stack(
+            [
+                sim_config.Itau_gaba,
+                sim_config.Itau_shunt,
+                sim_config.Itau_nmda,
+                sim_config.Itau_ampa,
+            ]
+        ).T
 
-        # GAIN #
-        Igain_syn = sim_config.Itau_syn * sim_config.f_gain_syn
+        self.Itau_syn = Parameter(Isyn, shape=(self.size_out, 4))
+
+        Igain_syn = np.stack(
+            [
+                sim_config.Igain_gaba,
+                sim_config.Igain_shunt,
+                sim_config.Igain_nmda,
+                sim_config.Igain_ampa,
+            ]
+        ).T
+
         self.Igain_syn = Parameter(Igain_syn, shape=(self.size_out, 4))
 
         ## Membrane
@@ -388,35 +382,45 @@ class DynapSim(JaxModule, DynapSE):
         self.Ispkthr = Parameter(sim_config.Ispkthr, shape=(self.size_out,))
         self.Iref = Parameter(sim_config.Iref, shape=(self.size_out,))
         self.Ipulse = Parameter(sim_config.Ipulse, shape=(self.size_out,))
+        self.Itau_soma = Parameter(sim_config.Itau_soma, shape=(self.size_out,))
+        self.Igain_ahp = Parameter(sim_config.Igain_ahp, shape=(self.size_out,))
+        self.Igain_soma = Parameter(sim_config.Igain_soma, shape=(self.size_out,))
 
-        # --- CHANGE --- #
-        self.Itau_soma = Parameter(sim_config.Itau_mem, shape=(self.size_out,))
-
-        ## GAIN ##
-        Igain_ahp = sim_config.Itau_ahp * sim_config.f_gain_ahp
-        self.Igain_ahp = Parameter(Igain_ahp, shape=(self.size_out,))
-
-        Igain_soma = sim_config.Itau_mem * sim_config.f_gain_mem
-        self.Igain_soma = Parameter(Igain_soma, shape=(self.size_out,))
-
-        # ---- CHANGE DONE --- #
+        ### NEW ### NEW ### NEW ###
+        self.Ipulse_ahp = Parameter(sim_config.Ipulse_ahp, shape=(self.size_out,))
 
         # --- Simulation Parameters --- #
         self.dt = SimulationParameter(dt, shape=())
-        config_setter(SimulationParameter, "f_tau_syn", (self.size_out, 4))
+        kappa = (sim_config.kappa_n + sim_config.kappa_p) / 2
 
-        for name in [
-            "kappa",
-            "f_tau_mem",
-            "f_tau_ahp",
-            "f_pulse_ahp",
-            "f_ref",
-            "f_pulse",
-        ]:
-            config_setter(SimulationParameter, name, shape=(self.size_out,))
+        #### CHANGE ####
 
-        self.Ut = Parameter(sim_config.Ut, shape=(self.size_out,))
-        self.Io = Parameter(sim_config.Io, shape=(self.size_out,))
+        f_tau_gaba = (sim_config.Ut / kappa) * sim_config.C_gaba
+        f_tau_shunt = (sim_config.Ut / kappa) * sim_config.C_shunt
+        f_tau_nmda = (sim_config.Ut / kappa) * sim_config.C_nmda
+        f_tau_ampa = (sim_config.Ut / kappa) * sim_config.C_ampa
+
+        f_tau_syn = np.stack([f_tau_gaba, f_tau_shunt, f_tau_nmda, f_tau_ampa]).T
+        self.f_tau_syn = SimulationParameter(f_tau_syn, shape=(self.size_out, 4))
+
+        self.kappa = SimulationParameter(kappa, shape=(self.size_out,))
+
+        f_tau_mem = (sim_config.Ut / kappa) * sim_config.C_soma
+        f_tau_ahp = (sim_config.Ut / kappa) * sim_config.C_ahp
+        f_pulse_ahp = sim_config.Vth * sim_config.C_pulse_ahp
+        f_ref = sim_config.Vth * sim_config.C_ref
+        f_pulse = sim_config.Vth * sim_config.C_pulse
+
+        self.f_tau_mem = SimulationParameter(f_tau_mem, shape=(self.size_out))
+        self.f_tau_ahp = SimulationParameter(f_tau_ahp, shape=(self.size_out))
+        self.f_pulse_ahp = SimulationParameter(f_pulse_ahp, shape=(self.size_out))
+        self.f_ref = SimulationParameter(f_ref, shape=(self.size_out))
+        self.f_pulse = SimulationParameter(f_pulse, shape=(self.size_out))
+
+        #### CHANGE DONE ####
+
+        self.Ut = SimulationParameter(sim_config.Ut, shape=(self.size_out,))
+        self.Io = SimulationParameter(sim_config.Io, shape=(self.size_out,))
         self.Ireset = SimulationParameter(
             shape=(self.size_out,), init_func=init_current
         )
@@ -436,6 +440,7 @@ class DynapSim(JaxModule, DynapSE):
             "f_pulse_ahp",
             "Iref",
             "Ipulse",
+            "Ipulse_ahp",
             "Ispkthr",
             "Ireset",
             "Idc",
@@ -570,7 +575,7 @@ class DynapSim(JaxModule, DynapSE):
         # --- Stateless Parameters --- #
         t_ref = self.md.f_ref / self.md.Iref
         t_pulse = self.md.f_pulse / self.md.Ipulse
-        t_pulse_ahp = t_pulse * self.md.f_pulse_ahp
+        t_pulse_ahp = self.md.f_pulse_ahp * self.md.Ipulse_ahp
 
         ## --- Synapses --- ## Nrec, 4
         Itau_syn_clip = jnp.clip(self.md.Itau_syn.T, self.md.Io).T
@@ -806,7 +811,7 @@ class DynapSim(JaxModule, DynapSE):
         """
         t_pulse_ahp holds an array of reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp`` with shape (Nrec,)
         """
-        return self.t_pulse * self.f_pulse_ahp
+        return self.f_pulse_ahp / self.Ipulse_ahp
 
     @property
     def tau_mem(self) -> jnp.DeviceArray:
