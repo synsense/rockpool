@@ -221,7 +221,6 @@ class DynapSimCore(DynapSimCurrents):
     @classmethod
     def from_specificaiton(
         cls,
-        layout: Optional[DynapSimLayout] = None,
         Idc: float = None,
         If_nmda: float = None,
         r_gain_ahp: float = 100,
@@ -245,13 +244,12 @@ class DynapSimCore(DynapSimCurrents):
         Iw_2: float = 4e-6,
         Iw_3: float = 8e-6,
         Iw_ahp: float = 1e-6,
+        **kwargs,
     ) -> DynapSimCore:
         """
         from_specificaiton is a class factory method helping DynapSimCore object construction
         using higher level representaitons of the currents like gain ratio or time constant whenever applicable.
 
-        :param layout: constant values that are related to the exact silicon layout of a chip, defaults to None
-        :type layout: Optional[DynapSimLayout], optional
         :param Idc: Constant DC current injected to membrane in Amperes, defaults to None
         :type Idc: float, optional
         :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes, defaults to None
@@ -303,7 +301,7 @@ class DynapSimCore(DynapSimCurrents):
         """
 
         # Depended default parameter initialization
-        layout = DynapSimLayout() if layout is None else layout
+        layout = DynapSimLayout(**kwargs)
         Idc = layout.Io if Idc is None else Idc
         If_nmda = layout.Io if If_nmda is None else If_nmda
 
@@ -878,3 +876,5 @@ if __name__ == "__main__":
     print(sim_config.time)
     print(sim_config.gain)
     updated = sim_config.update_gain_ratio("r_gain_soma", 10)
+    sim_config = DynapSimCore.from_specificaiton(10, C_ahp=10)
+    print(sim_config.layout)
