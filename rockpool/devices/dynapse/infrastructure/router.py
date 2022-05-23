@@ -18,7 +18,7 @@ E-mail : ugurcan.cakal@gmail.com
 """
 from __future__ import annotations
 from dataclasses import dataclass
-from abc import ABC, abstractclassmethod, abstractmethod
+from abc import ABC, abstractclassmethod
 
 from typing import (
     Callable,
@@ -52,8 +52,6 @@ class Router:
 
     :param n_chips: number of chips installed in the system, defaults to None
     :type n_chips: np.uint8, optional
-    :param n_cores: maximum number of cores that a chip has in the system, defaults to None
-    :type n_cores: np.uint8, optional
     :param core_map:a dictionary of the mapping between active cores and list of active neurons, defaults to None
     :type core_map: Dict[CoreKey, List[np.uint8]], optional
     :param tag_map_in: a dictionary of the mapping between matrix indexes of the incoming events and their tags. Used to interpret the input weight matrix, defaults to None
@@ -71,7 +69,6 @@ class Router:
     """
 
     n_chips: np.uint8 = None
-    n_cores: np.uint8 = None
     core_map: Dict[CoreKey, List[np.uint8]] = None
     tag_map_in: Dict[int, int] = None
     idx_map: Dict[int, NeuronKey] = None
@@ -88,16 +85,10 @@ class Router:
         :raises ValueError: number of cores indicated and given does not match
         """
         n_chips = len(np.unique(list(map(lambda nkey: nkey[0], self.idx_map.values()))))
-        n_cores = len(np.unique(list(map(lambda nkey: nkey[1], self.idx_map.values()))))
 
         if self.n_chips < n_chips:
             raise ValueError(
                 f"More than {self.n_chips} different chips ({n_chips}) found in  in active neuron list!"
-            )
-
-        if self.n_cores < n_cores:
-            raise ValueError(
-                f"More than {self.n_cores} different cores ({n_cores}) found in  in active neuron list!"
             )
 
     @classmethod
@@ -155,7 +146,6 @@ class Router:
 
         _mod = cls(
             n_chips=len(config.chips),
-            n_cores=max([len(chip.cores) for chip in config.chips]),
             core_map=connector.get_core_map(),
             tag_map_in=connector.get_tag_map_in(),
             idx_map=connector.get_idx_map(),
