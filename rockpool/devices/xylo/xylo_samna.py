@@ -435,19 +435,11 @@ class XyloSamna(Module):
             # - Keep a registry of the last recording mode
             self._last_record_mode = record
 
-            # - Configure Xylo for accel-time mode
-            if self._output_mode == "Spike":
-                m_Nhidden = Nhidden if record else 0
-                m_Nout = Nout if record else 0
-            else:
-                m_Nhidden = Nhidden
-                m_Nout = Nout
-
-            # - Applies the configuration via `self.config`
             self.config, state_buffer = hdkutils.configure_accel_time_mode(
-                self._config, self._state_buffer, m_Nhidden, m_Nout, readout=self._output_mode,
-                i_syn_start=m_Nhidden, v_mem_start=m_Nhidden
+                self._config, self._state_buffer, Nhidden, Nout, readout=self._output_mode,
+                record=record
             )
+
 
     def evolve(
         self,
