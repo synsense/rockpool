@@ -257,8 +257,6 @@ class DynapSim(JaxModule, DynapSE):
     :type Ut: jnp.DeviceArray
     :ivar Io: Array of Dark current in Amperes that flows through the transistors even at the idle state with shape (Nrec,)
     :type Io: jnp.DeviceArray
-    :ivar Ireset: Array of reset current after spike generation with shape (Nrec,)
-    :type Ireset: jnp.DeviceArray
     :ivar _attr_list: A list of names of attributes imported from simulation configuration object
     :type _attr_list: List[str]
 
@@ -327,7 +325,7 @@ class DynapSim(JaxModule, DynapSE):
         self.iahp = State(shape=(self.size_out,), init_func=init_current)
         self.imem = State(shape=(self.size_out,), init_func=init_current)
 
-        ## Secondary Effects
+        ## Indirect Readings
         self.vmem = State(shape=(self.size_out,), init_func=jnp.zeros)
         self.spikes = State(shape=(self.size_out,), init_func=jnp.zeros)
 
@@ -340,78 +338,29 @@ class DynapSim(JaxModule, DynapSE):
         ## Weights
         self.__weight_init(has_rec, init_weight, w_rec)
 
-        ## Synapses
-        self.Igain_syn = Parameter(sim_config.Igain_syn, shape=(self.size_out, 4))
-        self.Itau_syn = Parameter(sim_config.Itau_syn, shape=(self.size_out, 4))
-
-        ## Membrane
-        self.Idc = Parameter(sim_config.Idc, shape=(self.size_out,))
-        self.If_nmda = Parameter(sim_config.If_nmda, shape=(self.size_out,))
-        self.Igain_ahp = Parameter(sim_config.Igain_ahp, shape=(self.size_out,))
-        self.Igain_soma = Parameter(sim_config.Igain_soma, shape=(self.size_out,))
-        self.Ipulse = Parameter(sim_config.Ipulse, shape=(self.size_out,))
-        self.Ipulse_ahp = Parameter(sim_config.Ipulse_ahp, shape=(self.size_out,))
-        self.Iref = Parameter(sim_config.Iref, shape=(self.size_out,))
-        self.Ispkthr = Parameter(sim_config.Ispkthr, shape=(self.size_out,))
-        self.Itau_ahp = Parameter(sim_config.Itau_ahp, shape=(self.size_out,))
-        self.Itau_soma = Parameter(sim_config.Itau_soma, shape=(self.size_out,))
-        self.Iw_ahp = Parameter(sim_config.Iw_ahp, shape=(self.size_out,))
+        for attr in DynapSimCurrents.__annotations__.keys():
+            self.__setattr__(
+                attr,
+                Parameter(sim_config.__getattribute__(attr), shape=(self.size_out,)),
+            )
 
         # --- Simulation Parameters --- #
         self.dt = SimulationParameter(dt, shape=())
-        #### CHANGE ####
 
-        self.C_syn = SimulationParameter(sim_config.C_syn, shape=(self.size_out, 4))
+        ## Capacitance
+        for attr in DynapSimLayout.__annotations__.keys():
+            self.__setattr__(
+                attr,
+                SimulationParameter(
+                    sim_config.__getattribute__(attr), shape=(self.size_out,)
+                ),
+            )
 
-        self.kappa = SimulationParameter(sim_config.kappa, shape=(self.size_out,))
-
-        self.C_ahp = SimulationParameter(sim_config.C_ahp, shape=(self.size_out,))
-        self.C_soma = SimulationParameter(sim_config.C_soma, shape=(self.size_out,))
-        self.C_ref = SimulationParameter(sim_config.C_ref, shape=(self.size_out,))
-        self.C_pulse = SimulationParameter(sim_config.C_pulse, shape=(self.size_out,))
-        self.C_pulse_ahp = SimulationParameter(
-            sim_config.C_pulse_ahp, shape=(self.size_out,)
+        self._attr_list = (
+            list(DynapSimCurrents.__annotations__.keys())
+            + list(DynapSimLayout.__annotations__.keys())
+            + ["isyn", "imem", "iahp", "w_rec"]
         )
-
-        #### CHANGE DONE ####
-
-        self.Ut = SimulationParameter(sim_config.Ut, shape=(self.size_out,))
-        self.Vth = SimulationParameter(sim_config.Vth, shape=(self.size_out,))
-        self.Io = SimulationParameter(sim_config.Io, shape=(self.size_out,))
-        self.Ireset = SimulationParameter(
-            shape=(self.size_out,), init_func=init_current
-        )
-
-        self._attr_list = [
-            "Itau_syn",
-            "Itau_ahp",
-            "Iw_ahp",
-            "kappa",
-            "Ut",
-            "Vth",
-            "Io",
-            "C_syn",
-            "C_soma",
-            "C_ahp",
-            "C_ref",
-            "C_pulse",
-            "C_pulse_ahp",
-            "Iref",
-            "Ipulse",
-            "Ipulse_ahp",
-            "Ispkthr",
-            "Ireset",
-            "Idc",
-            "If_nmda",
-            "imem",
-            "isyn",
-            "iahp",
-            "Igain_ahp",
-            "Igain_soma",
-            "Igain_syn",
-            "Itau_soma",
-            "w_rec",
-        ]
         attr = {name: self.__getattribute__(name) for name in self._attr_list}
         self.md = MismatchDevice(self.rng_key, **attr)
 
@@ -529,22 +478,25 @@ class DynapSim(JaxModule, DynapSE):
             :record_dict: is a dictionary containing the recorded state variables during the evolution at each time step, if the ``record`` argument is ``True`` else empty dictionary {}
         :rtype: Tuple[jnp.DeviceArray, Dict[str, jnp.DeviceArray], Dict[str, jnp.DeviceArray]]
         """
+
+        kappa = (self.md.kappa_n + self.md.kappa_p) / 2
+
         # --- Time constant computation utils --- #
         __pw = lambda ipw, C: (self.md.Vth * C) / ipw
-        __tau = lambda itau, C: ((self.md.Ut / self.md.kappa) * C) / itau
+        __tau = lambda itau, C: ((self.md.Ut / kappa) * C) / itau
 
         tau_ahp = lambda itau: __tau(itau, self.md.C_ahp)
         tau_soma = lambda itau: __tau(itau, self.md.C_soma)
-        tau_syn = lambda itau: __tau(itau, self.md.C_syn)
+        tau_syn = lambda itau: __tau(itau, self.__syn_stack(self.md, "C"))
 
         # --- Stateless Parameters --- #
         t_ref = __pw(self.md.Iref, self.md.C_ref)
         t_pulse = __pw(self.md.Ipulse, self.md.C_pulse)
         t_pulse_ahp = __pw(self.md.Ipulse_ahp, self.md.C_pulse_ahp)
 
-        ## --- Synapses --- ## Nrec, 4
-        Itau_syn_clip = jnp.clip(self.md.Itau_syn.T, self.md.Io).T
-        Igain_syn_clip = jnp.clip(self.md.Igain_syn.T, self.md.Io).T
+        ## --- Synapse Stack --- ## Nrec, 4
+        Itau_syn_clip = jnp.clip(self.__syn_stack(self.md, "Itau").T, self.md.Io).T
+        Igain_syn_clip = jnp.clip(self.__syn_stack(self.md, "Igain").T, self.md.Io).T
 
         ## --- Spike frequency adaptation --- ## Nrec
         Itau_ahp_clip = jnp.clip(self.md.Itau_ahp, self.md.Io)
@@ -642,8 +594,8 @@ class DynapSim(JaxModule, DynapSE):
             # ------------------------------ #
             # --- Forward step: MEMBRANE --- #
             # ------------------------------ #
-            _kappa_2 = jnp.power(self.md.kappa, self._two)
-            _kappa_prime = _kappa_2 / (self.md.kappa + self._one)
+            _kappa_2 = jnp.power(kappa, self._two)
+            _kappa_prime = _kappa_2 / (kappa + self._one)
             f_feedback = jnp.exp(_kappa_prime * (vmem / self.md.Ut))  # 4xNrec
 
             ## Decouple synaptic currents and calculate membrane input
@@ -676,7 +628,7 @@ class DynapSim(JaxModule, DynapSE):
             imem = jnp.clip(imem, self.md.Io)
 
             ## Membrane Potential
-            vmem = (self.md.Ut / self.md.kappa) * jnp.log(imem / self.md.Io)
+            vmem = (self.md.Ut / kappa) * jnp.log(imem / self.md.Io)
 
             # ------------------------------ #
             # ------------------------------ #
@@ -687,10 +639,10 @@ class DynapSim(JaxModule, DynapSE):
             # ------------------------------ #
 
             ## Detect next spikes (with custom gradient)
-            spikes = step_pwl(imem, self.md.Ispkthr, self.md.Ireset)
+            spikes = step_pwl(imem, self.md.Ispkthr, self.md.Io)
 
             ## Reset imem depending on spiking activity
-            imem = (self._one - spikes) * imem + spikes * self.md.Ireset
+            imem = (self._one - spikes) * imem + spikes * self.md.Io
 
             ## Set the refractrory timer
             timer_ref -= self.dt
@@ -753,156 +705,23 @@ class DynapSim(JaxModule, DynapSE):
     def export_Dynapse2Configuration(self) -> Dynapse2Configuration:
         None
 
-    # @property
-    # def t_ref(self) -> jnp.DeviceArray:
-    #     """
-    #     t_ref holds an array of refractory periods in seconds, limits maximum firing rate. In the refractory period the synaptic input current of the membrane is the dark current. with shape (Nrec,)
-    #     """
-    #     return self.f_ref / self.Iref
+    @staticmethod
+    def __syn_stack(obj: object, name: str) -> jnp.DeviceArray:
+        """
+        __syn_stack fetches attributes from the synaptic gate subcircuits in [GABA, SHUNT, NMDA, AMPA] order and create a property array covering all the neurons allocated
 
-    # @property
-    # def t_pulse(self) -> jnp.DeviceArray:
-    #     """
-    #     t_pulse holds an array of the pulse widths in seconds produced by virtue of a spike with shape (Nrec,)
-    #     """
-    #     return self.f_pulse / self.Ipulse
-
-    # @property
-    # def t_pulse_ahp(self) -> jnp.DeviceArray:
-    #     """
-    #     t_pulse_ahp holds an array of reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp`` with shape (Nrec,)
-    #     """
-    #     return self.f_pulse_ahp / self.Ipulse_ahp
-
-    # @property
-    # def tau_mem(self) -> jnp.DeviceArray:
-    #     """
-    #     tau_mem holds an array of time constants in seconds for neurons with shape = (Nrec,)
-    #     """
-    #     return self.f_tau_soma / self.Itau_soma
-
-    # @property
-    # def tau_syn(self) -> jnp.DeviceArray:
-    #     """
-    #     tau_syn holds an array of time constants in seconds for each synapse of the neurons with shape = (Nrec,4)
-    #     There are tau_gaba, tau_shunt, tau_nmda, and tau_ampa  methods as well to fetch the time constants of the exact synapse
-    #     """
-    #     return self.f_tau_syn / self.Itau_syn
-
-    # @property
-    # def tau_ahp(self) -> jnp.DeviceArray:
-    #     """
-    #     tau_ahp holds an array of time constants in seconds for each spike frequency adaptation block of the neurons with shape = (Nrec,)
-    #     """
-    #     return self.f_tau_ahp / self.Itau_ahp
-
-    @property
-    def tau_gaba(self) -> jnp.DeviceArray:
+        :param obj: the object to fectch the currents parameters
+        :type obj: object
+        :param name: the base name of the parameter
+        :type name: str
+        :return: an array full of the values of the target attributes of all 4 synapses (`size`, 4)
+        :rtype: jnp.DeviceArray
         """
-        tau_gaba holds an array of time constants in seconds for GABA_B synapse of the neurons with shape = (Nrec,)
-        """
-        return self.tau_syn[self.SYN["GABA_B"]]
-
-    @property
-    def tau_shunt(self) -> jnp.DeviceArray:
-        """
-        tau_shunt holds an array of time constants in seconds for GABA_A synapse of the neurons with shape = (Nrec,)
-        """
-        return self.tau_syn[self.SYN["GABA_A"]]
-
-    @property
-    def tau_nmda(self) -> jnp.DeviceArray:
-        """
-        tau_nmda holds an array of time constants in seconds for NMDA synapse of the neurons with shape = (Nrec,)
-        """
-        return self.tau_syn[self.SYN["NMDA"]]
-
-    @property
-    def tau_ampa(self) -> jnp.DeviceArray:
-        """
-        tau_ampa holds an array of time constants in seconds for AMPA synapse of the neurons with shape = (Nrec,)
-        """
-        return self.tau_syn[self.SYN["AMPA"]]
-
-    ## --- MID-LEVEL HIDDEN BIAS CURRENTS (JAX) -- ##
-
-    ### --- TAU(A.K.A LEAK) --- ###
-
-    @property
-    def Itau_gaba(self) -> jnp.DeviceArray:
-        """
-        Itau_gaba holds an array of time constants bias current in Amperes for GABA_B synapse of the neurons with shape = (Nrec,)
-        """
-        return self.Itau_syn[:, self.SYN["GABA_B"]]
-
-    @property
-    def Itau_shunt(self) -> jnp.DeviceArray:
-        """
-        Itau_shunt holds an array of time constants bias current in Amperes for GABA_A synapse of the neurons with shape = (Nrec,)
-        """
-        return self.Itau_syn[:, self.SYN["GABA_A"]]
-
-    @property
-    def Itau_nmda(self) -> jnp.DeviceArray:
-        """
-        Itau_nmda holds an array of time constants bias current in Amperes for NMDA synapse of the neurons with shape = (Nrec,)
-        """
-        return self.Itau_syn[:, self.SYN["NMDA"]]
-
-    @property
-    def Itau_ampa(self) -> jnp.DeviceArray:
-        """
-        Itau_ampa holds an array of time constants bias current in Amperes for AMPA synapse of the neurons with shape = (Nrec,)
-        """
-        return self.Itau_syn[:, self.SYN["AMPA"]]
-
-    ### --- THRESHOLD (A.K.A GAIN) --- ###
-
-    # @property
-    # def Igain_soma(self) -> jnp.DeviceArray:
-    #     """
-    #     Igain_soma create an array of membrane threshold(a.k.a gain) currents with shape = (Nrec,)
-    #     """
-    #     return self.Itau_soma * self.f_gain_mem
-
-    # @property
-    # def Igain_syn(self) -> jnp.DeviceArray:
-    #     """
-    #     Igain_syn create an array of synaptic threshold(a.k.a gain) currents in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape = (4,Nrec)
-    #     """
-    #     return self.Itau_syn * self.f_gain_syn
-
-    # @property
-    # def Igain_ahp(self) -> jnp.DeviceArray:
-    #     """
-    #     Igain_ahp create an array of spike frequency adaptation threshold(a.k.a gain) currents with shape = (Nrec,)
-    #     """
-    #     return self.Itau_ahp * self.f_gain_ahp
-
-    @property
-    def Igain_gaba(self) -> jnp.DeviceArray:
-        """
-        Igain_gaba holds an array of gain bias current in Amperes for GABA_B synapse of the neurons with shape = (Nrec,)
-        """
-        return self.Igain_syn[self.SYN["GABA_B"]]
-
-    @property
-    def Igain_shunt(self) -> jnp.DeviceArray:
-        """
-        Igain_shunt holds an array of gain bias current in Amperes for GABA_A synapse of the neurons with shape = (Nrec,)
-        """
-        return self.Igain_syn[self.SYN["GABA_A"]]
-
-    @property
-    def Igain_nmda(self) -> jnp.DeviceArray:
-        """
-        Igain_nmda holds an array of gain bias current in Amperes for NMDA synapse of the neurons with shape = (Nrec,)
-        """
-        return self.Igain_syn[self.SYN["NMDA"]]
-
-    @property
-    def Igain_ampa(self) -> jnp.DeviceArray:
-        """
-        Igain_ampa holds an array of gain bias current in Amperes for AMPA synapse of the neurons with shape = (Nrec,)
-        """
-        return self.Igain_syn[self.SYN["AMPA"]]
+        return jnp.stack(
+            [
+                obj.__getattribute__(f"{name}_gaba"),
+                obj.__getattribute__(f"{name}_shunt"),
+                obj.__getattribute__(f"{name}_nmda"),
+                obj.__getattribute__(f"{name}_ampa"),
+            ]
+        ).T
