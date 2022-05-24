@@ -426,6 +426,31 @@ class DynapSim(JaxModule, DynapSE):
         }
 
     @classmethod
+    def from_specification(
+        cls,
+        shape: Optional[Tuple[int]],
+        has_rec: bool = True,
+        weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = None,
+        dt: float = 1e-3,
+        rng_key: Optional[Any] = None,
+        spiking_input: bool = False,
+        spiking_output: bool = True,
+        **kwargs,
+    ) -> DynapSim:
+        simconfig = DynapSimConfig.from_specification(shape[-1], **kwargs)
+        _mod = cls.from_DynapSimConfig(
+            shape,
+            simconfig,
+            has_rec,
+            weight_init_func,
+            dt,
+            rng_key,
+            spiking_input,
+            spiking_output,
+        )
+        return _mod
+
+    @classmethod
     def from_DynapSimConfig(
         cls,
         shape: Optional[Tuple[int]],
@@ -436,7 +461,6 @@ class DynapSim(JaxModule, DynapSE):
         rng_key: Optional[Any] = None,
         spiking_input: bool = False,
         spiking_output: bool = True,
-        *args,
         **kwargs,
     ) -> DynapSim:
 
