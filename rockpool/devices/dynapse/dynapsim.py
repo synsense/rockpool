@@ -274,7 +274,39 @@ class DynapSim(JaxModule, DynapSE):
     def __init__(
         self,
         shape: Optional[Tuple[int]] = None,
-        sim_config: Optional[DynapSimConfig] = None,
+        Idc: Optional[np.ndarray] = None,
+        If_nmda: Optional[np.ndarray] = None,
+        Igain_ahp: Optional[np.ndarray] = None,
+        Igain_ampa: Optional[np.ndarray] = None,
+        Igain_gaba: Optional[np.ndarray] = None,
+        Igain_nmda: Optional[np.ndarray] = None,
+        Igain_shunt: Optional[np.ndarray] = None,
+        Igain_soma: Optional[np.ndarray] = None,
+        Ipulse_ahp: Optional[np.ndarray] = None,
+        Ipulse: Optional[np.ndarray] = None,
+        Iref: Optional[np.ndarray] = None,
+        Ispkthr: Optional[np.ndarray] = None,
+        Itau_ahp: Optional[np.ndarray] = None,
+        Itau_ampa: Optional[np.ndarray] = None,
+        Itau_gaba: Optional[np.ndarray] = None,
+        Itau_nmda: Optional[np.ndarray] = None,
+        Itau_shunt: Optional[np.ndarray] = None,
+        Itau_soma: Optional[np.ndarray] = None,
+        Iw_ahp: Optional[np.ndarray] = None,
+        C_ahp: Optional[np.ndarray] = None,
+        C_ampa: Optional[np.ndarray] = None,
+        C_gaba: Optional[np.ndarray] = None,
+        C_nmda: Optional[np.ndarray] = None,
+        C_pulse_ahp: Optional[np.ndarray] = None,
+        C_pulse: Optional[np.ndarray] = None,
+        C_ref: Optional[np.ndarray] = None,
+        C_shunt: Optional[np.ndarray] = None,
+        C_soma: Optional[np.ndarray] = None,
+        Io: Optional[np.ndarray] = None,
+        kappa_n: Optional[np.ndarray] = None,
+        kappa_p: Optional[np.ndarray] = None,
+        Ut: Optional[np.ndarray] = None,
+        Vth: Optional[np.ndarray] = None,
         w_rec: Optional[jnp.DeviceArray] = None,
         has_rec: bool = True,
         weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = None,
@@ -304,63 +336,82 @@ class DynapSim(JaxModule, DynapSE):
 
         self.SYN = dict(zip(self.syn_types, range(len(self.syn_types))))
 
-        # --- Deal with Optinal Arguments --- #
-
-        if sim_config is None:
-            sim_config = DynapSimConfig.from_specification(shape=self.size_out)
-
-        # if len(sim_config) != self.size_out:
-        #     raise ValueError(
-        #         f"The simulation configuration object size {len(sim_config)} and number of device neruons {self.size_out} does not match!"
-        #     )
-
         # --- Parameters & States --- #
-        init_current = lambda s: jnp.full(tuple(reversed(s)), sim_config.Io).T
+        init_current = lambda s: jnp.full(tuple(reversed(s)), Io).T
         # [] TODO : parametrize!
-        init_weight = lambda s: sim_config.w_rec
+        init_weight = lambda s: w_rec
 
         # --- States --- #
-        ## Currents
-        self.isyn = State(shape=(self.size_out, 4), init_func=init_current)
         self.iahp = State(shape=(self.size_out,), init_func=init_current)
+        self.iampa = State(shape=(self.size_out,), init_func=init_current)
+        self.igaba = State(shape=(self.size_out,), init_func=init_current)
         self.imem = State(shape=(self.size_out,), init_func=init_current)
-
-        ## Indirect Readings
-        self.vmem = State(shape=(self.size_out,), init_func=jnp.zeros)
-        self.spikes = State(shape=(self.size_out,), init_func=jnp.zeros)
-
-        ## Calculation Primitives
-        self.timer_ref = State(shape=(self.size_out,), init_func=jnp.zeros)
+        self.inmda = State(shape=(self.size_out,), init_func=init_current)
+        self.ishunt = State(shape=(self.size_out,), init_func=init_current)
         self.rng_key = State(rng_key, init_func=lambda _: rng_key)
+        self.spikes = State(shape=(self.size_out,), init_func=jnp.zeros)
+        self.timer_ref = State(shape=(self.size_out,), init_func=jnp.zeros)
+        self.vmem = State(shape=(self.size_out,), init_func=jnp.zeros)
 
         # --- Parameters --- #
         # [] TODO : Change
         ## Weights
         self.__weight_init(has_rec, init_weight, w_rec)
 
-        for attr in DynapSimCurrents.__annotations__.keys():
-            self.__setattr__(
-                attr,
-                Parameter(sim_config.__getattribute__(attr), shape=(self.size_out,)),
-            )
+        self.Idc = Parameter(Idc, shape=(self.size_out,))
+        self.If_nmda = Parameter(If_nmda, shape=(self.size_out,))
+        self.Igain_ahp = Parameter(Igain_ahp, shape=(self.size_out,))
+        self.Igain_ampa = Parameter(Igain_ampa, shape=(self.size_out,))
+        self.Igain_gaba = Parameter(Igain_gaba, shape=(self.size_out,))
+        self.Igain_nmda = Parameter(Igain_nmda, shape=(self.size_out,))
+        self.Igain_shunt = Parameter(Igain_shunt, shape=(self.size_out,))
+        self.Igain_soma = Parameter(Igain_soma, shape=(self.size_out,))
+        self.Ipulse_ahp = Parameter(Ipulse_ahp, shape=(self.size_out,))
+        self.Ipulse = Parameter(Ipulse, shape=(self.size_out,))
+        self.Iref = Parameter(Iref, shape=(self.size_out,))
+        self.Ispkthr = Parameter(Ispkthr, shape=(self.size_out,))
+        self.Itau_ahp = Parameter(Itau_ahp, shape=(self.size_out,))
+        self.Itau_ampa = Parameter(Itau_ampa, shape=(self.size_out,))
+        self.Itau_gaba = Parameter(Itau_gaba, shape=(self.size_out,))
+        self.Itau_nmda = Parameter(Itau_nmda, shape=(self.size_out,))
+        self.Itau_shunt = Parameter(Itau_shunt, shape=(self.size_out,))
+        self.Itau_soma = Parameter(Itau_soma, shape=(self.size_out,))
+        self.Iw_ahp = Parameter(Iw_ahp, shape=(self.size_out,))
 
         # --- Simulation Parameters --- #
         self.dt = SimulationParameter(dt, shape=())
-
-        ## Capacitance
-        for attr in DynapSimLayout.__annotations__.keys():
-            self.__setattr__(
-                attr,
-                SimulationParameter(
-                    sim_config.__getattribute__(attr), shape=(self.size_out,)
-                ),
-            )
+        self.C_ahp = SimulationParameter(C_ahp, shape=(self.size_out,))
+        self.C_ampa = SimulationParameter(C_ampa, shape=(self.size_out,))
+        self.C_gaba = SimulationParameter(C_gaba, shape=(self.size_out,))
+        self.C_nmda = SimulationParameter(C_nmda, shape=(self.size_out,))
+        self.C_pulse_ahp = SimulationParameter(C_pulse_ahp, shape=(self.size_out,))
+        self.C_pulse = SimulationParameter(C_pulse, shape=(self.size_out,))
+        self.C_ref = SimulationParameter(C_ref, shape=(self.size_out,))
+        self.C_shunt = SimulationParameter(C_shunt, shape=(self.size_out,))
+        self.C_soma = SimulationParameter(C_soma, shape=(self.size_out,))
+        self.Io = SimulationParameter(Io, shape=(self.size_out,))
+        self.kappa_n = SimulationParameter(kappa_n, shape=(self.size_out,))
+        self.kappa_p = SimulationParameter(kappa_p, shape=(self.size_out,))
+        self.Ut = SimulationParameter(Ut, shape=(self.size_out,))
+        self.Vth = SimulationParameter(Vth, shape=(self.size_out,))
 
         self._attr_list = (
             list(DynapSimCurrents.__annotations__.keys())
             + list(DynapSimLayout.__annotations__.keys())
-            + ["isyn", "imem", "iahp", "w_rec"]
+            + [
+                "igaba",
+                "ishunt",
+                "inmda",
+                "iampa",
+                "imem",
+                "iahp",
+                "w_rec",
+            ]
         )
+        self._attr_list.remove("Iw_0")
+        self._attr_list.remove("Iw_1")
+        self._attr_list.remove("Iw_2")
+        self._attr_list.remove("Iw_3")
         attr = {name: self.__getattribute__(name) for name in self._attr_list}
         self.md = MismatchDevice(self.rng_key, **attr)
 
@@ -373,6 +424,42 @@ class DynapSim(JaxModule, DynapSE):
         self._init_args = {
             "has_rec": has_rec,
         }
+
+    @classmethod
+    def from_DynapSimConfig(
+        cls,
+        shape: Optional[Tuple[int]],
+        simconfig: DynapSimConfig,
+        has_rec: bool = True,
+        weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = None,
+        dt: float = 1e-3,
+        rng_key: Optional[Any] = None,
+        spiking_input: bool = False,
+        spiking_output: bool = True,
+        *args,
+        **kwargs,
+    ) -> DynapSim:
+
+        __constructor = dict.fromkeys(DynapSimLayout.__annotations__.keys())
+        __constructor.update(dict.fromkeys(DynapSimCurrents.__annotations__.keys()))
+        for key in ["w_rec", "Iw_0", "Iw_1", "Iw_2", "Iw_3"]:
+            __constructor.pop(key, None)
+        for key in __constructor:
+            __constructor[key] = simconfig.__getattribute__(key)
+
+        _mod = cls(
+            shape=shape,
+            has_rec=has_rec,
+            weight_init_func=weight_init_func,
+            dt=dt,
+            rng_key=rng_key,
+            spiking_input=spiking_input,
+            spiking_output=spiking_output,
+            w_rec=simconfig.w_rec,
+            **__constructor,
+            **kwargs,
+        )
+        return _mod
 
     @classmethod
     def from_Dynapse1Configuration(cls, config: Dynapse1Configuration) -> DynapSim:
@@ -515,8 +602,11 @@ class DynapSim(JaxModule, DynapSE):
             """
             forward implements single time-step neuron and synapse dynamics
 
-            :param state: (isyn, iahp, imem, vmem, spikes, timer_ref, key)
-                isyn: Synapse currents of each synapses[GABA_B, GABA_A, NMDA, AMPA] of each neuron [4xNrec]
+            :param state: (igaba, ishunt, inmda, iampa, iahp, imem, vmem, spikes, timer_ref, key)
+                igaba: GABA synapse currents of each neuron [Nrec]
+                ishunt: SHUNT synapse currents of each neuron [Nrec]
+                inmda: NMDA synapse currents of each neuron [Nrec]
+                iampa: AMPA synapse currents of each neuron [Nrec]
                 iahp: Spike frequency adaptation currents of each neuron [Nrec]
                 imem: Membrane currents of each neuron [Nrec]
                 vmem: Membrane voltages of each neuron [Nrec]
@@ -528,13 +618,25 @@ class DynapSim(JaxModule, DynapSE):
             :type Iw_input: jnp.DeviceArray
             :return: state, record
                 state: Updated state at end of the forward steps
-                record: Updated record instance to including spikes, isyn, iahp, imem, and vmem states
+                record: Updated record instance to including spikes, igaba, ishunt, inmda, iampa, iahp, imem, and vmem states
             :rtype: Tuple[DynapSEState, DynapSERecord]
             """
             # [] TODO : Would you allow currents to go below Io or not?!!!!
 
-            isyn, iahp, imem, vmem, spikes, timer_ref, key = state
+            (
+                igaba,
+                ishunt,
+                inmda,
+                iampa,
+                iahp,
+                imem,
+                vmem,
+                spikes,
+                timer_ref,
+                rng_key,
+            ) = state
 
+            isyn = jnp.stack([igaba, ishunt, inmda, iampa]).T
             # ---------------------------------- #
             # --- Forward step: DPI SYNAPSES --- #
             # ---------------------------------- #
@@ -599,18 +701,18 @@ class DynapSim(JaxModule, DynapSE):
             f_feedback = jnp.exp(_kappa_prime * (vmem / self.md.Ut))  # 4xNrec
 
             ## Decouple synaptic currents and calculate membrane input
-            Igaba, Ishunt, Inmda, Iampa = isyn.T
+            igaba, ishunt, inmda, iampa = isyn.T
 
-            # Inmda = 0 if vmem < Vth_nmda else Inmda
-            I_nmda_dp = Inmda / (self._one + self.md.If_nmda / imem)
+            # inmda = 0 if vmem < Vth_nmda else inmda
+            I_nmda_dp = inmda / (self._one + self.md.If_nmda / imem)
 
             # Iin = 0 if the neuron is in the refractory period
-            Iin = I_nmda_dp + Iampa - Igaba + self.md.Idc
+            Iin = I_nmda_dp + iampa - igaba + self.md.Idc
             Iin *= jnp.logical_not(timer_ref.astype(bool)).astype(jnp.float32)
             Iin = jnp.clip(Iin, self.md.Io)
 
-            # Ishunt (shunting) contributes to the membrane leak instead of subtracting from Iin
-            Ileak = Itau_soma_clip + Ishunt
+            # ishunt (shunting) contributes to the membrane leak instead of subtracting from Iin
+            Ileak = Itau_soma_clip + ishunt
             tau_mem_prime = tau_soma(Ileak) * (self._one + (Igain_soma_clip / imem))
 
             ## Steady state current
@@ -653,15 +755,49 @@ class DynapSim(JaxModule, DynapSE):
             # ------------------------------ #
             # ------------------------------ #
 
-            state = (isyn, iahp, imem, vmem, spikes, timer_ref, key)
-            record = (isyn, iahp, imem, vmem, spikes)
+            # igaba, ishunt, inmda, iampa = isyn
+
+            state = (
+                igaba,
+                ishunt,
+                inmda,
+                iampa,
+                iahp,
+                imem,
+                vmem,
+                spikes,
+                timer_ref,
+                rng_key,
+            )
+            record = (
+                igaba,
+                ishunt,
+                inmda,
+                iampa,
+                iahp,
+                imem,
+                vmem,
+                spikes,
+            )
             return state, record
 
         # --- Evolve over spiking inputs --- #
-        state, (isyn_ts, iahp_ts, imem_ts, vmem_ts, spikes_ts) = scan(
+        state, (
+            igaba_ts,
+            ishunt_ts,
+            inmda_ts,
+            iampa_ts,
+            iahp_ts,
+            imem_ts,
+            vmem_ts,
+            spikes_ts,
+        ) = scan(
             forward,
             (
-                self.md.isyn,
+                self.md.igaba,
+                self.md.ishunt,
+                self.md.inmda,
+                self.md.iampa,
                 self.md.iahp,
                 self.md.imem,
                 self.vmem,
@@ -676,25 +812,29 @@ class DynapSim(JaxModule, DynapSE):
 
         ## the state returned should be in the same shape with the state dictionary given
         states = {
-            "iahp": state[0],
-            "isyn": state[1],
-            "imem": state[2],
-            "vmem": state[3],
-            "spikes": state[4],
-            "timer_ref": state[5],
-            "rng_key": state[6],
+            "igaba": state[0],
+            "ishunt": state[1],
+            "inmda": state[2],
+            "iampa": state[3],
+            "iahp": state[4],
+            "imem": state[5],
+            "vmem": state[6],
+            "spikes": state[7],
+            "timer_ref": state[8],
+            "rng_key": state[9],
         }
 
         record_dict = {}
         if record:
             record_dict = {
-                "Igaba": isyn_ts[:, :, self.SYN["GABA_B"]],
-                "Ishunt": isyn_ts[:, :, self.SYN["GABA_A"]],  # Shunt
-                "Inmda": isyn_ts[:, :, self.SYN["NMDA"]],
-                "Iampa": isyn_ts[:, :, self.SYN["AMPA"]],
+                "igaba": igaba_ts,
+                "ishunt": ishunt_ts,
+                "inmda": inmda_ts,
+                "iampa": iampa_ts,
                 "iahp": iahp_ts,
                 "imem": imem_ts,
                 "vmem": vmem_ts,
+                "spikes": spikes_ts,
             }
 
         return spikes_ts, states, record_dict
