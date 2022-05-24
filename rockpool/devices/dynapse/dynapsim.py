@@ -64,8 +64,7 @@ from rockpool.devices.dynapse.config.board import DynapSimConfig
 from rockpool.devices.dynapse.config.simcore import (
     DynapSimCurrents,
     DynapSimLayout,
-    DynapSimCoreTime,
-    DynapSimCoreGain,
+    DynapSimTime,
 )
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
@@ -258,18 +257,6 @@ class DynapSim(JaxModule, DynapSE):
     :type Ut: jnp.DeviceArray
     :ivar Io: Array of Dark current in Amperes that flows through the transistors even at the idle state with shape (Nrec,)
     :type Io: jnp.DeviceArray
-    :ivar f_tau_syn: Array of tau factors in the following order: [GABA_B, GABA_A, NMDA, AMPA] with shape (4,Nrec)
-    :type f_tau_syn: jnp.DeviceArray
-    :ivar f_tau_ahp: Array of tau factor for spike frequency adaptation circuit with shape (Nrec,)
-    :type f_tau_ahp: jnp.DeviceArray
-    :ivar f_tau_soma: Array of tau factor for membrane circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau` with shape (Nrec,)
-    :type f_tau_soma: jnp.DeviceArray
-    :ivar f_pulse: Array of the pulse width factor produced by virtue of a spike with shape (Nrec,)
-    :type f_pulse: jnp.DeviceArray
-    :ivar f_pulse_ahp: Array of the ratio of reduction of pulse width for AHP also look at ``t_pulse`` and ``fpulse_ahp`` with shape (Nrec,)
-    :type f_pulse_ahp: jnp.DeviceArray
-    :ivar f_ref: Array of refractory periods factor, limits maximum firing rate. In the refractory period the synaptic input current of the membrane is the dark current. with shape (Nrec,)
-    :type f_ref: jnp.DeviceArray
     :ivar Ireset: Array of reset current after spike generation with shape (Nrec,)
     :type Ireset: jnp.DeviceArray
     :ivar _attr_list: A list of names of attributes imported from simulation configuration object
@@ -374,31 +361,22 @@ class DynapSim(JaxModule, DynapSE):
         self.dt = SimulationParameter(dt, shape=())
         #### CHANGE ####
 
-        f_tau_gaba = (sim_config.Ut / sim_config.kappa) * sim_config.C_gaba
-        f_tau_shunt = (sim_config.Ut / sim_config.kappa) * sim_config.C_shunt
-        f_tau_nmda = (sim_config.Ut / sim_config.kappa) * sim_config.C_nmda
-        f_tau_ampa = (sim_config.Ut / sim_config.kappa) * sim_config.C_ampa
-        f_tau_syn = np.stack([f_tau_gaba, f_tau_shunt, f_tau_nmda, f_tau_ampa]).T
-
-        self.f_tau_syn = SimulationParameter(f_tau_syn, shape=(self.size_out, 4))
+        self.C_syn = SimulationParameter(sim_config.C_syn, shape=(self.size_out, 4))
 
         self.kappa = SimulationParameter(sim_config.kappa, shape=(self.size_out,))
 
-        f_tau_soma = (sim_config.Ut / sim_config.kappa) * sim_config.C_soma
-        f_tau_ahp = (sim_config.Ut / sim_config.kappa) * sim_config.C_ahp
-        f_pulse_ahp = sim_config.Vth * sim_config.C_pulse_ahp
-        f_ref = sim_config.Vth * sim_config.C_ref
-        f_pulse = sim_config.Vth * sim_config.C_pulse
-
-        self.f_tau_soma = SimulationParameter(f_tau_soma, shape=(self.size_out))
-        self.f_tau_ahp = SimulationParameter(f_tau_ahp, shape=(self.size_out))
-        self.f_pulse_ahp = SimulationParameter(f_pulse_ahp, shape=(self.size_out))
-        self.f_ref = SimulationParameter(f_ref, shape=(self.size_out))
-        self.f_pulse = SimulationParameter(f_pulse, shape=(self.size_out))
+        self.C_ahp = SimulationParameter(sim_config.C_ahp, shape=(self.size_out,))
+        self.C_soma = SimulationParameter(sim_config.C_soma, shape=(self.size_out,))
+        self.C_ref = SimulationParameter(sim_config.C_ref, shape=(self.size_out,))
+        self.C_pulse = SimulationParameter(sim_config.C_pulse, shape=(self.size_out,))
+        self.C_pulse_ahp = SimulationParameter(
+            sim_config.C_pulse_ahp, shape=(self.size_out,)
+        )
 
         #### CHANGE DONE ####
 
         self.Ut = SimulationParameter(sim_config.Ut, shape=(self.size_out,))
+        self.Vth = SimulationParameter(sim_config.Vth, shape=(self.size_out,))
         self.Io = SimulationParameter(sim_config.Io, shape=(self.size_out,))
         self.Ireset = SimulationParameter(
             shape=(self.size_out,), init_func=init_current
@@ -410,13 +388,14 @@ class DynapSim(JaxModule, DynapSE):
             "Iw_ahp",
             "kappa",
             "Ut",
+            "Vth",
             "Io",
-            "f_tau_soma",
-            "f_tau_syn",
-            "f_tau_ahp",
-            "f_ref",
-            "f_pulse",
-            "f_pulse_ahp",
+            "C_syn",
+            "C_soma",
+            "C_ahp",
+            "C_ref",
+            "C_pulse",
+            "C_pulse_ahp",
             "Iref",
             "Ipulse",
             "Ipulse_ahp",
@@ -550,11 +529,18 @@ class DynapSim(JaxModule, DynapSE):
             :record_dict: is a dictionary containing the recorded state variables during the evolution at each time step, if the ``record`` argument is ``True`` else empty dictionary {}
         :rtype: Tuple[jnp.DeviceArray, Dict[str, jnp.DeviceArray], Dict[str, jnp.DeviceArray]]
         """
+        # --- Time constant computation utils --- #
+        __pw = lambda ipw, C: (self.md.Vth * C) / ipw
+        __tau = lambda itau, C: ((self.md.Ut / self.md.kappa) * C) / itau
+
+        tau_ahp = lambda itau: __tau(itau, self.md.C_ahp)
+        tau_soma = lambda itau: __tau(itau, self.md.C_soma)
+        tau_syn = lambda itau: __tau(itau, self.md.C_syn)
 
         # --- Stateless Parameters --- #
-        t_ref = self.md.f_ref / self.md.Iref
-        t_pulse = self.md.f_pulse / self.md.Ipulse
-        t_pulse_ahp = self.md.f_pulse_ahp * self.md.Ipulse_ahp
+        t_ref = __pw(self.md.Iref, self.md.C_ref)
+        t_pulse = __pw(self.md.Ipulse, self.md.C_pulse)
+        t_pulse_ahp = __pw(self.md.Ipulse_ahp, self.md.C_pulse_ahp)
 
         ## --- Synapses --- ## Nrec, 4
         Itau_syn_clip = jnp.clip(self.md.Itau_syn.T, self.md.Io).T
@@ -610,9 +596,7 @@ class DynapSim(JaxModule, DynapSE):
             isyn_inf = jnp.clip(isyn_inf, self._zero)
 
             # synaptic time constant is practically much more longer than expected when isyn << Igain
-            tau_syn_prime = (self.md.f_tau_syn / Itau_syn_clip) * (
-                1 + (Igain_syn_clip / isyn)
-            )
+            tau_syn_prime = tau_syn(Itau_syn_clip) * (1 + (Igain_syn_clip / isyn))
 
             ## Exponential charge, discharge positive feedback factor arrays
             f_charge = self._one - jnp.exp(-t_pulse / tau_syn_prime.T).T  # Nrecx4
@@ -636,7 +620,7 @@ class DynapSim(JaxModule, DynapSE):
             Iws_ahp = self.md.Iw_ahp * spikes  # 0 if no spike, Iw_ahp if spike
             iahp_inf = ((Igain_ahp_clip / Itau_ahp_clip) * Iws_ahp) - Igain_ahp_clip
 
-            tau_ahp_prime = (self.md.f_tau_ahp / Itau_ahp_clip) * (
+            tau_ahp_prime = tau_ahp(Itau_ahp_clip) * (
                 self._one + (Igain_ahp_clip / iahp)
             )
 
@@ -675,9 +659,7 @@ class DynapSim(JaxModule, DynapSE):
 
             # Ishunt (shunting) contributes to the membrane leak instead of subtracting from Iin
             Ileak = Itau_soma_clip + Ishunt
-            tau_mem_prime = (
-                self.md.f_tau_soma / Ileak * (self._one + (Igain_soma_clip / imem))
-            )
+            tau_mem_prime = tau_soma(Ileak) * (self._one + (Igain_soma_clip / imem))
 
             ## Steady state current
             imem_inf = (Igain_soma_clip / Itau_soma_clip) * (Iin - iahp - Ileak)
@@ -771,48 +753,48 @@ class DynapSim(JaxModule, DynapSE):
     def export_Dynapse2Configuration(self) -> Dynapse2Configuration:
         None
 
-    @property
-    def t_ref(self) -> jnp.DeviceArray:
-        """
-        t_ref holds an array of refractory periods in seconds, limits maximum firing rate. In the refractory period the synaptic input current of the membrane is the dark current. with shape (Nrec,)
-        """
-        return self.f_ref / self.Iref
+    # @property
+    # def t_ref(self) -> jnp.DeviceArray:
+    #     """
+    #     t_ref holds an array of refractory periods in seconds, limits maximum firing rate. In the refractory period the synaptic input current of the membrane is the dark current. with shape (Nrec,)
+    #     """
+    #     return self.f_ref / self.Iref
 
-    @property
-    def t_pulse(self) -> jnp.DeviceArray:
-        """
-        t_pulse holds an array of the pulse widths in seconds produced by virtue of a spike with shape (Nrec,)
-        """
-        return self.f_pulse / self.Ipulse
+    # @property
+    # def t_pulse(self) -> jnp.DeviceArray:
+    #     """
+    #     t_pulse holds an array of the pulse widths in seconds produced by virtue of a spike with shape (Nrec,)
+    #     """
+    #     return self.f_pulse / self.Ipulse
 
-    @property
-    def t_pulse_ahp(self) -> jnp.DeviceArray:
-        """
-        t_pulse_ahp holds an array of reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp`` with shape (Nrec,)
-        """
-        return self.f_pulse_ahp / self.Ipulse_ahp
+    # @property
+    # def t_pulse_ahp(self) -> jnp.DeviceArray:
+    #     """
+    #     t_pulse_ahp holds an array of reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp`` with shape (Nrec,)
+    #     """
+    #     return self.f_pulse_ahp / self.Ipulse_ahp
 
-    @property
-    def tau_mem(self) -> jnp.DeviceArray:
-        """
-        tau_mem holds an array of time constants in seconds for neurons with shape = (Nrec,)
-        """
-        return self.f_tau_soma / self.Itau_soma
+    # @property
+    # def tau_mem(self) -> jnp.DeviceArray:
+    #     """
+    #     tau_mem holds an array of time constants in seconds for neurons with shape = (Nrec,)
+    #     """
+    #     return self.f_tau_soma / self.Itau_soma
 
-    @property
-    def tau_syn(self) -> jnp.DeviceArray:
-        """
-        tau_syn holds an array of time constants in seconds for each synapse of the neurons with shape = (Nrec,4)
-        There are tau_gaba, tau_shunt, tau_nmda, and tau_ampa  methods as well to fetch the time constants of the exact synapse
-        """
-        return self.f_tau_syn / self.Itau_syn
+    # @property
+    # def tau_syn(self) -> jnp.DeviceArray:
+    #     """
+    #     tau_syn holds an array of time constants in seconds for each synapse of the neurons with shape = (Nrec,4)
+    #     There are tau_gaba, tau_shunt, tau_nmda, and tau_ampa  methods as well to fetch the time constants of the exact synapse
+    #     """
+    #     return self.f_tau_syn / self.Itau_syn
 
-    @property
-    def tau_ahp(self) -> jnp.DeviceArray:
-        """
-        tau_ahp holds an array of time constants in seconds for each spike frequency adaptation block of the neurons with shape = (Nrec,)
-        """
-        return self.f_tau_ahp / self.Itau_ahp
+    # @property
+    # def tau_ahp(self) -> jnp.DeviceArray:
+    #     """
+    #     tau_ahp holds an array of time constants in seconds for each spike frequency adaptation block of the neurons with shape = (Nrec,)
+    #     """
+    #     return self.f_tau_ahp / self.Itau_ahp
 
     @property
     def tau_gaba(self) -> jnp.DeviceArray:
