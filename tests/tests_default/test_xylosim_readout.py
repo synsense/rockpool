@@ -516,11 +516,6 @@ def test_xylo_vs_xylosim():
     # - Generate random input
     input_raster = np.random.randint(0, 16, (T, Nin))
 
-    # - Simulate the evolution of the network on Xylo
-    # out_sim_vmem, _s, rec_sim_vmem = mod_xylo_sim_vmem(input_raster.clip(0, 15), record=True)
-    # out_sim_isyn, __s, rec_sim_isyn = mod_xylo_sim_isyn(input_raster.clip(0, 15), record=True)
-    # out_sim_spike, ___s, rec_sim_spike = mod_xylo_sim_spike(input_raster.clip(0, 15), record=True)
-
     # - Get a Xylo HDK board
     xylo_hdk_nodes = xu.find_xylo_boards()
 
@@ -535,15 +530,15 @@ def test_xylo_vs_xylosim():
     mod_xylo_spike = x.XyloSamna(db, conf, dt=1e-3)
 
     # - Evolve Xylo
-    # out_sim_vmem, _s, rec_sim_vmem = mod_xylo_sim_vmem(input_raster.clip(0, 15), record=True)
-    # out_xylo_vmem, _, rec_xylo_vmem = mod_xylo_vmem(input_raster, record=True)
-    #
-    # assert np.all(out_sim_vmem == out_xylo_vmem)
-    # assert np.all(rec_sim_vmem["Vmem"] == rec_xylo_vmem["Vmem"])
-    # assert np.all(rec_sim_vmem["Isyn"] == rec_xylo_vmem["Isyn"])
-    # assert np.all(rec_sim_vmem["Spikes"] == rec_xylo_vmem["Spikes"])
-    # assert np.all(rec_sim_vmem["Vmem_out"] == rec_xylo_vmem["Vmem_out"])
-    # assert np.all(rec_sim_vmem["Isyn_out"] == rec_xylo_vmem["Isyn_out"])
+    out_sim_vmem, _s, rec_sim_vmem = mod_xylo_sim_vmem(input_raster.clip(0, 15), record=True)
+    out_xylo_vmem, _, rec_xylo_vmem = mod_xylo_vmem(input_raster, record=True)
+
+    assert np.all(out_sim_vmem == out_xylo_vmem)
+    assert np.all(rec_sim_vmem["Vmem"] == rec_xylo_vmem["Vmem"])
+    assert np.all(rec_sim_vmem["Isyn"] == rec_xylo_vmem["Isyn"])
+    assert np.all(rec_sim_vmem["Spikes"] == rec_xylo_vmem["Spikes"])
+    assert np.all(rec_sim_vmem["Vmem_out"] == rec_xylo_vmem["Vmem_out"])
+    assert np.all(rec_sim_vmem["Isyn_out"] == rec_xylo_vmem["Isyn_out"])
 
     # out_sim_isyn, __s, rec_sim_isyn = mod_xylo_sim_isyn(input_raster.clip(0, 15), record=True)
     # out_xylo_isyn, __, rec_xylo_isyn = mod_xylo_isyn(input_raster, record=True)
