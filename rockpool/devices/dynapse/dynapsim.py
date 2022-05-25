@@ -594,7 +594,7 @@ class DynapSim(JaxModule, DynapSE):
 
         # --- Time constant computation utils --- #
         __pw = lambda ipw, C: (self.md.Vth * C) / ipw
-        __tau = lambda itau, C: ((self.md.Ut / kappa) * C) / itau
+        __tau = lambda itau, C: ((self.md.Ut / kappa) * C.T).T / itau
 
         tau_ahp = lambda itau: __tau(itau, self.md.C_ahp)
         tau_soma = lambda itau: __tau(itau, self.md.C_soma)
