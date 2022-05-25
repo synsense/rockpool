@@ -46,6 +46,7 @@ E-mail : ugurcan.cakal@gmail.com
 [] TODO : max spikes per dt
 [] TODO : bias : DynapSimCurrents
 [] TODO : handle device arrays
+[] TODO : time and gain maybe as histogram
 """
 
 from __future__ import annotations
@@ -221,8 +222,6 @@ class DynapSim(JaxModule, DynapSE):
 
     :Instance Variables:
 
-    :ivar SYN: A dictionary storing default indexes(order) of the synapse types
-    :type SYN: Dict[str, int]
     :ivar isyn: 2D array of synapse currents of the neurons in the order of [GABA_B, GABA_A, NMDA, AMPA] with shape (4,Nrec)
     :type isyn: jnp.DeviceArray
     :ivar iahp: Array of spike frequency adaptation currents of the neurons with shape (Nrec,)
@@ -334,8 +333,6 @@ class DynapSim(JaxModule, DynapSE):
         if rng_key is None:
             rng_key = rand.PRNGKey(np.random.randint(0, 2 ** 63))
 
-        self.SYN = dict(zip(self.syn_types, range(len(self.syn_types))))
-
         # --- Parameters & States --- #
         init_current = lambda s: jnp.full(tuple(reversed(s)), Io).T
         # [] TODO : parametrize!
@@ -399,12 +396,12 @@ class DynapSim(JaxModule, DynapSE):
             list(DynapSimCurrents.__annotations__.keys())
             + list(DynapSimLayout.__annotations__.keys())
             + [
-                "igaba",
-                "ishunt",
-                "inmda",
-                "iampa",
-                "imem",
                 "iahp",
+                "iampa",
+                "igaba",
+                "imem",
+                "inmda",
+                "ishunt",
                 "w_rec",
             ]
         )
@@ -705,17 +702,17 @@ class DynapSim(JaxModule, DynapSE):
             """
             forward implements single time-step neuron and synapse dynamics
 
-            :param state: (igaba, ishunt, inmda, iampa, iahp, imem, vmem, spikes, timer_ref, key)
-                igaba: GABA synapse currents of each neuron [Nrec]
-                ishunt: SHUNT synapse currents of each neuron [Nrec]
-                inmda: NMDA synapse currents of each neuron [Nrec]
-                iampa: AMPA synapse currents of each neuron [Nrec]
+            :param state: (iahp, iampa, igaba, imem, inmda, ishunt, rng_key, spikes, timer_ref, vmem)
                 iahp: Spike frequency adaptation currents of each neuron [Nrec]
+                iampa: AMPA synapse currents of each neuron [Nrec]
+                igaba: GABA synapse currents of each neuron [Nrec]
                 imem: Membrane currents of each neuron [Nrec]
-                vmem: Membrane voltages of each neuron [Nrec]
+                inmda: NMDA synapse currents of each neuron [Nrec]
+                ishunt: SHUNT synapse currents of each neuron [Nrec]
+                rng_key: The Jax RNG seed to be used for mismatch simulation
                 spikes: Logical spike raster for each neuron [Nrec]
                 timer_ref: Refractory timer of each neruon [Nrec]
-                key: The Jax RNG seed to be used for mismatch simulation
+                vmem: Membrane voltages of each neuron [Nrec]
             :type state: DynapSEState
             :param Iw_input: external weighted current matrix generated via input spikes [Nrec, 4]
             :type Iw_input: jnp.DeviceArray
@@ -727,19 +724,19 @@ class DynapSim(JaxModule, DynapSE):
             # [] TODO : Would you allow currents to go below Io or not?!!!!
 
             (
-                igaba,
-                ishunt,
-                inmda,
-                iampa,
                 iahp,
+                iampa,
+                igaba,
                 imem,
-                vmem,
+                inmda,
+                ishunt,
+                rng_key,
                 spikes,
                 timer_ref,
-                rng_key,
+                vmem,
             ) = state
 
-            isyn = jnp.stack([igaba, ishunt, inmda, iampa]).T
+            isyn = jnp.stack([iampa, igaba, inmda, ishunt]).T
             # ---------------------------------- #
             # --- Forward step: DPI SYNAPSES --- #
             # ---------------------------------- #
@@ -804,7 +801,7 @@ class DynapSim(JaxModule, DynapSE):
             f_feedback = jnp.exp(_kappa_prime * (vmem / self.md.Ut))  # 4xNrec
 
             ## Decouple synaptic currents and calculate membrane input
-            igaba, ishunt, inmda, iampa = isyn.T
+            (iampa, igaba, inmda, ishunt) = isyn.T
 
             # inmda = 0 if vmem < Vth_nmda else inmda
             I_nmda_dp = inmda / (self._one + self.md.If_nmda / imem)
@@ -860,87 +857,59 @@ class DynapSim(JaxModule, DynapSE):
 
             # igaba, ishunt, inmda, iampa = isyn
 
+            # IMPORTANT : SHOULD BE IN THE SAME ORDER WITH THE self.state()
             state = (
-                igaba,
-                ishunt,
-                inmda,
-                iampa,
                 iahp,
+                iampa,
+                igaba,
                 imem,
-                vmem,
+                inmda,
+                ishunt,
+                rng_key,
                 spikes,
                 timer_ref,
-                rng_key,
-            )
-            record = (
-                igaba,
-                ishunt,
-                inmda,
-                iampa,
-                iahp,
-                imem,
                 vmem,
-                spikes,
             )
-            return state, record
+            record_ts = (iahp, iampa, igaba, imem, inmda, ishunt, spikes, vmem)
+            return state, record_ts
 
         # --- Evolve over spiking inputs --- #
-        state, (
-            igaba_ts,
-            ishunt_ts,
-            inmda_ts,
-            iampa_ts,
-            iahp_ts,
-            imem_ts,
-            vmem_ts,
-            spikes_ts,
-        ) = scan(
+        initial_state = (
+            self.md.iahp,
+            self.md.iampa,
+            self.md.igaba,
+            self.md.imem,
+            self.md.inmda,
+            self.md.ishunt,
+            self.rng_key,
+            self.spikes,
+            self.timer_ref,
+            self.vmem,
+        )
+        state, record_ts = scan(
             forward,
-            (
-                self.md.igaba,
-                self.md.ishunt,
-                self.md.inmda,
-                self.md.iampa,
-                self.md.iahp,
-                self.md.imem,
-                self.vmem,
-                self.spikes,
-                self.timer_ref,
-                self.rng_key,
-            ),
+            initial_state,
             input_data,
         )
 
-        # --- RETURN ARGUMENTS --- #
-
-        ## the state returned should be in the same shape with the state dictionary given
-        states = {
-            "igaba": state[0],
-            "ishunt": state[1],
-            "inmda": state[2],
-            "iampa": state[3],
-            "iahp": state[4],
-            "imem": state[5],
-            "vmem": state[6],
-            "spikes": state[7],
-            "timer_ref": state[8],
-            "rng_key": state[9],
-        }
+        states = dict(zip(self.state().keys(), state))
 
         record_dict = {}
-        if record:
-            record_dict = {
-                "igaba": igaba_ts,
-                "ishunt": ishunt_ts,
-                "inmda": inmda_ts,
-                "iampa": iampa_ts,
-                "iahp": iahp_ts,
-                "imem": imem_ts,
-                "vmem": vmem_ts,
-                "spikes": spikes_ts,
-            }
 
-        return spikes_ts, states, record_dict
+        if record:
+            rkeys = [
+                "iahp",
+                "iampa",
+                "igaba",
+                "imem",
+                "inmda",
+                "ishunt",
+                "spikes",
+                "vmem",
+            ]
+            record_dict = dict(zip(rkeys, record_ts))
+
+        return record_ts[6], states, record_dict
 
     def export_Dynapse1Configuration(self) -> Dynapse1Configuration:
         None
@@ -962,9 +931,9 @@ class DynapSim(JaxModule, DynapSE):
         """
         return jnp.stack(
             [
-                obj.__getattribute__(f"{name}_gaba"),
-                obj.__getattribute__(f"{name}_shunt"),
-                obj.__getattribute__(f"{name}_nmda"),
                 obj.__getattribute__(f"{name}_ampa"),
+                obj.__getattribute__(f"{name}_gaba"),
+                obj.__getattribute__(f"{name}_nmda"),
+                obj.__getattribute__(f"{name}_shunt"),
             ]
         ).T
