@@ -20,7 +20,7 @@ table = {
     "Igain_gaba": ["Igain_gaba", "NPDPII_THR_S_P", "DEGA_IGAIN_P"],
     "Igain_nmda": ["Igain_nmda", "NPDPIE_THR_S_P", "DENM_EGAIN_P"],
     "Igain_shunt": ["Igain_shunt", "NPDPII_THR_F_P", "DESC_IGAIN_P"],
-    "Igain_soma": ["Igain_soma", "IF_THR_N", "SOIF_GAIN_N"],
+    "Igain_mem": ["Igain_mem", "IF_THR_N", "SOIF_GAIN_N"],
     "Ipulse_ahp": ["Ipulse_ahp", None, "SOAD_PWTAU_N"],
     "Ipulse": ["Ipulse", "PULSE_PWLK_P", "SYPD_EXT_N"],
     "Iref": ["Iref", "IF_RFR_N", "SOIF_REFR_N"],
@@ -30,7 +30,7 @@ table = {
     "Itau_gaba": ["Itau_gaba", "NPDPII_TAU_S_P", "DEGA_ITAU_P"],
     "Itau_nmda": ["Itau_nmda", "NPDPIE_TAU_S_P", "DENM_ETAU_P"],
     "Itau_shunt": ["Itau_shunt", "NPDPII_TAU_F_P", "DESC_ITAU_P"],
-    "Itau_soma": ["Itau_soma", "IF_TAU1_N", "SOIF_LEAK_N"],
+    "Itau_mem": ["Itau_mem", "IF_TAU1_N", "SOIF_LEAK_N"],
     "Iw_0": ["Iw_0", "PS_WEIGHT_INH_S_N", "SYAM_W0_P"],  # GABA_B SE1
     "Iw_1": ["Iw_1", "PS_WEIGHT_INH_F_N", "SYAM_W1_P"],  # GABA_A SE1
     "Iw_2": ["Iw_2", "PS_WEIGHT_EXC_S_N", "SYAM_W2_P"],  # NMDA SE1
