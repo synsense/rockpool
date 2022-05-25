@@ -728,6 +728,13 @@ class ConnectorSE1(Connector):
         3: 0b1000,  # AMPA
     }
 
+    syn_map = {
+        0: 1,  # GABA
+        1: 3,  # SHUNT
+        2: 2,  # NMDA
+        3: 0,  # AMPA
+    }
+
     @staticmethod
     def __tagger(core_id: np.uint8, neuron_id: np.uint8) -> int:
         """
@@ -763,7 +770,7 @@ class ConnectorSE1(Connector):
         self, syn_connection: Tuple[int, int, Dynapse1Synapse], *args, **kwargs
     ) -> Tuple[int, int, int, int]:
         pre_idx, post_idx, syn = syn_connection
-        gate = syn.syn_type.value
+        gate = self.syn_map[syn.syn_type.value]
         weight = self.syn_weight_map[syn.syn_type.value]
         return pre_idx, post_idx, gate, weight
 
@@ -772,11 +779,11 @@ class ConnectorSE1(Connector):
 class ConnectorSE2(Connector):
     pos_map = {0: (1, 0)}
     syn_map = {
-        0: 3,  # AMPA [] TODO !!!!! DO NOT DO IT !!!!!!
-        1024: 3,  # AMPA
-        512: 0,  # GABA
+        0: 0,  # AMPA [] TODO !!!!! DO NOT DO IT !!!!!!
+        1024: 0,  # AMPA
+        512: 1,  # GABA
         256: 2,  # NMDA
-        128: 1,  # SHUNT
+        128: 3,  # SHUNT
     }
 
     def __post_init__(self) -> None:
