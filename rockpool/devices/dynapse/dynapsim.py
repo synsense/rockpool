@@ -466,7 +466,9 @@ class DynapSim(JaxModule, DynapSE):
 
         __constructor = dict.fromkeys(DynapSimLayout.__annotations__.keys())
         __constructor.update(dict.fromkeys(DynapSimCurrents.__annotations__.keys()))
-        for key in ["w_rec", "Iw_0", "Iw_1", "Iw_2", "Iw_3"]:
+        __constructor.update(dict.fromkeys(["w_rec"]))
+
+        for key in ["Iw_0", "Iw_1", "Iw_2", "Iw_3"]:
             __constructor.pop(key, None)
         for key in __constructor:
             __constructor[key] = simconfig.__getattribute__(key)
@@ -479,7 +481,6 @@ class DynapSim(JaxModule, DynapSE):
             rng_key=rng_key,
             spiking_input=spiking_input,
             spiking_output=spiking_output,
-            w_rec=simconfig.w_rec,
             **__constructor,
             **kwargs,
         )
