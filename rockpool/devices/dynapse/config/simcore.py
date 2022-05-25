@@ -90,11 +90,11 @@ class DynapSimCurrents(DynapSimProperty):
     :type Igain_nmda: float
     :param Igain_shunt: gain bias current of the inhibitory SHUNT synapse in Amperes
     :type Igain_shunt: float
-    :param Igain_soma: gain bias current for neuron membrane in Amperes
-    :type Igain_soma: float
+    :param Igain_mem: gain bias current for neuron membrane in Amperes
+    :type Igain_mem: float
     :param Ipulse_ahp: bias current setting the pulse width for spike frequency adaptation block `t_pulse_ahp` in Amperes
     :type Ipulse_ahp: float
-    :param Ipulse: bias current setting the pulse width for neuron soma `t_pulse` in Amperes
+    :param Ipulse: bias current setting the pulse width for neuron membrane `t_pulse` in Amperes
     :type Ipulse: float
     :param Iref: bias current setting the refractory period `t_ref` in Amperes
     :type Iref: float
@@ -110,8 +110,8 @@ class DynapSimCurrents(DynapSimProperty):
     :type Itau_nmda: float
     :param Itau_shunt: SHUNT synapse leakage current setting the time constant `tau_shunt` in Amperes
     :type Itau_shunt: float
-    :param Itau_soma: Neuron soma leakage current setting the time constant `tau_soma` in Amperes
-    :type Itau_soma: float
+    :param Itau_mem: Neuron membrane leakage current setting the time constant `tau_mem` in Amperes
+    :type Itau_mem: float
     :param Iw_0: weight bit 0 current of the neurons of the core in Amperes
     :type Iw_0: float
     :param Iw_1: weight bit 1 current of the neurons of the core in Amperes
@@ -131,7 +131,7 @@ class DynapSimCurrents(DynapSimProperty):
     Igain_gaba: Optional[Union[float, np.ndarray]] = None
     Igain_nmda: Optional[Union[float, np.ndarray]] = None
     Igain_shunt: Optional[Union[float, np.ndarray]] = None
-    Igain_soma: Optional[Union[float, np.ndarray]] = None
+    Igain_mem: Optional[Union[float, np.ndarray]] = None
     Ipulse_ahp: Optional[Union[float, np.ndarray]] = None
     Ipulse: Optional[Union[float, np.ndarray]] = None
     Iref: Optional[Union[float, np.ndarray]] = None
@@ -141,7 +141,7 @@ class DynapSimCurrents(DynapSimProperty):
     Itau_gaba: Optional[Union[float, np.ndarray]] = None
     Itau_nmda: Optional[Union[float, np.ndarray]] = None
     Itau_shunt: Optional[Union[float, np.ndarray]] = None
-    Itau_soma: Optional[Union[float, np.ndarray]] = None
+    Itau_mem: Optional[Union[float, np.ndarray]] = None
     Iw_0: Optional[Union[float, np.ndarray]] = None
     Iw_1: Optional[Union[float, np.ndarray]] = None
     Iw_2: Optional[Union[float, np.ndarray]] = None
@@ -170,8 +170,8 @@ class DynapSimLayout(DynapSimProperty):
     :type C_ref: float, optional
     :param C_shunt: SHUNT synapse capacitance in Farads, defaults to 24.5e-12
     :type C_shunt: float, optional
-    :param C_soma: neuron soma capacitance in Farads, defaults to 3e-12
-    :type C_soma: float, optional
+    :param C_mem: neuron membrane capacitance in Farads, defaults to 3e-12
+    :type C_mem: float, optional
     :param Io: Dark current in Amperes that flows through the transistors even at the idle state, defaults to 5e-13
     :type Io: float, optional
     :param kappa_n: Subthreshold slope factor (n-type transistor), defaults to 0.75
@@ -192,7 +192,7 @@ class DynapSimLayout(DynapSimProperty):
     C_pulse: Optional[float] = 0.5e-12
     C_ref: Optional[float] = 1.5e-12
     C_shunt: Optional[float] = 24.5e-12
-    C_soma: Optional[float] = 3e-12
+    C_mem: Optional[float] = 3e-12
     Io: Optional[float] = 5e-13
     kappa_n: Optional[float] = 0.75
     kappa_p: Optional[float] = 0.66
@@ -219,26 +219,26 @@ class DynapSimCore(DynapSimCurrents):
             self.layout = DynapSimLayout()
 
     @classmethod
-    def from_specificaiton(
+    def from_specification(
         cls,
         Idc: float = None,
         If_nmda: float = None,
-        r_gain_ahp: float = 100,
-        r_gain_ampa: float = 100,
-        r_gain_gaba: float = 100,
-        r_gain_nmda: float = 100,
-        r_gain_shunt: float = 100,
-        r_gain_soma: float = 4,
+        r_gain_ahp: float = 4,  # 100
+        r_gain_ampa: float = 4,  # 100
+        r_gain_gaba: float = 4,  # 100
+        r_gain_nmda: float = 4,  # 100
+        r_gain_shunt: float = 4,  # 100
+        r_gain_mem: float = 2,  # 4
         t_pulse_ahp: float = 1e-6,
         t_pulse: float = 10e-6,
-        t_ref: float = 2e-2,
+        t_ref: float = 2e-3,
         Ispkthr: float = 1e-6,
         tau_ahp: float = 50e-3,
         tau_ampa: float = 10e-3,
         tau_gaba: float = 100e-3,
         tau_nmda: float = 100e-3,
         tau_shunt: float = 10e-3,
-        tau_soma: float = 20e-3,
+        tau_mem: float = 20e-3,
         Iw_0: float = 1e-6,
         Iw_1: float = 2e-6,
         Iw_2: float = 4e-6,
@@ -247,7 +247,7 @@ class DynapSimCore(DynapSimCurrents):
         **kwargs,
     ) -> DynapSimCore:
         """
-        from_specificaiton is a class factory method helping DynapSimCore object construction
+        from_specification is a class factory method helping DynapSimCore object construction
         using higher level representaitons of the currents like gain ratio or time constant whenever applicable.
 
         :param Idc: Constant DC current injected to membrane in Amperes, defaults to None
@@ -264,11 +264,11 @@ class DynapSimCore(DynapSimCurrents):
         :type r_gain_nmda: float, optional
         :param r_gain_shunt: inhibitory SHUNT synpse gain ratio :math:`Igain_shunt/Itau_shunt`, defaults to 100
         :type r_gain_shunt: float, optional
-        :param r_gain_soma: neuron soma gain ratio :math:`Igain_soma/Itau_soma`, defaults to 2
-        :type r_gain_soma: float, optional
+        :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`, defaults to 2
+        :type r_gain_mem: float, optional
         :param t_pulse_ahp: the spike pulse width for spike frequency adaptation circuit in seconds, defaults to 1e-6
         :type t_pulse_ahp: float, optional
-        :param t_pulse: the spike pulse width for neuron soma in seconds, defaults to 10e-6
+        :param t_pulse: the spike pulse width for neuron membrane in seconds, defaults to 10e-6
         :type t_pulse: float, optional
         :param t_ref: refractory period of the neurons in seconds, defaults to 2e-2
         :type t_ref: float, optional
@@ -284,8 +284,8 @@ class DynapSimCore(DynapSimCurrents):
         :type tau_nmda: float, optional
         :param tau_shunt:SHUNT synapse leakage time constant in seconds, defaults to 10e-3
         :type tau_shunt: float, optional
-        :param tau_soma: Neuron soma leakage time constant in seconds, defaults to 20e-3
-        :type tau_soma: float, optional
+        :param tau_mem: Neuron membrane leakage time constant in seconds, defaults to 20e-3
+        :type tau_mem: float, optional
         :param Iw_0: weight bit 0 current of the neurons of the core in Amperes, defaults to 1e-6
         :type Iw_0: float
         :param Iw_1: weight bit 1 current of the neurons of the core in Amperes, defaults to 2e-6
@@ -319,7 +319,7 @@ class DynapSimCore(DynapSimCurrents):
         )
 
         # Set the Itau currents
-        _time = DynapSimCoreTime(
+        _time = DynapSimTime(
             t_pulse_ahp,
             t_pulse,
             t_ref,
@@ -328,18 +328,18 @@ class DynapSimCore(DynapSimCurrents):
             tau_gaba,
             tau_nmda,
             tau_shunt,
-            tau_soma,
+            tau_mem,
         )
         _core = _time.update_DynapSimCore(_core)
 
         # Set Igain currents depending on the ratio between related Itau currents
-        _gain = DynapSimCoreGain(
+        _gain = DynapSimGain(
             r_gain_ahp,
             r_gain_ampa,
             r_gain_gaba,
             r_gain_nmda,
             r_gain_shunt,
-            r_gain_soma,
+            r_gain_mem,
         )
         _core = _gain.update_DynapSimCore(_core)
 
@@ -456,9 +456,9 @@ class DynapSimCore(DynapSimCurrents):
 
     def update_time_constant(self, attr: str, value: Any) -> DynapSimCore:
         """
-        update_time_constant updates currents setting time constant attributes that have a representation in `DynapSimCoreTime()` class instances
+        update_time_constant updates currents setting time constant attributes that have a representation in `DynapSimTime()` class instances
 
-        :param attr: any attribute that belongs to any DynapSimCoreTime object
+        :param attr: any attribute that belongs to any DynapSimTime object
         :type attr: str
         :param value: the new value to set
         :type value: Any
@@ -466,7 +466,7 @@ class DynapSimCore(DynapSimCurrents):
         :rtype: DynapSimCore
         """
         return self.__update_high_level(
-            obj=DynapSimCoreTime(),
+            obj=DynapSimTime(),
             attr_getter=lambda name: self.time.__getattribute__(name),
             attr=attr,
             value=value,
@@ -474,9 +474,9 @@ class DynapSimCore(DynapSimCurrents):
 
     def update_gain_ratio(self, attr: str, value: Any) -> DynapSimCore:
         """
-        update_gain_ratio updates currents setting gain ratio (Igain/Itau) attributes that have a representation in `DynapSimCoreGain()` class instances
+        update_gain_ratio updates currents setting gain ratio (Igain/Itau) attributes that have a representation in `DynapSimGain()` class instances
 
-        :param attr: any attribute that belongs to any DynapSimCoreGain object
+        :param attr: any attribute that belongs to any DynapSimGain object
         :type attr: str
         :param value: the new value to set
         :type value: Any
@@ -484,7 +484,7 @@ class DynapSimCore(DynapSimCurrents):
         :rtype: DynapSimCore
         """
         return self.__update_high_level(
-            obj=DynapSimCoreGain(),
+            obj=DynapSimGain(),
             attr_getter=lambda name: self.gain.__getattribute__(name),
             attr=attr,
             value=value,
@@ -514,20 +514,20 @@ class DynapSimCore(DynapSimCurrents):
         return changed
 
     @property
-    def time(self) -> DynapSimCoreTime:
+    def time(self) -> DynapSimTime:
         """
         time creates the high level time constants set by currents
-        Ipulse_ahp, Ipulse, Iref, Itau_ahp, Itau_ampa, Itau_gaba, Itau_nmda, Itau_shunt, Itau_soma
+        Ipulse_ahp, Ipulse, Iref, Itau_ahp, Itau_ampa, Itau_gaba, Itau_nmda, Itau_shunt, Itau_mem
         """
-        return DynapSimCoreTime.from_DynapSimCore(self)
+        return DynapSimTime.from_DynapSimCore(self)
 
     @property
-    def gain(self) -> DynapSimCoreGain:
+    def gain(self) -> DynapSimGain:
         """
         gain creates the high level gain ratios set by currents
-        Igain_ahp, Igain_ampa, Igain_gaba, Igain_nmda, Igain_shunt, Igain_soma
+        Igain_ahp, Igain_ampa, Igain_gaba, Igain_nmda, Igain_shunt, Igain_mem
         """
-        return DynapSimCoreGain.from_DynapSimCore(self)
+        return DynapSimGain.from_DynapSimCore(self)
 
 
 @dataclass
@@ -545,13 +545,13 @@ class DynapSimCoreHigh:
 
 
 @dataclass
-class DynapSimCoreTime(DynapSimCoreHigh):
+class DynapSimTime(DynapSimCoreHigh):
     """
-    DynapSimCoreTime stores the high-level projections of the currents setting time consant values
+    DynapSimTime stores the high-level projections of the currents setting time consant values
 
     :param t_pulse_ahp: the spike pulse width for spike frequency adaptation circuit in seconds
     :type t_pulse_ahp: float, optional
-    :param t_pulse: the spike pulse width for neuron soma in seconds
+    :param t_pulse: the spike pulse width for neuron membrane in seconds
     :type t_pulse: float, optional
     :param t_ref: refractory period of the neurons in seconds
     :type t_ref: float, optional
@@ -565,8 +565,8 @@ class DynapSimCoreTime(DynapSimCoreHigh):
     :type tau_nmda: float, optional
     :param tau_shunt:SHUNT synapse leakage time constant in seconds
     :type tau_shunt: float, optional
-    :param tau_soma: Neuron soma leakage time constant in seconds
-    :type tau_soma: float, optional
+    :param tau_mem: Neuron membrane leakage time constant in seconds
+    :type tau_mem: float, optional
     """
 
     t_pulse_ahp: Optional[float] = None
@@ -577,17 +577,17 @@ class DynapSimCoreTime(DynapSimCoreHigh):
     tau_gaba: Optional[float] = None
     tau_nmda: Optional[float] = None
     tau_shunt: Optional[float] = None
-    tau_soma: Optional[float] = None
+    tau_mem: Optional[float] = None
 
     @classmethod
-    def from_DynapSimCore(cls, core: DynapSimCore) -> DynapSimCoreTime:
+    def from_DynapSimCore(cls, core: DynapSimCore) -> DynapSimTime:
         """
         from_DynapSimCore is a class factory method using DynapSimCore object
 
         :param core: the `DynapSimCore` object contatining the current values setting the time constants
         :type core: DynapSimCore
-        :return: a `DynapSimCoreTime` object, that stores the time constants set by a `DynapSimCore`
-        :rtype: DynapSimCoreTime
+        :return: a `DynapSimTime` object, that stores the time constants set by a `DynapSimCore`
+        :rtype: DynapSimTime
         """
 
         def _tau(name: str) -> float:
@@ -631,13 +631,13 @@ class DynapSimCoreTime(DynapSimCoreHigh):
             tau_gaba=_tau("gaba"),
             tau_nmda=_tau("nmda"),
             tau_shunt=_tau("shunt"),
-            tau_soma=_tau("soma"),
+            tau_mem=_tau("mem"),
         )
         return _mod
 
     def update_DynapSimCore(self, core: DynapSimCore) -> DynapSimCore:
         """
-        update_DynapSimCore updates a `DynapSimCore` object using the defined attirbutes in `DynapSimCoreTime` object
+        update_DynapSimCore updates a `DynapSimCore` object using the defined attirbutes in `DynapSimTime` object
         It does not change the original core object and returns an updated copy
 
         :param core: a `DynapSimCore` object to be updated
@@ -698,7 +698,7 @@ class DynapSimCoreTime(DynapSimCoreHigh):
         for time in ["pulse_ahp", "pulse", "ref"]:
             _core.__setattr__(f"I{time}", _pw(time))
 
-        for syn in ["ahp", "ampa", "gaba", "nmda", "shunt", "soma"]:
+        for syn in ["ahp", "ampa", "gaba", "nmda", "shunt", "mem"]:
             _core.__setattr__(f"Itau_{syn}", _tau(syn))
 
         return _core
@@ -723,7 +723,7 @@ class DynapSimCoreTime(DynapSimCoreHigh):
         :return: a time constant or a current setting the time constant. If a time constant provided as input, the current is returned and vice versa
         :rtype: float
         """
-        if tau is None or tau <= 0.0:
+        if tau is None or (np.array(tau) <= np.array(0.0)).any():
             return None
         _tau = ((Ut / kappa) * C) / tau
         return _tau
@@ -746,16 +746,16 @@ class DynapSimCoreTime(DynapSimCoreHigh):
         :return: a pulse width or a current setting the pulse width. If a pulse width provided as input, the current is returned and vice versa
         :rtype: float
         """
-        if pw is None or pw <= 0.0:
+        if pw is None or (np.array(pw) <= np.array(0.0)).any():
             return None
         _pw = (Vth * C) / pw
         return _pw
 
 
 @dataclass
-class DynapSimCoreGain(DynapSimCoreHigh):
+class DynapSimGain(DynapSimCoreHigh):
     """
-    DynapSimCoreGain stores the ratio between gain and tau current values
+    DynapSimGain stores the ratio between gain and tau current values
 
     :param r_gain_ahp: spike frequency adaptation block gain ratio :math:`Igain_ahp/Itau_ahp`, defaults to 100
     :type r_gain_ahp: float, optional
@@ -767,8 +767,8 @@ class DynapSimCoreGain(DynapSimCoreHigh):
     :type r_gain_nmda: float, optional
     :param r_gain_shunt: inhibitory SHUNT synpse gain ratio :math:`Igain_shunt/Itau_shunt`, defaults to 100
     :type r_gain_shunt: float, optional
-    :param r_gain_soma: neuron soma gain ratio :math:`Igain_soma/Itau_soma`, defaults to 2
-    :type r_gain_soma: float, optional
+    :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`, defaults to 2
+    :type r_gain_mem: float, optional
     """
 
     r_gain_ahp: Optional[float] = None
@@ -776,17 +776,17 @@ class DynapSimCoreGain(DynapSimCoreHigh):
     r_gain_gaba: Optional[float] = None
     r_gain_nmda: Optional[float] = None
     r_gain_shunt: Optional[float] = None
-    r_gain_soma: Optional[float] = None
+    r_gain_mem: Optional[float] = None
 
     @classmethod
-    def from_DynapSimCore(cls, core: DynapSimCore) -> DynapSimCoreGain:
+    def from_DynapSimCore(cls, core: DynapSimCore) -> DynapSimGain:
         """
         from_DynapSimCore is a class factory method using DynapSimCore object
 
         :param core: the `DynapSimCore` object contatining the current values setting the gain ratios
         :type core: DynapSimCore
-        :return: a `DynapSimCoreGain` object, that stores the gain ratios set by a `DynapSimCore`
-        :rtype: DynapSimCoreGain
+        :return: a `DynapSimGain` object, that stores the gain ratios set by a `DynapSimCore`
+        :rtype: DynapSimGain
         """
         _r_gain = lambda name: cls.ratio_gain(
             Igain=core.__getattribute__(f"Igain_{name}"),
@@ -800,13 +800,13 @@ class DynapSimCoreGain(DynapSimCoreHigh):
             r_gain_gaba=_r_gain("gaba"),
             r_gain_nmda=_r_gain("nmda"),
             r_gain_shunt=_r_gain("shunt"),
-            r_gain_soma=_r_gain("soma"),
+            r_gain_mem=_r_gain("mem"),
         )
         return _mod
 
     def update_DynapSimCore(self, core: DynapSimCore) -> DynapSimCore:
         """
-        update_DynapSimCore updates a `DynapSimCore` object using the defined attirbutes in `DynapSimCoreGain` object
+        update_DynapSimCore updates a `DynapSimCore` object using the defined attirbutes in `DynapSimGain` object
         It does not change the original core object and returns an updated copy
 
         :param core: a `DynapSimCore` object to be updated
@@ -821,7 +821,7 @@ class DynapSimCoreGain(DynapSimCoreHigh):
         )
         _core = replace(core)
 
-        for syn in ["ahp", "ampa", "gaba", "nmda", "shunt", "soma"]:
+        for syn in ["ahp", "ampa", "gaba", "nmda", "shunt", "mem"]:
             _core.__setattr__(f"Igain_{syn}", _I_gain(syn))
 
         return _core
@@ -871,10 +871,10 @@ if __name__ == "__main__":
     import os
 
     logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
-    sim_config = DynapSimCore.from_specificaiton(10)
+    sim_config = DynapSimCore.from_specification(10)
     print(sim_config)
     print(sim_config.time)
     print(sim_config.gain)
-    updated = sim_config.update_gain_ratio("r_gain_soma", 10)
-    sim_config = DynapSimCore.from_specificaiton(10, C_ahp=10)
+    updated = sim_config.update_gain_ratio("r_gain_mem", 10)
+    sim_config = DynapSimCore.from_specification(10, C_ahp=10)
     print(sim_config.layout)
