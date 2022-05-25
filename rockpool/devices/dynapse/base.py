@@ -22,21 +22,27 @@ NeuronConnection = Tuple[np.uint16, np.uint16]
 NeuronConnectionSynType = Tuple[np.uint16, np.uint16, np.uint8]
 
 DynapSERecord = Tuple[
-    jnp.DeviceArray,  # Isyn
-    jnp.DeviceArray,  # Iahp
-    jnp.DeviceArray,  # Imem
-    jnp.DeviceArray,  # Vmem
+    jnp.DeviceArray,  # iahp
+    jnp.DeviceArray,  # iampa
+    jnp.DeviceArray,  # igaba
+    jnp.DeviceArray,  # imem
+    jnp.DeviceArray,  # inmda
+    jnp.DeviceArray,  # ishunt
     jnp.DeviceArray,  # spikes
+    jnp.DeviceArray,  # vmem
 ]
 
 DynapSEState = Tuple[
-    jnp.DeviceArray,  # Isyn
-    jnp.DeviceArray,  # Iahp
-    jnp.DeviceArray,  # Imem
-    jnp.DeviceArray,  # Vmem
+    jnp.DeviceArray,  # iahp
+    jnp.DeviceArray,  # iampa
+    jnp.DeviceArray,  # igaba
+    jnp.DeviceArray,  # imem
+    jnp.DeviceArray,  # inmda
+    jnp.DeviceArray,  # ishunt
+    jnp.DeviceArray,  # rng_key
     jnp.DeviceArray,  # spikes
     jnp.DeviceArray,  # timer_ref
-    jnp.DeviceArray,  # key
+    jnp.DeviceArray,  # vmem
 ]
 
 
