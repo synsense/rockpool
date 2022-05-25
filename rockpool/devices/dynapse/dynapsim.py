@@ -37,23 +37,16 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 13/07/2021
 [] TODO : Optional mismatch
-[] TODO : Deal with SYN
-[] TODO : from specifications
-[] TODO : Current initialization
-[] TODO : Remove simconfig
-[] TODO : Length check simconfig
-[] TODO : Check LIFjax dfor core.Tracer and all the other things
+[] TODO : Check LIFjax for core.Tracer and all the other things
 [] TODO : max spikes per dt
-[] TODO : bias : DynapSimCurrents
-[] TODO : handle device arrays
 [] TODO : time and gain maybe as histogram
 """
 
 from __future__ import annotations
-import logging
 
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+import jax
 from jax import random as rand
 from jax import custom_gradient
 from jax.lax import scan
@@ -67,13 +60,37 @@ from rockpool.devices.dynapse.config.simcore import (
     DynapSimLayout,
     DynapSimTime,
 )
+from rockpool.devices.dynapse.config.weights import WeightParameters
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
 
 from rockpool.devices.dynapse.infrastructure.mismatch import MismatchDevice
-from rockpool.devices.dynapse.config.simconfig import DynapSE1SimBoard
-from rockpool.devices.dynapse.base import DynapSE, DynapSERecord, DynapSEState
+
+DynapSEState = Tuple[
+    jnp.DeviceArray,  # iahp
+    jnp.DeviceArray,  # iampa
+    jnp.DeviceArray,  # igaba
+    jnp.DeviceArray,  # imem
+    jnp.DeviceArray,  # inmda
+    jnp.DeviceArray,  # ishunt
+    jnp.DeviceArray,  # rng_key
+    jnp.DeviceArray,  # spikes
+    jnp.DeviceArray,  # timer_ref
+    jnp.DeviceArray,  # vmem
+]
+
+DynapSERecord = Tuple[
+    jnp.DeviceArray,  # iahp
+    jnp.DeviceArray,  # iampa
+    jnp.DeviceArray,  # igaba
+    jnp.DeviceArray,  # imem
+    jnp.DeviceArray,  # inmda
+    jnp.DeviceArray,  # ishunt
+    jnp.DeviceArray,  # spikes
+    jnp.DeviceArray,  # vmem
+]
+
 
 Dynapse1Configuration = Any
 Dynapse2Configuration = Any
@@ -103,7 +120,25 @@ def step_pwl(
     return spikes, grad_func
 
 
-class DynapSim(JaxModule, DynapSE):
+def poisson_weights_se2(
+    shape: Tuple[int],
+    Iw_0: float = 1e-7,
+    Iw_1: float = 2e-7,
+    Iw_2: float = 4e-7,
+    Iw_3: float = 8e-7,
+    fill_rate: Union[float, List[float]] = [0.25, 0.2, 0.04, 0.06],
+    n_bits: int = 4,
+) -> np.ndarray:
+
+    mask = DynapSimConfig.poisson_mask(shape, fill_rate, n_bits)
+    weight_param = WeightParameters(
+        Iw_0=Iw_0, Iw_1=Iw_1, Iw_2=Iw_2, Iw_3=Iw_3, mux=mask
+    )
+    weights = weight_param.weights
+    return weights
+
+
+class DynapSim(JaxModule):
     """
     DynapSim solves dynamical chip equations for the DPI neuron and synapse models.
     Receives configuration as bias currents and solves membrane and synapse dynamics using ``jax`` backend.
@@ -266,16 +301,8 @@ class DynapSim(JaxModule, DynapSE):
     :type timer_ref: jnp.DeviceArray
     :ivar vmem: Membrane potential states of the neurons in Volts with shape (Nrec,)
     :type vmem: jnp.DeviceArray
-    :ivar _attr_list: A list of names of attributes imported from simulation configuration object
-    :type _attr_list: List[str]
-
-
-    [] TODO: Find a better parameteric way of weight initialization
-    [] TODO: parametric fill rate, different initialization methods
-    [] TODO: all neurons cannot have the same parameters ideally however, they experience different parameters in practice because of device mismatch
-    [] TODO: Provides mismatch simulation (as second step)
-        -As a utility function that operates on a set of parameters?
-        -As a method on the class?
+    :ivar md: The mismatch device to fluctuate the states, parameters and the simulation parameters
+    :type md: MismatchDevice
     """
 
     __doc__ += "\nJaxModule" + JaxModule.__doc__
@@ -318,7 +345,7 @@ class DynapSim(JaxModule, DynapSE):
         Vth: Optional[np.ndarray] = None,
         w_rec: Optional[jnp.DeviceArray] = None,
         has_rec: bool = True,
-        weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = None,  #
+        weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = None,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
         spiking_input: bool = False,
@@ -329,7 +356,7 @@ class DynapSim(JaxModule, DynapSE):
         """
         __init__ Initialize ``DynapSim`` module. Parameters are explained in the class docstring.
         """
-        self._shape_check(shape)
+        self.__shape_check(shape)
 
         super(DynapSim, self).__init__(
             shape=shape,
@@ -343,93 +370,114 @@ class DynapSim(JaxModule, DynapSE):
         if rng_key is None:
             rng_key = rand.PRNGKey(np.random.randint(0, 2 ** 63))
 
-        # --- Parameters & States --- #
-        init_current = lambda s: jnp.full(tuple(reversed(s)), Io).T
-        # [] TODO : parametrize!
-        init_weight = lambda s: w_rec
+        ### --- States --- ####
+        __state = lambda init_func: State(
+            init_func=init_func,
+            shape=(self.size_out,),
+            permit_reshape=False,
+            cast_fn=jnp.array,
+        )
 
-        # --- States --- #
-        self.iahp = State(shape=(self.size_out,), init_func=init_current)
-        self.iampa = State(shape=(self.size_out,), init_func=init_current)
-        self.igaba = State(shape=(self.size_out,), init_func=init_current)
-        self.imem = State(shape=(self.size_out,), init_func=init_current)
-        self.inmda = State(shape=(self.size_out,), init_func=init_current)
-        self.ishunt = State(shape=(self.size_out,), init_func=init_current)
-        self.rng_key = State(rng_key, init_func=lambda _: rng_key)
-        self.spikes = State(shape=(self.size_out,), init_func=jnp.zeros)
-        self.timer_ref = State(shape=(self.size_out,), init_func=jnp.zeros)
-        self.vmem = State(shape=(self.size_out,), init_func=jnp.zeros)
+        __Io_state = lambda _: __state(lambda s: jnp.full(tuple(reversed(s)), Io).T)
+        __zero_state = lambda _: __state(jnp.zeros)
 
-        # --- Parameters --- #
-        # [] TODO : Change
-        ## Weights
-        self.__weight_init(has_rec, init_weight, w_rec)
+        ## Data
+        self.iahp = __Io_state(None)
+        self.iampa = __Io_state(None)
+        self.igaba = __Io_state(None)
+        self.imem = __Io_state(None)
+        self.inmda = __Io_state(None)
+        self.ishunt = __Io_state(None)
+        self.spikes = __zero_state(None)
+        self.timer_ref = __zero_state(None)
+        self.vmem = __zero_state(None)
 
-        self.Idc = Parameter(Idc, shape=(self.size_out,))
-        self.If_nmda = Parameter(If_nmda, shape=(self.size_out,))
-        self.Igain_ahp = Parameter(Igain_ahp, shape=(self.size_out,))
-        self.Igain_ampa = Parameter(Igain_ampa, shape=(self.size_out,))
-        self.Igain_gaba = Parameter(Igain_gaba, shape=(self.size_out,))
-        self.Igain_nmda = Parameter(Igain_nmda, shape=(self.size_out,))
-        self.Igain_shunt = Parameter(Igain_shunt, shape=(self.size_out,))
-        self.Igain_mem = Parameter(Igain_mem, shape=(self.size_out,))
-        self.Ipulse_ahp = Parameter(Ipulse_ahp, shape=(self.size_out,))
-        self.Ipulse = Parameter(Ipulse, shape=(self.size_out,))
-        self.Iref = Parameter(Iref, shape=(self.size_out,))
-        self.Ispkthr = Parameter(Ispkthr, shape=(self.size_out,))
-        self.Itau_ahp = Parameter(Itau_ahp, shape=(self.size_out,))
-        self.Itau_ampa = Parameter(Itau_ampa, shape=(self.size_out,))
-        self.Itau_gaba = Parameter(Itau_gaba, shape=(self.size_out,))
-        self.Itau_nmda = Parameter(Itau_nmda, shape=(self.size_out,))
-        self.Itau_shunt = Parameter(Itau_shunt, shape=(self.size_out,))
-        self.Itau_mem = Parameter(Itau_mem, shape=(self.size_out,))
-        self.Iw_ahp = Parameter(Iw_ahp, shape=(self.size_out,))
+        ### --- Parameters --- ###
+        if isinstance(has_rec, jax.core.Tracer) or has_rec:
+            self.w_rec = Parameter(
+                data=w_rec,
+                family="weights",
+                init_func=weight_init_func,
+                shape=(self.size_out, self.size_in // 4, 4),
+                permit_reshape=False,
+                cast_fn=jnp.array,
+            )
+        else:
+            if w_rec is not None:
+                raise ValueError(
+                    "If ``has_rec`` is False, then `w_rec` may not be provided as an argument or initialized by the module."
+                )
+            self.w_rec = jnp.zeros((self.size_out, self.size_in // 4, 4))
+
+        ## Bias Currents
+        __parameter = lambda _param: Parameter(
+            data=_param,
+            family="bias",
+            shape=(self.size_out,),
+            permit_reshape=False,
+            cast_fn=jnp.array,
+        )
+
+        self.Idc = __parameter(Idc)
+        self.If_nmda = __parameter(If_nmda)
+        self.Igain_ahp = __parameter(Igain_ahp)
+        self.Igain_ampa = __parameter(Igain_ampa)
+        self.Igain_gaba = __parameter(Igain_gaba)
+        self.Igain_nmda = __parameter(Igain_nmda)
+        self.Igain_shunt = __parameter(Igain_shunt)
+        self.Igain_mem = __parameter(Igain_mem)
+        self.Ipulse_ahp = __parameter(Ipulse_ahp)
+        self.Ipulse = __parameter(Ipulse)
+        self.Iref = __parameter(Iref)
+        self.Ispkthr = __parameter(Ispkthr)
+        self.Itau_ahp = __parameter(Itau_ahp)
+        self.Itau_ampa = __parameter(Itau_ampa)
+        self.Itau_gaba = __parameter(Itau_gaba)
+        self.Itau_nmda = __parameter(Itau_nmda)
+        self.Itau_shunt = __parameter(Itau_shunt)
+        self.Itau_mem = __parameter(Itau_mem)
+        self.Iw_ahp = __parameter(Iw_ahp)
 
         # --- Simulation Parameters --- #
-        self.dt = SimulationParameter(dt, shape=())
-        self.C_ahp = SimulationParameter(C_ahp, shape=(self.size_out,))
-        self.C_ampa = SimulationParameter(C_ampa, shape=(self.size_out,))
-        self.C_gaba = SimulationParameter(C_gaba, shape=(self.size_out,))
-        self.C_nmda = SimulationParameter(C_nmda, shape=(self.size_out,))
-        self.C_pulse_ahp = SimulationParameter(C_pulse_ahp, shape=(self.size_out,))
-        self.C_pulse = SimulationParameter(C_pulse, shape=(self.size_out,))
-        self.C_ref = SimulationParameter(C_ref, shape=(self.size_out,))
-        self.C_shunt = SimulationParameter(C_shunt, shape=(self.size_out,))
-        self.C_mem = SimulationParameter(C_mem, shape=(self.size_out,))
-        self.Io = SimulationParameter(Io, shape=(self.size_out,))
-        self.kappa_n = SimulationParameter(kappa_n, shape=(self.size_out,))
-        self.kappa_p = SimulationParameter(kappa_p, shape=(self.size_out,))
-        self.Ut = SimulationParameter(Ut, shape=(self.size_out,))
-        self.Vth = SimulationParameter(Vth, shape=(self.size_out,))
-
-        self._attr_list = (
-            list(DynapSimCurrents.__annotations__.keys())
-            + list(DynapSimLayout.__annotations__.keys())
-            + [
-                "iahp",
-                "iampa",
-                "igaba",
-                "imem",
-                "inmda",
-                "ishunt",
-                "w_rec",
-            ]
+        __simparam = lambda _param: SimulationParameter(
+            data=_param,
+            shape=(self.size_out,),
+            permit_reshape=False,
+            cast_fn=jnp.array,
         )
-        self._attr_list.remove("Iw_0")
-        self._attr_list.remove("Iw_1")
-        self._attr_list.remove("Iw_2")
-        self._attr_list.remove("Iw_3")
-        attr = {name: self.__getattribute__(name) for name in self._attr_list}
-        self.md = MismatchDevice(self.rng_key, **attr)
+
+        self.C_ahp = __simparam(C_ahp)
+        self.C_ampa = __simparam(C_ampa)
+        self.C_gaba = __simparam(C_gaba)
+        self.C_nmda = __simparam(C_nmda)
+        self.C_pulse_ahp = __simparam(C_pulse_ahp)
+        self.C_pulse = __simparam(C_pulse)
+        self.C_ref = __simparam(C_ref)
+        self.C_shunt = __simparam(C_shunt)
+        self.C_mem = __simparam(C_mem)
+        self.Io = __simparam(Io)
+        self.kappa_n = __simparam(kappa_n)
+        self.kappa_p = __simparam(kappa_p)
+        self.Ut = __simparam(Ut)
+        self.Vth = __simparam(Vth)
+
+        self.md = MismatchDevice(
+            rng_key, **self.state(), **self.parameters(), **self.simulation_parameters()
+        )
+
+        # Escape from mismatch
+        self.rng_key = State(rng_key, init_func=lambda _: rng_key)
+        self.dt = SimulationParameter(dt, shape=())
 
         # Performance : Use device arrays in calculations
-        self._zero = jnp.array(0.0)
-        self._one = jnp.array(1.0)
-        self._two = jnp.array(2.0)
+        self.__zero = jnp.array(0.0)
+        self.__one = jnp.array(1.0)
+        self.__two = jnp.array(2.0)
 
         # - Define additional arguments required during initialisation
         self._init_args = {
             "has_rec": has_rec,
+            "weight_init_func": Partial(weight_init_func),
         }
 
     @classmethod
@@ -481,6 +529,11 @@ class DynapSim(JaxModule, DynapSE):
         spiking_input: bool = False,
         spiking_output: bool = True,
     ) -> DynapSim:
+
+        if weight_init_func is None:
+            weight_init_func = lambda s: poisson_weights_se2(
+                s, Iw_0=Iw_0, Iw_1=Iw_1, Iw_2=Iw_2, Iw_3=Iw_3
+            )
 
         simconfig = DynapSimConfig.from_specification(
             shape=shape[-1],
@@ -549,6 +602,9 @@ class DynapSim(JaxModule, DynapSE):
         **kwargs,
     ) -> DynapSim:
 
+        if weight_init_func is None:
+            weight_init_func = lambda _: simconfig.w_rec
+
         __constructor = dict.fromkeys(DynapSimLayout.__annotations__.keys())
         __constructor.update(dict.fromkeys(DynapSimCurrents.__annotations__.keys()))
         __constructor.update(dict.fromkeys(["w_rec"]))
@@ -581,7 +637,7 @@ class DynapSim(JaxModule, DynapSE):
     def from_Dynapse2Configuration(cls, config: Dynapse2Configuration) -> DynapSim:
         None
 
-    def _shape_check(self, shape: Tuple[int]) -> None:
+    def __shape_check(self, shape: Tuple[int]) -> None:
         """
         _shape_check Controls the shape of module and complains if not appropriate.
 
@@ -611,52 +667,6 @@ class DynapSim(JaxModule, DynapSE):
         # Check if output dimension meets the 4 synapse per neuron criteria
         if shape[1] != shape[0] // 4:
             raise ValueError("`shape[0]` should be `shape[1]`*4")
-
-    def __weight_init(
-        self,
-        has_rec: bool,
-        init_func: Callable[[Tuple], jnp.DeviceArray],
-        w_rec: Optional[jnp.DeviceArray] = None,
-    ) -> None:
-        """
-        __weight_init initialize the weight matrix of the module as a `Parameter` object
-
-        :param has_rec: When ``True`` the module provides a trainable recurrent weight matrix. ``False``, module is feed-forward, defaults to True
-        :type has_rec: bool, optional
-        :param init_func: a function to initilize the weights in the case that w_rec is not explicitly provided
-        :type init_func: Callable[[Tuple], jnp.DeviceArray]
-        :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(Nrec, Nrec, 4)``. The last 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
-        :type w_rec: Optional[jnp.DeviceArray], optional
-        :raises ValueError: If ``has_rec`` is False, then `w_rec` may not be provided as an argument or initialized by the module
-        """
-        # Feed forward Mode
-        if not has_rec:
-            if w_rec is not None:
-                raise ValueError(
-                    "If ``has_rec`` is False, then `w_rec` may not be provided as an argument or initialized by the module."
-                )
-
-            # In order not to make the jax complain about w_rec
-            self.w_rec = jnp.zeros((self.size_out, self.size_in // 4, 4))
-            logging.info(
-                f"Feed forward module allocates {self.size_out} neurons with 4 synapses"
-            )
-
-        # Recurrent mode
-        else:
-            if w_rec is not None:
-                w_rec = jnp.array(w_rec, dtype=jnp.float32)
-
-            # Values between 0,64
-            self.w_rec = Parameter(
-                w_rec,
-                family="weights",
-                init_func=init_func,
-                shape=(self.size_out, self.size_in // 4, 4),
-            )
-            logging.info(
-                f"Recurrent module allocates {self.size_out} neurons with 4 synapses"
-            )
 
     def evolve(
         self, input_data: jnp.DeviceArray, record: bool = True
@@ -757,13 +767,13 @@ class DynapSim(JaxModule, DynapSE):
 
             # isyn_inf is the current that a synapse current would reach with a sufficiently long pulse
             isyn_inf = ((Igain_syn_clip / Itau_syn_clip) * Iws) - Igain_syn_clip
-            isyn_inf = jnp.clip(isyn_inf, self._zero)
+            isyn_inf = jnp.clip(isyn_inf, self.__zero)
 
             # synaptic time constant is practically much more longer than expected when isyn << Igain
             tau_syn_prime = tau_syn(Itau_syn_clip) * (1 + (Igain_syn_clip / isyn))
 
             ## Exponential charge, discharge positive feedback factor arrays
-            f_charge = self._one - jnp.exp(-t_pulse / tau_syn_prime.T).T  # Nrecx4
+            f_charge = self.__one - jnp.exp(-t_pulse / tau_syn_prime.T).T  # Nrecx4
             f_discharge = jnp.exp(-self.dt / tau_syn_prime)  # Nrecx4
 
             ## DISCHARGE in any case
@@ -785,11 +795,11 @@ class DynapSim(JaxModule, DynapSE):
             iahp_inf = ((Igain_ahp_clip / Itau_ahp_clip) * Iws_ahp) - Igain_ahp_clip
 
             tau_ahp_prime = tau_ahp(Itau_ahp_clip) * (
-                self._one + (Igain_ahp_clip / iahp)
+                self.__one + (Igain_ahp_clip / iahp)
             )
 
             # Calculate charge and discharge factors
-            f_charge_ahp = self._one - jnp.exp(-t_pulse_ahp / tau_ahp_prime)  # Nrec
+            f_charge_ahp = self.__one - jnp.exp(-t_pulse_ahp / tau_ahp_prime)  # Nrec
             f_discharge_ahp = jnp.exp(-self.dt / tau_ahp_prime)  # Nrec
 
             ## DISCHARGE in any case
@@ -806,15 +816,15 @@ class DynapSim(JaxModule, DynapSE):
             # ------------------------------ #
             # --- Forward step: MEMBRANE --- #
             # ------------------------------ #
-            _kappa_2 = jnp.power(kappa, self._two)
-            _kappa_prime = _kappa_2 / (kappa + self._one)
+            _kappa_2 = jnp.power(kappa, self.__two)
+            _kappa_prime = _kappa_2 / (kappa + self.__one)
             f_feedback = jnp.exp(_kappa_prime * (vmem / self.md.Ut))  # 4xNrec
 
             ## Decouple synaptic currents and calculate membrane input
             (iampa, igaba, inmda, ishunt) = isyn.T
 
             # inmda = 0 if vmem < Vth_nmda else inmda
-            I_nmda_dp = inmda / (self._one + self.md.If_nmda / imem)
+            I_nmda_dp = inmda / (self.__one + self.md.If_nmda / imem)
 
             # Iin = 0 if the neuron is in the refractory period
             Iin = I_nmda_dp + iampa - igaba + self.md.Idc
@@ -823,7 +833,7 @@ class DynapSim(JaxModule, DynapSE):
 
             # ishunt (shunting) contributes to the membrane leak instead of subtracting from Iin
             Ileak = Itau_mem_clip + ishunt
-            tau_mem_prime = tau_mem(Ileak) * (self._one + (Igain_mem_clip / imem))
+            tau_mem_prime = tau_mem(Ileak) * (self.__one + (Igain_mem_clip / imem))
 
             ## Steady state current
             imem_inf = (Igain_mem_clip / Itau_mem_clip) * (Iin - iahp - Ileak)
@@ -833,8 +843,8 @@ class DynapSim(JaxModule, DynapSE):
             f_imem = ((Ifb) / (Ileak)) * (imem + Igain_mem_clip)
 
             ## Forward Euler Update
-            del_imem = (self._one / tau_mem_prime) * (
-                imem_inf + f_imem - (imem * (self._one + (iahp / Ileak)))
+            del_imem = (self.__one / tau_mem_prime) * (
+                imem_inf + f_imem - (imem * (self.__one + (iahp / Ileak)))
             )
             imem = imem + del_imem * self.dt
             imem = jnp.clip(imem, self.md.Io)
@@ -854,12 +864,12 @@ class DynapSim(JaxModule, DynapSE):
             spikes = step_pwl(imem, self.md.Ispkthr, self.md.Io)
 
             ## Reset imem depending on spiking activity
-            imem = (self._one - spikes) * imem + spikes * self.md.Io
+            imem = (self.__one - spikes) * imem + spikes * self.md.Io
 
             ## Set the refractrory timer
             timer_ref -= self.dt
-            timer_ref = jnp.clip(timer_ref, self._zero)
-            timer_ref = (self._one - spikes) * timer_ref + spikes * t_ref
+            timer_ref = jnp.clip(timer_ref, self.__zero)
+            timer_ref = (self.__one - spikes) * timer_ref + spikes * t_ref
 
             # ------------------------------ #
             # ------------------------------ #
