@@ -12,7 +12,6 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 03/05/2022
 
-[] TODO : add C_pulse_ahp
 [] TODO : Add r_spkthr to gain
 [] TODO :     
     :param neuron_idx_map: the neuron index map used in the case that the matrix indexes of the neurons and the device indexes are different.
@@ -77,51 +76,43 @@ class DynapSimCurrents(DynapSimProperty):
     DynapSimCurrents contains the common simulation current values of Dynap-SE chips
 
     :param Idc: Constant DC current injected to membrane in Amperes
-    :type Idc: float
+    :type Idc: Union[float, np.ndarray]
     :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes
-    :type If_nmda: float
+    :type If_nmda: Union[float, np.ndarray]
     :param Igain_ahp: gain bias current of the spike frequency adaptation block in Amperes
-    :type Igain_ahp: float
+    :type Igain_ahp: Union[float, np.ndarray]
     :param Igain_ampa: gain bias current of excitatory AMPA synapse in Amperes
-    :type Igain_ampa: float
+    :type Igain_ampa: Union[float, np.ndarray]
     :param Igain_gaba: gain bias current of inhibitory GABA synapse in Amperes
-    :type Igain_gaba: float
+    :type Igain_gaba: Union[float, np.ndarray]
     :param Igain_nmda: gain bias current of excitatory NMDA synapse in Amperes
-    :type Igain_nmda: float
+    :type Igain_nmda: Union[float, np.ndarray]
     :param Igain_shunt: gain bias current of the inhibitory SHUNT synapse in Amperes
-    :type Igain_shunt: float
+    :type Igain_shunt: Union[float, np.ndarray]
     :param Igain_mem: gain bias current for neuron membrane in Amperes
-    :type Igain_mem: float
+    :type Igain_mem: Union[float, np.ndarray]
     :param Ipulse_ahp: bias current setting the pulse width for spike frequency adaptation block `t_pulse_ahp` in Amperes
-    :type Ipulse_ahp: float
+    :type Ipulse_ahp: Union[float, np.ndarray]
     :param Ipulse: bias current setting the pulse width for neuron membrane `t_pulse` in Amperes
-    :type Ipulse: float
+    :type Ipulse: Union[float, np.ndarray]
     :param Iref: bias current setting the refractory period `t_ref` in Amperes
-    :type Iref: float
+    :type Iref: Union[float, np.ndarray]
     :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes
-    :type Ispkthr: float
+    :type Ispkthr: Union[float, np.ndarray]
     :param Itau_ahp: Spike frequency adaptation leakage current setting the time constant `tau_ahp` in Amperes
-    :type Itau_ahp: float
+    :type Itau_ahp: Union[float, np.ndarray]
     :param Itau_ampa: AMPA synapse leakage current setting the time constant `tau_ampa` in Amperes
-    :type Itau_ampa: float
+    :type Itau_ampa: Union[float, np.ndarray]
     :param Itau_gaba: GABA synapse leakage current setting the time constant `tau_gaba` in Amperes
-    :type Itau_gaba: float
+    :type Itau_gaba: Union[float, np.ndarray]
     :param Itau_nmda: NMDA synapse leakage current setting the time constant `tau_nmda` in Amperes
-    :type Itau_nmda: float
+    :type Itau_nmda: Union[float, np.ndarray]
     :param Itau_shunt: SHUNT synapse leakage current setting the time constant `tau_shunt` in Amperes
-    :type Itau_shunt: float
+    :type Itau_shunt: Union[float, np.ndarray]
     :param Itau_mem: Neuron membrane leakage current setting the time constant `tau_mem` in Amperes
-    :type Itau_mem: float
-    :param Iw_0: weight bit 0 current of the neurons of the core in Amperes
-    :type Iw_0: float
-    :param Iw_1: weight bit 1 current of the neurons of the core in Amperes
-    :type Iw_1: float
-    :param Iw_2: weight bit 2 current of the neurons of the core in Amperes
-    :type Iw_2: float
-    :param Iw_3: weight bit 3 current of the neurons of the core in Amperes
-    :type Iw_3: float
+    :type Itau_mem: Union[float, np.ndarray]
     :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes
-    :type Iw_ahp: float
+    :type Iw_ahp: Union[float, np.ndarray]
     """
 
     Idc: Optional[Union[float, np.ndarray]] = None
@@ -142,10 +133,6 @@ class DynapSimCurrents(DynapSimProperty):
     Itau_nmda: Optional[Union[float, np.ndarray]] = None
     Itau_shunt: Optional[Union[float, np.ndarray]] = None
     Itau_mem: Optional[Union[float, np.ndarray]] = None
-    Iw_0: Optional[Union[float, np.ndarray]] = None
-    Iw_1: Optional[Union[float, np.ndarray]] = None
-    Iw_2: Optional[Union[float, np.ndarray]] = None
-    Iw_3: Optional[Union[float, np.ndarray]] = None
     Iw_ahp: Optional[Union[float, np.ndarray]] = None
 
 
@@ -155,68 +142,74 @@ class DynapSimLayout(DynapSimProperty):
     DynapSimLayout contains the constant values used in simulation that are related to the exact silicon layout of a Dynap-SE chips.
 
     :param C_ahp: AHP synapse capacitance in Farads, defaults to 40e-12
-    :type C_ahp: float, optional
+    :type C_ahp: Union[float, np.ndarray], optional
     :param C_ampa: AMPA synapse capacitance in Farads, defaults to 24.5e-12
-    :type C_ampa: float, optional
+    :type C_ampa: Union[float, np.ndarray], optional
     :param C_gaba: GABA synapse capacitance in Farads, defaults to 25e-12
-    :type C_gaba: float, optional
+    :type C_gaba: Union[float, np.ndarray], optional
     :param C_nmda: NMDA synapse capacitance in Farads, defaults to 25e-12
-    :type C_nmda: float, optional
+    :type C_nmda: Union[float, np.ndarray], optional
     :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads, defaults to 0.5e-12
-    :type C_pulse_ahp: float, optional
+    :type C_pulse_ahp: Union[float, np.ndarray], optional
     :param C_pulse: pulse-width creation sub-circuit capacitance in Farads, defaults to 0.5e-12
-    :type C_pulse: float, optional
+    :type C_pulse: Union[float, np.ndarray], optional
     :param C_ref: refractory period sub-circuit capacitance in Farads, defaults to 1.5e-12
-    :type C_ref: float, optional
+    :type C_ref: Union[float, np.ndarray], optional
     :param C_shunt: SHUNT synapse capacitance in Farads, defaults to 24.5e-12
-    :type C_shunt: float, optional
+    :type C_shunt: Union[float, np.ndarray], optional
     :param C_mem: neuron membrane capacitance in Farads, defaults to 3e-12
-    :type C_mem: float, optional
+    :type C_mem: Union[float, np.ndarray], optional
     :param Io: Dark current in Amperes that flows through the transistors even at the idle state, defaults to 5e-13
-    :type Io: float, optional
+    :type Io: Union[float, np.ndarray], optional
     :param kappa_n: Subthreshold slope factor (n-type transistor), defaults to 0.75
-    :type kappa_n: float, optional
+    :type kappa_n: Union[float, np.ndarray], optional
     :param kappa_p: Subthreshold slope factor (p-type transistor), defaults to 0.66
-    :type kappa_p: float, optional
+    :type kappa_p: Union[float, np.ndarray], optional
     :param Ut: Thermal voltage in Volts, defaults to 25e-3
-    :type Ut: float, optional
+    :type Ut: Union[float, np.ndarray], optional
     :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific), defaults to 7e-1
-    :type Vth: float, optional
+    :type Vth: Union[float, np.ndarray], optional
     """
 
-    C_ahp: Optional[float] = 40e-12
-    C_ampa: Optional[float] = 24.5e-12
-    C_gaba: Optional[float] = 25e-12
-    C_nmda: Optional[float] = 25e-12
-    C_pulse_ahp: Optional[float] = 0.5e-12
-    C_pulse: Optional[float] = 0.5e-12
-    C_ref: Optional[float] = 1.5e-12
-    C_shunt: Optional[float] = 24.5e-12
-    C_mem: Optional[float] = 3e-12
-    Io: Optional[float] = 5e-13
-    kappa_n: Optional[float] = 0.75
-    kappa_p: Optional[float] = 0.66
-    Ut: Optional[float] = 25e-3
-    Vth: Optional[float] = 7e-1
+    C_ahp: Optional[Union[float, np.ndarray]] = 40e-12
+    C_ampa: Optional[Union[float, np.ndarray]] = 24.5e-12
+    C_gaba: Optional[Union[float, np.ndarray]] = 25e-12
+    C_nmda: Optional[Union[float, np.ndarray]] = 25e-12
+    C_pulse_ahp: Optional[Union[float, np.ndarray]] = 0.5e-12
+    C_pulse: Optional[Union[float, np.ndarray]] = 0.5e-12
+    C_ref: Optional[Union[float, np.ndarray]] = 1.5e-12
+    C_shunt: Optional[Union[float, np.ndarray]] = 24.5e-12
+    C_mem: Optional[Union[float, np.ndarray]] = 3e-12
+    Io: Optional[Union[float, np.ndarray]] = 5e-13
+    kappa_n: Optional[Union[float, np.ndarray]] = 0.75
+    kappa_p: Optional[Union[float, np.ndarray]] = 0.66
+    Ut: Optional[Union[float, np.ndarray]] = 25e-3
+    Vth: Optional[Union[float, np.ndarray]] = 7e-1
 
 
 @dataclass
-class DynapSimCore(DynapSimCurrents):
+class DynapSimCore(DynapSimCurrents, DynapSimLayout):
     """
     DynapSE1SimCore stores the simulation currents and manages the conversion from configuration objects
     It also provides easy update mechanisms using coarse&fine values, high-level parameter representations and etc.
 
-    :param layout: constant values that are related to the exact silicon layout of a chip, defaults to None
-    :type layout: Optional[DynapSimLayout], optional
+    :param Iw_0: weight bit 0 current of the neurons of the core in Amperes
+    :type Iw_0: Union[float, np.ndarray]
+    :param Iw_1: weight bit 1 current of the neurons of the core in Amperes
+    :type Iw_1: Union[float, np.ndarray]
+    :param Iw_2: weight bit 2 current of the neurons of the core in Amperes
+    :type Iw_2: Union[float, np.ndarray]
+    :param Iw_3: weight bit 3 current of the neurons of the core in Amperes
+    :type Iw_3: Union[float, np.ndarray]
     """
 
     __doc__ += "\nDynapSimCurrents" + DynapSimCurrents.__doc__
+    __doc__ += "\nDynapSimLayout" + DynapSimLayout.__doc__
 
-    layout: Optional[DynapSimLayout] = field(default=None, repr=False)
-
-    def __post_init__(self) -> None:
-        if self.layout is None:
-            self.layout = DynapSimLayout()
+    Iw_0: Optional[Union[float, np.ndarray]] = None
+    Iw_1: Optional[Union[float, np.ndarray]] = None
+    Iw_2: Optional[Union[float, np.ndarray]] = None
+    Iw_3: Optional[Union[float, np.ndarray]] = None
 
     @classmethod
     def from_specification(
@@ -244,7 +237,20 @@ class DynapSimCore(DynapSimCurrents):
         Iw_2: float = 4e-6,
         Iw_3: float = 8e-6,
         Iw_ahp: float = 1e-6,
-        **kwargs,
+        C_ahp: float = 40e-12,
+        C_ampa: float = 24.5e-12,
+        C_gaba: float = 25e-12,
+        C_nmda: float = 25e-12,
+        C_pulse_ahp: float = 0.5e-12,
+        C_pulse: float = 0.5e-12,
+        C_ref: float = 1.5e-12,
+        C_shunt: float = 24.5e-12,
+        C_mem: float = 3e-12,
+        Io: float = 5e-13,
+        kappa_n: float = 0.75,
+        kappa_p: float = 0.66,
+        Ut: float = 25e-3,
+        Vth: float = 7e-1,
     ) -> DynapSimCore:
         """
         from_specification is a class factory method helping DynapSimCore object construction
@@ -296,18 +302,34 @@ class DynapSimCore(DynapSimCurrents):
         :type Iw_3: float
         :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes, defaults to 1e-6
         :type Iw_ahp: float
+        :param C_ahp: AHP synapse capacitance in Farads, defaults to 40e-12
+        :type C_ahp: float, optional
+        :param C_ampa: AMPA synapse capacitance in Farads, defaults to 24.5e-12
+        :type C_ampa: float, optional
+        :param C_gaba: GABA synapse capacitance in Farads, defaults to 25e-12
+        :type C_gaba: float, optional
+        :param C_nmda: NMDA synapse capacitance in Farads, defaults to 25e-12
+        :type C_nmda: float, optional
+        :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads, defaults to 0.5e-12
+        :type C_pulse_ahp: float, optional
+        :param C_pulse: pulse-width creation sub-circuit capacitance in Farads, defaults to 0.5e-12
+        :type C_pulse: float, optional
+        :param C_ref: refractory period sub-circuit capacitance in Farads, defaults to 1.5e-12
+        :type C_ref: float, optional
+        :param C_shunt: SHUNT synapse capacitance in Farads, defaults to 24.5e-12
+        :type C_shunt: float, optional
+        :param C_mem: neuron membrane capacitance in Farads, defaults to 3e-12
+        :type C_mem: float, optional
         :return: DynapSimCore object
         :rtype: DynapSimCore
         """
 
         # Depended default parameter initialization
-        layout = DynapSimLayout(**kwargs)
-        Idc = layout.Io if Idc is None else Idc
-        If_nmda = layout.Io if If_nmda is None else If_nmda
+        Idc = Io if Idc is None else Idc
+        If_nmda = Io if If_nmda is None else If_nmda
 
         # Construct the core with compulsory low level current parameters
         _core = cls(
-            layout=layout,
             Idc=Idc,
             If_nmda=If_nmda,
             Ispkthr=Ispkthr,
@@ -316,6 +338,20 @@ class DynapSimCore(DynapSimCurrents):
             Iw_2=Iw_2,
             Iw_3=Iw_3,
             Iw_ahp=Iw_ahp,
+            C_ahp=C_ahp,
+            C_ampa=C_ampa,
+            C_gaba=C_gaba,
+            C_nmda=C_nmda,
+            C_pulse_ahp=C_pulse_ahp,
+            C_pulse=C_pulse,
+            C_ref=C_ref,
+            C_shunt=C_shunt,
+            C_mem=C_mem,
+            Io=Io,
+            kappa_n=kappa_n,
+            kappa_p=kappa_p,
+            Ut=Ut,
+            Vth=Vth,
         )
 
         # Set the Itau currents
@@ -601,9 +637,9 @@ class DynapSimTime(DynapSimCoreHigh):
             """
             return cls.tau_converter(
                 tau=core.__getattribute__(f"Itau_{name}"),
-                Ut=core.layout.Ut,
-                kappa=(core.layout.kappa_n + core.layout.kappa_p) / 2,
-                C=core.layout.__getattribute__(f"C_{name}"),
+                Ut=core.Ut,
+                kappa=(core.kappa_n + core.kappa_p) / 2,
+                C=core.__getattribute__(f"C_{name}"),
             )
 
         def _pw(name: str) -> float:
@@ -617,8 +653,8 @@ class DynapSimTime(DynapSimCoreHigh):
             """
             return cls.pw_converter(
                 pw=core.__getattribute__(f"I{name}"),
-                Vth=core.layout.Vth,
-                C=core.layout.__getattribute__(f"C_{name}"),
+                Vth=core.Vth,
+                C=core.__getattribute__(f"C_{name}"),
             )
 
         # Construct the object
@@ -642,12 +678,9 @@ class DynapSimTime(DynapSimCoreHigh):
 
         :param core: a `DynapSimCore` object to be updated
         :type core: DynapSimCore
-        :raises ValueError: Layout should be defined for update
         :return: an updated copy of DynapSimCore object
         :rtype: DynapSimCore
         """
-        if core.layout is None:
-            raise ValueError("Layout should be defined for update!")
 
         _core = replace(core)
 
@@ -666,9 +699,9 @@ class DynapSimTime(DynapSimCoreHigh):
             else:
                 __value = self.tau_converter(
                     tau=tau,
-                    Ut=_core.layout.Ut,
-                    kappa=(_core.layout.kappa_n + _core.layout.kappa_p) / 2,
-                    C=_core.layout.__getattribute__(f"C_{name}"),
+                    Ut=_core.Ut,
+                    kappa=(_core.kappa_n + _core.kappa_p) / 2,
+                    C=_core.__getattribute__(f"C_{name}"),
                 )
 
             return __value
@@ -688,8 +721,8 @@ class DynapSimTime(DynapSimCoreHigh):
             else:
                 __value = self.pw_converter(
                     pw=pw,
-                    Vth=_core.layout.Vth,
-                    C=_core.layout.__getattribute__(f"C_{name}"),
+                    Vth=_core.Vth,
+                    C=_core.__getattribute__(f"C_{name}"),
                 )
 
             return __value
@@ -870,11 +903,12 @@ class DynapSimGain(DynapSimCoreHigh):
 if __name__ == "__main__":
     import os
 
-    logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
-    sim_config = DynapSimCore.from_specification(10)
-    print(sim_config)
-    print(sim_config.time)
-    print(sim_config.gain)
-    updated = sim_config.update_gain_ratio("r_gain_mem", 10)
-    sim_config = DynapSimCore.from_specification(10, C_ahp=10)
-    print(sim_config.layout)
+    # logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+    # sim_config = DynapSimCore.from_specification(10)
+    # print(sim_config)
+    # print(sim_config.time)
+    # print(sim_config.gain)
+    # updated = sim_config.update_gain_ratio("r_gain_mem", 10)
+    # sim_config = DynapSimCore.from_specification(10, C_ahp=10)
+    attr_dict = dict.fromkeys(DynapSimCore().__dict__.keys())
+    print(attr_dict)
