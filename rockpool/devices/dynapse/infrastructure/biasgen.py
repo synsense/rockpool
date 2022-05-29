@@ -149,10 +149,3 @@ class BiasGenSE2(BiasGen):
         super(BiasGenSE2, self).__init__(
             paramgen_table=paramgen.se2, scaling_factor_table=scaling_factor.se2
         )
-
-
-if __name__ == "__main__":
-    # print(BiasGenSE1().get_coarse_fine(1e-9, 0.28))
-    # print(BiasGenSE2().coarse_base))
-    zero_idx = list(paramgen.se2.keys())[0]
-    print(len(paramgen.se1[zero_idx]))
