@@ -525,10 +525,10 @@ class DynapSim(JaxModule):
         tau_nmda: float = 100e-3,
         tau_shunt: float = 10e-3,
         tau_mem: float = 20e-3,
-        Iw_0: float = 1e-6,
-        Iw_1: float = 2e-6,
-        Iw_2: float = 4e-6,
-        Iw_3: float = 8e-6,
+        Iw_0: float = 1e-7,
+        Iw_1: float = 2e-7,
+        Iw_2: float = 4e-7,
+        Iw_3: float = 8e-7,
         Iw_ahp: float = 1e-6,
         C_ahp: float = 40e-12,
         C_ampa: float = 24.5e-12,
@@ -595,13 +595,13 @@ class DynapSim(JaxModule):
         :type tau_shunt: float, optional
         :param tau_mem: Neuron membrane leakage time constant in seconds, defaults to 20e-3
         :type tau_mem: float, optional
-        :param Iw_0: weight bit 0 current of the neurons of the core in Amperes, defaults to 1e-6
+        :param Iw_0: weight bit 0 current of the neurons of the core in Amperes, defaults to 1e-7
         :type Iw_0: float
-        :param Iw_1: weight bit 1 current of the neurons of the core in Amperes, defaults to 2e-6
+        :param Iw_1: weight bit 1 current of the neurons of the core in Amperes, defaults to 2e-7
         :type Iw_1: float
-        :param Iw_2: weight bit 2 current of the neurons of the core in Amperes, defaults to 4e-6
+        :param Iw_2: weight bit 2 current of the neurons of the core in Amperes, defaults to 4e-7
         :type Iw_2: float
-        :param Iw_3: weight bit 3 current of the neurons of the core in Amperes, defaults to 8e-6
+        :param Iw_3: weight bit 3 current of the neurons of the core in Amperes, defaults to 8e-7
         :type Iw_3: float
         :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes, defaults to 1e-6
         :type Iw_ahp: float
