@@ -188,10 +188,9 @@ class DynapSimLayout(DynapSimProperty):
 
 
 @dataclass
-class DynapSimCore(DynapSimCurrents, DynapSimLayout):
+class DynapSimWeightBits(DynapSimProperty):
     """
-    DynapSE1SimCore stores the simulation currents and manages the conversion from configuration objects
-    It also provides easy update mechanisms using coarse&fine values, high-level parameter representations and etc.
+    DynapSimWeightBits encapsulates weight bit current parameters of Dynap-SE chips
 
     :param Iw_0: weight bit 0 current of the neurons of the core in Amperes
     :type Iw_0: Union[float, np.ndarray]
@@ -203,13 +202,21 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout):
     :type Iw_3: Union[float, np.ndarray]
     """
 
-    __doc__ += "\nDynapSimCurrents" + DynapSimCurrents.__doc__
-    __doc__ += "\nDynapSimLayout" + DynapSimLayout.__doc__
-
     Iw_0: Optional[Union[float, np.ndarray]] = None
     Iw_1: Optional[Union[float, np.ndarray]] = None
     Iw_2: Optional[Union[float, np.ndarray]] = None
     Iw_3: Optional[Union[float, np.ndarray]] = None
+
+
+@dataclass
+class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
+    """
+    DynapSE1SimCore stores the simulation currents and manages the conversion from configuration objects
+    It also provides easy update mechanisms using coarse&fine values, high-level parameter representations and etc.
+    """
+
+    __doc__ += "\nDynapSimCurrents" + DynapSimCurrents.__doc__
+    __doc__ += "\nDynapSimLayout" + DynapSimLayout.__doc__
 
     @classmethod
     def from_specification(
@@ -232,11 +239,11 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout):
         tau_nmda: float = 100e-3,
         tau_shunt: float = 10e-3,
         tau_mem: float = 20e-3,
-        Iw_0: float = 1e-6,
-        Iw_1: float = 2e-6,
-        Iw_2: float = 4e-6,
-        Iw_3: float = 8e-6,
-        Iw_ahp: float = 1e-6,
+        Iw_0: float = 1e-7,
+        Iw_1: float = 2e-7,
+        Iw_2: float = 4e-7,
+        Iw_3: float = 8e-7,
+        Iw_ahp: float = 1e-7,
         C_ahp: float = 40e-12,
         C_ampa: float = 24.5e-12,
         C_gaba: float = 25e-12,
@@ -320,6 +327,16 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout):
         :type C_shunt: float, optional
         :param C_mem: neuron membrane capacitance in Farads, defaults to 3e-12
         :type C_mem: float, optional
+        :param Io: Dark current in Amperes that flows through the transistors even at the idle state, defaults to 5e-13
+        :type Io: Union[float, np.ndarray], optional
+        :param kappa_n: Subthreshold slope factor (n-type transistor), defaults to 0.75
+        :type kappa_n: Union[float, np.ndarray], optional
+        :param kappa_p: Subthreshold slope factor (p-type transistor), defaults to 0.66
+        :type kappa_p: Union[float, np.ndarray], optional
+        :param Ut: Thermal voltage in Volts, defaults to 25e-3
+        :type Ut: Union[float, np.ndarray], optional
+        :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific), defaults to 7e-1
+        :type Vth: Union[float, np.ndarray], optional
         :return: DynapSimCore object
         :rtype: DynapSimCore
         """
@@ -548,6 +565,36 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout):
                 logging.info(f" {key} value changed from {val1} to {val2}")
 
         return changed
+
+    @property
+    def layout(self) -> DynapSimLayout:
+        """
+        layout returns a subset of object which belongs to DynapSimLayout
+        """
+        __dict = dict.fromkeys(DynapSimLayout.__annotations__.keys())
+        for key in __dict:
+            __dict[key] = self.__getattribute__(key)
+        return DynapSimLayout(**__dict)
+
+    @property
+    def currents(self) -> DynapSimCurrents:
+        """
+        currents returns a subset of object which belongs to DynapSimCurrents
+        """
+        __dict = dict.fromkeys(DynapSimCurrents.__annotations__.keys())
+        for key in __dict:
+            __dict[key] = self.__getattribute__(key)
+        return DynapSimCurrents(**__dict)
+
+    @property
+    def weight_bits(self) -> DynapSimWeightBits:
+        """
+        weight_bits returns a subset of object which belongs to DynapSimWeightBits
+        """
+        __dict = dict.fromkeys(DynapSimWeightBits.__annotations__.keys())
+        for key in __dict:
+            __dict[key] = self.__getattribute__(key)
+        return DynapSimWeightBits(**__dict)
 
     @property
     def time(self) -> DynapSimTime:
@@ -871,7 +918,13 @@ class DynapSimGain(DynapSimCoreHigh):
         :return: the ratio between the currents if the currents are properly set
         :rtype: float
         """
-        if Itau is not None and Itau > 0 and Igain is not None and Igain > 0:
+
+        if (
+            Itau is not None
+            and (np.array(Itau) > 0).all()
+            and Igain is not None
+            and (np.array(Igain) > 0).all()
+        ):
             return Igain / Itau
         else:
             return None
