@@ -62,14 +62,50 @@ class BiasGen:
         bias = self.paramgen_table[type][coarse][fine] * scaling_factor
         return bias
 
+    def param_to_bias(
+        self, param_name: str, param: Union[Dynapse1Parameter, Dynapse2Parameter]
+    ) -> float:
+        """
+        param_to_bias convert samna `Dynapse1Parameter` or `Dynapse2Parameter` object to a bias current to be used in the simulator
+
+        :param param_name: the parameter name
+        :type param_name: str
+        :param param: samna parameter object storing a coarse and fine value tuple and the name of the device bias current
+        :type param: Union[Dynapse1Parameter, Dynapse2Parameter]
+        :return: corrected bias current value by multiplying a scaling factor
+        :rtype: float
+        """
+        scale = self.scaling_factor_table[param_name]
+        bias = self.get_bias(param.coarse_value, param.fine_value, scale, param.type)
+        return bias
+
     def get_coarse_fine(
+        self, name: str, current_value: float
+    ) -> Tuple[np.uint8, np.uint8]:
+        """
+        get_coarse_fine converts a current valeu to a coarse and fine tuple representation using
+        the `BiasGen.__coarse_fine()` method. the scaling factor and the transistor type are found
+        using the name of the parameter
+
+        :param name: the name of the parameter
+        :type name: str
+        :param current_value: the bias current value
+        :type current_value: float
+        :return: the best matching coarse and fine value tuple
+        :rtype: Tuple[np.uint8, np.uint8]
+        """
+        return self.__coarse_fine(
+            current_value, self.scaling_factor_table[name], name[-1]
+        )
+
+    def __coarse_fine(
         self,
         current_value: float,
         scaling_factor: Optional[float] = 1.0,
         type: Optional[str] = "N",
     ) -> Tuple[np.uint8, np.uint8]:
         """
-        get_coarse_fine _summary_
+        __coarse_fine converts a current value to a coarse and fine tuple given a scale factor and transistor type
 
         :param current_value: the bias current value
         :type current_value: float
@@ -95,23 +131,6 @@ class BiasGen:
             ),
         )
         return coarse, fine
-
-    def param_to_bias(
-        self, param_name: str, param: Union[Dynapse1Parameter, Dynapse2Parameter]
-    ) -> float:
-        """
-        param_to_bias convert samna `Dynapse1Parameter` or `Dynapse2Parameter` object to a bias current to be used in the simulator
-
-        :param param_name: the parameter name
-        :type param_name: str
-        :param param: samna parameter object storing a coarse and fine value tuple and the name of the device bias current
-        :type param: Union[Dynapse1Parameter, Dynapse2Parameter]
-        :return: corrected bias current value by multiplying a scaling factor
-        :rtype: float
-        """
-        scale = self.scaling_factor_table[param_name]
-        bias = self.get_bias(param.coarse_value, param.fine_value, scale, param.type)
-        return bias
 
     @property
     def n_coarse(self) -> int:
