@@ -424,10 +424,6 @@ class DynapSim(JaxModule):
                 cast_fn=jnp.array,
             )
         else:
-            if w_rec is not None:
-                raise ValueError(
-                    "If ``has_rec`` is False, then `w_rec` may not be provided as an argument or initialized by the module."
-                )
             self.w_rec = jnp.zeros((self.size_out, self.size_in // 4, 4))
 
         ## Bias Currents
