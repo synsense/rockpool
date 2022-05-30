@@ -104,6 +104,8 @@ class XyloSim(Module):
             Timestep for simulation, in seconds. Default: 1ms
         config: XyloConfiguration
             ``samna.xylo.XyloConfiguration`` object to specify all parameters. See samna documentation for details.
+        output_mode: str
+            One of ``["Spike", "Vmem", "Isyn"]``. Specifies which signal should be returned from :py:meth:`.XyloSim.evolve`. Default: "Spike", return output spike events.
 
         """
         cls._output_mode = output_mode
@@ -252,7 +254,8 @@ class XyloSim(Module):
             weight_shift_out (int): An integer number of bits to left-shift the output weight matrix
             aliases (Optional[list]):
             dt (float): Simulation time step in seconds. Default: 1 ms
-            verify_config (bool): Check for a valid configuraiton before applying it. Default ``True``.
+            verify_config (bool): Check for a valid configuration before applying it. Default ``True``.
+            output_mode (str): One of ``["Spike", "Vmem", "Isyn"]``. Specifies which signal should be returned from :py:meth:`.XyloSim.evolve`. Default: "Spike", return output spike events.
 
         Returns:
             :py:class:`.XyloSim`: A :py:class:`.Module` that emulates the Xylo hardware.
@@ -439,6 +442,8 @@ class XyloSimV2(Module):
             Timestep for simulation, in seconds. Default: 1ms
         config: XyloConfiguration
             ``samna.xylo.XyloConfiguration`` object to specify all parameters. See samna documentation for details.
+        output_mode: str
+            One of ``["Spike", "Vmem", "Isyn"]``. Specifies which signal should be returned from :py:meth:`.XyloSimV2.evolve`. Default: "Spike", return output spike events.
 
         """
         cls._output_mode = output_mode
@@ -570,7 +575,6 @@ class XyloSimV2(Module):
         weight_shift_out: int = 0,
         aliases: Optional[list] = None,
         dt: float = 1e-3,
-        verify_config: bool = True,
         output_mode: str = "Spike",
     ) -> "XyloSimV2":
         """
@@ -594,13 +598,10 @@ class XyloSimV2(Module):
             weight_shift_out (int): An integer number of bits to left-shift the output weight matrix
             aliases (Optional[list]):
             dt (float): Simulation time step in seconds. Default: 1 ms
-            verify_config (bool): Check for a valid configuraiton before applying it. Default ``True``.
+            output_mode (str): One of ``["Spike", "Vmem", "Isyn"]``. Specifies which signal should be returned from :py:meth:`.XyloSimV2.evolve`. Default: "Spike", return output spike events.
 
         Returns:
             :py:class:`.XyloSim`: A :py:class:`.Module` that emulates the Xylo hardware.
-
-        Raises:
-            ValueError: If ``verify_config`` is ``True`` and the configuration is not valid.
         """
         cls._output_mode = output_mode
         from xylosim.v2 import XyloSynapse, XyloLayer
