@@ -438,6 +438,8 @@ class DynapSimConfig(DynapSimCore):
             config=config,
             router_constructor=Router.from_Dynapse1Configuration,
             simcore_constructor=DynapSimCore.from_Dynapse1Core,
+            Ispkthr=1e-6,
+            Ipulse_ahp=3.5e-7,
             **kwargs,
         )
 
