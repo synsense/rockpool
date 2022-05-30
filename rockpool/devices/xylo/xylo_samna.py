@@ -332,7 +332,7 @@ class XyloSamna(Module):
             device (XyloHDK): An opened `samna` device to a Xylo dev kit
             config (XyloConfiguraration): A Xylo configuration from `samna`
             dt (float): The simulation time-step to use for this Module
-            output_mode (str): The readout mode for the Xylo device. This must be one of ["Spike", "Isyn", "Vmem"]. Default: "Spike", return events from the output layer.
+            output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
         """
         # - Check input arguments
         if device is None:
@@ -340,7 +340,9 @@ class XyloSamna(Module):
 
         # - Check output mode specification
         if output_mode not in ["Spike", "Isyn", "Vmem"]:
-            raise ValueError(f'{output_mode} is not supported. Must be one of `["Spike", "Isyn", "Vmem"]`.')
+            raise ValueError(
+                f'{output_mode} is not supported. Must be one of `["Spike", "Isyn", "Vmem"]`.'
+            )
         self._output_mode = output_mode
 
         # - Get a default configuration
@@ -436,10 +438,13 @@ class XyloSamna(Module):
             self._last_record_mode = record
 
             self.config, state_buffer = hdkutils.configure_accel_time_mode(
-                self._config, self._state_buffer, Nhidden, Nout, readout=self._output_mode,
-                record=record
+                self._config,
+                self._state_buffer,
+                Nhidden,
+                Nout,
+                readout=self._output_mode,
+                record=record,
             )
-
 
     def evolve(
         self,
