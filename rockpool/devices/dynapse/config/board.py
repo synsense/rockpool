@@ -23,11 +23,13 @@ from rockpool.devices.dynapse.config.simcore import (
     DynapSimGain,
     DynapSimLayout,
     DynapSimTime,
+    DynapSimWeightBits,
 )
 
 from rockpool.devices.dynapse.base import DynapSE
 from rockpool.devices.dynapse.config.weights import WeightParameters
 from rockpool.devices.dynapse.infrastructure.router import Router, Connector
+from rockpool.nn.modules.jax.jax_module import JaxModule
 
 
 Dynapse1Configuration = Any
@@ -37,7 +39,7 @@ Dynapse2Core = Any
 
 
 @dataclass
-class DynapSimConfig(DynapSimCurrents, DynapSimLayout):
+class DynapSimConfig(DynapSimCore):
     """
     DynapSimConfig stores the simulation currents, layout parameters and weight matrices necessary to
     configure a DynapSE1/SE2 simulator
@@ -99,20 +101,16 @@ class DynapSimConfig(DynapSimCurrents, DynapSimLayout):
         :return: a dictionary of merged attributes
         :rtype: Dict[str, np.ndarray]
         """
-        _currents = {key: np.empty(0) for key in DynapSimCurrents.__annotations__}
-        _layout = {key: np.empty(0) for key in DynapSimLayout.__annotations__}
+        attr_dict = dict.fromkeys(DynapSimCore().__dict__.keys(), np.empty((0)))
 
         for (h, c), _core in cores.items():
-            core_currents = _core.get_full(len(core_map[h, c]))
-            layout_prop = _core.layout.get_full(len(core_map[h, c]))
+            core_dict = _core.get_full(len(core_map[h, c]))
+            for __attr in attr_dict:
+                attr_dict[__attr] = np.concatenate(
+                    (attr_dict[__attr], core_dict[__attr])
+                )
 
-            for key in _currents:
-                _currents[key] = np.concatenate((_currents[key], core_currents[key]))
-            for key in _layout:
-                _layout[key] = np.concatenate((_layout[key], layout_prop[key]))
-
-        _merged = {**_currents, **_layout}
-        return _merged
+        return attr_dict
 
     @classmethod
     def from_specification(
@@ -123,7 +121,43 @@ class DynapSimConfig(DynapSimCurrents, DynapSimLayout):
         w_in_mask: Optional[np.ndarray] = None,
         w_rec_mask: Optional[np.ndarray] = None,
         w_out: Optional[np.ndarray] = None,
-        **kwargs,
+        Idc: float = None,
+        If_nmda: float = None,
+        r_gain_ahp: float = 4,  # 100
+        r_gain_ampa: float = 4,  # 100
+        r_gain_gaba: float = 4,  # 100
+        r_gain_nmda: float = 4,  # 100
+        r_gain_shunt: float = 4,  # 100
+        r_gain_mem: float = 2,  # 4
+        t_pulse_ahp: float = 1e-6,
+        t_pulse: float = 10e-6,
+        t_ref: float = 2e-3,
+        Ispkthr: float = 1e-6,
+        tau_ahp: float = 50e-3,
+        tau_ampa: float = 10e-3,
+        tau_gaba: float = 100e-3,
+        tau_nmda: float = 100e-3,
+        tau_shunt: float = 10e-3,
+        tau_mem: float = 20e-3,
+        Iw_0: float = 1e-7,
+        Iw_1: float = 2e-7,
+        Iw_2: float = 4e-7,
+        Iw_3: float = 8e-7,
+        Iw_ahp: float = 1e-7,
+        C_ahp: float = 40e-12,
+        C_ampa: float = 24.5e-12,
+        C_gaba: float = 25e-12,
+        C_nmda: float = 25e-12,
+        C_pulse_ahp: float = 0.5e-12,
+        C_pulse: float = 0.5e-12,
+        C_ref: float = 1.5e-12,
+        C_shunt: float = 24.5e-12,
+        C_mem: float = 3e-12,
+        Io: float = 5e-13,
+        kappa_n: float = 0.75,
+        kappa_p: float = 0.66,
+        Ut: float = 25e-3,
+        Vth: float = 7e-1,
     ) -> DynapSimConfig:
         """
         from_specification is a class factory method using the weight specifications and the current/layout parameters
@@ -143,6 +177,80 @@ class DynapSimConfig(DynapSimCurrents, DynapSimLayout):
         :type w_rec_mask: Optional[np.ndarray], optional
         :param w_out: the output weight mask (binary in general), defaults to None
         :type w_out: Optional[np.ndarray], optional
+        :param Idc: Constant DC current injected to membrane in Amperes, defaults to None
+        :type Idc: float, optional
+        :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes, defaults to None
+        :type If_nmda: float, optional
+        :param r_gain_ahp: spike frequency adaptation block gain ratio :math:`Igain_ahp/Itau_ahp`, defaults to 100
+        :type r_gain_ahp: float, optional
+        :param r_gain_ampa: excitatory AMPA synpse gain ratio :math:`Igain_ampa/Itau_ampa`, defaults to 100
+        :type r_gain_ampa: float, optional
+        :param r_gain_gaba: inhibitory GABA synpse gain ratio :math:`Igain_gaba/Itau_gaba `, defaults to 100
+        :type r_gain_gaba: float, optional
+        :param r_gain_nmda: excitatory NMDA synpse gain ratio :math:`Igain_nmda/Itau_nmda`, defaults to 100
+        :type r_gain_nmda: float, optional
+        :param r_gain_shunt: inhibitory SHUNT synpse gain ratio :math:`Igain_shunt/Itau_shunt`, defaults to 100
+        :type r_gain_shunt: float, optional
+        :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`, defaults to 2
+        :type r_gain_mem: float, optional
+        :param t_pulse_ahp: the spike pulse width for spike frequency adaptation circuit in seconds, defaults to 1e-6
+        :type t_pulse_ahp: float, optional
+        :param t_pulse: the spike pulse width for neuron membrane in seconds, defaults to 10e-6
+        :type t_pulse: float, optional
+        :param t_ref: refractory period of the neurons in seconds, defaults to 2e-2
+        :type t_ref: float, optional
+        :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes, defaults to 1e-6
+        :type Ispkthr: float, optional
+        :param tau_ahp: Spike frequency leakage time constant in seconds, defaults to 50e-3
+        :type tau_ahp: float, optional
+        :param tau_ampa: AMPA synapse leakage time constant in seconds, defaults to 10e-3
+        :type tau_ampa: float, optional
+        :param tau_gaba: GABA synapse leakage time constant in seconds, defaults to 100e-3
+        :type tau_gaba: float, optional
+        :param tau_nmda: NMDA synapse leakage time constant in seconds, defaults to 100e-3
+        :type tau_nmda: float, optional
+        :param tau_shunt:SHUNT synapse leakage time constant in seconds, defaults to 10e-3
+        :type tau_shunt: float, optional
+        :param tau_mem: Neuron membrane leakage time constant in seconds, defaults to 20e-3
+        :type tau_mem: float, optional
+        :param Iw_0: weight bit 0 current of the neurons of the core in Amperes, defaults to 1e-6
+        :type Iw_0: float
+        :param Iw_1: weight bit 1 current of the neurons of the core in Amperes, defaults to 2e-6
+        :type Iw_1: float
+        :param Iw_2: weight bit 2 current of the neurons of the core in Amperes, defaults to 4e-6
+        :type Iw_2: float
+        :param Iw_3: weight bit 3 current of the neurons of the core in Amperes, defaults to 8e-6
+        :type Iw_3: float
+        :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes, defaults to 1e-6
+        :type Iw_ahp: float
+        :param C_ahp: AHP synapse capacitance in Farads, defaults to 40e-12
+        :type C_ahp: float, optional
+        :param C_ampa: AMPA synapse capacitance in Farads, defaults to 24.5e-12
+        :type C_ampa: float, optional
+        :param C_gaba: GABA synapse capacitance in Farads, defaults to 25e-12
+        :type C_gaba: float, optional
+        :param C_nmda: NMDA synapse capacitance in Farads, defaults to 25e-12
+        :type C_nmda: float, optional
+        :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads, defaults to 0.5e-12
+        :type C_pulse_ahp: float, optional
+        :param C_pulse: pulse-width creation sub-circuit capacitance in Farads, defaults to 0.5e-12
+        :type C_pulse: float, optional
+        :param C_ref: refractory period sub-circuit capacitance in Farads, defaults to 1.5e-12
+        :type C_ref: float, optional
+        :param C_shunt: SHUNT synapse capacitance in Farads, defaults to 24.5e-12
+        :type C_shunt: float, optional
+        :param C_mem: neuron membrane capacitance in Farads, defaults to 3e-12
+        :type C_mem: float, optional
+        :param Io: Dark current in Amperes that flows through the transistors even at the idle state, defaults to 5e-13
+        :type Io: Union[float, np.ndarray], optional
+        :param kappa_n: Subthreshold slope factor (n-type transistor), defaults to 0.75
+        :type kappa_n: Union[float, np.ndarray], optional
+        :param kappa_p: Subthreshold slope factor (p-type transistor), defaults to 0.66
+        :type kappa_p: Union[float, np.ndarray], optional
+        :param Ut: Thermal voltage in Volts, defaults to 25e-3
+        :type Ut: Union[float, np.ndarray], optional
+        :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific), defaults to 7e-1
+        :type Vth: Union[float, np.ndarray], optional
         :return: a `DynapSimConfig` object created from specifications
         :rtype: DynapSimConfig
         """
@@ -155,7 +263,46 @@ class DynapSimConfig(DynapSimCurrents, DynapSimLayout):
         # Fill the core dictionary with simulated cores generated by the SAME specifications
         cores = {}
         for h, c in core_map:
-            cores[(h, c)] = DynapSimCore.from_specification(**kwargs)
+            cores[(h, c)] = DynapSimCore.from_specification(
+                Idc=Idc,
+                If_nmda=If_nmda,
+                r_gain_ahp=r_gain_ahp,
+                r_gain_ampa=r_gain_ampa,
+                r_gain_gaba=r_gain_gaba,
+                r_gain_nmda=r_gain_nmda,
+                r_gain_shunt=r_gain_shunt,
+                r_gain_mem=r_gain_mem,
+                t_pulse_ahp=t_pulse_ahp,
+                t_pulse=t_pulse,
+                t_ref=t_ref,
+                Ispkthr=Ispkthr,
+                tau_ahp=tau_ahp,
+                tau_ampa=tau_ampa,
+                tau_gaba=tau_gaba,
+                tau_nmda=tau_nmda,
+                tau_shunt=tau_shunt,
+                tau_mem=tau_mem,
+                Iw_0=Iw_0,
+                Iw_1=Iw_1,
+                Iw_2=Iw_2,
+                Iw_3=Iw_3,
+                Iw_ahp=Iw_ahp,
+                C_ahp=C_ahp,
+                C_ampa=C_ampa,
+                C_gaba=C_gaba,
+                C_nmda=C_nmda,
+                C_pulse_ahp=C_pulse_ahp,
+                C_pulse=C_pulse,
+                C_ref=C_ref,
+                C_shunt=C_shunt,
+                C_mem=C_mem,
+                Io=Io,
+                kappa_n=kappa_n,
+                kappa_p=kappa_p,
+                Ut=Ut,
+                Vth=Vth,
+            )
+
         attr_dict = cls.__merge_cores(cores, core_map)
 
         def get_weight(mask: np.ndarray, n_in: int, n_rec: int) -> np.ndarray:
@@ -174,17 +321,17 @@ class DynapSimConfig(DynapSimCurrents, DynapSimLayout):
             if mask is None:
                 mask = cls.poisson_mask((n_in, n_rec, 4))
             wparam = cls.__get_weight_params(mask, attr_dict)
-            return wparam.weights
+            return mask, wparam.weights
 
         ## Get Weights
         if w_in is None and tag_in is not None:
-            w_in = get_weight(w_in_mask, tag_in, n_rec)
+            w_in_mask, w_in = get_weight(w_in_mask, tag_in, n_rec)
 
         if w_rec is None:
-            w_rec = get_weight(w_rec_mask, n_rec, n_rec)
+            w_rec_mask, w_rec = get_weight(w_rec_mask, n_rec, n_rec)
 
         if w_out is None and tag_out is not None:
-            w_out = cls.poisson_mask((n_rec, tag_out), fill_rate=0.2, n_bits=1)
+            w_out = np.eye(n_rec, tag_out)
 
         # Store the router as well
         router = Router(
@@ -361,6 +508,7 @@ class DynapSimConfig(DynapSimCurrents, DynapSimLayout):
         shape: Tuple[int],
         fill_rate: Union[float, List[float]] = [0.25, 0.2, 0.04, 0.06],
         n_bits: int = 4,
+        seed: Optional[int] = None,
     ) -> np.ndarray:
         """
         poisson_mask creates a three-dimensional weight mask using a poisson distribution
@@ -384,6 +532,8 @@ class DynapSimConfig(DynapSimCurrents, DynapSimLayout):
         :return: 3D numpy array representing a Dynap-SE connectivity matrix
         :rtype: np.ndarray
         """
+        np.random.seed(seed)
+
         if isinstance(shape, int):
             shape = (shape,)
 
