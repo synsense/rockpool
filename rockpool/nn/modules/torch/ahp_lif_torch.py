@@ -5,6 +5,7 @@ Implement a modified version of LIF Module (ahp, after hyperpolarization feedbac
 from typing import Union, Tuple, Callable, Optional, Any
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
+from rockpool.nn.modules.torch.lif_torch import StepPWL, PeriodicExponential, sigmoid
 import torch
 import torch.nn.functional as F
 import torch.nn.init as init
@@ -22,89 +23,89 @@ from rockpool.graph import (
 __all__ = ["ahp_LIFTorch"]
 
 
-class StepPWL(torch.autograd.Function):
-    """
-    Heaviside step function with piece-wise linear surrogate to use as spike-generation surrogate
-    """
+# class StepPWL(torch.autograd.Function):
+#     """
+#     Heaviside step function with piece-wise linear surrogate to use as spike-generation surrogate
+#     """
 
-    @staticmethod
-    def forward(
-        ctx,
-        x,
-        threshold=torch.tensor(1.0),
-        window=torch.tensor(0.5),
-        max_spikes_per_dt=torch.tensor(float("inf")),
-    ):
-        ctx.save_for_backward(x, threshold)
-        ctx.window = window
-        nr_spikes = ((x >= threshold) * torch.floor(x / threshold)).float()
-        nr_spikes[nr_spikes > max_spikes_per_dt] = max_spikes_per_dt.float()
-        return nr_spikes
+#     @staticmethod
+#     def forward(
+#         ctx,
+#         x,
+#         threshold=torch.tensor(1.0),
+#         window=torch.tensor(0.5),
+#         max_spikes_per_dt=torch.tensor(float("inf")),
+#     ):
+#         ctx.save_for_backward(x, threshold)
+#         ctx.window = window
+#         nr_spikes = ((x >= threshold) * torch.floor(x / threshold)).float()
+#         nr_spikes[nr_spikes > max_spikes_per_dt] = max_spikes_per_dt.float()
+#         return nr_spikes
 
-    @staticmethod
-    def backward(ctx, grad_output):
-        x, threshold = ctx.saved_tensors
-        grad_x = grad_threshold = grad_window = grad_max_spikes_per_dt = None
+#     @staticmethod
+#     def backward(ctx, grad_output):
+#         x, threshold = ctx.saved_tensors
+#         grad_x = grad_threshold = grad_window = grad_max_spikes_per_dt = None
 
-        mask = x >= (threshold - ctx.window)
-        if ctx.needs_input_grad[0]:
-            grad_x = grad_output / threshold * mask
+#         mask = x >= (threshold - ctx.window)
+#         if ctx.needs_input_grad[0]:
+#             grad_x = grad_output / threshold * mask
 
-        if ctx.needs_input_grad[1]:
-            grad_threshold = -x * grad_output / (threshold**2) * mask
+#         if ctx.needs_input_grad[1]:
+#             grad_threshold = -x * grad_output / (threshold**2) * mask
 
-        return grad_x, grad_threshold, grad_window, grad_max_spikes_per_dt
-
-
-class PeriodicExponential(torch.autograd.Function):
-    """
-    Subtract from membrane potential on reaching threshold
-    """
-
-    @staticmethod
-    def forward(
-        ctx,
-        data,
-        threshold=1.0,
-        window=0.5,
-        max_spikes_per_dt=torch.tensor(float("inf")),
-    ):
-        ctx.save_for_backward(data.clone())
-        ctx.threshold = threshold
-        ctx.window = window
-        nr_spikes = ((data >= threshold) * torch.floor(data / threshold)).float()
-        nr_spikes[nr_spikes > max_spikes_per_dt] = max_spikes_per_dt.float()
-        return nr_spikes
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        (membranePotential,) = ctx.saved_tensors
-
-        vmem_shifted = membranePotential - ctx.threshold / 2
-        vmem_periodic = vmem_shifted - torch.div(
-            vmem_shifted, ctx.threshold, rounding_mode="floor"
-        )
-        vmem_below = vmem_shifted * (membranePotential < ctx.threshold)
-        vmem_above = vmem_periodic * (membranePotential >= ctx.threshold)
-        vmem_new = vmem_above + vmem_below
-        spikePdf = (
-            torch.exp(-torch.abs(vmem_new - ctx.threshold / 2) / ctx.window)
-            / ctx.threshold
-        )
-
-        return grad_output * spikePdf, None, None, None
+#         return grad_x, grad_threshold, grad_window, grad_max_spikes_per_dt
 
 
-# - Surrogate functions to use in learning
-def sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
-    """
-    Sigmoid function
+# class PeriodicExponential(torch.autograd.Function):
+#     """
+#     Subtract from membrane potential on reaching threshold
+#     """
 
-    :param FloatVector x: Input value
+#     @staticmethod
+#     def forward(
+#         ctx,
+#         data,
+#         threshold=1.0,
+#         window=0.5,
+#         max_spikes_per_dt=torch.tensor(float("inf")),
+#     ):
+#         ctx.save_for_backward(data.clone())
+#         ctx.threshold = threshold
+#         ctx.window = window
+#         nr_spikes = ((data >= threshold) * torch.floor(data / threshold)).float()
+#         nr_spikes[nr_spikes > max_spikes_per_dt] = max_spikes_per_dt.float()
+#         return nr_spikes
 
-    :return FloatVector: Output value
-    """
-    return torch.tanh(x + 1 - threshold) / 2 + 0.5
+#     @staticmethod
+#     def backward(ctx, grad_output):
+#         (membranePotential,) = ctx.saved_tensors
+
+#         vmem_shifted = membranePotential - ctx.threshold / 2
+#         vmem_periodic = vmem_shifted - torch.div(
+#             vmem_shifted, ctx.threshold, rounding_mode="floor"
+#         )
+#         vmem_below = vmem_shifted * (membranePotential < ctx.threshold)
+#         vmem_above = vmem_periodic * (membranePotential >= ctx.threshold)
+#         vmem_new = vmem_above + vmem_below
+#         spikePdf = (
+#             torch.exp(-torch.abs(vmem_new - ctx.threshold / 2) / ctx.window)
+#             / ctx.threshold
+#         )
+
+#         return grad_output * spikePdf, None, None, None
+
+
+# # - Surrogate functions to use in learning
+# def sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
+#     """
+#     Sigmoid function
+
+#     :param FloatVector x: Input value
+
+#     :return FloatVector: Output value
+#     """
+#     return torch.tanh(x + 1 - threshold) / 2 + 0.5
 
 
 class LIFBaseTorch(TorchModule):
@@ -426,18 +427,26 @@ class LIFBaseTorch(TorchModule):
 
 class ahp_LIFTorch(LIFBaseTorch):
     """
-    A leaky integrate-and-fire spiking neuron model with a Torch backend
+    A variant of leaky integrate-and-fire spiking neuron model with a Torch backend
+    It is built based on LIFTorch with an added inhibitory recurrent connection called ahp (after hyperpolarization) feedback. This connection includes wahp and tau_ahp which currently are set to a constant negative scalar and traianble vectors, respectively. The role of this feedback is to pull down the membrane voltage and reduce the firing rate
 
     This module implements the update equations:
 
     .. math ::
 
+        I_{ahp} += S_{ahp} \\cdot W_{ahp}
         I_{syn} += S_{in}(t) + S_{rec} \\cdot W_{rec}
+
+        I_{ahp} *= \exp(-dt / \tau_{ahp})
         I_{syn} *= \exp(-dt / \tau_{syn})
+
+        I_{syn} +=  I_{ahp}
+
         V_{mem} *= \exp(-dt / \tau_{mem})
         V_{mem} += I_{syn} + b + \sigma \zeta(t)
 
     where :math:`S_{in}(t)` is a vector containing ``1`` (or a weighed spike) for each input channel that emits a spike at time :math:`t`; :math:`b` is a :math:`N` vector of bias currents for each neuron; :math:`\\sigma\\zeta(t)` is a Wiener noise process with standard deviation :math:`\\sigma` after 1s; and :math:`\\tau_{mem}` and :math:`\\tau_{syn}` are the membrane and synaptic time constants, respectively. :math:`S_{rec}(t)` is a vector containing ``1`` for each neuron that emitted a spike in the last time-step. :math:`W_{rec}` is a recurrent weight matrix, if recurrent weights are used. :math:`b` is an optional bias current per neuron (default 0.).
+    and :math `S_{ahp}(t)` is a vector containing ``1`` for each neuron that emitted a spike in the last time-step. :math:`W_{ahp}` is a  weight vector coresponding to inhibitory recurrent self-connections, if ahp mode is used are used. \tau_{ahp} is the time constant of the ahp current
 
     :On spiking:
 
