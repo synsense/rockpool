@@ -13,11 +13,6 @@ E-mail : ugurcan.cakal@gmail.com
 03/05/2022
 
 [] TODO : Add r_spkthr to gain
-[] TODO :     
-    :param neuron_idx_map: the neuron index map used in the case that the matrix indexes of the neurons and the device indexes are different.
-    :type neuron_idx_map: Dict[np.uint8, np.uint16]
-    :param core_key: the chip_id and core_id tuple uniquely defining the core, defaults to None
-    :type core_key: Optional[Tuple[np.uint8]], optional
 
 [] TODO : Implement samna aliases
     Dynapse1Configuration = Any
@@ -456,6 +451,56 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
             param_map=param_name.se2,
         )
         return _mod
+
+    def __export_parameters(
+        self,
+        biasgen: BiasGen,
+        param_map: Dict[str, str],
+    ) -> Dict[str, Tuple[np.uint8, np.uint8]]:
+        """
+        __export_parameters is the common export method for Dynap-SE1 and Dynap-SE2.
+        It converts all current values to their coarse-fine value representations for device configuration
+
+        :param biasgen: the device specific bias generator
+        :type biasgen: BiasGen
+        :param param_map: the simulation current -> parameter name conversion table
+        :type param_map: Dict[str, str]
+        :return: a dictionary of mapping between parameter names and respective coarse-fine values
+        :rtype: Dict[str, Tuple[np.uint8, np.uint8]]
+        """
+
+        converter = lambda sim, param: biasgen.get_coarse_fine(
+            param, self.__getattribute__(sim)
+        )
+
+        param_dict = {param: converter(sim, param) for sim, param in param_map.items()}
+        return param_dict
+
+    def export_Dynapse1Parameters(self) -> Dict[str, Tuple[np.uint8, np.uint8]]:
+        """
+        export_Dynapse1Parameters is Dynap-SE1 specific parameter extraction method using `DynapSimCore.__export_parameters()` method.
+        It converts all current values to their coarse-fine value representations for device configuration
+
+        :return: a dictionary of mapping between parameter names and respective coarse-fine values
+        :rtype: Dict[str, Tuple[np.uint8, np.uint8]]
+        """
+        return self.__export_parameters(
+            biasgen=BiasGenSE1(),
+            param_map=param_name.se1,
+        )
+
+    def export_Dynapse2Parameters(self) -> Dict[str, Tuple[np.uint8, np.uint8]]:
+        """
+        export_Dynapse2Parameters is Dynap-SE2 specific parameter extraction method using `DynapSimCore.__export_parameters()` method.
+        It converts all current values to their coarse-fine value representations for device configuration
+
+        :return: a dictionary of mapping between parameter names and respective coarse-fine values
+        :rtype: Dict[str, Tuple[np.uint8, np.uint8]]
+        """
+        return self.__export_parameters(
+            biasgen=BiasGenSE2(),
+            param_map=param_name.se2,
+        )
 
     def update(self, attr: str, value: Any) -> DynapSimCore:
         """
@@ -951,17 +996,3 @@ class DynapSimGain(DynapSimCoreHigh):
             return Itau * r_gain
         else:
             return Igain
-
-
-if __name__ == "__main__":
-    import os
-
-    # logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
-    # sim_config = DynapSimCore.from_specification(10)
-    # print(sim_config)
-    # print(sim_config.time)
-    # print(sim_config.gain)
-    # updated = sim_config.update_gain_ratio("r_gain_mem", 10)
-    # sim_config = DynapSimCore.from_specification(10, C_ahp=10)
-    attr_dict = dict.fromkeys(DynapSimCore().__dict__.keys())
-    print(attr_dict)
