@@ -13,6 +13,7 @@ try:
     from .exp_syn_torch import *
     from .updown_torch import *
     from .linear_torch import *
+    from .bool_state import *
 except:
     from rockpool.utilities.backend_management import (
         backend_available,
