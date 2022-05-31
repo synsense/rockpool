@@ -13,7 +13,7 @@ import numpy as np
 from rockpool.timeseries import TSEvent, TSContinuous
 
 from rockpool.devices.dynapse.utils.spike_input import custom_spike_train
-from rockpool.devices.dynapse.base import ArrayLike, NeuronKey
+from rockpool.devices.dynapse.definitions import ArrayLike, NeuronKey
 from rockpool.devices.dynapse.infrastructure.router import Router
 
 import matplotlib

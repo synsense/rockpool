@@ -14,7 +14,7 @@ from typing import Tuple, Union
 from jax import random as rand
 from jax import numpy as jnp
 
-from rockpool.devices.dynapse.base import ArrayLike
+from rockpool.devices.dynapse.definitions import ArrayLike
 
 
 class MismatchDevice:
@@ -85,22 +85,22 @@ class MismatchDevice:
     ) -> jnp.DeviceArray:
         """
         mismatch_ratio calculates the percent current difference resulted from the analog device mismatch.
-        The calculation parameters should be based on statistical knowledge obtained from emprical observations. 
+        The calculation parameters should be based on statistical knowledge obtained from emprical observations.
         That is, if one observes up-to-30% mismatch between the expected current and the measured
-        current actually flowing through the transistors: `percent` should be 0.30. Therefore, let's say 
+        current actually flowing through the transistors: `percent` should be 0.30. Therefore, let's say
 
             mismatched current / actual current < %30 for 95 percenparam_efft of the cases
 
         Using gaussian distribution and statistics, we could obtain this.
         In statistics, the 68–95–99.7 rule, also known as the empirical rule, is a shorthand used to remember
-        the percentage of values that lie within an interval estimate in a normal distribution:     
+        the percentage of values that lie within an interval estimate in a normal distribution:
         68%, 95%, and 99.7% of the values lie within one, two, and three standard deviations of the mean, respectively.
-        
+
         .. math ::
             Pr(\\mu -1\\sigma \\leq X\\leq \\mu +1\\sigma ) \\approx 68.27\\%
             Pr(\\mu -2\\sigma \\leq X\\leq \\mu +2\\sigma ) \\approx 95.45\\%
             Pr(\\mu -3\\sigma \\leq X\\leq \\mu +3\\sigma ) \\approx 99.73\\%
-        
+
         So, to obtain 'mismatched current / actual current < %30 for 95 percent of the cases',
         the sigma should be half of the maximum deviation desired. That is the 30% percent of the theoretical current value.
 
@@ -162,4 +162,3 @@ class MismatchDevice:
         attr = self.__getattribute__(name)
         mm = self.__getattribute__(f"mm_{name}")
         return self.param_base(attr, mm)
-

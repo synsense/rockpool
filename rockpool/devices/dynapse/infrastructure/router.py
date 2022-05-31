@@ -32,7 +32,7 @@ from typing import (
 
 import numpy as np
 
-from rockpool.devices.dynapse.base import CoreKey, NeuronKey, DynapSE
+from rockpool.devices.dynapse.definitions import CoreKey, NeuronKey, NUM_CORES
 
 
 Dynapse1Configuration = Any
@@ -740,7 +740,7 @@ class ConnectorSE1(Connector):
         """
         __tagger calculates the tag using the core id and neuron id
         """
-        return neuron_id + (core_id * DynapSE.NUM_CORES)
+        return neuron_id + (core_id * NUM_CORES)
 
     ### --- Abstract methods --- ###
 

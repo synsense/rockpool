@@ -13,7 +13,7 @@ from typing import Dict, Generator, List, Optional, Tuple, Union
 import numpy as np
 
 from rockpool.timeseries import TSEvent, TSContinuous
-from rockpool.devices.dynapse.base import ArrayLike
+from rockpool.devices.dynapse.definitions import ArrayLike
 
 import matplotlib.pyplot as plt
 

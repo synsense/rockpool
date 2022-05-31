@@ -32,15 +32,7 @@ from rockpool.devices.dynapse.config.autoencoder import (
     DigitalAutoEncoder,
     AnalogAutoEncoder,
 )
-from rockpool.devices.dynapse.base import ArrayLike
-from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1Parameter
-from rockpool.devices.dynapse.samna_alias.dynapse2 import Dynapse2Parameter
-
-WeightRecord = Tuple[
-    jnp.DeviceArray,
-    jnp.DeviceArray,
-    jnp.DeviceArray,  # loss  # w_en  # w_dec
-]
+from rockpool.devices.dynapse.definitions import ArrayLike, WeightRecord
 
 
 @dataclass

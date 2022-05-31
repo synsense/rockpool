@@ -32,13 +32,20 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from dataclasses import dataclass, replace, field
 import numpy as np
 
-from rockpool.devices.dynapse.base import CoreKey, NeuronKey
-from rockpool.devices.dynapse.base import DynapSE
+from rockpool.devices.dynapse.definitions import (
+    CoreKey,
+    NeuronKey,
+    NUM_CHIPS,
+    NUM_CORES,
+    NUM_NEURONS,
+)
+
 from rockpool.devices.dynapse.infrastructure.biasgen import (
     BiasGen,
     BiasGenSE1,
     BiasGenSE2,
 )
+
 from rockpool.devices.dynapse.lookup import param_name
 from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1Parameter
 from rockpool.devices.dynapse.samna_alias.dynapse2 import Dynapse2Parameter
@@ -961,7 +968,7 @@ class DynapSimConfig(DynapSimCore):
 
         # Store the router as well
         router = Router(
-            n_chips=(len(core_map) // DynapSE.NUM_CHIPS) + 1,
+            n_chips=(len(core_map) // NUM_CHIPS) + 1,
             shape=shape,
             core_map=core_map,
             idx_map=idx_map,
@@ -1124,9 +1131,9 @@ class DynapSimConfig(DynapSimCore):
         :rtype: Dict[int, NeuronKey]
         """
 
-        h = lambda idx: idx // (DynapSE.NUM_CORES * DynapSE.NUM_NEURONS)
-        c = lambda idx: idx // DynapSE.NUM_NEURONS
-        n = lambda idx: idx - c(idx) * DynapSE.NUM_NEURONS
+        h = lambda idx: idx // (NUM_CORES * NUM_NEURONS)
+        c = lambda idx: idx // NUM_NEURONS
+        n = lambda idx: idx - c(idx) * NUM_NEURONS
         idx_map = {idx: (h(idx), c(idx), n(idx)) for idx in range(size)}
 
         return idx_map
