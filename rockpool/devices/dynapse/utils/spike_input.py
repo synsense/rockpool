@@ -13,8 +13,6 @@ from typing import Dict, Generator, List, Optional, Tuple, Union
 import numpy as np
 
 from rockpool.timeseries import TSEvent, TSContinuous
-
-from rockpool.devices.dynapse.infrastructure.router_aliased import Router
 from rockpool.devices.dynapse.base import ArrayLike
 
 import matplotlib.pyplot as plt
@@ -145,78 +143,39 @@ def custom_spike_train(
     return input_sp_ts
 
 
-def random_spike_train(
-    duration: float,
+def poisson_spike_train(
     n_channels: int,
+    duration: float,
     rate: float,
-    dt: float = 1e-3,
-    name: Optional[str] = "Input Spikes",
-    channel_labels: Optional[ArrayLike] = None,
-) -> Union[TSEvent, Tuple[TSEvent, Dict[int, np.uint16]]]:
+    dt: float,
+    seed: Optional[int] = None,
+) -> np.ndarray:
     """
-    random_spike_train generate a Poisson frozen random spike train and
-    Dynap-SE1 compatible virtual universal neuron IDs respective to channels if demanded
+    random_spike_train generates a Poisson frozen random spike train
 
-    :param duration: The simulation duration in seconds
+    :param n_channels: number of channels
+    :type n_channels: float
+    :param duration: simulation duration in seconds
     :type duration: float
-    :param channels: Number of channels, or number of neurons
-    :type channels: int
-    :param rate: The spiking rate in Hertz(1/s)
+    :param rate: expected mean spiking rate in Hertz(1/s)
     :type rate: float
-    :param dt: The time step for the forward-Euler ODE solver, defaults to 1e-3
+    :param dt: time step length
     :type dt: float, optional
-    :param name: The name of the resulting TSEvent object, defaults to "Input Spikes"
-    :type name: Optional[str], optional
-    :param channel_labels: a list of universal neuron keys to assign channels, defaults to None
-    :type channel_labels: Optional[ArrayLike], optional
-    :param return_channel_UID: return channels UIDs together with TSEvent spike train or not, defaults to False
-    :type return_channel_UID: bool, optional
-    :raises ValueError: No spike generated due to low firing rate or very short simulation time]
-    :raises ValueError: Channels UID list must have the same number of elements with the number of channels
-    :raises ValueError: Duplicate elements found in channelUID list. UID's should be unique!
-    :raises ValueError: Illegal virtual neuron UID! It should be less than 1024
-    :raises ValueError: Illegal UID ! It should be bigger than 0
-    :return: input_sp_ts, channel_UID_dict
-        :input_sp_ts: randomly generated discrete spike train
-        :channel_UID_dict: a dictionary mapping the channels indexes to neruon UIDs
-    :rtype: Union[TSEvent, Tuple[TSEvent, Dict[int, np.uint16]]]
-
-    [] TODO: parametrize max UID = 1024
+    :param seed: the random number seed
+    :type seed: int, optional
+    :raises ValueError: no spike generated due to low firing rate or very short simulation time]
+    :return: randomly generated discrete spike train
+    :rtype: np.ndarray
     """
-
+    np.random.seed(seed)
     steps = int(np.round(duration / dt))
-    input_sp_raster = np.random.poisson(rate * dt, (steps, n_channels))
-    if not any(input_sp_raster.flatten()):
+    raster = np.random.poisson(rate * dt, (steps, n_channels))
+
+    # Check if raster has at least one spike
+    if not any(raster.flatten()):
         raise ValueError(
             "No spike generated at all due to low firing rate or short simulation time duration!"
         )
-    input_sp_ts = TSEvent.from_raster(input_sp_raster, name=name, periodic=True, dt=dt)
 
-    if channel_labels is not None:
-
-        channel_UID = list(map(lambda key: Router.get_UID(*key), channel_labels))
-
-        if len(channel_UID) != input_sp_ts.num_channels:
-            raise ValueError(
-                "Channels UID list must have the same number of elements with the number of channels"
-            )
-        channel_UID = np.array(channel_UID, dtype=int)
-
-        if not np.array_equal(np.sort(channel_UID), np.unique(channel_UID)):
-            raise ValueError(
-                "Duplicate elements found in channelUID list. UID's should be unique!"
-            )
-
-        if channel_UID.max() > 1024:
-            raise ValueError(
-                f"Illegal virtual neuron UID : {channel_UID.max()}! It should be less than 1024"
-            )
-        if channel_UID.min() < 0:
-            raise ValueError(
-                f"Illegal UID : {channel_UID.min()}! It should be bigger than 0"
-            )
-
-        plt.ylabel("Channels [ChipID, CoreID, NeuronID]")
-        plt.yticks(range(len(channel_labels)), [f"s[{key}]" for key in channel_labels])
-
-    return input_sp_ts
+    spike_tensor = np.array(raster, dtype=float)
+    return spike_tensor
