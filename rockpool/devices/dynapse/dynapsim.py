@@ -54,8 +54,8 @@ from jax.tree_util import Partial
 
 from jax import numpy as jnp
 import numpy as np
-from rockpool.devices.dynapse.config.board import DynapSimConfig
-from rockpool.devices.dynapse.config.simcore import (
+from rockpool.devices.dynapse.config.simconfig import (
+    DynapSimConfig,
     DynapSimCurrents,
     DynapSimLayout,
     DynapSimTime,
