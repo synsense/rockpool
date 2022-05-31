@@ -73,7 +73,7 @@ class BooleanState(TorchModule):
 
         # - Intialise state trace
         this_state = torch.empty(
-            num_batches, num_timesteps + 1, self.size_out, dtype=bool
+            num_batches, num_timesteps + 1, self.size_out, dtype=bool, device=data.device
         )
         this_state[:, 0, :] = bool_state
 
