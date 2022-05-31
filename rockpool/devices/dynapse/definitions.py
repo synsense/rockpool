@@ -14,13 +14,10 @@ from jax import numpy as jnp
 
 
 ArrayLike = Union[np.ndarray, List, Tuple]
-Numeric = Union[int, float, complex, np.number]
 NeuronKey = Tuple[np.uint8, np.uint8, np.uint16]
 CoreKey = Tuple[np.uint8, np.uint8]
-NeuronConnection = Tuple[np.uint16, np.uint16]
-NeuronConnectionSynType = Tuple[np.uint16, np.uint16, np.uint8]
 
-DynapSERecord = Tuple[
+DynapSimRecord = Tuple[
     jnp.DeviceArray,  # iahp
     jnp.DeviceArray,  # iampa
     jnp.DeviceArray,  # igaba
@@ -31,7 +28,8 @@ DynapSERecord = Tuple[
     jnp.DeviceArray,  # vmem
 ]
 
-DynapSEState = Tuple[
+
+DynapSimState = Tuple[
     jnp.DeviceArray,  # iahp
     jnp.DeviceArray,  # iampa
     jnp.DeviceArray,  # igaba
