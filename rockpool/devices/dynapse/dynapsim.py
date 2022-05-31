@@ -61,36 +61,12 @@ from rockpool.devices.dynapse.config.simconfig import (
     DynapSimTime,
 )
 from rockpool.devices.dynapse.config.weights import WeightParameters
+from rockpool.devices.dynapse.definitions import DynapSimRecord, DynapSimState
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
 
 from rockpool.devices.dynapse.infrastructure.mismatch import MismatchDevice
-
-DynapSEState = Tuple[
-    jnp.DeviceArray,  # iahp
-    jnp.DeviceArray,  # iampa
-    jnp.DeviceArray,  # igaba
-    jnp.DeviceArray,  # imem
-    jnp.DeviceArray,  # inmda
-    jnp.DeviceArray,  # ishunt
-    jnp.DeviceArray,  # rng_key
-    jnp.DeviceArray,  # spikes
-    jnp.DeviceArray,  # timer_ref
-    jnp.DeviceArray,  # vmem
-]
-
-DynapSERecord = Tuple[
-    jnp.DeviceArray,  # iahp
-    jnp.DeviceArray,  # iampa
-    jnp.DeviceArray,  # igaba
-    jnp.DeviceArray,  # imem
-    jnp.DeviceArray,  # inmda
-    jnp.DeviceArray,  # ishunt
-    jnp.DeviceArray,  # spikes
-    jnp.DeviceArray,  # vmem
-]
-
 
 Dynapse1Configuration = Any
 Dynapse2Configuration = Any
@@ -851,8 +827,8 @@ class DynapSim(JaxModule):
         input_data = jnp.reshape(input_data, (input_data.shape[0], -1, 4))
 
         def forward(
-            state: DynapSEState, Iw_input: jnp.DeviceArray
-        ) -> Tuple[DynapSEState, DynapSERecord]:
+            state: DynapSimState, Iw_input: jnp.DeviceArray
+        ) -> Tuple[DynapSimState, DynapSimRecord]:
             """
             forward implements single time-step neuron and synapse dynamics
 
@@ -867,13 +843,13 @@ class DynapSim(JaxModule):
                 spikes: Logical spike raster for each neuron [Nrec]
                 timer_ref: Refractory timer of each neruon [Nrec]
                 vmem: Membrane voltages of each neuron [Nrec]
-            :type state: DynapSEState
+            :type state: DynapSimState
             :param Iw_input: external weighted current matrix generated via input spikes [Nrec, 4]
             :type Iw_input: jnp.DeviceArray
             :return: state, record
                 state: Updated state at end of the forward steps
                 record: Updated record instance to including spikes, igaba, ishunt, inmda, iampa, iahp, imem, and vmem states
-            :rtype: Tuple[DynapSEState, DynapSERecord]
+            :rtype: Tuple[DynapSimState, DynapSimRecord]
             """
             # [] TODO : Would you allow currents to go below Io or not?!!!!
 
