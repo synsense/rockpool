@@ -20,3 +20,4 @@ docs/tutorials/cache
 docs/tutorials/data
 docs/tutorials/lightning_logs
 docs/tutorials/mlruns
+*.bit
