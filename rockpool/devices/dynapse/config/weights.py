@@ -7,7 +7,6 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 21/01/2022
 
-[] TODO : from_samna_parameters() # requires bitmask from router
 [] TODO : from_samna() # standalone
 [] TODO : merging and disjoining weight matrices across cores # post-synaptic side is here
 """
@@ -28,8 +27,6 @@ from jax import numpy as jnp
 
 # Rockpool
 from rockpool.training import jax_loss as l
-from rockpool.devices.dynapse.config.layout import DynapSELayout
-from rockpool.devices.dynapse.config.circuits import SimulationParameters
 from rockpool.devices.dynapse.config.autoencoder import (
     AutoEncoder,
     DigitalAutoEncoder,
@@ -93,8 +90,6 @@ class WeightParameters:
 
     :param code_length: the number of bits to reserve for a code, defaults to 4
     :type code_length: Optional[int], optional
-    :param layout: constant values that are related to the exact silicon layout of a chip, defaults to None
-    :type layout: Optional[DynapSELayout], optional
 
     :Instance Variables:
 
@@ -126,7 +121,6 @@ class WeightParameters:
     Iw_3: Optional[float] = None
     mux: Optional[jnp.DeviceArray] = None
     code_length: Optional[int] = None
-    layout: Optional[DynapSELayout] = None
 
     _optimizers = [
         "sgd",
@@ -146,9 +140,6 @@ class WeightParameters:
 
         :raises ValueError: If `weight` is None, then mux and weight bits are required to calculate the weight matrix
         """
-
-        if self.layout is None:
-            self.layout = DynapSELayout()
 
         if self.code_length is None:
             self.code_length = self.get_code_length()
@@ -654,61 +645,6 @@ class WeightParameters:
         pattern = jnp.array([1 << n for n in range(n_bits)])  # [1,2,4,8, ..]
         mux = jnp.sum(bitmask.T * pattern, axis=-1).T
         return mux
-
-    @classmethod
-    def from_samna_parameters(
-        cls,
-        samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]],
-        mux: jnp.DeviceArray,
-        layout: DynapSELayout,
-        *args,
-        **kwargs,
-    ) -> WeightParameters:
-        """
-        from_samna_parameters is a factory method to construct a `WeightParameters` object using a samna config object
-
-        :param samna_parameters: a parameter dictionary inside samna config object for setting the parameter group within one core
-        :type samna_parameters: Dict[str, Union[Dynapse1Parameter, Dynapse2Parameter]]
-        :param mux: A binary value representing uint mask to select and dot product the base Iw currents (pre, post, gate)
-        :type mux: jnp.DeviceArray
-
-            1 = 0001 -> selected bias parameters: Iw_0
-            8 = 1000 -> selected bias parameters: Iw_3
-            5 = 0101 -> selected bias parameterss Iw_0 + Iw_2
-
-            array([[[ 0,  1, 12,  0],
-                    [11, 10,  4,  1],
-                    [ 7,  0, 15, 15],
-                    [13, 15, 15,  7],
-                    [ 5,  3,  2, 12],
-                    [ 5,  8,  5,  9]],
-
-                   [[12, 13,  9,  0],
-                    [12, 12, 11,  2],
-                    [10, 15,  9, 14],
-                    [ 6,  8, 10,  8],
-                    [15,  1,  1,  9],
-                    [ 5,  2,  7, 13]]])
-
-        :param layout: constant values that are related to the exact silicon layout of a chip
-        :type layout: DynapSELayout
-        :return: a `WeightParameters` object, whose parameters obtained from the hardware configuration
-        :rtype: WeightParameters
-        """
-
-        simparam = SimulationParameters(samna_parameters)
-
-        mod = cls(
-            Iw_0=simparam.nominal("Iw_0"),  # GABA_B - se1
-            Iw_1=simparam.nominal("Iw_1"),  # GABA_A - se1
-            Iw_2=simparam.nominal("Iw_2"),  # NMDA - se1
-            Iw_3=simparam.nominal("Iw_3"),  # AMPA - se1
-            mux=mux,
-            layout=layout,
-            *args,
-            **kwargs,
-        )
-        return mod
 
     ## PROPERTIES ##
 
