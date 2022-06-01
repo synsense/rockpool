@@ -48,6 +48,12 @@ class BooleanState(TorchModule):
         if self.size_in != self.size_out:
             raise ValueError("`size_in` must be equal to `size_out` for BooleanState.")
 
+        if threshold is not None:
+            if torch.any(threshold < 0):
+                raise ValueError(
+                    "threshold must be positive"
+                )
+
         # - Initialise threshold
         self.threshold = SimulationParameter(
             threshold,
@@ -77,10 +83,9 @@ class BooleanState(TorchModule):
         )
         this_state[:, 0, :] = bool_state
 
-        for b in range(num_batches):
-            for t in range(num_timesteps):
-                this_state[b, t + 1, :] = (
-                    torch.clip(bdata[b, t, :] + this_state[b, t, :], 0, torch.inf) > 0
+        for t in range(num_timesteps):
+            this_state[:, t + 1, :] = (
+                    torch.clip(bdata[:, t, :] + this_state[:, t, :], 0, torch.inf) > 0
                 )
 
         # - Record state trace
