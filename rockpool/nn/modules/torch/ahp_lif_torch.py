@@ -110,16 +110,15 @@ class LIFBaseTorch(TorchModule):
                 raise ValueError("`w_rec` may not be provided if `has_rec` is `False`")
 
         # w_ahp_shape = (self.size_out, self.size_in)
-        # w_ahp_shape = (self.size_out, self.n_synapses)
-        w_ahp_shape = (self.n_synapses, self.size_out)
+        w_ahp_shape = (self.size_out, self.n_synapses)
+        # w_ahp_shape = (self.n_synapses, self.size_out)
 
         if has_ahp:
             self.w_ahp: P_tensor = rp.Parameter(
                 w_ahp,
                 shape=w_ahp_shape,
-                # init_func=weight_init_func,
-                init_func= None,
-
+                init_func=weight_init_func,
+                # init_func= None,
                 family="weights",
                 cast_fn=to_float_tensor,
             )
@@ -460,14 +459,14 @@ class ahp_LIFTorch(LIFBaseTorch):
  # - Apply spikes over the ahp weights
             if hasattr(self, "w_ahp"):
 
-                iahp = iahp + torch.mul(spikes, self.w_ahp.repeat(n_batches,1)).reshape(
-                    n_batches, self.size_out, self.n_synapses
-                )
+                iahp = iahp + torch.mul(spikes.repeat(self.n_synapses,1).reshape(n_batches,self.size_out, self.n_synapses), 
+                self.w_ahp.repeat(n_batches,1).reshape(n_batches, self.size_out, self.n_synapses))
 
                
                 # iahp = iahp + F.linear(spikes, self.w_ahp.T).reshape(
                 #     n_batches, self.size_out, self.n_synapses
                 # )
+              
                 iahp *= gamma  
                 isyn = isyn + iahp
 
