@@ -6,6 +6,9 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 08/04/2022
 """
+
+from __future__ import annotations
+from abc import ABC, abstractclassmethod, abstractmethod
 from typing import Any, Dict, List
 
 from dataclasses import dataclass
@@ -96,6 +99,18 @@ class SamnaAlias:
         obj = cls()
         obj.from_json(self.to_json())
         return obj
+
+    @abstractclassmethod
+    def from_samna(cls, obj: Any) -> SamnaAlias:
+        """
+        from_samna is a abstract class method, which should be implemented individually
+
+        :param obj: the reciprocal samna object
+        :type obj: Any
+        :return: the samna alias of the actual samna object
+        :rtype: SamnaAlias
+        """
+        pass
 
 
 @dataclass
