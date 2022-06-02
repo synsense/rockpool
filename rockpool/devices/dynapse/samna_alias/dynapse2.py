@@ -135,9 +135,9 @@ class Dynapse2Parameter(SamnaAlias):
     :type _switchable_type: bool, optional
     """
 
+    type: str
     coarse_value: np.uint8
     fine_value: np.uint8
-    type: ParameterType
     _address: np.uint64 = 0
     _cookie: np.uint64 = 0
     _initial_type: ParameterType = None
@@ -146,6 +146,39 @@ class Dynapse2Parameter(SamnaAlias):
     def __post_init__(self) -> None:
         if self._initial_type is None:
             self._initial_type = self.type
+
+    @property
+    def ctor(self) -> Dict[str, Any]:
+        """
+        ctor overwrites `SamnaAlias.ctor()` method to express `type` field as unicode
+
+        :return: a dictionary of the object datastructure
+        :rtype: Dict[str, Any]
+        """
+        __ctor = super().ctor
+        __ctor["type"] = ord(__ctor["type"])
+        return __ctor
+
+    @classmethod
+    def from_samna(cls, obj: Any) -> Dynapse2Parameter:
+        """
+        from_samna converts a `Dynapse2Parameter` samna object to and alias object
+
+        :param obj: a `samna.dynapse.Dynapse2Parameter` object
+        :type obj: Any
+        :return: the samna alias version
+        :rtype: Dynapse2Parameter
+        """
+
+        return cls(
+            coarse_value=obj.coarse_value,
+            fine_value=obj.fine_value,
+            type=obj.type,
+            _address=obj._address,
+            _cookie=obj._cookie,
+            _initial_type=ParameterType(obj._initial_type.value),
+            _switchable_type=obj._switchable_type,
+        )
 
 
 @dataclass
@@ -178,6 +211,17 @@ class Dynapse2Destination(SamnaAlias):
         if self.tag > 2048 or self.tag < 0:
             raise ValueError("Illegal tag!")
 
+    @classmethod
+    def from_samna(cls, obj: Any) -> Dynapse2Destination:
+        """
+        from_samna converts a `Dynapse2Destination` samna object to an alias object
+
+        :param obj: a samna.dynapse2.Dynapse2Deatination object
+        :type obj: Any
+        :return: the samna alias version
+        :rtype: Dynapse2Destination
+        """
+        return cls(core=obj.core, x_hop=obj.x_hop, y_hop=obj.y_hop, tag=obj.tag)
 
 @dataclass
 class NormalGridEvent(SamnaAlias):
@@ -192,6 +236,22 @@ class NormalGridEvent(SamnaAlias):
 
     event: Dynapse2Destination
     timestamp: np.uint32
+
+    @classmethod
+    def from_samna(cls, obj: Any) -> NormalGridEvent:
+        """
+        from_samna converts a `NormalGridEvent` samna object to and alias object
+
+        :param obj: a `samna.dynapse.NormalGridEvent` object
+        :type obj: Any
+        :return: the samna alias version
+        :rtype: NormalGridEvent
+        """
+
+        return cls(
+            event=Dynapse2Destination.from_samna(obj.event), timestamp=obj.timestamp
+        )
+
 
 # --- For Typehinting --- #
 
