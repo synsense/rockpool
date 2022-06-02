@@ -18,7 +18,7 @@ E-mail : ugurcan.cakal@gmail.com
 """
 from __future__ import annotations
 from dataclasses import dataclass
-from abc import ABC, abstractclassmethod
+from abc import ABC, abstractmethod
 
 from typing import (
     Callable,
@@ -638,7 +638,7 @@ class Connector(ABC):
     ### --- Device Specific Implementation Required --- ###
 
     @staticmethod
-    @abstractclassmethod
+    @abstractmethod
     def cam_tag(syn: Union[Dynapse1Synapse, Dynapse2Synapse], *args, **kwargs) -> int:
         """
         cam_tag obtains the cam tag from the samna synapse objects
@@ -664,7 +664,7 @@ class Connector(ABC):
         """
         pass
 
-    @abstractclassmethod
+    @abstractmethod
     def route(
         self,
         dest: Union[Dynapse1Destination, Dynapse2Destination],
@@ -681,7 +681,7 @@ class Connector(ABC):
         """
         pass
 
-    @abstractclassmethod
+    @abstractmethod
     def match_dest_connection(
         self,
         dest_connection: Tuple[
@@ -700,7 +700,7 @@ class Connector(ABC):
         """
         pass
 
-    @abstractclassmethod
+    @abstractmethod
     def read_syn_connection(
         self,
         syn_connection: Tuple[int, int, Union[Dynapse1Synapse, Dynapse2Synapse]],
