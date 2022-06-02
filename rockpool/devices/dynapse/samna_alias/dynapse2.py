@@ -80,6 +80,23 @@ class SamnaAlias:
         _wrapper = {"value0": self.ctor}
         return json.dumps(_wrapper, indent="    ")
 
+    def samna_object(self, cls: Any) -> Any:
+        """
+        samna_object converts the samna alias object to a real samna object
+
+        i.e.
+        event = NormalGridEvent()
+        event.samna_object(samna.dynapse2.NormalGridEvent)
+
+        :param cls: the samna class
+        :type cls: Any
+        :return: the samna object
+        :rtype: Any
+        """
+        obj = cls()
+        obj.from_json(self.to_json())
+        return obj
+
 
 @dataclass
 class Dynapse2Parameter(SamnaAlias):
