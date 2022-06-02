@@ -21,3 +21,4 @@ docs/tutorials/data
 docs/tutorials/lightning_logs
 docs/tutorials/mlruns
 *.bit
+*.DS_Store
