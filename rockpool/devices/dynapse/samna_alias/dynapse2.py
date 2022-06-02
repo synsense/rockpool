@@ -223,6 +223,27 @@ class Dynapse2Destination(SamnaAlias):
         """
         return cls(core=obj.core, x_hop=obj.x_hop, y_hop=obj.y_hop, tag=obj.tag)
 
+    def __hash__(self) -> int:
+        """
+        __hash__ creates a unique hash code for the object which is used in sorting, and indexing
+        the hash code is created stacking the datafield together in a 24 bit integer object
+
+        | core   | xhop   | y_hop  | tag     |
+        | ------ | ------ | ------ | ------- |
+        | 4-bits | 4-bits | 4-bits | 12-bits |
+
+        :return: _description_
+        :rtype: int
+        """
+        hash = 0
+        for bit in reversed(self.core):
+            hash = (hash << 1) | bit
+        hash = (hash << 4) | (self.x_hop + 7)
+        hash = (hash << 4) | (self.y_hop + 7)
+        hash = hash << 12 | self.tag
+        return hash
+
+
 @dataclass
 class NormalGridEvent(SamnaAlias):
     """
