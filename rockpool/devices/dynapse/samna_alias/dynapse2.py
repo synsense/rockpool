@@ -178,6 +178,128 @@ class NormalGridEvent(SamnaAlias):
     event: Dynapse2Destination
     timestamp: np.uint32
 
+# --- For Typehinting --- #
+
+
+class Dynapse2Interface(ABC):
+    @abstractmethod
+    def configure_opal_kelly(self):
+        pass
+
+    @abstractmethod
+    def enable_output(self):
+        pass
+
+    @abstractmethod
+    def get_device_type_name(self):
+        pass
+
+    @abstractmethod
+    def get_model(self):
+        pass
+
+    @abstractmethod
+    def get_number_of_chips(self):
+        pass
+
+    @abstractmethod
+    def get_output_enable_status(self):
+        pass
+
+    @abstractmethod
+    def grid_bus_write_events(self):
+        pass
+
+    @abstractmethod
+    def grid_bus_write_events_u32(self):
+        pass
+
+    @abstractmethod
+    def input_interface_write_events(self):
+        pass
+
+    @abstractmethod
+    def input_interface_write_events_u32(self):
+        pass
+
+    @abstractmethod
+    def input_interface_write_raw(self):
+        pass
+
+    @abstractmethod
+    def output_read(self):
+        pass
+
+    @abstractmethod
+    def read_events(self):
+        pass
+
+    @abstractmethod
+    def reset_fpga(self):
+        pass
+
+    @abstractmethod
+    def set_fpga_dynapse2_module_config(self):
+        pass
+
+    @abstractmethod
+    def set_number_of_chip(self):
+        pass
+
+
+class Dynapse2Model(ABC):
+    @abstractmethod
+    def apply_configuration(self):
+        pass
+
+    @abstractmethod
+    def clear_error_queue(self):
+        pass
+
+    @abstractmethod
+    def get_configuration(self):
+        pass
+
+    @abstractmethod
+    def get_error_events(self):
+        pass
+
+    @abstractmethod
+    def get_firing_rate(self):
+        pass
+
+    @abstractmethod
+    def get_firing_rates(self):
+        pass
+
+    @abstractmethod
+    def get_output_events(self):
+        pass
+
+    @abstractmethod
+    def get_sadc_sample_period_ms(self):
+        pass
+
+    @abstractmethod
+    def get_sadc_value(self):
+        pass
+
+    @abstractmethod
+    def get_sadc_values(self):
+        pass
+
+    @abstractmethod
+    def read_events(self):
+        pass
+
+    @abstractmethod
+    def reset(self):
+        pass
+
+    @abstractmethod
+    def set_sadc_sample_period_ms(self):
+        pass
+
 
 if __name__ == "__main__":
     _dest = Dynapse2Destination([True, True, False, True], 0, 1, 12)
