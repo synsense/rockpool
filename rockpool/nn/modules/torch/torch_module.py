@@ -458,7 +458,7 @@ class TorchModule(Module, nn.Module):
 
         obj.__class__ = TorchModulePatch
         obj.__old_class_name = old_class_name
-
+        
         obj._has_torch_api = retain_torch_api
 
         assert isinstance(obj, TorchModule)
@@ -468,6 +468,8 @@ class TorchModule(Module, nn.Module):
 
         # - Ensure other base-class attributes are set
         obj._shape = (None,)
+        obj._force_set_attributes = False
+        obj._in_Module_init = False
         obj._spiking_input = False
         obj._spiking_output = False
         obj._name = obj._get_name()

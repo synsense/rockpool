@@ -33,6 +33,8 @@ class XyloSim(Module):
     """
 
     __create_key = object()
+    _output_mode = "Spike"
+
     """ Private key to ensure factory creation """
 
     def __init__(
@@ -41,6 +43,7 @@ class XyloSim(Module):
         config: XyloConfiguration,
         shape: tuple = (16, 1000, 8),
         dt: float = 1e-3,
+        output_mode: str = "Spike",
         *args,
         **kwargs,
     ):
@@ -82,8 +85,17 @@ class XyloSim(Module):
         self._xylo_layer: Optional[XyloLayer] = None
         """ (XyloLayer) Handle to a XyloSim object """
 
+        # - Check and store readout mode
+        if output_mode not in ["Isyn", "Vmem", "Spike"]:
+            raise ValueError(
+                f'{output_mode} is not supported. Expected one of ["Isyn", "Vmem", "Spike"].'
+            )
+        self._output_mode = output_mode
+
     @classmethod
-    def from_config(cls, config: XyloConfiguration, dt: float = 1e-3):
+    def from_config(
+        cls, config: XyloConfiguration, dt: float = 1e-3, output_mode: str = "Spike"
+    ):
         """
         Creata a XyloSim based layer to simulate the Xylo hardware, from a configuration
 
@@ -92,13 +104,22 @@ class XyloSim(Module):
             Timestep for simulation, in seconds. Default: 1ms
         config: XyloConfiguration
             ``samna.xylo.XyloConfiguration`` object to specify all parameters. See samna documentation for details.
+        output_mode: str
+            One of ``["Spike", "Vmem", "Isyn"]``. Specifies which signal should be returned from :py:meth:`.XyloSim.evolve`. Default: "Spike", return output spike events.
 
         """
+        cls._output_mode = output_mode
+
         # - Import XyloSim
         from xylosim.v1 import XyloSynapse, XyloLayer
 
         # - Instantiate the class
-        mod = cls(create_key=cls.__create_key, config=config, dt=dt)
+        mod = cls(
+            create_key=cls.__create_key,
+            config=config,
+            dt=dt,
+            output_mode=cls._output_mode,
+        )
 
         # - Make a storage object for the extracted configuration
         class _(object):
@@ -212,6 +233,7 @@ class XyloSim(Module):
         aliases: Optional[list] = None,
         dt: float = 1e-3,
         verify_config: bool = True,
+        output_mode: str = "Spike",
     ) -> "XyloSim":
         """
         Instantiate a :py:class:`.XyloSim` module from a full set of parameters
@@ -232,7 +254,8 @@ class XyloSim(Module):
             weight_shift_out (int): An integer number of bits to left-shift the output weight matrix
             aliases (Optional[list]):
             dt (float): Simulation time step in seconds. Default: 1 ms
-            verify_config (bool): Check for a valid configuraiton before applying it. Default ``True``.
+            verify_config (bool): Check for a valid configuration before applying it. Default ``True``.
+            output_mode (str): One of ``["Spike", "Vmem", "Isyn"]``. Specifies which signal should be returned from :py:meth:`.XyloSim.evolve`. Default: "Spike", return output spike events.
 
         Returns:
             :py:class:`.XyloSim`: A :py:class:`.Module` that emulates the Xylo hardware.
@@ -244,6 +267,7 @@ class XyloSim(Module):
             raise ModuleNotFoundError(
                 "`samna` not installed. `samna` is required to generate and validate a HW configuration for Xylo."
             )
+        cls._output_mode = output_mode
 
         from rockpool.devices.xylo import config_from_specification
 
@@ -269,7 +293,7 @@ class XyloSim(Module):
             raise ValueError("Xylo configuration is not valid: " + status)
 
         # - Instantiate module from config
-        return cls.from_config(config, dt=dt)
+        return cls.from_config(config, dt=dt, output_mode=cls._output_mode)
 
     def evolve(
         self,
@@ -279,7 +303,17 @@ class XyloSim(Module):
         **kwargs,
     ):
         # - Evolve using the xylo layer
-        output = np.array(self._xylo_layer.evolve(input_raster))
+        spikes_out = np.array(self._xylo_layer.evolve(input_raster))
+
+        # - Get the requested output
+        if self._output_mode == "Spike":
+            output = spikes_out.T
+        elif self._output_mode == "Vmem":
+            output = np.array(self._xylo_layer.rec_v_mem_out).T
+        elif self._output_mode == "Isyn":
+            output = np.array(self._xylo_layer.rec_i_syn_out).T
+        else:
+            raise ValueError(f"Unknown value for module output mode.")
 
         # - Build the recording dictionary
         if not record:
@@ -345,6 +379,7 @@ class XyloSimV2(Module):
         config: XyloConfiguration,
         shape: tuple = (16, 1000, 8),
         dt: float = 1e-3,
+        output_mode: str = "Spike",
         *args,
         **kwargs,
     ):
@@ -387,8 +422,18 @@ class XyloSimV2(Module):
         self._xylo_layer: Optional[XyloLayer] = None
         """ (XyloLayer) Handle to a XyloSim object """
 
+        # - Check and store readout mode
+        if output_mode not in ["Isyn", "Vmem", "Spike"]:
+            raise ValueError(
+                f'{output_mode} is not supported. Expected one of ["Isyn", "Vmem", "Spike"].'
+            )
+
+        self._output_mode = output_mode
+
     @classmethod
-    def from_config(cls, config: XyloConfiguration, dt: float = 1e-3):
+    def from_config(
+        cls, config: XyloConfiguration, dt: float = 1e-3, output_mode: str = "Spike"
+    ):
         """
         Creata a XyloSim based layer to simulate the Xylo hardware, from a configuration
 
@@ -397,8 +442,11 @@ class XyloSimV2(Module):
             Timestep for simulation, in seconds. Default: 1ms
         config: XyloConfiguration
             ``samna.xylo.XyloConfiguration`` object to specify all parameters. See samna documentation for details.
+        output_mode: str
+            One of ``["Spike", "Vmem", "Isyn"]``. Specifies which signal should be returned from :py:meth:`.XyloSimV2.evolve`. Default: "Spike", return output spike events.
 
         """
+        cls._output_mode = output_mode
 
         raise NotImplementedError(
             "from_config() not implemented for XylonSimV2 due to lacking samna support."
@@ -407,7 +455,12 @@ class XyloSimV2(Module):
         from xylosim.v2 import XyloSynapse, XyloLayer
 
         # - Instantiate the class
-        mod = cls(create_key=cls.__create_key, config=config, dt=dt)
+        mod = cls(
+            create_key=cls.__create_key,
+            config=config,
+            dt=dt,
+            output_mode=cls._output_mode,
+        )
 
         # - Make a storage object for the extracted configuration
         class _(object):
@@ -522,8 +575,8 @@ class XyloSimV2(Module):
         weight_shift_out: int = 0,
         aliases: Optional[list] = None,
         dt: float = 1e-3,
-        verify_config: bool = True,
-    ) -> "XyloSim":
+        output_mode: str = "Spike",
+    ) -> "XyloSimV2":
         """
         Instantiate a :py:class:`.XyloSim` module from a full set of parameters
 
@@ -545,14 +598,12 @@ class XyloSimV2(Module):
             weight_shift_out (int): An integer number of bits to left-shift the output weight matrix
             aliases (Optional[list]):
             dt (float): Simulation time step in seconds. Default: 1 ms
-            verify_config (bool): Check for a valid configuraiton before applying it. Default ``True``.
+            output_mode (str): One of ``["Spike", "Vmem", "Isyn"]``. Specifies which signal should be returned from :py:meth:`.XyloSimV2.evolve`. Default: "Spike", return output spike events.
 
         Returns:
             :py:class:`.XyloSim`: A :py:class:`.Module` that emulates the Xylo hardware.
-
-        Raises:
-            ValueError: If ``verify_config`` is ``True`` and the configuration is not valid.
         """
+        cls._output_mode = output_mode
         from xylosim.v2 import XyloSynapse, XyloLayer
 
         if weights_rec is None:
@@ -591,7 +642,12 @@ class XyloSimV2(Module):
             threshold_out = np.zeros((np.shape(weights_out)[1]), int)
 
         # - Instantiate the class
-        mod = cls(create_key=cls.__create_key, config=None, dt=dt)
+        mod = cls(
+            create_key=cls.__create_key,
+            config=None,
+            dt=dt,
+            output_mode=cls._output_mode,
+        )
 
         # - Make a storage object for the extracted configuration
         class _(object):
@@ -696,7 +752,17 @@ class XyloSimV2(Module):
         **kwargs,
     ):
         # - Evolve using the xylo layer
-        output = np.array(self._xylo_layer.evolve(input_raster))
+        spike_out = np.array(self._xylo_layer.evolve(input_raster))
+
+        # - Return requested output
+        if self._output_mode == "Spike":
+            output = spike_out.T
+        elif self._output_mode == "Vmem":
+            output = np.array(self._xylo_layer.rec_v_mem_out).T
+        elif self._output_mode == "Isyn":
+            output = np.array(self._xylo_layer.rec_i_syn_out).T
+        else:
+            raise ValueError("Unknown value for output mode.")
 
         # - Build the recording dictionary
         if not record:
@@ -714,7 +780,7 @@ class XyloSimV2(Module):
         # - Return output, state and recording dictionary
         return output, {}, recording
 
-    def reset_state(self) -> "XyloSim":
+    def reset_state(self) -> "XyloSimV2":
         """Reset the state of this module."""
         self._xylo_layer.reset_all()
         return self

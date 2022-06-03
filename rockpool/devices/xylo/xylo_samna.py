@@ -321,6 +321,7 @@ class XyloSamna(Module):
         device: XyloHDK,
         config: XyloConfiguration = None,
         dt: float = 1e-3,
+        output_mode: str = "Spike",
         *args,
         **kwargs,
     ):
@@ -331,10 +332,18 @@ class XyloSamna(Module):
             device (XyloHDK): An opened `samna` device to a Xylo dev kit
             config (XyloConfiguraration): A Xylo configuration from `samna`
             dt (float): The simulation time-step to use for this Module
+            output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
         """
         # - Check input arguments
         if device is None:
             raise ValueError("`device` must be a valid, opened Xylo HDK device.")
+
+        # - Check output mode specification
+        if output_mode not in ["Spike", "Isyn", "Vmem"]:
+            raise ValueError(
+                f'{output_mode} is not supported. Must be one of `["Spike", "Isyn", "Vmem"]`.'
+            )
+        self._output_mode = output_mode
 
         # - Get a default configuration
         if config is None:
@@ -428,13 +437,13 @@ class XyloSamna(Module):
             # - Keep a registry of the last recording mode
             self._last_record_mode = record
 
-            # - Configure Xylo for accel-time mode
-            m_Nhidden = Nhidden if record else 0
-            m_Nout = Nout if record else 0
-
-            # - Applies the configuration via `self.config`
             self.config, state_buffer = hdkutils.configure_accel_time_mode(
-                self._config, self._state_buffer, m_Nhidden, m_Nout
+                self._config,
+                self._state_buffer,
+                Nhidden,
+                Nout,
+                readout=self._output_mode,
+                record=record,
             )
 
     def evolve(
@@ -464,6 +473,7 @@ class XyloSamna(Module):
         Raises:
             `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
         """
+
         # - Get the network size
         Nin, Nhidden, Nout = self.shape[:]
 
@@ -552,7 +562,12 @@ class XyloSamna(Module):
         new_state = {}
 
         # - Return spike output, new state and record dictionary
-        return xylo_data.Spikes_out, new_state, rec_dict
+        if self._output_mode == "Spike":
+            return xylo_data.Spikes_out, new_state, rec_dict
+        elif self._output_mode == "Isyn":
+            return xylo_data.I_syn_out, new_state, rec_dict
+        elif self._output_mode == "Vmem":
+            return xylo_data.V_mem_out, new_state, rec_dict
 
     def _evolve_manual(
         self,
