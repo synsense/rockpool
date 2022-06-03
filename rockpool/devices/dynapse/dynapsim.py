@@ -876,7 +876,7 @@ class DynapSim(JaxModule):
             Iws = Iws_internal + Iw_input
 
             # isyn_inf is the current that a synapse current would reach with a sufficiently long pulse
-            isyn_inf = ((Igain_syn_clip / Itau_syn_clip) * Iws) - Igain_syn_clip
+            isyn_inf = (Igain_syn_clip / Itau_syn_clip) * Iws
             isyn_inf = jnp.clip(isyn_inf, self.__zero)
 
             ## Exponential charge, discharge positive feedback factor arrays
@@ -899,7 +899,7 @@ class DynapSim(JaxModule):
             # ------------------------------------------------------ #
 
             Iws_ahp = self.md.Iw_ahp * spikes  # 0 if no spike, Iw_ahp if spike
-            iahp_inf = ((Igain_ahp_clip / Itau_ahp_clip) * Iws_ahp) - Igain_ahp_clip
+            iahp_inf = (Igain_ahp_clip / Itau_ahp_clip) * Iws_ahp
 
             # Calculate charge and discharge factors
             f_charge_ahp = self.__one - jnp.exp(-t_pulse_ahp / tau_ahp)  # Nrec
