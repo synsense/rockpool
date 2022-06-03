@@ -104,7 +104,8 @@ class Figure:
                 name = list(map(lambda idx: f"{n}[{idx}]", nonzero_idx))
 
             count = list(map(lambda c: f"{c}", weighted_mask[nonzero_idx]))
-            labels.extend(list(map(lambda t: f"{t[0]}x{t[1]}", zip(name, count))))
+            # labels.extend(list(map(lambda t: f"{t[0]}x{t[1]}", zip(name, count))))
+            labels.extend(list(map(lambda t: f"{t[0]}", zip(name, count))))
 
         # Merge spike trains in one TSEvent object
         for ts in spikes:
@@ -285,7 +286,8 @@ class Figure:
         # Convert and plot
         Ix = TSContinuous.from_clocked(Ix_record, dt=dt, name=name)
         _lines = Ix.plot(stagger=np.float32(Ix.max * f_margin), *args, **kwargs)
-        plt.ylabel(f"Current(A, +{np.float32(Ix.max * f_margin):.1e})")
+        # plt.ylabel(f"Current(A, +{np.float32(Ix.max * f_margin):.1e})")
+        plt.ylabel(f"Current(A)")
 
         if idx_map is not None:
             ax = plt.gca()
@@ -451,6 +453,8 @@ class Figure:
         line_ratio: float = 0.3,
         top_bottom_ratio: Tuple[float] = (2, 1),
         s: float = 10.0,
+        save: bool = False,
+        path: str = "figure.png",
     ) -> Tuple[TSContinuous, TSEvent, List[str]]:
         """
         plot_Isyn_trace plots a synaptic current(AMPA, GABA, NMDA, SHUNT, or AHP) of a pre-synaptic neuron
@@ -483,6 +487,10 @@ class Figure:
         :type top_bottom_ratio: Tuple[float], optional
         :param s: spike dot size, defaults to 10
         :type s: float, optional
+        :param save: save the figure or not defaults to False
+        :type save: bool, optional
+        :param path: the path to save the figure if save is True defaults to "figure.png"
+        :type path: str, optional
         :raises IndexError: "NeuronKey {post} is not defined in the index map!
         return: Isyn, spikes_ts, labels
             :Isyn: Isyn current in `TSContinuous` object format
@@ -496,11 +504,9 @@ class Figure:
         :rtype: Tuple[TSContinuous, TSEvent, List[str]]
         """
 
-        ylabel = ""
         if isinstance(post, tuple):
             reverse_map = {v: k for k, v in router.idx_map.items()}
             post_idx = reverse_map[post]
-            ylabel = " [ChipID, CoreID, NeuronID]"
         else:
             post_idx = post
 
@@ -540,9 +546,7 @@ class Figure:
                 title="",
             )
 
-        scatter = Figure.plot_spikes_label(
-            spikes_ts, labels, ax=ax_spike, ylabel=f"Channels{ylabel}", s=s
-        )
+        scatter = Figure.plot_spikes_label(spikes_ts, labels, ax=ax_spike, s=s)
 
         # Plot the synaptic current and the incoming spikes
         Isyn = Figure.plot_Ix(
@@ -574,5 +578,8 @@ class Figure:
                 )
 
         plt.tight_layout()
+
+        if save:
+            plt.savefig(path, transparent=True, bbox_inches="tight", pad_inches=0)
 
         return Isyn, spikes_ts, labels
