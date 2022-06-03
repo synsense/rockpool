@@ -23,7 +23,7 @@ class BooleanState(TorchModule):
 
     Otherwise the state will remain unchanged.
 
-    On initialisation the states are set to ``True``.
+    On initialisation the states are set to ``False``.
     """
 
     def __init__(
@@ -50,9 +50,7 @@ class BooleanState(TorchModule):
 
         if threshold is not None:
             if torch.any(threshold < 0):
-                raise ValueError(
-                    "threshold must be positive"
-                )
+                raise ValueError("threshold must be positive")
 
         # - Initialise threshold
         self.threshold = SimulationParameter(
@@ -79,14 +77,18 @@ class BooleanState(TorchModule):
 
         # - Intialise state trace
         this_state = torch.empty(
-            num_batches, num_timesteps + 1, self.size_out, dtype=bool, device=data.device
+            num_batches,
+            num_timesteps + 1,
+            self.size_out,
+            dtype=bool,
+            device=data.device,
         )
         this_state[:, 0, :] = bool_state
 
         for t in range(num_timesteps):
             this_state[:, t + 1, :] = (
-                    torch.clip(bdata[:, t, :] + this_state[:, t, :], 0, torch.inf) > 0
-                )
+                torch.clip(bdata[:, t, :] + this_state[:, t, :], 0, torch.inf) > 0
+            )
 
         # - Record state trace
         self._record_dict["bool_state"] = this_state[:, 1:, :]
