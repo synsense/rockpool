@@ -802,9 +802,7 @@ class DynapSim(JaxModule):
         __pw = lambda ipw, C: (self.md.Vth * C) / ipw
         __tau = lambda itau, C: ((self.md.Ut / kappa) * C.T).T / itau
 
-        tau_ahp = lambda itau: __tau(itau, self.md.C_ahp)
         tau_mem = lambda itau: __tau(itau, self.md.C_mem)
-        tau_syn = lambda itau: __tau(itau, self.__syn_stack(self.md, "C"))
 
         # --- Stateless Parameters --- #
         t_ref = __pw(self.md.Iref, self.md.C_ref)
@@ -814,10 +812,12 @@ class DynapSim(JaxModule):
         ## --- Synapse Stack --- ## Nrec, 4
         Itau_syn_clip = jnp.clip(self.__syn_stack(self.md, "Itau").T, self.md.Io).T
         Igain_syn_clip = jnp.clip(self.__syn_stack(self.md, "Igain").T, self.md.Io).T
+        tau_syn = __tau(Itau_syn_clip, self.__syn_stack(self.md, "C"))
 
         ## --- Spike frequency adaptation --- ## Nrec
         Itau_ahp_clip = jnp.clip(self.md.Itau_ahp, self.md.Io)
         Igain_ahp_clip = jnp.clip(self.md.Igain_ahp, self.md.Io)
+        tau_ahp = __tau(Itau_ahp_clip, self.md.C_ahp)
 
         ## -- Membrane -- ## Nrec
         Itau_mem_clip = jnp.clip(self.md.Itau_mem, self.md.Io)
@@ -879,12 +879,9 @@ class DynapSim(JaxModule):
             isyn_inf = ((Igain_syn_clip / Itau_syn_clip) * Iws) - Igain_syn_clip
             isyn_inf = jnp.clip(isyn_inf, self.__zero)
 
-            # synaptic time constant is practically much more longer than expected when isyn << Igain
-            tau_syn_prime = tau_syn(Itau_syn_clip) * (1 + (Igain_syn_clip / isyn))
-
             ## Exponential charge, discharge positive feedback factor arrays
-            f_charge = self.__one - jnp.exp(-t_pulse / tau_syn_prime.T).T  # Nrecx4
-            f_discharge = jnp.exp(-self.dt / tau_syn_prime)  # Nrecx4
+            f_charge = self.__one - jnp.exp(-t_pulse / tau_syn.T).T  # Nrecx4
+            f_discharge = jnp.exp(-self.dt / tau_syn)  # Nrecx4
 
             ## DISCHARGE in any case
             isyn = f_discharge * isyn
@@ -904,13 +901,9 @@ class DynapSim(JaxModule):
             Iws_ahp = self.md.Iw_ahp * spikes  # 0 if no spike, Iw_ahp if spike
             iahp_inf = ((Igain_ahp_clip / Itau_ahp_clip) * Iws_ahp) - Igain_ahp_clip
 
-            tau_ahp_prime = tau_ahp(Itau_ahp_clip) * (
-                self.__one + (Igain_ahp_clip / iahp)
-            )
-
             # Calculate charge and discharge factors
-            f_charge_ahp = self.__one - jnp.exp(-t_pulse_ahp / tau_ahp_prime)  # Nrec
-            f_discharge_ahp = jnp.exp(-self.dt / tau_ahp_prime)  # Nrec
+            f_charge_ahp = self.__one - jnp.exp(-t_pulse_ahp / tau_ahp)  # Nrec
+            f_discharge_ahp = jnp.exp(-self.dt / tau_ahp)  # Nrec
 
             ## DISCHARGE in any case
             iahp = f_discharge_ahp * iahp
@@ -943,7 +936,6 @@ class DynapSim(JaxModule):
 
             # ishunt (shunting) contributes to the membrane leak instead of subtracting from Iin
             Ileak = Itau_mem_clip + ishunt
-            tau_mem_prime = tau_mem(Ileak) * (self.__one + (Igain_mem_clip / imem))
 
             ## Steady state current
             imem_inf = (Igain_mem_clip / Itau_mem_clip) * (Iin - iahp - Ileak)
@@ -953,7 +945,7 @@ class DynapSim(JaxModule):
             f_imem = ((Ifb) / (Ileak)) * (imem + Igain_mem_clip)
 
             ## Forward Euler Update
-            del_imem = (self.__one / tau_mem_prime) * (
+            del_imem = (self.__one / tau_mem(Ileak)) * (
                 imem_inf + f_imem - (imem * (self.__one + (iahp / Ileak)))
             )
             imem = imem + del_imem * self.dt
