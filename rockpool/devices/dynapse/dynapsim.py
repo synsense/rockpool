@@ -935,10 +935,10 @@ class DynapSim(JaxModule):
             Iin = jnp.clip(Iin, self.md.Io)
 
             # ishunt (shunting) contributes to the membrane leak instead of subtracting from Iin
-            Ileak = Itau_mem_clip + ishunt
+            Ileak = Itau_mem_clip + ishunt + iahp
 
             ## Steady state current
-            imem_inf = (Igain_mem_clip / Itau_mem_clip) * (Iin - iahp - Ileak)
+            imem_inf = (Igain_mem_clip / Itau_mem_clip) * (Iin - Ileak)
 
             ## Positive feedback
             Ifb = self.md.Io * f_feedback
