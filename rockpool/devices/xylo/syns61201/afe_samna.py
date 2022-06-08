@@ -3,6 +3,7 @@ samna-backed module for interfacing with the Xylo-A2 AFE HW module
 """
 
 import time
+import warnings
 
 import samna
 
@@ -25,7 +26,7 @@ except ModuleNotFoundError:
     def tqdm(wrapped, *args, **kwargs):
         return wrapped
 
-from typing import Union, Dict, Any, Tuple
+from typing import Union, Dict, Any, Tuple, Optional
 
 
 
@@ -34,7 +35,7 @@ __all__ = ['AFESamna']
 class AFESamna(Module):
     def __init__(self,
                  device: AFE2HDK,
-                 config: AFE2Configuration,
+                 config: Optional[AFE2Configuration] = None,
                  dt: float = 1e-3,
                  *args,
                  **kwargs,
@@ -51,6 +52,9 @@ class AFESamna(Module):
             raise ValueError("`device` must be a valid, opened Xylo AFE V2 HDK self._device.")
 
         # - Get a default configuration
+        if config is not None:
+            warnings.warn('Setting a manual configuration for the Xylo-AFE2 is not yet supported.')
+            
         if config is None:
             config = samna.afe2.configuration.AfeConfiguration()
 
@@ -107,7 +111,6 @@ class AFESamna(Module):
         # - Set up known good configuration
         print('Configuring AFE...')
         hdu.apply_afe2_default_config(self._device)
-        # hdu.afe2_test_config_d(self._afe_write_buf)
         print('Configured AFE')
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:

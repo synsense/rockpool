@@ -145,12 +145,16 @@ def read_afe2_events_blocking(afe2hdk: AFE2HDK, write_buffer: AFE2WriteBuffer, a
               ]
     
     # - Sort events by time
-    events = np.stack(events)
-    index_array = np.argsort(events[:, 0])
-
-    # - Convert to vectors of timestamps, channels
-    timestamps = events[index_array, 0]
-    channels = events[index_array, 1]
+    if len(events) > 0:
+        events = np.stack(events)
+        index_array = np.argsort(events[:, 0])
+    
+        # - Convert to vectors of timestamps, channels
+        timestamps = events[index_array, 0]
+        channels = events[index_array, 1]
+    else:
+        timestamps = np.zeros(0)
+        channels = np.zeros(0)
     
     # - Return timestamps in seconds and channels
     return timestamps * 1e-6, channels
