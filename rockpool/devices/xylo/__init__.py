@@ -22,7 +22,7 @@ except (ImportError, ModuleNotFoundError) as err:
         raise
 
 try:
-    from .xylo_samna import *
+    from .syns61300.xylo_samna import *
 except (ImportError, ModuleNotFoundError) as err:
     if not backend_available("samna"):
         XyloSamna = missing_backend_shim("XyloSamna", "samna")
@@ -42,9 +42,9 @@ from .v3.xylo_divisive_normalisation import (
     DivisiveNormalisationNoLFSR as DivisiveNormalizationNoLFSR,
 )
 
-from .xylo_graph_modules import *
+from .syns61300.xylo_graph_modules import *
 from .syns61300.xylo_mapper import *
 
 import rockpool.devices.xylo.syns61300 as pollen
-import rockpool.devices.xylo.syns65300 as v1
-import rockpool.devices.xylo.syns61201 as v2
+import rockpool.devices.xylo.syns65300 as vA1
+import rockpool.devices.xylo.syns61201 as vA2
