@@ -147,7 +147,7 @@ class XyloAllRam(NamedTuple):
     OWTRAM_state: np.ndarray
     """ np.ndarray: Contents of OWTRAM """
 
-from .syns61201.afe2_devkit_utils import find_xylo_afe2_boards
+from .syns61201.xa2_devkit_utils import find_xylo_a2_boards
 
 def find_xylo_boards() -> List[XyloHDK]:
     """
