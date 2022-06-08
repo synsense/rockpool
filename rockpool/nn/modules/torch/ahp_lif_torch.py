@@ -2,6 +2,7 @@
 Implement a modified version of LIF Module (ahp, after hyperpolarization feedback,  is added)), using a Torch backend
 """
 
+from tkinter import E
 from typing import Union, Tuple, Callable, Optional, Any
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
@@ -83,7 +84,7 @@ class LIFBaseTorch(TorchModule):
             *args,
             **kwargs,
         )
-
+        self.has_ahp = has_ahp
         self.n_neurons = self.size_out
         self.n_synapses: P_int = shape[0] // shape[1]
         """ (int) Number of input synapses per neuron """
@@ -113,7 +114,7 @@ class LIFBaseTorch(TorchModule):
         w_ahp_shape = (self.size_out, self.n_synapses)
         # w_ahp_shape = (self.n_synapses, self.size_out)
 
-        if has_ahp:
+        if self.has_ahp:
             self.w_ahp: P_tensor = rp.Parameter(
                 w_ahp,
                 shape=w_ahp_shape,
@@ -271,21 +272,35 @@ class LIFBaseTorch(TorchModule):
 
         return output_data, self.state(), record_dict
 
+    def syn_integration(self):
+        tau_syn = self.tau_syn.broadcast_to((self.size_out, self.n_synapses))
+        if self.has_ahp:
+            tau_syn = torch.cat((tau_syn, self.tau_ahp),1)
+        return tau_syn.flatten().detach().numpy()
+
+    def  w_ahp_reshape(self):
+        # - to match the shape of w_ahp with the shape of w_red for mapper
+        # w_ahp is a vector while traning but for mapper we build matrix out of that (size: n_neourons, n_neourons * n_synapses)
+        for j in range(self.n_synapses):
+            w_diag = torch.zeros((self.size_out, self.size_out))
+            for i in range(self.size_out):
+                w_diag[i,i] += self.w_ahp[i,j] 
+            w_ahp = torch.cat((w_ahp, w_diag),1) if j > 1 else w_diag 
+        return w_ahp    
+
     def as_graph(self) -> GraphModuleBase:
         tau_mem = self.tau_mem.broadcast_to((self.size_out,)).flatten().detach().numpy()
-        tau_syn = (
-            self.tau_syn.broadcast_to((self.size_out, self.n_synapses))
-            .flatten()
-            .detach()
-            .numpy()
-        )
+        # - to integrate tau_ahp (if present) with tau_syn        
+        tau_syn = self.syn_integration()
 
-        tau_ahp = (
-            self.tau_ahp.broadcast_to((self.size_out, self.n_synapses))
-            .flatten()
-            .detach()
-            .numpy()
-        )
+        # tau_syn = (
+           
+            # self.tau_syn.broadcast_to((self.size_out, self.n_synapses))
+            # .flatten()
+            # .detach()
+            # .numpy()
+        # )
+
         threshold = (
             self.threshold.broadcast_to((self.size_out,)).flatten().detach().numpy()
         )
@@ -299,7 +314,7 @@ class LIFBaseTorch(TorchModule):
             self,
             tau_mem,
             tau_syn,
-            tau_ahp,
+            # tau_ahp,
             threshold,
             bias,
             self.dt,
@@ -317,13 +332,15 @@ class LIFBaseTorch(TorchModule):
             )
          # - Include ahp weights if present
         if len(self.attributes_named("w_ahp")) > 0:
-            # - Weights are connected over the existing input and output nodes
+            # - Weights are connected over the existing input and output nodes            
+            w_ahp = self.w_ahp_reshape()
+
             w_ahp_graph = LinearWeights(
                 neurons.output_nodes,
                 neurons.input_nodes,
                 f"{type(self).__name__}_recurrent_{self.name}_{id(self)}",
                 self,
-                self.w_ahp.detach().numpy(),
+                w_ahp.detach().numpy(),
             )
 
         # - Return a graph containing neurons and optional weights
