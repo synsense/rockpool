@@ -1,5 +1,5 @@
 """
-samna-backed module for interfacing with the AFE v2 HW module
+samna-backed module for interfacing with the Xylo-A2 AFE HW module
 """
 
 import time
@@ -15,8 +15,8 @@ from rockpool import TSEvent
 from rockpool.typehints import P_float
 
 from .. import xylo_devkit_utils as hdkutils
-from . import afe2_devkit_utils as hdu 
-from .afe2_devkit_utils import AFE2HDK
+from . import xa2_devkit_utils as hdu
+from .xa2_devkit_utils import AFE2HDK
 
 try:
     from tqdm.autonotebook import tqdm
@@ -87,7 +87,7 @@ class AFESamna(Module):
         graph.sequential([self._afe_write_buf, self._device.get_afe_model_sink_node()])
 
         # - Check that we have a correct device version
-        self._chip_version, self._chip_revision = hdu.afe2_chip_version(self._afe_read_buf, self._afe_write_buf)
+        self._chip_version, self._chip_revision = hdu.read_afe2_chip_version(self._afe_read_buf, self._afe_write_buf)
         if self._chip_version != 1 or self._chip_revision != 0:
             raise ValueError(f'AFE version is {(self._chip_version, self._chip_revision)}; expected (1, 0).')
 
@@ -106,7 +106,7 @@ class AFESamna(Module):
         
         # - Set up known good configuration
         print('Configuring AFE...')
-        hdu.apply_test_config(self._device)
+        hdu.apply_afe2_default_config(self._device)
         # hdu.afe2_test_config_d(self._afe_write_buf)
         print('Configured AFE')
 
