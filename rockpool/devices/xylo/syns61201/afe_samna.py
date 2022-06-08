@@ -33,6 +33,34 @@ from typing import Union, Dict, Any, Tuple, Optional
 __all__ = ['AFESamna']
 
 class AFESamna(Module):
+    """
+    Interface to the Audio Front-End module on a Xylo-A2 HDK
+    
+    This module uses ``samna`` to interface to the AFE hardware on a Xylo-A2 HDK. It permits recording from the AFE hardware.
+    
+    To record from the module, use the :py:meth:`~.AFESamna.evolve` method. You need to pass this method an empty matrix, with the desired number of time-steps. The time-step ``dt`` is specified at module instantiation.
+    
+    A simulation of the module is available in :py:class:`.AFESim`.
+    
+    Warnings:
+        This module does not currently support manual configuration. A fixed configuration is provided which uses auto-calibration, applied when the module is instantiated. This takes approximately 50 seconds to configure, leading to slow instantiation.
+     
+    See Also:
+        For information about the Audio Front-End design, and examples of using :py:class:`.AFESim` for a simulation of the AFE, see :ref:`/devices/analog-frontend-example.ipynb`.
+
+    Examples:
+        Instantiate an AFE module, connected to a Xylo-A2 HDK
+        
+        >>> from rockpool.devices.xylo import AFESamna
+        >>> import rockpool.devices.xylo.xylo_devkit_utils as xdu
+        >>> afe_hdks = xdu.find_xylo_a2_boards()
+        >>> afe = AFESamna(afe_hdks[0], dt = 10e-3)
+        
+        Use the module to record some audio events
+        
+        >>> import numpy as np
+        >>> audio_events = afe(np.zeros([0, 100, 0]))
+    """
     def __init__(self,
                  device: AFE2HDK,
                  config: Optional[AFE2Configuration] = None,
@@ -41,6 +69,7 @@ class AFESamna(Module):
                  **kwargs,
                  ):
         """
+        Instantiate an AFE module, via a samna backend
         
         Args:
             device (AFE2HDK): A connected AFE2 HDK device
@@ -114,6 +143,16 @@ class AFESamna(Module):
         print('Configured AFE')
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
+        """
+        Use the AFE HW module to record live audio and return as encoded events
+        
+        Args:
+            input_data (np.ndarray): An array ``[0, T, 0]``, specifying the number of time-steps to record.
+
+        Returns:
+            (np.ndarray, dict, dict) output_events, {}, {}
+        """
+        
         # - Handle auto batching
         input_data, _ = self._auto_batch(input_data)
         
@@ -133,7 +172,7 @@ class AFESamna(Module):
     @property
     def _version(self) -> (int, int):
         """
-        Return the version and revision numbers of the connected AFE2 chip
+        Return the version and revision numbers of the connected Xylo-AFE2 chip
         
         Returns:
             (int, int): version, revision
