@@ -8,9 +8,9 @@ def test_imports():
     from rockpool.devices.xylo.syns61201 import mapper
 
     from rockpool.devices.xylo import (
-        XyloNeurons,
-        XyloHiddenNeurons,
-        XyloOutputNeurons,
+        Xylo1Neurons,
+        Xylo1HiddenNeurons,
+        Xylo1OutputNeurons,
     )
 
 

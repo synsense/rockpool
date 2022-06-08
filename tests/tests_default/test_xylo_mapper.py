@@ -7,9 +7,9 @@ pytest.importorskip("samna")
 def test_imports():
     from rockpool.devices.xylo import (
         mapper,
-        XyloNeurons,
-        XyloHiddenNeurons,
-        XyloOutputNeurons,
+        Xylo1Neurons,
+        Xylo1HiddenNeurons,
+        Xylo1OutputNeurons,
     )
 
 

@@ -17,11 +17,11 @@ from rockpool.typehints import IntVector, FloatVector
 
 from dataclasses import dataclass, field
 
-__all__ = ["XyloNeurons", "XyloHiddenNeurons", "XyloOutputNeurons"]
+__all__ = ["Xylo1Neurons", "Xylo1HiddenNeurons", "Xylo1OutputNeurons"]
 
 
 @dataclass(eq=False, repr=False)
-class XyloNeurons(GenericNeurons):
+class Xylo1Neurons(GenericNeurons):
     """
     Base class for all Xylo graph module classes
     """
@@ -31,9 +31,6 @@ class XyloNeurons(GenericNeurons):
 
     threshold: Union[IntVector, FloatVector] = field(default_factory=list)
     """ IntVector: The threshold parameters for each neuron ``(N,)`` """
-
-    bias: Union[IntVector, FloatVector] = field(default_factory=list)
-    # """ IntVector: The bias parameters for each neuron ``(N,)
 
     dash_mem: Union[IntVector, FloatVector] = field(default_factory=list)
     """ IntVector: The membrane decay parameters for each neuron ``(N,)`` """
@@ -65,9 +62,6 @@ class XyloNeurons(GenericNeurons):
             # - Get thresholds
             thresholds = np.array(mod.threshold).tolist()
 
-            # - Get biases
-            bias = np.array(mod.bias).tolist()
-
             # - Build a new neurons module to insert into the graph
             neurons = cls._factory(
                 len(mod.input_nodes),
@@ -76,7 +70,6 @@ class XyloNeurons(GenericNeurons):
                 mod.computational_module,
                 [],  # Empty list for HW IDs
                 thresholds,
-                bias,
                 dash_mem,
                 dash_syn,
                 mod.dt,
@@ -119,7 +112,7 @@ class XyloNeurons(GenericNeurons):
 
 
 @dataclass(eq=False, repr=False)
-class XyloHiddenNeurons(XyloNeurons):
+class Xylo1HiddenNeurons(Xylo1Neurons):
     """
     A :py:class:`.graph.GraphModule` encapsulating Xylo v1 hidden neurons
     """
@@ -135,7 +128,7 @@ class XyloHiddenNeurons(XyloNeurons):
 
 
 @dataclass(eq=False, repr=False)
-class XyloOutputNeurons(XyloNeurons):
+class Xylo1OutputNeurons(Xylo1Neurons):
     """
     A :py:class:`.graph.GraphModule` encapsulating Xylo V1 output neurons
     """
