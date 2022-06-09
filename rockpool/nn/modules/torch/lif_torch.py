@@ -172,7 +172,7 @@ class LIFBaseTorch(TorchModule):
         """ (float) Euler simulator time-step in seconds"""
 
         # - To-float-tensor conversion utility
-        to_float_tensor = lambda x: torch.as_tensor(x, dtype=torch.float)
+        self.to_float_tensor = lambda x: torch.as_tensor(x, dtype=torch.float)
 
         # - Initialise recurrent weights
         w_rec_shape = (self.size_out, self.size_in)
@@ -182,7 +182,7 @@ class LIFBaseTorch(TorchModule):
                 shape=w_rec_shape,
                 init_func=weight_init_func,
                 family="weights",
-                cast_fn=to_float_tensor,
+                cast_fn=self.to_float_tensor,
             )
             """ (Tensor) Recurrent weights `(Nout, Nin)` """
         else:
@@ -197,7 +197,7 @@ class LIFBaseTorch(TorchModule):
             family="taus",
             shape=[(self.size_out,), ()],
             init_func=lambda s: torch.ones(s) * 20e-3,
-            cast_fn=to_float_tensor,
+            cast_fn=self.to_float_tensor,
         )
         """ (Tensor) Membrane time constants `(Nout,)` or `()` """
 
@@ -216,7 +216,7 @@ class LIFBaseTorch(TorchModule):
                 (),
             ],
             init_func=lambda s: torch.ones(s) * 20e-3,
-            cast_fn=to_float_tensor,
+            cast_fn=self.to_float_tensor,
         )
         """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
 
@@ -225,7 +225,7 @@ class LIFBaseTorch(TorchModule):
             shape=[(self.size_out,), ()],
             family="bias",
             init_func=torch.zeros,
-            cast_fn=to_float_tensor,
+            cast_fn=self.to_float_tensor,
         )
         """ (Tensor) Neuron biases `(Nout,)` or `()` """
 
@@ -234,30 +234,30 @@ class LIFBaseTorch(TorchModule):
             shape=[(self.size_out,), ()],
             family="thresholds",
             init_func=torch.ones,
-            cast_fn=to_float_tensor,
+            cast_fn=self.to_float_tensor,
         )
         """ (Tensor) Firing threshold for each neuron `(Nout,)` """
 
         self.learning_window: P_tensor = rp.SimulationParameter(
             learning_window,
-            cast_fn=to_float_tensor,
+            cast_fn=self.to_float_tensor,
         )
         """ (float) Learning window cutoff for surrogate gradient function """
 
         self.vmem: P_tensor = rp.State(
-            shape=self.size_out, init_func=torch.zeros, cast_fn=to_float_tensor
+            shape=self.size_out, init_func=torch.zeros, cast_fn=self.to_float_tensor
         )
         """ (Tensor) Membrane potentials `(Nout,)` """
 
         self.isyn: P_tensor = rp.State(
             shape=(self.size_out, self.n_synapses),
             init_func=torch.zeros,
-            cast_fn=to_float_tensor,
+            cast_fn=self.to_float_tensor,
         )
         """ (Tensor) Synaptic currents `(Nin,)` """
 
         self.spikes: P_tensor = rp.State(
-            shape=self.size_out, init_func=torch.zeros, cast_fn=to_float_tensor
+            shape=self.size_out, init_func=torch.zeros, cast_fn=self.to_float_tensor
         )
         """ (Tensor) Spikes `(Nin,)` """
 
@@ -267,7 +267,7 @@ class LIFBaseTorch(TorchModule):
         """ (Callable) Spike generation function with surrograte gradient """
 
         self.max_spikes_per_dt: P_int = rp.SimulationParameter(
-            max_spikes_per_dt, cast_fn=to_float_tensor
+            max_spikes_per_dt, cast_fn=self.to_float_tensor
         )
         """ (int) Maximum number of events that can be produced in each time-step """
 
