@@ -1,7 +1,7 @@
 """
 Package to sypport the Xylo HW SYNS61201 (Xylo-A2)
 
-Defines the Rockpool modules :py:class:`.XyloSim`, :py:class:`.AFESim`, :py:class:`.AFESamna`.
+Defines the Rockpool modules :py:class:`.XyloSim`, :py:class:`.AFESim`, :py:class:`.AFESamna`, :py:class`.DivisiveNormalisation`,:py:class`.DivisiveNormalisationNoLFSR`.  
 
 Defines the mapper function :py:func:`.mapper`.
 
@@ -14,3 +14,4 @@ from .xylo_sim import *
 from .xylo_mapper import *
 from ..syns65300.afe_sim import *
 from .afe_samna import *
+from .xylo_divisive_normalisation import *
