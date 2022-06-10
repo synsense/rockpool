@@ -590,7 +590,7 @@ class XyloSamna(Module):
         Returns:
             (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
             ``output`` is a raster ``(T, Nout)``, containing events for each channel in each time bin. Time bins in ``output`` correspond to the time bins in ``input``.
-            ``new_state`` is an empty dictiionary. The Xylo HDK does not permit querying or setting state.
+            ``new_state`` is an empty dictionary. The Xylo HDK does not permit querying or setting state.
             ``record_dict`` is a dictionary containing recorded internal state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
 
         Raises:
