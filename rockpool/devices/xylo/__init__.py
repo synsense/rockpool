@@ -4,7 +4,9 @@ Xylo-family device simulations, deployment and HDK support
 See Also:
     See :ref:`/devices/xylo-overview.ipynb`, :ref:`/devices/torch-training-spiking-for-xylo.ipynb` and :ref:`/devices/analog-frontend-example.ipynb` for documentation of this module.
 
-    Defines the classes :py:class:`XyloSim`, :py:class:`XyloSamna`, :py:class:`AFE`, :py:class:`DivisiveNormalisation`, :py:class:`DivisiveNormalisationNoLFSR`.
+    Defines the classes :py:class:`.XyloSim`, :py:class:`.XyloSamna`, :py:class:`.AFESim`, :py:class:`.AFESamna`, :py:class:`.DivisiveNormalisation`.
+    
+    Defines the subpackages :py:mod:`.syns61201`, :py:mod:`.syns61300`, :py:mod:`.syns65300`.
 """
 
 from rockpool.utilities.backend_management import (
@@ -44,6 +46,8 @@ from .v3.xylo_divisive_normalisation import (
 
 from .xylo_graph_modules import *
 from .syns61300.xylo_mapper import *
+
+from .syns61201.afe_samna import *
 
 import rockpool.devices.xylo.syns61300 as pollen
 import rockpool.devices.xylo.syns65300 as v1

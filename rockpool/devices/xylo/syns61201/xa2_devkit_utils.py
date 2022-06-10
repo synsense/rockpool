@@ -1,5 +1,5 @@
 """
-Low-level device kit utilities for the Xylo AFE2 HDK
+Low-level device kit utilities for the Xylo-A2 HDK
 """
 
 import samna, time
@@ -16,7 +16,7 @@ AFE2HDK = Any
 Xylo2HDK = Any
 
 
-def find_xylo_afe2_boards() -> List[AFE2HDK]:
+def find_xylo_a2_boards() -> List[AFE2HDK]:
     """
     Search for and return a list of Xylo AFE V2 HDKs
 
@@ -145,51 +145,72 @@ def read_afe2_events_blocking(afe2hdk: AFE2HDK, write_buffer: AFE2WriteBuffer, a
               ]
     
     # - Sort events by time
-    events = np.stack(events)
-    index_array = np.argsort(events[:, 0])
-
-    # - Convert to vectors of timestamps, channels
-    timestamps = events[index_array, 0]
-    channels = events[index_array, 1]
+    if len(events) > 0:
+        events = np.stack(events)
+        index_array = np.argsort(events[:, 0])
+    
+        # - Convert to vectors of timestamps, channels
+        timestamps = events[index_array, 0]
+        channels = events[index_array, 1]
+    else:
+        timestamps = np.zeros(0)
+        channels = np.zeros(0)
     
     # - Return timestamps in seconds and channels
     return timestamps * 1e-6, channels
 
 
-def afe2_test_config_c(afe_write_buf: AFE2WriteBuffer) -> None:
-    """
-    Configure an AFE2 HDK for a "reasonable" performance
-    
-    Args:
-        afe_write_buf (AFE2WriteBuffer): A connected AFE2 write buffer
-    """
-    write_afe2_register(afe_write_buf, 0x1, 0x71317)        # ANA_CTRL1: all top bias enable
-    write_afe2_register(afe_write_buf, 0x02, 0xffffffff)    # ANA_CTRL2: all-channel enable
-    write_afe2_register(afe_write_buf, 0x04, 0x2100)        # ANA_CTRL4: lna vcm
-    write_afe2_register(afe_write_buf, 0x05, 0x62000000)    # BIAS_CTRL: top vcm 
-    write_afe2_register(afe_write_buf, 0x06, 0x20550)       # LNA_CTRL: lna 0db gain
-    write_afe2_register(afe_write_buf, 0x07, 0x883704)      # bpf 100-10khz q=5,space=1.35
-    write_afe2_register(afe_write_buf, 0x14, 0x30000)       # disable mgm bias  
-    write_afe2_register(afe_write_buf, 0x10, 0x23112400)    # IAF_CTRL4: 
-    write_afe2_register(afe_write_buf, 0x11, 0x15000104)    # IAF_CTRL5: 
-    write_afe2_register(afe_write_buf, 0xf, 0x88888f88)     # IAF_CTRL3: 
-
-def afe2_test_config_d(afe_write_buf: AFE2WriteBuffer) -> None:
+def apply_afe2_default_config(afe2hdk: AFE2HDK) -> None:
     """
     Configure an AFE2 HDK, including self-calibration
 
     Args:
         afe_write_buf (AFE2WriteBuffer): A connected AFE2 write buffer
     """
-    write_afe2_register(afe_write_buf, 0x01, 0x71317)       # ANA_CTRL1: all top bias enable
-    write_afe2_register(afe_write_buf, 0x02, 0xffffffff)    # ANA_CTRL2: all-channel enable
-    write_afe2_register(afe_write_buf, 0x04, 0x2100)        # ANA_CTRL4: lna vcm
-    write_afe2_register(afe_write_buf, 0x05, 0x62000000)    # BIAS_CTRL: top vcm 
-    write_afe2_register(afe_write_buf, 0x06, 0x20550)       # LNA_CTRL: lna 0db gain
-    write_afe2_register(afe_write_buf, 0x07, 0x883704)      # BPF_CTRL1: bpf 100-10khz q=5,space=1.35
-    write_afe2_register(afe_write_buf, 0x14, 0x30000)       # IAF_CTRL2: disable mgm bias  
-    time.sleep(30)
-    write_afe2_register(afe_write_buf, 0x1f, 0x80)          # CAL_CTRL2: 
-    write_afe2_register(afe_write_buf, 0x20, 0x98968)       # CAL_CTRL3: 
-    write_afe2_register(afe_write_buf, 0x21, 0x200186a)     # CAL_CTRL4: 
-    write_afe2_register(afe_write_buf, 0x1e, 0x11)          # CAL_CTRL1: 
+    c = samna.afe2.configuration.AfeConfiguration()
+
+    c.analog_top.enable = True
+    c.debug.enable_event_monitor = False
+
+    c.analog_top.bpf.bias = 2
+    c.analog_top.fwr.bias = 6
+
+    c.analog_top.lna.ci_tune = 5
+    c.analog_top.lna.cf_tune = 5
+
+    c.analog_top.bpf.scale = True
+
+    afe2hdk.get_afe_model().apply_configuration(c)
+
+    time.sleep(45)
+
+    c.aer_2_saer.calibration.mode = 1
+    c.aer_2_saer.calibration.reset = True
+
+    c.aer_2_saer.calibration.afe_stable_time = 0x80
+    c.aer_2_saer.calibration.leak_timing_window = 0x98968
+
+    c.aer_2_saer.calibration.leak_td = 6250
+    c.aer_2_saer.calibration.leak_target_spike_number = 2
+
+    afe2hdk.get_afe_model().apply_configuration(c)
+
+def read_afe2_chip_version(afe_read_buf: AFE2ReadBuffer, afe_write_buf: AFE2WriteBuffer) -> (int, int):
+    """
+    Return the version and revision numbers for a connected AFE2 HDK
+    
+    Args:
+        afe_read_buf (AFE2ReadBuffer): A connected AFE2 read buffer
+        afe_write_buf (AFE2WriteBuffer): A connected AFE2 write buffer
+
+    Returns: 
+        (int, int): version, revision numbers of the connected chip
+    """
+    # - Read the version register
+    version_revision = read_afe2_register(afe_read_buf, afe_write_buf, 0x0)[0]
+    
+    # - Separate version and revision
+    version = (version_revision & 0xffff0000) >> 16
+    revision = version_revision & 0x0000ffff
+    
+    return version, revision
