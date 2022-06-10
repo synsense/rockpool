@@ -1,10 +1,11 @@
+from ast import Constant
 import pytest
 
 pytest.importorskip("torch")
 
 # shared test with lif_torch
 def test_ahp_LIFTorch_shapes():
-    from rockpool.nn.modules.torch.ahp_lif_torch import ahp_LIFTorch
+    from rockpool.nn.modules.torch.ahp_lif_torch import aLIFTorch
     import torch
 
     n_synapses = 5
@@ -15,7 +16,7 @@ def test_ahp_LIFTorch_shapes():
     tau_syn = 0.05
 
     # - Test maximal initialisation
-    mod = ahp_LIFTorch(
+    mod = aLIFTorch(
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
@@ -39,7 +40,7 @@ def test_ahp_LIFTorch_shapes():
 
 
 def test_ahp_LIFTorch_bias():
-    from rockpool.nn.modules.torch.ahp_lif_torch import ahp_LIFTorch
+    from rockpool.nn.modules.torch.ahp_lif_torch import aLIFTorch
     import torch
 
     n_synapses = 1
@@ -51,7 +52,7 @@ def test_ahp_LIFTorch_bias():
     bias = torch.ones(n_neurons) * 0.1
     dt = 1e-3
 
-    mod = ahp_LIFTorch(
+    mod = aLIFTorch(
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
@@ -69,8 +70,9 @@ def test_ahp_LIFTorch_bias():
 
     out.sum().backward()
 
-    assert torch.all(ns["isyn"] == 0)
-    assert torch.all(rd["isyn"] == 0)
+# with default initialization of weights (w_ahp) and given bias and threshold the neuron will spike and isyn will include a non-zero iahp 
+    assert not torch.all(ns["isyn"] == 0)
+    assert not torch.all(rd["isyn"] == 0)
     assert torch.all(rd["vmem"][:, 0] == 0.1)  # match bias in the fist timestep
     assert torch.all(
         rd["vmem"][:, 1] == 0.1 * torch.exp(-dt / tau_mem) + 0.1
@@ -81,7 +83,7 @@ def test_ahp_LIFTorch_bias():
 
 
 def test_ahp_LIFTorch_recurrent():
-    from rockpool.nn.modules.torch.ahp_lif_torch import ahp_LIFTorch
+    from rockpool.nn.modules.torch.ahp_lif_torch import aLIFTorch
     import torch
 
     n_synapses = 2
@@ -104,7 +106,7 @@ def test_ahp_LIFTorch_recurrent():
 
     dt = 1e-3
 
-    mod = ahp_LIFTorch(
+    mod = aLIFTorch(
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
@@ -133,7 +135,7 @@ def test_ahp_LIFTorch_recurrent():
 
 
 def test_ahp_LIFTorch_noise():
-    from rockpool.nn.modules.torch.ahp_lif_torch import ahp_LIFTorch
+    from rockpool.nn.modules.torch.ahp_lif_torch import aLIFTorch
     import torch
 
     n_synapses = 5
@@ -145,7 +147,7 @@ def test_ahp_LIFTorch_noise():
     dt = 1e-3
 
     # - Test maximal initialisation
-    mod = ahp_LIFTorch(
+    mod = aLIFTorch(
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
@@ -166,7 +168,7 @@ def test_ahp_LIFTorch_noise():
 
 
 def test_ahp_LIFTorch_tau_syn_shape_1():
-    from rockpool.nn.modules.torch.ahp_lif_torch import ahp_LIFTorch
+    from rockpool.nn.modules.torch.ahp_lif_torch import aLIFTorch
     import torch
 
     n_synapses = 5
@@ -178,7 +180,7 @@ def test_ahp_LIFTorch_tau_syn_shape_1():
     dt = 1e-3
 
     # - Test maximal initialisation
-    mod = ahp_LIFTorch(
+    mod = aLIFTorch(
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
@@ -199,7 +201,7 @@ def test_ahp_LIFTorch_tau_syn_shape_1():
 
 
 def test_ahp_LIFTorch_tau_syn_shape_2():
-    from rockpool.nn.modules.torch.ahp_lif_torch import ahp_LIFTorch
+    from rockpool.nn.modules.torch.ahp_lif_torch import aLIFTorch
     import torch
 
     n_synapses = 5
@@ -211,7 +213,7 @@ def test_ahp_LIFTorch_tau_syn_shape_2():
     dt = 1e-3
 
     # - Test maximal initialisation
-    mod = ahp_LIFTorch(
+    mod = aLIFTorch(
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
@@ -232,7 +234,7 @@ def test_ahp_LIFTorch_tau_syn_shape_2():
 
 
 def test_ahp_LIFTorch_threshold_shape_1():
-    from rockpool.nn.modules.torch.ahp_lif_torch import ahp_LIFTorch
+    from rockpool.nn.modules.torch.ahp_lif_torch import aLIFTorch
     import torch
 
     n_synapses = 5
@@ -245,7 +247,7 @@ def test_ahp_LIFTorch_threshold_shape_1():
     dt = 1e-3
 
     # - Test maximal initialisation
-    mod = ahp_LIFTorch(
+    mod = aLIFTorch(
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
@@ -267,7 +269,7 @@ def test_ahp_LIFTorch_threshold_shape_1():
 
 
 def test_ahp_LIFTorch_threshold_shape_2():
-    from rockpool.nn.modules.torch.ahp_lif_torch import ahp_LIFTorch
+    from rockpool.nn.modules.torch.ahp_lif_torch import aLIFTorch
     import torch
 
     n_synapses = 1
@@ -280,7 +282,7 @@ def test_ahp_LIFTorch_threshold_shape_2():
     dt = 1e-3
 
     # - Test maximal initialisation
-    mod = ahp_LIFTorch(
+    mod = aLIFTorch(
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
@@ -305,18 +307,20 @@ def test_ahp_LIFTorch_threshold_shape_2():
     print(out[:, :, 0] - out[:, :, 1])
     print(out)
 
-    # assert output makes sense (low threshold produces higher activity)
-    assert torch.all(out[:, :, 0] >= out[:, :, 1])
+    # assert output makes sense (low threshold---> more spikes---> more inhibition---> smaller vmem)
+    # assert torch.all(out[:, :, 0] >= out[:, :, 1])
+    assert torch.all(rd['vmem'][:, :, 1] >= rd['vmem'][:, :, 1])
+
 
 
 def test_ahp_LIFTorch_reset():
-    from rockpool.nn.modules.torch.ahp_lif_torch import ahp_LIFTorch
+    from rockpool.nn.modules.torch.ahp_lif_torch import aLIFTorch
     import torch
 
     if not torch.cuda.is_available():
         pytest.skip("CUDA required to test reset to device")
 
-    mod = ahp_LIFTorch(10).to("cuda")
+    mod = aLIFTorch(10).to("cuda")
     device = mod.isyn.device
     print(device)
 
@@ -334,7 +338,7 @@ def test_ahp_LIFTorch_reset():
 # all neurons share a single tau_ahp but their w_ahp is a negative value that is increased proportionally with their index  
 # therefore neurons with smaller index recieve weaker inhibition and their vmem would be higher
 def test_ahp_LIFTorch_w():
-    from rockpool.nn.modules.torch.ahp_lif_torch import ahp_LIFTorch
+    from rockpool.nn.modules.torch.ahp_lif_torch import aLIFTorch
     from rockpool.parameters import Constant
     import torch
 
@@ -358,11 +362,10 @@ def test_ahp_LIFTorch_w():
  
     dt = 1e-3
 
-    mod = ahp_LIFTorch(
+    mod = aLIFTorch(
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
-        has_ahp=True,
         w_ahp=w_ahp,
         tau_ahp=tau_ahp,
         dt=dt,
@@ -388,7 +391,7 @@ def test_ahp_LIFTorch_w():
 
 
 def test_ahp_LIFTorch_tau():
-    from rockpool.nn.modules.torch.ahp_lif_torch import ahp_LIFTorch
+    from rockpool.nn.modules.torch.ahp_lif_torch import aLIFTorch
     from rockpool.parameters import Constant
     import torch
 
@@ -411,11 +414,10 @@ def test_ahp_LIFTorch_tau():
  
     dt = 1e-3
 
-    mod = ahp_LIFTorch(
+    mod = aLIFTorch(
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
-        has_ahp=True,
         w_ahp=w_ahp,
         tau_ahp=tau_ahp,
         dt=dt,
