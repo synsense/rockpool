@@ -151,17 +151,15 @@ class aLIFTorch(LIFBaseTorch):
     def _syn_integration(self):
         tau_syn = self.tau_syn.broadcast_to((self.size_out, self.n_synapses))
         # if self.has_ahp:
-        tau_syn = torch.cat((tau_syn, self.tau_ahp),1)
+        tau_syn = torch.cat((tau_syn, self.tau_ahp.reshape(self.size_out,1)),1)
         return tau_syn.flatten().detach().numpy()
 
     def  _wahp_reshape(self):
         # - to match the shape of w_ahp with the shape of w_rec for mapper
-        # w_ahp is a vector while traning but for mapper we build matrix out of that (size: n_neourons, n_neourons * n_synapses)
-        for j in range(self.n_synapses):
-            w_diag = torch.zeros((self.size_out, self.size_out))
-            for i in range(self.size_out):
-                w_diag[i,i] += self.w_ahp[i,j] 
-            w_ahp = torch.cat((w_ahp, w_diag),1) if j > 1 else w_diag 
+        # w_ahp is a vector while traning but for mapper we build matrix out of that (size: n_neourons)
+        w_ahp = torch.zeros((self.size_out, self.size_out))
+        for i in range(self.size_out):
+            w_ahp[i,i] += self.w_ahp[i] 
         return w_ahp    
 
     def as_graph(self) -> GraphModuleBase:
