@@ -91,8 +91,8 @@ class aLIFTorch(LIFBaseTorch):
         self.w_ahp: P_tensor = rp.Parameter(
             w_ahp,
             shape=w_ahp_shape,
-            init_func=weight_init_func,
-            # init_func= None,
+            init_func= lambda s:torch.ones(s)* (-9e-1),
+            # init_func=weight_init_func,
             family="weights",
             cast_fn=self.to_float_tensor,
         )
@@ -126,29 +126,29 @@ class aLIFTorch(LIFBaseTorch):
 
         self._record_iahp = None
 
-        def evolve(self, input_data: torch.Tensor, record: bool = False
-            ) -> Tuple[Any, Any, Any]:
+    def evolve(self, input_data: torch.Tensor, record: bool = False
+        ) -> Tuple[Any, Any, Any]:
+        self._record = record
 
-            self._record = record
+        # - Evolve with superclass evolution
+        output_data, _, _ = super().evolve(input_data, record)
 
-            # - Evolve with superclass evolution
-            output_data, _, _ = super().evolve(input_data, record)
+        # - Build state record
 
-            # - Build state record
-            record_dict = (
-                {
-                    "vmem": self._record_vmem,
-                    "isyn": self._record_isyn,
-                    "spikes": self._record_spikes,
-                    "irec": self._record_irec,
-                    "iahp": self._record_iahp,
-                    "U": self._record_U,
-                }
-                if record
-                else {}
-            )
+        record_dict = (
+            {
+                "vmem": self._record_vmem,
+                "isyn": self._record_isyn,
+                "spikes": self._record_spikes,
+                "irec": self._record_irec,
+                "iahp": self._record_iahp,
+                "U": self._record_U,
+            }
+            if record
+            else {}
+        )
 
-            return output_data, self.state(), record_dict
+        return output_data, self.state(), record_dict
 
 
     def _syn_integration(self):
