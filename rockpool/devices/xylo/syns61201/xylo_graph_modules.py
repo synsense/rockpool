@@ -33,7 +33,7 @@ class Xylo2Neurons(GenericNeurons):
     """ IntVector: The threshold parameters for each neuron ``(N,)`` """
 
     bias: Union[IntVector, FloatVector] = field(default_factory=list)
-    # """ IntVector: The bias parameters for each neuron ``(N,)
+    """ IntVector: The bias parameters for each neuron ``(N,)`` """
 
     dash_mem: Union[IntVector, FloatVector] = field(default_factory=list)
     """ IntVector: The membrane decay parameters for each neuron ``(N,)`` """

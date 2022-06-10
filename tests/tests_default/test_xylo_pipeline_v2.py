@@ -5,9 +5,9 @@ pytest.importorskip("samna")
 pytest.importorskip("xylosim")
 
 
-def test_pipeline():
-    from rockpool.devices.xylo import mapper, config_from_specification
-    from rockpool.devices.xylo import XyloSim
+def test_pipeline_v2():
+    from rockpool.devices.xylo.syns61201 import mapper, config_from_specification
+    from rockpool.devices.xylo.syns61201 import XyloSim
 
     import numpy as np
     import torch

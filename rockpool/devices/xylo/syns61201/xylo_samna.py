@@ -1,5 +1,5 @@
 """
-Samna-backed bridge to Xylo dev kit for SYNS61300 Xylo core v1
+Samna-backed bridge to Xylo dev kit for SYNS61201 Xylo core v2
 """
 
 # - System imports
@@ -9,13 +9,13 @@ from os import makedirs
 # - Samna imports
 import samna
 
-from samna.xylo.configuration import (
+from samna.xyloCore2.configuration import (
     ReservoirNeuron,
     OutputNeuron,
 )
-from samna.xylo.configuration import XyloConfiguration
+from samna.xyloCore2.configuration import XyloConfiguration
 
-from samna.xylo import validate_configuration
+from samna.xyloCore2 import validate_configuration
 
 # - Rockpool imports
 from rockpool.nn.modules.module import Module

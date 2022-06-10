@@ -37,13 +37,9 @@ except (ImportError, ModuleNotFoundError) as err:
         raise
 
 from .syns65300.afe_sim import *
-from .syns61201.afe_samna import *
 
-from devices.xylo.syns61201.xylo_divisive_normalisation import *
-from devices.xylo.syns61201.xylo_divisive_normalisation import (
-    DivisiveNormalisation as DivisiveNormalization,
-    DivisiveNormalisationNoLFSR as DivisiveNormalizationNoLFSR,
-)
+from .syns61201.afe_samna import *
+from .syns61201.xylo_divisive_normalisation import *
 
 from .syns61300.xylo_graph_modules import *
 from .syns61300.xylo_mapper import *

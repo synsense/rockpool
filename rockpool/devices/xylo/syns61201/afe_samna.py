@@ -15,7 +15,6 @@ from rockpool.parameters import SimulationParameter
 from rockpool import TSEvent
 from rockpool.typehints import P_float
 
-from .. import xylo_devkit_utils as hdkutils
 from . import xa2_devkit_utils as hdu
 from .xa2_devkit_utils import AFE2HDK
 

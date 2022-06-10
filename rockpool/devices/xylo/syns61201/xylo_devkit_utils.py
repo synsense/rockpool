@@ -1,5 +1,5 @@
 """
-Utilities for working with the Xylo HDK.
+Utilities for working with the Xylo HDK SYNS61201
 
 Ideally you should not need to use these utility functions. You should try using :py:class:`.XyloSamna` and :py:class:`.XyloSim` for high-level interfaces to Xylo.
 
@@ -17,7 +17,8 @@ if not backend_available("samna"):
 
 # - `samna` imports
 import samna
-from samna.xylo.configuration import XyloConfiguration
+
+from samna.xyloCore2.configuration import XyloConfiguration
 
 # - Other imports
 from warnings import warn
@@ -31,9 +32,9 @@ import json
 from typing import Any, List, Iterable, Optional, NamedTuple, Union, Tuple
 
 XyloHDK = Any
-XyloReadBuffer = samna.BasicSinkNode_xylo_event_output_event
-XyloWriteBuffer = samna.BasicSourceNode_xylo_event_input_event
-XyloNeuronStateBuffer = samna.xylo.NeuronStateSinkNode
+XyloReadBuffer = samna.BasicSinkNode_xylo_core2_event_output_event
+XyloWriteBuffer = samna.BasicSourceNode_xylo_core2_event_input_event
+XyloNeuronStateBuffer = samna.xyloCore2.NeuronStateSinkNode
 
 class XyloState(NamedTuple):
     """
@@ -151,7 +152,7 @@ from ..syns61201.xa2_devkit_utils import find_xylo_a2_boards
 
 def find_xylo_boards() -> List[XyloHDK]:
     """
-    Search for and return a list of Xylo HDK
+    Search for and return a list of Xylo HDKs
 
     Iterate over devices and search for Xylo HDKs. Return a list of available Xylo HDKs, or an empty list if none are found.
 
