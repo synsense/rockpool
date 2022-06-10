@@ -352,12 +352,12 @@ def test_ahp_LIFTorch_w():
 
 
     # shape of w_ahp
-    w_ahp = Constant(torch.ones(n_neurons,n_synapses))
+    w_ahp = Constant(torch.ones(n_neurons))
 
     # keeping tau_ahp same among all neurons and setting different w_ahp 
     # neauron with bigger index will recieve stronger inhibition
     for n in range(n_neurons):
-        w_ahp[n,:] *= -(n+1)
+        w_ahp[n] *= -(n+1)
 
  
     dt = 1e-3
@@ -403,13 +403,13 @@ def test_ahp_LIFTorch_tau():
     tau_syn = 0.02
 
 
-    w_ahp = -Constant(torch.ones(n_neurons,n_synapses))
-    tau_ahp = torch.zeros((n_neurons,n_synapses), requires_grad = False)
+    w_ahp = -Constant(torch.ones(n_neurons))
+    tau_ahp = torch.zeros((n_neurons), requires_grad = False)
 
     # keeping w_ahp same among all neurons and setting different tau_ahp 
     # neauron with bigger index will receive i_ahp with slower decay (bigger tau_ahp) 
     for n in range(n_neurons):
-        tau_ahp[n,:] = (n+1)*0.1
+        tau_ahp[n] = (n+1)*0.1
 
  
     dt = 1e-3

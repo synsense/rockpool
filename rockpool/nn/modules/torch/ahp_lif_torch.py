@@ -85,8 +85,7 @@ class aLIFTorch(LIFBaseTorch):
             **kwargs,
         )
 
-        # w_ahp_shape = (self.size_out, self.size_in)
-        w_ahp_shape = (self.size_out, self.n_synapses)
+        w_ahp_shape = (self.size_out,)
 
         self.w_ahp: P_tensor = rp.Parameter(
             w_ahp,
@@ -104,11 +103,9 @@ class aLIFTorch(LIFBaseTorch):
             shape=[
                 (
                     self.size_out,
-                    self.n_synapses,
                 ),
                 (
                     1,
-                    self.n_synapses,
                 ),
                 (),
             ],
@@ -118,7 +115,7 @@ class aLIFTorch(LIFBaseTorch):
         """ (Tensor) Synaptic time constants `(Nin,)` or `()` """  
 
         self.iahp: P_tensor = rp.State(
-            shape=(self.size_out, self.n_synapses),
+            shape=(self.size_out),
             init_func=torch.zeros,
             cast_fn=self.to_float_tensor,
         )
@@ -236,7 +233,8 @@ class aLIFTorch(LIFBaseTorch):
                 (self.size_out,),
                 (self.size_out,),
                 (self.size_out, self.n_synapses),
-                (self.size_out, self.n_synapses),
+                (self.size_out,),
+
             ),
         )
         n_batches, n_timesteps, _ = input_data.shape
@@ -257,7 +255,7 @@ class aLIFTorch(LIFBaseTorch):
             )
 
             self._record_iahp = torch.zeros(
-                n_batches, n_timesteps, self.size_out, self.n_synapses
+                n_batches, n_timesteps, self.size_out
             )
 
             self._record_U = torch.zeros(n_batches, n_timesteps, self.size_out)
@@ -293,22 +291,17 @@ class aLIFTorch(LIFBaseTorch):
             isyn *= beta
  # - Apply spikes over the ahp weights
             if hasattr(self, "w_ahp"):
+                
+                iahp = iahp + torch.mul(spikes, 
+                self.w_ahp.repeat(n_batches,1).reshape(n_batches, self.size_out))
 
-                iahp = iahp + torch.mul(spikes.repeat(self.n_synapses,1).reshape(n_batches,self.size_out, self.n_synapses), 
-                self.w_ahp.repeat(n_batches,1).reshape(n_batches, self.size_out, self.n_synapses))
-
-               
-                # iahp = iahp + F.linear(spikes, self.w_ahp.T).reshape(
-                #     n_batches, self.size_out, self.n_synapses
-                # )
-              
                 iahp *= gamma  
-                isyn = isyn + iahp
+                isyn = isyn + iahp.reshape(n_batches, self.size_out,1)
+
 
 
             # Decay synaptic and membrane state
             vmem *= alpha
-            # isyn *= beta
 
             # Integrate membrane state and apply noise
             vmem = vmem + isyn.sum(2) + noise_ts[:, t, :] + self.bias
