@@ -246,7 +246,7 @@ class aLIFTorch(LIFBaseTorch):
         if self._record:
             self._record_vmem = torch.zeros(n_batches, n_timesteps, self.size_out)
             self._record_isyn = torch.zeros(
-                n_batches, n_timesteps, self.size_out, self.n_synapses
+                n_batches, n_timesteps, self.size_out, self.n_synapses+1
             )
             self._record_irec = torch.zeros(
                 n_batches, n_timesteps, self.size_out, self.n_synapses
@@ -294,15 +294,14 @@ class aLIFTorch(LIFBaseTorch):
                 self.w_ahp.repeat(n_batches,1).reshape(n_batches, self.size_out))
 
                 iahp *= gamma  
-                isyn = isyn + iahp.reshape(n_batches, self.size_out,1)
-
-
+                # isyn = isyn + iahp.reshape(n_batches, self.size_out,1)
+                isyn_ = torch.cat((isyn, iahp.reshape(n_batches, self.size_out,1)), 2)
 
             # Decay synaptic and membrane state
             vmem *= alpha
 
             # Integrate membrane state and apply noise
-            vmem = vmem + isyn.sum(2) + noise_ts[:, t, :] + self.bias
+            vmem = vmem + isyn_.sum(2) + noise_ts[:, t, :] + self.bias
 
             # - Spike generation
             spikes = self.spike_generation_fn(
@@ -315,8 +314,7 @@ class aLIFTorch(LIFBaseTorch):
             # - Maintain state record
             if self._record:
                 self._record_vmem[:, t] = vmem
-                self._record_isyn[:, t] = isyn
-
+                self._record_isyn[:, t] = isyn_
                 if hasattr(self, "w_rec"):
                     self._record_irec[:, t] = irec
 
