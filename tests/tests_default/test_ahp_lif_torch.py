@@ -35,7 +35,7 @@ def test_ahp_LIFTorch_shapes():
 
     assert ns["isyn"].shape == (n_neurons, n_synapses)
     assert ns["vmem"].shape == (n_neurons,)
-    assert rd["isyn"].shape == (n_batches, T, n_neurons, n_synapses)
+    assert rd["isyn"].shape == (n_batches, T, n_neurons, n_synapses+1)
     assert rd["vmem"].shape == (n_batches, T, n_neurons)
 
 
@@ -70,9 +70,14 @@ def test_ahp_LIFTorch_bias():
 
     out.sum().backward()
 
-# with default initialization of weights (w_ahp) and given bias and threshold the neuron will spike and isyn will include a non-zero iahp 
-    assert not torch.all(ns["isyn"] == 0)
+# with default initialization of weights (w_ahp) and given bias and threshold the neuron will spike and iahp will be non-zero 
+    assert not torch.all(ns["iahp"] == 0)
+    assert not torch.all(rd["iahp"] == 0)
+# recorded isyn will include iahp, therefore will be non-zero    
     assert not torch.all(rd["isyn"] == 0)
+
+    
+    assert torch.all(ns["isyn"] == 0)
     assert torch.all(rd["vmem"][:, 0] == 0.1)  # match bias in the fist timestep
     assert torch.all(
         rd["vmem"][:, 1] == 0.1 * torch.exp(-dt / tau_mem) + 0.1
