@@ -119,7 +119,7 @@ class AFESamna(Module):
         graph.sequential([self._afe_write_buf, self._device.get_afe_model_sink_node()])
 
         # - Check that we have a correct device version
-        self._chip_version, self._chip_revision = hdu.read_afe2_chip_version(self._afe_read_buf, self._afe_write_buf)
+        self._chip_version, self._chip_revision = hdu.read_afe2_module_version(self._afe_read_buf, self._afe_write_buf)
         if self._chip_version != 1 or self._chip_revision != 0:
             raise ValueError(f'AFE version is {(self._chip_version, self._chip_revision)}; expected (1, 0).')
 

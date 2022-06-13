@@ -1,5 +1,5 @@
 """
-XyloSim-backed module compatible with Xylo. Requires XyloSim
+XyloSim-backed module compatible with Xylo core v2. Requires XyloSim package.
 """
 
 # - Rockpool imports

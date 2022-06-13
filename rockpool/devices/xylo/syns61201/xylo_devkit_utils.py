@@ -31,10 +31,10 @@ import json
 # - Typing and useful proxy types
 from typing import Any, List, Iterable, Optional, NamedTuple, Union, Tuple
 
-XyloHDK = Any
-XyloReadBuffer = samna.BasicSinkNode_xylo_core2_event_output_event
-XyloWriteBuffer = samna.BasicSourceNode_xylo_core2_event_input_event
-XyloNeuronStateBuffer = samna.xyloCore2.NeuronStateSinkNode
+XyloA2HDK = Any
+Xylo2ReadBuffer = samna.BasicSinkNode_xylo_core2_event_output_event
+Xylo2WriteBuffer = samna.BasicSourceNode_xylo_core2_event_input_event
+Xylo2NeuronStateBuffer = samna.xyloCore2.NeuronStateSinkNode
 
 class XyloState(NamedTuple):
     """
@@ -150,7 +150,7 @@ class XyloAllRam(NamedTuple):
 
 from ..syns61201.xa2_devkit_utils import find_xylo_a2_boards
 
-def find_xylo_boards() -> List[XyloHDK]:
+def find_xylo_boards() -> List[XyloA2HDK]:
     """
     Search for and return a list of Xylo HDKs
 
@@ -171,438 +171,10 @@ def find_xylo_boards() -> List[XyloHDK]:
 
     return xylo_hdk_list
 
-def new_xylo_read_buffer(
-    hdk: XyloHDK,
-) -> XyloReadBuffer:
-    """
-    Create and connect a new buffer to read from a Xylo HDK
-
-    Args:
-        hdk (XyloDaughterBoard):
-
-    Returns:
-        samna.BasicSinkNode_xylo_event_output_event: Output buffer receiving events from Xylo HDK
-    """
-    # - Register a buffer to read events from Xylo
-    buffer = XyloReadBuffer()
-
-    # - Get the device model
-    model = hdk.get_model()
-
-    # - Get Xylo output event source node
-    source_node = model.get_source_node()
-
-    # - Add the buffer as a destination for the Xylo output events
-    graph = samna.graph.EventFilterGraph()
-    graph.sequential([source_node, buffer])
-
-    # - Return the buffer
-    return buffer
-
-
-def new_xylo_write_buffer(hdk: XyloHDK) -> XyloWriteBuffer:
-    """
-    Create a new buffer for writing events to a Xylo HDK
-
-    Args:
-        hdk (XyloDaughterBoard): A Xylo HDK to create a new buffer for
-
-    Returns:
-        XyloWriteBuffer: A connected event write buffer
-    """
-    buffer = XyloWriteBuffer()
-    sink = hdk.get_model().get_sink_node()
-    graph = samna.graph.EventFilterGraph()
-    graph.sequential([buffer, sink])
-    
-    return buffer
-
-
-def new_xylo_state_monitor_buffer(
-    hdk: XyloHDK,
-) -> XyloNeuronStateBuffer:
-    """
-    Create a new buffer for monitoring neuron and synapse state and connect it
-
-    Args:
-        hdk (XyloDaughterBoard): A Xylo HDK to configure
-
-    Returns:
-        XyloNeuronStateBuffer: A connected neuron / synapse state monitor buffer
-    """
-    # - Register a new buffer to receive neuron and synapse state
-    buffer = XyloNeuronStateBuffer()
-
-    # - Get the device model
-    model = hdk.get_model()
-
-    # - Get Xylo output event source node
-    source_node = model.get_source_node()
-
-    # - Add the buffer as a destination for the Xylo output events
-    success = source_node.add_destination(buffer.get_input_channel())
-    assert success, "Error connecting the new buffer."
-
-    # - Return the buffer
-    return buffer
-
-
-def blocking_read(
-    read_buffer: XyloReadBuffer,
-    target_timestamp: Optional[int] = None,
-    count: Optional[int] = None,
-    timeout: Optional[float] = None,
-) -> (List, bool):
-    """
-    Perform a blocking read on a buffer, optionally waiting for a certain count, a target timestamp, or imposing a timeout
-
-    You should not provide `count` and `target_timestamp` together.
-
-    Args:
-        read_buffer (XyloReadBuffer): A buffer to read from
-        target_timestamp (Optional[int]): The desired final timestamp. Read until this timestamp is returned in an event. Default: ``None``, don't wait until a particular timestamp is read.
-        count (Optional[int]): The count of required events. Default: ``None``, just wait for any data.
-        timeout (Optional[float]): The time in seconds to wait for a result. Default: ``None``, no timeout: block until a read is made.
-
-    Returns:
-        (List, bool): `event_list`, `is_timeout`
-        `event_list` is a list of events read from the HDK. `is_timeout` is a boolean flag indicating that the read resulted in a timeout
-    """
-    all_events = []
-
-    # - Read at least a certain number of events
-    continue_read = True
-    is_timeout = False
-    start_time = time.time()
-    while continue_read:
-        # - Perform a read and save events
-        events = read_buffer.get_events()
-        all_events.extend(events)
-
-        # - Check if we reached the desired timestamp
-        if target_timestamp:
-            timestamps = [
-                e.timestamp
-                for e in events
-                if hasattr(e, "timestamp") and e.timestamp is not None
-            ]
-
-            if timestamps:
-                reached_timestamp = timestamps[-1] >= target_timestamp
-                continue_read &= ~reached_timestamp
-
-        # - Check timeout
-        if timeout:
-            is_timeout = (time.time() - start_time) > timeout
-            continue_read &= not is_timeout
-
-        # - Check number of events read
-        if count:
-            continue_read &= len(all_events) < count
-
-        # - Continue reading if no events have been read
-        if not target_timestamp and not count:
-            continue_read &= len(all_events) == 0
-
-    # - Perform one final read for good measure
-    all_events.extend(read_buffer.get_events())
-
-    # - Return read events
-    return all_events, is_timeout
-
-
-def initialise_xylo_hdk(write_buffer: XyloWriteBuffer) -> None:
-    """
-    Initialise the Xylo HDK
-
-    Args:
-        write_buffer (XyloWriteBuffer): A write buffer connected to a Xylo HDK to initialise
-    """
-    # - Always need to advance one time-step to initialise
-    advance_time_step(write_buffer)
-
-
-def write_register(
-    write_buffer: XyloWriteBuffer,
-    register: int,
-    data: int = 0,
-) -> None:
-    """
-    Write data to a register on a Xylo HDK
-
-    Args:
-        write_buffer (XyloWriteBuffer): A connected write buffer to the desintation Xylo HDK
-        register (int): The address of the register to write to
-        data (int): The data to write. Default: 0x0
-    """
-    wwv_ev = samna.xylo.event.WriteRegisterValue()
-    wwv_ev.address = register
-    wwv_ev.data = data
-    write_buffer.write([wwv_ev])
-
-
-def read_register(
-    read_buffer: XyloReadBuffer,
-    write_buffer: XyloWriteBuffer,
-    address: int,
-    timeout: float = 2.0,
-) -> List[int]:
-    """
-    Read the contents of a register
-
-    Args:
-        read_buffer (XyloReadBuffer): A connected read buffer to the XYlo HDK
-        write_buffer (XyloWriteBuffer): A connected write buffer to the Xylo HDK
-        address (int): The register address to read
-        timeout (float): A timeout in seconds
-
-    Returns:
-        List[int]: A list of events returned from the read
-    """
-    # - Set up a register read
-    rrv_ev = samna.xylo.event.ReadRegisterValue()
-    rrv_ev.address = address
-
-    # - Request read
-    write_buffer.write([rrv_ev])
-
-    # - Wait for data and read it
-    start_t = time.time()
-    continue_read = True
-    while continue_read:
-        # - Read from the buffer
-        events = read_buffer.get_events()
-
-        # - Filter returned events for the desired address
-        ev_filt = [e for e in events if hasattr(e, "address") and e.address == address]
-
-        # - Should we continue the read?
-        continue_read &= len(ev_filt) == 0
-        continue_read &= (time.time() - start_t) < timeout
-
-    # - If we didn't get the required register read, raise an error
-    if len(ev_filt) == 0:
-        raise TimeoutError(f"Timeout after {timeout}s when reading register {address}.")
-
-    # - Return adta
-    return [e.data for e in ev_filt]
-
-
-def read_memory(
-    read_buffer: XyloReadBuffer,
-    write_buffer: XyloWriteBuffer,
-    start_address: int,
-    count: int = 1,
-    read_timeout: float = 2.0,
-) -> List[int]:
-    """
-    Read a block of memory from a Xylo HDK
-
-    Args:
-        read_buffer (XyloReadBuffer): A connected read buffer to the desired Xylo HDK
-        write_buffer (XyloWriteBuffer): A connected write buffer to the desired Xylo HDK
-        start_address (int): The base address to start reading from
-        count (int): The number of elements to read
-
-    Returns:
-        List[int]: A list of values read from memory
-    """
-    # - Set up a memory read
-    read_events_list = []
-
-    # - Insert an extra read to avoid zero data
-    rmv_ev = samna.xylo.event.ReadMemoryValue()
-    rmv_ev.address = start_address
-    read_events_list.append(rmv_ev)
-
-    for elem in range(count):
-        rmv_ev = samna.xylo.event.ReadMemoryValue()
-        rmv_ev.address = start_address + elem
-        read_events_list.append(rmv_ev)
-
-    # - Clear buffer
-    read_buffer.get_events()
-
-    # - Request read
-    write_buffer.write(read_events_list)
-
-    # - Read data
-    events, is_timeout = blocking_read(
-        read_buffer, count=count + 1, timeout=read_timeout
-    )
-    if is_timeout:
-        raise TimeoutError(
-            f"Memory read timed out after {read_timeout} s. Reading @{start_address}+{count}."
-        )
-
-    # - Filter returned events for the desired addresses
-    return [
-        e.data
-        for e in events[1:]
-        if hasattr(e, "address")
-        and e.address >= start_address
-        and e.address < start_address + count
-    ]
-
-
-def generate_read_memory_events(
-    start_address: int,
-    count: int = 1,
-) -> List[Any]:
-    """
-    Build a list of events that cause Xylo memory to be read
-
-    This function is designed to be used with `decode_memory_read_events`.
-
-    See Also:
-        Use the `read_memory` function for a more convenient high-level API.
-
-    Args:
-        start_address (int): The starting address of the memory read
-        count (int): The number of memory elements to read. Default: ``1``, read a single memory address.
-
-    Returns:
-        List: A list of events to send to a Xylo HDK
-    """
-    # - Set up a memory read
-    read_events_list = []
-
-    # - Insert an extra read to avoid zero data
-    rmv_ev = samna.xylo.event.ReadMemoryValue()
-    rmv_ev.address = start_address
-    read_events_list.append(rmv_ev)
-
-    for elem in range(count):
-        rmv_ev = samna.xylo.event.ReadMemoryValue()
-        rmv_ev.address = start_address + elem
-        read_events_list.append(rmv_ev)
-
-    return read_events_list
-
-
-def decode_memory_read_events(
-    events: List[Any],
-    start_address: int,
-    count: int = 1,
-) -> List:
-    """
-    Decode a list of events containing memory reads from a Xylo HDK
-
-    This is a low-level function designed to be used in conjuction with :py:func:`.generate_read_memory_events`.
-
-    See Also:
-        Use the :py:func:`read_memory` function for a more convenient high-level API.
-
-    Args:
-        events (List): A list of events read from a Xylo HDK
-        start_address (int): The starting address for the memory read
-        count (int): The number of contiguous memory elements that were read
-
-    Returns:
-        List: A list of memory entries extracted from the list of events, in address order
-    """
-    # - Initialise returned data list
-    return_data = [[]] * count
-
-    # - Filter returned events for the desired addresses
-    for e in events:
-        if e.address >= start_address and e.address < start_address + count:
-            return_data[e.address - start_address] = e.data
-
-    # - Return read data
-    return return_data
-
-
-def verify_xylo_version(
-    read_buffer: XyloReadBuffer,
-    write_buffer: XyloWriteBuffer,
-    timeout: float = 1.0,
-) -> bool:
-    """
-    Verify that the provided daughterbaord returns the correct version ID for Xylo
-
-    Args:
-        read_buffer (XyloReadBuffer): A read buffer connected to the Xylo HDK
-        write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK
-        timeout (float): Timeout for checking in seconds
-
-    Returns:
-        bool: ``True`` iff the version ID is correct for Xylo
-    """
-    # - Clear the read buffer
-    read_buffer.get_events()
-
-    # - Read the version register
-    write_buffer.write([samna.xylo.event.ReadVersion()])
-
-    # - Read events until timeout
-    filtered_events = []
-    t_end = time.time() + timeout
-    while len(filtered_events) == 0:
-        events = read_buffer.get_events()
-        filtered_events = [e for e in events if isinstance(e, samna.xylo.event.Version)]
-
-        # - Check timeout
-        if time.time() > t_end:
-            raise TimeoutError(f"Checking version timed out after {timeout}s.")
-
-    return (
-        (len(filtered_events) > 0)
-        and (filtered_events[0].major == 1)
-        and (filtered_events[0].minor == 0)
-    )
-
-
-def write_memory(
-    write_buffer: XyloWriteBuffer,
-    start_address: int,
-    count: Optional[int] = None,
-    data: Optional[Iterable] = None,
-    chunk_size: int = 65535,
-) -> None:
-    """
-    Write data to Xylo memory
-
-    Args:
-        write_buffer (XyloWriteBuffer): A write buffer connected to the desired Xylo HDK
-        start_address (int): The base address to start writing from
-        count (int): The number of entries to write. Default: ``len(data)``
-        data (Iterable): A list of data to write to memory. Default: Write zeros.
-        chunk_size (int): Chunk size to write. Default: 2000. Only needed on OS X, it seems?
-    """
-    # - How many entries should we write?
-    if count is None and data is None:
-        raise ValueError("Either `count` or `data` must be provided as arguments.")
-
-    if count is not None and data is not None and count != len(data):
-        warn(
-            "Length of `data` and `count` do not match. Only `count` entries will be written."
-        )
-
-    if count is None:
-        count = len(data)
-
-    # - Set up a list of write events
-    write_event_list = []
-    for elem in range(count):
-        wmv_ev = samna.xylo.event.WriteMemoryValue()
-        wmv_ev.address = start_address + elem
-
-        if data is not None:
-            wmv_ev.data = data[elem]
-
-        write_event_list.append(wmv_ev)
-
-    # - Write the list of data events
-    written = 0
-    while written < len(write_event_list):
-        write_buffer.write(write_event_list[written : (written + chunk_size)])
-        written += chunk_size
-        time.sleep(0.01)
 
 
 def zero_memory(
-    write_buffer: XyloWriteBuffer,
+    write_buffer: Xylo2WriteBuffer,
 ) -> None:
     """
     Clear all Xylo memory
@@ -639,9 +211,9 @@ def zero_memory(
 
 
 def reset_neuron_synapse_state(
-    hdk: XyloHDK,
-    read_buffer: XyloReadBuffer,
-    write_buffer: XyloWriteBuffer,
+    hdk: XyloA2HDK,
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
 ) -> None:
     """
     Reset the neuron and synapse state on a Xylo HDK
@@ -660,10 +232,10 @@ def reset_neuron_synapse_state(
 
 
 def apply_configuration(
-    hdk: XyloHDK,
+    hdk: XyloA2HDK,
     config: XyloConfiguration,
-    read_buffer: XyloReadBuffer,
-    write_buffer: XyloWriteBuffer,
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
 ) -> None:
     """
     Apply a configuration to the Xylo HDK
@@ -690,8 +262,8 @@ def apply_configuration(
 
 
 def read_neuron_synapse_state(
-    read_buffer: XyloReadBuffer,
-    write_buffer: XyloWriteBuffer,
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
     Nhidden: int = 1000,
     Nout: int = 8,
 ) -> XyloState:
@@ -753,8 +325,8 @@ def read_neuron_synapse_state(
 
 
 def read_allram_state(
-    read_buffer: XyloReadBuffer,
-    write_buffer: XyloWriteBuffer,
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
     Nin: int = 16,
     Nhidden: int = 1000,
     Nout: int = 8,
@@ -937,7 +509,7 @@ def read_allram_state(
 
 
 def read_accel_mode_data(
-    monitor_buffer: XyloNeuronStateBuffer,
+    monitor_buffer: Xylo2NeuronStateBuffer,
     Nin: int,
     Nhidden: int,
     Nout: int,
@@ -1109,7 +681,7 @@ def decode_accel_mode_data(
     )
 
 
-def is_xylo_ready(read_buffer: XyloReadBuffer, write_buffer: XyloWriteBuffer) -> None:
+def is_xylo_ready(read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer) -> None:
     """
     Query a Xylo HDK to see if it is ready for a time-step
 
@@ -1122,7 +694,7 @@ def is_xylo_ready(read_buffer: XyloReadBuffer, write_buffer: XyloWriteBuffer) ->
     return read_register(read_buffer, write_buffer, 0x10)[-1] & (1 << 16) is not 0
 
 
-def advance_time_step(write_buffer: XyloWriteBuffer) -> None:
+def advance_time_step(write_buffer: Xylo2WriteBuffer) -> None:
     """
     Take a single manual time-step on a Xylo HDK
 
@@ -1133,7 +705,7 @@ def advance_time_step(write_buffer: XyloWriteBuffer) -> None:
     write_buffer.write([e])
 
 
-def reset_input_spikes(write_buffer: XyloWriteBuffer) -> None:
+def reset_input_spikes(write_buffer: Xylo2WriteBuffer) -> None:
     """
     Reset the input spike registers on a Xylo HDK
 
@@ -1145,7 +717,7 @@ def reset_input_spikes(write_buffer: XyloWriteBuffer) -> None:
 
 
 def send_immediate_input_spikes(
-    write_buffer: XyloWriteBuffer, spike_counts: Iterable[int]
+    write_buffer: Xylo2WriteBuffer, spike_counts: Iterable[int]
 ) -> None:
     """
     Send input events with no timestamp to a Xylo HDK
@@ -1168,7 +740,7 @@ def send_immediate_input_spikes(
 
 
 def read_output_events(
-    read_buffer: XyloReadBuffer, write_buffer: XyloWriteBuffer
+    read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer
 ) -> np.ndarray:
     """
     Read the spike flags from the output neurons on a Xylo HDK
@@ -1189,8 +761,8 @@ def read_output_events(
 
 
 def print_debug_ram(
-    read_buffer: XyloReadBuffer,
-    write_buffer: XyloWriteBuffer,
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
     Nin: int = 10,
     Nhidden: int = 10,
     Nout: int = 2,
@@ -1341,8 +913,8 @@ def print_debug_ram(
 
 
 def export_registers(
-    read_buffer: XyloReadBuffer,
-    write_buffer: XyloWriteBuffer,
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
     file,
 ) -> None:
     """
@@ -1461,8 +1033,8 @@ def export_registers(
 
 
 def print_debug_registers(
-    read_buffer: XyloReadBuffer,
-    write_buffer: XyloWriteBuffer,
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
 ) -> None:
     """
     Print register contents of a Xylo HDK for debugging purposes
@@ -1514,8 +1086,8 @@ def num_buffer_neurons(Nhidden: int) -> int:
 
 
 def get_current_timestamp(
-    read_buffer: XyloReadBuffer,
-    write_buffer: XyloWriteBuffer,
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
     timeout: float = 3.0,
 ) -> int:
     """
@@ -1561,14 +1133,14 @@ def get_current_timestamp(
 
 def configure_accel_time_mode(
     config: XyloConfiguration,
-    state_monitor_buffer: XyloNeuronStateBuffer,
+    state_monitor_buffer: Xylo2NeuronStateBuffer,
     monitor_Nhidden: Optional[int] = 0,
     monitor_Noutput: Optional[int] = 0,
     # i_syn_start: Optional[int] = 0,
     # v_mem_start: Optional[int] = 0,
     readout = "Spike",
     record = False,
-) -> (XyloConfiguration, XyloNeuronStateBuffer):
+) -> (XyloConfiguration, Xylo2NeuronStateBuffer):
     """
     Switch on accelerated-time mode on a Xylo hdk, and configure network monitoring
 

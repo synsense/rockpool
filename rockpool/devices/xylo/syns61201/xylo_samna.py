@@ -23,7 +23,7 @@ from rockpool.parameters import SimulationParameter
 from rockpool import TSContinuous, TSEvent
 
 from . import xylo_devkit_utils as hdkutils
-from .xylo_devkit_utils import XyloHDK
+from .xylo_devkit_utils import XyloA2HDK
 
 # - Numpy
 import numpy as np
@@ -318,7 +318,7 @@ class XyloSamna(Module):
 
     def __init__(
         self,
-        device: XyloHDK,
+        device: XyloA2HDK,
         config: XyloConfiguration = None,
         dt: float = 1e-3,
         output_mode: str = "Spike",
@@ -375,7 +375,7 @@ class XyloSamna(Module):
             )
 
         # - Store the device
-        self._device: XyloHDK = device
+        self._device: XyloA2HDK = device
         """ `.XyloHDK`: The Xylo HDK used by this module """
 
         # - Store the configuration (and apply it)
