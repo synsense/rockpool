@@ -930,12 +930,12 @@ class DynapSim(JaxModule):
             I_nmda_dp = inmda / (self.__one + self.md.If_nmda / imem)
 
             # Iin = 0 if the neuron is in the refractory period
-            Iin = I_nmda_dp + iampa - igaba + self.md.Idc
+            Iin = I_nmda_dp + iampa - ishunt + self.md.Idc
             Iin *= jnp.logical_not(timer_ref.astype(bool)).astype(jnp.float32)
             Iin = jnp.clip(Iin, self.md.Io)
 
-            # ishunt (shunting) contributes to the membrane leak instead of subtracting from Iin
-            Ileak = Itau_mem_clip + ishunt + iahp
+            # igaba contributes to the membrane leak instead of subtracting from Iin
+            Ileak = Itau_mem_clip + igaba + iahp
 
             ## Steady state current
             imem_inf = (Igain_mem_clip / Itau_mem_clip) * (Iin - Ileak)
