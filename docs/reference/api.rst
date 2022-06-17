@@ -187,7 +187,8 @@ Xylo hardware support and simulation
 
     devices.xylo.XyloSim
     devices.xylo.XyloSamna
-    devices.xylo.AFE
+    devices.xylo.AFESim
+    devices.xylo.AFESamna
     devices.xylo.DivisiveNormalisation
 
 .. autosummary::
@@ -196,6 +197,14 @@ Xylo hardware support and simulation
 
     devices.xylo
     devices.xylo.xylo_devkit_utils
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: module.rst
+
+    devices.xylo.syns61201
+    devices.xylo.syns61300
+    devices.xylo.syns65300
 
 .. autosummary::
     :toctree: _autosummary

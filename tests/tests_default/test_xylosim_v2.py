@@ -40,10 +40,14 @@ def test_specification_V2():
         "aliases": None,
     }
 
-    mod_xylo_sim = XyloSim.from_specification(**spec)
+    mod_xylo_sim_vmem = XyloSim.from_specification(**spec, output_mode="Vmem")
+    mod_xylo_sim_isyn = XyloSim.from_specification(**spec, output_mode="Isyn")
+    mod_xylo_sim_spike = XyloSim.from_specification(**spec, output_mode="Spike")
 
     # - Simulate the evolution of the network on Xylo
     T = 1000
     input_rate = 0.01
     input_raster = np.random.rand(T, Nin) < input_rate
-    output_raster, _, _ = mod_xylo_sim(input_raster)
+    output_raster_vmem, _, _ = mod_xylo_sim_vmem(input_raster)
+    output_raster_isyn, _, _ = mod_xylo_sim_isyn(input_raster)
+    output_raster_spike, _, _ = mod_xylo_sim_spike(input_raster)

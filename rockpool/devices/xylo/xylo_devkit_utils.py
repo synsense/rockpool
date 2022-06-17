@@ -147,15 +147,16 @@ class XyloAllRam(NamedTuple):
     OWTRAM_state: np.ndarray
     """ np.ndarray: Contents of OWTRAM """
 
+from .syns61201.xa2_devkit_utils import find_xylo_a2_boards
 
 def find_xylo_boards() -> List[XyloHDK]:
     """
-    Search for and return a list of Xylo HDK hdks
+    Search for and return a list of Xylo HDK
 
-    Iterate over devices and search for Xylo HDK hdks. Return a list of available Xylo hdks, or an empty list if none are found.
+    Iterate over devices and search for Xylo HDKs. Return a list of available Xylo HDKs, or an empty list if none are found.
 
     Returns:
-        List[XyloDaughterBoard]: A (possibly empty) list of Xylo HDK hdks.
+        List[XyloHDK]: A (possibly empty) list of Xylo HDK hdks.
     """
     # - Get a list of devices
     device_list = samna.device.get_all_devices()
@@ -168,7 +169,6 @@ def find_xylo_boards() -> List[XyloHDK]:
     ]
 
     return xylo_hdk_list
-
 
 def new_xylo_read_buffer(
     hdk: XyloHDK,
@@ -1557,11 +1557,16 @@ def get_current_timestamp(
     return timestamp
 
 
+
 def configure_accel_time_mode(
     config: XyloConfiguration,
     state_monitor_buffer: XyloNeuronStateBuffer,
     monitor_Nhidden: Optional[int] = 0,
     monitor_Noutput: Optional[int] = 0,
+    # i_syn_start: Optional[int] = 0,
+    # v_mem_start: Optional[int] = 0,
+    readout = "Spike",
+    record = False,
 ) -> (XyloConfiguration, XyloNeuronStateBuffer):
     """
     Switch on accelerated-time mode on a Xylo hdk, and configure network monitoring
@@ -1574,35 +1579,42 @@ def configure_accel_time_mode(
         state_monitor_buffer (XyloNeuronStateBuffer): A connected neuron state monitor buffer
         monitor_Nhidden (Optional[int]): The number of hidden neurons for which to monitor state during evolution. Default: ``0``, don't monitor any hidden neurons.
         monitor_Noutput (Optional[int]): The number of output neurons for which to monitor state during evolution. Default: ``0``, don't monitor any output neurons.
+        readout: The readout out mode for which to output neuron states. Default: ``Spike''.
+        record (bool): Iff ``True``, record state during evolution. Default: ``False``, do not record state.
 
     Returns:
         (XyloConfiguration, XyloNeuronStateBuffer): `config` and `monitor_buffer`
     """
+    assert readout in ["Isyn", "Vmem", "Spike"], f"{readout} is not supported."
+
     # - Select accelerated time mode
     config.operation_mode = samna.xylo.OperationMode.AcceleratedTime
 
-    # - Configure reading out of neuron state during evolution
-    perform_readout = monitor_Nhidden + monitor_Noutput > 0
-    config.debug.monitor_neuron_i_syn = (
-        samna.xylo.configuration.NeuronRange(0, monitor_Nhidden + monitor_Noutput)
-        if perform_readout
-        else None
-    )
-    config.debug.monitor_neuron_i_syn2 = (
-        samna.xylo.configuration.NeuronRange(0, monitor_Nhidden)
-        if perform_readout
-        else None
-    )
-    config.debug.monitor_neuron_spike = (
-        samna.xylo.configuration.NeuronRange(0, monitor_Nhidden)
-        if perform_readout
-        else None
-    )
-    config.debug.monitor_neuron_v_mem = (
-        samna.xylo.configuration.NeuronRange(0, monitor_Nhidden + monitor_Noutput)
-        if perform_readout
-        else None
-    )
+    config.debug.monitor_neuron_i_syn = None
+    config.debug.monitor_neuron_i_syn2 = None
+    config.debug.monitor_neuron_spike = None
+    config.debug.monitor_neuron_v_mem = None
+
+    if record:
+        config.debug.monitor_neuron_i_syn = (
+            samna.xylo.configuration.NeuronRange(0, monitor_Nhidden + monitor_Noutput))
+        config.debug.monitor_neuron_i_syn2 = (
+            samna.xylo.configuration.NeuronRange(0, monitor_Nhidden))
+        config.debug.monitor_neuron_spike = (
+            samna.xylo.configuration.NeuronRange(0, monitor_Nhidden))
+        config.debug.monitor_neuron_v_mem = (
+            samna.xylo.configuration.NeuronRange(0, monitor_Nhidden + monitor_Noutput))
+
+    else:
+        if readout == "Isyn":
+            config.debug.monitor_neuron_i_syn = (
+                samna.xylo.configuration.NeuronRange(monitor_Nhidden, monitor_Nhidden + monitor_Noutput))
+        # elif readout == "Spike":
+        #     config.debug.monitor_neuron_spike = (
+        #         samna.xylo.configuration.NeuronRange(monitor_Nhidden, monitor_Nhidden + monitor_Noutput))
+        elif readout == "Vmem":
+            config.debug.monitor_neuron_v_mem = (
+                samna.xylo.configuration.NeuronRange(monitor_Nhidden, monitor_Nhidden + monitor_Noutput))
 
     # - Configure the monitor buffer
     state_monitor_buffer.set_configuration(config)

@@ -20,7 +20,7 @@ P_float = Union[float, ParameterBase]
 P_array = Union[np.array, ParameterBase]
 
 # - Define exports
-__all__ = ["AFE"]
+__all__ = ["AFESim"]
 
 # - Try to use Jax as speedup
 try:
@@ -112,7 +112,7 @@ except:
         return np.array(data_up), cdc
 
 
-class AFE(Module):
+class AFESim(Module):
     """
     A :py:class:`.Module` that simulates analog hardware for preprocessing audio
 

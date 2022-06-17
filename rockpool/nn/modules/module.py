@@ -732,9 +732,16 @@ class Module(ModuleBase, ABC, metaclass=PostInitMetaMixin):
 
             If ``data`` has only a single dimension ``(T,)``, it will be expanded to ``(1, T, self.size_in)``.
 
+            ``state0``, ``state1``, ``state2`` will be replicated out along the batch dimension.
+
+            >>> data, (state0,) = self._auto_batch(data, (self.state0,), ((10, -1, self.size_in),))
+
+            Attempt to replicate ``state0`` to a specified size ``(10, -1, self.size_in)``.
+
         Args:
             data (np.ndarray): Input data tensor. Either ``(batches, T, Nin)`` or ``(T, Nin)``
             states (Tuple): Tuple of state variables. Each will be replicated out over batches by prepending a batch dimension
+            target_shapes (Tuple): A tuple of target size tuples, each corresponding to each state argument. The individual states will be replicated out to match the corresponding target sizes. If not provided (the default), then states will be only replicated along batches.
 
         Returns:
             (np.ndarray, Tuple[np.ndarray]) data, states

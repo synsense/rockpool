@@ -34,7 +34,7 @@ class XyloSim(XyloSimV1):
     """
 
     @classmethod
-    def from_config(cls, config: XyloConfiguration, dt: float = 1e-3):
+    def from_config(cls, config: XyloConfiguration, dt: float = 1e-3, output_mode: str = 'Spike'):
         """
         Creata a XyloSim based layer to simulate the Xylo hardware, from a configuration
 
@@ -49,9 +49,10 @@ class XyloSim(XyloSimV1):
         raise NotImplementedError(
             "from_config() not implemented for XyloSimV2 due to lacking samna support."
         )
+        cls.output_mode = output_mode
 
         # - Instantiate the class
-        mod = cls(create_key=cls.__create_key, config=config, dt=dt)
+        mod = cls(create_key=cls.__create_key, config=config, dt=dt, output_mode=cls.output_mode)
 
         # - Make a storage object for the extracted configuration
         class _(object):
@@ -167,6 +168,7 @@ class XyloSim(XyloSimV1):
         aliases: Optional[list] = None,
         dt: float = 1e-3,
         verify_config: bool = True,
+        output_mode: str = 'Spike',
     ) -> "XyloSim":
         """
         Instantiate a :py:class:`.XyloSim` module from a full set of parameters
@@ -197,7 +199,7 @@ class XyloSim(XyloSimV1):
         Raises:
             ValueError: If ``verify_config`` is ``True`` and the configuration is not valid.
         """
-
+        cls.output_mode = output_mode
         if weights_rec is None:
             weights_rec = np.zeros(
                 (np.shape(weights_in)[1], np.shape(weights_in)[1], 2), int
@@ -234,7 +236,7 @@ class XyloSim(XyloSimV1):
             threshold_out = np.zeros((np.shape(weights_out)[1]), int)
 
         # - Instantiate the class
-        mod = cls(create_key=cls.__create_key, config=None, dt=dt)
+        mod = cls(create_key=cls.__create_key, config=None, dt=dt, output_mode = cls.output_mode)
 
         # - Make a storage object for the extracted configuration
         class _(object):
@@ -339,7 +341,13 @@ class XyloSim(XyloSimV1):
         **kwargs,
     ):
         # - Evolve using the xylo layer
-        output = np.array(self._xylo_layer.evolve(input_raster))
+        spike_out = np.array(self._xylo_layer.evolve(input_raster))
+        if self.output_mode == "Spike":
+            output = spike_out.T
+        elif self.output_mode == "Vmem":
+            output = np.array(self._xylo_layer.rec_v_mem_out).T
+        elif self.output_mode == "Isyn":
+            output = np.array(self._xylo_layer.rec_i_syn_out).T
 
         # - Build the recording dictionary
         if not record:

@@ -8,7 +8,6 @@ def test_imports():
     pass
 
 
-
 def test_configure():
     # - Samna imports
     from samna.xylo.configuration import ReservoirNeuron, OutputNeuron
@@ -61,6 +60,7 @@ def test_configure():
     c.readout.neurons = readout_neurons
 
     valid, message = validate_configuration(c)
+    assert valid, message
 
     # - Build a simulated Xylo Module
     mod_xylo_sim = xylo.XyloSim.from_config(c, dt=dt)
@@ -71,7 +71,18 @@ def test_configure():
     input_raster = np.random.rand(T, Nin) < input_rate
     output_raster, _, _ = mod_xylo_sim(input_raster)
 
-    assert valid
+    # - Build a simulated Xylo Module, specifying output mode
+    mod_xylo_sim_vmem = xylo.XyloSim.from_config(c, dt=dt, output_mode="Vmem")
+    mod_xylo_sim_isyn = xylo.XyloSim.from_config(c, dt=dt, output_mode="Isyn")
+    mod_xylo_sim_spike = xylo.XyloSim.from_config(c, dt=dt, output_mode="Spike")
+
+    # - Simulate the evolution of the network on Xylo
+    T = 1000
+    input_rate = 0.01
+    input_raster = np.random.rand(T, Nin) < input_rate
+    output_raster_vmem, _, _ = mod_xylo_sim_vmem(input_raster)
+    output_raster_isyn, _, _ = mod_xylo_sim_vmem(input_raster)
+    output_raster_spike, _, _ = mod_xylo_sim_vmem(input_raster)
 
 
 def test_specification():
@@ -91,6 +102,9 @@ def test_specification():
     }
 
     mod_xylo_sim = xylo.XyloSim.from_specification(**spec)
+    mod_xylo_sim_vmem = xylo.XyloSim.from_specification(**spec, output_mode="Vmem")
+    mod_xylo_sim_isyn = xylo.XyloSim.from_specification(**spec, output_mode="Isyn")
+    mod_xylo_sim_spike = xylo.XyloSim.from_specification(**spec, output_mode="Spike")
 
     # - Test complete spec
     spec = {
@@ -111,6 +125,9 @@ def test_specification():
     }
 
     mod_xylo_sim = xylo.XyloSim.from_specification(**spec)
+    mod_xylo_sim_vmem = xylo.XyloSim.from_specification(**spec, output_mode="Vmem")
+    mod_xylo_sim_isyn = xylo.XyloSim.from_specification(**spec, output_mode="Isyn")
+    mod_xylo_sim_spike = xylo.XyloSim.from_specification(**spec, output_mode="Spike")
 
     # - Simulate the evolution of the network on Xylo
     T = 1000
@@ -137,6 +154,11 @@ def test_from_config():
 
     c, _, _ = xylo.config_from_specification(**spec)
     valid, message = validate_configuration(c)
+    assert valid, message
+
+    mod_xylo_sim_vmem = xylo.XyloSim.from_config(c, output_mode="Vmem")
+    mod_xylo_sim_isyn = xylo.XyloSim.from_config(c, output_mode="Isyn")
+    mod_xylo_sim_spike = xylo.XyloSim.from_config(c, output_mode="Spike")
 
     mod_xylo_sim = xylo.XyloSim.from_config(c)
     mod_xylo_sim.timed()
@@ -146,8 +168,6 @@ def test_from_config():
     input_rate = 0.01
     input_raster = np.random.rand(T, Nin) < input_rate
     output_raster, _, _ = mod_xylo_sim(input_raster)
-
-    assert valid
 
 
 def test_FF_equality_torch():
@@ -489,17 +509,20 @@ def test_xylo_vs_xylosim():
     assert valid
 
     # - Create XyloSim object
-    mod_xylo_sim = xylo.XyloSim.from_config(conf)
-    mod_xylo_sim.timed()
+    mod_xylo_sim_vmem = xylo.XyloSim.from_config(conf, output_mode="Vmem")
+    mod_xylo_sim_isyn = xylo.XyloSim.from_config(conf, output_mode="Isyn")
+    mod_xylo_sim_spike = xylo.XyloSim.from_config(conf)
+    mod_xylo_sim_vmem.timed()
+    mod_xylo_sim_isyn.timed()
+    mod_xylo_sim_spike.timed()
 
     # - Generate random input
     input_raster = np.random.randint(0, 16, (T, Nin))
 
     # - Simulate the evolution of the network on Xylo
-    out_sim, _, rec_sim = mod_xylo_sim(input_raster.clip(0, 15), record=True)
+    out_sim, _, rec_sim = mod_xylo_sim_spike(input_raster.clip(0, 15), record=True)
 
-    # - Init Samna
-    samna.init_samna()
+    # - Get a Xylo HDK board
     xylo_hdk_nodes = xu.find_xylo_boards()
 
     if len(xylo_hdk_nodes) == 0:
@@ -508,10 +531,12 @@ def test_xylo_vs_xylosim():
     db = xylo_hdk_nodes[0]
 
     # - Init Xylo
-    mod_xylo = x.XyloSamna(db, conf, dt=1e-3)
+    mod_xylo_vmem = x.XyloSamna(db, conf, dt=1e-3, output_mode="Vmem")
+    mod_xylo_isyn = x.XyloSamna(db, conf, dt=1e-3, output_mode="Isyn")
+    mod_xylo_spike = x.XyloSamna(db, conf, dt=1e-3)
 
     # - Evolve Xylo
-    out_xylo, _, rec_xylo = mod_xylo(input_raster, record=True)
+    out_xylo, _, rec_xylo = mod_xylo_spike(input_raster, record=True)
 
     # - Assert equality for all outputs and recordings
     assert np.all(out_sim == out_xylo)
