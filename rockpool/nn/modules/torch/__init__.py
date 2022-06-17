@@ -15,6 +15,8 @@ try:
     from .exp_syn_torch import *
     from .updown_torch import *
     from .linear_torch import *
+    from .ahp_lif_torch import *
+
 except:
     from rockpool.utilities.backend_management import (
         backend_available,
@@ -24,7 +26,7 @@ except:
     if not backend_available("torch"):
         TorchModule = missing_backend_shim("TorchModule", "torch")
         LIFTorch = missing_backend_shim("LIFTorch", "torch")
-        ahp_LIFTorch = missing_backend_shim("ahp_LIFTorch", "torch")
+        aLIFTorch = missing_backend_shim("aLIFTorch", "torch")
 
         LowPass = missing_backend_shim("LowPass", "torch")
         RateTorch = missing_backend_shim("RateTorch", "torch")

@@ -1,4 +1,3 @@
-from ast import Constant
 import pytest
 
 pytest.importorskip("torch")
@@ -35,8 +34,11 @@ def test_ahp_LIFTorch_shapes():
 
     assert ns["isyn"].shape == (n_neurons, n_synapses)
     assert ns["vmem"].shape == (n_neurons,)
-    assert rd["isyn"].shape == (n_batches, T, n_neurons, n_synapses+1)
+    assert rd["isyn"].shape == (n_batches, T, n_neurons, n_synapses + 1)
     assert rd["vmem"].shape == (n_batches, T, n_neurons)
+
+    # - Test as_graph
+    mod.as_graph()
 
 
 def test_ahp_LIFTorch_bias():
@@ -70,13 +72,12 @@ def test_ahp_LIFTorch_bias():
 
     out.sum().backward()
 
-# with default initialization of weights (w_ahp) and given bias and threshold the neuron will spike and iahp will be non-zero 
+    # with default initialization of weights (w_ahp) and given bias and threshold the neuron will spike and iahp will be non-zero
     assert not torch.all(ns["iahp"] == 0)
     assert not torch.all(rd["iahp"] == 0)
-# recorded isyn will include iahp, therefore will be non-zero    
+    # recorded isyn will include iahp, therefore will be non-zero
     assert not torch.all(rd["isyn"] == 0)
 
-    
     assert torch.all(ns["isyn"] == 0)
     assert torch.all(rd["vmem"][:, 0] == 0.1)  # match bias in the fist timestep
     assert torch.all(
@@ -314,8 +315,7 @@ def test_ahp_LIFTorch_threshold_shape_2():
 
     # assert output makes sense (low threshold---> more spikes---> more inhibition---> smaller vmem)
     # assert torch.all(out[:, :, 0] >= out[:, :, 1])
-    assert torch.all(rd['vmem'][:, :, 1] >= rd['vmem'][:, :, 1])
-
+    assert torch.all(rd["vmem"][:, :, 1] >= rd["vmem"][:, :, 1])
 
 
 def test_ahp_LIFTorch_reset():
@@ -339,8 +339,9 @@ def test_ahp_LIFTorch_reset():
     assert mod.threshold.device == device
     assert mod.bias.device == device
 
-# ##### tests spesific to lif_ahp  
-# all neurons share a single tau_ahp but their w_ahp is a negative value that is increased proportionally with their index  
+
+# ##### tests spesific to lif_ahp
+# all neurons share a single tau_ahp but their w_ahp is a negative value that is increased proportionally with their index
 # therefore neurons with smaller index recieve weaker inhibition and their vmem would be higher
 def test_ahp_LIFTorch_w():
     from rockpool.nn.modules.torch.ahp_lif_torch import aLIFTorch
@@ -355,16 +356,14 @@ def test_ahp_LIFTorch_w():
     tau_syn = 0.02
     tau_ahp = 0.02
 
-
     # shape of w_ahp
     w_ahp = Constant(torch.ones(n_neurons))
 
-    # keeping tau_ahp same among all neurons and setting different w_ahp 
+    # keeping tau_ahp same among all neurons and setting different w_ahp
     # neauron with bigger index will recieve stronger inhibition
     for n in range(n_neurons):
-        w_ahp[n] *= -(n+1)
+        w_ahp[n] *= -(n + 1)
 
- 
     dt = 1e-3
 
     mod = aLIFTorch(
@@ -388,8 +387,8 @@ def test_ahp_LIFTorch_w():
 
     # in each pair of consecuitive neurons the one with smaller index should have higher vmem in all timestamps of all samples
     # comparison starts from timestamp = 1, as the nonzero input is at timestamp=0
-    for i_n in range(n_neurons-1):
-        assert torch.all(rd['vmem'][:,1:,i_n] > rd['vmem'][:,1:,i_n +1])
+    for i_n in range(n_neurons - 1):
+        assert torch.all(rd["vmem"][:, 1:, i_n] > rd["vmem"][:, 1:, i_n + 1])
 
     # assert w_ahp has not gradients
     assert not mod.w_ahp.grad
@@ -407,16 +406,14 @@ def test_ahp_LIFTorch_tau():
     tau_mem = 0.01
     tau_syn = 0.02
 
-
     w_ahp = -Constant(torch.ones(n_neurons))
-    tau_ahp = torch.zeros((n_neurons), requires_grad = False)
+    tau_ahp = torch.zeros((n_neurons), requires_grad=False)
 
-    # keeping w_ahp same among all neurons and setting different tau_ahp 
-    # neauron with bigger index will receive i_ahp with slower decay (bigger tau_ahp) 
+    # keeping w_ahp same among all neurons and setting different tau_ahp
+    # neauron with bigger index will receive i_ahp with slower decay (bigger tau_ahp)
     for n in range(n_neurons):
-        tau_ahp[n] = (n+1)*0.1
+        tau_ahp[n] = (n + 1) * 0.1
 
- 
     dt = 1e-3
 
     mod = aLIFTorch(
@@ -439,11 +436,10 @@ def test_ahp_LIFTorch_tau():
     out, ns, rd = mod(input_data, record=True)
 
     # in each pair of consecuitive neurons the one with smaller index should have bigger i_ahp in all timestamps of all samples, as it has a faster dynamics (smaller tau_ahp)
-    # as w_ahp for all neurons is set to -1, neurons with smaller tau_ahp will decay faster towrds zero 
+    # as w_ahp for all neurons is set to -1, neurons with smaller tau_ahp will decay faster towrds zero
     # comparison starts from timestamp = 1, as the nonzero input is at timestamp=0
-    for i_n in range(n_neurons-1):
-        assert torch.all(rd['iahp'][:,1:,i_n] > rd['iahp'][:,1:,i_n+1])
+    for i_n in range(n_neurons - 1):
+        assert torch.all(rd["iahp"][:, 1:, i_n] > rd["iahp"][:, 1:, i_n + 1])
 
     # assert w_ahp has not gradients
-    assert not mod.w_ahp.grad    
-
+    assert not mod.w_ahp.grad
