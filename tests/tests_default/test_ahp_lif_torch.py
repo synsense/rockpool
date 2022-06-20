@@ -34,11 +34,16 @@ def test_ahp_LIFTorch_shapes():
 
     assert ns["isyn"].shape == (n_neurons, n_synapses)
     assert ns["vmem"].shape == (n_neurons,)
-    assert rd["isyn"].shape == (n_batches, T, n_neurons, n_synapses + 1)
+    assert ns["iahp"].shape == (n_neurons,)
+    assert rd["isyn"].shape == (n_batches, T, n_neurons, n_synapses)
     assert rd["vmem"].shape == (n_batches, T, n_neurons)
+    assert rd["iahp"].shape == (n_batches, T, n_neurons)
 
     # - Test as_graph
-    mod.as_graph()
+    g = mod.as_graph()
+
+    assert len(g.input_nodes) == mod.size_in
+    assert len(g.output_nodes) == mod.size_out
 
 
 def test_ahp_LIFTorch_bias():
@@ -75,8 +80,6 @@ def test_ahp_LIFTorch_bias():
     # with default initialization of weights (w_ahp) and given bias and threshold the neuron will spike and iahp will be non-zero
     assert not torch.all(ns["iahp"] == 0)
     assert not torch.all(rd["iahp"] == 0)
-    # recorded isyn will include iahp, therefore will be non-zero
-    assert not torch.all(rd["isyn"] == 0)
 
     assert torch.all(ns["isyn"] == 0)
     assert torch.all(rd["vmem"][:, 0] == 0.1)  # match bias in the fist timestep
@@ -86,6 +89,9 @@ def test_ahp_LIFTorch_bias():
 
     # assert bias has gradients
     assert not torch.all(mod.bias.grad == 0)
+
+    # - Test as_graph
+    mod.as_graph()
 
 
 def test_ahp_LIFTorch_recurrent():
@@ -138,6 +144,9 @@ def test_ahp_LIFTorch_recurrent():
 
     # assert w_rec has gradients
     assert not torch.all(mod.w_rec.grad == 0)
+
+    # - Test as_graph
+    mod.as_graph()
 
 
 def test_ahp_LIFTorch_noise():
@@ -205,6 +214,9 @@ def test_ahp_LIFTorch_tau_syn_shape_1():
     # assert correct shape
     assert mod.tau_syn.shape == (n_neurons, n_synapses)
 
+    # - Test as_graph
+    mod.as_graph()
+
 
 def test_ahp_LIFTorch_tau_syn_shape_2():
     from rockpool.nn.modules.torch.ahp_lif_torch import aLIFTorch
@@ -237,6 +249,9 @@ def test_ahp_LIFTorch_tau_syn_shape_2():
 
     # assert correct shape
     assert mod.tau_syn.shape == (n_neurons, n_synapses)
+
+    # - Test as_graph
+    mod.as_graph()
 
 
 def test_ahp_LIFTorch_threshold_shape_1():
@@ -272,6 +287,9 @@ def test_ahp_LIFTorch_threshold_shape_1():
 
     # assert correct shape
     assert mod.threshold.shape == (n_neurons,)
+
+    # - Test as_graph
+    mod.as_graph()
 
 
 def test_ahp_LIFTorch_threshold_shape_2():
@@ -316,6 +334,9 @@ def test_ahp_LIFTorch_threshold_shape_2():
     # assert output makes sense (low threshold---> more spikes---> more inhibition---> smaller vmem)
     # assert torch.all(out[:, :, 0] >= out[:, :, 1])
     assert torch.all(rd["vmem"][:, :, 1] >= rd["vmem"][:, :, 1])
+
+    # - Test as_graph
+    mod.as_graph()
 
 
 def test_ahp_LIFTorch_reset():
@@ -393,6 +414,9 @@ def test_ahp_LIFTorch_w():
     # assert w_ahp has not gradients
     assert not mod.w_ahp.grad
 
+    # - Test as_graph
+    mod.as_graph()
+
 
 def test_ahp_LIFTorch_tau():
     from rockpool.nn.modules.torch.ahp_lif_torch import aLIFTorch
@@ -406,7 +430,7 @@ def test_ahp_LIFTorch_tau():
     tau_mem = 0.01
     tau_syn = 0.02
 
-    w_ahp = -Constant(torch.ones(n_neurons))
+    w_ahp = Constant(-torch.ones(n_neurons))
     tau_ahp = torch.zeros((n_neurons), requires_grad=False)
 
     # keeping w_ahp same among all neurons and setting different tau_ahp
@@ -443,3 +467,32 @@ def test_ahp_LIFTorch_tau():
 
     # assert w_ahp has not gradients
     assert not mod.w_ahp.grad
+
+    # - Test as_graph
+    mod.as_graph()
+
+
+def test_ahp_LIFTorch_network_graph():
+    from rockpool.nn.modules import aLIFTorch, LinearTorch, LIFTorch
+    from rockpool.nn.combinators import Sequential
+
+    net = Sequential(
+        LinearTorch((2, 5)),
+        aLIFTorch((5, 5)),  # FFwd aLIF layer, single input synapse
+        LinearTorch((5, 5)),
+        aLIFTorch((5, 5), has_rec=True),  # Recurrent aLIF layer, single input synapse
+        LinearTorch((5, 8)),
+        LIFTorch((8, 8)),  # Non-recurrent output layer
+    )
+
+    g = net.as_graph()
+
+    pytest.importorskip("xylosim")
+    pytest.importorskip("samna")
+
+    from rockpool.devices.xylo import mapper, config_from_specification
+
+    spec = mapper(g)
+    config, valid, msg = config_from_specification(**spec)
+
+    print(valid, msg)

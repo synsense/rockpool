@@ -18,7 +18,7 @@ from rockpool.typehints import *
 
 from rockpool.graph import (
     GraphModuleBase,
-    as_GraphHolder,
+    GraphHolder,
     LIFNeuronWithSynsRealValue,
     LinearWeights,
 )
@@ -29,7 +29,7 @@ __all__ = ["aLIFTorch"]
 class aLIFTorch(LIFBaseTorch):
     def __init__(
         self,
-        shape: tuple,
+        shape: Union[Tuple, int],
         tau_ahp: Optional[Union[FloatVector, P_float]] = None,
         w_ahp: torch.Tensor = None,
         w_ahp_init_func: Optional[Callable[[Tuple], torch.tensor]] = lambda s: -0.9
@@ -187,7 +187,7 @@ class aLIFTorch(LIFBaseTorch):
         if self._record:
             self._record_vmem = torch.zeros(n_batches, n_timesteps, self.size_out)
             self._record_isyn = torch.zeros(
-                n_batches, n_timesteps, self.size_out, self.n_synapses + 1
+                n_batches, n_timesteps, self.size_out, self.n_synapses
             )
             self._record_irec = torch.zeros(
                 n_batches, n_timesteps, self.size_out, self.n_synapses
@@ -260,7 +260,7 @@ class aLIFTorch(LIFBaseTorch):
             # - Maintain state record
             if self._record:
                 self._record_vmem[:, t] = vmem
-                self._record_isyn[:, t] = isyn_
+                self._record_isyn[:, t] = isyn
                 if hasattr(self, "w_rec"):
                     self._record_irec[:, t] = irec
 
@@ -282,7 +282,7 @@ class aLIFTorch(LIFBaseTorch):
         return self._record_spikes
 
     def as_graph(self) -> GraphModuleBase:
-        def _syn_integration(self):
+        def syn_integration(self):
             """
             Create a tau_syn matrix including tau_ahp, for :py:meth`.as_graph` export
 
@@ -293,7 +293,7 @@ class aLIFTorch(LIFBaseTorch):
             tau_syn = torch.cat((tau_syn, self.tau_ahp.reshape(self.size_out, 1)), 1)
             return tau_syn.flatten().detach().numpy()
 
-        def _wahp_reshape(self):
+        def w_ahp_reshape(self):
             """
             Create and reshape a ``w_ahp`` matrix for :py:meth`.as_graph` export
 
@@ -301,7 +301,7 @@ class aLIFTorch(LIFBaseTorch):
                 np.array: ``w_ahp``
             """
             # - to match the shape of w_ahp with the shape of w_rec for mapper
-            # w_ahp is a vector while traning but for mapper we build matrix out of that (size: n_neourons)
+            # w_ahp is a vector while training but for mapper we build matrix out of that of size: (n_neurons, n_neurons)
             w_ahp = torch.zeros((self.size_out, self.size_out))
             for i in range(self.size_out):
                 w_ahp[i, i] += self.w_ahp[i]
@@ -311,8 +311,8 @@ class aLIFTorch(LIFBaseTorch):
         tau_mem = self.tau_mem.broadcast_to((self.size_out,)).flatten().detach().numpy()
 
         # - Get tau_syn and w_ahp for export
-        tau_syn = _syn_integration(self)
-        w_ahp = _wahp_reshape(self)
+        tau_syn_ahp = syn_integration(self)
+        w_ahp = w_ahp_reshape(self)
 
         # - Get threshold and bias parameters for export
         threshold = (
@@ -322,12 +322,12 @@ class aLIFTorch(LIFBaseTorch):
 
         # - Generate a GraphModule for the neurons
         neurons = LIFNeuronWithSynsRealValue._factory(
-            self.size_in,
+            self.size_in + self.size_out,  # Including AHP synapses
             self.size_out,
             f"{type(self).__name__}_{self.name}_{id(self)}",
             self,
             tau_mem,
-            tau_syn,
+            tau_syn_ahp,  # Including AHP synapses
             threshold,
             bias,
             self.dt,
@@ -335,11 +335,13 @@ class aLIFTorch(LIFBaseTorch):
 
         # - Include recurrent weights if present and combine them with ahp weights
         # - Weights are connected over the existing input and output nodes
-        all_wrec = (
-            torch.cat((self.w_rec, w_ahp), 1)
-            if len(self.attributes_named("w_rec")) > 0
-            else w_ahp
+        w_rec = (
+            self.w_rec
+            if hasattr(self, "w_rec")
+            else torch.zeros(self.size_out, self.size_in)
         )
+
+        all_wrec = torch.cat((w_rec, w_ahp), 1)
 
         w_rec_graph = LinearWeights(
             neurons.output_nodes,
@@ -349,5 +351,10 @@ class aLIFTorch(LIFBaseTorch):
             all_wrec.detach().numpy(),
         )
 
-        # - Return a graph containing neurons and weights
-        return as_GraphHolder(neurons)
+        # - Return a graph containing neurons and weights, but trimming off the AHP input nodes
+        return GraphHolder(
+            neurons.input_nodes[: self.size_in],
+            neurons.output_nodes,
+            neurons.name,
+            None,
+        )
