@@ -289,9 +289,10 @@ class aLIFTorch(LIFBaseTorch):
             Returns:
                 np.array: ``tau_syn``
             """
-            tau_syn = self.tau_syn.broadcast_to((self.size_out, self.n_synapses))
-            tau_syn = torch.cat((tau_syn, self.tau_ahp.reshape(self.size_out, 1)), 1)
-            return tau_syn.flatten().detach().numpy()
+            tau_syn = self.tau_syn.expand((self.size_out, self.n_synapses))
+            tau_ahp = self.tau_ahp.reshape((-1, 1)).expand((self.size_out, 1))
+            tau_syn_ahp = torch.cat((tau_syn, tau_ahp), 1)
+            return tau_syn_ahp.flatten().detach().numpy()
 
         def w_ahp_reshape(self):
             """
@@ -308,17 +309,15 @@ class aLIFTorch(LIFBaseTorch):
             return w_ahp
 
         # - Get tau_mem for export
-        tau_mem = self.tau_mem.broadcast_to((self.size_out,)).flatten().detach().numpy()
+        tau_mem = self.tau_mem.expand((self.size_out,)).flatten().detach().numpy()
 
         # - Get tau_syn and w_ahp for export
         tau_syn_ahp = syn_integration(self)
         w_ahp = w_ahp_reshape(self)
 
         # - Get threshold and bias parameters for export
-        threshold = (
-            self.threshold.broadcast_to((self.size_out,)).flatten().detach().numpy()
-        )
-        bias = self.bias.broadcast_to((self.size_out,)).flatten().detach().numpy()
+        threshold = self.threshold.expand((self.size_out,)).flatten().detach().numpy()
+        bias = self.bias.expand((self.size_out,)).flatten().detach().numpy()
 
         # - Generate a GraphModule for the neurons
         neurons = LIFNeuronWithSynsRealValue._factory(

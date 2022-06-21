@@ -216,9 +216,7 @@ class TorchModule(Module, nn.Module):
             data = torch.unsqueeze(data, 0)
 
         if data.shape[-1] == 1:
-            data = torch.broadcast_to(
-                data, (data.shape[0], data.shape[1], self.size_in)
-            )
+            data = data.expand((data.shape[0], data.shape[1], self.size_in))
 
         # - Get shape of input
         (n_batches, time_steps, n_connections) = data.shape
@@ -458,7 +456,7 @@ class TorchModule(Module, nn.Module):
 
         obj.__class__ = TorchModulePatch
         obj.__old_class_name = old_class_name
-        
+
         obj._has_torch_api = retain_torch_api
 
         assert isinstance(obj, TorchModule)

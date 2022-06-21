@@ -105,9 +105,10 @@ class LIFSlayer(LIFBaseTorch):
             n_batches * self.n_neurons, self.n_synapses, time_steps
         ).to(data.device)
 
-        beta = torch.broadcast_to(self.beta, (self.n_neurons, self.n_synapses))
-        threshold = torch.broadcast_to(self.threshold, (self.n_neurons,))
-        alpha = torch.broadcast_to(self.alpha, (self.n_neurons,))
+        # - Broadcast parameters to full size for this module
+        beta = self.beta.expand((self.n_neurons, self.n_synapses))
+        threshold = self.threshold.expand((self.n_neurons,))
+        alpha = self.alpha.expand((self.n_neurons,))
 
         for syn in range(self.n_synapses):
             # bring data into format expected by slayer
