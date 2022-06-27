@@ -351,12 +351,34 @@ def mapper(
     target_neurons: Xylo1Neurons = input_weight_mod.output_nodes[0].sink_modules[0]
     # ^ Since DRC passed, we know this is valid
 
-    weight_num_synapses = (
+    # - How many synapses are used on the HW, and how many provided by the model?
+    weight_num_synapses_hw = (
         2 if len(target_neurons.input_nodes) > len(target_neurons.output_nodes) else 1
+    )
+    weight_num_synapses_model = int(
+        np.round(input_weight_mod.weights.shape[1] / len(target_neurons.output_nodes))
     )
 
     target_ids = target_neurons.hw_ids
     these_dest_indices = [allocated_hidden_neurons.index(id) for id in target_ids]
+
+    # - If the model weights provide too few synapses, assume the remainder are zero
+    if weight_num_synapses_model < weight_num_synapses_hw:
+        weights_model = np.zeros_like(
+            input_weight_mod.weights,
+            shape=(
+                input_weight_mod.weights.shape[0],
+                len(target_neurons.input_nodes),
+            ),
+        )
+        weights_model[
+            np.ix_(
+                range(input_weight_mod.weights.shape[0]),
+                range(input_weight_mod.weights.shape[1]),
+            )
+        ] = input_weight_mod.weights
+    else:
+        weights_model = input_weight_mod.weights
 
     # - Allocate and assign the input weights
     w_in = np.zeros(
@@ -364,9 +386,9 @@ def mapper(
         weight_dtype,
     )
     w_in[
-        np.ix_(input_channels, these_dest_indices, list(range(weight_num_synapses)))
-    ] = input_weight_mod.weights.reshape(
-        (len(input_channels), len(these_dest_indices), weight_num_synapses)
+        np.ix_(input_channels, these_dest_indices, list(range(weight_num_synapses_hw)))
+    ] = weights_model.reshape(
+        (len(input_channels), len(these_dest_indices), weight_num_synapses_hw)
     )
 
     # - Build a recurrent weight matrix
@@ -430,8 +452,31 @@ def mapper(
         # - Does this go in the recurrent or output weights?
         if isinstance(target_neurons, Xylo1HiddenNeurons):
             # - Recurrent weights
+            weight_num_synapses_model = int(
+                np.round(w.weights.shape[1] / len(target_neurons.output_nodes))
+            )
+
+            # - If the model weights provide too few synapses, assume the remainder are zero
+            if weight_num_synapses_model < weight_num_synapses_hw:
+                weights_model = np.zeros_like(
+                    w.weights,
+                    shape=(
+                        w.weights.shape[0],
+                        len(target_neurons.input_nodes),
+                    ),
+                )
+                weights_model[
+                    np.ix_(
+                        range(w.weights.shape[0]),
+                        range(w.weights.shape[1]),
+                    )
+                ] = w.weights
+            else:
+                weights_model = w.weights
+
+            # - Reshape to required recurrent weights shape
             these_weights = np.reshape(
-                w.weights, (len(source_ids), len(target_ids), num_target_syns)
+                weights_model, (len(source_ids), len(target_ids), num_target_syns)
             )
             these_source_indices = [w_rec_source_ids.index(id) for id in source_ids]
             these_dest_indices = [w_rec_dest_ids.index(id) for id in target_ids]
@@ -444,7 +489,7 @@ def mapper(
             ] = these_weights
 
         elif isinstance(target_neurons, Xylo1OutputNeurons):
-            # - Output weights
+            # - Output weights (always one synapse per target neuron)
             these_source_indices = [w_out_source_ids.index(id) for id in source_ids]
             these_dest_indices = [w_out_dest_ids.index(id) for id in target_ids]
 
