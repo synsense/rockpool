@@ -967,8 +967,8 @@ class DynapSim(JaxModule):
             f_imem = ((Ifb) / (Ileak)) * (imem + Igain_mem_clip)
 
             ## Forward Euler Update
-            del_imem = (self.__one / tau_mem(Ileak)) * (
-                imem_inf + f_imem - (imem * (self.__one + (iahp / Ileak)))
+            del_imem = (imem / (tau_mem(Ileak) * (imem + Igain_mem_clip))) * (
+                imem_inf + f_imem - (imem * (self.__one + (iahp / Itau_mem_clip)))
             )
             imem = imem + del_imem * self.dt
             imem = jnp.clip(imem, self.md.Io)
