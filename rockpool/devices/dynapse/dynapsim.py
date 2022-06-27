@@ -901,6 +901,9 @@ class DynapSim(JaxModule):
             Iws_ahp = self.md.Iw_ahp * spikes  # 0 if no spike, Iw_ahp if spike
             iahp_inf = (Igain_ahp_clip / Itau_ahp_clip) * Iws_ahp
 
+            # Short term potentiation ratio
+            r_stp_ahp = Igain_ahp_clip / (iahp + Igain_ahp_clip) * 0.75
+
             # Calculate charge and discharge factors
             f_charge_ahp = self.__one - jnp.exp(-t_pulse_ahp / tau_ahp)  # Nrec
             f_discharge_ahp = jnp.exp(-self.dt / tau_ahp)  # Nrec
@@ -909,7 +912,15 @@ class DynapSim(JaxModule):
             iahp = f_discharge_ahp * iahp
 
             ## CHARGE if spike occurs -- UNDERSAMPLED -- dt >> t_pulse
-            iahp += f_charge_ahp * iahp_inf
+            del_iahp_rc = f_charge_ahp * iahp_inf
+            del_iahp_stp = (
+                iahp
+                * (t_pulse_ahp / tau_ahp.T).T
+                * (((Iws_ahp / Igain_ahp_clip) + self.__one) - (iahp / Igain_ahp_clip))
+            )
+
+            # Interpolate the STP region and RC region
+            iahp += (del_iahp_stp * r_stp_ahp) + del_iahp_rc * (self.__one - r_stp_ahp)
             iahp = jnp.clip(iahp, self.md.Io)  # Nrec
 
             # ------------------------------------------------------ #
