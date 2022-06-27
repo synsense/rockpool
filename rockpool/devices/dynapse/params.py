@@ -3,10 +3,10 @@
 # Author: Felix Bauer, SynSense AG, felix.bauer@synsense
 # ----
 
-SRAM_EVENT_LIMIT = int(2**19 - 1)  # Max. number of events that can be loaded to SRAM
-FPGA_EVENT_LIMIT = int(2**16 - 1)  # Max. number of events that can be sent to FPGA
+SRAM_EVENT_LIMIT = int(2 ** 19 - 1)  # Max. number of events that can be loaded to SRAM
+FPGA_EVENT_LIMIT = int(2 ** 16 - 1)  # Max. number of events that can be sent to FPGA
 FPGA_ISI_LIMIT = int(
-    2**16 - 1
+    2 ** 16 - 1
 )  # Max. number of timesteps for single inter-spike interval between FPGA events, as well
 # as max. value for the isi_multiplier
 FPGA_TIMESTEP = 1.0 / 9.0 * 1e-7  # Internal clock of FPGA, 11.111...ns

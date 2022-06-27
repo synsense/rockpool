@@ -175,25 +175,12 @@ class LIF(Module):
             tau_syn,
             "taus",
             init_func=lambda s: np.ones(s) * 20e-3,
-            shape=[
-                (
-                    self.size_out,
-                    self.n_synapses,
-                ),
-                (
-                    1,
-                    self.n_synapses,
-                ),
-                (),
-            ],
+            shape=[(self.size_out, self.n_synapses,), (1, self.n_synapses,), (),],
         )
         """ (np.ndarray) Synaptic time constants `(Nout,)` or `()` """
 
         self.bias: P_ndarray = Parameter(
-            bias,
-            "bias",
-            init_func=lambda s: np.zeros(s),
-            shape=[(self.size_out,), ()],
+            bias, "bias", init_func=lambda s: np.zeros(s), shape=[(self.size_out,), ()],
         )
         """ (np.ndarray) Neuron bias currents `(Nout,)` or `()` """
 
@@ -228,9 +215,7 @@ class LIF(Module):
         """ (int) Maximum number of events that can be produced in each time-step """
 
     def evolve(
-        self,
-        input_data: np.ndarray,
-        record: bool = False,
+        self, input_data: np.ndarray, record: bool = False,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
 
@@ -245,11 +230,7 @@ class LIF(Module):
         input_data, (vmem, spikes, isyn) = self._auto_batch(
             input_data,
             (self.vmem, self.spikes, self.isyn),
-            (
-                (self.size_out,),
-                (self.size_out,),
-                (self.size_out, self.n_synapses),
-            ),
+            ((self.size_out,), (self.size_out,), (self.size_out, self.n_synapses),),
         )
         batches, num_timesteps, _ = input_data.shape
 

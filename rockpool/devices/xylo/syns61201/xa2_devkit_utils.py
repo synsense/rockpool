@@ -58,10 +58,10 @@ def find_xylo_a2_boards() -> List[XyloA2HDK]:
 
 
 def read_afe2_register(
-        read_buffer: AFE2ReadBuffer,
-        write_buffer: AFE2WriteBuffer,
-        address: int,
-        timeout: float = 2.0,
+    read_buffer: AFE2ReadBuffer,
+    write_buffer: AFE2WriteBuffer,
+    address: int,
+    timeout: float = 2.0,
 ) -> List[int]:
     """
     Read the contents of a register
@@ -104,7 +104,9 @@ def read_afe2_register(
     return [e.data for e in ev_filt]
 
 
-def write_afe2_register(write_buffer: AFE2WriteBuffer, register: int, data: int = 0) -> None:
+def write_afe2_register(
+    write_buffer: AFE2WriteBuffer, register: int, data: int = 0
+) -> None:
     """
     Write data to a register on a Xylo AFE2 HDK
 
@@ -119,8 +121,12 @@ def write_afe2_register(write_buffer: AFE2WriteBuffer, register: int, data: int 
     write_buffer.write([wwv_ev])
 
 
-def read_afe2_events_blocking(afe2hdk: XyloA2HDK, write_buffer: AFE2WriteBuffer, afe_read_buf: AFE2ReadBuffer,
-                              duration: float) -> (np.ndarray, np.ndarray):
+def read_afe2_events_blocking(
+    afe2hdk: XyloA2HDK,
+    write_buffer: AFE2WriteBuffer,
+    afe_read_buf: AFE2ReadBuffer,
+    duration: float,
+) -> (np.ndarray, np.ndarray):
     """
     Perform a blocking read of AFE2 audio spike events for a desired duration
 
@@ -152,29 +158,30 @@ def read_afe2_events_blocking(afe2hdk: XyloA2HDK, write_buffer: AFE2WriteBuffer,
     time.sleep(duration)
     afe_handler.enable_event_monitor(False)
     time.sleep(0.1)
-    
+
     # write_spi(0x45,0)
     # time.sleep(0.5)
 
     # - Read and filter events
     events = afe_read_buf.get_events()
-    events = [(e.timestamp, e.channel)
-              for e in events
-              if isinstance(e, samna.afe2.event.Spike) and e.timestamp <= duration * 1e6
-              ]
-    
+    events = [
+        (e.timestamp, e.channel)
+        for e in events
+        if isinstance(e, samna.afe2.event.Spike) and e.timestamp <= duration * 1e6
+    ]
+
     # - Sort events by time
     if len(events) > 0:
         events = np.stack(events)
         index_array = np.argsort(events[:, 0])
-    
+
         # - Convert to vectors of timestamps, channels
         timestamps = events[index_array, 0]
         channels = events[index_array, 1]
     else:
         timestamps = np.zeros(0)
         channels = np.zeros(0)
-    
+
     # - Return timestamps in seconds and channels
     return timestamps * 1e-6, channels
 
@@ -214,7 +221,10 @@ def apply_afe2_default_config(afe2hdk: XyloA2HDK) -> None:
 
     afe2hdk.get_afe_model().apply_configuration(c)
 
-def read_afe2_module_version(afe_read_buf: AFE2ReadBuffer, afe_write_buf: AFE2WriteBuffer) -> (int, int):
+
+def read_afe2_module_version(
+    afe_read_buf: AFE2ReadBuffer, afe_write_buf: AFE2WriteBuffer
+) -> (int, int):
     """
     Return the version and revision numbers for a connected AFE2 HDK
     
@@ -227,17 +237,15 @@ def read_afe2_module_version(afe_read_buf: AFE2ReadBuffer, afe_write_buf: AFE2Wr
     """
     # - Read the version register
     version_revision = read_afe2_register(afe_read_buf, afe_write_buf, 0x0)[0]
-    
+
     # - Separate version and revision
-    version = (version_revision & 0xffff0000) >> 16
-    revision = version_revision & 0x0000ffff
-    
+    version = (version_revision & 0xFFFF0000) >> 16
+    revision = version_revision & 0x0000FFFF
+
     return version, revision
 
 
-def new_xylo_read_buffer(
-        hdk: XyloA2HDK,
-        ) -> Xylo2ReadBuffer:
+def new_xylo_read_buffer(hdk: XyloA2HDK,) -> Xylo2ReadBuffer:
     """
     Create and connect a new buffer to read from a Xylo HDK
 
@@ -282,9 +290,7 @@ def new_xylo_write_buffer(hdk: XyloA2HDK) -> Xylo2WriteBuffer:
     return buffer
 
 
-def new_xylo_state_monitor_buffer(
-        hdk: XyloA2HDK,
-        ) -> Xylo2NeuronStateBuffer:
+def new_xylo_state_monitor_buffer(hdk: XyloA2HDK,) -> Xylo2NeuronStateBuffer:
     """
     Create a new buffer for monitoring neuron and synapse state and connect it
 
@@ -312,11 +318,11 @@ def new_xylo_state_monitor_buffer(
 
 
 def blocking_read(
-        read_buffer: Xylo2ReadBuffer,
-        target_timestamp: Optional[int] = None,
-        count: Optional[int] = None,
-        timeout: Optional[float] = None,
-        ) -> (List, bool):
+    read_buffer: Xylo2ReadBuffer,
+    target_timestamp: Optional[int] = None,
+    count: Optional[int] = None,
+    timeout: Optional[float] = None,
+) -> (List, bool):
     """
     Perform a blocking read on a buffer, optionally waiting for a certain count, a target timestamp, or imposing a timeout
 
@@ -349,7 +355,7 @@ def blocking_read(
                 e.timestamp
                 for e in events
                 if hasattr(e, "timestamp") and e.timestamp is not None
-                ]
+            ]
 
             if timestamps:
                 reached_timestamp = timestamps[-1] >= target_timestamp
@@ -387,10 +393,8 @@ def initialise_xylo_hdk(write_buffer: Xylo2WriteBuffer) -> None:
 
 
 def write_register(
-        write_buffer: Xylo2WriteBuffer,
-        register: int,
-        data: int = 0,
-        ) -> None:
+    write_buffer: Xylo2WriteBuffer, register: int, data: int = 0,
+) -> None:
     """
     Write data to a register on a Xylo HDK
 
@@ -406,11 +410,11 @@ def write_register(
 
 
 def read_register(
-        read_buffer: Xylo2ReadBuffer,
-        write_buffer: Xylo2WriteBuffer,
-        address: int,
-        timeout: float = 2.0,
-        ) -> List[int]:
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
+    address: int,
+    timeout: float = 2.0,
+) -> List[int]:
     """
     Read the contents of a register
 
@@ -453,12 +457,12 @@ def read_register(
 
 
 def read_memory(
-        read_buffer: Xylo2ReadBuffer,
-        write_buffer: Xylo2WriteBuffer,
-        start_address: int,
-        count: int = 1,
-        read_timeout: float = 2.0,
-        ) -> List[int]:
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
+    start_address: int,
+    count: int = 1,
+    read_timeout: float = 2.0,
+) -> List[int]:
     """
     Read a block of memory from a Xylo HDK
 
@@ -492,27 +496,24 @@ def read_memory(
 
     # - Read data
     events, is_timeout = blocking_read(
-            read_buffer, count = count + 1, timeout = read_timeout
-            )
+        read_buffer, count=count + 1, timeout=read_timeout
+    )
     if is_timeout:
         raise TimeoutError(
-                f"Memory read timed out after {read_timeout} s. Reading @{start_address}+{count}."
-                )
+            f"Memory read timed out after {read_timeout} s. Reading @{start_address}+{count}."
+        )
 
     # - Filter returned events for the desired addresses
     return [
         e.data
         for e in events[1:]
         if hasattr(e, "address")
-           and e.address >= start_address
-           and e.address < start_address + count
-        ]
+        and e.address >= start_address
+        and e.address < start_address + count
+    ]
 
 
-def generate_read_memory_events(
-        start_address: int,
-        count: int = 1,
-        ) -> List[Any]:
+def generate_read_memory_events(start_address: int, count: int = 1,) -> List[Any]:
     """
     Build a list of events that cause Xylo memory to be read
 
@@ -545,10 +546,8 @@ def generate_read_memory_events(
 
 
 def decode_memory_read_events(
-        events: List[Any],
-        start_address: int,
-        count: int = 1,
-        ) -> List:
+    events: List[Any], start_address: int, count: int = 1,
+) -> List:
     """
     Decode a list of events containing memory reads from a Xylo HDK
 
@@ -578,10 +577,8 @@ def decode_memory_read_events(
 
 
 def verify_xylo_version(
-        read_buffer: Xylo2ReadBuffer,
-        write_buffer: Xylo2WriteBuffer,
-        timeout: float = 1.0,
-        ) -> bool:
+    read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer, timeout: float = 1.0,
+) -> bool:
     """
     Verify that the provided daughterbaord returns the correct version ID for Xylo
 
@@ -611,19 +608,19 @@ def verify_xylo_version(
             raise TimeoutError(f"Checking version timed out after {timeout}s.")
 
     return (
-            (len(filtered_events) > 0)
-            and (filtered_events[0].major == 1)
-            and (filtered_events[0].minor == 0)
+        (len(filtered_events) > 0)
+        and (filtered_events[0].major == 1)
+        and (filtered_events[0].minor == 0)
     )
 
 
 def write_memory(
-        write_buffer: Xylo2WriteBuffer,
-        start_address: int,
-        count: Optional[int] = None,
-        data: Optional[Iterable] = None,
-        chunk_size: int = 65535,
-        ) -> None:
+    write_buffer: Xylo2WriteBuffer,
+    start_address: int,
+    count: Optional[int] = None,
+    data: Optional[Iterable] = None,
+    chunk_size: int = 65535,
+) -> None:
     """
     Write data to Xylo memory
 
@@ -640,8 +637,8 @@ def write_memory(
 
     if count is not None and data is not None and count != len(data):
         warn(
-                "Length of `data` and `count` do not match. Only `count` entries will be written."
-                )
+            "Length of `data` and `count` do not match. Only `count` entries will be written."
+        )
 
     if count is None:
         count = len(data)
@@ -660,6 +657,6 @@ def write_memory(
     # - Write the list of data events
     written = 0
     while written < len(write_event_list):
-        write_buffer.write(write_event_list[written: (written + chunk_size)])
+        write_buffer.write(write_event_list[written : (written + chunk_size)])
         written += chunk_size
         time.sleep(0.01)

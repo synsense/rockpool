@@ -28,9 +28,7 @@ class FFwdStackMixin(ABC):
     _dot = None
 
     def __init__(
-        self,
-        *args,
-        **kwargs,
+        self, *args, **kwargs,
     ):
         # - Check that `shape` wasn't provided as a keyword argument
         if "shape" in kwargs:
@@ -95,19 +93,13 @@ class FFwdStackMixin(ABC):
             setattr(
                 self,
                 w_name,
-                Parameter(
-                    shape=w_shape,
-                    family="weights",
-                    init_func=weight_init_func,
-                ),
+                Parameter(shape=w_shape, family="weights", init_func=weight_init_func,),
             )
 
         # - Assign modules as submodules
         for (mod_name, submod) in zip(submod_names, submods):
             setattr(
-                self,
-                mod_name,
-                submod,
+                self, mod_name, submod,
             )
 
         # - Record module and weight lists
@@ -131,10 +123,7 @@ class FFwdStackMixin(ABC):
             input_data, substate, subrec = mod(input_data, record=record)
             new_state_dict.update({submod_name: substate})
             record_dict.update(
-                {
-                    submod_name: subrec,
-                    f"{submod_name}_output": input_data,
-                }
+                {submod_name: subrec, f"{submod_name}_output": input_data,}
             )
 
             # - Push data through weight
@@ -165,6 +154,7 @@ if backend_available("jax"):
         _dot = staticmethod(jnp.dot)
         pass
 
+
 else:
     JaxFFwdStack = missing_backend_shim("JaxFFwdStack", "jax")
 
@@ -179,6 +169,7 @@ if backend_available("torch"):
     class TorchFFwdStack(FFwdStackMixin, TorchModule):
         _dot = staticmethod(torch.matmul)
         pass
+
 
 else:
     TorchFFwdStack = missing_backend_shim("TorchFFwdStack", "torch")

@@ -40,7 +40,7 @@ __all__ = [
 ]
 
 # - Base for converting core mask to core IDs
-COREMASK_BASE = tuple(2**i for i in range(NUM_CORES_CHIP))
+COREMASK_BASE = tuple(2 ** i for i in range(NUM_CORES_CHIP))
 # - Map cam types to integers
 CAMTYPE_DICT = {
     getattr(CtxDynapse.DynapseCamType, camtype): i for i, camtype in enumerate(CAMTYPES)

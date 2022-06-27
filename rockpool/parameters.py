@@ -110,10 +110,7 @@ class ParameterBase:
 
         # - Check type and configuration of `shape` argument
         if shape is not None:
-            if not isinstance(
-                shape,
-                (List, Tuple, int),
-            ):
+            if not isinstance(shape, (List, Tuple, int),):
                 raise TypeError(
                     f"`shape` must be a list, a tuple or an integer. Instead `shape` was a {type(shape).__name__}."
                 )

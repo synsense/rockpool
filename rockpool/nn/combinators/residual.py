@@ -65,6 +65,7 @@ if backend_available("jax"):
 
         pass
 
+
 else:
     JaxResidual = missing_backend_shim("JaxResidual", "jax")
 
@@ -81,6 +82,7 @@ if backend_available("torch"):
         """
 
         pass
+
 
 else:
     TorchResidual = missing_backend_shim("TorchResidual", "torch")

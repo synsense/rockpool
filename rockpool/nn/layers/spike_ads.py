@@ -115,7 +115,7 @@ def quantize_weights_dynapse_II(N, M, num_synapses_available=None, use_dense=Tru
     number_sparse_cores = num_cores_total - number_dense_cores
 
     # - Quantize
-    base_weight = (np.max(np.abs(M)) - np.min(np.abs(M))) / (2**5 - 1)
+    base_weight = (np.max(np.abs(M)) - np.min(np.abs(M))) / (2 ** 5 - 1)
     if base_weight == 0.0:
         return np.zeros(M.shape)
     num_base_weights_needed = np.round(M / base_weight)
@@ -762,7 +762,7 @@ class RecFSSpikeADS(Layer):
             np.fill_diagonal(dot_W_slow_batched, 0)
 
             # - Normalize the update to have frobenius norm 1.0
-            dot_W_slow_batched /= np.sum(np.abs(dot_W_slow_batched)) / self.size**2
+            dot_W_slow_batched /= np.sum(np.abs(dot_W_slow_batched)) / self.size ** 2
 
             # - Apply the learning rate
             dot_W_slow_batched *= self.eta

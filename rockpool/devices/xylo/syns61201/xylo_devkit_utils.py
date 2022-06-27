@@ -36,6 +36,7 @@ Xylo2ReadBuffer = samna.BasicSinkNode_xylo_core2_event_output_event
 Xylo2WriteBuffer = samna.BasicSourceNode_xylo_core2_event_input_event
 Xylo2NeuronStateBuffer = samna.xyloCore2.NeuronStateSinkNode
 
+
 class XyloState(NamedTuple):
     """
     `.NamedTuple` that encapsulates a recorded Xylo HDK state
@@ -148,7 +149,9 @@ class XyloAllRam(NamedTuple):
     OWTRAM_state: np.ndarray
     """ np.ndarray: Contents of OWTRAM """
 
+
 from ..syns61201.xa2_devkit_utils import find_xylo_a2_boards
+
 
 def find_xylo_boards() -> List[XyloA2HDK]:
     """
@@ -172,10 +175,7 @@ def find_xylo_boards() -> List[XyloA2HDK]:
     return xylo_hdk_list
 
 
-
-def zero_memory(
-    write_buffer: Xylo2WriteBuffer,
-) -> None:
+def zero_memory(write_buffer: Xylo2WriteBuffer,) -> None:
     """
     Clear all Xylo memory
 
@@ -211,9 +211,7 @@ def zero_memory(
 
 
 def reset_neuron_synapse_state(
-    hdk: XyloA2HDK,
-    read_buffer: Xylo2ReadBuffer,
-    write_buffer: Xylo2WriteBuffer,
+    hdk: XyloA2HDK, read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer,
 ) -> None:
     """
     Reset the neuron and synapse state on a Xylo HDK
@@ -509,10 +507,7 @@ def read_allram_state(
 
 
 def read_accel_mode_data(
-    monitor_buffer: Xylo2NeuronStateBuffer,
-    Nin: int,
-    Nhidden: int,
-    Nout: int,
+    monitor_buffer: Xylo2NeuronStateBuffer, Nin: int, Nhidden: int, Nout: int,
 ) -> XyloState:
     """
     Read accelerated simulation mode data from a Xylo HDK
@@ -913,9 +908,7 @@ def print_debug_ram(
 
 
 def export_registers(
-    read_buffer: Xylo2ReadBuffer,
-    write_buffer: Xylo2WriteBuffer,
-    file,
+    read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer, file,
 ) -> None:
     """
     Print register contents for debugging purposes
@@ -1033,8 +1026,7 @@ def export_registers(
 
 
 def print_debug_registers(
-    read_buffer: Xylo2ReadBuffer,
-    write_buffer: Xylo2WriteBuffer,
+    read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer,
 ) -> None:
     """
     Print register contents of a Xylo HDK for debugging purposes
@@ -1086,9 +1078,7 @@ def num_buffer_neurons(Nhidden: int) -> int:
 
 
 def get_current_timestamp(
-    read_buffer: Xylo2ReadBuffer,
-    write_buffer: Xylo2WriteBuffer,
-    timeout: float = 3.0,
+    read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer, timeout: float = 3.0,
 ) -> int:
     """
     Retrieve the current timestamp on a Xylo HDK
@@ -1130,7 +1120,6 @@ def get_current_timestamp(
     return timestamp
 
 
-
 def configure_accel_time_mode(
     config: XyloConfiguration,
     state_monitor_buffer: Xylo2NeuronStateBuffer,
@@ -1138,8 +1127,8 @@ def configure_accel_time_mode(
     monitor_Noutput: Optional[int] = 0,
     # i_syn_start: Optional[int] = 0,
     # v_mem_start: Optional[int] = 0,
-    readout = "Spike",
-    record = False,
+    readout="Spike",
+    record=False,
 ) -> (XyloConfiguration, Xylo2NeuronStateBuffer):
     """
     Switch on accelerated-time mode on a Xylo hdk, and configure network monitoring
@@ -1169,25 +1158,31 @@ def configure_accel_time_mode(
     config.debug.monitor_neuron_v_mem = None
 
     if record:
-        config.debug.monitor_neuron_i_syn = (
-            samna.xylo.configuration.NeuronRange(0, monitor_Nhidden + monitor_Noutput))
-        config.debug.monitor_neuron_i_syn2 = (
-            samna.xylo.configuration.NeuronRange(0, monitor_Nhidden))
-        config.debug.monitor_neuron_spike = (
-            samna.xylo.configuration.NeuronRange(0, monitor_Nhidden))
-        config.debug.monitor_neuron_v_mem = (
-            samna.xylo.configuration.NeuronRange(0, monitor_Nhidden + monitor_Noutput))
+        config.debug.monitor_neuron_i_syn = samna.xylo.configuration.NeuronRange(
+            0, monitor_Nhidden + monitor_Noutput
+        )
+        config.debug.monitor_neuron_i_syn2 = samna.xylo.configuration.NeuronRange(
+            0, monitor_Nhidden
+        )
+        config.debug.monitor_neuron_spike = samna.xylo.configuration.NeuronRange(
+            0, monitor_Nhidden
+        )
+        config.debug.monitor_neuron_v_mem = samna.xylo.configuration.NeuronRange(
+            0, monitor_Nhidden + monitor_Noutput
+        )
 
     else:
         if readout == "Isyn":
-            config.debug.monitor_neuron_i_syn = (
-                samna.xylo.configuration.NeuronRange(monitor_Nhidden, monitor_Nhidden + monitor_Noutput))
+            config.debug.monitor_neuron_i_syn = samna.xylo.configuration.NeuronRange(
+                monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+            )
         # elif readout == "Spike":
         #     config.debug.monitor_neuron_spike = (
         #         samna.xylo.configuration.NeuronRange(monitor_Nhidden, monitor_Nhidden + monitor_Noutput))
         elif readout == "Vmem":
-            config.debug.monitor_neuron_v_mem = (
-                samna.xylo.configuration.NeuronRange(monitor_Nhidden, monitor_Nhidden + monitor_Noutput))
+            config.debug.monitor_neuron_v_mem = samna.xylo.configuration.NeuronRange(
+                monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+            )
 
     # - Configure the monitor buffer
     state_monitor_buffer.set_configuration(config)
@@ -1224,9 +1219,7 @@ def to_hex(n: int, digits: int) -> str:
 
 
 def export_config(
-    path: Union[str, Path],
-    config: XyloConfiguration,
-    dt: float,
+    path: Union[str, Path], config: XyloConfiguration, dt: float,
 ) -> None:
     """
     Export a network configuration to a set of text files, for debugging purposes

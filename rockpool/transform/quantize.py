@@ -23,6 +23,7 @@ try:
             a = jnp.floor(param)
             return a + ((param - a) > rand.uniform(self.rng_key, shape=param.shape))
 
+
 except (ImportError, ModuleNotFoundError) as err:
     from rockpool.utilities.backend_management import missing_backend_shim
 

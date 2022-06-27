@@ -25,11 +25,12 @@ except ModuleNotFoundError:
     def tqdm(wrapped, *args, **kwargs):
         return wrapped
 
+
 from typing import Union, Dict, Any, Tuple, Optional
 
 
+__all__ = ["AFESamna"]
 
-__all__ = ['AFESamna']
 
 class AFESamna(Module):
     """
@@ -60,13 +61,15 @@ class AFESamna(Module):
         >>> import numpy as np
         >>> audio_events = afe(np.zeros([0, 100, 0]))
     """
-    def __init__(self,
-                 device: AFE2HDK,
-                 config: Optional[AFE2Configuration] = None,
-                 dt: float = 1e-3,
-                 *args,
-                 **kwargs,
-                 ):
+
+    def __init__(
+        self,
+        device: AFE2HDK,
+        config: Optional[AFE2Configuration] = None,
+        dt: float = 1e-3,
+        *args,
+        **kwargs,
+    ):
         """
         Instantiate an AFE module, via a samna backend
         
@@ -77,26 +80,28 @@ class AFESamna(Module):
         """
         # - Check input arguments
         if device is None:
-            raise ValueError("`device` must be a valid, opened Xylo AFE V2 HDK self._device.")
+            raise ValueError(
+                "`device` must be a valid, opened Xylo AFE V2 HDK self._device."
+            )
 
         # - Get a default configuration
         if config is not None:
-            warnings.warn('Setting a manual configuration for the Xylo-AFE2 is not yet supported.')
-            
+            warnings.warn(
+                "Setting a manual configuration for the Xylo-AFE2 is not yet supported."
+            )
+
         if config is None:
             config = samna.afe2.configuration.AfeConfiguration()
 
         # - Determine how many output channels we have
         Nout = len(config.analog_top.channels)
-    
+
         # - Initialise the superclass
-        super().__init__(
-            shape=(0, Nout), spiking_input=True, spiking_output=True
-        )
-        
+        super().__init__(shape=(0, Nout), spiking_input=True, spiking_output=True)
+
         # - Store the HDK device node
         self._device = device
-        
+
         # - Store the dt parameter
         self.dt: P_float = SimulationParameter(dt)
 
@@ -104,11 +109,13 @@ class AFESamna(Module):
         device_io = self._device.get_io_module()
         device_io.write_config(0x52, 0b11)
         # time.sleep(0.5)
-        
+
         # - Create write and read buffers
         self._xylo_core_read_buf = hdu.Xylo2ReadBuffer()
         graph = samna.graph.EventFilterGraph()
-        graph.sequential([self._device.get_xylo_model_source_node(), self._xylo_core_read_buf])
+        graph.sequential(
+            [self._device.get_xylo_model_source_node(), self._xylo_core_read_buf]
+        )
 
         self._afe_read_buf = hdu.AFE2ReadBuffer()
         graph = samna.graph.EventFilterGraph()
@@ -119,9 +126,13 @@ class AFESamna(Module):
         graph.sequential([self._afe_write_buf, self._device.get_afe_model_sink_node()])
 
         # - Check that we have a correct device version
-        self._chip_version, self._chip_revision = hdu.read_afe2_module_version(self._afe_read_buf, self._afe_write_buf)
+        self._chip_version, self._chip_revision = hdu.read_afe2_module_version(
+            self._afe_read_buf, self._afe_write_buf
+        )
         if self._chip_version != 1 or self._chip_revision != 0:
-            raise ValueError(f'AFE version is {(self._chip_version, self._chip_revision)}; expected (1, 0).')
+            raise ValueError(
+                f"AFE version is {(self._chip_version, self._chip_revision)}; expected (1, 0)."
+            )
 
         # - Configure the HDK
         device_io.write_config(0x1002, 1)
@@ -135,11 +146,11 @@ class AFESamna(Module):
         device_io.write_config(0x02, 0x30)
         # time.sleep(0.5)
         # xylo_handler = device_io.get_xylo_handler()
-        
+
         # - Set up known good configuration
-        print('Configuring AFE...')
+        print("Configuring AFE...")
         hdu.apply_afe2_default_config(self._device)
-        print('Configured AFE')
+        print("Configured AFE")
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
         """
@@ -151,20 +162,27 @@ class AFESamna(Module):
         Returns:
             (np.ndarray, dict, dict) output_events, {}, {}
         """
-        
+
         # - Handle auto batching
         input_data, _ = self._auto_batch(input_data)
-        
+
         # - For how long should we record?
         duration = input_data.shape[1] * self.dt
-        
+
         # - Record events
-        timestamps, channels = hdu.read_afe2_events_blocking(self._device, self._afe_write_buf, self._afe_read_buf, duration)
-        
+        timestamps, channels = hdu.read_afe2_events_blocking(
+            self._device, self._afe_write_buf, self._afe_read_buf, duration
+        )
+
         # - Convert to an event raster
-        events_ts = TSEvent(timestamps, channels,
-                            t_start=0., t_stop=duration, num_channels=self.size_out).raster(self.dt, add_events=True)
-        
+        events_ts = TSEvent(
+            timestamps,
+            channels,
+            t_start=0.0,
+            t_stop=duration,
+            num_channels=self.size_out,
+        ).raster(self.dt, add_events=True)
+
         # - Return output, state, record dict
         return events_ts, self.state(), {}
 

@@ -26,6 +26,7 @@ try:
                 self.rng_key, p=jnp.array(1.0 - prob_dropout), shape=param.shape
             )
 
+
 except (ImportError, ModuleNotFoundError) as err:
     from rockpool.utilities.backend_management import missing_backend_shim
 

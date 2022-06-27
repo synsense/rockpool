@@ -70,10 +70,10 @@ def rndm_sparse_ei_net(
     ratio_exc = np.clip(ratio_exc, 0, 1)
 
     # - Number of non-zero elements in matrix
-    nNumWeights = int(connectivity * res_size**2)
+    nNumWeights = int(connectivity * res_size ** 2)
 
     # - Array for storing connection strengths
-    mfWeights = np.zeros(res_size**2)
+    mfWeights = np.zeros(res_size ** 2)
     # - Draw non-zero weights
     mfWeights[:nNumWeights] = rndm_weight_fct(nNumWeights)
 
@@ -1159,8 +1159,8 @@ def in_res_digital(
     vnWeights = np.zeros(nNumInputs)
 
     # - Determine value range of unnormalized weights
-    nMinWeight = int(-(2**bit_resolution) / 2)
-    nMaxWeight = int(2**bit_resolution / 2)
+    nMinWeight = int(-(2 ** bit_resolution) / 2)
+    nMaxWeight = int(2 ** bit_resolution / 2)
     # - Generate excitatory weights
     vnWeights[:nNumExcIn] = fScale * np.random.randint(1, nMaxWeight, size=nNumExcIn)
     # - Generate inhibitory weights
@@ -1210,7 +1210,7 @@ def iaf_sparse_net(
 
     # - Randomise recurrent weights
     weights = (
-        np.random.randn(res_size**2) * np.asarray(std) + np.asarray(mean)
+        np.random.randn(res_size ** 2) * np.asarray(std) + np.asarray(mean)
     ) * vbConnection
     return weights.reshape(res_size, res_size)
 

@@ -140,10 +140,7 @@ class Rate(Module):
         """ The vector ``(N,)`` of time constants :math:`\\tau` for each neuron"""
 
         self.bias: P_tensor = Parameter(
-            bias,
-            "bias",
-            init_func=lambda s: np.zeros(s),
-            shape=[(self.size_out,), ()],
+            bias, "bias", init_func=lambda s: np.zeros(s), shape=[(self.size_out,), ()],
         )
         """The vector ``(N,)`` of bias currents for each neuron"""
 
@@ -189,9 +186,7 @@ class Rate(Module):
         self.act_fn: Union[Callable, SimulationParameter] = SimulationParameter(act_fn)
 
     def evolve(
-        self,
-        input_data: np.ndarray,
-        record: bool = False,
+        self, input_data: np.ndarray, record: bool = False,
     ):
         input_data, (x,) = self._auto_batch(input_data, (self.x,))
         batches, num_timesteps, n_inputs = input_data.shape
@@ -233,14 +228,9 @@ class Rate(Module):
         for b in range(batches):
             for t in range(num_timesteps):
                 # - Solve layer dynamics for this time-step
-                (
-                    (x[b], _),
-                    (
-                        this_rec_i,
-                        this_r_s,
-                        this_out,
-                    ),
-                ) = forward((x[b], self.act_fn(x[b], self.threshold)), inputs[b, t, :])
+                ((x[b], _), (this_rec_i, this_r_s, this_out,),) = forward(
+                    (x[b], self.act_fn(x[b], self.threshold)), inputs[b, t, :]
+                )
 
                 # - Keep a record of the layer dynamics
                 rec_inputs[b, t, :] = this_rec_i

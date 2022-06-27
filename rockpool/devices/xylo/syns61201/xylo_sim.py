@@ -34,7 +34,9 @@ class XyloSim(XyloSimV1):
     """
 
     @classmethod
-    def from_config(cls, config: XyloConfiguration, dt: float = 1e-3, output_mode: str = 'Spike'):
+    def from_config(
+        cls, config: XyloConfiguration, dt: float = 1e-3, output_mode: str = "Spike"
+    ):
         """
         Creata a XyloSim based layer to simulate the Xylo hardware, from a configuration
 
@@ -52,7 +54,12 @@ class XyloSim(XyloSimV1):
         cls.output_mode = output_mode
 
         # - Instantiate the class
-        mod = cls(create_key=cls.__create_key, config=config, dt=dt, output_mode=cls.output_mode)
+        mod = cls(
+            create_key=cls.__create_key,
+            config=config,
+            dt=dt,
+            output_mode=cls.output_mode,
+        )
 
         # - Make a storage object for the extracted configuration
         class _(object):
@@ -168,7 +175,7 @@ class XyloSim(XyloSimV1):
         aliases: Optional[list] = None,
         dt: float = 1e-3,
         verify_config: bool = True,
-        output_mode: str = 'Spike',
+        output_mode: str = "Spike",
     ) -> "XyloSim":
         """
         Instantiate a :py:class:`.XyloSim` module from a full set of parameters
@@ -236,7 +243,9 @@ class XyloSim(XyloSimV1):
             threshold_out = np.zeros((np.shape(weights_out)[1]), int)
 
         # - Instantiate the class
-        mod = cls(create_key=cls.__create_key, config=None, dt=dt, output_mode = cls.output_mode)
+        mod = cls(
+            create_key=cls.__create_key, config=None, dt=dt, output_mode=cls.output_mode
+        )
 
         # - Make a storage object for the extracted configuration
         class _(object):
@@ -334,11 +343,7 @@ class XyloSim(XyloSimV1):
         return mod
 
     def evolve(
-        self,
-        input_raster: np.ndarray = None,
-        record: bool = False,
-        *args,
-        **kwargs,
+        self, input_raster: np.ndarray = None, record: bool = False, *args, **kwargs,
     ):
         # - Evolve using the xylo layer
         spike_out = np.array(self._xylo_layer.evolve(input_raster))

@@ -203,12 +203,7 @@ def tree_map_reduce_select(
     proto_flat, _ = tu.tree_flatten(protoype_tree)
 
     def map_or_null(leaf: Any, select: bool) -> Any:
-        return jax.lax.cond(
-            select,
-            lambda _: map_fun(leaf),
-            lambda _: null,
-            0,
-        )
+        return jax.lax.cond(select, lambda _: map_fun(leaf), lambda _: null, 0,)
 
     # - Map function over leaves
     mapped = [map_or_null(*xs) for xs in zip(tree_flat, proto_flat)]
@@ -240,12 +235,7 @@ def tree_map_select(
 
     # - A function that conditionally maps over the tree leaves
     def map_or_original(leaf: Any, select: bool) -> Any:
-        return jax.lax.cond(
-            select,
-            lambda _: map_fun(leaf),
-            lambda _: leaf,
-            0,
-        )
+        return jax.lax.cond(select, lambda _: map_fun(leaf), lambda _: leaf, 0,)
 
     # - Map function over leaves
     mapped = [map_or_original(*xs) for xs in zip(tree_flat, proto_flat)]
@@ -279,10 +269,7 @@ def tree_map_select_with_rng(
     # - A function that conditionally maps over the tree leaves
     def map_or_original(leaf: Any, select: bool, rng_key: Any) -> Any:
         return jax.lax.cond(
-            select,
-            lambda _: map_fun(leaf, rng_key),
-            lambda _: leaf,
-            0,
+            select, lambda _: map_fun(leaf, rng_key), lambda _: leaf, 0,
         )
 
     # - Map function over leaves

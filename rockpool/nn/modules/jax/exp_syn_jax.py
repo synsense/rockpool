@@ -67,7 +67,7 @@ class ExpSynJax(JaxModule):
 
         # - Seed RNG
         if rng_key is None:
-            rng_key = jax.random.PRNGKey(onp.random.randint(0, 2**63))
+            rng_key = jax.random.PRNGKey(onp.random.randint(0, 2 ** 63))
         _, rng_key = jax.random.split(np.array(rng_key, dtype=np.uint32))
 
         # - Initialise state
@@ -93,16 +93,12 @@ class ExpSynJax(JaxModule):
         """ (float) Noise std. dev after 1 second """
 
         self.isyn: Union[np.array, State] = State(
-            shape=self.size_out,
-            init_func=np.zeros,
+            shape=self.size_out, init_func=np.zeros,
         )
         """ (torch.tensor) Synaptic current state for each synapse ``(1, N)`` """
 
     def evolve(
-        self,
-        input_data: np.array,
-        *args,
-        **kwargs,
+        self, input_data: np.array, *args, **kwargs,
     ) -> (np.ndarray, dict, dict):
         # - Get input shapes, add batch dimension if necessary
         if len(input_data.shape) == 2:

@@ -129,7 +129,7 @@ class RateJax(JaxModule):
 
         # - Seed RNG
         if rng_key is None:
-            rng_key = rand.PRNGKey(onp.random.randint(0, 2**63))
+            rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
         _, rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
 
         self.rng_key: Union[np.ndarray, State] = State(
@@ -139,9 +139,7 @@ class RateJax(JaxModule):
 
         # - Initialise state
         self.x: P_ndarray = State(
-            shape=self.size_out,
-            init_func=np.zeros,
-            cast_fn=np.array,
+            shape=self.size_out, init_func=np.zeros, cast_fn=np.array,
         )
         """A vector ``(N,)`` of the internal state of each unit"""
 
@@ -227,9 +225,7 @@ class RateJax(JaxModule):
         }
 
     def evolve(
-        self,
-        input_data: np.ndarray,
-        record: bool = False,
+        self, input_data: np.ndarray, record: bool = False,
     ):
         # - Expand over batches
         input_data, (x0,) = self._auto_batch(input_data, (self.x,))

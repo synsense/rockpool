@@ -715,10 +715,7 @@ class Module(ModuleBase, ABC, metaclass=PostInitMetaMixin):
         )
 
     def _auto_batch(
-        self,
-        data: np.ndarray,
-        states: Tuple = (),
-        target_shapes: Tuple = None,
+        self, data: np.ndarray, states: Tuple = (), target_shapes: Tuple = None,
     ) -> (np.ndarray, Tuple[np.ndarray]):
         """
         Automatically replicate states over batches and verify input dimensions

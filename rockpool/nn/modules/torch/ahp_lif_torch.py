@@ -94,9 +94,7 @@ class aLIFTorch(LIFBaseTorch):
 
         # - Initialise superclass
         super().__init__(
-            shape=shape,
-            *args,
-            **kwargs,
+            shape=shape, *args, **kwargs,
         )
 
         self.w_ahp: P_tensor = rp.Parameter(
@@ -111,20 +109,14 @@ class aLIFTorch(LIFBaseTorch):
         self.tau_ahp: P_tensor = rp.Parameter(
             tau_ahp,
             family="taus",
-            shape=[
-                (self.size_out,),
-                (1,),
-                (),
-            ],
+            shape=[(self.size_out,), (1,), (),],
             init_func=lambda s: torch.ones(s) * 20e-3,
             cast_fn=self._to_float_tensor,
         )
         """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
 
         self.iahp: P_tensor = rp.State(
-            shape=(self.size_out),
-            init_func=torch.zeros,
-            cast_fn=self._to_float_tensor,
+            shape=(self.size_out), init_func=torch.zeros, cast_fn=self._to_float_tensor,
         )
         """ (Tensor)  currents `(Nin,)` """
 

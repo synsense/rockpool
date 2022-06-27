@@ -126,37 +126,21 @@ class NetworkADS(Network):
         """
 
         # Assertions for checking the dimensions
-        assert np.asarray(weights_in).shape == (
-            Nc,
-            N,
-        ), "Input matrix has shape %s but should have shape (%d,%d)" % (
-            str(np.asarray(weights_in).shape),
-            N,
-            Nc,
+        assert np.asarray(weights_in).shape == (Nc, N,), (
+            "Input matrix has shape %s but should have shape (%d,%d)"
+            % (str(np.asarray(weights_in).shape), N, Nc,)
         )
-        assert np.asarray(weights_out).shape == (
-            N,
-            Nc,
-        ), "Output matrix has shape %s but should have shape (%d,%d)" % (
-            str(np.asarray(weights_out).shape),
-            Nc,
-            N,
+        assert np.asarray(weights_out).shape == (N, Nc,), (
+            "Output matrix has shape %s but should have shape (%d,%d)"
+            % (str(np.asarray(weights_out).shape), Nc, N,)
         )
-        assert np.asarray(weights_fast).shape == (
-            N,
-            N,
-        ), "Fast recurrent matrix has shape %s but should have shape (%d,%d)" % (
-            str(np.asarray(weights_fast).shape),
-            N,
-            N,
+        assert np.asarray(weights_fast).shape == (N, N,), (
+            "Fast recurrent matrix has shape %s but should have shape (%d,%d)"
+            % (str(np.asarray(weights_fast).shape), N, N,)
         )
-        assert np.asarray(weights_slow).shape == (
-            Nb,
-            N,
-        ), "Slow recurrent matrix has shape %s but should have shape (%d,%d)" % (
-            str(np.asarray(weights_slow).shape),
-            Nb,
-            N,
+        assert np.asarray(weights_slow).shape == (Nb, N,), (
+            "Slow recurrent matrix has shape %s but should have shape (%d,%d)"
+            % (str(np.asarray(weights_slow).shape), Nb, N,)
         )
 
         ads_layer = RecFSSpikeADS(

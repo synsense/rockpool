@@ -1162,10 +1162,7 @@ class TSContinuous(TimeSeries):
         resampled_series._create_interpolator()
         return resampled_series
 
-    def to_clocked(
-        self,
-        dt: float,
-    ) -> np.ndarray:
+    def to_clocked(self, dt: float,) -> np.ndarray:
         """
         Resample this time series to a synchronous clock and return the samples
 
@@ -1871,7 +1868,7 @@ class TSContinuous(TimeSeries):
         is_nan_other = np.isnan(base)
 
         # - Perform exponentiation
-        new_series.samples = base**new_series.samples
+        new_series.samples = base ** new_series.samples
 
         # - Fill in nans
         new_series.samples[np.logical_or(is_nan_self, is_nan_other)] = np.nan

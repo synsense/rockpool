@@ -53,7 +53,7 @@ class StepPWL(torch.autograd.Function):
             grad_x = grad_output / threshold * mask
 
         if ctx.needs_input_grad[1]:
-            grad_threshold = -x * grad_output / (threshold**2) * mask
+            grad_threshold = -x * grad_output / (threshold ** 2) * mask
 
         return grad_x, grad_threshold, grad_window, grad_max_spikes_per_dt
 
@@ -159,11 +159,7 @@ class LIFBaseTorch(TorchModule):
 
         # - Initialise superclass
         super().__init__(
-            shape=shape,
-            spiking_input=True,
-            spiking_output=True,
-            *args,
-            **kwargs,
+            shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs,
         )
 
         self.n_neurons = self.size_out
@@ -206,17 +202,7 @@ class LIFBaseTorch(TorchModule):
         self.tau_syn: P_tensor = rp.Parameter(
             tau_syn,
             family="taus",
-            shape=[
-                (
-                    self.size_out,
-                    self.n_synapses,
-                ),
-                (
-                    1,
-                    self.n_synapses,
-                ),
-                (),
-            ],
+            shape=[(self.size_out, self.n_synapses,), (1, self.n_synapses,), (),],
             init_func=lambda s: torch.ones(s) * 20e-3,
             cast_fn=self._to_float_tensor,
         )
@@ -241,8 +227,7 @@ class LIFBaseTorch(TorchModule):
         """ (Tensor) Firing threshold for each neuron `(Nout,)` """
 
         self.learning_window: P_tensor = rp.SimulationParameter(
-            learning_window,
-            cast_fn=self._to_float_tensor,
+            learning_window, cast_fn=self._to_float_tensor,
         )
         """ (float) Learning window cutoff for surrogate gradient function """
 
@@ -406,11 +391,7 @@ class LIFTorch(LIFBaseTorch):
         input_data, (vmem, spikes, isyn) = self._auto_batch(
             input_data,
             (self.vmem, self.spikes, self.isyn),
-            (
-                (self.size_out,),
-                (self.size_out,),
-                (self.size_out, self.n_synapses),
-            ),
+            ((self.size_out,), (self.size_out,), (self.size_out, self.n_synapses),),
         )
         n_batches, n_timesteps, _ = input_data.shape
 
