@@ -253,6 +253,7 @@ class Figure:
         margin: Optional[float] = 0.2,
         ax: Optional[matplotlib.axes.Axes] = None,
         line_ratio: float = 0.3,
+        ylabel: str = "Current (A)",
         *args,
         **kwargs,
     ) -> TSContinuous:
@@ -275,6 +276,8 @@ class Figure:
         :type ax: Optional[matplotlib.axes.Axes], optional
         :param line_ratio: the ratio between Imem lines and the Ispkthr lines, defaults to 0.3
         :type line_ratio: float, optional
+        :param ylabel: ylabel value to be printed
+        :type ylabel: str, optional
         :return: Imem current in `TSContinuous` object format
         :rtype: TSContinuous
         """
@@ -286,8 +289,7 @@ class Figure:
         # Convert and plot
         Ix = TSContinuous.from_clocked(Ix_record, dt=dt, name=name)
         _lines = Ix.plot(stagger=np.float32(Ix.max * f_margin), *args, **kwargs)
-        # plt.ylabel(f"Current(A, +{np.float32(Ix.max * f_margin):.1e})")
-        plt.ylabel(f"Current(A)")
+        plt.ylabel(ylabel)
 
         if idx_map is not None:
             ax = plt.gca()
