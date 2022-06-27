@@ -879,6 +879,9 @@ class DynapSim(JaxModule):
             isyn_inf = (Igain_syn_clip / Itau_syn_clip) * Iws
             isyn_inf = jnp.clip(isyn_inf, self.__zero)
 
+            # Short term potentiation ratio
+            r_stp = Igain_syn_clip / (isyn + Igain_syn_clip) * 0.95
+
             ## Exponential charge, discharge positive feedback factor arrays
             f_charge = self.__one - jnp.exp(-t_pulse / tau_syn.T).T  # Nrecx4
             f_discharge = jnp.exp(-self.dt / tau_syn)  # Nrecx4
@@ -887,7 +890,15 @@ class DynapSim(JaxModule):
             isyn = f_discharge * isyn
 
             ## CHARGE if spike occurs -- UNDERSAMPLED -- dt >> t_pulse
-            isyn += f_charge * isyn_inf
+            del_isyn_rc = f_charge * isyn_inf
+            del_isyn_stp = (
+                isyn
+                * (t_pulse / tau_syn.T).T
+                * (((Iws / Igain_syn_clip) + self.__one) - (isyn / Igain_syn_clip))
+            )
+
+            # Interpolate the STP region and RC region
+            isyn += (del_isyn_stp * r_stp) + del_isyn_rc * (self.__one - r_stp)
             isyn = jnp.clip(isyn.T, self.md.Io).T  # Nrecx4
 
             # ---------------------------------- #
