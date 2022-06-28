@@ -48,7 +48,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import jax
 from jax import random as rand
-from jax import custom_gradient
 from jax.lax import scan
 from jax.tree_util import Partial
 
@@ -72,10 +71,13 @@ Dynapse1Configuration = Any
 Dynapse2Configuration = Any
 
 
-@custom_gradient
+@jax.custom_jvp
 def step_pwl(
-    imem: jnp.DeviceArray, Ispkthr: jnp.DeviceArray, Ireset: jnp.DeviceArray
-) -> Tuple[jnp.DeviceArray, Callable[[jnp.DeviceArray], jnp.DeviceArray]]:
+    imem: jnp.DeviceArray,
+    Ispkthr: jnp.DeviceArray,
+    Ireset: jnp.DeviceArray,
+    max_spikes_per_dt: int = jnp.inf,
+) -> float:
     """
     step_pwl implements heaviside step function with piece-wise linear derivative to use as spike-generation surrogate
 
@@ -85,15 +87,23 @@ def step_pwl(
     :type Ispkthr: jnp.DeviceArray
     :param Ireset: Reset current after spike generation in Amperes
     :type Ireset: jnp.DeviceArray
-    :return: spikes, grad_func
-        spike: generated spike output values
-        grad_func:gradient function
-    :rtype: Tuple[jnp.DeviceArray, Callable[[jnp.DeviceArray], jnp.DeviceArray]]
+    :return: number of spikes produced
+    :rtype: float
     """
+    spikes = jnp.floor(jnp.log(imem / Ispkthr))
+    n_spikes = jnp.clip(spikes, 0.0, max_spikes_per_dt)
+    return n_spikes
 
-    spikes = jnp.clip(jnp.floor(imem - Ispkthr) + 1.0, 0.0)
-    grad_func = lambda g: (g * (imem > Ireset) * (Ispkthr - Ireset), 0.0, 0.0)
-    return spikes, grad_func
+
+@step_pwl.defjvp
+def step_pwl_jvp(primals, tangents):
+    imem, Ispkthr, Ireset, max_spikes_per_dt = primals
+    imem_dot, Ispkthr_dot, Ireset_dot, max_spikes_per_dt_dot = tangents
+    primal_out = step_pwl(*primals)
+    tangent_out = jnp.clip(jnp.ceil(imem - Ireset), 0, 1) * (
+        (imem_dot * Ispkthr) - (imem * Ispkthr_dot)
+    )
+    return primal_out, tangent_out
 
 
 def poisson_weights_se2(
