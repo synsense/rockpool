@@ -35,6 +35,42 @@ from samna.xyloCore2.configuration import XyloConfiguration
 XyloA2HDK = Any
 
 
+class XyloState(NamedTuple):
+    """
+    `.NamedTuple` that encapsulates a recorded Xylo HDK state
+    """
+
+    Nin: int
+    """ int: The number of input-layer neurons """
+
+    Nhidden: int
+    """ int: The number of hidden-layer neurons """
+
+    Nout: int
+    """ int: The number of output layer neurons """
+
+    V_mem_hid: np.ndarray
+    """ np.ndarray: Membrane potential of hidden neurons ``(Nhidden,)``"""
+
+    I_syn_hid: np.ndarray
+    """ np.ndarray: Synaptic current 1 of hidden neurons ``(Nhidden,)``"""
+
+    V_mem_out: np.ndarray
+    """ np.ndarray: Membrane potential of output neurons ``(Nhidden,)``"""
+
+    I_syn_out: np.ndarray
+    """ np.ndarray: Synaptic current of output neurons ``(Nout,)``"""
+
+    I_syn2_hid: np.ndarray
+    """ np.ndarray: Synaptic current 2 of hidden neurons ``(Nhidden,)``"""
+
+    Spikes_hid: np.ndarray
+    """ np.ndarray: Spikes from hidden layer neurons ``(Nhidden,)``"""
+
+    Spikes_out: np.ndarray
+    """ np.ndarray: Spikes from output layer neurons ``(Nout,)``"""
+
+
 def find_xylo_a2_boards() -> List[XyloA2HDK]:
     """
     Search for and return a list of Xylo AFE V2 HDKs
@@ -227,12 +263,12 @@ def read_afe2_module_version(
 ) -> (int, int):
     """
     Return the version and revision numbers for a connected AFE2 HDK
-    
+
     Args:
         afe_read_buf (AFE2ReadBuffer): A connected AFE2 read buffer
         afe_write_buf (AFE2WriteBuffer): A connected AFE2 write buffer
 
-    Returns: 
+    Returns:
         (int, int): version, revision numbers of the connected chip
     """
     # - Read the version register
@@ -660,3 +696,519 @@ def write_memory(
         write_buffer.write(write_event_list[written : (written + chunk_size)])
         written += chunk_size
         time.sleep(0.01)
+
+
+def reset_neuron_synapse_state(
+    hdk: XyloA2HDK, read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer,
+) -> None:
+    """
+    Reset the neuron and synapse state on a Xylo HDK
+
+    Args:
+        hdk (XyloHDK): The Xylo HDK hdk to reset
+        read_buffer (XyloReadBuffer): A read buffer connected to the Xylo HDK to reset
+        write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK to reset
+    """
+    # - Get the current configuration
+    config = hdk.get_model().get_configuration()
+
+    # - Reset via configuration
+    config.clear_network_state = True
+    apply_configuration(hdk, config, read_buffer, write_buffer)
+
+
+def apply_configuration(
+    hdk: XyloA2HDK,
+    config: XyloConfiguration,
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
+) -> None:
+    """
+    Apply a configuration to the Xylo HDK
+
+    Args:
+        hdk (XyloHDK): The Xylo HDK to write the configuration to
+        config (XyloConfiguration): A configuration for Xylo
+        read_buffer (XyloReadBuffer): A connected read buffer for the Xylo HDK
+        write_buffer (XyloWriteBuffer): A connected write buffer for the Xylo HDK
+    """
+    # - WORKAROUND: Manually enable debug clock
+    config.debug.clock_enable = True
+    config.debug.ram_power_enable = True
+
+    # - Ideal -- just write the configuration using samna
+    hdk.get_model().apply_configuration(config)
+
+    # - WORKAROUND: Design bug, where aliasing is not computed correctly
+    rcram = read_memory(read_buffer, write_buffer, 0x9980, 1000)
+    for i in range(1000):
+        if rcram[i] == 2:
+            rcram[i] = 3
+    write_memory(write_buffer, 0x9980, 1000, rcram)
+
+
+def read_neuron_synapse_state(
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
+    Nhidden: int = 1000,
+    Nout: int = 8,
+) -> XyloState:
+    """
+    Read and return the current neuron and synaptic state of neurons
+
+    Args:
+        read_buffer (XyloReadBuffer): A read buffer connected to the Xylo HDK
+        write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK
+        Nhidden (int): Number of hidden neurons to read. Default: ``1000`` (all neurons).
+        Nout (int): Number of output neurons to read. Default: ``8`` (all neurons).
+
+    Returns:
+        :py:class:`.XyloState`: The recorded state as a ``NamedTuple``. Contains keys ``V_mem_hid``,  ``V_mem_out``, ``I_syn_hid``, ``I_syn_out``, ``I_syn2_hid``, ``Nhidden``, ``Nout``. This state has **no time axis**; the first axis is the neuron ID.
+
+    """
+    # - Define the memory bank addresses
+    memory_table = {
+        "nscram": 0x7E00,
+        "rsc2ram": 0x81F0,
+        "nmpram": 0x85D8,
+        "rspkram": 0xA150,
+    }
+
+    # - Read synaptic currents
+    Isyn = read_memory(
+        read_buffer,
+        write_buffer,
+        memory_table["nscram"],
+        Nhidden + Nout + num_buffer_neurons(Nhidden),
+    )
+
+    # - Read synaptic currents 2
+    Isyn2 = read_memory(read_buffer, write_buffer, memory_table["rsc2ram"], Nhidden)
+
+    # - Read membrane potential
+    Vmem = read_memory(
+        read_buffer,
+        write_buffer,
+        memory_table["nmpram"],
+        Nhidden + Nout + num_buffer_neurons(Nhidden),
+    )
+
+    # - Read reservoir spikes
+    Spikes = read_memory(read_buffer, write_buffer, memory_table["rspkram"], Nhidden)
+
+    # - Return the state
+    return XyloState(
+        Nhidden,
+        Nout,
+        np.array(Vmem[:Nhidden], "int16"),
+        np.array(Isyn[:Nhidden], "int16"),
+        np.array(Vmem[-Nout:], "int16"),
+        np.array(Isyn[-Nout:], "int16"),
+        np.array(Isyn2, "int16"),
+        np.array(Spikes, "bool"),
+        read_output_events(read_buffer, write_buffer)[:Nout],
+    )
+
+
+def is_xylo_ready(read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer) -> None:
+    """
+    Query a Xylo HDK to see if it is ready for a time-step
+
+    Args:
+        read_buffer (XyloReadBuffer): A buffer to use while reading
+        write_buffer (XyloWriteBuffer): A buffer to use while writing
+
+    Returns: ``True`` iff the Xylo HDK has finished all processing
+    """
+    return read_register(read_buffer, write_buffer, 0x10)[-1] & (1 << 16) is not 0
+
+
+def advance_time_step(write_buffer: Xylo2WriteBuffer) -> None:
+    """
+    Take a single manual time-step on a Xylo HDK
+
+    Args:
+        write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK
+    """
+    e = samna.xylo.event.TriggerProcessing()
+    write_buffer.write([e])
+
+
+def reset_input_spikes(write_buffer: Xylo2WriteBuffer) -> None:
+    """
+    Reset the input spike registers on a Xylo HDK
+
+    Args:
+        write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK to access
+    """
+    for register in range(4):
+        write_register(write_buffer, 0x0C + register)
+
+
+def send_immediate_input_spikes(
+    write_buffer: Xylo2WriteBuffer, spike_counts: Iterable[int]
+) -> None:
+    """
+    Send input events with no timestamp to a Xylo HDK
+
+    Args:
+        write_buffer (XyloWriteBuffer): A write buffer connected to a Xylo HDK
+        spike_counts (Iterable[int]): An Iterable containing one slot per input channel. Each entry indicates how many events should be sent to the corresponding input channel.
+    """
+    # - Encode input events
+    events_list = []
+    for input_channel, event in enumerate(spike_counts):
+        if event:
+            for _ in range(int(event)):
+                s_event = samna.xylo.event.Spike()
+                s_event.neuron_id = input_channel
+                events_list.append(s_event)
+
+    # - Send input spikes for this time-step
+    write_buffer.write(events_list)
+
+
+def read_output_events(
+    read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer
+) -> np.ndarray:
+    """
+    Read the spike flags from the output neurons on a Xylo HDK
+
+    Args:
+        read_buffer (XyloReadBuffer): A read buffer to use
+        write_buffer (XyloWriteBuffer): A write buffer to use
+
+    Returns:
+        np.ndarray: A boolean array of output event flags
+    """
+    # - Read the status register
+    status = read_register(read_buffer, write_buffer, 0x10)
+
+    # - Convert to neuron events and return
+    string = format(int(status[-1]), "0>32b")[-8:]
+    return np.array([bool(int(e)) for e in string[::-1]], "bool")
+
+
+def num_buffer_neurons(Nhidden: int) -> int:
+    """
+    Number of buffer neurons required for this network on Xylo 1
+
+    Args:
+        Nhidden (int): Number of hidden layer neurons
+
+    Returns:
+        int: The number of buffer neurons
+    """
+    Nbuffer = 2 if Nhidden % 2 == 1 else 1
+    return Nbuffer
+
+
+def get_current_timestamp(
+    read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer, timeout: float = 3.0,
+) -> int:
+    """
+    Retrieve the current timestamp on a Xylo HDK
+
+    Args:
+        read_buffer (XyloReadBuffer): A connected read buffer for the xylo HDK
+        write_buffer (XyloWriteBuffer): A connected write buffer for the Xylo HDK
+        timeout (float): A timeout for reading
+
+    Returns:
+        int: The current timestamp on the Xylo HDK
+    """
+
+    # - Clear read buffer
+    read_buffer.get_events()
+
+    # - Trigger a readout event on Xylo
+    e = samna.xylo.event.TriggerReadout()
+    write_buffer.write([e])
+
+    # - Wait for the readout event to be sent back, and extract the timestamp
+    timestamp = None
+    continue_read = True
+    start_t = time.time()
+    while continue_read:
+        readout_events = read_buffer.get_events()
+        ev_filt = [e for e in readout_events if isinstance(e, samna.xylo.event.Readout)]
+        if ev_filt:
+            timestamp = ev_filt[0].timestamp
+            continue_read = False
+        else:
+            # - Check timeout
+            continue_read &= (time.time() - start_t) < timeout
+
+    if timestamp is None:
+        raise TimeoutError(f"Timeout after {timeout}s when reading current timestamp.")
+
+    # - Return the timestamp
+    return timestamp
+
+
+def configure_accel_time_mode(
+    config: XyloConfiguration,
+    state_monitor_buffer: Xylo2NeuronStateBuffer,
+    monitor_Nhidden: Optional[int] = 0,
+    monitor_Noutput: Optional[int] = 0,
+    # i_syn_start: Optional[int] = 0,
+    # v_mem_start: Optional[int] = 0,
+    readout="Spike",
+    record=False,
+) -> (XyloConfiguration, Xylo2NeuronStateBuffer):
+    """
+    Switch on accelerated-time mode on a Xylo hdk, and configure network monitoring
+
+    Notes:
+        Use :py:func:`new_xylo_state_monitor_buffer` to generate a buffer to monitor neuron and synapse state.
+
+    Args:
+        config (XyloConfiguration): The desired Xylo configuration to use
+        state_monitor_buffer (XyloNeuronStateBuffer): A connected neuron state monitor buffer
+        monitor_Nhidden (Optional[int]): The number of hidden neurons for which to monitor state during evolution. Default: ``0``, don't monitor any hidden neurons.
+        monitor_Noutput (Optional[int]): The number of output neurons for which to monitor state during evolution. Default: ``0``, don't monitor any output neurons.
+        readout: The readout out mode for which to output neuron states. Default: ``Spike''.
+        record (bool): Iff ``True``, record state during evolution. Default: ``False``, do not record state.
+
+    Returns:
+        (XyloConfiguration, XyloNeuronStateBuffer): `config` and `monitor_buffer`
+    """
+    assert readout in ["Isyn", "Vmem", "Spike"], f"{readout} is not supported."
+
+    # - Select accelerated time mode
+    config.operation_mode = samna.xylo.OperationMode.AcceleratedTime
+
+    config.debug.monitor_neuron_i_syn = None
+    config.debug.monitor_neuron_i_syn2 = None
+    config.debug.monitor_neuron_spike = None
+    config.debug.monitor_neuron_v_mem = None
+
+    if record:
+        config.debug.monitor_neuron_i_syn = samna.xylo.configuration.NeuronRange(
+            0, monitor_Nhidden + monitor_Noutput
+        )
+        config.debug.monitor_neuron_i_syn2 = samna.xylo.configuration.NeuronRange(
+            0, monitor_Nhidden
+        )
+        config.debug.monitor_neuron_spike = samna.xylo.configuration.NeuronRange(
+            0, monitor_Nhidden
+        )
+        config.debug.monitor_neuron_v_mem = samna.xylo.configuration.NeuronRange(
+            0, monitor_Nhidden + monitor_Noutput
+        )
+
+    else:
+        if readout == "Isyn":
+            config.debug.monitor_neuron_i_syn = samna.xylo.configuration.NeuronRange(
+                monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+            )
+        # elif readout == "Spike":
+        #     config.debug.monitor_neuron_spike = (
+        #         samna.xylo.configuration.NeuronRange(monitor_Nhidden, monitor_Nhidden + monitor_Noutput))
+        elif readout == "Vmem":
+            config.debug.monitor_neuron_v_mem = samna.xylo.configuration.NeuronRange(
+                monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+            )
+
+    # - Configure the monitor buffer
+    state_monitor_buffer.set_configuration(config)
+
+    # - Return the configuration and buffer
+    return config, state_monitor_buffer
+
+
+def configure_single_step_time_mode(config: XyloConfiguration) -> XyloConfiguration:
+    """
+    Switch on single-step model on a Xylo hdk
+
+    Args:
+        hdk (XyloBaughterBoard): The Xylo HDK to configure
+        config (XyloConfiguration): The desired Xylo configuration to use
+    """
+    # - Write the configuration
+    config.operation_mode = samna.xylo.OperationMode.Manual
+    return config
+
+
+def to_hex(n: int, digits: int) -> str:
+    """
+    Output a consistent-length hex string encoding a number
+
+    Args:
+        n (int): Number to export
+        digits (int): Number of digits to produce
+
+    Returns:
+        str: Hex-encoded string, with ``digits`` digits
+    """
+    return "%s" % ("0000%x" % (n & 0xFFFFFFFF))[-digits:]
+
+
+def read_accel_mode_data(
+    monitor_buffer: Xylo2NeuronStateBuffer, Nin: int, Nhidden: int, Nout: int,
+) -> XyloState:
+    """
+    Read accelerated simulation mode data from a Xylo HDK
+
+    Args:
+        monitor_buffer (XyloNeuronStateBuffer): A connected `XyloNeuronStateBuffer` to read from
+        Nhidden (int): The number of hidden neurons to monitor
+        Nout (int): The number of output neurons to monitor
+
+    Returns:
+        XyloState: The encapsulated state read from the Xylo device
+    """
+    # - Read data from neuron state buffer
+    vmem_ts = np.array(monitor_buffer.get_reservoir_v_mem(), "int16").T
+    isyn_ts = np.array(monitor_buffer.get_reservoir_i_syn(), "int16").T
+    isyn2_ts = np.array(monitor_buffer.get_reservoir_i_syn2(), "int16").T
+    spikes_ts = np.array(monitor_buffer.get_reservoir_spike(), "int8").T
+    spikes_out_ts = np.array(monitor_buffer.get_output_spike(), "int8").T
+
+    # - Separate hidden and output neurons
+    isyn_out_ts = isyn_ts[:, -Nout:] if len(isyn_ts) > 0 else None
+    isyn_ts = isyn_ts[:, :Nhidden] if len(isyn_ts) > 0 else None
+    vmem_out_ts = vmem_ts[:, -Nout:] if len(vmem_ts) > 0 else None
+    vmem_ts = vmem_ts[:, :Nhidden] if len(vmem_ts) > 0 else None
+
+    # - Return as a XyloState object
+    return XyloState(
+        Nin,
+        Nhidden,
+        Nout,
+        vmem_ts,
+        isyn_ts,
+        vmem_out_ts,
+        isyn_out_ts,
+        isyn2_ts,
+        spikes_ts,
+        spikes_out_ts,
+    )
+
+
+def decode_accel_mode_data(
+    events: List[Any], Nhidden: int = 1000, Nout: int = 8
+) -> Tuple[XyloState, np.ndarray]:
+    """
+    Decode events from accelerated-time operation of the Xylo HDK
+
+    Warnings:
+        ``Nhidden`` and ``Nout`` must be defined correctly for the network deployed to the Xylo HDK, for this function to operate as expected.
+
+        This function must be called with the *full* list of events from a simulation. Otherwise the data returned will be incomplete. This function will not operate as expected if provided with incomplete data.
+
+        You can use the ``target_timstamp`` argument to `.blocking_read` to ensure that you have read events up to the desired final timestep.
+
+    Args:
+        events (List[Any]): A list of events produced during an accelerated-mode simulation on a Xylo HDK
+        Nhidden (int): The number of defined hidden-layer neurons. Default: ``1000``, expect to read the state of every neuron.
+        Nout (int): The number of defined output-layer neurons. Default: ``8``, expect to read the state of every neuron.
+
+    Returns:
+        (`.XyloState`, np.ndarray): A `.NamedTuple` containing the decoded state resulting from the simulation, and an array of timestamps for each state entry over time
+    """
+
+    # - Define the memory banks
+    memory_table = {
+        "nscram": (0x7E00, 1008),
+        "rsc2ram": (0x81F0, 1000),
+        "nmpram": (0x85D8, 1008),
+        "rspkram": (0xA150, 1000),
+    }
+
+    # - Range checking lambda
+    address_in_range = (
+        lambda address, start, count: address >= start and address < start + count
+    )
+
+    # - Initialise return data lists
+    vmem_out_ts = []
+    times = []
+    vmem_ts = [np.zeros(Nhidden + Nout + num_buffer_neurons(Nhidden), "int16")]
+    isyn_ts = [np.ones(Nhidden + Nout + num_buffer_neurons(Nhidden), "int16")]
+    isyn2_ts = [np.zeros(Nhidden, "int16")]
+    spikes_ts = [np.zeros(Nhidden, "bool")]
+    spikes_out_ts = [np.zeros(Nout, "bool")]
+
+    # - Loop over events and decode
+    for e in events:
+        # - Handle an output spike event
+        if isinstance(e, samna.xylo.event.Spike):
+            # - Save this output event
+            spikes_out_ts[e.timestamp - 1][e.neuron_id] = True
+
+        # - Handle a memory value read event
+        if isinstance(e, samna.xylo.event.MemoryValue):
+            # - Find out which memory block this event corresponds to
+            memory_block = [
+                block
+                for (block, (start, count)) in memory_table.items()
+                if address_in_range(e.address, start, count)
+            ]
+
+            # - Store the returned values
+            if memory_block:
+                if "nmpram" in memory_block:
+                    # - Neuron membrane potentials
+                    vmem_ts[-1][e.address - memory_table["nmpram"][0]] = e.data
+
+                elif "nscram" in memory_block:
+                    # - Neuron synaptic currents
+                    isyn_ts[-1][e.address - memory_table["nscram"][0]] = e.data
+
+                elif "rsc2ram" in memory_block:
+                    # - Neuron synapse 2 currents
+                    isyn2_ts[-1][e.address - memory_table["rsc2ram"][0]] = e.data
+
+                elif "rspkram" in memory_block:
+                    # - Reservoir spike events
+                    spikes_ts[-1][e.address - memory_table["rspkram"][0]] = e.data
+
+        # - Handle the readout event, which signals the *end* of a time step
+        if isinstance(e, samna.xylo.event.Readout):
+            # - Advance the timestep counter
+            timestep = e.timestamp
+            times.append(timestep)
+
+            # - Append new empty arrays to state lists
+            vmem_ts.append(
+                np.zeros(Nhidden + Nout + num_buffer_neurons(Nhidden), "int16")
+            )
+            isyn_ts.append(
+                np.ones(Nhidden + Nout + num_buffer_neurons(Nhidden), "int16")
+            )
+            isyn2_ts.append(np.zeros(Nhidden, "int16"))
+            spikes_ts.append(np.zeros(Nhidden, "bool"))
+            spikes_out_ts.append(np.zeros(Nout, "bool"))
+
+    # - Convert data to numpy arrays
+    vmem_out_ts = np.array(vmem_out_ts, "int16")
+    times = np.array(times)
+
+    # - Trim arrays that end up with one too many elements
+    vmem_ts = np.array(vmem_ts[:-1], "int16")
+    isyn_ts = np.array(isyn_ts[:-1], "int16")
+    isyn2_ts = np.array(isyn2_ts[:-1], "int16")
+    spikes_ts = np.array(spikes_ts[:-1], "bool")
+    spikes_out_ts = np.array(spikes_out_ts[:-1], "bool")
+
+    # - Extract output state and trim reservoir state
+    isyn_out_ts = isyn_ts[:, -Nout:]
+    isyn_ts = isyn_ts[:, :Nhidden]
+    vmem_out_ts = vmem_ts[:, -Nout:]
+    vmem_ts = vmem_ts[:, :Nhidden]
+
+    return (
+        XyloState(
+            Nhidden,
+            Nout,
+            vmem_ts,
+            isyn_ts,
+            vmem_out_ts,
+            isyn_out_ts,
+            isyn2_ts,
+            spikes_ts,
+            spikes_out_ts,
+        ),
+        times,
+    )
