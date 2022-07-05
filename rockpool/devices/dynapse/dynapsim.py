@@ -833,8 +833,25 @@ class DynapSim(JaxModule):
         Itau_mem_clip = jnp.clip(self.md.Itau_mem, self.md.Io)
         Igain_mem_clip = jnp.clip(self.md.Igain_mem, self.md.Io)
 
-        # Both (T, Nrecx4), and (T, Nrec, 4) shaped inputs are accepted
-        input_data = jnp.reshape(input_data, (input_data.shape[0], -1, 4))
+        # Handle Batches
+        initial_state = (
+            self.md.iahp,
+            self.md.iampa,
+            self.md.igaba,
+            self.md.imem,
+            self.md.inmda,
+            self.md.ishunt,
+            self.rng_key,
+            self.spikes,
+            self.timer_ref,
+            self.vmem,
+        )
+
+        input_data, initial_state = self._auto_batch(input_data, initial_state)
+        n_batches, n_timesteps, _ = input_data.shape
+
+        # Both (B, T, Nrecx4), and (B, T, Nrec, 4) shaped inputs are accepted
+        input_data = jnp.reshape(input_data, (n_batches, n_timesteps, -1, 4))
 
         def forward(
             state: DynapSimState, Iw_input: jnp.DeviceArray
@@ -1029,23 +1046,16 @@ class DynapSim(JaxModule):
             return state, record_ts
 
         # --- Evolve over spiking inputs --- #
-        initial_state = (
-            self.md.iahp,
-            self.md.iampa,
-            self.md.igaba,
-            self.md.imem,
-            self.md.inmda,
-            self.md.ishunt,
-            self.rng_key,
-            self.spikes,
-            self.timer_ref,
-            self.vmem,
-        )
-        state, record_ts = scan(
-            forward,
-            initial_state,
-            input_data,
-        )
+
+        ## Map over batches
+        @jax.vmap
+        def scan_time(state, data):
+            return scan(forward, state, data)
+
+        ## Scan
+        state, record_ts = scan_time(initial_state, input_data)
+
+        # --- Output --- #
 
         states = {
             "iahp": state[0],
