@@ -90,7 +90,7 @@ def step_pwl(
     :return: number of spikes produced
     :rtype: float
     """
-    spikes = jnp.floor(jnp.log(imem / Ispkthr))
+    spikes = jnp.ceil(jnp.log(imem / Ispkthr))
     n_spikes = jnp.clip(spikes, 0.0, max_spikes_per_dt)
     return n_spikes
 
@@ -100,8 +100,8 @@ def step_pwl_jvp(primals, tangents):
     imem, Ispkthr, Ireset, max_spikes_per_dt = primals
     imem_dot, Ispkthr_dot, Ireset_dot, max_spikes_per_dt_dot = tangents
     primal_out = step_pwl(*primals)
-    tangent_out = jnp.clip(jnp.ceil(imem - Ireset), 0, 1) * (
-        (imem_dot * Ispkthr) - (imem * Ispkthr_dot)
+    tangent_out = (
+        jnp.clip(jnp.ceil(imem - Ireset), 0, 1) * imem_dot * (Ispkthr - Ireset)
     )
     return primal_out, tangent_out
 
@@ -400,6 +400,15 @@ class DynapSim(JaxModule):
         self.vmem = __zero_state(None)
 
         ### --- Parameters --- ###
+        __parameter = lambda _param: Parameter(
+            data=_param,
+            family="bias",
+            shape=(self.size_out,),
+            permit_reshape=False,
+            cast_fn=jnp.array,
+        )
+
+        # Special Handler for wrec
         if isinstance(has_rec, jax.core.Tracer) or has_rec:
             self.w_rec = Parameter(
                 data=w_rec,
@@ -410,16 +419,9 @@ class DynapSim(JaxModule):
                 cast_fn=jnp.array,
             )
         else:
-            self.w_rec = jnp.zeros((self.size_out, self.size_in // 4, 4))
-
-        ## Bias Currents
-        __parameter = lambda _param: Parameter(
-            data=_param,
-            family="bias",
-            shape=(self.size_out,),
-            permit_reshape=False,
-            cast_fn=jnp.array,
-        )
+            self.w_rec = Parameter(
+                data=jnp.zeros((self.size_out, self.size_in // 4, 4)), family=""
+            )
 
         self.Idc = __parameter(Idc)
         self.If_nmda = __parameter(If_nmda)
@@ -731,8 +733,6 @@ class DynapSim(JaxModule):
         __constructor.update(dict.fromkeys(DynapSimCurrents.__annotations__.keys()))
         __constructor.update(dict.fromkeys(["w_rec"]))
 
-        for key in ["Iw_0", "Iw_1", "Iw_2", "Iw_3"]:
-            __constructor.pop(key, None)
         for key in __constructor:
             __constructor[key] = simconfig.__getattribute__(key)
 
@@ -1059,19 +1059,16 @@ class DynapSim(JaxModule):
             "rng_key": state[9],
         }
 
-        record_dict = {}
-
-        if record:
-            record_dict = {
-                "iahp": record_ts[0],
-                "iampa": record_ts[1],
-                "igaba": record_ts[2],
-                "imem": record_ts[3],
-                "inmda": record_ts[4],
-                "ishunt": record_ts[5],
-                "spikes": record_ts[6],
-                "vmem": record_ts[7],
-            }
+        record_dict = {
+            "iahp": record_ts[0],
+            "iampa": record_ts[1],
+            "igaba": record_ts[2],
+            "imem": record_ts[3],
+            "inmda": record_ts[4],
+            "ishunt": record_ts[5],
+            "spikes": record_ts[6],
+            "vmem": record_ts[7],
+        }
 
         return record_ts[6], states, record_dict
 
