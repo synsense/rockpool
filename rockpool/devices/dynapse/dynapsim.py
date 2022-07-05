@@ -961,13 +961,13 @@ class DynapSim(JaxModule):
             # inmda = 0 if vmem < Vth_nmda else inmda
             I_nmda_dp = inmda / (self.__one + self.md.If_nmda / imem)
 
-            # Iin = 0 if the neuron is in the refractory period
-            Iin = I_nmda_dp + iampa - ishunt + self.md.Idc
-            Iin *= jnp.logical_not(timer_ref.astype(bool)).astype(jnp.float32)
-            Iin = jnp.clip(Iin, self.md.Io)
-
             # igaba contributes to the membrane leak instead of subtracting from Iin
             Ileak = Itau_mem_clip + igaba + iahp
+
+            # Iin = 0 if the neuron is in the refractory period
+            Iin = I_nmda_dp + iampa - ishunt + self.md.Idc - Ileak
+            Iin *= jnp.logical_not(timer_ref.astype(bool)).astype(jnp.float32)
+            Iin = jnp.clip(Iin, self.md.Io)
 
             ## Steady state current
             imem_inf = (Igain_mem_clip / Itau_mem_clip) * (Iin - Ileak)
@@ -998,7 +998,8 @@ class DynapSim(JaxModule):
             spikes = step_pwl(imem, self.md.Ispkthr, self.md.Io)
 
             ## Reset imem depending on spiking activity
-            imem = (self.__one - spikes) * imem + spikes * self.md.Io
+            bool_spikes = jnp.clip(spikes, 0, 1)
+            imem = (self.__one - bool_spikes) * imem + bool_spikes * self.md.Io
 
             ## Set the refractrory timer
             timer_ref -= self.dt
@@ -1053,10 +1054,10 @@ class DynapSim(JaxModule):
             "imem": state[3],
             "inmda": state[4],
             "ishunt": state[5],
-            "spikes": state[6],
-            "timer_ref": state[7],
-            "vmem": state[8],
-            "rng_key": state[9],
+            "rng_key": state[6],
+            "spikes": state[7],
+            "timer_ref": state[8],
+            "vmem": state[9],
         }
 
         record_dict = {
