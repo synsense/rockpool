@@ -552,7 +552,7 @@ class Figure:
 
         # Plot the synaptic current and the incoming spikes
         Isyn = Figure.plot_Ix(
-            record_dict[f"i{syn_name.lower()}"][:, post_idx],
+            np.squeeze(record_dict[f"i{syn_name.lower()}"], axis=0)[:, post_idx],
             dt=dt,
             name=title,
             ax=ax_syn,
