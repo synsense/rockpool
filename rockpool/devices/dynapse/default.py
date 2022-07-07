@@ -74,7 +74,7 @@ dcurrents = {
     "Ipulse_ahp": Ipw_lambda("pulse_ahp"),
     "Ipulse": Ipw_lambda("pulse"),
     "Iref": Ipw_lambda("ref"),
-    "Ispkthr": 1e6,
+    "Ispkthr": 1e-6,
     "Itau_ahp": Itau_lambda("ahp"),
     "Itau_ampa": Itau_lambda("ampa"),
     "Itau_gaba": Itau_lambda("gaba"),
