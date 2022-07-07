@@ -109,7 +109,7 @@ class RecDynapSE(Layer):
         self.speedup = speedup
 
         # - Record input core mask and chip ID
-        self._input_coremask = int(np.sum([2 ** n_id for n_id in l_input_core_ids]))
+        self._input_coremask = int(np.sum([2**n_id for n_id in l_input_core_ids]))
         self._input_chip_id = input_chip_id
 
         # - Instantiate DynapseControl

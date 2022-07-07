@@ -139,7 +139,9 @@ def find_xylo_boards() -> List[XyloA2HDK]:
     return xylo_hdk_list
 
 
-def zero_memory(write_buffer: Xylo2WriteBuffer,) -> None:
+def zero_memory(
+    write_buffer: Xylo2WriteBuffer,
+) -> None:
     """
     Clear all Xylo memory
 
@@ -511,7 +513,9 @@ def print_debug_ram(
 
 
 def export_registers(
-    read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer, file,
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
+    file,
 ) -> None:
     """
     Print register contents for debugging purposes
@@ -629,7 +633,8 @@ def export_registers(
 
 
 def print_debug_registers(
-    read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer,
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
 ) -> None:
     """
     Print register contents of a Xylo HDK for debugging purposes
@@ -667,7 +672,9 @@ def print_debug_registers(
 
 
 def export_config(
-    path: Union[str, Path], config: XyloConfiguration, dt: float,
+    path: Union[str, Path],
+    config: XyloConfiguration,
+    dt: float,
 ) -> None:
     """
     Export a network configuration to a set of text files, for debugging purposes

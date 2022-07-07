@@ -27,7 +27,11 @@ class BooleanState(TorchModule):
     """
 
     def __init__(
-        self, shape: Tuple[int], threshold: FloatVector = None, *args, **kwargs,
+        self,
+        shape: Tuple[int],
+        threshold: FloatVector = None,
+        *args,
+        **kwargs,
     ):
         """
         Initialise a boolean state module

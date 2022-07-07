@@ -61,7 +61,9 @@ class FilterBankBase(Module):
 
         # - Initialise the superclass
         super().__init__(
-            shape=shape, *args, **kwargs,
+            shape=shape,
+            *args,
+            **kwargs,
         )
 
         assert fs > 0.0 and isinstance(
@@ -151,7 +153,12 @@ class FilterBankBase(Module):
             filters_output.append(sig)
         return filters_output
 
-    def evolve(self, input: np.ndarray, *args, **kwargs,) -> (np.ndarray, dict, dict):
+    def evolve(
+        self,
+        input: np.ndarray,
+        *args,
+        **kwargs,
+    ) -> (np.ndarray, dict, dict):
         """
         Evolve the state of the filterbanks, given an input
 
@@ -370,7 +377,10 @@ class ButterFilter(FilterBankBase):
         """ (np.ndarray) Vector of bandwidths of each filter, in Hz"""
 
         freq_bands = np.array(
-            [self.frequency - self.bandwidth / 2, self.frequency + self.bandwidth / 2,]
+            [
+                self.frequency - self.bandwidth / 2,
+                self.frequency + self.bandwidth / 2,
+            ]
         ) / (self.fs / 2)
 
         # - Build the filters

@@ -94,7 +94,11 @@ class LIFNeuronTorch(TorchModule):
 
         # - Initialize super-class
         super().__init__(
-            shape=shape, spiking_input=False, spiking_output=True, *args, **kwargs,
+            shape=shape,
+            spiking_input=False,
+            spiking_output=True,
+            *args,
+            **kwargs,
         )
 
         # # - Determine arguments for building tensors
@@ -150,7 +154,12 @@ class LIFNeuronTorch(TorchModule):
 
         # - Fill record dictionary
         record_dict = (
-            {"vmem": self._vmem_rec, "spikes": self._spikes_rec,} if record else {}
+            {
+                "vmem": self._vmem_rec,
+                "spikes": self._spikes_rec,
+            }
+            if record
+            else {}
         )
 
         # - Return output

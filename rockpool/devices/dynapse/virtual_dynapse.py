@@ -41,7 +41,7 @@ class VirtualDynapseV1(Layer):
     _num_chips = params.NUM_CHIPS
     _num_cores_chip = params.NUM_CORES_CHIP
     _num_neurons_core = params.NUM_NEURONS_CORE
-    _weight_resolution = 2 ** params.BIT_RESOLUTION_WEIGHTS - 1
+    _weight_resolution = 2**params.BIT_RESOLUTION_WEIGHTS - 1
     _stddev_mismatch = params.STDDEV_MISMATCH
     _param_names = [
         "baseweight_e",
@@ -150,17 +150,15 @@ class VirtualDynapseV1(Layer):
             connections=connections_ext, external=True
         )
         if (
-            (connections_rec is not None or connections_ext is not None)
-            and self.validate_connections(
-                self._connections_rec,
-                self._connections_ext,
-                verbose=True,
-                validate_fanin=self.validate_fanin,
-                validate_fanout=self.validate_fanout,
-                validate_aliasing=self.validate_aliasing,
-            )
-            != CONNECTIONS_VALID
-        ):
+            connections_rec is not None or connections_ext is not None
+        ) and self.validate_connections(
+            self._connections_rec,
+            self._connections_ext,
+            verbose=True,
+            validate_fanin=self.validate_fanin,
+            validate_fanout=self.validate_fanout,
+            validate_aliasing=self.validate_aliasing,
+        ) != CONNECTIONS_VALID:
             raise ValueError(
                 self.start_print + "Connections not compatible with hardware."
             )

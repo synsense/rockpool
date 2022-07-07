@@ -64,7 +64,11 @@ class WeightedSmoothBase(JaxModule):
         self.linear = LinearJax(
             shape=shape, weight=weight, bias=bias, has_bias=has_bias
         )
-        self.smooth = ExpSynJax(shape=(shape[-1],), tau=tau, dt=dt,)
+        self.smooth = ExpSynJax(
+            shape=(shape[-1],),
+            tau=tau,
+            dt=dt,
+        )
 
         self.activation_fn: P_Callable = SimulationParameter(Partial(activation_fun))
         """ (Callable) Activation function """

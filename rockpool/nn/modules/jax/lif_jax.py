@@ -68,7 +68,7 @@ def step_pwl_jvp(primals, tangents):
     x_dot, threshold_dot, window_dot, max_spikes_per_dt_dot = tangents
     primal_out = step_pwl(*primals)
     tangent_out = (x >= (threshold - window)) * (
-        x_dot / threshold - threshold_dot * x / (threshold ** 2)
+        x_dot / threshold - threshold_dot * x / (threshold**2)
     )
     return primal_out, tangent_out
 
@@ -157,7 +157,7 @@ class LIFJax(JaxModule):
 
         # - Seed RNG
         if rng_key is None:
-            rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
+            rng_key = rand.PRNGKey(onp.random.randint(0, 2**63))
         _, rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
 
         # - Initialise state
@@ -200,7 +200,17 @@ class LIFJax(JaxModule):
             tau_syn,
             "taus",
             init_func=lambda s: np.ones(s) * 20e-3,
-            shape=[(self.size_out, self.n_synapses,), (1, self.n_synapses,), (),],
+            shape=[
+                (
+                    self.size_out,
+                    self.n_synapses,
+                ),
+                (
+                    1,
+                    self.n_synapses,
+                ),
+                (),
+            ],
             cast_fn=np.array,
         )
         """ (np.ndarray) Synaptic time constants `(Nout,)` or `()` """
@@ -251,7 +261,9 @@ class LIFJax(JaxModule):
         }
 
     def evolve(
-        self, input_data: np.ndarray, record: bool = False,
+        self,
+        input_data: np.ndarray,
+        record: bool = False,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
 
@@ -267,7 +279,11 @@ class LIFJax(JaxModule):
         input_data, (vmem, spikes, isyn) = self._auto_batch(
             input_data,
             (self.vmem, self.spikes, self.isyn),
-            ((self.size_out,), (self.size_out,), (self.size_out, self.n_synapses),),
+            (
+                (self.size_out,),
+                (self.size_out,),
+                (self.size_out, self.n_synapses),
+            ),
         )
         n_batches, n_timesteps, _ = input_data.shape
 

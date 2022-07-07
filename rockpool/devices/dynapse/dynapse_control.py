@@ -756,11 +756,13 @@ class DynapseControl:
         self._sram_connections = np.zeros((self.num_neurons, self.num_cores), bool)
         # - Store CAM information
         self._cam_connections = np.zeros(
-            (len(self._camtypes), self.num_neur_chip, self.num_neurons), "uint8",
+            (len(self._camtypes), self.num_neur_chip, self.num_neurons),
+            "uint8",
         )
         # - Store connectivity array
         self._connections = np.zeros(
-            (len(params.CAMTYPES), self.num_neurons, self.num_neurons), "uint8",
+            (len(params.CAMTYPES), self.num_neurons, self.num_neurons),
+            "uint8",
         )
         # Include previously existing connections in the model
         self._update_connectivity_array(self.initialized_chips)

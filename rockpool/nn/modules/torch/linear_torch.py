@@ -72,7 +72,10 @@ class LinearTorch(TorchModule):
         # - Set up parameters
         w_rec_shape = (self.size_in, self.size_out)
         self.weight: P_tensor = rp.Parameter(
-            weight, shape=w_rec_shape, init_func=weight_init_func, family="weights",
+            weight,
+            shape=w_rec_shape,
+            init_func=weight_init_func,
+            family="weights",
         )
         """ (torch.Tensor) Weight matrix with shape ``(Nin, Nout)`` """
 
@@ -81,7 +84,9 @@ class LinearTorch(TorchModule):
                 bias,
                 shape=[(self.size_out,), ()],
                 init_func=lambda s: init.uniform_(
-                    torch.empty(s[-1]), -math.sqrt(1 / s[0]), math.sqrt(1 / s[0]),
+                    torch.empty(s[-1]),
+                    -math.sqrt(1 / s[0]),
+                    math.sqrt(1 / s[0]),
                 ),
                 family="biases",
             )
@@ -93,7 +98,11 @@ class LinearTorch(TorchModule):
         input, _ = self._auto_batch(input)
 
         return (
-            F.linear(input, self.weight.T, self.bias,)
+            F.linear(
+                input,
+                self.weight.T,
+                self.bias,
+            )
             if self.bias is not None
             else F.linear(input, self.weight.T)
         )

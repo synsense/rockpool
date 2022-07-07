@@ -366,7 +366,10 @@ def mapper(
     if weight_num_synapses_model < weight_num_synapses_hw:
         weights_model = np.zeros_like(
             input_weight_mod.weights,
-            shape=(input_weight_mod.weights.shape[0], len(target_neurons.input_nodes),),
+            shape=(
+                input_weight_mod.weights.shape[0],
+                len(target_neurons.input_nodes),
+            ),
         )
         weights_model[
             np.ix_(
@@ -457,10 +460,16 @@ def mapper(
             if weight_num_synapses_model < weight_num_synapses_hw:
                 weights_model = np.zeros_like(
                     w.weights,
-                    shape=(w.weights.shape[0], len(target_neurons.input_nodes),),
+                    shape=(
+                        w.weights.shape[0],
+                        len(target_neurons.input_nodes),
+                    ),
                 )
                 weights_model[
-                    np.ix_(range(w.weights.shape[0]), range(w.weights.shape[1]),)
+                    np.ix_(
+                        range(w.weights.shape[0]),
+                        range(w.weights.shape[1]),
+                    )
                 ] = w.weights
             else:
                 weights_model = w.weights

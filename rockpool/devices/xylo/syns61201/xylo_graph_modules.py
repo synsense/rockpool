@@ -97,7 +97,9 @@ class Xylo2Neurons(GenericNeurons):
 
             # - Make a new module
             neurons = cls._factory(
-                len(mod.input_nodes), len(mod.output_nodes), mod.name,
+                len(mod.input_nodes),
+                len(mod.output_nodes),
+                mod.name,
             )
 
             # - Replace the target module

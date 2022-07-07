@@ -63,7 +63,11 @@ class XyloSim(Module):
 
         # - Initialise the superclass
         super().__init__(
-            shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs,
+            shape=shape,
+            spiking_input=True,
+            spiking_output=True,
+            *args,
+            **kwargs,
         )
 
         # - Store the configuration
@@ -290,7 +294,11 @@ class XyloSim(Module):
         return cls.from_config(config, dt=dt, output_mode=cls.output_mode)
 
     def evolve(
-        self, input_raster: np.ndarray = None, record: bool = False, *args, **kwargs,
+        self,
+        input_raster: np.ndarray = None,
+        record: bool = False,
+        *args,
+        **kwargs,
     ):
 
         # - Evolve using the xylo layer
