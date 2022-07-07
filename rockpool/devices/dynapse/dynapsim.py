@@ -351,7 +351,7 @@ class DynapSim(JaxModule):
         kappa_p: Optional[np.ndarray] = dlayout["kappa_p"],
         Ut: Optional[np.ndarray] = dlayout["Ut"],
         Vth: Optional[np.ndarray] = dlayout["Vth"],
-        w_rec: Optional[jnp.DeviceArray] = [[[0, 0, 0, 0]]],
+        w_rec: Optional[jnp.DeviceArray] = np.array([[[0, 0, 0, 0]]], dtype=np.float32),
         has_rec: bool = True,
         weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = None,
         dt: float = 1e-3,
@@ -402,7 +402,9 @@ class DynapSim(JaxModule):
 
         ### --- Parameters --- ###
         __parameter = lambda _param: Parameter(
-            data=_param,
+            data=_param
+            if isinstance(_param, (np.ndarray, jnp.ndarray, jnp.DeviceArray))
+            else jnp.full((self.size_out,), _param),
             family="bias",
             shape=(self.size_out,),
             permit_reshape=False,
@@ -446,7 +448,9 @@ class DynapSim(JaxModule):
 
         # --- Simulation Parameters --- #
         __simparam = lambda _param: SimulationParameter(
-            data=_param,
+            data=_param
+            if isinstance(_param, (np.ndarray, jnp.ndarray, jnp.DeviceArray))
+            else jnp.full((self.size_out,), _param),
             shape=(self.size_out,),
             permit_reshape=False,
             cast_fn=jnp.array,
@@ -480,11 +484,11 @@ class DynapSim(JaxModule):
         self.__one = jnp.array(1.0)
         self.__two = jnp.array(2.0)
 
-        # - Define additional arguments required during initialisation
-        self._init_args = {
-            "has_rec": has_rec,
-            "weight_init_func": Partial(weight_init_func),
-        }
+        # # - Define additional arguments required during initialisation
+        # self._init_args = {
+        #     "has_rec": has_rec,
+        #     "weight_init_func": Partial(weight_init_func),
+        # }
 
     @classmethod
     def from_specification(
