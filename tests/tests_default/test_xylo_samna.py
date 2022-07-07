@@ -11,7 +11,7 @@ def test_imports():
         load_config,
         XyloSamna,
     )
-    import rockpool.devices.xylo.xylo_devkit_utils as putils
+    import rockpool.devices.xylo.syns61300.xylo_devkit_utils as putils
 
 
 def test_from_specification():
@@ -122,7 +122,7 @@ def test_save_load():
 
 def test_XyloSamna():
     from rockpool.devices.xylo import XyloSamna, config_from_specification
-    import rockpool.devices.xylo.xylo_devkit_utils as putils
+    import rockpool.devices.xylo.syns61300.xylo_devkit_utils as putils
     import numpy as np
 
     xylo_hdk_nodes = putils.find_xylo_boards()

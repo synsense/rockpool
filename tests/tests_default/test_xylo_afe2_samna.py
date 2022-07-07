@@ -8,7 +8,8 @@ def test_imports():
 def test_afe2_module():
     from rockpool.devices.xylo.syns61201 import AFESamna
     from rockpool.devices.xylo.syns61201.xa2_devkit_utils import find_xylo_a2_boards
-    from samna.afe2.configuration import AfeConfiguration
+    # import samna
+    # from samna.afe2.configuration import AfeConfiguration
     
     import numpy as np
     

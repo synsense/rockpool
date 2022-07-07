@@ -470,10 +470,10 @@ def test_FF_equality_slayer():
 def test_xylo_vs_xylosim():
     # - Samna imports
     from rockpool.devices import xylo
+    import samna
     from samna.xylo import validate_configuration
 
-    import samna
-    from rockpool.devices.xylo import xylo_devkit_utils as xu
+    from rockpool.devices.xylo.syns61300 import xylo_devkit_utils as xu
     from rockpool.devices import xylo as x
 
     import numpy as np
