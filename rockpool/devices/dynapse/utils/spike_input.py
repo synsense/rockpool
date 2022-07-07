@@ -15,8 +15,6 @@ import numpy as np
 from rockpool.timeseries import TSEvent, TSContinuous
 from rockpool.devices.dynapse.definitions import ArrayLike
 
-import matplotlib.pyplot as plt
-
 
 def spike_to_pulse(
     input_spike: Union[TSEvent, np.ndarray],
@@ -148,6 +146,7 @@ def poisson_spike_train(
     duration: float,
     rate: float,
     dt: float,
+    batch_size: int = 1,
     seed: Optional[int] = None,
 ) -> np.ndarray:
     """
@@ -161,15 +160,17 @@ def poisson_spike_train(
     :type rate: float
     :param dt: time step length
     :type dt: float, optional
+    :param batch_size: number of batches in data, defaults to 1
+    :type batch_size: int, optional
     :param seed: the random number seed
     :type seed: int, optional
-    :raises ValueError: no spike generated due to low firing rate or very short simulation time]
+    :raises ValueError: no spike generated due to low firing rate or very short simulation time
     :return: randomly generated discrete spike train
     :rtype: np.ndarray
     """
     np.random.seed(seed)
     steps = int(np.round(duration / dt))
-    raster = np.random.poisson(rate * dt, (steps, n_channels))
+    raster = np.random.poisson(rate * dt, (batch_size, steps, n_channels))
 
     # Check if raster has at least one spike
     if not any(raster.flatten()):
