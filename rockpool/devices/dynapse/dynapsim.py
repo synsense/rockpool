@@ -59,6 +59,7 @@ from rockpool.devices.dynapse.config.simconfig import (
     DynapSimLayout,
     DynapSimTime,
 )
+from rockpool.devices.dynapse.default import dlayout, dweight, dtime, dgain, dcurrents
 from rockpool.devices.dynapse.config.weights import WeightParameters
 from rockpool.devices.dynapse.definitions import DynapSimRecord, DynapSimState
 
@@ -207,71 +208,71 @@ class DynapSim(JaxModule):
 
     :param shape: Either a single dimension ``N``, which defines a feed-forward layer of DynapSE AdExpIF neurons, or two dimensions ``(N, N)``, which defines a recurrent layer of DynapSE AdExpIF neurons.
     :type shape: Optional[Tuple[int]], optional
-    :param Idc: Constant DC current injected to membrane in Amperes with shape (Nrec,), defaults to None
+    :param Idc: Constant DC current injected to membrane in Amperes with shape
     :type Idc: Optional[np.ndarray], optinoal
-    :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes with shape (Nrec,), defaults to None
+    :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes with shape (Nrec,)
     :type If_nmda: Optional[np.ndarray], optinoal
-    :param Igain_ahp: gain bias current of the spike frequency adaptation block in Amperes with shape (Nrec,), defaults to None
+    :param Igain_ahp: gain bias current of the spike frequency adaptation block in Amperes with shape (Nrec,)
     :type Igain_ahp: Optional[np.ndarray], optinoal
-    :param Igain_ampa: gain bias current of excitatory AMPA synapse in Amperes with shape (Nrec,), defaults to None
+    :param Igain_ampa: gain bias current of excitatory AMPA synapse in Amperes with shape (Nrec,)
     :type Igain_ampa: Optional[np.ndarray], optinoal
-    :param Igain_gaba: gain bias current of inhibitory GABA synapse in Amperes with shape (Nrec,), defaults to None
+    :param Igain_gaba: gain bias current of inhibitory GABA synapse in Amperes with shape (Nrec,)
     :type Igain_gaba: Optional[np.ndarray], optinoal
-    :param Igain_nmda: gain bias current of excitatory NMDA synapse in Amperes with shape (Nrec,), defaults to None
+    :param Igain_nmda: gain bias current of excitatory NMDA synapse in Amperes with shape (Nrec,)
     :type Igain_nmda: Optional[np.ndarray], optinoal
-    :param Igain_shunt: gain bias current of the inhibitory SHUNT synapse in Amperes with shape (Nrec,), defaults to None
+    :param Igain_shunt: gain bias current of the inhibitory SHUNT synapse in Amperes with shape (Nrec,)
     :type Igain_shunt: Optional[np.ndarray], optinoal
-    :param Igain_mem: gain bias current for neuron membrane in Amperes with shape (Nrec,), defaults to None
+    :param Igain_mem: gain bias current for neuron membrane in Amperes with shape (Nrec,)
     :type Igain_mem: Optional[np.ndarray], optinoal
-    :param Ipulse_ahp: bias current setting the pulse width for spike frequency adaptation block `t_pulse_ahp` in Amperes with shape (Nrec,), defaults to None
+    :param Ipulse_ahp: bias current setting the pulse width for spike frequency adaptation block `t_pulse_ahp` in Amperes with shape (Nrec,)
     :type Ipulse_ahp: Optional[np.ndarray], optinoal
-    :param Ipulse: bias current setting the pulse width for neuron membrane `t_pulse` in Amperes with shape (Nrec,), defaults to None
+    :param Ipulse: bias current setting the pulse width for neuron membrane `t_pulse` in Amperes with shape (Nrec,)
     :type Ipulse: Optional[np.ndarray], optinoal
-    :param Iref: bias current setting the refractory period `t_ref` in Amperes with shape (Nrec,), defaults to None
+    :param Iref: bias current setting the refractory period `t_ref` in Amperes with shape (Nrec,)
     :type Iref: Optional[np.ndarray], optinoal
-    :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes with shape (Nrec,), defaults to None
+    :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes with shape (Nrec,)
     :type Ispkthr: Optional[np.ndarray], optinoal
-    :param Itau_ahp: Spike frequency adaptation leakage current setting the time constant `tau_ahp` in Amperes with shape (Nrec,), defaults to None
+    :param Itau_ahp: Spike frequency adaptation leakage current setting the time constant `tau_ahp` in Amperes with shape (Nrec,)
     :type Itau_ahp: Optional[np.ndarray], optinoal
-    :param Itau_ampa: AMPA synapse leakage current setting the time constant `tau_ampa` in Amperes with shape (Nrec,), defaults to None
+    :param Itau_ampa: AMPA synapse leakage current setting the time constant `tau_ampa` in Amperes with shape (Nrec,)
     :type Itau_ampa: Optional[np.ndarray], optinoal
-    :param Itau_gaba: GABA synapse leakage current setting the time constant `tau_gaba` in Amperes with shape (Nrec,), defaults to None
+    :param Itau_gaba: GABA synapse leakage current setting the time constant `tau_gaba` in Amperes with shape (Nrec,)
     :type Itau_gaba: Optional[np.ndarray], optinoal
-    :param Itau_nmda: NMDA synapse leakage current setting the time constant `tau_nmda` in Amperes with shape (Nrec,), defaults to None
+    :param Itau_nmda: NMDA synapse leakage current setting the time constant `tau_nmda` in Amperes with shape (Nrec,)
     :type Itau_nmda: Optional[np.ndarray], optinoal
-    :param Itau_shunt: SHUNT synapse leakage current setting the time constant `tau_shunt` in Amperes with shape (Nrec,), defaults to None
+    :param Itau_shunt: SHUNT synapse leakage current setting the time constant `tau_shunt` in Amperes with shape (Nrec,)
     :type Itau_shunt: Optional[np.ndarray], optinoal
-    :param Itau_mem: Neuron membrane leakage current setting the time constant `tau_mem` in Amperes with shape (Nrec,), defaults to None
+    :param Itau_mem: Neuron membrane leakage current setting the time constant `tau_mem` in Amperes with shape (Nrec,)
     :type Itau_mem: Optional[np.ndarray], optinoal
-    :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes with shape (Nrec,), defaults to None
+    :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes with shape (Nrec,)
     :type Iw_ahp: Optional[np.ndarray], optinoal
-    :param C_ahp: AHP synapse capacitance in Farads with shape (Nrec,), defaults to None
+    :param C_ahp: AHP synapse capacitance in Farads with shape (Nrec,)
     :type C_ahp: float, optional
-    :param C_ampa: AMPA synapse capacitance in Farads with shape (Nrec,), defaults to None
+    :param C_ampa: AMPA synapse capacitance in Farads with shape (Nrec,)
     :type C_ampa: float, optional
-    :param C_gaba: GABA synapse capacitance in Farads with shape (Nrec,), defaults to None
+    :param C_gaba: GABA synapse capacitance in Farads with shape (Nrec,)
     :type C_gaba: float, optional
-    :param C_nmda: NMDA synapse capacitance in Farads with shape (Nrec,), defaults to None
+    :param C_nmda: NMDA synapse capacitance in Farads with shape (Nrec,)
     :type C_nmda: float, optional
-    :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads with shape (Nrec,), defaults to None
+    :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads with shape (Nrec,)
     :type C_pulse_ahp: float, optional
-    :param C_pulse: pulse-width creation sub-circuit capacitance in Farads with shape (Nrec,), defaults to None
+    :param C_pulse: pulse-width creation sub-circuit capacitance in Farads with shape (Nrec,)
     :type C_pulse: float, optional
-    :param C_ref: refractory period sub-circuit capacitance in Farads with shape (Nrec,), defaults to None
+    :param C_ref: refractory period sub-circuit capacitance in Farads with shape (Nrec,)
     :type C_ref: float, optional
-    :param C_shunt: SHUNT synapse capacitance in Farads with shape (Nrec,), defaults to None
+    :param C_shunt: SHUNT synapse capacitance in Farads with shape (Nrec,)
     :type C_shunt: float, optional
-    :param C_mem: neuron membrane capacitance in Farads with shape (Nrec,), defaults to None
+    :param C_mem: neuron membrane capacitance in Farads with shape (Nrec,)
     :type C_mem: float, optional
-    :param Io: Dark current in Amperes that flows through the transistors even at the idle state with shape (Nrec,), defaults to None
+    :param Io: Dark current in Amperes that flows through the transistors even at the idle state with shape (Nrec,)
     :type Io: float, optional
-    :param kappa_n: Subthreshold slope factor (n-type transistor) with shape (Nrec,), defaults to None
+    :param kappa_n: Subthreshold slope factor (n-type transistor) with shape (Nrec,)
     :type kappa_n: float, optional
-    :param kappa_p: Subthreshold slope factor (p-type transistor) with shape (Nrec,), defaults to None
+    :param kappa_p: Subthreshold slope factor (p-type transistor) with shape (Nrec,)
     :type kappa_p: float, optional
-    :param Ut: Thermal voltage in Volts with shape (Nrec,), defaults to None
+    :param Ut: Thermal voltage in Volts with shape (Nrec,)
     :type Ut: float, optional
-    :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific) with shape (Nrec,), defaults to None
+    :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific) with shape (Nrec,)
     :type Vth: float, optional
     :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(Nrec, Nrec, 4)``. The last 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``, defaults tp None
     :type w_rec: Optional[np.ndarray], optional
@@ -317,40 +318,40 @@ class DynapSim(JaxModule):
     def __init__(
         self,
         shape: Optional[Tuple[int]] = None,
-        Idc: Optional[np.ndarray] = None,
-        If_nmda: Optional[np.ndarray] = None,
-        Igain_ahp: Optional[np.ndarray] = None,
-        Igain_ampa: Optional[np.ndarray] = None,
-        Igain_gaba: Optional[np.ndarray] = None,
-        Igain_nmda: Optional[np.ndarray] = None,
-        Igain_shunt: Optional[np.ndarray] = None,
-        Igain_mem: Optional[np.ndarray] = None,
-        Ipulse_ahp: Optional[np.ndarray] = None,
-        Ipulse: Optional[np.ndarray] = None,
-        Iref: Optional[np.ndarray] = None,
-        Ispkthr: Optional[np.ndarray] = None,
-        Itau_ahp: Optional[np.ndarray] = None,
-        Itau_ampa: Optional[np.ndarray] = None,
-        Itau_gaba: Optional[np.ndarray] = None,
-        Itau_nmda: Optional[np.ndarray] = None,
-        Itau_shunt: Optional[np.ndarray] = None,
-        Itau_mem: Optional[np.ndarray] = None,
-        Iw_ahp: Optional[np.ndarray] = None,
-        C_ahp: Optional[np.ndarray] = None,
-        C_ampa: Optional[np.ndarray] = None,
-        C_gaba: Optional[np.ndarray] = None,
-        C_nmda: Optional[np.ndarray] = None,
-        C_pulse_ahp: Optional[np.ndarray] = None,
-        C_pulse: Optional[np.ndarray] = None,
-        C_ref: Optional[np.ndarray] = None,
-        C_shunt: Optional[np.ndarray] = None,
-        C_mem: Optional[np.ndarray] = None,
-        Io: Optional[np.ndarray] = None,
-        kappa_n: Optional[np.ndarray] = None,
-        kappa_p: Optional[np.ndarray] = None,
-        Ut: Optional[np.ndarray] = None,
-        Vth: Optional[np.ndarray] = None,
-        w_rec: Optional[jnp.DeviceArray] = None,
+        Idc: Optional[np.ndarray] = dcurrents["Idc"],
+        If_nmda: Optional[np.ndarray] = dcurrents["If_nmda"],
+        Igain_ahp: Optional[np.ndarray] = dcurrents["Igain_ahp"],
+        Igain_ampa: Optional[np.ndarray] = dcurrents["Igain_ampa"],
+        Igain_gaba: Optional[np.ndarray] = dcurrents["Igain_gaba"],
+        Igain_nmda: Optional[np.ndarray] = dcurrents["Igain_nmda"],
+        Igain_shunt: Optional[np.ndarray] = dcurrents["Igain_shunt"],
+        Igain_mem: Optional[np.ndarray] = dcurrents["Igain_mem"],
+        Ipulse_ahp: Optional[np.ndarray] = dcurrents["Ipulse_ahp"],
+        Ipulse: Optional[np.ndarray] = dcurrents["Ipulse"],
+        Iref: Optional[np.ndarray] = dcurrents["Iref"],
+        Ispkthr: Optional[np.ndarray] = dcurrents["Ispkthr"],
+        Itau_ahp: Optional[np.ndarray] = dcurrents["Itau_ahp"],
+        Itau_ampa: Optional[np.ndarray] = dcurrents["Itau_ampa"],
+        Itau_gaba: Optional[np.ndarray] = dcurrents["Itau_gaba"],
+        Itau_nmda: Optional[np.ndarray] = dcurrents["Itau_nmda"],
+        Itau_shunt: Optional[np.ndarray] = dcurrents["Itau_shunt"],
+        Itau_mem: Optional[np.ndarray] = dcurrents["Itau_mem"],
+        Iw_ahp: Optional[np.ndarray] = dcurrents["Iw_ahp"],
+        C_ahp: Optional[np.ndarray] = dlayout["C_ahp"],
+        C_ampa: Optional[np.ndarray] = dlayout["C_ampa"],
+        C_gaba: Optional[np.ndarray] = dlayout["C_gaba"],
+        C_nmda: Optional[np.ndarray] = dlayout["C_nmda"],
+        C_pulse_ahp: Optional[np.ndarray] = dlayout["C_pulse_ahp"],
+        C_pulse: Optional[np.ndarray] = dlayout["C_pulse"],
+        C_ref: Optional[np.ndarray] = dlayout["C_ref"],
+        C_shunt: Optional[np.ndarray] = dlayout["C_shunt"],
+        C_mem: Optional[np.ndarray] = dlayout["C_mem"],
+        Io: Optional[np.ndarray] = dlayout["Io"],
+        kappa_n: Optional[np.ndarray] = dlayout["kappa_n"],
+        kappa_p: Optional[np.ndarray] = dlayout["kappa_p"],
+        Ut: Optional[np.ndarray] = dlayout["Ut"],
+        Vth: Optional[np.ndarray] = dlayout["Vth"],
+        w_rec: Optional[jnp.DeviceArray] = [[[0, 0, 0, 0]]],
         has_rec: bool = True,
         weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = None,
         dt: float = 1e-3,
@@ -420,7 +421,7 @@ class DynapSim(JaxModule):
             )
         else:
             self.w_rec = Parameter(
-                data=jnp.zeros((self.size_out, self.size_in // 4, 4)), family=""
+                data=jnp.zeros((self.size_out, self.size_in // 4, 4)), family="weights"
             )
 
         self.Idc = __parameter(Idc)
@@ -491,43 +492,43 @@ class DynapSim(JaxModule):
         shape: Optional[Tuple[int]],
         has_rec: bool = True,
         w_rec_mask: np.ndarray = None,
-        Idc: float = None,
-        If_nmda: float = None,
-        r_gain_ahp: float = 1000,  # 100
-        r_gain_ampa: float = 100,  # 100
-        r_gain_gaba: float = 100,  # 100
-        r_gain_nmda: float = 100,  # 100
-        r_gain_shunt: float = 100,  # 100
-        r_gain_mem: float = 4,  # 4
-        t_pulse_ahp: float = 1e-6,
-        t_pulse: float = 10e-6,
-        t_ref: float = 2e-3,
-        Ispkthr: float = 1e-6,
-        tau_ahp: float = 50e-3,
-        tau_ampa: float = 10e-3,
-        tau_gaba: float = 100e-3,
-        tau_nmda: float = 100e-3,
-        tau_shunt: float = 10e-3,
-        tau_mem: float = 20e-3,
-        Iw_0: float = 1e-9,
-        Iw_1: float = 2e-9,
-        Iw_2: float = 4e-9,
-        Iw_3: float = 8e-9,
-        Iw_ahp: float = 1e-8,
-        C_ahp: float = 40e-12,
-        C_ampa: float = 24.5e-12,
-        C_gaba: float = 25e-12,
-        C_nmda: float = 25e-12,
-        C_pulse_ahp: float = 0.5e-12,
-        C_pulse: float = 0.5e-12,
-        C_ref: float = 1.5e-12,
-        C_shunt: float = 24.5e-12,
-        C_mem: float = 3e-12,
-        Io: float = 5e-13,
-        kappa_n: float = 0.75,
-        kappa_p: float = 0.66,
-        Ut: float = 25e-3,
-        Vth: float = 7e-1,
+        Idc: float = dcurrents["Idc"],
+        If_nmda: float = dcurrents["If_nmda"],
+        r_gain_ahp: float = dgain["r_gain_ahp"],
+        r_gain_ampa: float = dgain["r_gain_ampa"],
+        r_gain_gaba: float = dgain["r_gain_gaba"],
+        r_gain_nmda: float = dgain["r_gain_nmda"],
+        r_gain_shunt: float = dgain["r_gain_shunt"],
+        r_gain_mem: float = dgain["r_gain_mem"],
+        t_pulse_ahp: float = dtime["t_pulse_ahp"],
+        t_pulse: float = dtime["t_pulse"],
+        t_ref: float = dtime["t_ref"],
+        Ispkthr: float = dcurrents["Ispkthr"],
+        tau_ahp: float = dtime["tau_ahp"],
+        tau_ampa: float = dtime["tau_ampa"],
+        tau_gaba: float = dtime["tau_gaba"],
+        tau_nmda: float = dtime["tau_nmda"],
+        tau_shunt: float = dtime["tau_shunt"],
+        tau_mem: float = dtime["tau_mem"],
+        Iw_0: float = dweight["Iw_0"],
+        Iw_1: float = dweight["Iw_1"],
+        Iw_2: float = dweight["Iw_2"],
+        Iw_3: float = dweight["Iw_3"],
+        Iw_ahp: float = dcurrents["Iw_ahp"],
+        C_ahp: float = dlayout["C_ahp"],
+        C_ampa: float = dlayout["C_ampa"],
+        C_gaba: float = dlayout["C_gaba"],
+        C_nmda: float = dlayout["C_nmda"],
+        C_pulse_ahp: float = dlayout["C_pulse_ahp"],
+        C_pulse: float = dlayout["C_pulse"],
+        C_ref: float = dlayout["C_ref"],
+        C_shunt: float = dlayout["C_shunt"],
+        C_mem: float = dlayout["C_mem"],
+        Io: float = dlayout["Io"],
+        kappa_n: float = dlayout["kappa_n"],
+        kappa_p: float = dlayout["kappa_p"],
+        Ut: float = dlayout["Ut"],
+        Vth: float = dlayout["Vth"],
         weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = None,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
@@ -543,79 +544,79 @@ class DynapSim(JaxModule):
         :type has_rec: bool, optional
         :param w_rec_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), for recurrent connections, defaults to None
         :type w_rec_mask: np.ndarray, optional
-        :param Idc: Constant DC current injected to membrane in Amperes, defaults to None
+        :param Idc: Constant DC current injected to membrane in Amperes
         :type Idc: float, optional
-        :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes, defaults to None
+        :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes
         :type If_nmda: float, optional
-        :param r_gain_ahp: spike frequency adaptation block gain ratio :math:`Igain_ahp/Itau_ahp`, defaults to 100
+        :param r_gain_ahp: spike frequency adaptation block gain ratio :math:`Igain_ahp/Itau_ahp`
         :type r_gain_ahp: float, optional
-        :param r_gain_ampa: excitatory AMPA synpse gain ratio :math:`Igain_ampa/Itau_ampa`, defaults to 100
+        :param r_gain_ampa: excitatory AMPA synpse gain ratio :math:`Igain_ampa/Itau_ampa`
         :type r_gain_ampa: float, optional
-        :param r_gain_gaba: inhibitory GABA synpse gain ratio :math:`Igain_gaba/Itau_gaba `, defaults to 100
+        :param r_gain_gaba: inhibitory GABA synpse gain ratio :math:`Igain_gaba/Itau_gaba `
         :type r_gain_gaba: float, optional
-        :param r_gain_nmda: excitatory NMDA synpse gain ratio :math:`Igain_nmda/Itau_nmda`, defaults to 100
+        :param r_gain_nmda: excitatory NMDA synpse gain ratio :math:`Igain_nmda/Itau_nmda`
         :type r_gain_nmda: float, optional
-        :param r_gain_shunt: inhibitory SHUNT synpse gain ratio :math:`Igain_shunt/Itau_shunt`, defaults to 100
+        :param r_gain_shunt: inhibitory SHUNT synpse gain ratio :math:`Igain_shunt/Itau_shunt`
         :type r_gain_shunt: float, optional
-        :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`, defaults to 2
+        :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`
         :type r_gain_mem: float, optional
-        :param t_pulse_ahp: the spike pulse width for spike frequency adaptation circuit in seconds, defaults to 1e-6
+        :param t_pulse_ahp: the spike pulse width for spike frequency adaptation circuit in seconds
         :type t_pulse_ahp: float, optional
-        :param t_pulse: the spike pulse width for neuron membrane in seconds, defaults to 10e-6
+        :param t_pulse: the spike pulse width for neuron membrane in seconds
         :type t_pulse: float, optional
-        :param t_ref: refractory period of the neurons in seconds, defaults to 2e-2
+        :param t_ref: refractory period of the neurons in seconds
         :type t_ref: float, optional
-        :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes, defaults to 1e-6
+        :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes
         :type Ispkthr: float, optional
-        :param tau_ahp: Spike frequency leakage time constant in seconds, defaults to 50e-3
+        :param tau_ahp: Spike frequency leakage time constant in seconds
         :type tau_ahp: float, optional
-        :param tau_ampa: AMPA synapse leakage time constant in seconds, defaults to 10e-3
+        :param tau_ampa: AMPA synapse leakage time constant in seconds
         :type tau_ampa: float, optional
-        :param tau_gaba: GABA synapse leakage time constant in seconds, defaults to 100e-3
+        :param tau_gaba: GABA synapse leakage time constant in seconds
         :type tau_gaba: float, optional
-        :param tau_nmda: NMDA synapse leakage time constant in seconds, defaults to 100e-3
+        :param tau_nmda: NMDA synapse leakage time constant in seconds
         :type tau_nmda: float, optional
-        :param tau_shunt:SHUNT synapse leakage time constant in seconds, defaults to 10e-3
+        :param tau_shunt:SHUNT synapse leakage time constant in seconds
         :type tau_shunt: float, optional
-        :param tau_mem: Neuron membrane leakage time constant in seconds, defaults to 20e-3
+        :param tau_mem: Neuron membrane leakage time constant in seconds
         :type tau_mem: float, optional
-        :param Iw_0: weight bit 0 current of the neurons of the core in Amperes, defaults to 1e-7
+        :param Iw_0: weight bit 0 current of the neurons of the core in Amperes
         :type Iw_0: float
-        :param Iw_1: weight bit 1 current of the neurons of the core in Amperes, defaults to 2e-7
+        :param Iw_1: weight bit 1 current of the neurons of the core in Amperes
         :type Iw_1: float
-        :param Iw_2: weight bit 2 current of the neurons of the core in Amperes, defaults to 4e-7
+        :param Iw_2: weight bit 2 current of the neurons of the core in Amperes
         :type Iw_2: float
-        :param Iw_3: weight bit 3 current of the neurons of the core in Amperes, defaults to 8e-7
+        :param Iw_3: weight bit 3 current of the neurons of the core in Amperes
         :type Iw_3: float
-        :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes, defaults to 1e-6
+        :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes
         :type Iw_ahp: float
-        :param C_ahp: AHP synapse capacitance in Farads, defaults to 40e-12
+        :param C_ahp: AHP synapse capacitance in Farads
         :type C_ahp: float, optional
-        :param C_ampa: AMPA synapse capacitance in Farads, defaults to 24.5e-12
+        :param C_ampa: AMPA synapse capacitance in Farads
         :type C_ampa: float, optional
-        :param C_gaba: GABA synapse capacitance in Farads, defaults to 25e-12
+        :param C_gaba: GABA synapse capacitance in Farads
         :type C_gaba: float, optional
-        :param C_nmda: NMDA synapse capacitance in Farads, defaults to 25e-12
+        :param C_nmda: NMDA synapse capacitance in Farads
         :type C_nmda: float, optional
-        :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads, defaults to 0.5e-12
+        :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads
         :type C_pulse_ahp: float, optional
-        :param C_pulse: pulse-width creation sub-circuit capacitance in Farads, defaults to 0.5e-12
+        :param C_pulse: pulse-width creation sub-circuit capacitance in Farads
         :type C_pulse: float, optional
-        :param C_ref: refractory period sub-circuit capacitance in Farads, defaults to 1.5e-12
+        :param C_ref: refractory period sub-circuit capacitance in Farads
         :type C_ref: float, optional
-        :param C_shunt: SHUNT synapse capacitance in Farads, defaults to 24.5e-12
+        :param C_shunt: SHUNT synapse capacitance in Farads
         :type C_shunt: float, optional
-        :param C_mem: neuron membrane capacitance in Farads, defaults to 3e-12
+        :param C_mem: neuron membrane capacitance in Farads
         :type C_mem: float, optional
-        :param Io: Dark current in Amperes that flows through the transistors even at the idle state, defaults to 5e-13
+        :param Io: Dark current in Amperes that flows through the transistors even at the idle state
         :type Io: float, optional
-        :param kappa_n: Subthreshold slope factor (n-type transistor), defaults to 0.75
+        :param kappa_n: Subthreshold slope factor (n-type transistor)
         :type kappa_n: float, optional
-        :param kappa_p: Subthreshold slope factor (p-type transistor), defaults to 0.66
+        :param kappa_p: Subthreshold slope factor (p-type transistor)
         :type kappa_p: float, optional
-        :param Ut: Thermal voltage in Volts, defaults to 25e-3
+        :param Ut: Thermal voltage in Volts
         :type Ut: float, optional
-        :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific), defaults to 7e-1
+        :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific)
         :type Vth: float, optional
         :param weight_init_func: The initialisation function to use when generating weights, gets the shape and returns the initial weights, defatuls to None (poisson_DynapSE)
         :type weight_init_func: Optional[Callable[[Tuple], np.ndarray]], optional
