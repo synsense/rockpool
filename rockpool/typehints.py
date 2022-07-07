@@ -6,7 +6,7 @@ See :ref:`/reference/params_types.ipynb` for more information on the available t
 """
 
 import numpy as np
-from typing import Union, Any, Callable
+from typing import Union, Any, Callable, Dict
 from collections import abc
 
 from rockpool.parameters import ParameterBase
@@ -59,3 +59,5 @@ IntVector = Union[int, np.ndarray, Tensor]
 
 JaxRNGKey = Any
 JaxTreeDef = Any
+
+TreeDef = Dict
