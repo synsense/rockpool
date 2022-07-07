@@ -47,6 +47,7 @@ from rockpool.devices.dynapse.infrastructure.biasgen import (
 )
 
 from rockpool.devices.dynapse.lookup import param_name
+from rockpool.devices.dynapse.default import dlayout, dweight, dtime, dgain, dcurrents
 from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1Parameter
 from rockpool.devices.dynapse.samna_alias.dynapse2 import Dynapse2Parameter
 from rockpool.devices.dynapse.config.weights import WeightParameters
@@ -123,25 +124,25 @@ class DynapSimCurrents(DynapSimProperty):
     :type Iw_ahp: Union[float, np.ndarray]
     """
 
-    Idc: Optional[Union[float, np.ndarray]] = None
-    If_nmda: Optional[Union[float, np.ndarray]] = None
-    Igain_ahp: Optional[Union[float, np.ndarray]] = None
-    Igain_ampa: Optional[Union[float, np.ndarray]] = None
-    Igain_gaba: Optional[Union[float, np.ndarray]] = None
-    Igain_nmda: Optional[Union[float, np.ndarray]] = None
-    Igain_shunt: Optional[Union[float, np.ndarray]] = None
-    Igain_mem: Optional[Union[float, np.ndarray]] = None
-    Ipulse_ahp: Optional[Union[float, np.ndarray]] = None
-    Ipulse: Optional[Union[float, np.ndarray]] = None
-    Iref: Optional[Union[float, np.ndarray]] = None
-    Ispkthr: Optional[Union[float, np.ndarray]] = None
-    Itau_ahp: Optional[Union[float, np.ndarray]] = None
-    Itau_ampa: Optional[Union[float, np.ndarray]] = None
-    Itau_gaba: Optional[Union[float, np.ndarray]] = None
-    Itau_nmda: Optional[Union[float, np.ndarray]] = None
-    Itau_shunt: Optional[Union[float, np.ndarray]] = None
-    Itau_mem: Optional[Union[float, np.ndarray]] = None
-    Iw_ahp: Optional[Union[float, np.ndarray]] = None
+    Idc: Optional[Union[float, np.ndarray]] = dcurrents["Idc"]
+    If_nmda: Optional[Union[float, np.ndarray]] = dcurrents["If_nmda"]
+    Igain_ahp: Optional[Union[float, np.ndarray]] = dcurrents["Igain_ahp"]
+    Igain_ampa: Optional[Union[float, np.ndarray]] = dcurrents["Igain_ampa"]
+    Igain_gaba: Optional[Union[float, np.ndarray]] = dcurrents["Igain_gaba"]
+    Igain_nmda: Optional[Union[float, np.ndarray]] = dcurrents["Igain_nmda"]
+    Igain_shunt: Optional[Union[float, np.ndarray]] = dcurrents["Igain_shunt"]
+    Igain_mem: Optional[Union[float, np.ndarray]] = dcurrents["Igain_mem"]
+    Ipulse_ahp: Optional[Union[float, np.ndarray]] = dcurrents["Ipulse_ahp"]
+    Ipulse: Optional[Union[float, np.ndarray]] = dcurrents["Ipulse"]
+    Iref: Optional[Union[float, np.ndarray]] = dcurrents["Iref"]
+    Ispkthr: Optional[Union[float, np.ndarray]] = dcurrents["Ispkthr"]
+    Itau_ahp: Optional[Union[float, np.ndarray]] = dcurrents["Itau_ahp"]
+    Itau_ampa: Optional[Union[float, np.ndarray]] = dcurrents["Itau_ampa"]
+    Itau_gaba: Optional[Union[float, np.ndarray]] = dcurrents["Itau_gaba"]
+    Itau_nmda: Optional[Union[float, np.ndarray]] = dcurrents["Itau_nmda"]
+    Itau_shunt: Optional[Union[float, np.ndarray]] = dcurrents["Itau_shunt"]
+    Itau_mem: Optional[Union[float, np.ndarray]] = dcurrents["Itau_mem"]
+    Iw_ahp: Optional[Union[float, np.ndarray]] = dcurrents["Iw_ahp"]
 
 
 @dataclass
@@ -149,50 +150,50 @@ class DynapSimLayout(DynapSimProperty):
     """
     DynapSimLayout contains the constant values used in simulation that are related to the exact silicon layout of a Dynap-SE chips.
 
-    :param C_ahp: AHP synapse capacitance in Farads, defaults to 40e-12
+    :param C_ahp: AHP synapse capacitance in Farads
     :type C_ahp: Union[float, np.ndarray], optional
-    :param C_ampa: AMPA synapse capacitance in Farads, defaults to 24.5e-12
+    :param C_ampa: AMPA synapse capacitance in Farads
     :type C_ampa: Union[float, np.ndarray], optional
-    :param C_gaba: GABA synapse capacitance in Farads, defaults to 25e-12
+    :param C_gaba: GABA synapse capacitance in Farads
     :type C_gaba: Union[float, np.ndarray], optional
-    :param C_nmda: NMDA synapse capacitance in Farads, defaults to 25e-12
+    :param C_nmda: NMDA synapse capacitance in Farads
     :type C_nmda: Union[float, np.ndarray], optional
-    :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads, defaults to 0.5e-12
+    :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads
     :type C_pulse_ahp: Union[float, np.ndarray], optional
-    :param C_pulse: pulse-width creation sub-circuit capacitance in Farads, defaults to 0.5e-12
+    :param C_pulse: pulse-width creation sub-circuit capacitance in Farads
     :type C_pulse: Union[float, np.ndarray], optional
-    :param C_ref: refractory period sub-circuit capacitance in Farads, defaults to 1.5e-12
+    :param C_ref: refractory period sub-circuit capacitance in Farads
     :type C_ref: Union[float, np.ndarray], optional
-    :param C_shunt: SHUNT synapse capacitance in Farads, defaults to 24.5e-12
+    :param C_shunt: SHUNT synapse capacitance in Farads
     :type C_shunt: Union[float, np.ndarray], optional
-    :param C_mem: neuron membrane capacitance in Farads, defaults to 3e-12
+    :param C_mem: neuron membrane capacitance in Farads
     :type C_mem: Union[float, np.ndarray], optional
-    :param Io: Dark current in Amperes that flows through the transistors even at the idle state, defaults to 5e-13
+    :param Io: Dark current in Amperes that flows through the transistors even at the idle state
     :type Io: Union[float, np.ndarray], optional
-    :param kappa_n: Subthreshold slope factor (n-type transistor), defaults to 0.75
+    :param kappa_n: Subthreshold slope factor (n-type transistor)
     :type kappa_n: Union[float, np.ndarray], optional
-    :param kappa_p: Subthreshold slope factor (p-type transistor), defaults to 0.66
+    :param kappa_p: Subthreshold slope factor (p-type transistor)
     :type kappa_p: Union[float, np.ndarray], optional
-    :param Ut: Thermal voltage in Volts, defaults to 25e-3
+    :param Ut: Thermal voltage in Volts
     :type Ut: Union[float, np.ndarray], optional
-    :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific), defaults to 7e-1
+    :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific)
     :type Vth: Union[float, np.ndarray], optional
     """
 
-    C_ahp: Optional[Union[float, np.ndarray]] = 40e-12
-    C_ampa: Optional[Union[float, np.ndarray]] = 24.5e-12
-    C_gaba: Optional[Union[float, np.ndarray]] = 25e-12
-    C_nmda: Optional[Union[float, np.ndarray]] = 25e-12
-    C_pulse_ahp: Optional[Union[float, np.ndarray]] = 0.5e-12
-    C_pulse: Optional[Union[float, np.ndarray]] = 0.5e-12
-    C_ref: Optional[Union[float, np.ndarray]] = 1.5e-12
-    C_shunt: Optional[Union[float, np.ndarray]] = 24.5e-12
-    C_mem: Optional[Union[float, np.ndarray]] = 3e-12
-    Io: Optional[Union[float, np.ndarray]] = 5e-13
-    kappa_n: Optional[Union[float, np.ndarray]] = 0.75
-    kappa_p: Optional[Union[float, np.ndarray]] = 0.66
-    Ut: Optional[Union[float, np.ndarray]] = 25e-3
-    Vth: Optional[Union[float, np.ndarray]] = 7e-1
+    C_ahp: Optional[Union[float, np.ndarray]] = dlayout["C_ahp"]
+    C_ampa: Optional[Union[float, np.ndarray]] = dlayout["C_ampa"]
+    C_gaba: Optional[Union[float, np.ndarray]] = dlayout["C_gaba"]
+    C_nmda: Optional[Union[float, np.ndarray]] = dlayout["C_nmda"]
+    C_pulse_ahp: Optional[Union[float, np.ndarray]] = dlayout["C_pulse_ahp"]
+    C_pulse: Optional[Union[float, np.ndarray]] = dlayout["C_pulse"]
+    C_ref: Optional[Union[float, np.ndarray]] = dlayout["C_ref"]
+    C_shunt: Optional[Union[float, np.ndarray]] = dlayout["C_shunt"]
+    C_mem: Optional[Union[float, np.ndarray]] = dlayout["C_mem"]
+    Io: Optional[Union[float, np.ndarray]] = dlayout["Io"]
+    kappa_n: Optional[Union[float, np.ndarray]] = dlayout["kappa_n"]
+    kappa_p: Optional[Union[float, np.ndarray]] = dlayout["kappa_p"]
+    Ut: Optional[Union[float, np.ndarray]] = dlayout["Ut"]
+    Vth: Optional[Union[float, np.ndarray]] = dlayout["Vth"]
 
 
 @dataclass
@@ -210,10 +211,10 @@ class DynapSimWeightBits(DynapSimProperty):
     :type Iw_3: Union[float, np.ndarray]
     """
 
-    Iw_0: Optional[Union[float, np.ndarray]] = None
-    Iw_1: Optional[Union[float, np.ndarray]] = None
-    Iw_2: Optional[Union[float, np.ndarray]] = None
-    Iw_3: Optional[Union[float, np.ndarray]] = None
+    Iw_0: Optional[Union[float, np.ndarray]] = dweight["Iw_0"]
+    Iw_1: Optional[Union[float, np.ndarray]] = dweight["Iw_1"]
+    Iw_2: Optional[Union[float, np.ndarray]] = dweight["Iw_2"]
+    Iw_3: Optional[Union[float, np.ndarray]] = dweight["Iw_3"]
 
 
 @dataclass
@@ -229,121 +230,121 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
     @classmethod
     def from_specification(
         cls,
-        Idc: float = None,
-        If_nmda: float = None,
-        r_gain_ahp: float = 1000,  # 100
-        r_gain_ampa: float = 100,  # 100
-        r_gain_gaba: float = 100,  # 100
-        r_gain_nmda: float = 100,  # 100
-        r_gain_shunt: float = 100,  # 100
-        r_gain_mem: float = 4,  # 4
-        t_pulse_ahp: float = 1e-6,
-        t_pulse: float = 10e-6,
-        t_ref: float = 2e-3,
-        Ispkthr: float = 1e-6,
-        tau_ahp: float = 50e-3,
-        tau_ampa: float = 10e-3,
-        tau_gaba: float = 100e-3,
-        tau_nmda: float = 100e-3,
-        tau_shunt: float = 10e-3,
-        tau_mem: float = 20e-3,
-        Iw_0: float = 1e-9,
-        Iw_1: float = 2e-9,
-        Iw_2: float = 4e-9,
-        Iw_3: float = 8e-9,
-        Iw_ahp: float = 1e-9,
-        C_ahp: float = 40e-12,
-        C_ampa: float = 24.5e-12,
-        C_gaba: float = 25e-12,
-        C_nmda: float = 25e-12,
-        C_pulse_ahp: float = 0.5e-12,
-        C_pulse: float = 0.5e-12,
-        C_ref: float = 1.5e-12,
-        C_shunt: float = 24.5e-12,
-        C_mem: float = 3e-12,
-        Io: float = 5e-13,
-        kappa_n: float = 0.75,
-        kappa_p: float = 0.66,
-        Ut: float = 25e-3,
-        Vth: float = 7e-1,
+        Idc: float = dcurrents["Idc"],
+        If_nmda: float = dcurrents["If_nmda"],
+        r_gain_ahp: float = dgain["r_gain_ahp"],
+        r_gain_ampa: float = dgain["r_gain_ampa"],
+        r_gain_gaba: float = dgain["r_gain_gaba"],
+        r_gain_nmda: float = dgain["r_gain_nmda"],
+        r_gain_shunt: float = dgain["r_gain_shunt"],
+        r_gain_mem: float = dgain["r_gain_mem"],
+        t_pulse_ahp: float = dtime["t_pulse_ahp"],
+        t_pulse: float = dtime["t_pulse"],
+        t_ref: float = dtime["t_ref"],
+        Ispkthr: float = dcurrents["Ispkthr"],
+        tau_ahp: float = dtime["tau_ahp"],
+        tau_ampa: float = dtime["tau_ampa"],
+        tau_gaba: float = dtime["tau_gaba"],
+        tau_nmda: float = dtime["tau_nmda"],
+        tau_shunt: float = dtime["tau_shunt"],
+        tau_mem: float = dtime["tau_mem"],
+        Iw_0: float = dweight["Iw_0"],
+        Iw_1: float = dweight["Iw_1"],
+        Iw_2: float = dweight["Iw_2"],
+        Iw_3: float = dweight["Iw_3"],
+        Iw_ahp: float = dcurrents["Iw_ahp"],
+        C_ahp: float = dlayout["C_ahp"],
+        C_ampa: float = dlayout["C_ampa"],
+        C_gaba: float = dlayout["C_gaba"],
+        C_nmda: float = dlayout["C_nmda"],
+        C_pulse_ahp: float = dlayout["C_pulse_ahp"],
+        C_pulse: float = dlayout["C_pulse"],
+        C_ref: float = dlayout["C_ref"],
+        C_shunt: float = dlayout["C_shunt"],
+        C_mem: float = dlayout["C_mem"],
+        Io: float = dlayout["Io"],
+        kappa_n: float = dlayout["kappa_n"],
+        kappa_p: float = dlayout["kappa_p"],
+        Ut: float = dlayout["Ut"],
+        Vth: float = dlayout["Vth"],
     ) -> DynapSimCore:
         """
         from_specification is a class factory method helping DynapSimCore object construction
         using higher level representaitons of the currents like gain ratio or time constant whenever applicable.
 
-        :param Idc: Constant DC current injected to membrane in Amperes, defaults to None
+        :param Idc: Constant DC current injected to membrane in Amperes
         :type Idc: float, optional
-        :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes, defaults to None
+        :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes
         :type If_nmda: float, optional
-        :param r_gain_ahp: spike frequency adaptation block gain ratio :math:`Igain_ahp/Itau_ahp`, defaults to 100
+        :param r_gain_ahp: spike frequency adaptation block gain ratio :math:`Igain_ahp/Itau_ahp`
         :type r_gain_ahp: float, optional
-        :param r_gain_ampa: excitatory AMPA synpse gain ratio :math:`Igain_ampa/Itau_ampa`, defaults to 100
+        :param r_gain_ampa: excitatory AMPA synpse gain ratio :math:`Igain_ampa/Itau_ampa`
         :type r_gain_ampa: float, optional
-        :param r_gain_gaba: inhibitory GABA synpse gain ratio :math:`Igain_gaba/Itau_gaba `, defaults to 100
+        :param r_gain_gaba: inhibitory GABA synpse gain ratio :math:`Igain_gaba/Itau_gaba `
         :type r_gain_gaba: float, optional
-        :param r_gain_nmda: excitatory NMDA synpse gain ratio :math:`Igain_nmda/Itau_nmda`, defaults to 100
+        :param r_gain_nmda: excitatory NMDA synpse gain ratio :math:`Igain_nmda/Itau_nmda`
         :type r_gain_nmda: float, optional
-        :param r_gain_shunt: inhibitory SHUNT synpse gain ratio :math:`Igain_shunt/Itau_shunt`, defaults to 100
+        :param r_gain_shunt: inhibitory SHUNT synpse gain ratio :math:`Igain_shunt/Itau_shunt`
         :type r_gain_shunt: float, optional
-        :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`, defaults to 2
+        :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`
         :type r_gain_mem: float, optional
-        :param t_pulse_ahp: the spike pulse width for spike frequency adaptation circuit in seconds, defaults to 1e-6
+        :param t_pulse_ahp: the spike pulse width for spike frequency adaptation circuit in seconds
         :type t_pulse_ahp: float, optional
-        :param t_pulse: the spike pulse width for neuron membrane in seconds, defaults to 10e-6
+        :param t_pulse: the spike pulse width for neuron membrane in seconds
         :type t_pulse: float, optional
-        :param t_ref: refractory period of the neurons in seconds, defaults to 2e-2
+        :param t_ref: refractory period of the neurons in seconds
         :type t_ref: float, optional
-        :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes, defaults to 1e-6
+        :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes
         :type Ispkthr: float, optional
-        :param tau_ahp: Spike frequency leakage time constant in seconds, defaults to 50e-3
+        :param tau_ahp: Spike frequency leakage time constant in seconds
         :type tau_ahp: float, optional
-        :param tau_ampa: AMPA synapse leakage time constant in seconds, defaults to 10e-3
+        :param tau_ampa: AMPA synapse leakage time constant in seconds
         :type tau_ampa: float, optional
-        :param tau_gaba: GABA synapse leakage time constant in seconds, defaults to 100e-3
+        :param tau_gaba: GABA synapse leakage time constant in seconds
         :type tau_gaba: float, optional
-        :param tau_nmda: NMDA synapse leakage time constant in seconds, defaults to 100e-3
+        :param tau_nmda: NMDA synapse leakage time constant in seconds
         :type tau_nmda: float, optional
-        :param tau_shunt:SHUNT synapse leakage time constant in seconds, defaults to 10e-3
+        :param tau_shunt:SHUNT synapse leakage time constant in seconds
         :type tau_shunt: float, optional
-        :param tau_mem: Neuron membrane leakage time constant in seconds, defaults to 20e-3
+        :param tau_mem: Neuron membrane leakage time constant in seconds
         :type tau_mem: float, optional
-        :param Iw_0: weight bit 0 current of the neurons of the core in Amperes, defaults to 1e-6
+        :param Iw_0: weight bit 0 current of the neurons of the core in Amperes
         :type Iw_0: float
-        :param Iw_1: weight bit 1 current of the neurons of the core in Amperes, defaults to 2e-6
+        :param Iw_1: weight bit 1 current of the neurons of the core in Amperes
         :type Iw_1: float
-        :param Iw_2: weight bit 2 current of the neurons of the core in Amperes, defaults to 4e-6
+        :param Iw_2: weight bit 2 current of the neurons of the core in Amperes
         :type Iw_2: float
-        :param Iw_3: weight bit 3 current of the neurons of the core in Amperes, defaults to 8e-6
+        :param Iw_3: weight bit 3 current of the neurons of the core in Amperes
         :type Iw_3: float
-        :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes, defaults to 1e-6
+        :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes
         :type Iw_ahp: float
-        :param C_ahp: AHP synapse capacitance in Farads, defaults to 40e-12
+        :param C_ahp: AHP synapse capacitance in Farads
         :type C_ahp: float, optional
-        :param C_ampa: AMPA synapse capacitance in Farads, defaults to 24.5e-12
+        :param C_ampa: AMPA synapse capacitance in Farads
         :type C_ampa: float, optional
-        :param C_gaba: GABA synapse capacitance in Farads, defaults to 25e-12
+        :param C_gaba: GABA synapse capacitance in Farads
         :type C_gaba: float, optional
-        :param C_nmda: NMDA synapse capacitance in Farads, defaults to 25e-12
+        :param C_nmda: NMDA synapse capacitance in Farads
         :type C_nmda: float, optional
-        :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads, defaults to 0.5e-12
+        :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads
         :type C_pulse_ahp: float, optional
-        :param C_pulse: pulse-width creation sub-circuit capacitance in Farads, defaults to 0.5e-12
+        :param C_pulse: pulse-width creation sub-circuit capacitance in Farads
         :type C_pulse: float, optional
-        :param C_ref: refractory period sub-circuit capacitance in Farads, defaults to 1.5e-12
+        :param C_ref: refractory period sub-circuit capacitance in Farads
         :type C_ref: float, optional
-        :param C_shunt: SHUNT synapse capacitance in Farads, defaults to 24.5e-12
+        :param C_shunt: SHUNT synapse capacitance in Farads
         :type C_shunt: float, optional
-        :param C_mem: neuron membrane capacitance in Farads, defaults to 3e-12
+        :param C_mem: neuron membrane capacitance in Farads
         :type C_mem: float, optional
-        :param Io: Dark current in Amperes that flows through the transistors even at the idle state, defaults to 5e-13
+        :param Io: Dark current in Amperes that flows through the transistors even at the idle state
         :type Io: Union[float, np.ndarray], optional
-        :param kappa_n: Subthreshold slope factor (n-type transistor), defaults to 0.75
+        :param kappa_n: Subthreshold slope factor (n-type transistor)
         :type kappa_n: Union[float, np.ndarray], optional
-        :param kappa_p: Subthreshold slope factor (p-type transistor), defaults to 0.66
+        :param kappa_p: Subthreshold slope factor (p-type transistor)
         :type kappa_p: Union[float, np.ndarray], optional
-        :param Ut: Thermal voltage in Volts, defaults to 25e-3
+        :param Ut: Thermal voltage in Volts
         :type Ut: Union[float, np.ndarray], optional
-        :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific), defaults to 7e-1
+        :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific)
         :type Vth: Union[float, np.ndarray], optional
         :return: DynapSimCore object
         :rtype: DynapSimCore
@@ -677,17 +678,17 @@ class DynapSimConfig(DynapSimCore):
     DynapSimConfig stores the simulation currents, layout parameters and weight matrices necessary to
     configure a DynapSE1/SE2 simulator
 
-    :param shape: the network shape (n_input, n_hidden, n_output), defaults to None
+    :param shape: the network shape (n_input, n_hidden, n_output)
     :type shape: Optional[Union[Tuple[int], int]], optional
-    :param w_in: input weight matrix, defaults to None
+    :param w_in: input weight matrix
     :type w_in: np.ndarray, optional
-    :param w_rec: recurrent weight matrix, defaults to None
+    :param w_rec: recurrent weight matrix
     :type w_rec: np.ndarray, optional
-    :param w_out: output weight matrix, defaults to None
+    :param w_out: output weight matrix
     :type w_out: np.ndarray, optional
-    :param cores: dictionary of simulation cores, defaults to None
+    :param cores: dictionary of simulation cores
     :type cores: Optional[Dict[str, DynapSimCore]], optional
-    :param router: the router object reading the memory content to create the weight masks, defaults to None
+    :param router: the router object reading the memory content to create the weight masks
     """
 
     shape: Optional[Union[Tuple[int], int]] = None
@@ -754,43 +755,43 @@ class DynapSimConfig(DynapSimCore):
         w_in_mask: Optional[np.ndarray] = None,
         w_rec_mask: Optional[np.ndarray] = None,
         w_out: Optional[np.ndarray] = None,
-        Idc: float = None,
-        If_nmda: float = None,
-        r_gain_ahp: float = 1000,  # 100
-        r_gain_ampa: float = 100,  # 100
-        r_gain_gaba: float = 100,  # 100
-        r_gain_nmda: float = 100,  # 100
-        r_gain_shunt: float = 100,  # 100
-        r_gain_mem: float = 4,  # 4
-        t_pulse_ahp: float = 1e-6,
-        t_pulse: float = 10e-6,
-        t_ref: float = 2e-3,
-        Ispkthr: float = 1e-6,
-        tau_ahp: float = 50e-3,
-        tau_ampa: float = 10e-3,
-        tau_gaba: float = 100e-3,
-        tau_nmda: float = 100e-3,
-        tau_shunt: float = 10e-3,
-        tau_mem: float = 20e-3,
-        Iw_0: float = 1e-9,
-        Iw_1: float = 2e-9,
-        Iw_2: float = 4e-9,
-        Iw_3: float = 8e-9,
-        Iw_ahp: float = 1e-9,
-        C_ahp: float = 40e-12,
-        C_ampa: float = 24.5e-12,
-        C_gaba: float = 25e-12,
-        C_nmda: float = 25e-12,
-        C_pulse_ahp: float = 0.5e-12,
-        C_pulse: float = 0.5e-12,
-        C_ref: float = 1.5e-12,
-        C_shunt: float = 24.5e-12,
-        C_mem: float = 3e-12,
-        Io: float = 5e-13,
-        kappa_n: float = 0.75,
-        kappa_p: float = 0.66,
-        Ut: float = 25e-3,
-        Vth: float = 7e-1,
+        Idc: float = dcurrents["Idc"],
+        If_nmda: float = dcurrents["If_nmda"],
+        r_gain_ahp: float = dgain["r_gain_ahp"],
+        r_gain_ampa: float = dgain["r_gain_ampa"],
+        r_gain_gaba: float = dgain["r_gain_gaba"],
+        r_gain_nmda: float = dgain["r_gain_nmda"],
+        r_gain_shunt: float = dgain["r_gain_shunt"],
+        r_gain_mem: float = dgain["r_gain_mem"],
+        t_pulse_ahp: float = dtime["t_pulse_ahp"],
+        t_pulse: float = dtime["t_pulse"],
+        t_ref: float = dtime["t_ref"],
+        Ispkthr: float = dcurrents["Ispkthr"],
+        tau_ahp: float = dtime["tau_ahp"],
+        tau_ampa: float = dtime["tau_ampa"],
+        tau_gaba: float = dtime["tau_gaba"],
+        tau_nmda: float = dtime["tau_nmda"],
+        tau_shunt: float = dtime["tau_shunt"],
+        tau_mem: float = dtime["tau_mem"],
+        Iw_0: float = dweight["Iw_0"],
+        Iw_1: float = dweight["Iw_1"],
+        Iw_2: float = dweight["Iw_2"],
+        Iw_3: float = dweight["Iw_3"],
+        Iw_ahp: float = dcurrents["Iw_ahp"],
+        C_ahp: float = dlayout["C_ahp"],
+        C_ampa: float = dlayout["C_ampa"],
+        C_gaba: float = dlayout["C_gaba"],
+        C_nmda: float = dlayout["C_nmda"],
+        C_pulse_ahp: float = dlayout["C_pulse_ahp"],
+        C_pulse: float = dlayout["C_pulse"],
+        C_ref: float = dlayout["C_ref"],
+        C_shunt: float = dlayout["C_shunt"],
+        C_mem: float = dlayout["C_mem"],
+        Io: float = dlayout["Io"],
+        kappa_n: float = dlayout["kappa_n"],
+        kappa_p: float = dlayout["kappa_p"],
+        Ut: float = dlayout["Ut"],
+        Vth: float = dlayout["Vth"],
     ) -> DynapSimConfig:
         """
         from_specification is a class factory method using the weight specifications and the current/layout parameters
@@ -800,89 +801,89 @@ class DynapSimConfig(DynapSimCore):
 
         :param shape: the network shape (n_input, n_hidden, n_output). If shape is int, then it means that the input and output should not be considered.
         :type shape: Optional[Union[Tuple[int], int]]
-        :param w_in: input weight matrix, defaults to None
+        :param w_in: input weight matrix
         :type w_in: Optional[np.ndarray], optional
-        :param w_rec: recurrent weight matrix, defaults to None
+        :param w_rec: recurrent weight matrix
         :type w_rec: Optional[np.ndarray], optional
-        :param w_in_mask: the weight mask to set the input weight matrix. Used if `w_in` is None, defaults to None
+        :param w_in_mask: the weight mask to set the input weight matrix. Used if `w_in` is None
         :type w_in_mask: Optional[np.ndarray], optional
-        :param w_rec_mask: the weight mask to set the recurrent weight matrix. Used if `w_rec` is None, defaults to None
+        :param w_rec_mask: the weight mask to set the recurrent weight matrix. Used if `w_rec` is None
         :type w_rec_mask: Optional[np.ndarray], optional
-        :param w_out: the output weight mask (binary in general), defaults to None
+        :param w_out: the output weight mask (binary in general)
         :type w_out: Optional[np.ndarray], optional
-        :param Idc: Constant DC current injected to membrane in Amperes, defaults to None
+        :param Idc: Constant DC current injected to membrane in Amperes
         :type Idc: float, optional
-        :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes, defaults to None
+        :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes
         :type If_nmda: float, optional
-        :param r_gain_ahp: spike frequency adaptation block gain ratio :math:`Igain_ahp/Itau_ahp`, defaults to 100
+        :param r_gain_ahp: spike frequency adaptation block gain ratio :math:`Igain_ahp/Itau_ahp`
         :type r_gain_ahp: float, optional
-        :param r_gain_ampa: excitatory AMPA synpse gain ratio :math:`Igain_ampa/Itau_ampa`, defaults to 100
+        :param r_gain_ampa: excitatory AMPA synpse gain ratio :math:`Igain_ampa/Itau_ampa`
         :type r_gain_ampa: float, optional
-        :param r_gain_gaba: inhibitory GABA synpse gain ratio :math:`Igain_gaba/Itau_gaba `, defaults to 100
+        :param r_gain_gaba: inhibitory GABA synpse gain ratio :math:`Igain_gaba/Itau_gaba `
         :type r_gain_gaba: float, optional
-        :param r_gain_nmda: excitatory NMDA synpse gain ratio :math:`Igain_nmda/Itau_nmda`, defaults to 100
+        :param r_gain_nmda: excitatory NMDA synpse gain ratio :math:`Igain_nmda/Itau_nmda`
         :type r_gain_nmda: float, optional
-        :param r_gain_shunt: inhibitory SHUNT synpse gain ratio :math:`Igain_shunt/Itau_shunt`, defaults to 100
+        :param r_gain_shunt: inhibitory SHUNT synpse gain ratio :math:`Igain_shunt/Itau_shunt`
         :type r_gain_shunt: float, optional
-        :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`, defaults to 2
+        :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`
         :type r_gain_mem: float, optional
-        :param t_pulse_ahp: the spike pulse width for spike frequency adaptation circuit in seconds, defaults to 1e-6
+        :param t_pulse_ahp: the spike pulse width for spike frequency adaptation circuit in seconds
         :type t_pulse_ahp: float, optional
-        :param t_pulse: the spike pulse width for neuron membrane in seconds, defaults to 10e-6
+        :param t_pulse: the spike pulse width for neuron membrane in seconds
         :type t_pulse: float, optional
-        :param t_ref: refractory period of the neurons in seconds, defaults to 2e-2
+        :param t_ref: refractory period of the neurons in seconds
         :type t_ref: float, optional
-        :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes, defaults to 1e-6
+        :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes
         :type Ispkthr: float, optional
-        :param tau_ahp: Spike frequency leakage time constant in seconds, defaults to 50e-3
+        :param tau_ahp: Spike frequency leakage time constant in seconds
         :type tau_ahp: float, optional
-        :param tau_ampa: AMPA synapse leakage time constant in seconds, defaults to 10e-3
+        :param tau_ampa: AMPA synapse leakage time constant in seconds
         :type tau_ampa: float, optional
-        :param tau_gaba: GABA synapse leakage time constant in seconds, defaults to 100e-3
+        :param tau_gaba: GABA synapse leakage time constant in seconds
         :type tau_gaba: float, optional
-        :param tau_nmda: NMDA synapse leakage time constant in seconds, defaults to 100e-3
+        :param tau_nmda: NMDA synapse leakage time constant in seconds
         :type tau_nmda: float, optional
-        :param tau_shunt:SHUNT synapse leakage time constant in seconds, defaults to 10e-3
+        :param tau_shunt:SHUNT synapse leakage time constant in seconds
         :type tau_shunt: float, optional
-        :param tau_mem: Neuron membrane leakage time constant in seconds, defaults to 20e-3
+        :param tau_mem: Neuron membrane leakage time constant in seconds
         :type tau_mem: float, optional
-        :param Iw_0: weight bit 0 current of the neurons of the core in Amperes, defaults to 1e-6
+        :param Iw_0: weight bit 0 current of the neurons of the core in Amperes
         :type Iw_0: float
-        :param Iw_1: weight bit 1 current of the neurons of the core in Amperes, defaults to 2e-6
+        :param Iw_1: weight bit 1 current of the neurons of the core in Amperes
         :type Iw_1: float
-        :param Iw_2: weight bit 2 current of the neurons of the core in Amperes, defaults to 4e-6
+        :param Iw_2: weight bit 2 current of the neurons of the core in Amperes
         :type Iw_2: float
-        :param Iw_3: weight bit 3 current of the neurons of the core in Amperes, defaults to 8e-6
+        :param Iw_3: weight bit 3 current of the neurons of the core in Amperes
         :type Iw_3: float
-        :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes, defaults to 1e-6
+        :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes
         :type Iw_ahp: float
-        :param C_ahp: AHP synapse capacitance in Farads, defaults to 40e-12
+        :param C_ahp: AHP synapse capacitance in Farads
         :type C_ahp: float, optional
-        :param C_ampa: AMPA synapse capacitance in Farads, defaults to 24.5e-12
+        :param C_ampa: AMPA synapse capacitance in Farads
         :type C_ampa: float, optional
-        :param C_gaba: GABA synapse capacitance in Farads, defaults to 25e-12
+        :param C_gaba: GABA synapse capacitance in Farads
         :type C_gaba: float, optional
-        :param C_nmda: NMDA synapse capacitance in Farads, defaults to 25e-12
+        :param C_nmda: NMDA synapse capacitance in Farads
         :type C_nmda: float, optional
-        :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads, defaults to 0.5e-12
+        :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads
         :type C_pulse_ahp: float, optional
-        :param C_pulse: pulse-width creation sub-circuit capacitance in Farads, defaults to 0.5e-12
+        :param C_pulse: pulse-width creation sub-circuit capacitance in Farads
         :type C_pulse: float, optional
-        :param C_ref: refractory period sub-circuit capacitance in Farads, defaults to 1.5e-12
+        :param C_ref: refractory period sub-circuit capacitance in Farads
         :type C_ref: float, optional
-        :param C_shunt: SHUNT synapse capacitance in Farads, defaults to 24.5e-12
+        :param C_shunt: SHUNT synapse capacitance in Farads
         :type C_shunt: float, optional
-        :param C_mem: neuron membrane capacitance in Farads, defaults to 3e-12
+        :param C_mem: neuron membrane capacitance in Farads
         :type C_mem: float, optional
-        :param Io: Dark current in Amperes that flows through the transistors even at the idle state, defaults to 5e-13
+        :param Io: Dark current in Amperes that flows through the transistors even at the idle state
         :type Io: Union[float, np.ndarray], optional
-        :param kappa_n: Subthreshold slope factor (n-type transistor), defaults to 0.75
+        :param kappa_n: Subthreshold slope factor (n-type transistor)
         :type kappa_n: Union[float, np.ndarray], optional
-        :param kappa_p: Subthreshold slope factor (p-type transistor), defaults to 0.66
+        :param kappa_p: Subthreshold slope factor (p-type transistor)
         :type kappa_p: Union[float, np.ndarray], optional
-        :param Ut: Thermal voltage in Volts, defaults to 25e-3
+        :param Ut: Thermal voltage in Volts
         :type Ut: Union[float, np.ndarray], optional
-        :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific), defaults to 7e-1
+        :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific)
         :type Vth: Union[float, np.ndarray], optional
         :return: a `DynapSimConfig` object created from specifications
         :rtype: DynapSimConfig
@@ -1234,15 +1235,15 @@ class DynapSimTime(DynapSimCoreHigh):
     :type tau_mem: float, optional
     """
 
-    t_pulse_ahp: Optional[float] = None
-    t_pulse: Optional[float] = None
-    t_ref: Optional[float] = None
-    tau_ahp: Optional[float] = None
-    tau_ampa: Optional[float] = None
-    tau_gaba: Optional[float] = None
-    tau_nmda: Optional[float] = None
-    tau_shunt: Optional[float] = None
-    tau_mem: Optional[float] = None
+    t_pulse_ahp: Optional[float] = dtime["t_pulse_ahp"]
+    t_pulse: Optional[float] = dtime["t_pulse"]
+    t_ref: Optional[float] = dtime["t_ref"]
+    tau_ahp: Optional[float] = dtime["tau_ahp"]
+    tau_ampa: Optional[float] = dtime["tau_ampa"]
+    tau_gaba: Optional[float] = dtime["tau_gaba"]
+    tau_nmda: Optional[float] = dtime["tau_nmda"]
+    tau_shunt: Optional[float] = dtime["tau_shunt"]
+    tau_mem: Optional[float] = dtime["tau_mem"]
 
     @classmethod
     def from_DynapSimCore(cls, core: DynapSimCore) -> DynapSimTime:
@@ -1419,26 +1420,26 @@ class DynapSimGain(DynapSimCoreHigh):
     """
     DynapSimGain stores the ratio between gain and tau current values
 
-    :param r_gain_ahp: spike frequency adaptation block gain ratio :math:`Igain_ahp/Itau_ahp`, defaults to 100
+    :param r_gain_ahp: spike frequency adaptation block gain ratio :math:`Igain_ahp/Itau_ahp`
     :type r_gain_ahp: float, optional
-    :param r_gain_ampa: excitatory AMPA synpse gain ratio :math:`Igain_ampa/Itau_ampa`, defaults to 100
+    :param r_gain_ampa: excitatory AMPA synpse gain ratio :math:`Igain_ampa/Itau_ampa`
     :type r_gain_ampa: float, optional
-    :param r_gain_gaba: inhibitory GABA synpse gain ratio :math:`Igain_gaba/Itau_gaba `, defaults to 100
+    :param r_gain_gaba: inhibitory GABA synpse gain ratio :math:`Igain_gaba/Itau_gaba `
     :type r_gain_gaba: float, optional
-    :param r_gain_nmda: excitatory NMDA synpse gain ratio :math:`Igain_nmda/Itau_nmda`, defaults to 100
+    :param r_gain_nmda: excitatory NMDA synpse gain ratio :math:`Igain_nmda/Itau_nmda`
     :type r_gain_nmda: float, optional
-    :param r_gain_shunt: inhibitory SHUNT synpse gain ratio :math:`Igain_shunt/Itau_shunt`, defaults to 100
+    :param r_gain_shunt: inhibitory SHUNT synpse gain ratio :math:`Igain_shunt/Itau_shunt`
     :type r_gain_shunt: float, optional
-    :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`, defaults to 2
+    :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`
     :type r_gain_mem: float, optional
     """
 
-    r_gain_ahp: Optional[float] = None
-    r_gain_ampa: Optional[float] = None
-    r_gain_gaba: Optional[float] = None
-    r_gain_nmda: Optional[float] = None
-    r_gain_shunt: Optional[float] = None
-    r_gain_mem: Optional[float] = None
+    r_gain_ahp: Optional[float] = dgain["r_gain_ahp"]
+    r_gain_ampa: Optional[float] = dgain["r_gain_ampa"]
+    r_gain_gaba: Optional[float] = dgain["r_gain_gaba"]
+    r_gain_nmda: Optional[float] = dgain["r_gain_nmda"]
+    r_gain_shunt: Optional[float] = dgain["r_gain_shunt"]
+    r_gain_mem: Optional[float] = dgain["r_gain_mem"]
 
     @classmethod
     def from_DynapSimCore(cls, core: DynapSimCore) -> DynapSimGain:
