@@ -281,7 +281,9 @@ def read_afe2_module_version(
     return version, revision
 
 
-def new_xylo_read_buffer(hdk: XyloA2HDK,) -> Xylo2ReadBuffer:
+def new_xylo_read_buffer(
+    hdk: XyloA2HDK,
+) -> Xylo2ReadBuffer:
     """
     Create and connect a new buffer to read from a Xylo HDK
 
@@ -326,7 +328,9 @@ def new_xylo_write_buffer(hdk: XyloA2HDK) -> Xylo2WriteBuffer:
     return buffer
 
 
-def new_xylo_state_monitor_buffer(hdk: XyloA2HDK,) -> Xylo2NeuronStateBuffer:
+def new_xylo_state_monitor_buffer(
+    hdk: XyloA2HDK,
+) -> Xylo2NeuronStateBuffer:
     """
     Create a new buffer for monitoring neuron and synapse state and connect it
 
@@ -346,8 +350,8 @@ def new_xylo_state_monitor_buffer(hdk: XyloA2HDK,) -> Xylo2NeuronStateBuffer:
     source_node = model.get_source_node()
 
     # - Add the buffer as a destination for the Xylo output events
-    success = source_node.add_destination(buffer.get_input_channel())
-    assert success, "Error connecting the new buffer."
+    graph = samna.graph.EventFilterGraph()
+    graph.sequential([source_node, buffer])
 
     # - Return the buffer
     return buffer
@@ -429,7 +433,9 @@ def initialise_xylo_hdk(write_buffer: Xylo2WriteBuffer) -> None:
 
 
 def write_register(
-    write_buffer: Xylo2WriteBuffer, register: int, data: int = 0,
+    write_buffer: Xylo2WriteBuffer,
+    register: int,
+    data: int = 0,
 ) -> None:
     """
     Write data to a register on a Xylo HDK
@@ -549,7 +555,10 @@ def read_memory(
     ]
 
 
-def generate_read_memory_events(start_address: int, count: int = 1,) -> List[Any]:
+def generate_read_memory_events(
+    start_address: int,
+    count: int = 1,
+) -> List[Any]:
     """
     Build a list of events that cause Xylo memory to be read
 
@@ -582,7 +591,9 @@ def generate_read_memory_events(start_address: int, count: int = 1,) -> List[Any
 
 
 def decode_memory_read_events(
-    events: List[Any], start_address: int, count: int = 1,
+    events: List[Any],
+    start_address: int,
+    count: int = 1,
 ) -> List:
     """
     Decode a list of events containing memory reads from a Xylo HDK
@@ -613,7 +624,9 @@ def decode_memory_read_events(
 
 
 def verify_xylo_version(
-    read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer, timeout: float = 1.0,
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
+    timeout: float = 1.0,
 ) -> bool:
     """
     Verify that the provided daughterbaord returns the correct version ID for Xylo
@@ -637,7 +650,9 @@ def verify_xylo_version(
     t_end = time.time() + timeout
     while len(filtered_events) == 0:
         events = read_buffer.get_events()
-        filtered_events = [e for e in events if isinstance(e, samna.xyloCore2.event.Version)]
+        filtered_events = [
+            e for e in events if isinstance(e, samna.xyloCore2.event.Version)
+        ]
 
         # - Check timeout
         if time.time() > t_end:
@@ -697,8 +712,11 @@ def write_memory(
         written += chunk_size
         time.sleep(0.01)
 
+
 def reset_neuron_synapse_state(
-    hdk: XyloA2HDK, read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer,
+    hdk: XyloA2HDK,
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
 ) -> None:
     """
     Reset the neuron and synapse state on a Xylo HDK
@@ -751,7 +769,9 @@ def apply_configuration(
     write_memory(write_buffer, 0x9980, 1000, rcram)
 
 
-def zero_memory(write_buffer: Xylo2WriteBuffer,) -> None:
+def zero_memory(
+    write_buffer: Xylo2WriteBuffer,
+) -> None:
     """
     Clear all Xylo memory
 
@@ -849,7 +869,7 @@ def read_neuron_synapse_state(
     )
 
 
-def is_xylo_ready(read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer) -> None:
+def is_xylo_ready(read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer) -> bool:
     """
     Query a Xylo HDK to see if it is ready for a time-step
 
@@ -859,7 +879,7 @@ def is_xylo_ready(read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer) 
 
     Returns: ``True`` iff the Xylo HDK has finished all processing
     """
-    return read_register(read_buffer, write_buffer, 0x10)[-1] & (1 << 16) is not 0
+    return read_register(read_buffer, write_buffer, 0x10)[-1] & (1 << 16) != 0
 
 
 def advance_time_step(write_buffer: Xylo2WriteBuffer) -> None:
@@ -943,7 +963,9 @@ def num_buffer_neurons(Nhidden: int) -> int:
 
 
 def get_current_timestamp(
-    read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer, timeout: float = 3.0,
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
+    timeout: float = 3.0,
 ) -> int:
     """
     Retrieve the current timestamp on a Xylo HDK
@@ -970,7 +992,9 @@ def get_current_timestamp(
     start_t = time.time()
     while continue_read:
         readout_events = read_buffer.get_events()
-        ev_filt = [e for e in readout_events if isinstance(e, samna.xyloCore2.event.Readout)]
+        ev_filt = [
+            e for e in readout_events if isinstance(e, samna.xyloCore2.event.Readout)
+        ]
         if ev_filt:
             timestamp = ev_filt[0].timestamp
             continue_read = False
@@ -1038,15 +1062,19 @@ def configure_accel_time_mode(
 
     else:
         if readout == "Isyn":
-            config.debug.monitor_neuron_i_syn = samna.xyloCore2.configuration.NeuronRange(
-                monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+            config.debug.monitor_neuron_i_syn = (
+                samna.xyloCore2.configuration.NeuronRange(
+                    monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+                )
             )
         # elif readout == "Spike":
         #     config.debug.monitor_neuron_spike = (
         #         samna.xyloCore2.configuration.NeuronRange(monitor_Nhidden, monitor_Nhidden + monitor_Noutput))
         elif readout == "Vmem":
-            config.debug.monitor_neuron_v_mem = samna.xyloCore2.configuration.NeuronRange(
-                monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+            config.debug.monitor_neuron_v_mem = (
+                samna.xyloCore2.configuration.NeuronRange(
+                    monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+                )
             )
 
     # - Configure the monitor buffer
@@ -1084,7 +1112,10 @@ def to_hex(n: int, digits: int) -> str:
 
 
 def read_accel_mode_data(
-    monitor_buffer: Xylo2NeuronStateBuffer, Nin: int, Nhidden: int, Nout: int,
+    monitor_buffer: Xylo2NeuronStateBuffer,
+    Nin: int,
+    Nhidden: int,
+    Nout: int,
 ) -> XyloState:
     """
     Read accelerated simulation mode data from a Xylo HDK
@@ -1515,7 +1546,9 @@ def read_allram_state(
 
 
 def export_registers(
-    read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer, file,
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
+    file,
 ) -> None:
     """
     Print register contents for debugging purposes
