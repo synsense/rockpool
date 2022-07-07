@@ -7,7 +7,7 @@ def test_imports():
     
 def test_afe2_module():
     from rockpool.devices.xylo.syns61201 import AFESamna
-    from rockpool.devices.xylo.xylo_devkit_utils import find_xylo_a2_boards
+    from rockpool.devices.xylo.syns61201.xa2_devkit_utils import find_xylo_a2_boards
     from samna.afe2.configuration import AfeConfiguration
     
     import numpy as np
@@ -18,7 +18,7 @@ def test_afe2_module():
         pytest.skip('A connect Xylo-A2 HDK is required for this test')
     
     # - Create and configure a module    
-    mod_afe2 = AFESamna(a2_boards[0], dt = 1e-3)
+    mod_afe2 = AFESamna(a2_boards[0], dt=1e-3)
     
     # - Check parameter access
     mod_afe2.parameters()

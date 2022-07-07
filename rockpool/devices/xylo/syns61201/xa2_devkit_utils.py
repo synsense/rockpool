@@ -295,7 +295,7 @@ def new_xylo_read_buffer(hdk: XyloA2HDK,) -> Xylo2ReadBuffer:
     buffer = Xylo2ReadBuffer()
 
     # - Get the device model
-    model = hdk.get_model()
+    model = hdk.get_xylo_model()
 
     # - Get Xylo output event source node
     source_node = model.get_source_node()
@@ -319,7 +319,7 @@ def new_xylo_write_buffer(hdk: XyloA2HDK) -> Xylo2WriteBuffer:
         XyloWriteBuffer: A connected event write buffer
     """
     buffer = Xylo2WriteBuffer()
-    sink = hdk.get_model().get_sink_node()
+    sink = hdk.get_xylo_model().get_sink_node()
     graph = samna.graph.EventFilterGraph()
     graph.sequential([buffer, sink])
 
@@ -340,7 +340,7 @@ def new_xylo_state_monitor_buffer(hdk: XyloA2HDK,) -> Xylo2NeuronStateBuffer:
     buffer = Xylo2NeuronStateBuffer()
 
     # - Get the device model
-    model = hdk.get_model()
+    model = hdk.get_xylo_model()
 
     # - Get Xylo output event source node
     source_node = model.get_source_node()
@@ -439,7 +439,7 @@ def write_register(
         register (int): The address of the register to write to
         data (int): The data to write. Default: 0x0
     """
-    wwv_ev = samna.xylo.event.WriteRegisterValue()
+    wwv_ev = samna.xyloCore2.event.WriteRegisterValue()
     wwv_ev.address = register
     wwv_ev.data = data
     write_buffer.write([wwv_ev])
@@ -464,7 +464,7 @@ def read_register(
         List[int]: A list of events returned from the read
     """
     # - Set up a register read
-    rrv_ev = samna.xylo.event.ReadRegisterValue()
+    rrv_ev = samna.xyloCore2.event.ReadRegisterValue()
     rrv_ev.address = address
 
     # - Request read
@@ -515,12 +515,12 @@ def read_memory(
     read_events_list = []
 
     # - Insert an extra read to avoid zero data
-    rmv_ev = samna.xylo.event.ReadMemoryValue()
+    rmv_ev = samna.xyloCore2.event.ReadMemoryValue()
     rmv_ev.address = start_address
     read_events_list.append(rmv_ev)
 
     for elem in range(count):
-        rmv_ev = samna.xylo.event.ReadMemoryValue()
+        rmv_ev = samna.xyloCore2.event.ReadMemoryValue()
         rmv_ev.address = start_address + elem
         read_events_list.append(rmv_ev)
 
@@ -569,12 +569,12 @@ def generate_read_memory_events(start_address: int, count: int = 1,) -> List[Any
     read_events_list = []
 
     # - Insert an extra read to avoid zero data
-    rmv_ev = samna.xylo.event.ReadMemoryValue()
+    rmv_ev = samna.xyloCore2.event.ReadMemoryValue()
     rmv_ev.address = start_address
     read_events_list.append(rmv_ev)
 
     for elem in range(count):
-        rmv_ev = samna.xylo.event.ReadMemoryValue()
+        rmv_ev = samna.xyloCore2.event.ReadMemoryValue()
         rmv_ev.address = start_address + elem
         read_events_list.append(rmv_ev)
 
@@ -619,8 +619,8 @@ def verify_xylo_version(
     Verify that the provided daughterbaord returns the correct version ID for Xylo
 
     Args:
-        read_buffer (XyloReadBuffer): A read buffer connected to the Xylo HDK
-        write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK
+        read_buffer (Xylo2ReadBuffer): A read buffer connected to the Xylo HDK
+        write_buffer (Xylo2WriteBuffer): A write buffer connected to the Xylo HDK
         timeout (float): Timeout for checking in seconds
 
     Returns:
@@ -630,14 +630,14 @@ def verify_xylo_version(
     read_buffer.get_events()
 
     # - Read the version register
-    write_buffer.write([samna.xylo.event.ReadVersion()])
+    write_buffer.write([samna.xyloCore2.event.ReadVersion()])
 
     # - Read events until timeout
     filtered_events = []
     t_end = time.time() + timeout
     while len(filtered_events) == 0:
         events = read_buffer.get_events()
-        filtered_events = [e for e in events if isinstance(e, samna.xylo.event.Version)]
+        filtered_events = [e for e in events if isinstance(e, samna.xyloCore2.event.Version)]
 
         # - Check timeout
         if time.time() > t_end:
@@ -646,7 +646,7 @@ def verify_xylo_version(
     return (
         (len(filtered_events) > 0)
         and (filtered_events[0].major == 1)
-        and (filtered_events[0].minor == 0)
+        and (filtered_events[0].minor == 1)
     )
 
 
@@ -682,7 +682,7 @@ def write_memory(
     # - Set up a list of write events
     write_event_list = []
     for elem in range(count):
-        wmv_ev = samna.xylo.event.WriteMemoryValue()
+        wmv_ev = samna.xyloCore2.event.WriteMemoryValue()
         wmv_ev.address = start_address + elem
 
         if data is not None:
@@ -697,7 +697,6 @@ def write_memory(
         written += chunk_size
         time.sleep(0.01)
 
-
 def reset_neuron_synapse_state(
     hdk: XyloA2HDK, read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer,
 ) -> None:
@@ -710,7 +709,7 @@ def reset_neuron_synapse_state(
         write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK to reset
     """
     # - Get the current configuration
-    config = hdk.get_model().get_configuration()
+    config = hdk.get_xylo_model().get_configuration()
 
     # - Reset via configuration
     config.clear_network_state = True
@@ -733,11 +732,16 @@ def apply_configuration(
         write_buffer (XyloWriteBuffer): A connected write buffer for the Xylo HDK
     """
     # - WORKAROUND: Manually enable debug clock
-    config.debug.clock_enable = True
+    config.debug.isyn_clock_enable = True
+    config.debug.ra_clock_enable = True
+    config.debug.hm_clock_enable = True
+    config.debug.bias_clock_enable = True
+    config.debug.isyn2_clock_enable = True
+
     config.debug.ram_power_enable = True
 
     # - Ideal -- just write the configuration using samna
-    hdk.get_model().apply_configuration(config)
+    hdk.get_xylo_model().apply_configuration(config)
 
     # - WORKAROUND: Design bug, where aliasing is not computed correctly
     rcram = read_memory(read_buffer, write_buffer, 0x9980, 1000)
@@ -745,6 +749,41 @@ def apply_configuration(
         if rcram[i] == 2:
             rcram[i] = 3
     write_memory(write_buffer, 0x9980, 1000, rcram)
+
+
+def zero_memory(write_buffer: Xylo2WriteBuffer,) -> None:
+    """
+    Clear all Xylo memory
+
+    This function writes zeros to all memory banks on a Xylo HDK.
+
+    Args:
+        write_buffer (XyloWriteBuffer): A write buffer connected to the desired Xylo HDK
+    """
+    # - Define the memory banks
+    memory_table = {
+        "iwtram": (0x0100, 16000),
+        "iwt2ram": (0x3F80, 16000),
+        "nscram": (0x7E00, 1008),
+        "rsc2ram": (0x81F0, 1000),
+        "nmpram": (0x85D8, 1008),
+        "ndsram": (0x89C8, 1008),
+        "rds2ram": (0x8DB8, 1000),
+        "ndmram": (0x91A0, 1008),
+        "nthram": (0x9590, 1008),
+        "rcram": (0x9980, 1000),
+        "raram": (0x9D68, 1000),
+        "rspkram": (0xA150, 1000),
+        "refocram": (0xA538, 1000),
+        "rforam": (0xA920, 32000),
+        "rwtram": (0x12620, 32000),
+        "rwt2ram": (0x1A320, 32000),
+        "owtram": (0x22020, 8000),
+    }
+
+    # - Zero each bank in turn
+    for bank in memory_table.values():
+        write_memory(write_buffer, *bank)
 
 
 def read_neuron_synapse_state(
@@ -830,7 +869,7 @@ def advance_time_step(write_buffer: Xylo2WriteBuffer) -> None:
     Args:
         write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK
     """
-    e = samna.xylo.event.TriggerProcessing()
+    e = samna.xyloCore2.event.TriggerProcessing()
     write_buffer.write([e])
 
 
@@ -860,7 +899,7 @@ def send_immediate_input_spikes(
     for input_channel, event in enumerate(spike_counts):
         if event:
             for _ in range(int(event)):
-                s_event = samna.xylo.event.Spike()
+                s_event = samna.xyloCore2.event.Spike()
                 s_event.neuron_id = input_channel
                 events_list.append(s_event)
 
@@ -922,7 +961,7 @@ def get_current_timestamp(
     read_buffer.get_events()
 
     # - Trigger a readout event on Xylo
-    e = samna.xylo.event.TriggerReadout()
+    e = samna.xyloCore2.event.TriggerReadout()
     write_buffer.write([e])
 
     # - Wait for the readout event to be sent back, and extract the timestamp
@@ -931,7 +970,7 @@ def get_current_timestamp(
     start_t = time.time()
     while continue_read:
         readout_events = read_buffer.get_events()
-        ev_filt = [e for e in readout_events if isinstance(e, samna.xylo.event.Readout)]
+        ev_filt = [e for e in readout_events if isinstance(e, samna.xyloCore2.event.Readout)]
         if ev_filt:
             timestamp = ev_filt[0].timestamp
             continue_read = False
@@ -976,7 +1015,7 @@ def configure_accel_time_mode(
     assert readout in ["Isyn", "Vmem", "Spike"], f"{readout} is not supported."
 
     # - Select accelerated time mode
-    config.operation_mode = samna.xylo.OperationMode.AcceleratedTime
+    config.operation_mode = samna.xyloCore2.OperationMode.AcceleratedTime
 
     config.debug.monitor_neuron_i_syn = None
     config.debug.monitor_neuron_i_syn2 = None
@@ -984,29 +1023,29 @@ def configure_accel_time_mode(
     config.debug.monitor_neuron_v_mem = None
 
     if record:
-        config.debug.monitor_neuron_i_syn = samna.xylo.configuration.NeuronRange(
+        config.debug.monitor_neuron_i_syn = samna.xyloCore2.configuration.NeuronRange(
             0, monitor_Nhidden + monitor_Noutput
         )
-        config.debug.monitor_neuron_i_syn2 = samna.xylo.configuration.NeuronRange(
+        config.debug.monitor_neuron_i_syn2 = samna.xyloCore2.configuration.NeuronRange(
             0, monitor_Nhidden
         )
-        config.debug.monitor_neuron_spike = samna.xylo.configuration.NeuronRange(
+        config.debug.monitor_neuron_spike = samna.xyloCore2.configuration.NeuronRange(
             0, monitor_Nhidden
         )
-        config.debug.monitor_neuron_v_mem = samna.xylo.configuration.NeuronRange(
+        config.debug.monitor_neuron_v_mem = samna.xyloCore2.configuration.NeuronRange(
             0, monitor_Nhidden + monitor_Noutput
         )
 
     else:
         if readout == "Isyn":
-            config.debug.monitor_neuron_i_syn = samna.xylo.configuration.NeuronRange(
+            config.debug.monitor_neuron_i_syn = samna.xyloCore2.configuration.NeuronRange(
                 monitor_Nhidden, monitor_Nhidden + monitor_Noutput
             )
         # elif readout == "Spike":
         #     config.debug.monitor_neuron_spike = (
-        #         samna.xylo.configuration.NeuronRange(monitor_Nhidden, monitor_Nhidden + monitor_Noutput))
+        #         samna.xyloCore2.configuration.NeuronRange(monitor_Nhidden, monitor_Nhidden + monitor_Noutput))
         elif readout == "Vmem":
-            config.debug.monitor_neuron_v_mem = samna.xylo.configuration.NeuronRange(
+            config.debug.monitor_neuron_v_mem = samna.xyloCore2.configuration.NeuronRange(
                 monitor_Nhidden, monitor_Nhidden + monitor_Noutput
             )
 
@@ -1026,7 +1065,7 @@ def configure_single_step_time_mode(config: XyloConfiguration) -> XyloConfigurat
         config (XyloConfiguration): The desired Xylo configuration to use
     """
     # - Write the configuration
-    config.operation_mode = samna.xylo.OperationMode.Manual
+    config.operation_mode = samna.xyloCore2.OperationMode.Manual
     return config
 
 
@@ -1133,12 +1172,12 @@ def decode_accel_mode_data(
     # - Loop over events and decode
     for e in events:
         # - Handle an output spike event
-        if isinstance(e, samna.xylo.event.Spike):
+        if isinstance(e, samna.xyloCore2.event.Spike):
             # - Save this output event
             spikes_out_ts[e.timestamp - 1][e.neuron_id] = True
 
         # - Handle a memory value read event
-        if isinstance(e, samna.xylo.event.MemoryValue):
+        if isinstance(e, samna.xyloCore2.event.MemoryValue):
             # - Find out which memory block this event corresponds to
             memory_block = [
                 block
@@ -1165,7 +1204,7 @@ def decode_accel_mode_data(
                     spikes_ts[-1][e.address - memory_table["rspkram"][0]] = e.data
 
         # - Handle the readout event, which signals the *end* of a time step
-        if isinstance(e, samna.xylo.event.Readout):
+        if isinstance(e, samna.xyloCore2.event.Readout):
             # - Advance the timestep counter
             timestep = e.timestamp
             times.append(timestep)
@@ -1212,3 +1251,382 @@ def decode_accel_mode_data(
         ),
         times,
     )
+
+
+class XyloAllRam(NamedTuple):
+    """
+    ``NamedTuple`` that encapsulates a recorded Xylo HDK state
+    """
+
+    # - state Ram
+    Nin: int
+    """ int: The number of input-layer neurons """
+
+    Nhidden: int
+    """ int: The number of hidden-layer neurons """
+
+    Nout: int
+    """ int: The number of output layer neurons """
+
+    V_mem_hid: np.ndarray
+    """ np.ndarray: Membrane potential of hidden neurons ``(Nhidden,)``"""
+
+    I_syn_hid: np.ndarray
+    """ np.ndarray: Synaptic current 1 of hidden neurons ``(Nhidden,)``"""
+
+    V_mem_out: np.ndarray
+    """ np.ndarray: Membrane potential of output neurons ``(Nhidden,)``"""
+
+    I_syn_out: np.ndarray
+    """ np.ndarray: Synaptic current of output neurons ``(Nout,)``"""
+
+    I_syn2_hid: np.ndarray
+    """ np.ndarray: Synaptic current 2 of hidden neurons ``(Nhidden,)``"""
+
+    Spikes_hid: np.ndarray
+    """ np.ndarray: Spikes from hidden layer neurons ``(Nhidden,)``"""
+
+    Spikes_out: np.ndarray
+    """ np.ndarray: Spikes from output layer neurons ``(Nout,)``"""
+
+    # - config RAM
+    IWTRAM_state: np.ndarray
+    """ np.ndarray: Contents of IWTRAM """
+
+    IWT2RAM_state: np.ndarray
+    """ np.ndarray: Contents of IWT2RAM """
+
+    NDSRAM_state: np.ndarray
+    """ np.ndarray: Contents of NDSRAM """
+
+    RDS2RAM_state: np.ndarray
+    """ np.ndarray: Contents of RDS2RAM """
+
+    NDMRAM_state: np.ndarray
+    """ np.ndarray: Contents of NMDRAM """
+
+    NTHRAM_state: np.ndarray
+    """ np.ndarray: Contents of NTHRAM """
+
+    RCRAM_state: np.ndarray
+    """ np.ndarray: Contents of RCRAM """
+
+    RARAM_state: np.ndarray
+    """ np.ndarray: Contents of RARAM """
+
+    REFOCRAM_state: np.ndarray
+    """ np.ndarray: Contents of REFOCRAM """
+
+    RFORAM_state: np.ndarray
+    """ np.ndarray: Contents of RFORAM """
+
+    RWTRAM_state: np.ndarray
+    """ np.ndarray: Contents of RWTRAM """
+
+    RWT2RAM_state: np.ndarray
+    """ np.ndarray: Contents of RWT2RAM """
+
+    OWTRAM_state: np.ndarray
+    """ np.ndarray: Contents of OWTRAM """
+
+
+def read_allram_state(
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
+    Nin: int = 16,
+    Nhidden: int = 1000,
+    Nout: int = 8,
+) -> XyloAllRam:
+    """
+    Read and return the all ram in each step as a state
+
+    Args:
+        read_buffer (XyloReadBuffer): A read buffer connected to the Xylo HDK
+        write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK
+
+    Returns:
+        :py:class:`.XyloState`: The recorded state as a ``NamedTuple``. Contains keys ``V_mem_hid``,  ``V_mem_out``, ``I_syn_hid``, ``I_syn_out``, ``I_syn2_hid``, ``Nhidden``, ``Nout``. This state has **no time axis**; the first axis is the neuron ID.
+
+    """
+    # - Define the memory bank addresses
+    memory_table = {
+        "nscram": 0x7E00,
+        "rsc2ram": 0x81F0,
+        "nmpram": 0x85D8,
+        "rspkram": 0xA150,
+        "IWTRAM": 0x00100,
+        "IWT2RAM": 0x03F80,
+        "NDSRAM": 0x089C8,
+        "RDS2RAM": 0x08DB8,
+        "NDMRAM": 0x091A0,
+        "NTHRAM": 0x09590,
+        "RCRAM": 0x09980,
+        "RARAM": 0x09D68,
+        "REFOCRAM": 0x0A538,
+        "RFORAM": 0x0A920,
+        "RWTRAM": 0x12620,
+        "RWT2RAM": 0x1A320,
+        "OWTRAM": 0x22020,
+    }
+
+    # - Read synaptic currents
+    Isyn = read_memory(
+        read_buffer,
+        write_buffer,
+        memory_table["nscram"],
+        Nhidden + Nout + num_buffer_neurons(Nhidden),
+    )
+
+    # - Read synaptic currents 2
+    Isyn2 = read_memory(read_buffer, write_buffer, memory_table["rsc2ram"], Nhidden)
+
+    # - Read membrane potential
+    Vmem = read_memory(
+        read_buffer,
+        write_buffer,
+        memory_table["nmpram"],
+        Nhidden + Nout + num_buffer_neurons(Nhidden),
+    )
+
+    # - Read reservoir spikes
+    Spikes = read_memory(read_buffer, write_buffer, memory_table["rspkram"], Nhidden)
+
+    # - Read config RAM including buffer neuron(s)
+    input_weight_ram = read_memory(
+        read_buffer,
+        write_buffer,
+        memory_table["IWTRAM"],
+        Nin * (Nhidden + num_buffer_neurons(Nhidden)),
+    )
+
+    input_weight_2ram = read_memory(
+        read_buffer,
+        write_buffer,
+        memory_table["IWT2RAM"],
+        Nin * (Nhidden + num_buffer_neurons(Nhidden)),
+    )
+
+    neuron_dash_syn_ram = read_memory(
+        read_buffer,
+        write_buffer,
+        memory_table["NDSRAM"],
+        Nhidden + Nout + num_buffer_neurons(Nhidden),
+    )
+
+    reservoir_dash_syn_2ram = read_memory(
+        read_buffer,
+        write_buffer,
+        memory_table["RDS2RAM"],
+        Nhidden + num_buffer_neurons(Nhidden),
+    )
+
+    neuron_dash_mem_ram = read_memory(
+        read_buffer,
+        write_buffer,
+        memory_table["NDMRAM"],
+        Nhidden + Nout + num_buffer_neurons(Nhidden),
+    )
+
+    neuron_threshold_ram = read_memory(
+        read_buffer,
+        write_buffer,
+        memory_table["NTHRAM"],
+        Nhidden + Nout + num_buffer_neurons(Nhidden),
+    )
+
+    reservoir_config_ram = read_memory(
+        read_buffer,
+        write_buffer,
+        memory_table["RCRAM"],
+        Nhidden + num_buffer_neurons(Nhidden),
+    )
+
+    reservoir_aliasing_ram = read_memory(
+        read_buffer,
+        write_buffer,
+        memory_table["RARAM"],
+        Nhidden + num_buffer_neurons(Nhidden),
+    )
+
+    reservoir_effective_fanout_count_ram = read_memory(
+        read_buffer,
+        write_buffer,
+        memory_table["REFOCRAM"],
+        # Nhidden + num_buffer_neurons(Nhidden), --> dummy neuron
+        Nhidden,
+    )
+
+    recurrent_fanout_ram = read_memory(
+        read_buffer,
+        write_buffer,
+        memory_table["RFORAM"],
+        np.sum(np.array(reservoir_effective_fanout_count_ram, "int16")),
+    )
+
+    recurrent_weight_ram = read_memory(
+        read_buffer,
+        write_buffer,
+        memory_table["RWTRAM"],
+        np.sum(np.array(reservoir_effective_fanout_count_ram, "int16")),
+    )
+
+    recurrent_weight_2ram = read_memory(
+        read_buffer,
+        write_buffer,
+        memory_table["RWT2RAM"],
+        np.sum(np.array(reservoir_effective_fanout_count_ram, "int16")),
+    )
+
+    output_weight_ram = read_memory(
+        read_buffer,
+        write_buffer,
+        memory_table["OWTRAM"],
+        Nout * (Nhidden + num_buffer_neurons(Nhidden)),
+    )
+
+    # - Return the all ram state
+    return XyloAllRam(
+        Nin,
+        Nhidden,
+        Nout,
+        # - state RAM
+        np.array(Vmem[:Nhidden], "int16"),
+        np.array(Isyn[:Nhidden], "int16"),
+        np.array(Vmem[-Nout:], "int16"),
+        np.array(Isyn[-Nout:], "int16"),
+        np.array(Isyn2, "int16"),
+        np.array(Spikes, "int16"),
+        read_output_events(read_buffer, write_buffer)[:Nout],
+        # - config RAM
+        np.array(input_weight_ram, "int16"),
+        np.array(input_weight_2ram, "int16"),
+        np.array(neuron_dash_syn_ram, "int16"),
+        np.array(reservoir_dash_syn_2ram, "int16"),
+        np.array(neuron_dash_mem_ram, "int16"),
+        np.array(neuron_threshold_ram, "int16"),
+        np.array(reservoir_config_ram, "int16"),
+        np.array(reservoir_aliasing_ram, "int16"),
+        np.array(reservoir_effective_fanout_count_ram, "int16"),
+        np.array(recurrent_fanout_ram, "int16"),
+        np.array(recurrent_weight_ram, "int16"),
+        np.array(recurrent_weight_2ram, "int16"),
+        np.array(output_weight_ram, "int16"),
+    )
+
+
+def export_registers(
+    read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer, file,
+) -> None:
+    """
+    Print register contents for debugging purposes
+
+    Args:
+        read_buffer (XyloReadBuffer): A connected Xylo read buffer to use in reading registers
+        write_buffer (XyloWriteBuffer): A write buffer connected to a Xylo HDK
+        file: a file to save the registers
+    """
+
+    with open(file, "w+") as f:
+        f.write("ctrl1 ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x1)[0]))
+        f.write("\n")
+
+        f.write("ctrl2 ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x2)[0]))
+        f.write("\n")
+
+        f.write("ctrl3 ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x3)[0]))
+        f.write("\n")
+
+        f.write("pwrctrl1 ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x04)[0]))
+        f.write("\n")
+
+        f.write("pwrctrl2 ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x05)[0]))
+        f.write("\n")
+
+        f.write("pwrctrl3 ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x06)[0]))
+        f.write("\n")
+
+        f.write("pwrctrl4 ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x07)[0]))
+        f.write("\n")
+
+        f.write("ie ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x08)[0]))
+        f.write("\n")
+
+        f.write("ctrl4 ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x09)[0]))
+        f.write("\n")
+
+        f.write("baddr ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x0A)[0]))
+        f.write("\n")
+
+        f.write("blen ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x0B)[0]))
+        f.write("\n")
+
+        f.write("ispkreg00 ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x0C)[0]))
+        f.write("\n")
+
+        f.write("ispkreg01 ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x0D)[0]))
+        f.write("\n")
+
+        f.write("ispkreg10 ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x0E)[0]))
+        f.write("\n")
+
+        f.write("ispkreg11 ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x0F)[0]))
+        f.write("\n")
+
+        f.write("stat ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x10)[0]))
+        f.write("\n")
+
+        f.write("int ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x11)[0]))
+        f.write("\n")
+
+        f.write("omp_stat0 ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x12)[0]))
+        f.write("\n")
+
+        f.write("omp_stat1 ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x13)[0]))
+        f.write("\n")
+
+        f.write("omp_stat2 ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x14)[0]))
+        f.write("\n")
+
+        f.write("omp_stat3 ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x15)[0]))
+        f.write("\n")
+
+        f.write("monsel0 ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x16)[0]))
+        f.write("\n")
+
+        f.write("monsel1 ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x17)[0]))
+        f.write("\n")
+
+        f.write("dbg_ctrl1 ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x18)[0]))
+        f.write("\n")
+
+        f.write("dbg_stat1 ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x19)[0]))
+        f.write("\n")
+
+        f.write("tr_cntr_stat ")
+        f.write(hex(read_register(read_buffer, write_buffer, 0x1A)[0]))
+        f.write("\n")

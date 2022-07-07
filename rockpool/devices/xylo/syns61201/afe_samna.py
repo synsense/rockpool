@@ -52,7 +52,7 @@ class AFESamna(Module):
         Instantiate an AFE module, connected to a Xylo-A2 HDK
 
         >>> from rockpool.devices.xylo import AFESamna
-        >>> import rockpool.devices.xylo.xylo_devkit_utils as xdu
+        >>> import rockpool.devices.xylo.syns61201.xa2_devkit_utils as xdu
         >>> afe_hdks = xdu.find_xylo_a2_boards()
         >>> afe = AFESamna(afe_hdks[0], dt = 10e-3)
 
