@@ -18,7 +18,7 @@ from typing import Tuple
 
 import rockpool.utilities.tree_utils as tu
 
-__all__ = ["summed_exp_boundary_loss", "ParameterBoundaryRegularizer"]
+__all__ = ["summed_exp_boundary_loss", "ParameterBoundaryRegularizer", "make_bounds", "bounds_cost"]
 
 
 def summed_exp_boundary_loss(data, lower_bound=None, upper_bound=None):
