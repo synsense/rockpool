@@ -236,11 +236,11 @@ def config_from_specification(
 
     # - WORKAROUD: Ensure that RAM power is enabled, and the chip clock is running
     config.debug.isyn_clock_enable = True
-    if enable_isyn2:
-        config.debug.isyn2_clock_enable = True
+    # if enable_isyn2:
+    config.debug.isyn2_clock_enable = True
     config.debug.ra_clock_enable = True
-    if config.bias_enable:
-        config.debug.bias_clock_enable = True
+    # if config.bias_enable:
+    config.debug.bias_clock_enable = True
     config.debug.hm_clock_enable = True
 
     config.debug.ram_power_enable = True
@@ -268,7 +268,7 @@ def config_from_specification(
         neuron.i_syn2_decay = dash_syn_2[i]
         neuron.v_mem_decay = dash_mem[i]
         neuron.threshold = threshold[i]
-        if config.bias_enable:
+        if bias_hidden is not None:
             neuron.v_mem_bias = bias_hidden[i]
         reservoir_neurons.append(neuron)
 
@@ -280,7 +280,7 @@ def config_from_specification(
         neuron.i_syn_decay = dash_syn_out[i]
         neuron.v_mem_decay = dash_mem_out[i]
         neuron.threshold = threshold_out[i]
-        if config.bias_enable:
+        if bias_out is not None:
             neuron.v_mem_bias = bias_out[i]
         readout_neurons.append(neuron)
 
@@ -542,7 +542,7 @@ class XyloSamna(Module):
         # - Determine a reasonable read timeout
         if read_timeout is None:
             read_timeout = len(input) * self.dt * Nhidden / 800.0
-            read_timeout = read_timeout * 10.0 if record else read_timeout
+            read_timeout = read_timeout * 10.0 if record else read_timeout*100
 
         # - Wait until the simulation is finished
         read_events, is_timeout = hdkutils.blocking_read(
