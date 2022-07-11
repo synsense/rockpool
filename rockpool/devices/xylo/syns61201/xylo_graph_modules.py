@@ -121,7 +121,7 @@ class Xylo2Neurons(GenericNeurons):
 @dataclass(eq=False, repr=False)
 class Xylo2HiddenNeurons(Xylo2Neurons):
     """
-    A :py:class:`.graph.GraphModule` encapsulating Xylo v1 hidden neurons
+    A :py:class:`.graph.GraphModule` encapsulating Xylo v2 hidden neurons
     """
 
     def __post_init__(self, *args, **kwargs):

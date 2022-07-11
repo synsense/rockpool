@@ -307,7 +307,7 @@ def mapper(
                 sm
                 for n in a.input_nodes
                 for sm in n.source_modules
-                if isinstance(sm, XyloNeurons)
+                if isinstance(sm, Xylo2Neurons)
             ]
         )
         source_neurons: Xylo2Neurons = sm[0]
