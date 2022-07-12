@@ -221,7 +221,7 @@ class Connector(ABC):
 
     @property
     def shape(self) -> Tuple[int]:
-        """shape o the network indicated"""
+        """shape of the network indicated"""
         return (self.n_tag_in, self.n_neuron, self.n_tag_out)
 
     @property

@@ -58,6 +58,7 @@ from rockpool.devices.dynapse.config.simconfig import (
     DynapSimCurrents,
     DynapSimLayout,
     DynapSimTime,
+    DynapSimWeightBits,
 )
 from rockpool.devices.dynapse.default import dlayout, dweight, dtime, dgain, dcurrents
 from rockpool.devices.dynapse.config.weights import WeightParameters
@@ -246,6 +247,14 @@ class DynapSim(JaxModule):
     :type Itau_mem: Optional[np.ndarray], optinoal
     :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes with shape (Nrec,)
     :type Iw_ahp: Optional[np.ndarray], optinoal
+    :param Iw_0: weight bit 0 current of the neurons of the core in Amperes
+    :type Iw_ahp: Optional[np.ndarray], optinoal
+    :param Iw_1: weight bit 1 current of the neurons of the core in Amperes
+    :type Iw_ahp: Optional[np.ndarray], optinoal
+    :param Iw_2: weight bit 2 current of the neurons of the core in Amperes
+    :type Iw_ahp: Optional[np.ndarray], optinoal
+    :param Iw_3: weight bit 3 current of the neurons of the core in Amperes
+    :type Iw_ahp: Optional[np.ndarray], optinoal
     :param C_ahp: AHP synapse capacitance in Farads with shape (Nrec,)
     :type C_ahp: float, optional
     :param C_ampa: AMPA synapse capacitance in Farads with shape (Nrec,)
@@ -336,6 +345,10 @@ class DynapSim(JaxModule):
         Itau_nmda: Optional[np.ndarray] = dcurrents["Itau_nmda"],
         Itau_shunt: Optional[np.ndarray] = dcurrents["Itau_shunt"],
         Itau_mem: Optional[np.ndarray] = dcurrents["Itau_mem"],
+        Iw_0: Optional[np.ndarray] = dweight["Iw_0"],
+        Iw_1: Optional[np.ndarray] = dweight["Iw_1"],
+        Iw_2: Optional[np.ndarray] = dweight["Iw_2"],
+        Iw_3: Optional[np.ndarray] = dweight["Iw_3"],
         Iw_ahp: Optional[np.ndarray] = dcurrents["Iw_ahp"],
         C_ahp: Optional[np.ndarray] = dlayout["C_ahp"],
         C_ampa: Optional[np.ndarray] = dlayout["C_ampa"],
@@ -351,8 +364,8 @@ class DynapSim(JaxModule):
         kappa_p: Optional[np.ndarray] = dlayout["kappa_p"],
         Ut: Optional[np.ndarray] = dlayout["Ut"],
         Vth: Optional[np.ndarray] = dlayout["Vth"],
-        w_rec: Optional[jnp.DeviceArray] = np.array([[[0, 0, 0, 0]]], dtype=np.float32),
-        has_rec: bool = True,
+        w_rec: Optional[jnp.DeviceArray] = None,
+        has_rec: bool = False,
         weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = None,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
@@ -403,7 +416,9 @@ class DynapSim(JaxModule):
         ### --- Parameters --- ###
         __parameter = lambda _param: Parameter(
             data=_param
-            if isinstance(_param, (np.ndarray, jnp.ndarray, jnp.DeviceArray))
+            if isinstance(
+                _param, (np.ndarray, jnp.ndarray, jnp.DeviceArray, jax.core.Tracer)
+            )
             else jnp.full((self.size_out,), _param),
             family="bias",
             shape=(self.size_out,),
@@ -445,11 +460,17 @@ class DynapSim(JaxModule):
         self.Itau_shunt = __parameter(Itau_shunt)
         self.Itau_mem = __parameter(Itau_mem)
         self.Iw_ahp = __parameter(Iw_ahp)
+        self.Iw_0 = __parameter(Iw_0)
+        self.Iw_1 = __parameter(Iw_1)
+        self.Iw_2 = __parameter(Iw_2)
+        self.Iw_3 = __parameter(Iw_3)
 
         # --- Simulation Parameters --- #
         __simparam = lambda _param: SimulationParameter(
             data=_param
-            if isinstance(_param, (np.ndarray, jnp.ndarray, jnp.DeviceArray))
+            if isinstance(
+                _param, (np.ndarray, jnp.ndarray, jnp.DeviceArray, jax.core.Tracer)
+            )
             else jnp.full((self.size_out,), _param),
             shape=(self.size_out,),
             permit_reshape=False,
@@ -736,6 +757,7 @@ class DynapSim(JaxModule):
 
         __constructor = dict.fromkeys(DynapSimLayout.__annotations__.keys())
         __constructor.update(dict.fromkeys(DynapSimCurrents.__annotations__.keys()))
+        __constructor.update(dict.fromkeys(DynapSimWeightBits.__annotations__.keys()))
         __constructor.update(dict.fromkeys(["w_rec"]))
 
         for key in __constructor:
