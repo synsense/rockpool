@@ -364,6 +364,7 @@ class XyloSamna(Module):
                 f'{output_mode} is not supported. Must be one of `["Spike", "Isyn", "Vmem"]`.'
             )
         self._output_mode = output_mode
+        self.time_count = 0
 
         # - Get a default configuration
         if config is None:
@@ -415,6 +416,9 @@ class XyloSamna(Module):
         # - Zero neuron state when building a new module
         self.reset_state()
 
+        # - Get the network size
+        Nin, Nhidden, Nout = self.shape[:]
+
     @property
     def config(self):
         # - Return the configuration stored on Xylo HDK
@@ -457,7 +461,7 @@ class XyloSamna(Module):
             # - Keep a registry of the last recording mode
             self._last_record_mode = record
 
-            self.config, state_buffer = hdkutils.configure_accel_time_mode(
+            self.config, self._state_buffer = hdkutils.configure_accel_time_mode(
                 self._config,
                 self._state_buffer,
                 Nhidden,
@@ -501,10 +505,14 @@ class XyloSamna(Module):
         self._configure_accel_time_mode(Nhidden, Nout, record)
 
         # - Get current timestamp
-        start_timestep = hdkutils.get_current_timestamp(
-            self._read_buffer, self._write_buffer
-        )
-        final_timestep = start_timestep + len(input) - 1
+        if self.time_count == 0:
+            self.start_timestep = hdkutils.get_current_timestamp(
+                self._read_buffer, self._write_buffer
+            )
+            self.time_count == 1
+        else:
+            self.start_timestep += 1
+        final_timestep = self.start_timestep + len(input) - 1
 
         # -- Encode input events
         input_events_list = []
@@ -518,7 +526,7 @@ class XyloSamna(Module):
             for _ in range(count):
                 event = samna.xyloCore2.event.Spike()
                 event.neuron_id = channel
-                event.timestamp = start_timestep + timestep
+                event.timestamp = self.start_timestep + timestep
                 input_events_list.append(event)
 
         # - Add an extra event to ensure readout for entire input extent
@@ -527,7 +535,8 @@ class XyloSamna(Module):
         input_events_list.append(event)
 
         # - Clear the input event count register to make sure the dummy event is ignored
-        for addr in [0x0C, 0x0D, 0x0E, 0x0F]:
+        time.sleep(0.1)
+        for addr in [0x11, 0x12, 0x13, 0x14]:
             event = samna.xyloCore2.event.WriteRegisterValue()
             event.address = addr
             input_events_list.append(event)
@@ -542,12 +551,11 @@ class XyloSamna(Module):
         # - Determine a reasonable read timeout
         if read_timeout is None:
             read_timeout = len(input) * self.dt * Nhidden / 800.0
-            read_timeout = read_timeout * 10.0 if record else read_timeout*100
+            read_timeout = read_timeout * 100.0 if record else read_timeout
 
-        # - Wait until the simulation is finished
         read_events, is_timeout = hdkutils.blocking_read(
             self._read_buffer,
-            timeout=max(read_timeout, 1.0),
+            timeout=max(read_timeout, 2.0),
             target_timestamp=final_timestep,
         )
 
@@ -573,7 +581,7 @@ class XyloSamna(Module):
                 "Spikes": np.array(xylo_data.Spikes_hid),
                 "Vmem_out": np.array(xylo_data.V_mem_out),
                 "Isyn_out": np.array(xylo_data.I_syn_out),
-                "times": np.arange(start_timestep, final_timestep + 1),
+                "times": np.arange(self.start_timestep, final_timestep + 1),
             }
         else:
             rec_dict = {}
