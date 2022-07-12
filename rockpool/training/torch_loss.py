@@ -132,8 +132,8 @@ def make_bounds(params: dict) -> Tuple[dict, dict]:
     upper_bounds = deepcopy(params)
 
     # - Reset to -inf and inf
-    lower_bounds = tu.tree_map(lambda _: -torch.inf, lower_bounds)
-    upper_bounds = tu.tree_map(lambda _: torch.inf, upper_bounds)
+    lower_bounds = tu.tree_map(lower_bounds, lambda _: -float('inf'))
+    upper_bounds = tu.tree_map(upper_bounds, lambda _: float('inf'))
 
     return lower_bounds, upper_bounds
 
