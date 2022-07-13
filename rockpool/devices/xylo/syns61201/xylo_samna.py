@@ -503,13 +503,14 @@ class XyloSamna(Module):
 
         # - Get current timestamp
         if self.time_count == 0:
-            self.start_timestep = hdkutils.get_current_timestamp(
+            start_timestep = hdkutils.get_current_timestamp(
                 self._read_buffer, self._write_buffer
             )
-            self.time_count == 1
+            self.time_count = 1
         else:
-            self.start_timestep = self.final_timestep + 1
-        self.final_timestep = self.start_timestep + len(input) - 1
+            start_timestep = self.final_timestep + 1
+
+        self.final_timestep = start_timestep + len(input) - 1
 
         # -- Encode input events
         input_events_list = []
@@ -523,7 +524,7 @@ class XyloSamna(Module):
             for _ in range(count):
                 event = samna.xyloCore2.event.Spike()
                 event.neuron_id = channel
-                event.timestamp = self.start_timestep + timestep
+                event.timestamp = start_timestep + timestep
                 input_events_list.append(event)
 
         # - Add an extra event to ensure readout for entire input extent
@@ -564,15 +565,6 @@ class XyloSamna(Module):
                 message += f", first timestamp: {readout_events[0].timestamp}, final timestamp: {readout_events[-1].timestamp}, target timestamp: {self.final_timestep}"
             raise TimeoutError(message)
 
-        nsc = self._state_buffer.get_reservoir_i_syn()
-        nsc2 = self._state_buffer.get_reservoir_i_syn2()
-        nmp = self._state_buffer.get_reservoir_v_mem()
-        spk = self._state_buffer.get_reservoir_spike()
-        print("nsc: ", nsc[:10])
-        print("nsc2: ", nsc[:10])
-        print("nmp: ", nmp[:10])
-        print("spk: ", spk[:10])
-
         # - Read the simulation output data
         xylo_data = hdkutils.read_accel_mode_data(
             self._state_buffer, Nin, Nhidden, Nout
@@ -587,7 +579,7 @@ class XyloSamna(Module):
                 "Spikes": np.array(xylo_data.Spikes_hid),
                 "Vmem_out": np.array(xylo_data.V_mem_out),
                 "Isyn_out": np.array(xylo_data.I_syn_out),
-                "times": np.arange(self.start_timestep, self.final_timestep + 1),
+                "times": np.arange(start_timestep, self.final_timestep + 1),
             }
         else:
             rec_dict = {}
