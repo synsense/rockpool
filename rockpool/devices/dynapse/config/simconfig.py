@@ -216,6 +216,10 @@ class DynapSimWeightBits(DynapSimProperty):
     Iw_2: Optional[Union[float, np.ndarray]] = dweight["Iw_2"]
     Iw_3: Optional[Union[float, np.ndarray]] = dweight["Iw_3"]
 
+    @property
+    def Iw(self) -> np.ndarray:
+        return np.stack([self.Iw_0, self.Iw_1, self.Iw_2, self.Iw_3]).T
+
 
 @dataclass
 class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
@@ -1534,3 +1538,8 @@ class DynapSimGain(DynapSimCoreHigh):
             return Itau * r_gain
         else:
             return Igain
+
+
+if __name__ == "__main__":
+    config = DynapSimCore()
+    print(config.__dict__)

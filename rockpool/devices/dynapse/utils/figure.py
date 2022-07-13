@@ -30,6 +30,7 @@ class Figure:
         "GABA": 1,
         "NMDA": 2,
         "SHUNT": 3,
+        "SYN": 0,
     }
 
     @staticmethod
