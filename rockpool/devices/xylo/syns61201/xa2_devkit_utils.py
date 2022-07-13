@@ -429,7 +429,7 @@ def dummy_event(
     Send a dummy event to end input for readout, and clear it in the input event
 
     Args:
-        final_timestep: A write buffer connected to a Xylo HDK to initialise
+        final_timestep: The final timestep for the input events
         input_events_list: A list that stores the input events
     """
 
