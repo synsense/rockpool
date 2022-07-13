@@ -386,6 +386,7 @@ def blocking_read(
     start_time = time.time()
     while continue_read:
         # - Perform a read and save events
+        time.sleep(0.1)
         events = read_buffer.get_events()
         all_events.extend(events)
 
@@ -420,8 +421,36 @@ def blocking_read(
     # - Return read events
     return all_events, is_timeout
 
+def dummy_event(
+        final_timestep: int,
+        input_events_list: list
+) -> List:
+    """
+    Send a dummy event to end input for readout, and clear it in the input event
 
-def initialise_xylo_hdk(write_buffer: Xylo2WriteBuffer) -> None:
+    Args:
+        final_timestep: A write buffer connected to a Xylo HDK to initialise
+        input_events_list: A list that stores the input events
+    """
+
+    # - Add an extra event to ensure readout for entire input extent
+    event = samna.xyloCore2.event.Spike()
+    event.timestamp = final_timestep + 1
+    input_events_list.append(event)
+
+    # - Clear the input event count register to make sure the dummy event is ignored
+    time.sleep(0.1)
+
+    for addr in [0x11, 0x12, 0x13, 0x14]:
+        event = samna.xyloCore2.event.WriteRegisterValue()
+        event.address = addr
+        input_events_list.append(event)
+
+    return input_events_list
+
+def initialise_xylo_hdk(
+        write_buffer: Xylo2WriteBuffer
+) -> None:
     """
     Initialise the Xylo HDK
 
@@ -531,6 +560,7 @@ def read_memory(
         read_events_list.append(rmv_ev)
 
     # - Clear buffer
+    time.sleep(0.1)
     read_buffer.get_events()
 
     # - Request read
@@ -1014,8 +1044,6 @@ def configure_accel_time_mode(
     state_monitor_buffer: Xylo2NeuronStateBuffer,
     monitor_Nhidden: Optional[int] = 0,
     monitor_Noutput: Optional[int] = 0,
-    # i_syn_start: Optional[int] = 0,
-    # v_mem_start: Optional[int] = 0,
     readout="Spike",
     record=False,
 ) -> (XyloConfiguration, Xylo2NeuronStateBuffer):
@@ -1067,9 +1095,12 @@ def configure_accel_time_mode(
                     monitor_Nhidden, monitor_Nhidden + monitor_Noutput
                 )
             )
-        # elif readout == "Spike":
-        #     config.debug.monitor_neuron_spike = (
-        #         samna.xyloCore2.configuration.NeuronRange(monitor_Nhidden, monitor_Nhidden + monitor_Noutput))
+
+            config.debug.monitor_neuron_i_syn2 = (
+                samna.xyloCore2.configuration.NeuronRange(
+                    monitor_Nhidden, monitor_Nhidden
+                )
+            )
         elif readout == "Vmem":
             config.debug.monitor_neuron_v_mem = (
                 samna.xyloCore2.configuration.NeuronRange(

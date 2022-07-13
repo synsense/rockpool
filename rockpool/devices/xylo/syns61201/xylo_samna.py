@@ -527,17 +527,8 @@ class XyloSamna(Module):
                 event.timestamp = start_timestep + timestep
                 input_events_list.append(event)
 
-        # - Add an extra event to ensure readout for entire input extent
-        event = samna.xyloCore2.event.Spike()
-        event.timestamp = self.final_timestep + 1
-        input_events_list.append(event)
-
-        # - Clear the input event count register to make sure the dummy event is ignored
-        time.sleep(0.1)
-        for addr in [0x11, 0x12, 0x13, 0x14]:
-            event = samna.xyloCore2.event.WriteRegisterValue()
-            event.address = addr
-            input_events_list.append(event)
+        # send a dummy event and clear it in the input event list
+        input_events_list = hdkutils.dummy_event(self.final_timestep,input_events_list)
 
         # - Clear the read and state buffers
         self._state_buffer.reset()
