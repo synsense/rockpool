@@ -181,4 +181,4 @@ def bounds_cost(params: dict, lower_bounds: dict, upper_bounds: dict) -> torch.T
         return lb_cost + ub_cost
 
     # - Map bounds function over parameters and return
-    return torch.sum(torch.tensor(list(map(bound, params, lower_bounds, upper_bounds))))
+    return torch.sum(torch.stack(list(map(bound, params, lower_bounds, upper_bounds))))
