@@ -878,10 +878,10 @@ class DynapSim(JaxModule):
         n_batches, n_timesteps, _ = input_data.shape
 
         # Both (B, T, Nrecx4), and (B, T, Nrec, 4) shaped inputs are accepted
-        input_data = jnp.reshape(input_data, (n_batches, n_timesteps, -1, 4))
+        input_data = jnp.reshape(input_data, (n_batches, n_timesteps, self.size_out, 4))
 
         def forward(
-            state: DynapSimState, Iw_input: jnp.DeviceArray
+            state: DynapSimState, ws_input: jnp.DeviceArray
         ) -> Tuple[DynapSimState, DynapSimRecord]:
             """
             forward implements single time-step neuron and synapse dynamics
@@ -898,8 +898,8 @@ class DynapSim(JaxModule):
                 timer_ref: Refractory timer of each neruon [Nrec]
                 vmem: Membrane voltages of each neuron [Nrec]
             :type state: DynapSimState
-            :param Iw_input: external weighted current matrix generated via input spikes [Nrec, 4]
-            :type Iw_input: jnp.DeviceArray
+            :param ws_input: weighted input spikes [Nrec, 4]
+            :type ws_input: jnp.DeviceArray
             :return: state, record
                 state: Updated state at end of the forward steps
                 record: Updated record instance to including spikes, igaba, ishunt, inmda, iampa, iahp, imem, and vmem states
@@ -926,15 +926,15 @@ class DynapSim(JaxModule):
             # ---------------------------------- #
 
             ## Real time weight is 0 if no spike, w_rec if spike event occurs
-            Iws_internal = jnp.dot(self.md.w_rec.T, spikes).T
-            Iws = Iws_internal + Iw_input
+            ws_rec = jnp.dot(self.md.w_rec.T, spikes).T  # Nrec, 4
+            Iws = ws_rec + ws_input
 
             # isyn_inf is the current that a synapse current would reach with a sufficiently long pulse
             isyn_inf = (Igain_syn_clip / Itau_syn_clip) * Iws
-            isyn_inf = jnp.clip(isyn_inf, self.__zero)
+            isyn_inf = jnp.clip(isyn_inf, self.md.Io)
 
             # Short term potentiation ratio
-            r_stp = Igain_syn_clip / (isyn + Igain_syn_clip) * 0.95
+            r_stp = (Igain_syn_clip / (isyn + Igain_syn_clip)) * 0.95
 
             ## Exponential charge, discharge positive feedback factor arrays
             f_charge = self.__one - jnp.exp(-t_pulse / tau_syn.T).T  # Nrecx4
@@ -1048,7 +1048,7 @@ class DynapSim(JaxModule):
             ## Set the refractrory timer
             timer_ref -= self.dt
             timer_ref = jnp.clip(timer_ref, self.__zero)
-            timer_ref = (self.__one - spikes) * timer_ref + spikes * t_ref
+            timer_ref = (self.__one - bool_spikes) * timer_ref + bool_spikes * t_ref
 
             # ------------------------------ #
             # ------------------------------ #
