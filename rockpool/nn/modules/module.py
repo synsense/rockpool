@@ -238,7 +238,8 @@ class ModuleBase(ABC):
 
         # - Assign to appropriate attribute dictionary
         __modules[name] = [mod, type(mod).__name__]
-        self._submodulenames.append(name)
+        if name not in self._submodulenames:
+            self._submodulenames.append(name)
 
     def set_attributes(self, new_attributes: dict) -> "ModuleBase":
         """
