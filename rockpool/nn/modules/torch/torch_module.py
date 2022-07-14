@@ -245,7 +245,7 @@ class TorchModule(Module, nn.Module):
         )
         return data, states
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key, value: Any):
         if isinstance(value, nn.Parameter):
             # - Also register as a rockpool parameter
             self._register_attribute(key, rp.Parameter(value, None, None, value.shape))
@@ -279,6 +279,11 @@ class TorchModule(Module, nn.Module):
             # - Convert torch module to a Rockpool Module and assign
             TorchModule.from_torch(value, retain_torch_api=True)
             self._register_module(key, value)
+
+        # - Handle torch parameter being set new values
+        if hasattr(self, key) and isinstance(getattr(self, key), torch.nn.Parameter):
+            if not isinstance(value, torch.nn.Parameter):
+                value = torch.nn.Parameter(value)
 
         # Assign attribute with setattr
         super().__setattr__(key, value)
