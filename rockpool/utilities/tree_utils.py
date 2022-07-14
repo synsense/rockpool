@@ -63,7 +63,7 @@ def tree_unflatten(treedef: TreeDef, leaves: List, leaves_tail: List = None) -> 
 
 def tree_update(target: Tree, additional: Tree) -> None:
     for k, v in additional.items():
-        if k in target:
+        if isinstance(v, Tree) and k in target:
             tree_update(target[k], v)
         else:
             target.update({k: v})
