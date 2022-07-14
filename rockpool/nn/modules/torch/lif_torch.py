@@ -112,7 +112,7 @@ def sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
 class LIFBaseTorch(TorchModule):
     def __init__(
         self,
-        shape: tuple,
+        shape: Union[Tuple, int],
         tau_mem: Optional[Union[FloatVector, P_float]] = None,
         tau_syn: Optional[Union[FloatVector, P_float]] = None,
         bias: Optional[FloatVector] = None,
@@ -303,6 +303,13 @@ class LIFBaseTorch(TorchModule):
             else {}
         )
 
+        # - Clear record in order to avoid non-leaf tensors hanging around
+        self._record_spikes = None
+        self._record_isyn = None
+        self._record_irec = None
+        self._record_U = None
+        self._record_vmem = None
+
         return output_data, self.state(), record_dict
 
     def as_graph(self) -> GraphModuleBase:
@@ -421,15 +428,27 @@ class LIFTorch(LIFBaseTorch):
 
         # - Set up state record and output
         if self._record:
-            self._record_vmem = torch.zeros(n_batches, n_timesteps, self.size_out)
+            self._record_vmem = torch.zeros(
+                n_batches, n_timesteps, self.size_out, device=vmem.device
+            )
             self._record_isyn = torch.zeros(
-                n_batches, n_timesteps, self.size_out, self.n_synapses
+                n_batches,
+                n_timesteps,
+                self.size_out,
+                self.n_synapses,
+                device=isyn.device,
             )
             self._record_irec = torch.zeros(
-                n_batches, n_timesteps, self.size_out, self.n_synapses
+                n_batches,
+                n_timesteps,
+                self.size_out,
+                self.n_synapses,
+                device=isyn.device,
             )
 
-            self._record_U = torch.zeros(n_batches, n_timesteps, self.size_out)
+            self._record_U = torch.zeros(
+                n_batches, n_timesteps, self.size_out, device=vmem.device
+            )
 
         self._record_spikes = torch.zeros(
             n_batches, n_timesteps, self.size_out, device=input_data.device
