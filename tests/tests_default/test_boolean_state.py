@@ -33,7 +33,6 @@ def test_BooleanState():
                 elif t > 0:
                     assert out[b, t, n] == out[b, t - 1, n]
 
-
     # test boolean state with custom threshold
     thresholds = torch.Tensor([0.1, 0.3, 0.15])
     mod = BooleanState(shape=(n_neurons), threshold=thresholds)
@@ -51,4 +50,4 @@ def test_BooleanState():
                 elif input_data[b, t, n] < -thresholds[n]:
                     assert not out[b, t, n]
                 elif t > 0:
-                    assert out[b, t, n] == out[b, t-1, n]
+                    assert out[b, t, n] == out[b, t - 1, n]
