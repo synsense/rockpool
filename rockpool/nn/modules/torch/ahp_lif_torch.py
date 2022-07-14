@@ -141,6 +141,9 @@ class aLIFTorch(LIFBaseTorch):
         if record:
             record_dict["iahp"] = self._record_iahp
 
+        # - Clear record dictionary to ensure module can be copied
+        self._record_iahp = None
+
         return output_data, self.state(), record_dict
 
     @property

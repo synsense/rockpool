@@ -1,6 +1,7 @@
 import pytest
 
 pytest.importorskip("scipy")
+pytest.importorskip("samna")
 
 
 def test_imports():

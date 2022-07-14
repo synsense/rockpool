@@ -16,11 +16,14 @@ __all__ = ["Parameter", "State", "SimulationParameter", "Constant"]
 from rockpool.utilities.backend_management import backend_available
 
 if backend_available("torch"):
-    from torch import Tensor
+    from torch import tensor, Tensor
 else:
 
     class Tensor:
         pass
+
+    def tensor(_):
+        return _
 
 
 class RP_Constant:
@@ -204,6 +207,9 @@ class ParameterBase:
             self.data = self.init_func(self.shape)
         else:
             # - If concrete initialisation data is provided, then override the `init_func`
+            if isinstance(data, Tensor):
+                data = tensor(data)
+
             data_copy = deepcopy(data)
             self.init_func = lambda _: data_copy
 
