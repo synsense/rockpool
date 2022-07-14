@@ -2,6 +2,13 @@
 Defines the parameter and activation transformation-in-training pipeline for `TorchModule` s
 """
 
+from rockpool.utilities.backend_management import torch_version_satisfied
+
+if not torch_version_satisfied(1, 12):
+    raise ModuleNotFoundError(
+        "torch version 1.12.0 or greater is required. The `torch_transform` package is not available."
+    )
+
 import torch
 
 from rockpool.nn.modules.module import Module, ModuleBase

@@ -114,7 +114,13 @@ def test_act_transform_net():
         LIFTorch(5),
     )
 
+    # - Test null config
+    tconf = tt.make_act_T_config(net)
+
+    # - Build a specific config
     tconf = tt.make_act_T_config(net, tt.deterministic_rounding, LinearTorch)
+
+    # - Patch the network
     tnet = tt.make_act_T_network(net, tconf)
 
     out, _, _ = tnet(torch.ones(1, 10, 3))
