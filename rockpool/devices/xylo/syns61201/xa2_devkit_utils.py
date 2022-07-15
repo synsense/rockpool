@@ -839,6 +839,7 @@ def zero_memory(
 def read_neuron_synapse_state(
     read_buffer: Xylo2ReadBuffer,
     write_buffer: Xylo2WriteBuffer,
+    Nin: int = 16,
     Nhidden: int = 1000,
     Nout: int = 8,
 ) -> XyloState:
@@ -848,6 +849,7 @@ def read_neuron_synapse_state(
     Args:
         read_buffer (XyloReadBuffer): A read buffer connected to the Xylo HDK
         write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK
+        Nin (int): Number of input neurons to read. Default: ``16`` (all neurons).
         Nhidden (int): Number of hidden neurons to read. Default: ``1000`` (all neurons).
         Nout (int): Number of output neurons to read. Default: ``8`` (all neurons).
 
@@ -887,6 +889,7 @@ def read_neuron_synapse_state(
 
     # - Return the state
     return XyloState(
+        Nin,
         Nhidden,
         Nout,
         np.array(Vmem[:Nhidden], "int16"),
@@ -909,7 +912,7 @@ def is_xylo_ready(read_buffer: Xylo2ReadBuffer, write_buffer: Xylo2WriteBuffer) 
 
     Returns: ``True`` iff the Xylo HDK has finished all processing
     """
-    return read_register(read_buffer, write_buffer, 0x10)[-1] & (1 << 16) != 0
+    return read_register(read_buffer, write_buffer, 0x15)[-1] & (1 << 16) != 0
 
 
 def advance_time_step(write_buffer: Xylo2WriteBuffer) -> None:
@@ -931,7 +934,7 @@ def reset_input_spikes(write_buffer: Xylo2WriteBuffer) -> None:
         write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK to access
     """
     for register in range(4):
-        write_register(write_buffer, 0x0C + register)
+        write_register(write_buffer, 0x11 + register)
 
 
 def send_immediate_input_spikes(
@@ -971,7 +974,7 @@ def read_output_events(
         np.ndarray: A boolean array of output event flags
     """
     # - Read the status register
-    status = read_register(read_buffer, write_buffer, 0x10)
+    status = read_register(read_buffer, write_buffer, 0x15)
 
     # - Convert to neuron events and return
     string = format(int(status[-1]), "0>32b")[-8:]
@@ -1153,6 +1156,7 @@ def read_accel_mode_data(
 
     Args:
         monitor_buffer (XyloNeuronStateBuffer): A connected `XyloNeuronStateBuffer` to read from
+        Nin (int): Number of input neurons to read. Default: ``16`` (all neurons).
         Nhidden (int): The number of hidden neurons to monitor
         Nout (int): The number of output neurons to monitor
 
@@ -1188,13 +1192,16 @@ def read_accel_mode_data(
 
 
 def decode_accel_mode_data(
-    events: List[Any], Nhidden: int = 1000, Nout: int = 8
+    events: List[Any],
+    Nin: int = 16,
+    Nhidden: int = 1000,
+    Nout: int = 8
 ) -> Tuple[XyloState, np.ndarray]:
     """
     Decode events from accelerated-time operation of the Xylo HDK
 
     Warnings:
-        ``Nhidden`` and ``Nout`` must be defined correctly for the network deployed to the Xylo HDK, for this function to operate as expected.
+        ``Nin``, ``Nhidden`` and ``Nout`` must be defined correctly for the network deployed to the Xylo HDK, for this function to operate as expected.
 
         This function must be called with the *full* list of events from a simulation. Otherwise the data returned will be incomplete. This function will not operate as expected if provided with incomplete data.
 
@@ -1301,6 +1308,7 @@ def decode_accel_mode_data(
 
     return (
         XyloState(
+            Nin,
             Nhidden,
             Nout,
             vmem_ts,

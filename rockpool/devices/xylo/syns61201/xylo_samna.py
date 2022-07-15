@@ -416,6 +416,11 @@ class XyloSamna(Module):
         # - Zero neuron state when building a new module
         self.reset_state()
 
+        # - Set AFE module
+        self._afe_read_buf = hdkutils.AFE2ReadBuffer()
+        graph = samna.graph.EventFilterGraph()
+        graph.sequential([self._device.get_afe_model_source_node(), self._afe_read_buf])
+
     @property
     def config(self):
         # - Return the configuration stored on Xylo HDK
@@ -435,6 +440,7 @@ class XyloSamna(Module):
 
         # - Store the configuration locally
         self._config = new_config
+        self._device.get_afe_model().set_saer_interface_enable(False)
 
     def reset_state(self) -> "XyloSamna":
         # - Reset neuron and synapse state on Xylo
@@ -615,7 +621,7 @@ class XyloSamna(Module):
         """
 
         # - Get some information about the network size
-        _, Nhidden, Nout = self.shape
+        Nin, Nhidden, Nout = self.shape
 
         # - Select single-step simulation mode
         # - Applies the configuration via `self.config`
@@ -667,7 +673,7 @@ class XyloSamna(Module):
             # - Read all synapse and neuron states for this time step
             if record:
                 this_state = hdkutils.read_neuron_synapse_state(
-                    self._read_buffer, self._write_buffer, Nhidden, Nout
+                    self._read_buffer, self._write_buffer, Nin, Nhidden, Nout
                 )
                 vmem_ts.append(this_state.V_mem_hid)
                 isyn_ts.append(this_state.I_syn_hid)
@@ -675,6 +681,8 @@ class XyloSamna(Module):
                 vmem_out_ts.append(this_state.V_mem_out)
                 isyn_out_ts.append(this_state.I_syn_out)
                 spikes_ts.append(this_state.Spikes_hid)
+
+                # print(f"vmem: {this_state.V_mem_hid} \n isyn: {this_state.I_syn_hid} \n isyn2: {this_state.I_syn2_hid}")
 
             # - Read the output event register
             output_events = hdkutils.read_output_events(

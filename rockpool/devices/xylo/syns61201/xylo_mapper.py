@@ -40,9 +40,9 @@ __all__ = ["mapper", "DRCError"]
 
 def mapper(
     graph: GraphModuleBase,
-    weight_dtype: Union[np.dtype, str] = "int8",
-    threshold_dtype: Union[np.dtype, str] = "int16",
-    dash_dtype: Union[np.dtype, str] = "uint8",
+    weight_dtype: Union[np.dtype, str] = "float",
+    threshold_dtype: Union[np.dtype, str] = "float",
+    dash_dtype: Union[np.dtype, str] = "float",
 ) -> dict:
     """
     Map a computational graph onto the Xylo v2 (SYNS61201) architecture
@@ -56,9 +56,9 @@ def mapper(
 
     Args:
         graph (GraphModuleBase): The graph to map
-        weight_dtype (Union[np.dtype, str]): Data type for mapped weight parameters. Default: ``"int8"``
-        threshold_dtype (Union[np.dtype, str]): Data type for mapped threshold parameters. Default: ``"int16"``
-        dash_dtype (Union[np.dtype, str]): Data type for mapped dash (bitshift time constant) parameters. Default: ``"uint8"``
+        weight_dtype (Union[np.dtype, str]): Data type for mapped weight parameters. Default: ``"float"``
+        threshold_dtype (Union[np.dtype, str]): Data type for mapped threshold parameters. Default: ``"float"``
+        dash_dtype (Union[np.dtype, str]): Data type for mapped dash (bitshift time constant) parameters. Default: ``"float"``
 
     Returns:
         dict: A dictionary of specifications for Xylo v2, containing the mapped computational graph
