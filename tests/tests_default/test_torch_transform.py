@@ -4,14 +4,17 @@ pytest.importorskip("torch")
 
 from rockpool.utilities.backend_management import torch_version_satisfied
 
-if not torch_version_satisfied(1, 12, 0):
-    pytest.skip("This test requires torch >= 1.12.0.")
+check_torch_ver = pytest.mark.skipif(
+    not torch_version_satisfied(1, 12, 0), reason="This test requires torch >= 1.12.0."
+)
 
 
+@check_torch_ver
 def test_imports():
     from rockpool.transform import torch_transform
 
 
+@check_torch_ver
 def test_dropout():
     from rockpool.transform.torch_transform import dropout
     import torch
@@ -24,6 +27,7 @@ def test_dropout():
     assert not torch.all(t.grad == 0), "Gradients are all zero"
 
 
+@check_torch_ver
 def test_transform_mod():
     import torch
     import rockpool.transform.torch_transform as tt
@@ -62,6 +66,7 @@ def test_transform_mod():
     tmod = tmod.apply_T()
 
 
+@check_torch_ver
 def test_transform_net():
     import torch
     import rockpool.transform.torch_transform as tt
@@ -102,6 +107,7 @@ def test_transform_net():
     undo_tnet = tt.remove_T_net(tnet)
 
 
+@check_torch_ver
 def test_act_transform_net():
     import torch
     import rockpool.transform.torch_transform as tt
