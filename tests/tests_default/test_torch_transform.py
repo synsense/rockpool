@@ -2,6 +2,11 @@ import pytest
 
 pytest.importorskip("torch")
 
+from rockpool.utilities.backend_management import torch_version_satisfied
+
+if not torch_version_satisfied(1, 12, 0):
+    pytest.skip("This test requires torch >= 1.12.0.")
+
 
 def test_imports():
     from rockpool.transform import torch_transform
