@@ -170,11 +170,14 @@ def torch_version_satisfied(
     import torch
 
     # - Check torch version
-    lib_major, lib_minor, lib_patch = (int(i) for i in torch.__version__.split("."))
+    lib_major, lib_minor, lib_patch = torch.__version__.split(".")
+    _ , lib_patch = lib_patch.split('cu')
 
-    if lib_major >= req_major:
-        if lib_minor >= req_minor:
-            if lib_patch >= req_patch:
+    # lib_major, lib_minor, lib_patch = (int(i) for i in torch.__version__.split("."))
+
+    if int(lib_major) >= req_major:
+        if int(lib_minor) >= req_minor:
+            if int(lib_patch) >= req_patch:
                 return True
 
     return False
