@@ -1178,10 +1178,7 @@ def read_accel_mode_data(
 
 
 def decode_accel_mode_data(
-    events: List[Any],
-    Nin: int = 16,
-    Nhidden: int = 1000,
-    Nout: int = 8
+    events: List[Any], Nin: int = 16, Nhidden: int = 1000, Nout: int = 8
 ) -> Tuple[XyloState, np.ndarray]:
     """
     Decode events from accelerated-time operation of the Xylo HDK
