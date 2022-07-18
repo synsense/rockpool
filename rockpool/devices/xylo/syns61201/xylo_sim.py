@@ -48,9 +48,9 @@ class XyloSim(XyloSimV1):
 
         """
 
-        raise NotImplementedError(
-            "from_config() not implemented for XyloSimV2 due to lacking samna support."
-        )
+        # raise NotImplementedError(
+        #     "from_config() not implemented for XyloSimV2 due to lacking samna support."
+        # )
         cls.output_mode = output_mode
 
         # - Instantiate the class
@@ -108,6 +108,7 @@ class XyloSim(XyloSimV1):
         _xylo_sim_params.dash_syn = []
         _xylo_sim_params.dash_mem = []
         _xylo_sim_params.aliases = []
+        _xylo_sim_params.bias = []
 
         for neuron in config.reservoir.neurons:
             if neuron.alias_target:
@@ -117,20 +118,27 @@ class XyloSim(XyloSimV1):
             _xylo_sim_params.threshold.append(neuron.threshold)
             _xylo_sim_params.dash_mem.append(neuron.v_mem_decay)
             _xylo_sim_params.dash_syn.append([neuron.i_syn_decay, neuron.i_syn2_decay])
+            _xylo_sim_params.bias.append(neuron.v_mem_bias)
 
         # - Configure readout neurons
         _xylo_sim_params.threshold_out = []
         _xylo_sim_params.dash_syn_out = []
         _xylo_sim_params.dash_mem_out = []
+        _xylo_sim_params.bias_out = []
 
         for neuron in config.readout.neurons:
             _xylo_sim_params.threshold_out.append(neuron.threshold)
             _xylo_sim_params.dash_mem_out.append(neuron.v_mem_decay)
             _xylo_sim_params.dash_syn_out.append([neuron.i_syn_decay])
+            _xylo_sim_params.bias_out.append([neuron.v_mem_bias])
 
         _xylo_sim_params.weight_shift_inp = config.input.weight_bit_shift
         _xylo_sim_params.weight_shift_rec = config.reservoir.weight_bit_shift
         _xylo_sim_params.weight_shift_out = config.readout.weight_bit_shift
+
+        _xylo_sim_params.has_bias = False
+        if config.bias_enable:
+            _xylo_sim_params.has_bias = True
 
         # - Instantiate a Xylo Simulation layer
         mod._xylo_layer = XyloLayer(
@@ -140,6 +148,9 @@ class XyloSim(XyloSimV1):
             aliases=_xylo_sim_params.aliases,
             threshold=_xylo_sim_params.threshold,
             threshold_out=_xylo_sim_params.threshold_out,
+            has_bias=_xylo_sim_params.has_bias,
+            bias=_xylo_sim_params.bias,
+            bias_out=_xylo_sim_params.bias_out,
             weight_shift_inp=_xylo_sim_params.weight_shift_inp,
             weight_shift_rec=_xylo_sim_params.weight_shift_rec,
             weight_shift_out=_xylo_sim_params.weight_shift_out,
