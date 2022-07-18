@@ -1099,11 +1099,11 @@ def configure_accel_time_mode(
                 )
             )
 
-            config.debug.monitor_neuron_i_syn2 = (
-                samna.xyloCore2.configuration.NeuronRange(
-                    monitor_Nhidden, monitor_Nhidden
-                )
-            )
+            # config.debug.monitor_neuron_i_syn2 = (
+            #     samna.xyloCore2.configuration.NeuronRange(
+            #         monitor_Nhidden, monitor_Nhidden
+            #     )
+            # )
         elif readout == "Vmem":
             config.debug.monitor_neuron_v_mem = (
                 samna.xyloCore2.configuration.NeuronRange(
