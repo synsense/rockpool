@@ -130,7 +130,7 @@ class XyloSim(XyloSimV1):
             _xylo_sim_params.threshold_out.append(neuron.threshold)
             _xylo_sim_params.dash_mem_out.append(neuron.v_mem_decay)
             _xylo_sim_params.dash_syn_out.append([neuron.i_syn_decay])
-            _xylo_sim_params.bias_out.append([neuron.v_mem_bias])
+            _xylo_sim_params.bias_out.append(neuron.v_mem_bias)
 
         _xylo_sim_params.weight_shift_inp = config.input.weight_bit_shift
         _xylo_sim_params.weight_shift_rec = config.reservoir.weight_bit_shift
