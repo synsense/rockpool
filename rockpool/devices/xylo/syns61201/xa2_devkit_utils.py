@@ -421,36 +421,21 @@ def blocking_read(
     # - Return read events
     return all_events, is_timeout
 
-def dummy_event(
-        final_timestep: int,
-        input_events_list: list
-) -> List:
+
+def gen_clear_input_registers_events() -> List:
     """
-    Send a dummy event to end input for readout, and clear it in the input event
-
-    Args:
-        final_timestep: The final timestep for the input events
-        input_events_list: A list that stores the input events
+    Create events to clear the input event registers
     """
-
-    # - Add an extra event to ensure readout for entire input extent
-    event = samna.xyloCore2.event.Spike()
-    event.timestamp = final_timestep + 1
-    input_events_list.append(event)
-
-    # - Clear the input event count register to make sure the dummy event is ignored
-    time.sleep(0.1)
-
+    events = []
     for addr in [0x11, 0x12, 0x13, 0x14]:
         event = samna.xyloCore2.event.WriteRegisterValue()
         event.address = addr
-        input_events_list.append(event)
+        events.append(event)
 
-    return input_events_list
+    return events
 
-def initialise_xylo_hdk(
-        write_buffer: Xylo2WriteBuffer
-) -> None:
+
+def initialise_xylo_hdk(write_buffer: Xylo2WriteBuffer) -> None:
     """
     Initialise the Xylo HDK
 
@@ -667,7 +652,7 @@ def verify_xylo_version(
         timeout (float): Timeout for checking in seconds
 
     Returns:
-        bool: ``True`` iff the version ID is correct for Xylo
+        bool: ``True`` iff the version ID is correct for Xylo V2
     """
     # - Clear the read buffer
     read_buffer.get_events()

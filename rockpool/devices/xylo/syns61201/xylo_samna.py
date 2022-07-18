@@ -511,7 +511,6 @@ class XyloSamna(Module):
         start_timestep = hdkutils.get_current_timestamp(
             self._read_buffer, self._write_buffer
         )
-
         final_timestamp = start_timestep + len(input) - 1
 
         # -- Encode input events
@@ -529,8 +528,13 @@ class XyloSamna(Module):
                 event.timestamp = start_timestep + timestep
                 input_events_list.append(event)
 
-        # send a dummy event and clear it in the input event list
-        input_events_list = hdkutils.dummy_event(final_timestamp, input_events_list)
+        # - Add an extra event to ensure readout for entire input extent
+        event = samna.xyloCore2.event.Spike()
+        event.timestamp = final_timestamp + 1
+        input_events_list.append(event)
+
+        # - Clear the input registers to ensure the dummy event has no effect
+        input_events_list.append(hdkutils.gen_clear_input_registers_events())
 
         # - Clear the read and state buffers
         self._state_buffer.reset()
