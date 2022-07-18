@@ -234,15 +234,14 @@ def config_from_specification(
     if bias_hidden is not None or bias_out is not None:
         config.bias_enable = True
 
-    # - WORKAROUD: Ensure that RAM power is enabled, and the chip clock is running
+    # - Ensure that RAM power is enabled, and the chip clock is running
     config.debug.isyn_clock_enable = True
-    # if enable_isyn2:
-    config.debug.isyn2_clock_enable = True
+    if enable_isyn2:
+        config.debug.isyn2_clock_enable = True
     config.debug.ra_clock_enable = True
-    # if config.bias_enable:
-    config.debug.bias_clock_enable = True
+    if config.bias_enable:
+        config.debug.bias_clock_enable = True
     config.debug.hm_clock_enable = True
-
     config.debug.ram_power_enable = True
 
     config.synapse2_enable = enable_isyn2
