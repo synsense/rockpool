@@ -791,12 +791,12 @@ def apply_configuration(
     # - Ideal -- just write the configuration using samna
     hdk.get_xylo_model().apply_configuration(config)
 
-    # - WORKAROUND: Design bug, where aliasing is not computed correctly
-    rcram = read_memory(read_buffer, write_buffer, 0x9980, 1000)
-    for i in range(1000):
-        if rcram[i] == 2:
-            rcram[i] = 3
-    write_memory(write_buffer, 0x9980, 1000, rcram)
+    # # - WORKAROUND: Design bug, where aliasing is not computed correctly
+    # rcram = read_memory(read_buffer, write_buffer, 0x9980, 1000)
+    # for i in range(1000):
+    #     if rcram[i] == 2:
+    #         rcram[i] = 3
+    # write_memory(write_buffer, 0x9980, 1000, rcram)
 
 
 def zero_memory(
