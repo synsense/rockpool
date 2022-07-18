@@ -508,15 +508,11 @@ class XyloSamna(Module):
         self._configure_accel_time_mode(Nhidden, Nout, record)
 
         # - Get current timestamp
-        if self.time_count == 0:
-            start_timestep = hdkutils.get_current_timestamp(
-                self._read_buffer, self._write_buffer
-            )
-            self.time_count = 1
-        else:
-            start_timestep = self.final_timestep + 1
+        start_timestep = hdkutils.get_current_timestamp(
+            self._read_buffer, self._write_buffer
+        )
 
-        self.final_timestep = start_timestep + len(input) - 1
+        final_timestamp = start_timestep + len(input) - 1
 
         # -- Encode input events
         input_events_list = []
@@ -534,7 +530,7 @@ class XyloSamna(Module):
                 input_events_list.append(event)
 
         # send a dummy event and clear it in the input event list
-        input_events_list = hdkutils.dummy_event(self.final_timestep,input_events_list)
+        input_events_list = hdkutils.dummy_event(final_timestamp, input_events_list)
 
         # - Clear the read and state buffers
         self._state_buffer.reset()
@@ -551,7 +547,7 @@ class XyloSamna(Module):
         read_events, is_timeout = hdkutils.blocking_read(
             self._read_buffer,
             timeout=max(read_timeout, 2.0),
-            target_timestamp=self.final_timestep,
+            target_timestamp=final_timestamp,
         )
 
         if is_timeout:
@@ -559,7 +555,7 @@ class XyloSamna(Module):
             readout_events = [e for e in read_events if hasattr(e, "timestamp")]
 
             if len(readout_events) > 0:
-                message += f", first timestamp: {readout_events[0].timestamp}, final timestamp: {readout_events[-1].timestamp}, target timestamp: {self.final_timestep}"
+                message += f", first timestamp: {readout_events[0].timestamp}, final timestamp: {readout_events[-1].timestamp}, target timestamp: {final_timestamp}"
             raise TimeoutError(message)
 
         # - Read the simulation output data
@@ -576,7 +572,7 @@ class XyloSamna(Module):
                 "Spikes": np.array(xylo_data.Spikes_hid),
                 "Vmem_out": np.array(xylo_data.V_mem_out),
                 "Isyn_out": np.array(xylo_data.I_syn_out),
-                "times": np.arange(start_timestep, self.final_timestep + 1),
+                "times": np.arange(start_timestep, final_timestamp + 1),
             }
         else:
             rec_dict = {}
