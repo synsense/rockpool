@@ -1,5 +1,7 @@
 .idea
 output
+._.DS_Store
+.DS_Store
 .pyc
 __pycache__
 .ipynb_checkpoints
