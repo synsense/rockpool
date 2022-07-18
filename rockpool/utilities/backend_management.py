@@ -170,7 +170,6 @@ def torch_version_satisfied(
     import torch
 
     # - Check torch version
-
     lib_major, lib_minor, lib_patch = torch.__version__.split(".")
     patch_vers = lib_patch.split('+')
 
