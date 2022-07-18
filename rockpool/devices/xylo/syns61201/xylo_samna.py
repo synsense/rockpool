@@ -533,7 +533,7 @@ class XyloSamna(Module):
         input_events_list.append(event)
 
         # - Clear the input registers to ensure the dummy event has no effect
-        input_events_list.append(hdkutils.gen_clear_input_registers_events())
+        input_events_list.extend(hdkutils.gen_clear_input_registers_events())
 
         # - Clear the read and state buffers
         self._state_buffer.reset()
