@@ -363,7 +363,7 @@ class XyloSim(XyloSimV1):
         # - Evolve using the xylo layer
         spike_out = np.array(self._xylo_layer.evolve(input_raster))
         if self.output_mode == "Spike":
-            output = spike_out.T
+            output = spike_out
         elif self.output_mode == "Vmem":
             output = np.array(self._xylo_layer.rec_v_mem_out).T
         elif self.output_mode == "Isyn":
