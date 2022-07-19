@@ -469,12 +469,11 @@ def test_FF_equality_slayer():
 
 def test_xylo_vs_xylosim():
     # - Samna imports
-    from rockpool.devices import xylo
     import samna
     from samna.xylo import validate_configuration
 
     from rockpool.devices.xylo.syns61300 import xylo_devkit_utils as xu
-    from rockpool.devices import xylo as x
+    import rockpool.devices.xylo.syns61300 as x
 
     import numpy as np
 
@@ -502,16 +501,16 @@ def test_xylo_vs_xylosim():
     }
 
     # - Create configuration object
-    conf, _, _ = xylo.config_from_specification(**spec)
+    conf, _, _ = x.config_from_specification(**spec)
 
     # - Check for validity
     valid, message = validate_configuration(conf)
     assert valid
 
     # - Create XyloSim object
-    mod_xylo_sim_vmem = xylo.XyloSim.from_config(conf, output_mode="Vmem")
-    mod_xylo_sim_isyn = xylo.XyloSim.from_config(conf, output_mode="Isyn")
-    mod_xylo_sim_spike = xylo.XyloSim.from_config(conf)
+    mod_xylo_sim_vmem = x.XyloSim.from_config(conf, output_mode="Vmem")
+    mod_xylo_sim_isyn = x.XyloSim.from_config(conf, output_mode="Isyn")
+    mod_xylo_sim_spike = x.XyloSim.from_config(conf)
     mod_xylo_sim_vmem.timed()
     mod_xylo_sim_isyn.timed()
     mod_xylo_sim_spike.timed()
