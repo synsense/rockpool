@@ -472,6 +472,12 @@ class XyloSamna(Module):
                 record=record,
             )
 
+    def _config_hibernation_mode(self):
+        """
+        Configure the Xylo HDK to use hibernation mode
+        """
+        self.config = hdkutils.config_hibernation_mode(self._config)
+
     def evolve(
         self,
         input: np.ndarray,

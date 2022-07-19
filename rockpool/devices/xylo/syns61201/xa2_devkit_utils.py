@@ -1104,6 +1104,17 @@ def configure_accel_time_mode(
     return config, state_monitor_buffer
 
 
+def config_hibernation_mode(config: XyloConfiguration) -> XyloConfiguration:
+    """
+    Switch on hibernaton mode on a Xylo hdk
+
+    Args:
+        config (XyloConfiguration): The desired Xylo configuration to use
+    """
+    config.enable_hibernation_mode = True
+    return config
+
+
 def configure_single_step_time_mode(config: XyloConfiguration) -> XyloConfiguration:
     """
     Switch on single-step model on a Xylo hdk
