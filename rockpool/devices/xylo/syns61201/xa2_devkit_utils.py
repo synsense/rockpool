@@ -1698,13 +1698,26 @@ def export_registers(
         f.write("\n")
 
 
-def power_measure(hdk: XyloA2HDK):
+def power_measure(
+        hdk: XyloA2HDK,
+        frequency: float = 1.0,
+        time_len: float = 1.0,
+        mode:str = "auto",
+):
     """
     Measure power consumption on a hdk
 
     Args:
         hdk (XyloHDK): The Xylo HDK to be measured
+        frequency (float): The frequency of power measurement. Default: 1.0
+        time_len (float): The time length of power measurement. Default: 1.0
+        mode (str): Set single power request or auto power request in the background
     """
+
+    if mode not in ["auto", "single"]:
+        raise ValueError(
+            f'{mode} is not supported. Must be one of `["auto", "single"]`.'
+        )
     power = hdk.get_power_monitor()
     buf = samna.BasicSinkNode_unifirm_modules_events_measurement()
     source = power.get_source_node().add_destination(buf.get_input_channel())
@@ -1712,17 +1725,17 @@ def power_measure(hdk: XyloA2HDK):
     def get_events():
         return buf.get_events()
 
-    print("-------------test single shot:")
-    power.single_shot_power_measurement()
-    time.sleep(1)
-    ps = get_events()
-    [print(p) for p in ps]
+    if mode == "single":
+        print("-------------test single shot:")
+        power.single_shot_power_measurement()
+        time.sleep(time_len)
+        ps = get_events()
+        [print(p) for p in ps]
 
-    time.sleep(2)
-
-    print("-------------test start plus stop:")
-    power.start_auto_power_measurement(1.0)
-    time.sleep(5)
-    power.stop_auto_power_measurement()
-    ps = get_events()
-    [print(p) for p in ps]
+    elif mode == "auto":
+        print("-------------test start plus stop:")
+        power.start_auto_power_measurement(frequency)
+        time.sleep(time_len)
+        power.stop_auto_power_measurement()
+        ps = get_events()
+        [print(p) for p in ps]
