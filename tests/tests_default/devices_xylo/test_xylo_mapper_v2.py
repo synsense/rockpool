@@ -189,6 +189,8 @@ def test_XyloSim_creation():
         LIFTorch((3, 3), has_rec=False),
     )
 
-    specs = mapper(smod.as_graph(),weight_dtype=int,dash_dtype=int,threshold_dtype=int)
+    specs = mapper(
+        smod.as_graph(), weight_dtype=int, dash_dtype=int, threshold_dtype=int
+    )
     specs.pop("mapped_graph")
     xcmod = XyloSim.from_specification(**specs)
