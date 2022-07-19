@@ -1,3 +1,9 @@
+import pytest
+
+pytest.importorskip("samna")
+pytest.importorskip("xylosim")
+
+
 def test_imports_V2():
     from rockpool.devices.xylo.syns61201 import XyloSim, mapper
 
