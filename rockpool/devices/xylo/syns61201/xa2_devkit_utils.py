@@ -1696,3 +1696,33 @@ def export_registers(
         f.write("tr_cntr_stat ")
         f.write(hex(read_register(read_buffer, write_buffer, 0x1A)[0]))
         f.write("\n")
+
+
+def power_measure(hdk: XyloA2HDK):
+    """
+    Measure power consumption on a hdk
+
+    Args:
+        hdk (XyloHDK): The Xylo HDK to be measured
+    """
+    power = hdk.get_power_monitor()
+    buf = samna.BasicSinkNode_unifirm_modules_events_measurement()
+    source = power.get_source_node().add_destination(buf.get_input_channel())
+
+    def get_events():
+        return buf.get_events()
+
+    print("-------------test single shot:")
+    power.single_shot_power_measurement()
+    time.sleep(1)
+    ps = get_events()
+    [print(p) for p in ps]
+
+    time.sleep(2)
+
+    print("-------------test start plus stop:")
+    power.start_auto_power_measurement(1.0)
+    time.sleep(5)
+    power.stop_auto_power_measurement()
+    ps = get_events()
+    [print(p) for p in ps]
