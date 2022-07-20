@@ -1,9 +1,9 @@
 stages:
   - test
+  - lint
   - docs
   - docs_deploy
   - build
-  - lint
   - deploy
 
 unit_tests:
@@ -104,7 +104,7 @@ black-check:
   stage: lint
 
   script:
-    - black --check rockpool tests
+    - python -m black --check rockpool tests
 
 pages:
   stage: docs_deploy
