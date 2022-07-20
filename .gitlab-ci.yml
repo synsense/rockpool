@@ -1,6 +1,5 @@
 stages:
   - test
-  - lint
   - docs
   - docs_deploy
   - build
@@ -100,7 +99,7 @@ dist_build:
       - dist
 
 black-check:
-  stage: lint
+  stage: test
 
   before_script:
     - pip install --upgrade pip
