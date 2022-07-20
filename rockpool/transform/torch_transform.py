@@ -99,8 +99,10 @@ def stochastic_rounding(
     # - Perform quantisation
     levels = (value - input_range[0]) / input_quantum
     levels_floor = floor_passthrough(levels)
-    levels_round = levels_floor + ((levels - levels_floor) > torch.rand(*value.shape).to(levels_floor.device))
-    
+    levels_round = levels_floor + (
+        (levels - levels_floor) > torch.rand(*value.shape).to(levels_floor.device)
+    )
+
     output_param = levels_round * output_quantum + output_range[0]
 
     return output_param

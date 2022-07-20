@@ -171,7 +171,7 @@ def torch_version_satisfied(
 
     # - Check torch version
     lib_major, lib_minor, lib_patch = torch.__version__.split(".")
-    patch_vers = lib_patch.split('+')
+    patch_vers = lib_patch.split("+")
 
     if len(patch_vers) > 1:
         lib_patch, *lib_cuda = patch_vers
