@@ -1699,10 +1699,10 @@ def export_registers(
 
 
 def power_measure(
-        hdk: XyloA2HDK,
-        frequency: float = 1.0,
-        time_len: float = 1.0,
-        mode:str = "auto",
+    hdk: XyloA2HDK,
+    frequency: float = 1.0,
+    time_len: float = 1.0,
+    mode: str = "auto",
 ):
     """
     Measure power consumption on a hdk
