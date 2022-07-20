@@ -150,6 +150,9 @@ def test_wavesense_backward():
     from rockpool.parameters import Constant
     import torch
 
+    # - Ensure deterministic testing
+    torch.manual_seed(1)
+
     # model params
     dilations = [2, 16]
     n_out_neurons = 2
