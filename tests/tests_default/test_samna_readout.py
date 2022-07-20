@@ -40,9 +40,9 @@ def test_XyloSamna_readout():
     )
 
     # - Make a XyloSamna module
-    mod_xylo_Vmem = XyloSamna(daughterboard, config, dt, output_mode='Vmem')
-    mod_xylo_Isyn = XyloSamna(daughterboard, config, dt, output_mode='Isyn')
-    mod_xylo_Spike = XyloSamna(daughterboard, config, dt, output_mode='Spike')
+    mod_xylo_Vmem = XyloSamna(daughterboard, config, dt, output_mode="Vmem")
+    mod_xylo_Isyn = XyloSamna(daughterboard, config, dt, output_mode="Isyn")
+    mod_xylo_Spike = XyloSamna(daughterboard, config, dt, output_mode="Spike")
 
     # - Simulate with random input
     T = 10
@@ -55,5 +55,3 @@ def test_XyloSamna_readout():
     output_ts_Vmem, _, rec_state_Vmem = mod_xylo_Vmem(input_ts, record=True)
     output_ts_Isyn, _, rec_state_Isyn = mod_xylo_Isyn(input_ts, record=True)
     output_ts_Spike, _, rec_state_Spike = mod_xylo_Spike(input_ts, record=True)
-
-

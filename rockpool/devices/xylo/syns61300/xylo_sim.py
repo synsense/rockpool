@@ -34,7 +34,7 @@ class XyloSim(Module):
     """
 
     __create_key = object()
-    output_mode = 'Spike'
+    output_mode = "Spike"
 
     """ Private key to ensure factory creation """
 
@@ -44,7 +44,7 @@ class XyloSim(Module):
         config: XyloConfiguration,
         shape: tuple = (16, 1000, 8),
         dt: float = 1e-3,
-        output_mode: str = 'Spike',
+        output_mode: str = "Spike",
         *args,
         **kwargs,
     ):
@@ -85,12 +85,17 @@ class XyloSim(Module):
         """ (XyloLayer) Handle to a XyloSim object """
 
         # - Readout mode
-        assert output_mode in ["Isyn", "Vmem", "Spike"], f"{output_mode} is not supported."
+        assert output_mode in [
+            "Isyn",
+            "Vmem",
+            "Spike",
+        ], f"{output_mode} is not supported."
         self.output_mode = output_mode
 
-
     @classmethod
-    def from_config(cls, config: XyloConfiguration, dt: float = 1e-3, output_mode: str = 'Spike'):
+    def from_config(
+        cls, config: XyloConfiguration, dt: float = 1e-3, output_mode: str = "Spike"
+    ):
         """
         Creata a XyloSim based layer to simulate the Xylo hardware, from a configuration
 
@@ -108,7 +113,12 @@ class XyloSim(Module):
 
         # - Instantiate the class
 
-        mod = cls(create_key=cls.__create_key, config=config, dt=dt, output_mode=cls.output_mode)
+        mod = cls(
+            create_key=cls.__create_key,
+            config=config,
+            dt=dt,
+            output_mode=cls.output_mode,
+        )
 
         # - Make a storage object for the extracted configuration
         class _(object):
@@ -222,7 +232,7 @@ class XyloSim(Module):
         aliases: Optional[list] = None,
         dt: float = 1e-3,
         verify_config: bool = True,
-        output_mode: str = 'Spike',
+        output_mode: str = "Spike",
     ) -> "XyloSim":
         """
         Instantiate a :py:class:`.XyloSim` module from a full set of parameters

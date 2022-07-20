@@ -35,6 +35,7 @@ XyloReadBuffer = samna.BasicSinkNode_xylo_event_output_event
 XyloWriteBuffer = samna.BasicSourceNode_xylo_event_input_event
 XyloNeuronStateBuffer = samna.xylo.NeuronStateSinkNode
 
+
 class XyloState(NamedTuple):
     """
     `.NamedTuple` that encapsulates a recorded Xylo HDK state
@@ -147,7 +148,9 @@ class XyloAllRam(NamedTuple):
     OWTRAM_state: np.ndarray
     """ np.ndarray: Contents of OWTRAM """
 
+
 from .syns61201.xa2_devkit_utils import find_xylo_a2_boards
+
 
 def find_xylo_boards() -> List[XyloHDK]:
     """
@@ -169,6 +172,7 @@ def find_xylo_boards() -> List[XyloHDK]:
     ]
 
     return xylo_hdk_list
+
 
 def new_xylo_read_buffer(
     hdk: XyloHDK,
@@ -213,7 +217,7 @@ def new_xylo_write_buffer(hdk: XyloHDK) -> XyloWriteBuffer:
     sink = hdk.get_model().get_sink_node()
     graph = samna.graph.EventFilterGraph()
     graph.sequential([buffer, sink])
-    
+
     return buffer
 
 
@@ -1557,7 +1561,6 @@ def get_current_timestamp(
     return timestamp
 
 
-
 def configure_accel_time_mode(
     config: XyloConfiguration,
     state_monitor_buffer: XyloNeuronStateBuffer,
@@ -1565,8 +1568,8 @@ def configure_accel_time_mode(
     monitor_Noutput: Optional[int] = 0,
     # i_syn_start: Optional[int] = 0,
     # v_mem_start: Optional[int] = 0,
-    readout = "Spike",
-    record = False,
+    readout="Spike",
+    record=False,
 ) -> (XyloConfiguration, XyloNeuronStateBuffer):
     """
     Switch on accelerated-time mode on a Xylo hdk, and configure network monitoring
@@ -1596,25 +1599,31 @@ def configure_accel_time_mode(
     config.debug.monitor_neuron_v_mem = None
 
     if record:
-        config.debug.monitor_neuron_i_syn = (
-            samna.xylo.configuration.NeuronRange(0, monitor_Nhidden + monitor_Noutput))
-        config.debug.monitor_neuron_i_syn2 = (
-            samna.xylo.configuration.NeuronRange(0, monitor_Nhidden))
-        config.debug.monitor_neuron_spike = (
-            samna.xylo.configuration.NeuronRange(0, monitor_Nhidden))
-        config.debug.monitor_neuron_v_mem = (
-            samna.xylo.configuration.NeuronRange(0, monitor_Nhidden + monitor_Noutput))
+        config.debug.monitor_neuron_i_syn = samna.xylo.configuration.NeuronRange(
+            0, monitor_Nhidden + monitor_Noutput
+        )
+        config.debug.monitor_neuron_i_syn2 = samna.xylo.configuration.NeuronRange(
+            0, monitor_Nhidden
+        )
+        config.debug.monitor_neuron_spike = samna.xylo.configuration.NeuronRange(
+            0, monitor_Nhidden
+        )
+        config.debug.monitor_neuron_v_mem = samna.xylo.configuration.NeuronRange(
+            0, monitor_Nhidden + monitor_Noutput
+        )
 
     else:
         if readout == "Isyn":
-            config.debug.monitor_neuron_i_syn = (
-                samna.xylo.configuration.NeuronRange(monitor_Nhidden, monitor_Nhidden + monitor_Noutput))
+            config.debug.monitor_neuron_i_syn = samna.xylo.configuration.NeuronRange(
+                monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+            )
         # elif readout == "Spike":
         #     config.debug.monitor_neuron_spike = (
         #         samna.xylo.configuration.NeuronRange(monitor_Nhidden, monitor_Nhidden + monitor_Noutput))
         elif readout == "Vmem":
-            config.debug.monitor_neuron_v_mem = (
-                samna.xylo.configuration.NeuronRange(monitor_Nhidden, monitor_Nhidden + monitor_Noutput))
+            config.debug.monitor_neuron_v_mem = samna.xylo.configuration.NeuronRange(
+                monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+            )
 
     # - Configure the monitor buffer
     state_monitor_buffer.set_configuration(config)
