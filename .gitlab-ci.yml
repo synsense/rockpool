@@ -3,6 +3,7 @@ stages:
   - docs
   - docs_deploy
   - build
+  - lint
   - deploy
 
 unit_tests:
@@ -18,6 +19,7 @@ unit_tests:
     - pip install sinabs
     - pip install git+https://dylan.muir:${GITLAB_CLONE_API_KEY}@spinystellate.office.synsense.ai/research/SCNN/sinabs-exodus.git@main || exit_code=$?
     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
+    - pip install black
     
   script:
     - pytest -v tests/tests_default -n 4 --forked
@@ -97,6 +99,12 @@ dist_build:
   artifacts:
     paths:
       - dist
+
+black-check:
+  stage: lint
+
+  script:
+    - black --check rockpool tests
 
 pages:
   stage: docs_deploy
