@@ -1698,6 +1698,7 @@ def export_registers(
         f.write("\n")
 
 
+
 def set_power_measure(
         hdk: XyloA2HDK,
         frequency: Optional[float] = None,
