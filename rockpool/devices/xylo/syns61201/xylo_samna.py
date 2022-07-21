@@ -341,6 +341,8 @@ class XyloSamna(Module):
         config: XyloConfiguration = None,
         dt: float = 1e-3,
         output_mode: str = "Spike",
+        power_measure: bool = False,
+        frequency: float = 5.0,
         *args,
         **kwargs,
     ):
@@ -419,6 +421,11 @@ class XyloSamna(Module):
         self._afe_read_buf = hdkutils.AFE2ReadBuffer()
         graph = samna.graph.EventFilterGraph()
         graph.sequential([self._device.get_afe_model_source_node(), self._afe_read_buf])
+
+        # - Set power measurement module
+        self._power_measure = power_measure
+        if self._power_measure:
+            self._power_buf, self.power = hdkutils.set_power_measure(self._device, frequency)
 
     @property
     def config(self):
@@ -551,7 +558,7 @@ class XyloSamna(Module):
         # - Determine a reasonable read timeout
         if read_timeout is None:
             read_timeout = len(input) * self.dt * Nhidden / 800.0
-            read_timeout = read_timeout * 100.0 if record else read_timeout
+            read_timeout = read_timeout * 1000.0 if record else read_timeout
 
         read_events, is_timeout = hdkutils.blocking_read(
             self._read_buffer,
@@ -588,6 +595,16 @@ class XyloSamna(Module):
 
         # - This module accepts no state
         new_state = {}
+
+        if self._power_measure:
+            # self.power.stop_auto_power_measurement()
+            ps = self._power_buf.get_events()
+            io_data = [e.value / 1.1 for e in ps if e.channel == 0]
+            core_data = [e.value / 2.5 for e in ps if e.channel == 3]
+
+            print("io current: ", io_data)
+            print('-------------------------------------------')
+            print("core current: ", core_data)
 
         # - Return spike output, new state and record dictionary
         if self._output_mode == "Spike":
