@@ -342,7 +342,7 @@ class XyloSamna(Module):
         dt: float = 1e-3,
         output_mode: str = "Spike",
         power_measure: bool = False,
-        frequency: float = 5.0,
+        frequency: Optional[float] = 5.0,
         *args,
         **kwargs,
     ):
@@ -354,6 +354,8 @@ class XyloSamna(Module):
             config (XyloConfiguraration): A Xylo configuration from `samna`
             dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
+            power_measure (bool): If true, power consumption will be measured
+            frequency (float): The frequency of power measurement. Default: 5.0
         """
         # - Check input arguments
         if device is None:
@@ -490,6 +492,7 @@ class XyloSamna(Module):
         input: np.ndarray,
         record: bool = False,
         read_timeout: float = None,
+        record_power: bool = False,
         *args,
         **kwargs,
     ) -> (np.ndarray, dict, dict):
@@ -502,6 +505,7 @@ class XyloSamna(Module):
             input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
             record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
             read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
+            record_power (bool): Iff ``True``, record the power consumption during each evolve.
 
         Returns:
             (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
@@ -579,32 +583,50 @@ class XyloSamna(Module):
             self._state_buffer, Nin, Nhidden, Nout
         )
 
-        if record:
-            # - Build a recorded state dictionary
-            rec_dict = {
-                "Vmem": np.array(xylo_data.V_mem_hid),
-                "Isyn": np.array(xylo_data.I_syn_hid),
-                "Isyn2": np.array(xylo_data.I_syn2_hid),
-                "Spikes": np.array(xylo_data.Spikes_hid),
-                "Vmem_out": np.array(xylo_data.V_mem_out),
-                "Isyn_out": np.array(xylo_data.I_syn_out),
-                "times": np.arange(start_timestep, final_timestamp + 1),
-            }
-        else:
-            rec_dict = {}
-
-        # - This module accepts no state
-        new_state = {}
-
-        if self._power_measure:
+        if self._power_measure and record_power:
             # self.power.stop_auto_power_measurement()
             ps = self._power_buf.get_events()
             io_data = [e.value / 1.1 for e in ps if e.channel == 0]
             core_data = [e.value / 2.5 for e in ps if e.channel == 3]
-
             print("io current: ", io_data)
             print('-------------------------------------------')
             print("core current: ", core_data)
+
+        if record:
+            # - Build a recorded state dictionary
+            if self._power_measure and record_power:
+                rec_dict = {
+                    "Vmem": np.array(xylo_data.V_mem_hid),
+                    "Isyn": np.array(xylo_data.I_syn_hid),
+                    "Isyn2": np.array(xylo_data.I_syn2_hid),
+                    "Spikes": np.array(xylo_data.Spikes_hid),
+                    "Vmem_out": np.array(xylo_data.V_mem_out),
+                    "Isyn_out": np.array(xylo_data.I_syn_out),
+                    "times": np.arange(start_timestep, final_timestamp + 1),
+                    "io current": np.array(io_data),
+                    "core current": np.array(core_data),
+                }
+            else:
+                rec_dict = {
+                    "Vmem": np.array(xylo_data.V_mem_hid),
+                    "Isyn": np.array(xylo_data.I_syn_hid),
+                    "Isyn2": np.array(xylo_data.I_syn2_hid),
+                    "Spikes": np.array(xylo_data.Spikes_hid),
+                    "Vmem_out": np.array(xylo_data.V_mem_out),
+                    "Isyn_out": np.array(xylo_data.I_syn_out),
+                    "times": np.arange(start_timestep, final_timestamp + 1),
+                }
+        else:
+            if self._power_measure and record_power:
+                rec_dict = {
+                    "io current": np.array(io_data),
+                    "core current": np.array(core_data),
+                }
+            else:
+                rec_dict = {}
+
+        # - This module accepts no state
+        new_state = {}
 
         # - Return spike output, new state and record dictionary
         if self._output_mode == "Spike":
