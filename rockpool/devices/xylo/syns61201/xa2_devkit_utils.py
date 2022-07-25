@@ -250,9 +250,9 @@ def apply_afe2_default_config(afe2hdk: XyloA2HDK) -> None:
     c.aer_2_saer.calibration.reset = True
 
     c.aer_2_saer.calibration.afe_stable_time = 0x80
-    c.aer_2_saer.calibration.leak_timing_window = 0x98968
+    c.aer_2_saer.calibration.leak_timing_window = 0x2625A0
 
-    c.aer_2_saer.calibration.leak_td = 6250
+    c.aer_2_saer.calibration.leak_td = 0x030d4
     c.aer_2_saer.calibration.leak_target_spike_number = 2
 
     afe2hdk.get_afe_model().apply_configuration(c)
@@ -1698,17 +1698,16 @@ def export_registers(
         f.write("\n")
 
 
-
 def set_power_measure(
         hdk: XyloA2HDK,
-        frequency: Optional[float] = None,
+        frequency: Optional[float] = 5.0,
 ):
     """
-        Initialize power consumption measure on a hdk
+    Initialize power consumption measure on a hdk
 
-        Args:
-            hdk (XyloHDK): The Xylo HDK to be measured
-            frequency (float): The frequency of power measurement. Default: 1.0
+    Args:
+        hdk (XyloHDK): The Xylo HDK to be measured
+        frequency (float): The frequency of power measurement. Default: 5.0
     """
     power = hdk.get_power_monitor()
     buf = samna.BasicSinkNode_unifirm_modules_events_measurement()
