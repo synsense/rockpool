@@ -1084,12 +1084,6 @@ def configure_accel_time_mode(
                     monitor_Nhidden, monitor_Nhidden + monitor_Noutput
                 )
             )
-
-            # config.debug.monitor_neuron_i_syn2 = (
-            #     samna.xyloCore2.configuration.NeuronRange(
-            #         monitor_Nhidden, monitor_Nhidden
-            #     )
-            # )
         elif readout == "Vmem":
             config.debug.monitor_neuron_v_mem = (
                 samna.xyloCore2.configuration.NeuronRange(
@@ -1699,8 +1693,8 @@ def export_registers(
 
 
 def set_power_measure(
-        hdk: XyloA2HDK,
-        frequency: Optional[float] = 5.0,
+    hdk: XyloA2HDK,
+    frequency: Optional[float] = 5.0,
 ):
     """
     Initialize power consumption measure on a hdk

@@ -588,9 +588,6 @@ class XyloSamna(Module):
             ps = self._power_buf.get_events()
             io_data = [e.value / 1.1 for e in ps if e.channel == 0]
             core_data = [e.value / 2.5 for e in ps if e.channel == 3]
-            print("io current: ", io_data)
-            print('-------------------------------------------')
-            print("core current: ", core_data)
 
         if record:
             # - Build a recorded state dictionary
@@ -725,8 +722,6 @@ class XyloSamna(Module):
                 vmem_out_ts.append(this_state.V_mem_out)
                 isyn_out_ts.append(this_state.I_syn_out)
                 spikes_ts.append(this_state.Spikes_hid)
-
-                # print(f"vmem: {this_state.V_mem_hid} \n isyn: {this_state.I_syn_hid} \n isyn2: {this_state.I_syn2_hid}")
 
             # - Read the output event register
             output_events = hdkutils.read_output_events(
