@@ -44,22 +44,48 @@ class LinearTorch(TorchModule):
         shape: tuple,
         weight=None,
         bias=None,
-        has_bias: bool = True,
-        weight_init_func: Optional[Callable] = lambda s: init.kaiming_uniform_(
+        has_bias: bool = False,
+        weight_init_func: Callable = lambda s: init.kaiming_uniform_(
             torch.empty((s[1], s[0]))
         ).T,
+        bias_init_func: Callable = lambda s: init.uniform_(
+            torch.empty(s[-1]),
+            -math.sqrt(1 / s[0]),
+            math.sqrt(1 / s[0]),
+        ),
         *args,
         **kwargs,
     ) -> None:
         """
         Initialise a LinearTorch layer
 
+        Warnings:
+            Standard DNN libraries by default include a bias on linear layers. This is usually not used for SNNs, where the bias is configured on the spiking neuron module. :py:class:`.Linear` layers in Rockpool use a default of ``has_bias = False``. You can force to use a bias on the linear layer with ``has_bias = True`` on initialisation.
+
+        Examples:
+
+            Build a linear weight matrix with shape ``(3, 4)``:
+
+            >>> Linear((3, 4))
+            Linear  with shape (3, 4)
+
+            Build a linear weight matrix with shape ``(2, 5)``, which will be initialised with zeros:
+
+            >>> Linear((2, 5), weight_init_func = lambda s: np.zeros(s))
+            Linear  with shape (2, 5)
+
+            Provide a concrete initialisation for the linear weights:
+
+            >>> Linear((2, 2), weight = np.array([[1, 2], [3, 4]]))
+            Linear  with shape (2, 2)
+
         Args:
-            shape (tuple): The shape of this layer ``(Nin, Nout)``
-            weight (Tensor): Concrete initialisation data for the weights ``(Nin, Nout)``
-            bias (Tensor): Concrete initialisation data for the biases ``(Nout,)`` Default: ``0.0``
-            has_bias (bool): Iff ``True``, this layer includes a bias. Default: ``True``
-            weight_init_func (Callable): Random initialisation function for weights. Default: Kaiming initialisation
+            shape (tuple): The desired shape of the weight matrix. Must have two entries ``(Nin, Nout)``
+            weight_init_func (Callable): The initialisation function to use for the weights. Default: Kaiming initialization; uniform on the range :math:`(-\\sqrt(6/Nin), \\sqrt(6/Nin))`
+            weight (Optional[np.array]): A concrete weight matrix to assign to the weights on initialisation. ``weight.shape`` must match the ``shape`` argument
+            has_bias (bool): A boolean flag indicating that this linear layer should have a bias parameter. Default: ``False``, no bias parameter
+            bias_init_func (Callable): The initialisation function to use for the biases. Default: Uniform / sqrt(N); uniform on the range :math:`(-\\sqrt(1/N), \\sqrt(1/N))`
+            bias (Optional[np.array]): A concrete bias vector to assign to the biases on initialisation. ``bias.shape`` must be ``(N,)``
         """
         # - Initialise superclass
         super().__init__(shape=shape, *args, **kwargs)
@@ -84,11 +110,7 @@ class LinearTorch(TorchModule):
             self.bias: Union[torch.Tensor, rp.Parameter] = rp.Parameter(
                 bias,
                 shape=[(self.size_out,), ()],
-                init_func=lambda s: init.uniform_(
-                    torch.empty(s[-1]),
-                    -math.sqrt(1 / s[0]),
-                    math.sqrt(1 / s[0]),
-                ),
+                init_func=bias_init_func,
                 family="biases",
             )
             """ (torch.Tensor) Bias vector with shape ``(Nout,)`` """

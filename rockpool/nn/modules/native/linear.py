@@ -48,7 +48,7 @@ class LinearMixin(ABC):
         shape: tuple,
         weight=None,
         bias=None,
-        has_bias: bool = True,
+        has_bias: bool = False,
         weight_init_func: Callable = kaiming,
         bias_init_func: Callable = uniform_sqrt,
         *args,
@@ -60,6 +60,9 @@ class LinearMixin(ABC):
         `.Linear` essentially wraps a single weight matrix, and passes data through by using the matrix as a set of weights. The shape of the matrix must be specified as a tuple ``(Nin, Nout)``.
 
         A weight initialisation function may be specified. By default the weights will be use Kaiming initialisation (:py:func:`.kaiming`).
+
+        Warnings:
+            Standard DNN libraries by default include a bias on linear layers. This is usually not used for SNNs, where the bias is configured on the spiking neuron module. :py:class:`.Linear` layers in Rockpool use a default of ``has_bias = False``. You can force to use a bias on the linear layer with ``has_bias = True`` on initialisation.
 
         Examples:
 
@@ -80,8 +83,11 @@ class LinearMixin(ABC):
 
         Args:
             shape (tuple): The desired shape of the weight matrix. Must have two entries ``(Nin, Nout)``
-            weight_init_func (Callable): The initialisation function to use for the weights. Default: Kaiming initialization; uniform on the range :math:`(\\sqrt(6/Nin), \\sqrt(6/Nin))`
+            weight_init_func (Callable): The initialisation function to use for the weights. Default: Kaiming initialization; uniform on the range :math:`(-\\sqrt(6/Nin), \\sqrt(6/Nin))`
             weight (Optional[np.array]): A concrete weight matrix to assign to the weights on initialisation. ``weight.shape`` must match the ``shape`` argument
+            has_bias (bool): A boolean flag indicating that this linear layer should have a bias parameter. Default: ``False``, no bias parameter
+            bias_init_func (Callable): The initialisation function to use for the biases. Default: Uniform / sqrt(N); uniform on the range :math:`(-\\sqrt(1/N), \\sqrt(1/N))`
+            bias (Optional[np.array]): A concrete bias vector to assign to the biases on initialisation. ``bias.shape`` must be ``(N,)``
         """
         # - Base class must be `Module`
         if not isinstance(self, Module):
@@ -107,8 +113,10 @@ class LinearMixin(ABC):
                 bias, shape=self.size_out, init_func=bias_init_func, family="biases"
             )
             """ Bias vector of this module """
+            self._has_bias = True
         else:
             self.bias = 0
+            self._has_bias = False
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
         return self._dot(input_data, self.weight) + self.bias, {}, {}
@@ -120,7 +128,7 @@ class LinearMixin(ABC):
             f"{type(self).__name__}_{self.name}_{id(self)}",
             self,
             self.weight,
-            self.bias,
+            self.bias if self._has_bias else None,
         )
 
 
