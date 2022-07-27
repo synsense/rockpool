@@ -5,7 +5,7 @@ Mapper package for Xylo
 - Call :py:func:`.mapper`
 
 """
-
+import warnings
 
 import numpy as np
 
@@ -34,6 +34,10 @@ __all__ = ["mapper", "DRCError"]
 
 
 class DRCError(ValueError):
+    pass
+
+
+class DRCWarning(Warning, DRCError):
     pass
 
 
@@ -117,7 +121,7 @@ def output_neurons_cannot_be_recurrent(graph: GraphModuleBase) -> None:
 
 
 def no_consecutive_weights(graph: GraphModuleBase) -> None:
-    all_weights = find_modules_of_subclass(graph, LinearWeights)
+    all_weights: List[LinearWeights] = find_modules_of_subclass(graph, LinearWeights)
 
     for w in all_weights:
         for i_n in w.input_nodes:
@@ -136,7 +140,9 @@ def no_consecutive_weights(graph: GraphModuleBase) -> None:
 
 
 def alias_inputs_must_be_neurons(graph: GraphModuleBase) -> None:
-    all_aliases = find_modules_of_subclass(graph, AliasConnection)
+    all_aliases: List[AliasConnection] = find_modules_of_subclass(
+        graph, AliasConnection
+    )
 
     for a in all_aliases:
         for i_n in a.input_nodes:
@@ -148,7 +154,9 @@ def alias_inputs_must_be_neurons(graph: GraphModuleBase) -> None:
 
 
 def alias_output_nodes_must_have_neurons_as_input(graph: GraphModuleBase) -> None:
-    all_aliases = find_modules_of_subclass(graph, AliasConnection)
+    all_aliases: List[AliasConnection] = find_modules_of_subclass(
+        graph, AliasConnection
+    )
 
     for a in all_aliases:
         for o_n in a.output_nodes:
@@ -160,12 +168,23 @@ def alias_output_nodes_must_have_neurons_as_input(graph: GraphModuleBase) -> Non
 
 
 def at_least_two_neuron_layers_needed(graph: GraphModuleBase) -> None:
-    all_neurons = find_modules_of_subclass(graph, GenericNeurons)
+    all_neurons: List[GenericNeurons] = find_modules_of_subclass(graph, GenericNeurons)
 
     if len(all_neurons) < 2:
         raise DRCError(
             "At least two layers of neurons are required to map to hidden and output layers on Xylo."
         )
+
+
+def weight_nodes_have_no_biases(graph: GraphModuleBase) -> None:
+    all_weights: List[LinearWeights] = find_modules_of_subclass(graph, LinearWeights)
+
+    for w in all_weights:
+        if w.biases is not None:
+            warnings.warn(
+                f"Bias parameters of LinearWeights modules are *not* transferred to Xylo.\nFound weights {w} with biases. Set `has_bias = False` for this module .",
+                DRCWarning,
+            )
 
 
 xylo_drc: List[Callable[[GraphModuleBase], None]] = [
@@ -180,6 +199,7 @@ xylo_drc: List[Callable[[GraphModuleBase], None]] = [
     alias_inputs_must_be_neurons,
     alias_output_nodes_must_have_neurons_as_input,
     at_least_two_neuron_layers_needed,
+    weight_nodes_have_no_biases,
 ]
 """ List[Callable[[GraphModuleBase], None]]: The collection of design rules for Xylo """
 
