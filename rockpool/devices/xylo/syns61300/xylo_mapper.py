@@ -30,7 +30,7 @@ from rockpool.devices.xylo.xylo_graph_modules import (
 
 from typing import List, Callable, Set, Optional, Union
 
-__all__ = ["mapper", "DRCError"]
+__all__ = ["mapper", "DRCError", "DRCWarning"]
 
 
 class DRCError(ValueError):
@@ -76,15 +76,21 @@ def first_module_is_a_weight(graph: GraphModuleBase) -> None:
 
 def le_16_input_channels(graph: GraphModuleBase) -> None:
     if len(graph.input_nodes) > 16:
-        raise DRCError(
-            f"Xylo only supports up to 16 input channels. The network requires {len(graph.input_nodes)} input channels."
+        warnings.warn(
+            DRCWarning(
+                f"Xylo only supports up to 16 input channels. The network requires {len(graph.input_nodes)} input channels."
+            ),
+            DRCWarning,
         )
 
 
 def le_8_output_channels(graph: GraphModuleBase) -> None:
     if len(graph.output_nodes) > 8:
-        raise DRCError(
-            f"Xylo only supports up to 8 output channels. The network requires {len(graph.output_nodes)} output channels."
+        warnings.warn(
+            DRCWarning(
+                f"Xylo only supports up to 8 output channels. The network requires {len(graph.output_nodes)} output channels."
+            ),
+            DRCWarning,
         )
 
 
@@ -283,6 +289,8 @@ def mapper(
     weight_dtype: Union[np.dtype, str] = "float",
     threshold_dtype: Union[np.dtype, str] = "float",
     dash_dtype: Union[np.dtype, str] = "float",
+    max_hidden_neurons: int = 1000,
+    max_output_neurons: int = 8,
 ) -> dict:
     """
     Map a computational graph onto the Xylo v1 architecture
@@ -299,6 +307,8 @@ def mapper(
         weight_dtype (Union[np.dtype, str]): Data type for mapped weight parameters. Default: ``"float"``
         threshold_dtype (Union[np.dtype, str]): Data type for mapped threshold parameters. Default: ``"float"``
         dash_dtype (Union[np.dtype, str]): Data type for mapped dash (bitshift time constant) parameters. Default: ``"float"``
+        max_hidden_neurons (int): Maximum number of available hidden neurons. Default: ``1000``, matching Xylo hardware
+        max_output_neurons (int): Maximum number of available output neurons. Default: ``8``, matching Xylo hardware
 
     Returns:
         dict: A dictionary of specifications for Xylo v1, containing the mapped computational graph
@@ -335,7 +345,7 @@ def mapper(
     # --- Assign neurons to HW neurons ---
 
     # - Enumerate hidden neurons
-    available_hidden_neuron_ids = list(range(1000))
+    available_hidden_neuron_ids = list(range(max_hidden_neurons))
     try:
         allocated_hidden_neurons = assign_ids_to_class(
             graph, XyloHiddenNeurons, available_hidden_neuron_ids
@@ -344,7 +354,9 @@ def mapper(
         raise DRCError("Failed to allocate HW resources for hidden neurons.") from e
 
     # - Enumerate output neurons
-    available_output_neuron_ids = list(range(1000, 1008))
+    available_output_neuron_ids = list(
+        range(max_hidden_neurons, max_hidden_neurons + max_output_neurons)
+    )
     try:
         allocated_output_neurons = assign_ids_to_class(
             graph, XyloOutputNeurons, available_output_neuron_ids

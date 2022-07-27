@@ -89,18 +89,67 @@ def test_first_module_is_a_weight():
 def test_le_16_input_channels():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo.syns61201 import mapper, DRCError
+    from rockpool.devices.xylo.syns61201 import mapper, DRCWarning
 
     # - Network with no weights on input
     smod = Sequential(
         LinearTorch((32, 2)),
         LIFTorch((2,)),
         LinearTorch((2, 3)),
-        LIFTorch((3, 4)),
+        LIFTorch((3, 3)),
+    )
+
+    with pytest.warns(DRCWarning):
+        mapper(smod.as_graph())
+
+
+def test_le_8_output_channels():
+    from rockpool.nn.modules import LinearTorch, LIFTorch
+    from rockpool.nn.combinators import Sequential
+    from rockpool.devices.xylo import mapper, DRCError, DRCWarning
+
+    # - Network with > 8 output channels
+    smod = Sequential(
+        LinearTorch((4, 2)),
+        LIFTorch((2,)),
+        LinearTorch((2, 32)),
+        LIFTorch((32, 32)),
+    )
+
+    with pytest.warns(DRCWarning):
+        mapper(smod.as_graph(), max_output_neurons=32)
+
+
+def test_network_too_large():
+    from rockpool.nn.modules import LinearTorch, LIFTorch
+    from rockpool.nn.combinators import Sequential
+    from rockpool.devices.xylo import mapper, DRCError
+
+    # - Network with too many hidden neurons
+    smod = Sequential(
+        LinearTorch((2, 2000)),
+        LIFTorch((2000,)),
+        LinearTorch((2000, 4)),
+        LIFTorch((4,)),
     )
 
     with pytest.raises(DRCError):
         mapper(smod.as_graph())
+
+    mapper(smod.as_graph(), max_hidden_neurons=2000)
+
+    # - Network with too many output neurons
+    smod = Sequential(
+        LinearTorch((2, 3)),
+        LIFTorch((3,)),
+        LinearTorch((3, 64)),
+        LIFTorch((64,)),
+    )
+
+    with pytest.raises(DRCError):
+        mapper(smod.as_graph())
+
+    mapper(smod.as_graph(), max_output_neurons=64)
 
 
 def test_all_neurons_have_same_dt():
