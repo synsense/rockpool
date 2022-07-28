@@ -252,7 +252,7 @@ def apply_afe2_default_config(afe2hdk: XyloA2HDK) -> None:
     c.aer_2_saer.calibration.afe_stable_time = 0x80
     c.aer_2_saer.calibration.leak_timing_window = 0x2625A0
 
-    c.aer_2_saer.calibration.leak_td = 0x030d4
+    c.aer_2_saer.calibration.leak_td = 0x030D4
     c.aer_2_saer.calibration.leak_target_spike_number = 2
 
     afe2hdk.get_afe_model().apply_configuration(c)

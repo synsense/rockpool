@@ -427,7 +427,9 @@ class XyloSamna(Module):
         # - Set power measurement module
         self._power_measure = power_measure
         if self._power_measure:
-            self._power_buf, self.power = hdkutils.set_power_measure(self._device, frequency)
+            self._power_buf, self.power = hdkutils.set_power_measure(
+                self._device, frequency
+            )
 
     @property
     def config(self):
