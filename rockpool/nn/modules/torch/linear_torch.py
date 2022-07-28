@@ -2,6 +2,7 @@
 Implement a linear module, using a Torch backend
 """
 import math
+import warnings
 from typing import Union, Optional, Callable
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
@@ -118,5 +119,6 @@ class LinearTorch(TorchModule):
             self.size_out,
             f"{type(self).__name__}_{self.name}_{id(self)}",
             self,
-            self.weight.detach().numpy(),
+            self.weight,
+            self.bias,
         )

@@ -120,6 +120,7 @@ class LinearMixin(ABC):
             f"{type(self).__name__}_{self.name}_{id(self)}",
             self,
             self.weight,
+            self.bias,
         )
 
 
