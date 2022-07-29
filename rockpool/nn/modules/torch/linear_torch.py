@@ -60,11 +60,11 @@ class LinearTorch(TorchModule):
         Initialise a LinearTorch layer
 
         Warnings:
-            Standard DNN libraries by default include a bias on linear layers. This is usually not used for SNNs, where the bias is configured on the spiking neuron module. :py:class:`.Linear` layers in Rockpool use a default of ``has_bias = False``. You can force to use a bias on the linear layer with ``has_bias = True`` on initialisation.
+            Standard DNN libraries by default include a bias on linear layers. These are usually not used for SNNs, where the bias is configured on the spiking neuron module. :py:class:`.Linear` layers in Rockpool use a default of ``has_bias = False``. You can force the presence of a bias on the linear layer with ``has_bias = True`` on initialisation.
 
         Examples:
 
-            Build a linear weight matrix with shape ``(3, 4)``:
+            Build a linear weight matrix with shape ``(3, 4)``, with no biases:
 
             >>> Linear((3, 4))
             Linear  with shape (3, 4)
@@ -78,6 +78,15 @@ class LinearTorch(TorchModule):
 
             >>> Linear((2, 2), weight = np.array([[1, 2], [3, 4]]))
             Linear  with shape (2, 2)
+
+            Build a linear layer including biases:
+
+            >>> mod = Linear((2, 2), has_bias = True)
+            >>> mod.parameters()
+            Out:
+            {'weight': array([[ 0.56655314,  0.64411151],
+                    [-1.43016068, -1.538719  ]]),
+             'bias': array([-0.58513867, -0.32314069])}
 
         Args:
             shape (tuple): The desired shape of the weight matrix. Must have two entries ``(Nin, Nout)``
