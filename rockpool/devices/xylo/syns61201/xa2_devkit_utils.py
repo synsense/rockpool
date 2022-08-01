@@ -551,6 +551,15 @@ def read_memory(
     # - Request read
     write_buffer.write(read_events_list)
 
+    # def write_spi(address, data):
+    #     ev = samna.xyloCore2.event.WriteRegisterValue()
+    #     ev.address = address
+    #     ev.data = data
+    #     events = [ev]
+    #     write_buffer.write(events)
+    # write_spi(0x09, 0x10)
+    # time.sleep(0.01)
+
     # - Read data
     events, is_timeout = blocking_read(
         read_buffer, count=count + 1, timeout=read_timeout
@@ -828,6 +837,8 @@ def read_neuron_synapse_state(
     Nin: int = 16,
     Nhidden: int = 1000,
     Nout: int = 8,
+    record: bool = False,
+    readout_mode: str = "Spike",
 ) -> XyloState:
     """
     Read and return the current neuron and synaptic state of neurons
@@ -848,42 +859,62 @@ def read_neuron_synapse_state(
         "nscram": 0x7E00,
         "rsc2ram": 0x81F0,
         "nmpram": 0x85D8,
-        "rspkram": 0xA150,
+        "rspkram": 0xA540,
     }
+    Vmem, Isyn, Isyn2, Spikes = None, None, None, None
 
-    # - Read synaptic currents
-    Isyn = read_memory(
-        read_buffer,
-        write_buffer,
-        memory_table["nscram"],
-        Nhidden + Nout + num_buffer_neurons(Nhidden),
-    )
+    if record:
 
-    # - Read synaptic currents 2
-    Isyn2 = read_memory(read_buffer, write_buffer, memory_table["rsc2ram"], Nhidden)
+        # - Read synaptic currents
+        Isyn = read_memory(
+            read_buffer,
+            write_buffer,
+            memory_table["nscram"],
+            Nhidden + Nout,
+        )
 
-    # - Read membrane potential
-    Vmem = read_memory(
-        read_buffer,
-        write_buffer,
-        memory_table["nmpram"],
-        Nhidden + Nout + num_buffer_neurons(Nhidden),
-    )
+        # - Read synaptic currents 2
+        Isyn2 = read_memory(read_buffer, write_buffer, memory_table["rsc2ram"], Nhidden)
 
-    # - Read reservoir spikes
-    Spikes = read_memory(read_buffer, write_buffer, memory_table["rspkram"], Nhidden)
+        # - Read membrane potential
+        Vmem = read_memory(
+            read_buffer,
+            write_buffer,
+            memory_table["nmpram"],
+            Nhidden + Nout,
+        )
+
+        # - Read reservoir spikes
+        Spikes = read_memory(read_buffer, write_buffer, memory_table["rspkram"], Nhidden)
+    else:
+
+        if readout_mode == "Isyn":
+            Isyn = read_memory(
+                read_buffer,
+                write_buffer,
+                memory_table["nscram"],
+                Nhidden + Nout,
+            )
+
+        elif readout_mode == "Vmem":
+            Vmem = read_memory(
+                read_buffer,
+                write_buffer,
+                memory_table["nmpram"],
+                Nhidden + Nout,
+            )
 
     # - Return the state
     return XyloState(
         Nin,
         Nhidden,
         Nout,
-        np.array(Vmem[:Nhidden], "int16"),
-        np.array(Isyn[:Nhidden], "int16"),
-        np.array(Vmem[-Nout:], "int16"),
-        np.array(Isyn[-Nout:], "int16"),
-        np.array(Isyn2, "int16"),
-        np.array(Spikes, "bool"),
+        np.array(Vmem[:Nhidden], "int16") if Vmem is not None else None,
+        np.array(Isyn[:Nhidden], "int16") if Isyn is not None else None,
+        np.array(Vmem[-Nout:], "int16") if Vmem is not None else None,
+        np.array(Isyn[-Nout:], "int16") if Isyn is not None else None,
+        np.array(Isyn2, "int16") if Isyn2 is not None else None,
+        np.array(Spikes, "bool") if Spikes is not None else None,
         read_output_events(read_buffer, write_buffer)[:Nout],
     )
 
@@ -924,7 +955,7 @@ def reset_input_spikes(write_buffer: Xylo2WriteBuffer) -> None:
 
 
 def send_immediate_input_spikes(
-    write_buffer: Xylo2WriteBuffer, spike_counts: Iterable[int]
+    write_buffer: Xylo2WriteBuffer, spike_counts: Iterable[int],
 ) -> None:
     """
     Send input events with no timestamp to a Xylo HDK
@@ -1109,7 +1140,9 @@ def config_hibernation_mode(config: XyloConfiguration) -> XyloConfiguration:
     return config
 
 
-def configure_single_step_time_mode(config: XyloConfiguration) -> XyloConfiguration:
+def configure_single_step_time_mode(
+        config: XyloConfiguration,
+) -> XyloConfiguration:
     """
     Switch on single-step model on a Xylo hdk
 

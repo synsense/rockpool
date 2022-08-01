@@ -668,7 +668,7 @@ class XyloSamna(Module):
 
         # - Select single-step simulation mode
         # - Applies the configuration via `self.config`
-        self.config = hdkutils.configure_single_step_time_mode(self.config)
+        self.config = hdkutils.configure_single_step_time_mode(self._config)
 
         # - Wait until xylo is ready
         t_start = time.time()
@@ -714,10 +714,10 @@ class XyloSamna(Module):
                 break
 
             # - Read all synapse and neuron states for this time step
+            this_state = hdkutils.read_neuron_synapse_state(
+                self._read_buffer, self._write_buffer, Nin, Nhidden, Nout, record, self._output_mode
+            )
             if record:
-                this_state = hdkutils.read_neuron_synapse_state(
-                    self._read_buffer, self._write_buffer, Nin, Nhidden, Nout
-                )
                 vmem_ts.append(this_state.V_mem_hid)
                 isyn_ts.append(this_state.I_syn_hid)
                 isyn2_ts.append(this_state.I_syn2_hid)
@@ -730,6 +730,8 @@ class XyloSamna(Module):
                 self._read_buffer, self._write_buffer
             )
             output_ts.append(output_events)
+            isyn_out_ts.append(this_state.I_syn_out)
+            vmem_out_ts.append(this_state.V_mem_out)
 
         if record:
             # - Build a recorded state dictionary
