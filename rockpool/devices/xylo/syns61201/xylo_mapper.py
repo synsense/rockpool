@@ -29,20 +29,23 @@ from .xylo_graph_modules import (
 from rockpool.devices.xylo.syns61300.xylo_mapper import (
     xylo_drc,
     DRCError,
+    DRCWarning,
     check_drc,
     assign_ids_to_class,
 )
 
 from typing import List, Callable, Set, Optional, Union
 
-__all__ = ["mapper", "DRCError"]
+__all__ = ["mapper", "DRCError", "DRCWarning"]
 
 
 def mapper(
     graph: GraphModuleBase,
-    weight_dtype: Union[np.dtype, str] = "float",
-    threshold_dtype: Union[np.dtype, str] = "float",
-    dash_dtype: Union[np.dtype, str] = "float",
+    weight_dtype: Union[np.dtype, str] = "int8",
+    threshold_dtype: Union[np.dtype, str] = "int16",
+    dash_dtype: Union[np.dtype, str] = "uint8",
+    max_hidden_neurons: int = 1000,
+    max_output_neurons: int = 8,
 ) -> dict:
     """
     Map a computational graph onto the Xylo v2 (SYNS61201) architecture
@@ -56,9 +59,11 @@ def mapper(
 
     Args:
         graph (GraphModuleBase): The graph to map
-        weight_dtype (Union[np.dtype, str]): Data type for mapped weight parameters. Default: ``"float"``
-        threshold_dtype (Union[np.dtype, str]): Data type for mapped threshold parameters. Default: ``"float"``
-        dash_dtype (Union[np.dtype, str]): Data type for mapped dash (bitshift time constant) parameters. Default: ``"float"``
+        weight_dtype (Union[np.dtype, str]): Data type for mapped weight parameters. Default: ``"int8"``
+        threshold_dtype (Union[np.dtype, str]): Data type for mapped threshold parameters. Default: ``"int16"``
+        dash_dtype (Union[np.dtype, str]): Data type for mapped dash (bitshift time constant) parameters. Default: ``"uint8"``
+        max_hidden_neurons (int): Maximum number of available hidden neurons. Default: ``1000``, matching Xylo hardware
+        max_output_neurons (int): Maximum number of available output neurons. Default: ``8``, matching Xylo hardware
 
     Returns:
         dict: A dictionary of specifications for Xylo v2, containing the mapped computational graph
@@ -95,7 +100,7 @@ def mapper(
     # --- Assign neurons to HW neurons ---
 
     # - Enumerate hidden neurons
-    available_hidden_neuron_ids = list(range(1000))
+    available_hidden_neuron_ids = list(range(max_hidden_neurons))
     try:
         allocated_hidden_neurons = assign_ids_to_class(
             graph, Xylo2HiddenNeurons, available_hidden_neuron_ids
@@ -104,7 +109,9 @@ def mapper(
         raise DRCError("Failed to allocate HW resources for hidden neurons.") from e
 
     # - Enumerate output neurons
-    available_output_neuron_ids = list(range(1000, 1008))
+    available_output_neuron_ids = list(
+        range(max_hidden_neurons, max_hidden_neurons + max_output_neurons)
+    )
     try:
         allocated_output_neurons = assign_ids_to_class(
             graph, Xylo2OutputNeurons, available_output_neuron_ids
