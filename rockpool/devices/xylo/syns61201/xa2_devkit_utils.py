@@ -892,16 +892,16 @@ def read_neuron_synapse_state(
             Isyn = read_memory(
                 read_buffer,
                 write_buffer,
-                memory_table["nscram"],
-                Nhidden + Nout,
+                memory_table["nscram"] + Nhidden,
+                Nout,
             )
 
         elif readout_mode == "Vmem":
             Vmem = read_memory(
                 read_buffer,
                 write_buffer,
-                memory_table["nmpram"],
-                Nhidden + Nout,
+                memory_table["nmpram"] + Nhidden,
+                Nout,
             )
 
     # - Return the state
