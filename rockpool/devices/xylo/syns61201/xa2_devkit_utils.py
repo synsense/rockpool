@@ -885,7 +885,9 @@ def read_neuron_synapse_state(
         )
 
         # - Read reservoir spikes
-        Spikes = read_memory(read_buffer, write_buffer, memory_table["rspkram"], Nhidden)
+        Spikes = read_memory(
+            read_buffer, write_buffer, memory_table["rspkram"], Nhidden
+        )
     else:
 
         if readout_mode == "Isyn":
@@ -955,7 +957,8 @@ def reset_input_spikes(write_buffer: Xylo2WriteBuffer) -> None:
 
 
 def send_immediate_input_spikes(
-    write_buffer: Xylo2WriteBuffer, spike_counts: Iterable[int],
+    write_buffer: Xylo2WriteBuffer,
+    spike_counts: Iterable[int],
 ) -> None:
     """
     Send input events with no timestamp to a Xylo HDK
@@ -1141,7 +1144,7 @@ def config_hibernation_mode(config: XyloConfiguration) -> XyloConfiguration:
 
 
 def configure_single_step_time_mode(
-        config: XyloConfiguration,
+    config: XyloConfiguration,
 ) -> XyloConfiguration:
     """
     Switch on single-step model on a Xylo hdk

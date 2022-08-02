@@ -715,7 +715,13 @@ class XyloSamna(Module):
 
             # - Read all synapse and neuron states for this time step
             this_state = hdkutils.read_neuron_synapse_state(
-                self._read_buffer, self._write_buffer, Nin, Nhidden, Nout, record, self._output_mode
+                self._read_buffer,
+                self._write_buffer,
+                Nin,
+                Nhidden,
+                Nout,
+                record,
+                self._output_mode,
             )
             if record:
                 vmem_ts.append(this_state.V_mem_hid)
