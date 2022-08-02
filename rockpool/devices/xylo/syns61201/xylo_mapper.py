@@ -41,9 +41,9 @@ __all__ = ["mapper", "DRCError", "DRCWarning"]
 
 def mapper(
     graph: GraphModuleBase,
-    weight_dtype: Union[np.dtype, str] = "int8",
-    threshold_dtype: Union[np.dtype, str] = "int16",
-    dash_dtype: Union[np.dtype, str] = "uint8",
+    weight_dtype: Union[np.dtype, str] = "float",
+    threshold_dtype: Union[np.dtype, str] = "float",
+    dash_dtype: Union[np.dtype, str] = "float",
     max_hidden_neurons: int = 1000,
     max_output_neurons: int = 8,
 ) -> dict:
