@@ -592,37 +592,25 @@ class XyloSamna(Module):
             core_data = [e.value / 2.5 for e in ps if e.channel == 3]
 
         if record:
-            # - Build a recorded state dictionary
-            if self._power_measure and record_power:
-                rec_dict = {
-                    "Vmem": np.array(xylo_data.V_mem_hid),
-                    "Isyn": np.array(xylo_data.I_syn_hid),
-                    "Isyn2": np.array(xylo_data.I_syn2_hid),
-                    "Spikes": np.array(xylo_data.Spikes_hid),
-                    "Vmem_out": np.array(xylo_data.V_mem_out),
-                    "Isyn_out": np.array(xylo_data.I_syn_out),
-                    "times": np.arange(start_timestep, final_timestamp + 1),
-                    "io current": np.array(io_data),
-                    "core current": np.array(core_data),
-                }
-            else:
-                rec_dict = {
-                    "Vmem": np.array(xylo_data.V_mem_hid),
-                    "Isyn": np.array(xylo_data.I_syn_hid),
-                    "Isyn2": np.array(xylo_data.I_syn2_hid),
-                    "Spikes": np.array(xylo_data.Spikes_hid),
-                    "Vmem_out": np.array(xylo_data.V_mem_out),
-                    "Isyn_out": np.array(xylo_data.I_syn_out),
-                    "times": np.arange(start_timestep, final_timestamp + 1),
-                }
+            rec_dict = {
+                "Vmem": np.array(xylo_data.V_mem_hid),
+                "Isyn": np.array(xylo_data.I_syn_hid),
+                "Isyn2": np.array(xylo_data.I_syn2_hid),
+                "Spikes": np.array(xylo_data.Spikes_hid),
+                "Vmem_out": np.array(xylo_data.V_mem_out),
+                "Isyn_out": np.array(xylo_data.I_syn_out),
+                "times": np.arange(start_timestep, final_timestamp + 1),
+            }
         else:
-            if self._power_measure and record_power:
-                rec_dict = {
-                    "io current": np.array(io_data),
-                    "core current": np.array(core_data),
+            rec_dict = {}
+
+        if self._power_measure and record_power:
+            rec_dict.update(
+                {
+                    "io_current": np.array(io_data),
+                    "core_current": np.array(core_data),
                 }
-            else:
-                rec_dict = {}
+            )
 
         # - This module accepts no state
         new_state = {}
