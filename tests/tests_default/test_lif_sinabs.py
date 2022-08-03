@@ -204,3 +204,36 @@ def test_FF_multisyn_equality_slayer():
                 atol=1e-5,
                 rtol=1e-5,
             )
+
+
+def test_exodus_leaky_integrator():
+    import torch
+
+    # - init LIFSlayer
+    from rockpool.nn.modules.sinabs.lif_slayer import LeakyIntegratorSlayer
+
+    # - parameter
+    n_synapses = 1
+    n_neurons = 10
+    n_batches = 3
+    T = 100
+    tau_mem = 0.01
+    tau_syn = 0.05
+
+    # - init LIFTorch
+    li_exodus = LeakyIntegratorSlayer(
+        shape=(n_synapses * n_neurons, n_neurons),
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        has_rec=False,
+        dt=1e-3,
+        noise_std=0.0,
+    ).to("cuda")
+
+    # - Generate some data
+    input_data = (
+        torch.rand(n_batches, T, n_synapses * n_neurons, requires_grad=True).cuda()
+        * 0.01
+    )
+
+    out_sinabs, ns_sinabs, rd_sinabs = li_exodus(input_data)
