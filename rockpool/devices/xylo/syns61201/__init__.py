@@ -16,3 +16,4 @@ from ..syns65300.afe_sim import *
 from .afe_samna import *
 from .xylo_divisive_normalisation import *
 from .xylo_samna import *
+from .xa2_devkit_utils import *
