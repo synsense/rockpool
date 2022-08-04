@@ -419,11 +419,6 @@ class XyloSamna(Module):
         # - Zero neuron state when building a new module
         self.reset_state()
 
-        # - Set AFE module
-        self._afe_read_buf = hdkutils.AFE2ReadBuffer()
-        graph = samna.graph.EventFilterGraph()
-        graph.sequential([self._device.get_afe_model_source_node(), self._afe_read_buf])
-
         # - Set power measurement module
         self._power_measure = power_measure
         if self._power_measure:
@@ -563,12 +558,12 @@ class XyloSamna(Module):
 
         # - Determine a reasonable read timeout
         if read_timeout is None:
-            read_timeout = len(input) * self.dt * Nhidden / 800.0
-            read_timeout = read_timeout * 1000.0 if record else read_timeout
+            read_timeout = len(input) * self.dt * Nhidden / 100.0
+            read_timeout = read_timeout * 100.0 if record else read_timeout
 
         read_events, is_timeout = hdkutils.blocking_read(
             self._read_buffer,
-            timeout=max(read_timeout, 2.0),
+            timeout=max(read_timeout, 1.0),
             target_timestamp=final_timestamp,
         )
 

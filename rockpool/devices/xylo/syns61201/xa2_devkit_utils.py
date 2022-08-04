@@ -1741,6 +1741,7 @@ def set_power_measure(
     """
     power = hdk.get_power_monitor()
     buf = samna.BasicSinkNode_unifirm_modules_events_measurement()
-    source = power.get_source_node().add_destination(buf.get_input_channel())
+    graph = samna.graph.EventFilterGraph()
+    graph.sequential([power.get_source_node(), buf])
     power.start_auto_power_measurement(frequency)
     return buf, power
