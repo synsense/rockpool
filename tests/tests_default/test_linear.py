@@ -6,7 +6,10 @@ def test_linear():
 
     import numpy as np
 
-    mod = Linear((2, 10))
+    mod = Linear((2, 10), has_bias=True)
+
+    assert not np.allclose(mod.weight, 0)
+    assert not np.allclose(mod.bias, 0)
 
     input = np.random.rand(10, 2)
 
@@ -31,6 +34,8 @@ def test_linear_nobias():
     import numpy as np
 
     mod = Linear((2, 10), has_bias=False)
+
+    assert mod.bias == 0
 
     input = np.random.rand(10, 2)
 
@@ -58,7 +63,10 @@ def test_jaxlinear():
 
     import numpy as np
 
-    mod = LinearJax((2, 10))
+    mod = LinearJax((2, 10), has_bias=True)
+
+    assert not np.allclose(mod.weight, 0)
+    assert not np.allclose(mod.bias, 0)
 
     input = np.random.rand(10, 2)
 
@@ -105,6 +113,7 @@ def test_jaxlinear_nobias():
     import numpy as np
 
     mod = LinearJax((2, 10), has_bias=False)
+    assert mod.bias == 0
 
     input = np.random.rand(10, 2)
 
