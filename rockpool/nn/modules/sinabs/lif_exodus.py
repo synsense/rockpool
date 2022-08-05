@@ -1,5 +1,9 @@
 """
-Implement a LIF Module, using an Exodis backend
+Implement a LIF Module, using an Exodus backend
+
+Exodus is an accelerated CUDA-based simulator for LIF-like neuron dynamics, supporting gradient calculations.
+
+This package implements the modules :py:class:`LIFExodus` and `LIFMembraneExodus`.
 """
 
 from rockpool.nn.modules.torch.lif_torch import LIFBaseTorch
@@ -36,11 +40,35 @@ class LIFExodus(LIFBaseTorch):
         """
         Instantiate an LIF module using the Exodus backend
 
+        Uses the Exodus accelerated CUDA module to implement an LIF neuron. A CUDA device is required to instantiate this module.
+
+        The output of evolving this module is the neuron spike events; synaptic currents and membrane potentials are available using the ``record = True`` argument to :py:meth:`~.LIFExodus.evolve`.
+
+        Warnings:
+            Exodus does not currently support training time constants, biases or thresholds. Use :py:class:`LIFTorch` or py:class:`LIFJax` to train those parameters.
+
+            Exodus currently only supports a single membrane time constant.
+
+            Exodus does not support neuron biases.
+
+            Exodus does not support noise injection.
+
+        Examples:
+            Instantitate an LIF module with 2 neurons, with 2 synapses each (4 input channels).
+
+            >>> mod = LIFExodus((4, 2))
+
+            Specify the membrane and synapse time constants, as well as time-step ``dt``.
+
+            >>> mod = LIFExodus((4, 2), tau_mem = 30e-3, tau_syn = 10e-3, dt = 10e-3)
+
         Args:
-            tau_syn (flaot): An optional array with concrete initialisation data for the synaptic time constants. If not provided, 50ms will be used by default.
+            shape (tuple): The shape of this module
+            tau_syn (float): An optional array with concrete initialisation data for the synaptic time constants. If not provided, 50ms will be used by default.
             tau_mem (float): An optional array with concrete initialisation data for the membrane time constants. If not provided, 20ms will be used by default.
             threshold (float): An optional array specifying the firing threshold of each neuron. If not provided, ``1.`` will be used by default.
-            learning_window (float): Cutoff value for the surrogate gradient.
+            learning_window (float): Cutoff value for the surrogate gradient. Default: 0.5
+            dt (float): Time step in seconds. Default: 1 ms.
         """
 
         assert isinstance(
@@ -190,11 +218,35 @@ class LIFMembraneExodus(LIFBaseTorch):
         **kwargs,
     ):
         """
-        Instantiate an LIF module using the Exodus backend
+        Instantiate a module implementing an LIF membrane using the Exodus backend
+
+        Uses the Exodus accelerated CUDA module to implement an LIF neuron membrane. A CUDA device is required to instantiate this module.
+
+        The output of evolving this module is the neuron membrane potentials; synaptic currents are available using the ``record = True`` argument to :py:meth:`~.LIFExodus.evolve`.
+
+        Warnings:
+            Exodus does not currently support training time constants or biases.
+
+            Exodus currently only supports a single membrane time constant.
+
+            Exodus does not support neuron biases.
+
+            Exodus does not support noise injection.
+
+        Examples:
+            Instantitate an LIF membrane module with 2 neurons, with 2 synapses each (4 input channels).
+
+            >>> mod = LIFMembraneExodus((4, 2))
+
+            Specify the membrane and synapse time constants, as well as time-step ``dt``.
+
+            >>> mod = LIFMembraneExodus((4, 2), tau_mem = 30e-3, tau_syn = 10e-3, dt = 10e-3)
 
         Args:
+            shape (tuple): The shape of this module
             tau_syn (float): An optional array with concrete initialisation data for the synapse time constants. If not provided, 50ms will be used by default.
             tau_mem (float): An optional array with concrete initialisation data for the membrane time constants. If not provided, 20ms will be used by default.
+            dt (float): Time-step of this module in seconds. Default: 1 ms.
         """
 
         # - Check input arguments
