@@ -9,6 +9,8 @@ import warnings
 from rockpool.typehints import *
 from rockpool.parameters import Constant
 
+from rockpool.graph import GraphModuleBase
+
 from sinabs.exodus.spike import IntegrateAndFire
 from sinabs.exodus.leaky import LeakyIntegrator
 
@@ -320,3 +322,6 @@ class LIFMembraneExodus(LIFBaseTorch):
         self.isyn = isyn_exodus[0, -1].detach()
 
         return vmem_exodus
+
+    def as_graph(self) -> GraphModuleBase:
+        raise NotImplementedError
