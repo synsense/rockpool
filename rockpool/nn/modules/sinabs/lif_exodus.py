@@ -228,6 +228,10 @@ class LIFMembraneExodus(LIFBaseTorch):
         delattr(self, "_record_irec")
         delattr(self, "_record_U")
 
+        # - Move state variables to GPU
+        self.isyn = self.isyn.to("cuda")
+        self.vmem = self.isyn.to("cuda")
+
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
         Forward method for processing data through this layer
@@ -251,6 +255,8 @@ class LIFMembraneExodus(LIFBaseTorch):
 
         # - Replicate data and states out by batches
         data, (vmem, isyn) = self._auto_batch(data, (self.vmem, self.isyn))
+
+        print(data.device, vmem.device, isyn.device)
 
         # - Get input data size
         (n_batches, time_steps, n_connections) = data.shape
