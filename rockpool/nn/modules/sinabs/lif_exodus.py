@@ -255,8 +255,6 @@ class LIFMembraneExodus(LIFBaseTorch):
         # - Replicate data and states out by batches
         data, (vmem, isyn) = self._auto_batch(data, (self.vmem, self.isyn))
 
-        print(data.device, vmem.device, isyn.device)
-
         # - Get input data size
         (n_batches, time_steps, n_connections) = data.shape
 
@@ -280,16 +278,12 @@ class LIFMembraneExodus(LIFBaseTorch):
                 .reshape(n_batches * self.n_neurons, time_steps)
             )
 
-            print(inp.contiguous().device, isyn[:, :, syn].device)
-
             isyn_exodus[:, syn] = LeakyIntegrator.apply(
                 inp.contiguous(),
                 isyn[:, :, syn].flatten().contiguous(),
                 beta[0, syn],
                 True,
             )
-
-        print(isyn_exodus.sum(1).device, vmem.flatten().contiguous().device)
 
         vmem_exodus = LeakyIntegrator.apply(
             isyn_exodus.sum(1),  # input
