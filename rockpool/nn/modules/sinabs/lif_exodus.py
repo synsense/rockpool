@@ -204,7 +204,7 @@ class LIFMembraneExodus(LIFBaseTorch):
         unused_arguments = ["threshold", "bias", "has_rec", "noise_std"]
         test_args = [arg in kwargs for arg in unused_arguments]
         if any(test_args):
-            error_args = [arg for (arg, t) in zip(test_args, unused_arguments) if t]
+            error_args = [arg for (arg, t) in zip(unused_arguments, test_args) if t]
             raise TypeError(
                 f"The argument(s) {error_args} is/are not used in LIFMembraneExodus."
             )
