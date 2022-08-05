@@ -4,7 +4,7 @@ Implement a LIF Module, using an Exodis backend
 
 from rockpool.nn.modules.torch.lif_torch import LIFBaseTorch
 import torch
-import numpy as np
+import warnings
 
 from rockpool.typehints import *
 from rockpool.parameters import Constant
@@ -20,6 +20,7 @@ __all__ = ["LIFExodus", "LIFMembraneExodus"]
 class LIFExodus(LIFBaseTorch):
     def __init__(
         self,
+        shape: tuple,
         tau_mem: P_float = 0.02,
         tau_syn: P_float = 0.05,
         threshold: P_float = 1.0,
@@ -52,6 +53,7 @@ class LIFExodus(LIFBaseTorch):
 
         # - Initialise superclass
         super().__init__(
+            shape=shape,
             tau_mem=Constant(tau_mem),
             threshold=Constant(threshold),
             tau_syn=Constant(tau_syn),
@@ -173,6 +175,7 @@ class LIFExodus(LIFBaseTorch):
 class LIFMembraneExodus(LIFBaseTorch):
     def __init__(
         self,
+        shape: tuple,
         tau_mem: P_float = 0.02,
         tau_syn: P_float = 0.05,
         bias: P_float = Constant(0.0),
@@ -190,6 +193,7 @@ class LIFMembraneExodus(LIFBaseTorch):
             noise_std (float): Must be 0
         """
 
+        # - Check input arguments
         assert isinstance(
             tau_mem, float
         ), "Exodus-backed LIF module must have a single membrane time constant"
@@ -198,8 +202,13 @@ class LIFMembraneExodus(LIFBaseTorch):
         assert noise_std == 0.0, "Exodus-backed LIF module does not support noise"
         assert bias == Constant(0.0), "Exodus-backed LIF module does not support bias"
 
+        # - Check that CUDA is available
+        if not torch.cuda.is_available():
+            raise EnvironmentError("CUDA is required for exodus-backed modules.")
+
         # - Initialise superclass
         super().__init__(
+            shape=shape,
             tau_mem=Constant(tau_mem),
             tau_syn=Constant(tau_syn),
             bias=bias,
@@ -209,7 +218,15 @@ class LIFMembraneExodus(LIFBaseTorch):
             **kwargs,
         )
 
-        self.surrogate_grad_fn = Heaviside(self.learning_window)
+        # - Remove LIFBaseTorch attributes that do not apply
+        delattr(self, "threshold")
+        delattr(self, "learning_window")
+        delattr(self, "spikes")
+        delattr(self, "spike_generation_fn")
+        delattr(self, "max_spikes_per_dt")
+        delattr(self, "_record_spikes")
+        delattr(self, "_record_irec")
+        delattr(self, "_record_U")
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
@@ -227,6 +244,11 @@ class LIFMembraneExodus(LIFBaseTorch):
 
         """
 
+        # - Ensure input data is on GPU
+        if not data.is_cuda:
+            warnings.warn("Input data was not on a CUDA device. Moving it there now.")
+        data = data.to("cuda")
+
         # - Replicate data and states out by batches
         data, (vmem, isyn) = self._auto_batch(data, (self.vmem, self.isyn))
 
@@ -236,15 +258,6 @@ class LIFMembraneExodus(LIFBaseTorch):
         # - Reshape input data to de-interleave synapses
         data = data.reshape(n_batches, time_steps, self.n_neurons, self.n_synapses)
 
-        # Replicate states out by batches
-        # vmem = torch.ones(n_batches, self.n_neurons).to(data.device) * self.vmem
-        # isyn = (
-        #     torch.ones(n_batches, self.n_neurons, self.n_synapses).to(data.device)
-        #     * self.isyn
-        # )
-        # spikes = torch.zeros(n_batches, self.n_neurons).to(data.device) * self.spikes
-
-        # Exponential leak
         # Generate buffer for synaptic current
         isyn_exodus = torch.zeros(
             n_batches * self.n_neurons, self.n_synapses, time_steps
