@@ -307,15 +307,17 @@ class LIFBaseTorch(TorchModule):
 
     def as_graph(self) -> GraphModuleBase:
         # - Get neuron parameters for export
-        tau_mem = self.tau_mem.expand((self.size_out,)).flatten().detach().numpy()
+        tau_mem = self.tau_mem.expand((self.size_out,)).flatten().detach().cpu().numpy()
         tau_syn = (
             self.tau_syn.expand((self.size_out, self.n_synapses))
             .flatten()
             .detach()
             .numpy()
         )
-        threshold = self.threshold.expand((self.size_out,)).flatten().detach().numpy()
-        bias = self.bias.expand((self.size_out,)).flatten().detach().numpy()
+        threshold = (
+            self.threshold.expand((self.size_out,)).flatten().detach().cpu().numpy()
+        )
+        bias = self.bias.expand((self.size_out,)).flatten().detach().cpu().numpy()
 
         # - Generate a GraphModule for the neurons
         neurons = LIFNeuronWithSynsRealValue._factory(
@@ -338,7 +340,7 @@ class LIFBaseTorch(TorchModule):
                 neurons.input_nodes,
                 f"{type(self).__name__}_recurrent_{self.name}_{id(self)}",
                 self,
-                self.w_rec.detach().numpy(),
+                self.w_rec.detach().cpu().numpy(),
             )
 
         # - Return a graph containing neurons and optional weights
