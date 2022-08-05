@@ -202,10 +202,6 @@ class LIFMembraneExodus(LIFBaseTorch):
         assert noise_std == 0.0, "Exodus-backed LIF module does not support noise"
         assert bias == Constant(0.0), "Exodus-backed LIF module does not support bias"
 
-        # - Check that CUDA is available
-        if not torch.cuda.is_available():
-            raise EnvironmentError("CUDA is required for exodus-backed modules.")
-
         # - Initialise superclass
         super().__init__(
             shape=shape,
@@ -228,9 +224,12 @@ class LIFMembraneExodus(LIFBaseTorch):
         delattr(self, "_record_irec")
         delattr(self, "_record_U")
 
-        # - Move state variables to GPU
-        self.isyn = self.isyn.to("cuda")
-        self.vmem = self.isyn.to("cuda")
+        # - Check that CUDA is available
+        if not torch.cuda.is_available():
+            raise EnvironmentError("CUDA is required for exodus-backed modules.")
+
+        # - Move module to CUDA device
+        self.cuda()
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
