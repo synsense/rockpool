@@ -312,6 +312,7 @@ class LIFBaseTorch(TorchModule):
             self.tau_syn.expand((self.size_out, self.n_synapses))
             .flatten()
             .detach()
+            .cpu()
             .numpy()
         )
         threshold = (
