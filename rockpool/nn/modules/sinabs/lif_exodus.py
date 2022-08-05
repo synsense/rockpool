@@ -176,11 +176,8 @@ class LIFMembraneExodus(LIFBaseTorch):
     def __init__(
         self,
         shape: tuple,
-        tau_mem: P_float = 0.02,
         tau_syn: P_float = 0.05,
-        bias: P_float = Constant(0.0),
-        has_rec: bool = False,
-        noise_std: P_float = 0.0,
+        tau_mem: P_float = 0.02,
         *args,
         **kwargs,
     ):
@@ -188,9 +185,8 @@ class LIFMembraneExodus(LIFBaseTorch):
         Instantiate an LIF module using the Exodus backend
 
         Args:
+            tau_syn (float): An optional array with concrete initialisation data for the synapse time constants. If not provided, 50ms will be used by default.
             tau_mem (float): An optional array with concrete initialisation data for the membrane time constants. If not provided, 20ms will be used by default.
-            has_rec (bool): Must be False
-            noise_std (float): Must be 0
         """
 
         # - Check input arguments
@@ -198,18 +194,23 @@ class LIFMembraneExodus(LIFBaseTorch):
             tau_mem, float
         ), "Exodus-backed LIF module must have a single membrane time constant"
 
-        assert has_rec == False, "Exodus-backed LIF module does not support recurrence"
-        assert noise_std == 0.0, "Exodus-backed LIF module does not support noise"
-        assert bias == Constant(0.0), "Exodus-backed LIF module does not support bias"
+        # - Remove unused parameters
+        unused_arguments = ["threshold", "bias", "has_rec", "noise_std"]
+        test_args = [arg in kwargs for arg in unused_arguments]
+        if any(test_args):
+            error_args = [arg for (arg, t) in zip(test_args, unused_arguments) if t]
+            raise TypeError(
+                f"The argument(s) {error_args} is/are not used in LIFMembraneExodus."
+            )
 
         # - Initialise superclass
         super().__init__(
             shape=shape,
             tau_mem=Constant(tau_mem),
             tau_syn=Constant(tau_syn),
-            bias=bias,
+            bias=Constant(0.0),
             has_rec=False,
-            noise_std=noise_std,
+            noise_std=0.0,
             *args,
             **kwargs,
         )
