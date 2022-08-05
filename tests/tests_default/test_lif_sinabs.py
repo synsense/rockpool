@@ -228,9 +228,7 @@ def test_exodus_membrane():
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
-        has_rec=False,
         dt=1e-3,
-        noise_std=0.0,
     ).to("cuda")
 
     # - Generate some data
