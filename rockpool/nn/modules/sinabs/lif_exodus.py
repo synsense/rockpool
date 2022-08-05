@@ -24,9 +24,7 @@ class LIFExodus(LIFBaseTorch):
         tau_mem: P_float = 0.02,
         tau_syn: P_float = 0.05,
         threshold: P_float = 1.0,
-        bias: P_float = Constant(0.0),
-        has_rec: bool = False,
-        noise_std: P_float = 0.0,
+        learning_window: P_float = 0.5,
         *args,
         **kwargs,
     ):
@@ -34,37 +32,45 @@ class LIFExodus(LIFBaseTorch):
         Instantiate an LIF module using the Exodus backend
 
         Args:
+            tau_syn (flaot): An optional array with concrete initialisation data for the synaptic time constants. If not provided, 50ms will be used by default.
             tau_mem (float): An optional array with concrete initialisation data for the membrane time constants. If not provided, 20ms will be used by default.
             threshold (float): An optional array specifying the firing threshold of each neuron. If not provided, ``1.`` will be used by default.
-            has_rec (bool): Must be False
-            noise_std (float): Must be 0
+            learning_window (float): Cutoff value for the surrogate gradient.
         """
 
         assert isinstance(
             tau_mem, float
         ), "Exodus-backed LIF module must have a single membrane time constant"
+
         assert isinstance(
             threshold, float
         ), "Exodus-backed LIF module must have a single threshold"
 
-        assert has_rec == False, "Exodus-backed LIF module does not support recurrence"
-        assert noise_std == 0.0, "Exodus-backed LIF module does not support noise"
-        assert bias == Constant(0.0), "Exodus-backed LIF module does not support bias"
+        # - Remove unused parameters
+        unused_arguments = ["bias", "has_rec", "noise_std"]
+        test_args = [arg in kwargs for arg in unused_arguments]
+        if any(test_args):
+            error_args = [arg for (arg, t) in zip(test_args, unused_arguments) if t]
+            raise TypeError(
+                f"The argument(s) {error_args} is/are not used in LIFMembraneExodus."
+            )
 
         # - Initialise superclass
         super().__init__(
             shape=shape,
+            tau_syn=Constant(tau_syn),
             tau_mem=Constant(tau_mem),
             threshold=Constant(threshold),
-            tau_syn=Constant(tau_syn),
-            bias=bias,
+            bias=Constant(0.0),
             has_rec=False,
-            noise_std=noise_std,
+            noise_std=0.0,
+            learning_window=learning_window,
             *args,
             **kwargs,
         )
 
-        self.surrogate_grad_fn = Heaviside(self.learning_window)
+        # - Assign the surrogate gradient function
+        self.spike_generation_fn = Heaviside(self.learning_window)
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
@@ -81,25 +87,21 @@ class LIFExodus(LIFBaseTorch):
             Out of spikes with the shape (batch, time_steps, n_neurons)
 
         """
+        # - Ensure input data is on GPU
+        if not data.is_cuda:
+            warnings.warn("Input data was not on a CUDA device. Moving it there now.")
+        data = data.to("cuda")
 
-        (n_batches, time_steps, n_connections) = data.shape
-        if n_connections != self.size_in:
-            raise ValueError(
-                "Input has wrong neuron dimension. It is {}, must be {}".format(
-                    self.size_in, self.size_out
-                )
-            )
-
-        # Bring input to expected format for rockpool
-        data = data.reshape(n_batches, time_steps, self.n_neurons, self.n_synapses)
-
-        # Replicate states out by batches
-        vmem = torch.ones(n_batches, self.n_neurons).to(data.device) * self.vmem
-        isyn = (
-            torch.ones(n_batches, self.n_neurons, self.n_synapses).to(data.device)
-            * self.isyn
+        # - Replicate data and states out by batches
+        data, (vmem, isyn, spikes) = self._auto_batch(
+            data, (self.vmem, self.isyn, self.spikes)
         )
-        spikes = torch.zeros(n_batches, self.n_neurons).to(data.device) * self.spikes
+
+        # - Get input data size
+        (n_batches, time_steps, n_connections) = data.shape
+
+        # - Reshape input data to de-interleave synapses
+        data = data.reshape(n_batches, time_steps, self.n_neurons, self.n_synapses)
 
         # Exponential leak
         # Generate buffer for synaptic current
@@ -135,7 +137,7 @@ class LIFExodus(LIFBaseTorch):
             spikes.squeeze(),  # last activations
             threshold[0],  # threshold
             None,  # threshold low
-            self.surrogate_grad_fn,
+            self.spike_generation_fn,
             None if torch.isinf(self.max_spikes_per_dt) else self.max_spikes_per_dt,
         )
 
@@ -217,6 +219,7 @@ class LIFMembraneExodus(LIFBaseTorch):
 
         # - Remove LIFBaseTorch attributes that do not apply
         delattr(self, "threshold")
+        delattr(self, "bias")
         delattr(self, "learning_window")
         delattr(self, "spikes")
         delattr(self, "spike_generation_fn")

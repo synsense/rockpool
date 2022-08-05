@@ -62,7 +62,7 @@ def test_FF_equality_exodus():
     import numpy as np
 
     if not torch.cuda.is_available():
-        return
+        pytest.skip("CUDA is required for Exodus tests")
 
     # - parameter
     n_synapses = 1
@@ -137,7 +137,7 @@ def test_FF_multisyn_equality_exodus():
     from rockpool.parameters import Constant
 
     if not torch.cuda.is_available():
-        return
+        pytest.skip("CUDA is required for Exodus tests")
 
     # - parameter
     n_synapses = 2
@@ -206,14 +206,17 @@ def test_FF_multisyn_equality_exodus():
             )
 
 
-def test_exodus_leaky_integrator():
+def test_exodus_membrane():
     import torch
+
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA is required for Exodus tests")
 
     # - init LIFSlayer
     from rockpool.nn.modules.sinabs.lif_exodus import LIFMembraneExodus
 
     # - parameter
-    n_synapses = 1
+    n_synapses = 2
     n_neurons = 10
     n_batches = 3
     T = 100
