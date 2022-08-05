@@ -87,7 +87,7 @@ class WaveSenseBlock(TorchModule):
             :param float tau_mem:           Membrane potential time constant of all neurons in WaveSense. Default: 10ms
             :param float base_tau_syn:      Base synaptic time constant. Each synapse has this time constant, except the second synapse in the dilation layer which caclulates the time constant as $dilations * base_tau_syn$. Default: 10ms
             :param float threshold:         Threshold of all spiking neurons. Default: `0.`
-            :param TorchModule neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFSlayer` for speedup
+            :param TorchModule neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFExodus` for speedup
             :param float dt:                Temporal resolution of the simulation. Default: 1ms
         """
         # - Initialise superclass
@@ -327,7 +327,7 @@ class WaveSenseNet(TorchModule):
             :param float base_tau_syn:      Base synaptic time constant. Each synapse has this time constant, except the second synapse in the dilation layer which caclulates the time constant as $dilations * base_tau_syn$. Default: 20ms
             :param float tau_lp:            Time constant of the smooth output. Default: 20ms
             :param float threshold:         Threshold of all neurons in WaveSense. Default: `1.0`
-            :param TorchModule neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFSlayer` for speedup. Default: :py:class:`.LIFTorch`
+            :param TorchModule neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFExodus` for speedup. Default: :py:class:`.LIFTorch`
             :param float dt:                Temporal resolution of the simulation. Default: 1ms
         """
 

@@ -57,7 +57,7 @@ pytest.importorskip("sinabs")
 pytest.importorskip("sinabs.exodus")
 
 
-def test_FF_equality_slayer():
+def test_FF_equality_exodus():
     import torch
     import numpy as np
 
@@ -87,9 +87,9 @@ def test_FF_equality_slayer():
     ).to("cuda")
 
     # - init LIFSlayer
-    from rockpool.nn.modules.sinabs.lif_slayer import LIFSlayer
+    from rockpool.nn.modules.sinabs.lif_exodus import LIFExodus
 
-    lif_sinabs = LIFSlayer(
+    lif_sinabs = LIFExodus(
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
@@ -130,7 +130,7 @@ def test_FF_equality_slayer():
             )
 
 
-def test_FF_multisyn_equality_slayer():
+def test_FF_multisyn_equality_exodus():
     import torch
     import numpy as np
 
@@ -163,9 +163,9 @@ def test_FF_multisyn_equality_slayer():
     ).to("cuda")
 
     # - init LIFSlayer
-    from rockpool.nn.modules.sinabs.lif_slayer import LIFSlayer
+    from rockpool.nn.modules.sinabs.lif_exodus import LIFExodus
 
-    lif_sinabs = LIFSlayer(
+    lif_sinabs = LIFExodus(
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
@@ -210,7 +210,7 @@ def test_exodus_leaky_integrator():
     import torch
 
     # - init LIFSlayer
-    from rockpool.nn.modules.sinabs.lif_slayer import LeakyIntegratorSlayer
+    from rockpool.nn.modules.sinabs.lif_exodus import LIFMembraneExodus
 
     # - parameter
     n_synapses = 1
@@ -221,7 +221,7 @@ def test_exodus_leaky_integrator():
     tau_syn = 0.05
 
     # - init LIFTorch
-    li_exodus = LeakyIntegratorSlayer(
+    lm_exodus = LIFMembraneExodus(
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
@@ -236,4 +236,4 @@ def test_exodus_leaky_integrator():
         * 0.01
     )
 
-    out_sinabs, ns_sinabs, rd_sinabs = li_exodus(input_data)
+    out_sinabs, ns_sinabs, rd_sinabs = lm_exodus(input_data)

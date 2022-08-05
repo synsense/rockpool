@@ -28,7 +28,7 @@ __backend_specs: Dict[str, tuple] = {
     "jax": (["jax", "jaxlib"],),
     "torch": (),
     "sinabs": (),
-    "sinabs-slayer": (["sinabs", "sinabs.slayer"],),
+    "sinabs-exodus": (["sinabs", "sinabs.exodus"],),
     "brian": (["brian2"]),
 }
 

@@ -1,5 +1,5 @@
 """
-Modules using Sinabs and sinabs-slayer as a backend
+Modules using Sinabs and sinabs-exodus as a backend
 """
 from rockpool.utilities.backend_management import (
     backend_available,
@@ -13,7 +13,7 @@ except:
         LIFSinabs = missing_backend_shim("LIFSinabs", "sinabs")
 
 try:
-    from .lif_slayer import *
+    from .lif_exodus import *
 except:
-    if not backend_available("sinabs-slayer"):
-        LIFSlayer = missing_backend_shim("LIFSlayer", "sinabs-slayer")
+    if not backend_available("sinabs-exodus"):
+        LIFExodus = missing_backend_shim("LIFExodus", "sinabs-exodus")
