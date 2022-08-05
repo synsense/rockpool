@@ -25,6 +25,9 @@ class LIFExodus(LIFBaseTorch):
         tau_syn: P_float = 0.05,
         threshold: P_float = 1.0,
         learning_window: P_float = 0.5,
+        bias: P_float = 0.0,
+        has_rec: bool = False,
+        noise_std: P_float = 0.0,
         *args,
         **kwargs,
     ):
@@ -46,14 +49,15 @@ class LIFExodus(LIFBaseTorch):
             threshold, float
         ), "Exodus-backed LIF module must have a single threshold"
 
-        # - Remove unused parameters
-        unused_arguments = ["bias", "has_rec", "noise_std"]
-        test_args = [arg in kwargs for arg in unused_arguments]
-        if any(test_args):
-            error_args = [arg for (arg, t) in zip(test_args, unused_arguments) if t]
-            raise TypeError(
-                f"The argument(s) {error_args} is/are not used in LIFMembraneExodus."
-            )
+        # - Check unused parameters
+        if bias != 0.0:
+            raise ValueError("`LIFExodus` does not support non-zero biases.")
+
+        if has_rec:
+            raise ValueError("`LIFExodus` does not support recurrent weights.")
+
+        if noise_std != 0.0:
+            raise ValueError("`LIFExodus` does not support injected noise.")
 
         # - Initialise superclass
         super().__init__(
