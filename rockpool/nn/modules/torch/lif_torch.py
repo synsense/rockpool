@@ -94,7 +94,7 @@ class PeriodicExponential(torch.autograd.Function):
             / ctx.threshold
         )
 
-        return grad_output * spikePdf, None, None, None
+        return grad_output * spikePdf, grad_output * -spikePdf * membranePotential / ctx.threshold, None, None
 
 
 # - Surrogate functions to use in learning
