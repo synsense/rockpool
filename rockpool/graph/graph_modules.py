@@ -35,11 +35,14 @@ __all__ = [
 @dataclass(eq=False, repr=False)
 class LinearWeights(GraphModule):
     """
-    A :py:class:`.GraphModule` that encapsulates a single set of linear weights, with no biases
+    A :py:class:`.GraphModule` that encapsulates a single set of linear weights
     """
 
     weights: FloatVector
     """ FloatVector: The linear weights ``(Nin, Nout)`` encapsulated by this module """
+
+    biases: Optional[FloatVector] = None
+    """ FloatVector: The biases ``(Nout,)`` encapsulaed by this module """
 
     def __post_init__(self, *args, **kwargs):
         # - Check size
@@ -48,13 +51,24 @@ class LinearWeights(GraphModule):
                 f"`weights` must match size of input and output nodes. Got {self.weights.shape}, expected {(len(self.input_nodes), len(self.output_nodes))}."
             )
 
+        if self.biases is not None and self.biases.shape != (len(self.output_nodes),):
+            raise ValueError(
+                f"`biases` must match size of input and output nodes. Got {self.biases.shape}, expected {(len(self.output_nodes),)}."
+            )
+
         super().__post_init__(*args, **kwargs)
 
-        # - Convert weights to numpy array
+        # - Convert weights and biases to numpy arrays
         if isinstance(self.weights, Tensor):
-            self.weights = np.array(self.weights.detach().cpu().numpy())
+            self.weights = self.weights.detach().cpu().numpy()
         else:
             self.weights = np.array(self.weights)
+
+        if self.biases is not None:
+            if isinstance(self.biases, Tensor):
+                self.biases = self.biases.detach().cpu().numpy()
+            else:
+                self.biases = np.array(self.biases)
 
 
 @dataclass(eq=False, repr=False)

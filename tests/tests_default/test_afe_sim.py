@@ -2,6 +2,7 @@ import pytest
 
 pytest.importorskip("scipy")
 pytest.importorskip("samna")
+pytest.importorskip("xylosim")
 
 
 def test_imports():
