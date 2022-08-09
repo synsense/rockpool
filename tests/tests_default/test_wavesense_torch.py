@@ -316,6 +316,9 @@ def test_wavesense_reset():
     threshold = 1.0
     dt = 0.001
 
+    # Ensure test is deterministic
+    torch.manual_seed(0)
+
     # model init
     model = WaveSenseNet(
         dilations=dilations,
