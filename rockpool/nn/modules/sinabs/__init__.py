@@ -17,3 +17,4 @@ try:
 except:
     if not backend_available("sinabs-exodus"):
         LIFExodus = missing_backend_shim("LIFExodus", "sinabs-exodus")
+        LIFMembraneExodus = missing_backend_shim("LIFMembraneExodus", "sinabs-exodus")
