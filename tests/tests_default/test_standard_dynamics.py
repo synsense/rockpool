@@ -208,7 +208,7 @@ def test_linear_dynamics():
         this_weight = torch.from_numpy(weight).float() if is_torch else weight
         this_bias = torch.from_numpy(bias).float() if is_torch else bias
 
-        mod = Mod_class((Nin, Nout), bias=this_bias, weight=this_weight)
+        mod = Mod_class((Nin, Nout), bias=this_bias, weight=this_weight, has_bias=True)
         out, ns, r_d = mod(this_data, record=True)
         ns.pop("rng_key", None)
 
@@ -234,11 +234,12 @@ def test_linear_gradients():
     T = 10
     input_data = np.random.rand(batches, T, Nin)
 
-    t_mod = LinearTorch((Nin, Nout))
+    t_mod = LinearTorch((Nin, Nout), has_bias=True)
     j_mod = LinearJax(
         (Nin, Nout),
         weight=np.array(t_mod.weight.detach()),
         bias=np.array(t_mod.bias.detach()),
+        has_bias=True,
     )
 
     t_grads = get_torch_gradients(t_mod, input_data)
@@ -425,6 +426,7 @@ def test_linearlif_gradients():
             (Nin, Nout),
             weight=torch.tensor(weight).float(),
             bias=torch.tensor(bias).float(),
+            has_bias=True,
         ),
         LIFTorch(
             Nout,
@@ -434,7 +436,7 @@ def test_linearlif_gradients():
         ),
     )
     j_mod = Sequential(
-        LinearJax((Nin, Nout), weight=weight, bias=bias),
+        LinearJax((Nin, Nout), weight=weight, bias=bias, has_bias=True),
         LIFJax(
             Nout,
             threshold=threshold,

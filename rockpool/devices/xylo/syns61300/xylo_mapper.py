@@ -5,7 +5,7 @@ Mapper package for Xylo
 - Call :py:func:`.mapper`
 
 """
-
+import warnings
 
 import numpy as np
 
@@ -30,10 +30,14 @@ from rockpool.devices.xylo.xylo_graph_modules import (
 
 from typing import List, Callable, Set, Optional, Union
 
-__all__ = ["mapper", "DRCError"]
+__all__ = ["mapper", "DRCError", "DRCWarning"]
 
 
 class DRCError(ValueError):
+    pass
+
+
+class DRCWarning(Warning, DRCError):
     pass
 
 
@@ -72,15 +76,21 @@ def first_module_is_a_weight(graph: GraphModuleBase) -> None:
 
 def le_16_input_channels(graph: GraphModuleBase) -> None:
     if len(graph.input_nodes) > 16:
-        raise DRCError(
-            f"Xylo only supports up to 16 input channels. The network requires {len(graph.input_nodes)} input channels."
+        warnings.warn(
+            DRCWarning(
+                f"Xylo only supports up to 16 input channels. The network requires {len(graph.input_nodes)} input channels."
+            ),
+            DRCWarning,
         )
 
 
 def le_8_output_channels(graph: GraphModuleBase) -> None:
     if len(graph.output_nodes) > 8:
-        raise DRCError(
-            f"Xylo only supports up to 8 output channels. The network requires {len(graph.output_nodes)} output channels."
+        warnings.warn(
+            DRCWarning(
+                f"Xylo only supports up to 8 output channels. The network requires {len(graph.output_nodes)} output channels."
+            ),
+            DRCWarning,
         )
 
 
@@ -117,7 +127,7 @@ def output_neurons_cannot_be_recurrent(graph: GraphModuleBase) -> None:
 
 
 def no_consecutive_weights(graph: GraphModuleBase) -> None:
-    all_weights = find_modules_of_subclass(graph, LinearWeights)
+    all_weights: List[LinearWeights] = find_modules_of_subclass(graph, LinearWeights)
 
     for w in all_weights:
         for i_n in w.input_nodes:
@@ -136,7 +146,9 @@ def no_consecutive_weights(graph: GraphModuleBase) -> None:
 
 
 def alias_inputs_must_be_neurons(graph: GraphModuleBase) -> None:
-    all_aliases = find_modules_of_subclass(graph, AliasConnection)
+    all_aliases: List[AliasConnection] = find_modules_of_subclass(
+        graph, AliasConnection
+    )
 
     for a in all_aliases:
         for i_n in a.input_nodes:
@@ -148,7 +160,9 @@ def alias_inputs_must_be_neurons(graph: GraphModuleBase) -> None:
 
 
 def alias_output_nodes_must_have_neurons_as_input(graph: GraphModuleBase) -> None:
-    all_aliases = find_modules_of_subclass(graph, AliasConnection)
+    all_aliases: List[AliasConnection] = find_modules_of_subclass(
+        graph, AliasConnection
+    )
 
     for a in all_aliases:
         for o_n in a.output_nodes:
@@ -160,12 +174,23 @@ def alias_output_nodes_must_have_neurons_as_input(graph: GraphModuleBase) -> Non
 
 
 def at_least_two_neuron_layers_needed(graph: GraphModuleBase) -> None:
-    all_neurons = find_modules_of_subclass(graph, GenericNeurons)
+    all_neurons: List[GenericNeurons] = find_modules_of_subclass(graph, GenericNeurons)
 
     if len(all_neurons) < 2:
         raise DRCError(
             "At least two layers of neurons are required to map to hidden and output layers on Xylo."
         )
+
+
+def weight_nodes_have_no_biases(graph: GraphModuleBase) -> None:
+    all_weights: List[LinearWeights] = find_modules_of_subclass(graph, LinearWeights)
+
+    for w in all_weights:
+        if w.biases is not None:
+            warnings.warn(
+                f"Bias parameters of LinearWeights modules are *not* transferred to Xylo.\nFound weights {w} with biases. Set `has_bias = False` for this module .",
+                DRCWarning,
+            )
 
 
 xylo_drc: List[Callable[[GraphModuleBase], None]] = [
@@ -180,6 +205,7 @@ xylo_drc: List[Callable[[GraphModuleBase], None]] = [
     alias_inputs_must_be_neurons,
     alias_output_nodes_must_have_neurons_as_input,
     at_least_two_neuron_layers_needed,
+    weight_nodes_have_no_biases,
 ]
 """ List[Callable[[GraphModuleBase], None]]: The collection of design rules for Xylo """
 
@@ -263,6 +289,8 @@ def mapper(
     weight_dtype: Union[np.dtype, str] = "float",
     threshold_dtype: Union[np.dtype, str] = "float",
     dash_dtype: Union[np.dtype, str] = "float",
+    max_hidden_neurons: int = 1000,
+    max_output_neurons: int = 8,
 ) -> dict:
     """
     Map a computational graph onto the Xylo v1 architecture
@@ -279,6 +307,8 @@ def mapper(
         weight_dtype (Union[np.dtype, str]): Data type for mapped weight parameters. Default: ``"float"``
         threshold_dtype (Union[np.dtype, str]): Data type for mapped threshold parameters. Default: ``"float"``
         dash_dtype (Union[np.dtype, str]): Data type for mapped dash (bitshift time constant) parameters. Default: ``"float"``
+        max_hidden_neurons (int): Maximum number of available hidden neurons. Default: ``1000``, matching Xylo hardware
+        max_output_neurons (int): Maximum number of available output neurons. Default: ``8``, matching Xylo hardware
 
     Returns:
         dict: A dictionary of specifications for Xylo v1, containing the mapped computational graph
@@ -315,7 +345,7 @@ def mapper(
     # --- Assign neurons to HW neurons ---
 
     # - Enumerate hidden neurons
-    available_hidden_neuron_ids = list(range(1000))
+    available_hidden_neuron_ids = list(range(max_hidden_neurons))
     try:
         allocated_hidden_neurons = assign_ids_to_class(
             graph, XyloHiddenNeurons, available_hidden_neuron_ids
@@ -324,7 +354,9 @@ def mapper(
         raise DRCError("Failed to allocate HW resources for hidden neurons.") from e
 
     # - Enumerate output neurons
-    available_output_neuron_ids = list(range(1000, 1008))
+    available_output_neuron_ids = list(
+        range(max_hidden_neurons, max_hidden_neurons + max_output_neurons)
+    )
     try:
         allocated_output_neurons = assign_ids_to_class(
             graph, XyloOutputNeurons, available_output_neuron_ids

@@ -39,10 +39,10 @@ def find_xylo_a2_boards() -> List[AFE2HDK]:
 
 
 def read_afe2_register(
-        read_buffer: AFE2ReadBuffer,
-        write_buffer: AFE2WriteBuffer,
-        address: int,
-        timeout: float = 2.0,
+    read_buffer: AFE2ReadBuffer,
+    write_buffer: AFE2WriteBuffer,
+    address: int,
+    timeout: float = 2.0,
 ) -> List[int]:
     """
     Read the contents of a register
@@ -85,7 +85,9 @@ def read_afe2_register(
     return [e.data for e in ev_filt]
 
 
-def write_afe2_register(write_buffer: AFE2WriteBuffer, register: int, data: int = 0) -> None:
+def write_afe2_register(
+    write_buffer: AFE2WriteBuffer, register: int, data: int = 0
+) -> None:
     """
     Write data to a register on a Xylo AFE2 HDK
 
@@ -100,8 +102,12 @@ def write_afe2_register(write_buffer: AFE2WriteBuffer, register: int, data: int 
     write_buffer.write([wwv_ev])
 
 
-def read_afe2_events_blocking(afe2hdk: AFE2HDK, write_buffer: AFE2WriteBuffer, afe_read_buf: AFE2ReadBuffer,
-                              duration: float) -> (np.ndarray, np.ndarray):
+def read_afe2_events_blocking(
+    afe2hdk: AFE2HDK,
+    write_buffer: AFE2WriteBuffer,
+    afe_read_buf: AFE2ReadBuffer,
+    duration: float,
+) -> (np.ndarray, np.ndarray):
     """
     Perform a blocking read of AFE2 audio spike events for a desired duration
 
@@ -133,29 +139,30 @@ def read_afe2_events_blocking(afe2hdk: AFE2HDK, write_buffer: AFE2WriteBuffer, a
     time.sleep(duration)
     afe_handler.enable_event_monitor(False)
     time.sleep(0.1)
-    
+
     # write_spi(0x45,0)
     # time.sleep(0.5)
 
     # - Read and filter events
     events = afe_read_buf.get_events()
-    events = [(e.timestamp, e.channel)
-              for e in events
-              if isinstance(e, samna.afe2.event.Spike) and e.timestamp <= duration * 1e6
-              ]
-    
+    events = [
+        (e.timestamp, e.channel)
+        for e in events
+        if isinstance(e, samna.afe2.event.Spike) and e.timestamp <= duration * 1e6
+    ]
+
     # - Sort events by time
     if len(events) > 0:
         events = np.stack(events)
         index_array = np.argsort(events[:, 0])
-    
+
         # - Convert to vectors of timestamps, channels
         timestamps = events[index_array, 0]
         channels = events[index_array, 1]
     else:
         timestamps = np.zeros(0)
         channels = np.zeros(0)
-    
+
     # - Return timestamps in seconds and channels
     return timestamps * 1e-6, channels
 
@@ -195,22 +202,25 @@ def apply_afe2_default_config(afe2hdk: AFE2HDK) -> None:
 
     afe2hdk.get_afe_model().apply_configuration(c)
 
-def read_afe2_chip_version(afe_read_buf: AFE2ReadBuffer, afe_write_buf: AFE2WriteBuffer) -> (int, int):
+
+def read_afe2_chip_version(
+    afe_read_buf: AFE2ReadBuffer, afe_write_buf: AFE2WriteBuffer
+) -> (int, int):
     """
     Return the version and revision numbers for a connected AFE2 HDK
-    
+
     Args:
         afe_read_buf (AFE2ReadBuffer): A connected AFE2 read buffer
         afe_write_buf (AFE2WriteBuffer): A connected AFE2 write buffer
 
-    Returns: 
+    Returns:
         (int, int): version, revision numbers of the connected chip
     """
     # - Read the version register
     version_revision = read_afe2_register(afe_read_buf, afe_write_buf, 0x0)[0]
-    
+
     # - Separate version and revision
-    version = (version_revision & 0xffff0000) >> 16
-    revision = version_revision & 0x0000ffff
-    
+    version = (version_revision & 0xFFFF0000) >> 16
+    revision = version_revision & 0x0000FFFF
+
     return version, revision
