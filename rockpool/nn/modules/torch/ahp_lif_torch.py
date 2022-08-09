@@ -28,8 +28,9 @@ __all__ = ["aLIFTorch"]
 
 class aLIFTorch(LIFBaseTorch):
     """
-        A leaky integrate-and-fire spiking neuron model with adaptive hyperpolarisation, with a Torch backend
+    A leaky integrate-and-fire spiking neuron model with adaptive hyperpolarisation, with a Torch backend
     """
+
     def __init__(
         self,
         shape: Union[Tuple, int],

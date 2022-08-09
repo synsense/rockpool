@@ -219,7 +219,6 @@ def test_lif_slayer():
         mod = LIFSlayer(2)
 
 
-
 def test_exodus_membrane():
     import torch
 

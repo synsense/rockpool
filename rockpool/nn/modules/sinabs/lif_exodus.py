@@ -380,7 +380,8 @@ class LIFMembraneExodus(LIFBaseTorch):
 
 
 class LIFSlayer(LIFExodus):
-    """ DEPRECATED: An LIF module with an Exodus backend """
+    """DEPRECATED: An LIF module with an Exodus backend"""
+
     def __init__(self, *args, **kwargs):
         """
         Instantiate an LIF module with an Exodus backend
@@ -388,5 +389,7 @@ class LIFSlayer(LIFExodus):
         Warnings:
             This module is deprecated. Use :py:class:`LIFExodus` instead.
         """
-        warnings.warn("This module is deprecated. Use `LIFExodus` instead.", DeprecationWarning)
+        warnings.warn(
+            "This module is deprecated. Use `LIFExodus` instead.", DeprecationWarning
+        )
         super().__init__(*args, **kwargs)
