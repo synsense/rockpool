@@ -20,7 +20,7 @@ from sinabs.exodus.leaky import LeakyIntegrator
 
 from sinabs.activation import Heaviside, SingleExponential
 
-__all__ = ["LIFExodus", "LIFMembraneExodus"]
+__all__ = ["LIFExodus", "LIFMembraneExodus", "LIFSlayer"]
 
 
 class LIFExodus(LIFBaseTorch):
@@ -377,3 +377,16 @@ class LIFMembraneExodus(LIFBaseTorch):
 
     def as_graph(self) -> GraphModuleBase:
         raise NotImplementedError
+
+
+class LIFSlayer(LIFExodus):
+    """ DEPRECATED: An LIF module with an Exodus backend """
+    def __init__(self, *args, **kwargs):
+        """
+        Instantiate an LIF module with an Exodus backend
+
+        Warnings:
+            This module is deprecated. Use :py:class:`LIFExodus` instead.
+        """
+        warnings.warn("This module is deprecated. Use `LIFExodus` instead.", DeprecationWarning)
+        super().__init__(*args, **kwargs)

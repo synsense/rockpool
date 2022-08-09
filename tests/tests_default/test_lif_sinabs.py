@@ -206,6 +206,20 @@ def test_FF_multisyn_equality_exodus():
             )
 
 
+def test_lif_slayer():
+    import torch
+
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA is required for Exodus tests")
+
+    from rockpool.nn.modules import LIFSlayer
+
+    # - Expect deprecation warning
+    with pytest.warns(DeprecationWarning):
+        mod = LIFSlayer(2)
+
+
+
 def test_exodus_membrane():
     import torch
 
@@ -213,7 +227,7 @@ def test_exodus_membrane():
         pytest.skip("CUDA is required for Exodus tests")
 
     # - init LIFSlayer
-    from rockpool.nn.modules.sinabs.lif_exodus import LIFMembraneExodus
+    from rockpool.nn.modules import LIFMembraneExodus
 
     # - parameter
     n_synapses = 2

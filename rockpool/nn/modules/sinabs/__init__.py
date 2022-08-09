@@ -16,5 +16,6 @@ try:
     from .lif_exodus import *
 except:
     if not backend_available("sinabs-exodus"):
+        LIFSlayer = missing_backend_shim("LIFSlayer", "sinabs-exodus")
         LIFExodus = missing_backend_shim("LIFExodus", "sinabs-exodus")
         LIFMembraneExodus = missing_backend_shim("LIFMembraneExodus", "sinabs-exodus")
