@@ -112,7 +112,9 @@ def test_xylo_vs_xylosim():
 
     # - Simulate the evolution of the network on Xylo
     # mod_xylo_sim_spike.reset_state()
-    out_sim, _, rec_sim = mod_xylo_sim_spike.evolve(input_raster.clip(0, 15), record=True)
+    out_sim, _, rec_sim = mod_xylo_sim_spike.evolve(
+        input_raster.clip(0, 15), record=True
+    )
 
     # - Get a Xylo HDK board
     xylo_hdk_nodes = xu.find_xylo_a2_boards()
