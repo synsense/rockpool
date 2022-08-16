@@ -122,8 +122,8 @@ def test_xylo_vs_xylosim():
     db = xylo_hdk_nodes[0]
 
     # - Init Xylo
-    mod_xylo_vmem = x.XyloSamna(db, conf, dt=1e-3, output_mode="Vmem")
-    mod_xylo_isyn = x.XyloSamna(db, conf, dt=1e-3, output_mode="Isyn")
+    # mod_xylo_vmem = x.XyloSamna(db, conf, dt=1e-3, output_mode="Vmem")
+    # mod_xylo_isyn = x.XyloSamna(db, conf, dt=1e-3, output_mode="Isyn")
     mod_xylo_spike = x.XyloSamna(db, conf, dt=1e-3)
 
     # - Evolve Xylo
