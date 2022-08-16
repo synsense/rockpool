@@ -67,7 +67,8 @@ class AFESamna(Module):
         device: XyloA2HDK,
         config: Optional[AFE2Configuration] = None,
         dt: float = 1e-3,
-        change_count=False,
+        change_count: bool = False,
+        hibernation_mode: bool = False,
         *args,
         **kwargs,
     ):
@@ -78,6 +79,8 @@ class AFESamna(Module):
             device (AFE2HDK): A connected AFE2 HDK device
             config (AFE2Configuration): A samna AFE2 configuration object
             dt (float): The desired spike time resolution in seconds
+            change_count (bool): If True, AFE event counter will change from outputting 1 spike out of 4 into outputting 1 out of 1.
+            hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
         """
         # - Check input arguments
         if device is None:
@@ -151,6 +154,9 @@ class AFESamna(Module):
         # - Set up known good configuration
         if change_count:
             hdu.change_event_counter(device_io)
+        if hibernation_mode:
+            hdu.AFE_hibernation(self._afe_write_buf)
+            hdu.write_afe2_register(self._afe_write_buf, 0x25, 0x12)
         print("Configuring AFE...")
         hdu.apply_afe2_default_config(self._device)
         print("Configured AFE")
