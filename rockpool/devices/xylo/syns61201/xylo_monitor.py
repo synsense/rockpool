@@ -28,7 +28,7 @@ except ModuleNotFoundError:
 
 
 # - Configure exports
-__all__ = "XyloMonitor"
+__all__ = ["XyloMonitor"]
 
 
 class XyloMonitor(Module):

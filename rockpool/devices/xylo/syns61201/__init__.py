@@ -17,3 +17,4 @@ from .afe_samna import *
 from .xylo_divisive_normalisation import *
 from .xylo_samna import *
 from .xa2_devkit_utils import *
+from .xylo_monitor import *
