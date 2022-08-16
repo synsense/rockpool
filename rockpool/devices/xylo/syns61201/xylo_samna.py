@@ -354,7 +354,7 @@ class XyloSamna(Module):
             config (XyloConfiguraration): A Xylo configuration from `samna`
             dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
-            power_measure (bool): If true, power consumption will be measured
+            power_measure (bool): If True, power consumption will be measured
             frequency (float): The frequency of power measurement. Default: 5.0
         """
         # - Check input arguments
@@ -367,7 +367,6 @@ class XyloSamna(Module):
                 f'{output_mode} is not supported. Must be one of `["Spike", "Isyn", "Vmem"]`.'
             )
         self._output_mode = output_mode
-        self.time_count = 0
 
         # - Get a default configuration
         if config is None:

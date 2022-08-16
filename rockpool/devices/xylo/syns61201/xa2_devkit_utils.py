@@ -253,7 +253,7 @@ def apply_afe2_default_config(afe2hdk: XyloA2HDK) -> None:
     c.aer_2_saer.calibration.leak_timing_window = 0x2625A0
 
     c.aer_2_saer.calibration.leak_td = 0x030D4
-    c.aer_2_saer.calibration.leak_target_spike_number = 2
+    c.aer_2_saer.calibration.leak_target_spike_number = 1
 
     afe2hdk.get_afe_model().apply_configuration(c)
 
@@ -550,15 +550,6 @@ def read_memory(
 
     # - Request read
     write_buffer.write(read_events_list)
-
-    # def write_spi(address, data):
-    #     ev = samna.xyloCore2.event.WriteRegisterValue()
-    #     ev.address = address
-    #     ev.data = data
-    #     events = [ev]
-    #     write_buffer.write(events)
-    # write_spi(0x09, 0x10)
-    # time.sleep(0.01)
 
     # - Read data
     events, is_timeout = blocking_read(
@@ -1745,3 +1736,110 @@ def set_power_measure(
     graph.sequential([power.get_source_node(), buf])
     power.start_auto_power_measurement(frequency)
     return buf, power
+
+
+def change_event_counter(write_afe_buffer: AFE2WriteBuffer) -> None:
+    """
+    Change the AFE event count to throw 1 spikes out of 1 to the Xylo core
+
+    Args:
+        write_afe_buffer (AFE2WriteBuffer): A write buffer connected to the AFE
+    """
+    for addr in [0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D]:
+        write_afe2_register(write_afe_buffer, addr, 0x00010001)
+
+
+def amplify_volume(write_afe_buffer: AFE2WriteBuffer, level: str = "low") -> None:
+    """
+    Adjust acoustic gain of LDA module
+
+    Args:
+        write_afe_buffer (AFE2WriteBuffer): A write buffer connected to the AFE
+        level (str): gain level, which should be in ``low``, ``mid``, and ``high``. Default low level is without gain.
+    """
+
+    assert level in ["low", "mid", "high"]
+    if level == "mid":
+        write_afe2_register(write_afe_buffer, 0x06, 0x20F00)
+    elif level == "high":
+        write_afe2_register(write_afe_buffer, 0x06, 0x20F50)
+
+
+def config_basic_mode(
+    config: XyloConfiguration,
+) -> XyloConfiguration:
+    """
+    Set the Xylo HDK to manual mode before configure to real-time mode
+
+    Args:
+        config (XyloConfiguration): A configuration for Xylo
+
+    Return:
+        updated Xylo configuration
+    """
+
+    config.operation_mode = samna.xyloCore2.OperationMode.Manual
+    config.debug.always_update_omp_stat = True
+    config.clear_network_state = True
+    return config
+
+
+def _auto_mode(
+    io,
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2ReadBuffer,
+    write_afe_buffer: AFE2WriteBuffer,
+    dt: float,
+    main_clk_rate: int,
+    hibernation_mode: bool,
+) -> None:
+    """
+    Set the Xylo HDK to real-time mode
+
+    Args:
+        io: io module for Xylo
+        read_buffer (Xylo2ReadBuffer): A read buffer connected to the Xylo
+        write_buffer (Xylo2ReadBuffer): A write buffer connected to the Xylo
+        write_afe_buffer (AFE2WriteBuffer): A write buffer connected to the AFE
+        dt (float): the time resolution for calculation
+        main_clk_rate (int): main clock rate of Xylo
+        hibernation_mode (bool): the hibernation mode to run. Iff True, the chip will output events only if it receives inputs
+    """
+
+    # set Xylo core reading frequency
+    write_register(write_buffer, 0x03, int(main_clk_rate * dt))
+    write_register(write_buffer, 0x04, int(main_clk_rate * dt))
+
+    # Clear input events
+    for addr in [0x11, 0x12, 0x13, 0x14]:
+        write_register(write_buffer, addr, 0)
+
+    # set Xylo core to auto mode
+    ctrl1 = read_register(read_buffer, write_buffer, 0x01)[0]
+    ctrl1 &= 0xFFFFFFFE
+    write_register(write_buffer, 0x01, ctrl1)
+
+    if hibernation_mode:
+        write_afe2_register(write_afe_buffer, 0x25, 0x12)
+    write_register(write_buffer, 0x0E, 0x10)
+
+    time.sleep(0.1)
+
+    # set FPGA to auto mode
+    io.get_xylo_handler().set_operation_mode(samna.xyloCore2.OperationMode.RealTime)
+
+
+def AFE_hibernation(write_afe_buffer: AFE2WriteBuffer) -> None:
+    """
+    Switch on hibernation mode on AFE
+
+    Args:
+        write_afe_buffer (AFE2WriteBuffer): A write buffer connected to the AFE
+    """
+
+    # timing window for active status
+    write_afe2_register(write_afe_buffer, 0x26, 0x1E848)
+    # timing window for deactive status
+    write_afe2_register(write_afe_buffer, 0x27, 0x1312D0)
+    # spike threshold for active and deactive status
+    write_afe2_register(write_afe_buffer, 0x28, 0x00300009)

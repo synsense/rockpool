@@ -67,6 +67,7 @@ class AFESamna(Module):
         device: XyloA2HDK,
         config: Optional[AFE2Configuration] = None,
         dt: float = 1e-3,
+        change_count=False,
         *args,
         **kwargs,
     ):
@@ -148,6 +149,8 @@ class AFESamna(Module):
         # xylo_handler = device_io.get_xylo_handler()
 
         # - Set up known good configuration
+        if change_count:
+            hdu.change_event_counter(device_io)
         print("Configuring AFE...")
         hdu.apply_afe2_default_config(self._device)
         print("Configured AFE")
