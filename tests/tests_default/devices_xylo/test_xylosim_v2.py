@@ -100,9 +100,9 @@ def test_xylo_vs_xylosim():
     assert valid
 
     # - Create XyloSim object
-    mod_xylo_sim_vmem = x.XyloSim.from_config(conf, output_mode="Vmem")
-    mod_xylo_sim_isyn = x.XyloSim.from_config(conf, output_mode="Isyn")
-    mod_xylo_sim_spike = x.XyloSim.from_config(conf)
+    mod_xylo_sim_vmem = x.XyloSim.from_config(conf, output_mode="Vmem", dt=1e-3)
+    mod_xylo_sim_isyn = x.XyloSim.from_config(conf, output_mode="Isyn", dt=1e-3)
+    mod_xylo_sim_spike = x.XyloSim.from_config(conf, dt=1e-3)
     mod_xylo_sim_vmem.timed()
     mod_xylo_sim_isyn.timed()
     mod_xylo_sim_spike.timed()
@@ -111,7 +111,8 @@ def test_xylo_vs_xylosim():
     input_raster = np.random.randint(0, 16, (T, Nin))
 
     # - Simulate the evolution of the network on Xylo
-    out_sim, _, rec_sim = mod_xylo_sim_spike(input_raster.clip(0, 15), record=True)
+    # mod_xylo_sim_spike.reset_state()
+    out_sim, _, rec_sim = mod_xylo_sim_spike.evolve(input_raster.clip(0, 15), record=True)
 
     # - Get a Xylo HDK board
     xylo_hdk_nodes = xu.find_xylo_a2_boards()
@@ -122,13 +123,13 @@ def test_xylo_vs_xylosim():
     db = xylo_hdk_nodes[0]
 
     # - Init Xylo
-    # mod_xylo_vmem = x.XyloSamna(db, conf, dt=1e-3, output_mode="Vmem")
-    # mod_xylo_isyn = x.XyloSamna(db, conf, dt=1e-3, output_mode="Isyn")
+    mod_xylo_vmem = x.XyloSamna(db, conf, dt=1e-3, output_mode="Vmem")
+    mod_xylo_isyn = x.XyloSamna(db, conf, dt=1e-3, output_mode="Isyn")
     mod_xylo_spike = x.XyloSamna(db, conf, dt=1e-3)
 
     # - Evolve Xylo
     mod_xylo_spike.reset_state()
-    out_xylo, _, rec_xylo = mod_xylo_spike(input_raster, record=True)
+    out_xylo, _, rec_xylo = mod_xylo_spike.evolve(input_raster, record=True)
 
     # - Assert equality for all outputs and recordings
     assert np.all(out_sim == out_xylo)
