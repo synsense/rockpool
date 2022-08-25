@@ -276,11 +276,6 @@ def channel_quantize(
             else:
                 threshold_quan[i] = np.round(threshold[i])
 
-    # make sure matrix type is int
-    w_in_quan = w_in_quan.astype(int)
-    w_rec_quan = w_rec_quan.astype(int)
-    threshold_quan = threshold_quan.astype(int)
-
     # quantize output weight, threshold_out
     w_out_quan = np.zeros(shape=w_out.shape)
     threshold_out_quan = np.zeros(shape=threshold_out.shape)
@@ -303,6 +298,8 @@ def channel_quantize(
             threshold_out_quan[i] = np.round(threshold_out[i])
 
     # make sure all types are int
+    weights_in = w_in_quan.astype(int)
+    weights_rec = w_rec_quan.astype(int)
     dash_mem = np.round(dash_mem).astype(int)
     dash_mem_out = np.round(dash_mem_out).astype(int)
     dash_syn = np.round(dash_syn).astype(int)
