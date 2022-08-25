@@ -7,7 +7,6 @@ This package implements the modules :py:class:`LIFExodus` and `LIFMembraneExodus
 """
 
 from rockpool.nn.modules.torch.lif_torch import LIFBaseTorch
-from rockpool.nn.modules.torch.torch_module import TorchModule
 import torch
 import warnings
 
@@ -209,7 +208,7 @@ class LIFExodus(LIFBaseTorch):
         return self._record_spikes
 
 
-class LIFMembraneExodus(LIFBaseTorch, TorchModule):
+class LIFMembraneExodus(LIFBaseTorch):
     def __init__(
         self,
         shape: tuple,
