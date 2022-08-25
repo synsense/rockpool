@@ -532,11 +532,14 @@ def remove_T_net(T_net: TorchModule, inplace: bool = False) -> TorchModule:
     Args:
         T_net (TorchModule): A transformer-patched network, obtained with :py:func:`make_param_T_network`
         inplace (bool): If ``False`` (default), a deep copy of ``net`` will be created, transformed and returned. If ``True``, the network will be un-patched in place. Warning: in-place operation cannot work for single instances of :py:class:`TWrapper`
+
+    Returns:
+        TorchModule: A network matching ``T_net``, but with transformers removed.
     """
     if not inplace:
         T_net = copy.deepcopy(T_net)
 
-    if isinstance(T_net, TWrapper):
+    if isinstance(T_net, (TWrapper, ActWrapper)):
         T_net._mod._name = T_net.name
         T_net = T_net._mod
 
@@ -569,6 +572,9 @@ class ActWrapper(TorchModule):
         Instantiate an ActWrapper object
 
         ``mod`` is a Rockpool module. An :py:class:`ActWrapper` will be created to wrap ``mod``. The transformation function ``trans_Fn`` will be applied to the outputs of ``mod`` during evolution.
+
+        See Also:
+            :ref:`/advanced/QuantTorch.ipynb`
         
         Args:
             mod (TorchModule): A module to patch
@@ -599,8 +605,31 @@ class ActWrapper(TorchModule):
 
 
 def make_act_T_config(
-    net: TorchModule, T_fn: Callable = None, ModuleClass: type = None
-) -> Dict:
+    net: TorchModule, T_fn: Optional[Callable] = None, ModuleClass: Optional[type] = None
+) -> Tree:
+    """
+    Create an activity transformation configuration for a network
+
+    This helper function assists in defining an activity transformation configuration tree. It allows to to search a predefined network ``net`` to find modules of a chosen class, and specify an activity transformation for those modules.
+
+    ``net`` is a pre-defined Rockpool network.
+
+    ``T_fn`` is a `Callable` with signature ``f(x) -> x``, transforming the output ``x`` of a module.
+
+    ``ModuleClass`` optionally specifies the class of module to search for in ``net``.
+
+    You can use :py:func:`.tree_utils.tree_update` to merge two configuration trees for different parameter families.
+
+    The resulting configuration tree will match the structure of ``net`` (or will be a sub-tree of ``net``, including modules of type ``ModuleClass``). You can pass this configuration tree to :py:func:`.make_act_T_network` to build an activity transformer tree.
+
+    Args:
+        net (TorchModule): A Rockpool network to build a configuration tree for
+        T_fn (Callable): A function ``f(x) -> x`` to apply as a transformation to module output. If ``None``, no transformation will be applied.
+        ``ModuleClass`` (Optional[type]): A :py:class:`~.modules.Module` subclass to search for. The configuration tree will include only modules matching this class.
+
+    Returns:
+        Tree: An activity transformer configuration tree, to pass to :py:func:`.make_act_T_network`
+    """
     # - Define a transformation function for this module, optionally matching a Module class
     if ModuleClass is not None:
         act_T_config = {"": T_fn} if isinstance(net, ModuleClass) else {"": None}
@@ -617,6 +646,19 @@ def make_act_T_config(
 def make_act_T_network(
     net: TorchModule, act_T_config: Tree, inplace: bool = False
 ) -> TorchModule:
+    """
+    Patch a Rockpool network with activity transformers
+
+    This helper function inserts :py:class:`ActWrapper` modules into a pre-defined network ``net``, to apply an activity transformation configuration ``act_T_config``.
+
+    Args:
+        net (TorchModule): A Rockpool network to patch
+        act_T_config (Tree): A configuration tree from :py:func:`make_act_T_config`
+        inplace (bool): If ``False`` (default), create a deep copy of ``net`` to patch. If ``True``, patch the network in place. This in place operation does not work when patching single modules.
+
+    Returns:
+        TorchModule: The patched network
+    """
     if not inplace:
         net = copy.deepcopy(net)
 
