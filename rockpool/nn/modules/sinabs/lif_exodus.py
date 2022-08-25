@@ -7,6 +7,7 @@ This package implements the modules :py:class:`LIFExodus` and `LIFMembraneExodus
 """
 
 from rockpool.nn.modules.torch.lif_torch import LIFBaseTorch
+from rockpool.nn.modules.torch.torch_module import TorchModule
 import torch
 import warnings
 
@@ -208,7 +209,7 @@ class LIFExodus(LIFBaseTorch):
         return self._record_spikes
 
 
-class LIFMembraneExodus(LIFBaseTorch):
+class LIFMembraneExodus(LIFBaseTorch, TorchModule):
     def __init__(
         self,
         shape: tuple,
@@ -282,6 +283,9 @@ class LIFMembraneExodus(LIFBaseTorch):
         delattr(self, "spikes")
         delattr(self, "spike_generation_fn")
         delattr(self, "max_spikes_per_dt")
+        delattr(self, "_record_spikes")
+        delattr(self, "_record_irec")
+        delattr(self, "_record_U")
 
         # - Check that CUDA is available
         if not torch.cuda.is_available():
