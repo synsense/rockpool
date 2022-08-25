@@ -300,6 +300,7 @@ def channel_quantize(
     # make sure all types are int
     weights_in = w_in_quan.astype(int)
     weights_rec = w_rec_quan.astype(int)
+    weights_out = w_out_quan.astype(int)
     dash_mem = np.round(dash_mem).astype(int)
     dash_mem_out = np.round(dash_mem_out).astype(int)
     dash_syn = np.round(dash_syn).astype(int)
