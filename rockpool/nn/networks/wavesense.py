@@ -9,7 +9,13 @@ The WaveSense architecture is described in Weidel et al 2021 [https://arxiv.org/
 
 """
 
-from rockpool.nn.modules import TorchModule, LinearTorch, LIFTorch, ExpSynTorch
+from rockpool.nn.modules import (
+    TorchModule,
+    LinearTorch,
+    LIFTorch,
+    ExpSynTorch,
+    LIFMembraneExodus,
+)
 from rockpool.parameters import Parameter, State, SimulationParameter, Constant
 from rockpool.nn.modules.torch.lif_torch import StepPWL, PeriodicExponential
 from rockpool.graph import AliasConnection, GraphHolder, connect_modules
@@ -306,6 +312,7 @@ class WaveSenseNet(TorchModule):
         tau_lp: float = Constant(20e-3),
         threshold: float = Constant(1.0),
         neuron_model: TorchModule = LIFTorch,
+        neuron_model_out: TorchModule = None,
         dt: float = 1e-3,
         *args,
         **kwargs,
@@ -342,6 +349,10 @@ class WaveSenseNet(TorchModule):
         self.n_channels_skip = n_channels_skip
 
         self.neuron_model = neuron_model
+        if neuron_model_out is not None:
+            self.neuron_model_out = neuron_model_out
+        else:
+            self.neuron_model_out = neuron_model
 
         # - Input mapping layers
         self.lin1 = LinearTorch(shape=(n_channels_in, n_channels_res), has_bias=False)
@@ -402,19 +413,30 @@ class WaveSenseNet(TorchModule):
         with torch.no_grad():
             self.readout.weight.data = self.readout.weight.data * dt / tau_lp
 
-        self.spk_out = self.neuron_model(
-            shape=(n_classes, n_classes),
-            tau_mem=Constant(tau_lp),
-            tau_syn=Constant(tau_lp),
-            bias=bias,
-            threshold=Constant(threshold),
-            has_rec=False,
-            w_rec=None,
-            noise_std=0,
-            spike_generation_fn=PeriodicExponential,
-            learning_window=0.5,
-            dt=dt,
-        )
+        if self.neuron_model_out is not LIFMembraneExodus:
+            self.spk_out = self.neuron_model_out(
+                shape=(n_classes, n_classes),
+                tau_mem=Constant(tau_lp),
+                tau_syn=Constant(tau_lp),
+                bias=bias,
+                threshold=Constant(threshold),
+                has_rec=False,
+                w_rec=None,
+                noise_std=0,
+                spike_generation_fn=PeriodicExponential,
+                learning_window=0.5,
+                dt=dt,
+            )
+        else:
+            self.spk_out = self.neuron_model_out(
+                shape=(n_classes, n_classes),
+                tau_mem=Constant(tau_lp),
+                tau_syn=Constant(tau_lp),
+                w_rec=None,
+                spike_generation_fn=PeriodicExponential,
+                learning_window=0.5,
+                dt=dt,
+            )
 
         # - Record dt
         self.dt = SimulationParameter(dt)

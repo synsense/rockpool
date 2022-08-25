@@ -282,9 +282,6 @@ class LIFMembraneExodus(LIFBaseTorch):
         delattr(self, "spikes")
         delattr(self, "spike_generation_fn")
         delattr(self, "max_spikes_per_dt")
-        delattr(self, "_record_spikes")
-        delattr(self, "_record_irec")
-        delattr(self, "_record_U")
 
         # - Check that CUDA is available
         if not torch.cuda.is_available():
