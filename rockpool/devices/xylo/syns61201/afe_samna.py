@@ -69,6 +69,7 @@ class AFESamna(Module):
         dt: float = 1e-3,
         change_count: bool = False,
         hibernation_mode: bool = False,
+        divisive_norm: bool = False,
         *args,
         **kwargs,
     ):
@@ -154,12 +155,17 @@ class AFESamna(Module):
         # - Set up known good configuration
         if change_count:
             hdu.change_event_counter(device_io)
-        if hibernation_mode:
-            hdu.AFE_hibernation(self._afe_write_buf)
-            hdu.write_afe2_register(self._afe_write_buf, 0x25, 0x12)
+
         print("Configuring AFE...")
         hdu.apply_afe2_default_config(self._device)
         print("Configured AFE")
+
+        if divisive_norm:
+            hdu.DivisiveNormalization(self._afe_write_buf)
+
+        if hibernation_mode:
+            hdu.AFE_hibernation(self._afe_write_buf)
+            hdu.write_afe2_register(self._afe_write_buf, 0x25, 0x12)
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
         """

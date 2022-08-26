@@ -49,6 +49,7 @@ class XyloMonitor(Module):
         change_count: bool = False,
         main_clk_rate: int = int(50e6),
         hibernation_mode: bool = False,
+        divisive_norm: bool = False,
         *args,
         **kwargs,
     ):
@@ -64,6 +65,7 @@ class XyloMonitor(Module):
             change_count (bool): If True, AFE event counter will change from outputting 1 spike out of 4 into outputting 1 out of 1.
             main_clk_rate(int): The main clock rate of Xylo.
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
+            divisive_norm (bool): If True, divisive normalization will be switched on.
 
         """
 
@@ -167,10 +169,15 @@ class XyloMonitor(Module):
         # - Amplify input volume
         hdkutils.amplify_volume(self._io, level=amplify_level)
 
+        # - Divisive normalization
+        if divisive_norm:
+            hdkutils.DivisiveNormalization(self._afe_write_buffer)
+
         # - Set to hibernation mode
         if hibernation_mode:
             hdkutils.AFE_hibernation(write_afe_buffer=self._afe_write_buffer)
 
+        # - Configure to auto mode
         self.auto_config(hibernation=hibernation_mode)
 
         # - Zero neuron state when building a new module

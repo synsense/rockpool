@@ -1196,16 +1196,16 @@ def read_accel_mode_data(
 
     # - Return as a XyloState object
     return XyloState(
-        Nin,
-        Nhidden,
-        Nout,
-        vmem_ts,
-        isyn_ts,
-        vmem_out_ts,
-        isyn_out_ts,
-        isyn2_ts,
-        spikes_ts,
-        spikes_out_ts,
+        Nin=Nin,
+        Nhidden=Nhidden,
+        Nout=Nout,
+        V_mem_hid=vmem_ts,
+        I_syn_hid=isyn_ts,
+        V_mem_out=vmem_out_ts,
+        I_syn_out=isyn_out_ts,
+        I_syn2_hid=isyn2_ts,
+        Spikes_hid=spikes_ts,
+        Spikes_out=spikes_out_ts,
     )
 
 
@@ -1843,3 +1843,8 @@ def AFE_hibernation(write_afe_buffer: AFE2WriteBuffer) -> None:
     write_afe2_register(write_afe_buffer, 0x27, 0x1312D0)
     # spike threshold for active and deactive status
     write_afe2_register(write_afe_buffer, 0x28, 0x00300009)
+
+
+def DivisiveNormalization(write_afe_buffer: AFE2WriteBuffer) -> None:
+    write_afe2_register(write_afe_buffer, 0x2B, 0x1f4)
+    write_afe2_register(write_afe_buffer, 0x2a, 0x5000a0)
