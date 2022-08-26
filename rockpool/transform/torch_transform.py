@@ -1,5 +1,22 @@
 """
 Defines the parameter and activation transformation-in-training pipeline for `TorchModule` s
+
+See Also:
+    :ref:`/advanced/QuantTorch.ipynb`
+
+Examples:
+    Construct a network, and patch it to round each weight parameter:
+
+    >>> net = Sequential(...)
+    >>> T_fn = lambda p: stochastic_rounding(p, num_levels = 2**num_bits)
+    >>> T_config = make_param_T_config(net, T_fn, 'weights')
+    >>> T_net = make_param_T_network(net, T_config)
+
+    Train here. To burn-in and remove the transformations:
+
+    >>> burned_in_net = apply_T(T_net)
+    >>> unpatched_net = remove_T_net(burned_in_net)
+
 """
 
 from rockpool.utilities.backend_management import torch_version_satisfied
@@ -23,7 +40,7 @@ import copy
 import rockpool.utilities.tree_utils as tu
 
 __all__ = [
-    "stochastic_rounding",
+    "stochastic_rounding,"
     "stochastic_channel_rounding",
     "deterministic_rounding",
     "dropout",
@@ -106,15 +123,14 @@ def stochastic_rounding(
         tensor([1., 9., 2., 2., 7., 1., 7., 9., 6., 1.])
         
         Quantise to floating point levels, without changing the scale of the values.
+
         >>> stochastic_rounding(torch.rand(10)-.5, num_levels = 3)
-        tensor([ 0.0000,  0.0000,  0.0000, -0.4701, -0.4701,  0.4701, -0.4701, -0.4701,
-         0.0000,  0.4701])
+        tensor([ 0.0000,  0.0000,  0.0000, -0.4701, -0.4701,  0.4701, -0.4701, -0.4701, 0.0000,  0.4701])
          
         >>> stochastic_rounding(torch.rand(10)-.5, num_levels = 3)
-        tensor([ 0.0000,  0.0000, -0.4316,  0.0000,  0.0000,  0.4316, -0.4316,  0.0000,
-         0.4316,  0.4316])
+        tensor([ 0.0000,  0.0000, -0.4316,  0.0000,  0.0000,  0.4316, -0.4316,  0.0000, 0.4316,  0.4316])
          
-         Note that the scale is defined by the observed range of the random values, in this case.
+        Note that the scale is defined by the observed range of the random values, in this case.
     
     Args:
         value (torch.Tensor): A Tensor of values to round 
@@ -302,7 +318,7 @@ def dropout(param: Tensor, dropout_prob: float = 0.5):
     
     For a ``dropout_prob = 0.8``, each parameters is randomly set to zero with 80\% probability.
     
-    Examples
+    Examples:
     
         >>> dropout(torch.ones(10))
         tensor([0., 0., 0., 1., 0., 1., 1., 1., 1., 0.])
@@ -315,7 +331,7 @@ def dropout(param: Tensor, dropout_prob: float = 0.5):
         dropout_prob (float): The probability of zeroing each parameter value (Default: ``0.5``, 50\%)
 
     Returns:
-        torch.Tensor: The tensor of values 
+        torch.Tensor: The tensor of values, with elements dropped out probabilistically
     """
     mask = torch.rand(param.shape, device=param.device) > dropout_prob
     return param * mask
@@ -323,7 +339,12 @@ def dropout(param: Tensor, dropout_prob: float = 0.5):
 
 class TWrapper(TorchModule):
     """
-    A wrapper for a Rockpool TorchModule, implementing a parameter transformation in the forward pass 
+    A wrapper for a Rockpool TorchModule, implementing a parameter transformation in the forward pass
+
+    This module is not designed to be be user-facing; you should probably use the helper functions :py:func:`make_param_T_config` and :py:func:`make_param_T_network` to patch a Rockpool network. This will insert :py:class:`TWrapper` modules into the network architecture as required.
+
+    See Also:
+        :ref:`/advanced/QuantTorch.ipynb`
     """
     def __init__(
         self, mod: TorchModule, T_config: Optional[Tree] = None, *args, **kwargs
@@ -331,12 +352,18 @@ class TWrapper(TorchModule):
         """
         Initialise a parameter transformer wrapper module
         
+        ``mod`` is a Rockpool module with some set of attributes. ``T_config`` is a dictionary, with keys optionally matching the attributes of ``mod``. Each value must be a callable ``T_Fn(a) -> a`` which can transform the associated attribute ``a``.
+
+        A :py:class:`.TWrapper` module will be created, with ``mod`` as a sub-module. The :py:class:`.TWrapper` will apply the specified transformations to all the attributes of ``mod`` at the beginning of the forward-pass of evolution, then evolve ``mod`` with the transformed attributes.
+
+        Users should use the helper functions :py:func:`.make_param_T_config` and :py:func:`.make_param_T_network`.
+
+        See Also:
+            :ref:`/advanced/QuantTorch.ipynb`
         
         Args:
-            mod: 
-            T_config: 
-            *args: 
-            **kwargs: 
+            mod (TorchModule): A Rockpool module to apply parameter transformations to
+            T_config (Optional[Tree]): A nested dictionary specifying which transofmration transformations to apply to specific parameters. Each transformation function must be specified as a Callable with a key identical to a parameter of ``mod``. If ``None``, do not apply any transformation to ``mod``.
         """
         # - Initialise Module superclass
         super().__init__(*args, shape=mod.shape, **kwargs)
@@ -393,62 +420,147 @@ class TWrapper(TorchModule):
 
 def make_param_T_config(
     net: ModuleBase, T_fn: Callable, param_family: Optional[str] = None
-):
+) -> Tree:
+    """
+    Helper function to build parameter transformation configuration trees
+
+    This function builds a parameter transformation nested configuration tree, based on an existing network ``net``. 
+
+    You can use :py:func:`.tree_utils.tree_update` to merge two configuration trees for different parameter families.
+
+    The resulting configuration tree can be passed to :py:func:`.make_param_T_network` to patch the network ``net``.
+
+    Examples:
+        >>> T_config = make_param_T_config(net, lambda p: p**2, 'weights')
+        >>> T_net = make_param_T_network(net, T_config)
+
+    Args:
+        net (Module): A Rockpool network to use as a template for the transformation configuration tree
+        T_fn (Callable): A transformation function to apply to a parameter. Must have the signature ``T_fn(x) -> x``.
+        param_family (Optional[str]): An optional argument to specify a parameter family. Only parameters matching this family within ``net`` will be specified in the configuration tree.
+    """
     return tu.tree_map(net.parameters(param_family), lambda _: T_fn)
 
 
 def make_param_T_network(
     net: ModuleBase, T_config_tree: Tree, inplace: bool = False
 ) -> TorchModule:
+    """
+    Patch a Rockpool network to apply parameter transformations in the forward pass
+
+    This helper function inserts :py:class:`.TWrapper` modules into the network tree, where required, to apply transformations to each module as defined by a configuration tree ``T_config_tree``. Use the helper function :py:func:`.make_param_T_config` to build configuration trees.
+
+    The resulting network will have analogous structure and behaviour to the original network, but the transformations will be applied before the forward pass of each module.
+
+    Network parameters will remain "held" by the original modules, un-transformed.
+
+    You can use the :py:func:`.remove_T_net` function to undo this patching behaviour, restoring the original network structure but keeping any parameter modifications (e.g. training) in place.
+
+    You can use the :py:func:`.apply_T` function to "burn in" the parameter transformation.
+
+    Args:
+        net (Module): A Rockpool network to use as a template for the transformation configuration tree
+        T_config_tree (Tree): A nested dictionary, mimicing the structure of ``net``, specifying which parameters should be transformed and which transformation function to apply to each parameter.
+        inplace (bool): If ``False`` (default), a deep copy of ``net`` will be created, transformed and returned. If ``True``, the network will be patched in place.
+    """
     if not inplace:
         net = copy.deepcopy(net)
 
     if len(net.modules()) == 0:
+        # - Patch a single module
         net = TWrapper(net, T_config_tree)
     else:
+        # - Patch a network tree or sub-tree
+        #   Get a list of sub-modules
         _, modules = net._get_attribute_registry()
 
         for k, mod in modules.items():
+            # - If there are transformations specified for this module
             if k in T_config_tree:
+                # - Then recurse to patch the module
                 setattr(net, k, make_param_T_network(mod[0], T_config_tree[k]))
 
     return net
 
 
-def apply_T(net: TorchModule, inplace: bool = False) -> TorchModule:
+def apply_T(T_net: TorchModule, inplace: bool = False) -> TorchModule:
+    """
+    "Burn in" a set of parameter transformations, applying each transformation and storing the resulting transformed parameters
+
+    This function takes a transformer-patched network ``net``, and applies the pre-specified transformations to each parameter. The resulting transformed parameters are then stored within the parameters of the network.
+
+    This is a useful step **after** training, as part of extracting the transformed parameters from the trained network.
+
+    The helper function :py:func:`.remove_T_net` can be used afterwards to remove the transformer patches from the network.
+
+    Examples:
+        >>> T_net = make_param_T_network(net, T_config)
+
+        At this point, ``T_net.parameters()`` will return un-transformed parameters.
+
+        >>> T_net.apply_T()
+
+        Now ``T_net.parameters()`` will contain the results of applying the transformation to each parameter.
+
+    Args:
+        T_net (TorchModule): A transformer-patched network, obtained with :py:func:`make_param_T_network`
+        inplace (bool): If ``False`` (default), a deep copy of ``net`` will be created, transformed and returned. If ``True``, the network will be transformed in place.
+    """
     if not inplace:
-        net = copy.deepcopy(net)
+        T_net = copy.deepcopy(T_net)
 
-    if isinstance(net, TWrapper):
-        net = net.apply_T()
+    if isinstance(T_net, TWrapper):
+        T_net = T_net.apply_T()
 
-    _, modules = net._get_attribute_registry()
+    _, modules = T_net._get_attribute_registry()
 
-    if len(net.modules()) > 0:
+    if len(T_net.modules()) > 0:
         for k, mod in modules.items():
-            setattr(net, k, apply_T(mod[0]))
+            setattr(T_net, k, apply_T(mod[0]))
 
-    return net
+    return T_net
 
 
-def remove_T_net(net: TorchModule, inplace: bool = False) -> TorchModule:
+def remove_T_net(T_net: TorchModule, inplace: bool = False) -> TorchModule:
+    """
+    Un-patch a transformed-patched network
+
+    This function will iterate through a network patched using :py:func:`make_param_T_network`, and remove all patching modules. The resulting network should have the same network architecture as the original un-patched network.
+
+    Any parameter values applied within ``T_net`` will be retained in the unpatched network.
+
+    Args:
+        T_net (TorchModule): A transformer-patched network, obtained with :py:func:`make_param_T_network`
+        inplace (bool): If ``False`` (default), a deep copy of ``net`` will be created, transformed and returned. If ``True``, the network will be un-patched in place. Warning: in-place operation cannot work for single instances of :py:class:`TWrapper`
+
+    Returns:
+        TorchModule: A network matching ``T_net``, but with transformers removed.
+    """
     if not inplace:
-        net = copy.deepcopy(net)
+        T_net = copy.deepcopy(T_net)
 
-    if isinstance(net, TWrapper):
-        net._mod._name = net.name
-        net = net._mod
+    if isinstance(T_net, (TWrapper, ActWrapper)):
+        T_net._mod._name = T_net.name
+        T_net = T_net._mod
 
     else:
-        _, modules = net._get_attribute_registry()
+        _, modules = T_net._get_attribute_registry()
 
         for k, mod in modules.items():
-            setattr(net, k, remove_T_net(mod[0]))
+            setattr(T_net, k, remove_T_net(mod[0]))
 
-    return net
+    return T_net
 
 
 class ActWrapper(TorchModule):
+    """
+    A wrapper module that applies an output activity transformation after evolution
+
+    This module is not designed to be user-facing. Users should use the helper functions :py:func:`make_act_T_config` and :py:func:`make_act_T_network`. This approach will insert :py:class:`ActWrapper` modules into the network as required.
+
+    See Also:
+        :ref:`/advanced/QuantTorch.ipynb`
+    """
     def __init__(
         self,
         mod: TorchModule,
@@ -456,6 +568,18 @@ class ActWrapper(TorchModule):
         *args,
         **kwargs,
     ):
+        """
+        Instantiate an ActWrapper object
+
+        ``mod`` is a Rockpool module. An :py:class:`ActWrapper` will be created to wrap ``mod``. The transformation function ``trans_Fn`` will be applied to the outputs of ``mod`` during evolution.
+
+        See Also:
+            :ref:`/advanced/QuantTorch.ipynb`
+        
+        Args:
+            mod (TorchModule): A module to patch
+            trans_Fn (Optional(Callable)): A transformation function to apply to the outputs of ``mod``. If ``None``, no transformation will be applied.
+        """
         # - Initialise superclass
         super().__init__(*args, shape=mod.shape, **kwargs)
 
@@ -481,8 +605,31 @@ class ActWrapper(TorchModule):
 
 
 def make_act_T_config(
-    net: TorchModule, T_fn: Callable = None, ModuleClass: type = None
-) -> Dict:
+    net: TorchModule, T_fn: Optional[Callable] = None, ModuleClass: Optional[type] = None
+) -> Tree:
+    """
+    Create an activity transformation configuration for a network
+
+    This helper function assists in defining an activity transformation configuration tree. It allows to to search a predefined network ``net`` to find modules of a chosen class, and specify an activity transformation for those modules.
+
+    ``net`` is a pre-defined Rockpool network.
+
+    ``T_fn`` is a `Callable` with signature ``f(x) -> x``, transforming the output ``x`` of a module.
+
+    ``ModuleClass`` optionally specifies the class of module to search for in ``net``.
+
+    You can use :py:func:`.tree_utils.tree_update` to merge two configuration trees for different parameter families.
+
+    The resulting configuration tree will match the structure of ``net`` (or will be a sub-tree of ``net``, including modules of type ``ModuleClass``). You can pass this configuration tree to :py:func:`.make_act_T_network` to build an activity transformer tree.
+
+    Args:
+        net (TorchModule): A Rockpool network to build a configuration tree for
+        T_fn (Callable): A function ``f(x) -> x`` to apply as a transformation to module output. If ``None``, no transformation will be applied.
+        ``ModuleClass`` (Optional[type]): A :py:class:`~.modules.Module` subclass to search for. The configuration tree will include only modules matching this class.
+
+    Returns:
+        Tree: An activity transformer configuration tree, to pass to :py:func:`.make_act_T_network`
+    """
     # - Define a transformation function for this module, optionally matching a Module class
     if ModuleClass is not None:
         act_T_config = {"": T_fn} if isinstance(net, ModuleClass) else {"": None}
@@ -499,6 +646,19 @@ def make_act_T_config(
 def make_act_T_network(
     net: TorchModule, act_T_config: Tree, inplace: bool = False
 ) -> TorchModule:
+    """
+    Patch a Rockpool network with activity transformers
+
+    This helper function inserts :py:class:`ActWrapper` modules into a pre-defined network ``net``, to apply an activity transformation configuration ``act_T_config``.
+
+    Args:
+        net (TorchModule): A Rockpool network to patch
+        act_T_config (Tree): A configuration tree from :py:func:`make_act_T_config`
+        inplace (bool): If ``False`` (default), create a deep copy of ``net`` to patch. If ``True``, patch the network in place. This in place operation does not work when patching single modules.
+
+    Returns:
+        TorchModule: The patched network
+    """
     if not inplace:
         net = copy.deepcopy(net)
 

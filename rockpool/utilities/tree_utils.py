@@ -22,7 +22,7 @@ def tree_map(tree: Tree, f: Callable) -> Tree:
     return root
 
 
-def tree_flatten(tree: Tree, leaves: Union[List, None] = None) -> (Tuple, TreeDef):
+def tree_flatten(tree: Tree, leaves: Union[List, None] = None) -> Tuple[Tuple, TreeDef]:
     # - Initialise leaves if starting from the root
     leaves = [] if leaves is None else leaves
 
