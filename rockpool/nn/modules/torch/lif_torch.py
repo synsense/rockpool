@@ -115,10 +115,8 @@ class LIFBaseTorch(TorchModule):
         shape: tuple,
         tau_mem: Optional[Union[FloatVector, P_float]] = None,
         tau_syn: Optional[Union[FloatVector, P_float]] = None,
-
         alpha: Optional[Union[FloatVector, P_float]] = None,
         beta: Optional[Union[FloatVector, P_float]] = None,
-
         bias: Optional[FloatVector] = None,
         threshold: Optional[FloatVector] = None,
         decay_training: P_bool = False,
@@ -199,7 +197,6 @@ class LIFBaseTorch(TorchModule):
         self.noise_std: P_float = rp.SimulationParameter(noise_std)
         """ (float) Noise std.dev. injected onto the membrane of each neuron during evolution """
 
-
         self.decay_training = decay_training
         self.tau_mem: P_tensor = rp.Parameter(
             tau_mem,
@@ -215,7 +212,7 @@ class LIFBaseTorch(TorchModule):
             family="decays",
             shape=[(self.size_out,), ()],
             # init_func=lambda s: torch.ones(s) * 20e-3,
-            init_func=lambda s: torch.exp(-self.dt / self.tau_mem) ,
+            init_func=lambda s: torch.exp(-self.dt / self.tau_mem),
             cast_fn=self._to_float_tensor,
         )
         """ (Tensor) Membrane decay factor `(Nout,)` or `()` """
@@ -235,11 +232,9 @@ class LIFBaseTorch(TorchModule):
                 (),
             ],
             init_func=lambda s: torch.ones(s) * 20e-3,
-
             cast_fn=self._to_float_tensor,
         )
         """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
-
 
         self.beta: P_tensor = rp.Parameter(
             beta,
@@ -256,12 +251,10 @@ class LIFBaseTorch(TorchModule):
                 (),
             ],
             # init_func=lambda s: torch.ones(s) * 20e-3,
-            init_func=lambda s: torch.exp(-self.dt / self.tau_syn) ,
+            init_func=lambda s: torch.exp(-self.dt / self.tau_syn),
             cast_fn=self._to_float_tensor,
         )
         """ (Tensor) Synaptic decay factor `(Nin,)` or `()` """
-
-
 
         self.bias: P_tensor = rp.Parameter(
             bias,
@@ -480,7 +473,7 @@ class LIFTorch(LIFBaseTorch):
         if self.decay_training:
             alpha = self.alpha
             beta = self.beta
-        else:    
+        else:
             # print('here')
             # print(self.calc_alpha())
             # print()
