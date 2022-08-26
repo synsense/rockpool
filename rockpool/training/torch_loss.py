@@ -18,7 +18,12 @@ from typing import Tuple
 
 import rockpool.utilities.tree_utils as tu
 
-__all__ = ["summed_exp_boundary_loss", "ParameterBoundaryRegularizer", "make_bounds", "bounds_cost"]
+__all__ = [
+    "summed_exp_boundary_loss",
+    "ParameterBoundaryRegularizer",
+    "make_bounds",
+    "bounds_cost",
+]
 
 
 def summed_exp_boundary_loss(data, lower_bound=None, upper_bound=None):
@@ -132,8 +137,8 @@ def make_bounds(params: dict) -> Tuple[dict, dict]:
     upper_bounds = deepcopy(params)
 
     # - Reset to -inf and inf
-    lower_bounds = tu.tree_map(lower_bounds, lambda _: -float('inf'))
-    upper_bounds = tu.tree_map(upper_bounds, lambda _: float('inf'))
+    lower_bounds = tu.tree_map(lower_bounds, lambda _: -float("inf"))
+    upper_bounds = tu.tree_map(upper_bounds, lambda _: float("inf"))
 
     return lower_bounds, upper_bounds
 

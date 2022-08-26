@@ -84,9 +84,11 @@ class PeriodicExponential(torch.autograd.Function):
         (membranePotential,) = ctx.saved_tensors
 
         vmem_shifted = membranePotential - ctx.threshold / 2
-        nr_spikes_shifted = torch.clamp(torch.div(
-            vmem_shifted, ctx.threshold, rounding_mode="floor"
-        ), max=ctx.max_spikes_per_dt - 1)
+        nr_spikes_shifted = torch.clamp(
+            torch.div(vmem_shifted, ctx.threshold, rounding_mode="floor"),
+            max=ctx.max_spikes_per_dt - 1,
+        )
+
         vmem_periodic = vmem_shifted - nr_spikes_shifted * ctx.threshold
         vmem_below = vmem_shifted * (membranePotential < ctx.threshold)
         vmem_above = vmem_periodic * (membranePotential >= ctx.threshold)
@@ -96,7 +98,12 @@ class PeriodicExponential(torch.autograd.Function):
             / ctx.threshold
         )
 
-        return grad_output * spikePdf, grad_output * -spikePdf * membranePotential / ctx.threshold, None, None
+        return (
+            grad_output * spikePdf,
+            grad_output * -spikePdf * membranePotential / ctx.threshold,
+            None,
+            None,
+        )
 
 
 # - Surrogate functions to use in learning
