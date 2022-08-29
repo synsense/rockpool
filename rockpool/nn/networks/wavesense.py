@@ -17,12 +17,16 @@ from rockpool.nn.modules import (
     LIFMembraneExodus,
 )
 from rockpool.parameters import Parameter, State, SimulationParameter, Constant
-from rockpool.nn.modules.torch.lif_torch import StepPWL, PeriodicExponential
+from rockpool.nn.modules.torch.lif_torch import (
+    LIFBaseTorch,
+    StepPWL,
+    PeriodicExponential,
+)
 from rockpool.graph import AliasConnection, GraphHolder, connect_modules
 
 import torch
 
-from typing import List, Union, Callable, Optional
+from typing import List, Tuple, Union, Callable, Optional
 from rockpool.typehints import P_tensor
 
 __all__ = ["WaveBlock", "WaveSenseNet"]
@@ -172,7 +176,7 @@ class WaveSenseBlock(TorchModule):
         self._record = False
         self._record_dict = {}
 
-    def forward(self, data: torch.tensor) -> (torch.tensor, dict, dict):
+    def forward(self, data: torch.tensor) -> Tuple[torch.tensor, dict, dict]:
         # Expecting data to be of the format (batch, time, Nchannels)
         (n_batches, t_sim, Nchannels) = data.shape
 
@@ -349,10 +353,16 @@ class WaveSenseNet(TorchModule):
         self.n_channels_skip = n_channels_skip
 
         self.neuron_model = neuron_model
-        if neuron_model_out is not None:
-            self.neuron_model_out = neuron_model_out
-        else:
-            self.neuron_model_out = neuron_model
+        self.neuron_model_out = (
+            neuron_model_out if neuron_model_out is not None else neuron_model
+        )
+
+        if not isinstance(self.neuron_model, LIFBaseTorch) or not isinstance(
+            self.neuron_model_out, LIFBaseTorch
+        ):
+            raise ValueError(
+                "Only `LIFBaseTorch` subclasses are permitted for Wavesense neuron models."
+            )
 
         # - Input mapping layers
         self.lin1 = LinearTorch(shape=(n_channels_in, n_channels_res), has_bias=False)
