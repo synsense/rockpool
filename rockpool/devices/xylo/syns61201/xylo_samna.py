@@ -31,7 +31,7 @@ import numpy as np
 import time
 
 # - Typing
-from typing import Optional, Union, Callable, List
+from typing import Optional, Union, Callable, List, Tuple
 
 from warnings import warn
 
@@ -66,7 +66,7 @@ def config_from_specification(
     aliases: Optional[List[List[int]]] = None,
     *args,
     **kwargs,
-) -> (XyloConfiguration, bool, str):
+) -> Tuple[XyloConfiguration, bool, str]:
     """
     Convert a full network specification to a xylo config and validate it
 
@@ -341,8 +341,7 @@ class XyloSamna(Module):
         config: XyloConfiguration = None,
         dt: float = 1e-3,
         output_mode: str = "Spike",
-        power_measure: bool = False,
-        frequency: Optional[float] = 5.0,
+        power_frequency: Optional[float] = 5.0,
         *args,
         **kwargs,
     ):
@@ -355,7 +354,7 @@ class XyloSamna(Module):
             dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
             power_measure (bool): If True, power consumption will be measured
-            frequency (float): The frequency of power measurement. Default: 5.0
+            power_frequency (float): The frequency of power measurement. Default: 5.0
         """
         # - Check input arguments
         if device is None:
@@ -419,11 +418,9 @@ class XyloSamna(Module):
         self.reset_state()
 
         # - Set power measurement module
-        self._power_measure = power_measure
-        if self._power_measure:
-            self._power_buf, self.power = hdkutils.set_power_measure(
-                self._device, frequency
-            )
+        self._power_buf, self.power = hdkutils.set_power_measure(
+            self._device, power_frequency
+        )
 
     @property
     def config(self):
@@ -481,7 +478,7 @@ class XyloSamna(Module):
         """
         Configure the Xylo HDK to use hibernation mode
         """
-        self.config = hdkutils.config_hibernation_mode(self._config)
+        self.config = hdkutils.config_hibernation_mode(self._config, True)
 
     def evolve(
         self,
@@ -491,7 +488,7 @@ class XyloSamna(Module):
         record_power: bool = False,
         *args,
         **kwargs,
-    ) -> (np.ndarray, dict, dict):
+    ) -> Tuple[np.ndarray, dict, dict]:
         """
         Evolve a network on the Xylo HDK in accelerated-time mode
 
@@ -552,6 +549,9 @@ class XyloSamna(Module):
         self._state_buffer.reset()
         self._read_buffer.get_events()
 
+        if record_power:
+            self._power_buf.get_events()
+
         # - Write the events and trigger the simulation
         self._write_buffer.write(input_events_list)
 
@@ -560,12 +560,14 @@ class XyloSamna(Module):
             read_timeout = len(input) * self.dt * Nhidden / 100.0
             read_timeout = read_timeout * 100.0 if record else read_timeout
 
+        # - Read output events from Xylo HDK
         read_events, is_timeout = hdkutils.blocking_read(
             self._read_buffer,
             timeout=max(read_timeout, 1.0),
             target_timestamp=final_timestamp,
         )
 
+        # - Handle a timeout error
         if is_timeout:
             message = f"Processing didn't finish for {read_timeout}s. Read {len(read_events)} events"
             readout_events = [e for e in read_events if hasattr(e, "timestamp")]
@@ -579,11 +581,19 @@ class XyloSamna(Module):
             self._state_buffer, Nin, Nhidden, Nout
         )
 
-        if self._power_measure and record_power:
-            # self.power.stop_auto_power_measurement()
+        if record_power:
+            # - Get all recent power events from the power measurement
             ps = self._power_buf.get_events()
-            io_data = [e.value / 1.1 for e in ps if e.channel == 0]
-            core_data = [e.value / 2.5 for e in ps if e.channel == 3]
+
+            # - Correction factor for power estimation (comparison with high-accuracy measurements)
+            factor = 1/(1-.22)
+
+            # - Separate out power meaurement events by channel
+            channels = samna.xyloA2TestBoard.MeasurementChannels
+            io_power = factor * np.array([e.value for e in ps if e.channel == int(channels.Io)])
+            logic_afe_power = factor * np.array([e.value for e in ps if e.channel == int(channels.LogicAfe)])
+            io_afe_power = factor * np.array([e.value for e in ps if e.channel == int(channels.IoAfe)])
+            logic_power = factor * np.array([e.value for e in ps if e.channel == int(channels.Logic)])
 
         if record:
             rec_dict = {
@@ -598,15 +608,18 @@ class XyloSamna(Module):
         else:
             rec_dict = {}
 
-        if self._power_measure and record_power:
+        # - Return power recordings if requested
+        if record_power:
             rec_dict.update(
                 {
-                    "io_current": np.array(io_data),
-                    "core_current": np.array(core_data),
+                    "io_power": io_power,
+                    "logic_afe_power": logic_afe_power,
+                    "io_afe_power": io_afe_power,
+                    "logic_power": logic_power,
                 }
             )
 
-        # - This module accepts no state
+        # - This module holds no state
         new_state = {}
 
         # - Return spike output, new state and record dictionary
@@ -624,7 +637,7 @@ class XyloSamna(Module):
         read_timeout: float = 5.0,
         *args,
         **kwargs,
-    ) -> (np.ndarray, dict, dict):
+    ) -> Tuple[np.ndarray, dict, dict]:
         """
         Evolve a network on the Xylo HDK in single-step manual mode. For debug purposes only. Uses 'samna.xyloCore2.OperationMode.Manual' in samna.
 

@@ -162,7 +162,7 @@ def read_afe2_events_blocking(
     write_buffer: AFE2WriteBuffer,
     afe_read_buf: AFE2ReadBuffer,
     duration: float,
-) -> (np.ndarray, np.ndarray):
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Perform a blocking read of AFE2 audio spike events for a desired duration
 
@@ -260,7 +260,7 @@ def apply_afe2_default_config(afe2hdk: XyloA2HDK) -> None:
 
 def read_afe2_module_version(
     afe_read_buf: AFE2ReadBuffer, afe_write_buf: AFE2WriteBuffer
-) -> (int, int):
+) -> Tuple[int, int]:
     """
     Return the version and revision numbers for a connected AFE2 HDK
 
@@ -362,7 +362,7 @@ def blocking_read(
     target_timestamp: Optional[int] = None,
     count: Optional[int] = None,
     timeout: Optional[float] = None,
-) -> (List, bool):
+) -> Tuple[List, bool]:
     """
     Perform a blocking read on a buffer, optionally waiting for a certain count, a target timestamp, or imposing a timeout
 
@@ -1060,7 +1060,7 @@ def configure_accel_time_mode(
     monitor_Noutput: Optional[int] = 0,
     readout="Spike",
     record=False,
-) -> (XyloConfiguration, Xylo2NeuronStateBuffer):
+) -> Tuple[XyloConfiguration, Xylo2NeuronStateBuffer]:
     """
     Switch on accelerated-time mode on a Xylo hdk, and configure network monitoring
 
@@ -1123,14 +1123,14 @@ def configure_accel_time_mode(
     return config, state_monitor_buffer
 
 
-def config_hibernation_mode(config: XyloConfiguration) -> XyloConfiguration:
+def config_hibernation_mode(config: XyloConfiguration, hibernation_mode: bool) -> XyloConfiguration:
     """
     Switch on hibernaton mode on a Xylo hdk
 
     Args:
         config (XyloConfiguration): The desired Xylo configuration to use
     """
-    config.enable_hibernation_mode = True
+    config.enable_hibernation_mode = hibernation_mode
     return config
 
 

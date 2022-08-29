@@ -202,7 +202,7 @@ class AFESamna(Module):
         return events_ts, self.state(), {}
 
     @property
-    def _version(self) -> (int, int):
+    def _version(self) -> Tuple[int, int]:
         """
         Return the version and revision numbers of the connected Xylo-AFE2 chip
 
