@@ -1123,7 +1123,9 @@ def configure_accel_time_mode(
     return config, state_monitor_buffer
 
 
-def config_hibernation_mode(config: XyloConfiguration, hibernation_mode: bool) -> XyloConfiguration:
+def config_hibernation_mode(
+    config: XyloConfiguration, hibernation_mode: bool
+) -> XyloConfiguration:
     """
     Switch on hibernaton mode on a Xylo hdk
 
@@ -1846,5 +1848,5 @@ def AFE_hibernation(write_afe_buffer: AFE2WriteBuffer) -> None:
 
 
 def DivisiveNormalization(write_afe_buffer: AFE2WriteBuffer) -> None:
-    write_afe2_register(write_afe_buffer, 0x2B, 0x1f4)
-    write_afe2_register(write_afe_buffer, 0x2a, 0x5000a0)
+    write_afe2_register(write_afe_buffer, 0x2B, 0x1F4)
+    write_afe2_register(write_afe_buffer, 0x2A, 0x5000A0)

@@ -586,14 +586,22 @@ class XyloSamna(Module):
             ps = self._power_buf.get_events()
 
             # - Correction factor for power estimation (comparison with high-accuracy measurements)
-            factor = 1/(1-.22)
+            factor = 1 / (1 - 0.22)
 
             # - Separate out power meaurement events by channel
             channels = samna.xyloA2TestBoard.MeasurementChannels
-            io_power = factor * np.array([e.value for e in ps if e.channel == int(channels.Io)])
-            logic_afe_power = factor * np.array([e.value for e in ps if e.channel == int(channels.LogicAfe)])
-            io_afe_power = factor * np.array([e.value for e in ps if e.channel == int(channels.IoAfe)])
-            logic_power = factor * np.array([e.value for e in ps if e.channel == int(channels.Logic)])
+            io_power = factor * np.array(
+                [e.value for e in ps if e.channel == int(channels.Io)]
+            )
+            logic_afe_power = factor * np.array(
+                [e.value for e in ps if e.channel == int(channels.LogicAfe)]
+            )
+            io_afe_power = factor * np.array(
+                [e.value for e in ps if e.channel == int(channels.IoAfe)]
+            )
+            logic_power = factor * np.array(
+                [e.value for e in ps if e.channel == int(channels.Logic)]
+            )
 
         if record:
             rec_dict = {
