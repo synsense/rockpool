@@ -12,7 +12,7 @@ import torch
 import numpy as np
 import jax
 from rockpool.utilities.jax_tree_utils import tree_find
-from jax.tree_util import tree_multimap
+from jax.tree_util import tree_map
 
 from typing import List
 from rockpool.typehints import Tree
@@ -32,7 +32,7 @@ def compare_value_tree(results: List[Tree], Classes: List[type], atol: float = 1
     # - Verify that all elements are equal
     for class_index in range(1, len(results)):
         try:
-            mismatch_params = tree_multimap(
+            mismatch_params = tree_map(
                 lambda a, b: not np.allclose(
                     to_numpy(a), to_numpy(b), equal_nan=True, atol=atol
                 )
