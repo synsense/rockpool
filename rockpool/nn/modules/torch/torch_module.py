@@ -192,7 +192,7 @@ class TorchModule(Module, nn.Module):
         data: torch.Tensor,
         states: Tuple = (),
         target_shapes: Tuple = None,
-    ) -> (torch.Tensor, Tuple[torch.Tensor]):
+    ) -> Tuple[torch.Tensor, Tuple[torch.Tensor]]:
         """
         Automatically replicate states over batches and verify input dimensions
 

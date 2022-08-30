@@ -317,11 +317,7 @@ class LIFBaseTorch(TorchModule):
         """ (int) Maximum number of events that can be produced in each time-step """
 
         # - Placeholders for state recordings
-        self._record_vmem = None
-        self._record_isyn = None
-        self._record_irec = None
-        self._record_U = None
-        self._record_spikes = None
+        self._record_dict = {}
         self._record = False
 
     def evolve(
@@ -334,17 +330,7 @@ class LIFBaseTorch(TorchModule):
         output_data, _, _ = super().evolve(input_data, record)
 
         # - Build state record dictionary
-        record_dict = (
-            {
-                "vmem": self._record_vmem,
-                "isyn": self._record_isyn,
-                "spikes": self._record_spikes,
-                "irec": self._record_irec,
-                "U": self._record_U,
-            }
-            if record
-            else {}
-        )
+        record_dict = self._record_dict if record else {}
 
         return output_data, self.state(), record_dict
 
@@ -464,17 +450,19 @@ class LIFTorch(LIFBaseTorch):
 
         # - Set up state record and output
         if self._record:
-            self._record_vmem = torch.zeros(n_batches, n_timesteps, self.size_out)
-            self._record_isyn = torch.zeros(
+            self._record_dict["vmem"] = torch.zeros(
+                n_batches, n_timesteps, self.size_out
+            )
+            self._record_dict["isyn"] = torch.zeros(
                 n_batches, n_timesteps, self.size_out, self.n_synapses
             )
-            self._record_irec = torch.zeros(
+            self._record_dict["irec"] = torch.zeros(
                 n_batches, n_timesteps, self.size_out, self.n_synapses
             )
 
-            self._record_U = torch.zeros(n_batches, n_timesteps, self.size_out)
+            self._record_dict["U"] = torch.zeros(n_batches, n_timesteps, self.size_out)
 
-        self._record_spikes = torch.zeros(
+        self._record_dict["spikes"] = torch.zeros(
             n_batches, n_timesteps, self.size_out, device=input_data.device
         )
 
@@ -529,16 +517,16 @@ class LIFTorch(LIFBaseTorch):
 
             # - Maintain state record
             if self._record:
-                self._record_vmem[:, t] = vmem
-                self._record_isyn[:, t] = isyn
+                self._record_dict["vmem"][:, t] = vmem
+                self._record_dict["isyn"][:, t] = isyn
 
                 if hasattr(self, "w_rec"):
-                    self._record_irec[:, t] = irec
+                    self._record_dict["irec"][:, t] = irec
 
-                self._record_U[:, t] = sigmoid(vmem * 20.0, self.threshold)
+                self._record_dict["U"][:, t] = sigmoid(vmem * 20.0, self.threshold)
 
             # - Maintain output spike record
-            self._record_spikes[:, t] = spikes
+            self._record_dict["spikes"][:, t] = spikes
 
         # - Update states
         self.vmem = vmem[0].detach()
@@ -546,4 +534,4 @@ class LIFTorch(LIFBaseTorch):
         self.spikes = spikes[0].detach()
 
         # - Return output
-        return self._record_spikes
+        return self._record_dict["spikes"]
