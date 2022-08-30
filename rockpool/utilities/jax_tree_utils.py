@@ -293,7 +293,7 @@ def tree_map_select_with_rng(
     return tu.tree_unflatten(treedef, mapped)
 
 
-def tree_multimap_with_rng(
+def tree_map_with_rng(
     tree: Tree,
     map_fun: Callable[[Value, JaxRNGKey, Any], Value],
     rng_key: JaxRNGKey,
@@ -304,7 +304,7 @@ def tree_multimap_with_rng(
 
     This utility maps a function over the leaves of a tree, when the function requires an RNG key to operate. The utility will automatically split the RNG key to generate a new key for each leaf. Then `map_fun` will be called for each leaf, with the signature ``map_fun(leaf_value, rng_key, *rest)``.
 
-    `rest` is an optional further series of arguments to map over the tree, such that each additional argument must have the same tree structure as `tree`. See the documentation for `jax.tree_util.tree_multimap` for more information.
+    `rest` is an optional further series of arguments to map over the tree, such that each additional argument must have the same tree structure as `tree`. See the documentation for `jax.tree_util.tree_map` for more information.
 
     Args:
         tree (Tree): A tree to work over
@@ -323,7 +323,7 @@ def tree_multimap_with_rng(
     subkeys_tree = tu.tree_unflatten(treedef, subkeys)
 
     # - Map function over the tree and return
-    return tu.tree_multimap(map_fun, tree, subkeys_tree, *rest)
+    return tu.tree_map(map_fun, tree, subkeys_tree, *rest)
 
 
 def tree_find(tree: Tree) -> List:
