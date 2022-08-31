@@ -159,7 +159,7 @@ class ParameterBase:
             if isinstance(self.data, Tensor):
                 import torch
 
-                self.data = torch.tensor(self.data)
+                self.data = torch.tensor(self.data.detach().numpy())
 
         def numel(x):
             if isinstance(x, np.ndarray):
