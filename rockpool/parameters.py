@@ -157,7 +157,9 @@ class ParameterBase:
 
             # - Unpack a torch tensor
             if isinstance(self.data, Tensor):
-                self.data = Tensor(self.data)
+                import torch
+
+                self.data = torch.tensor(self.data)
 
         def numel(x):
             if isinstance(x, np.ndarray):
