@@ -224,7 +224,7 @@ def test_sgd():
     loss, grads = vgf(params0, net, np.random.rand(10, 2), np.random.rand(10, 1))
     print(loss, grads)
 
-    from jax.experimental.optimizers import adam
+    from jax.example_libraries.optimizers import adam
 
     init_fun, update_fun, get_params = adam(1e-2)
 

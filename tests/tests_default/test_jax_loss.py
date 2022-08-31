@@ -27,7 +27,7 @@ def test_imports():
 
 def test_mse():
     from rockpool.nn.modules import RateJax
-    from jax.experimental.optimizers import adam
+    from jax.example_libraries.optimizers import adam
 
     import jax
     from jax import jit
@@ -72,7 +72,7 @@ def test_bounds_cost():
     from rockpool.training.jax_loss import bounds_cost, make_bounds
     from rockpool.training.jax_debug import flatten
 
-    from jax.experimental.optimizers import adam
+    from jax.example_libraries.optimizers import adam
 
     from copy import deepcopy
 
