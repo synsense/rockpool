@@ -1122,7 +1122,7 @@ def is_xylo_ready(read_buffer: XyloReadBuffer, write_buffer: XyloWriteBuffer) ->
 
     Returns: ``True`` iff the Xylo HDK has finished all processing
     """
-    return read_register(read_buffer, write_buffer, 0x10)[-1] & (1 << 16) is not 0
+    return read_register(read_buffer, write_buffer, 0x10)[-1] & (1 << 16) != 0
 
 
 def advance_time_step(write_buffer: XyloWriteBuffer) -> None:
