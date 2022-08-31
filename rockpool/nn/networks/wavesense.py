@@ -357,7 +357,7 @@ class WaveSenseNet(TorchModule):
             neuron_model_out if neuron_model_out is not None else neuron_model
         )
 
-        if not isinstance(self.neuron_model, LIFBaseTorch) or not isinstance(
+        if not issubclass(self.neuron_model, LIFBaseTorch) or not issubclass(
             self.neuron_model_out, LIFBaseTorch
         ):
             raise ValueError(
