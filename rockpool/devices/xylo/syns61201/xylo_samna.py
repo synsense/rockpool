@@ -516,6 +516,12 @@ class XyloSamna(Module):
         # - Configure the recording mode
         self._configure_accel_time_mode(Nhidden, Nout, record)
 
+        # - Switch on or off RAM clocks depending on state access mode
+        if record or self._output_mode != "Spike":
+            hdkutils.set_ram_access(True, self._write_buffer)
+        else:
+            hdkutils.set_ram_access(False, self._write_buffer)
+
         # - Get current timestamp
         start_timestep = hdkutils.get_current_timestamp(
             self._read_buffer, self._write_buffer

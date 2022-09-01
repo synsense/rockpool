@@ -808,24 +808,8 @@ def apply_configuration(
         read_buffer (XyloReadBuffer): A connected read buffer for the Xylo HDK
         write_buffer (XyloWriteBuffer): A connected write buffer for the Xylo HDK
     """
-    # - WORKAROUND: Manually enable debug clock
-    # config.debug.isyn_clock_enable = True
-    # config.debug.ra_clock_enable = True
-    # config.debug.hm_clock_enable = True
-    # config.debug.bias_clock_enable = True
-    # config.debug.isyn2_clock_enable = True
-
-    # config.debug.ram_power_enable = True
-
     # - Ideal -- just write the configuration using samna
     hdk.get_xylo_model().apply_configuration(config)
-
-    # # - WORKAROUND: Design bug, where aliasing is not computed correctly
-    # rcram = read_memory(read_buffer, write_buffer, 0x9980, 1000)
-    # for i in range(1000):
-    #     if rcram[i] == 2:
-    #         rcram[i] = 3
-    # write_memory(write_buffer, 0x9980, 1000, rcram)
 
 
 def zero_memory(
@@ -1918,7 +1902,7 @@ def pretty_print_register(
     value = (
         value
         if value is not None
-        else read_register(read_buffer, write_buffer, register)
+        else read_register(read_buffer, write_buffer, register)[0]
     )
 
     import bitstring
@@ -1992,3 +1976,130 @@ def set_xylo_core_clock_freq(device: XyloA2HDK, desired_freq_MHz: float) -> floa
 
     # - Return actual obtained clock freq.
     return actual_freq
+
+
+def print_debug_registers(
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
+) -> None:
+    """
+    Print register contents of a Xylo HDK for debugging purposes
+
+    Args:
+        write_buffer (XyloWriteBuffer): A connected write buffer to a Xylo HDK
+        read_buffer (XyloReadBuffer): A connected Xylo read buffer to use when reading registers
+    """
+    print(
+        "ctrl1", hex(read_register(read_buffer, write_buffer, Xylo2Registers.CTRL1)[0])
+    )
+    print(
+        "ctrl2", hex(read_register(read_buffer, write_buffer, Xylo2Registers.CTRL2)[0])
+    )
+    print(
+        "tr_wrap",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.TR_WRAP)[0]),
+    )
+    print(
+        "hm_tr_wrap",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.HM_TR_WRAP)[0]),
+    )
+    print(
+        "pwrctrl1",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.PWR_CTRL1)[0]),
+    )
+    print(
+        "pwrctrl2",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.PWR_CTRL2)[0]),
+    )
+    print(
+        "pwrctrl3",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.PWR_CTRL3)[0]),
+    )
+    print(
+        "pwrctrl4",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.PWR_CTRL4)[0]),
+    )
+    print(
+        "iso_ctrl1",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.ISO_CTRL1)[0]),
+    )
+    print(
+        "iso_ctrl2",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.ISO_CTRL2)[0]),
+    )
+    print(
+        "iso_ctrl3",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.ISO_CTRL3)[0]),
+    )
+    print(
+        "iso_ctrl4",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.ISO_CTRL4)[0]),
+    )
+    print("ie", hex(read_register(read_buffer, write_buffer, Xylo2Registers.IE)[0]))
+    print("wo", hex(read_register(read_buffer, write_buffer, Xylo2Registers.WO)[0]))
+    print(
+        "baddr", hex(read_register(read_buffer, write_buffer, Xylo2Registers.BADDR)[0])
+    )
+    print("blen", hex(read_register(read_buffer, write_buffer, Xylo2Registers.BLEN)[0]))
+    print(
+        "ispkreg0L",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.ISPKREG0L)[0]),
+    )
+    print(
+        "ispkreg0H",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.ISPKREG0H)[0]),
+    )
+    print(
+        "ispkreg1L",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.ISPKREG1L)[0]),
+    )
+    print(
+        "ispkreg1H",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.ISPKREG1H)[0]),
+    )
+    print("stat", hex(read_register(read_buffer, write_buffer, Xylo2Registers.STAT)[0]))
+    print("int", hex(read_register(read_buffer, write_buffer, Xylo2Registers.INT)[0]))
+    print(
+        "omp_stat0",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.OMP_STAT0)[0]),
+    )
+    print(
+        "omp_stat1",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.OMP_STAT1)[0]),
+    )
+    print(
+        "omp_stat2",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.OMP_STAT2)[0]),
+    )
+    print(
+        "omp_stat3",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.OMP_STAT3)[0]),
+    )
+    print(
+        "monsel",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.MONSEL)[0]),
+    )
+    print(
+        "mon_grp_sel",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.MON_GRP_SEL)[0]),
+    )
+    print(
+        "dbg_ctrl1",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.DBG_CTRL1)[0]),
+    )
+    print(
+        "tram_ctrl",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.TRAM_CTRL)[0]),
+    )
+    print(
+        "hram_ctrl",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.HRAM_CTRL)[0]),
+    )
+    print(
+        "dbg_stat1",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.DBG_STAT1)[0]),
+    )
+    print(
+        "tr_cntr_stat",
+        hex(read_register(read_buffer, write_buffer, Xylo2Registers.TR_CNTR_STAT)[0]),
+    )
