@@ -21,6 +21,8 @@ import numpy as np
 from pathlib import Path
 from os import makedirs
 import json
+from bitstruct import pack_dict, unpack_dict
+
 
 # - Typing and useful proxy types
 from typing import Any, List, Iterable, Optional, NamedTuple, Union, Tuple
@@ -75,6 +77,36 @@ class Xylo2Registers(enum.IntEnum):
     HRAM_CTRL = 31
     DBG_STAT1 = 32
     TR_CNTR_STAT = 33
+
+
+Xylo2RegistersStruct = {
+    "CTRL1": (
+        "u4u2b1b1b1b1b1b1u2b1b1b1u3b1u3b1u3b1b1b1b1",
+        [
+            "RAM_WU_ST",
+            "_",
+            "RST_PS",
+            "RST_PE",
+            "HM_EN",
+            "ALWAYS_UPDATE_OPM_STAT",
+            "DIRECT_FETCH_STATE_RAM",
+            "KEEP_INT",
+            "_",
+            "RAM_ACTIVE",
+            "MEM_CLK_ON",
+            "_",
+            "OWBS",
+            "_",
+            "RWBS",
+            "_",
+            "IWBS",
+            "BIAS_EN",
+            "ALIAS_EN",
+            "ISYN2_EN",
+            "MAN",
+        ],
+    )
+}
 
 
 class XyloState(NamedTuple):
@@ -2105,15 +2137,55 @@ def print_debug_registers(
     )
 
 
-def set_ram_access(ram_access_enable: bool, write_buffer: Xylo2WriteBuffer) -> None:
+def set_ram_access(
+    ram_access_enable: bool,
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
+) -> None:
     """
     Enable or disable access to RAM on the Xylo chip. To access any internal RAM values over SPI, RAM access must be enabled.
     """
+    ctrl1 = read_register(read_buffer, write_buffer, Xylo2Registers.CTRL1)[0]
+
+    dict_ctrl1 = unpack_dict(*Xylo2RegistersStruct["CTRL1"], ctrl1.to_bytes(4, "big"))
+
     if ram_access_enable:
         # - Write CTRL1.RAM_ACTIVE = 1
+        dict_ctrl1["RAM_ACTIVE"] = True
+        write_register(
+            write_buffer,
+            Xylo2Registers.CTRL1,
+            int.from_bytes(
+                pack_dict(*Xylo2RegistersStruct["CTRL1"], dict_ctrl1), "big"
+            ),
+        )
+
         # - Write CTRL1.MEM_CLK_ON = 1
-        pass
+        dict_ctrl1["MEM_CLK_ON"] = True
+        write_register(
+            write_buffer,
+            Xylo2Registers.CTRL1,
+            int.from_bytes(
+                pack_dict(*Xylo2RegistersStruct["CTRL1"], dict_ctrl1), "big"
+            ),
+        )
     else:
         # - Write CTRL1.MEM_CLK_ON = 0
+        dict_ctrl1["MEM_CLK_ON"] = False
+        write_register(
+            write_buffer,
+            Xylo2Registers.CTRL1,
+            int.from_bytes(
+                pack_dict(*Xylo2RegistersStruct["CTRL1"], dict_ctrl1), "big"
+            ),
+        )
+
         # - Write CTRL1.RAM_ACTIVE = 0
-        pass
+        dict_ctrl1["RAM_ACTIVE"] = False
+        write_register(
+            write_buffer,
+            Xylo2Registers.CTRL1,
+            int.from_bytes(
+                pack_dict(*Xylo2RegistersStruct["CTRL1"], dict_ctrl1), "big"
+            ),
+        )
