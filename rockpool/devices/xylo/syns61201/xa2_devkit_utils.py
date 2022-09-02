@@ -2103,3 +2103,17 @@ def print_debug_registers(
         "tr_cntr_stat",
         hex(read_register(read_buffer, write_buffer, Xylo2Registers.TR_CNTR_STAT)[0]),
     )
+
+
+def set_ram_access(ram_access_enable: bool, write_buffer: Xylo2WriteBuffer) -> None:
+    """
+    Enable or disable access to RAM on the Xylo chip. To access any internal RAM values over SPI, RAM access must be enabled.
+    """
+    if ram_access_enable:
+        # - Write CTRL1.RAM_ACTIVE = 1
+        # - Write CTRL1.MEM_CLK_ON = 1
+        pass
+    else:
+        # - Write CTRL1.MEM_CLK_ON = 0
+        # - Write CTRL1.RAM_ACTIVE = 0
+        pass
