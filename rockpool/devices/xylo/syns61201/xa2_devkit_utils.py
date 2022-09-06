@@ -1937,53 +1937,58 @@ def pretty_print_register(
         else read_register(read_buffer, write_buffer, register)[0]
     )
 
-    import bitstring
+    try:
+        import bitstring
 
-    # - 'reverse' is needed so that MSB is bit 0
-    value = bitstring.BitArray(bin(value))
-    value.reverse()
-    value.append("uint:32=0")
+        # - 'reverse' is needed so that MSB is bit 0
+        value = bitstring.BitArray(bin(value))
+        value.reverse()
+        value.append("uint:32=0")
 
-    if register == Xylo2Registers.CTRL1:
-        trigger_mode = "manual" if value[0] else "auto"
-        isyn2_en = "enabled" if value[1] else "disabled"
-        alias_en = "enabled" if value[2] else "disabled"
-        bias_en = "enabled" if value[3] else "disabled"
-        inp_w_bitshift = value[4:7].uint
-        res_w_bitshhift = value[8:11].uint
-        out_w_bitshift = value[12:15].uint
-        mem_shell_clk = "on" if value[16] else "off"
-        all_ram_mode = "active" if value[17] else "inactive"
-        interrupt_mode = "keep" if value[20] else "clear"
-        direct_fetch_state_ram = (
-            "directly fetch state RAMs without SPI RAM init"
-            if value[21]
-            else "SPI RAM init required"
-        )
-        update_OMP_STATE = "always" if value[22] else "only on output neuron event"
-        hibernation = "enabled" if value[23] else "disabled"
-        rst_pe = "enabled" if value[24] else "disabled"
-        rst_ps = "enabled" if value[25] else "disabled"
-        ram_wu_st = value[28:32].uint
+        if register == Xylo2Registers.CTRL1:
+            trigger_mode = "manual" if value[0] else "auto"
+            isyn2_en = "enabled" if value[1] else "disabled"
+            alias_en = "enabled" if value[2] else "disabled"
+            bias_en = "enabled" if value[3] else "disabled"
+            inp_w_bitshift = value[4:7].uint
+            res_w_bitshhift = value[8:11].uint
+            out_w_bitshift = value[12:15].uint
+            mem_shell_clk = "on" if value[16] else "off"
+            all_ram_mode = "active" if value[17] else "inactive"
+            interrupt_mode = "keep" if value[20] else "clear"
+            direct_fetch_state_ram = (
+                "directly fetch state RAMs without SPI RAM init"
+                if value[21]
+                else "SPI RAM init required"
+            )
+            update_OMP_STATE = "always" if value[22] else "only on output neuron event"
+            hibernation = "enabled" if value[23] else "disabled"
+            rst_pe = "enabled" if value[24] else "disabled"
+            rst_ps = "enabled" if value[25] else "disabled"
+            ram_wu_st = value[28:32].uint
 
-        str = f"Trigger mode: {trigger_mode}\n"
-        str += f"2nd synapse: {isyn2_en}\n"
-        str += f"Aliases: {alias_en}\n"
-        str += f"Biases: {bias_en}\n"
-        str += f"Input weight bitshift: {inp_w_bitshift}\n"
-        str += f"Hidden weight bitshift: {res_w_bitshhift}\n"
-        str += f"Output weight bitshift: {out_w_bitshift}\n"
-        str += f"Memory shell clock manual switch on: {mem_shell_clk}\n"
-        str += f"Force all RAM to be active: {all_ram_mode}\n"
-        str += f"Output interrupt clearing mode for each time-step: {interrupt_mode}\n"
-        str += f"State RAM fetch mode: {direct_fetch_state_ram}\n"
-        str += f"When to update OMP_STAT register: {update_OMP_STATE}\n"
-        str += f"Hibernation mode: {hibernation}\n"
-        str += f"RST pad pull enable: {rst_pe}\n"
-        str += f"RST pad pull select: {rst_ps}\n"
-        str += f"RAM wake-up settling time: {ram_wu_st}ms\n"
+            str = f"Trigger mode: {trigger_mode}\n"
+            str += f"2nd synapse: {isyn2_en}\n"
+            str += f"Aliases: {alias_en}\n"
+            str += f"Biases: {bias_en}\n"
+            str += f"Input weight bitshift: {inp_w_bitshift}\n"
+            str += f"Hidden weight bitshift: {res_w_bitshhift}\n"
+            str += f"Output weight bitshift: {out_w_bitshift}\n"
+            str += f"Memory shell clock manual switch on: {mem_shell_clk}\n"
+            str += f"Force all RAM to be active: {all_ram_mode}\n"
+            str += (
+                f"Output interrupt clearing mode for each time-step: {interrupt_mode}\n"
+            )
+            str += f"State RAM fetch mode: {direct_fetch_state_ram}\n"
+            str += f"When to update OMP_STAT register: {update_OMP_STATE}\n"
+            str += f"Hibernation mode: {hibernation}\n"
+            str += f"RST pad pull enable: {rst_pe}\n"
+            str += f"RST pad pull select: {rst_ps}\n"
+            str += f"RAM wake-up settling time: {ram_wu_st}ms\n"
 
-        return str
+            return str
+    except:
+        pass
 
     return f"Register {Xylo2Registers(register).name}: {value.bin()} {value.hex()}"
 
