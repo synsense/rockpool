@@ -77,7 +77,12 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    advanced/graph_mapping.ipynb
    reference/params_types.ipynb
    reference/api
-   advanced/developers_notes
    advanced/CHANGELOG
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Developer documentation
+
+   developer/release_process.rst
 
 * :ref:`genindex`
