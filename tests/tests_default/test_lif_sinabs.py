@@ -57,12 +57,12 @@ pytest.importorskip("sinabs")
 pytest.importorskip("sinabs.exodus")
 
 
-def test_FF_equality_slayer():
+def test_FF_equality_exodus():
     import torch
     import numpy as np
 
     if not torch.cuda.is_available():
-        return
+        pytest.skip("CUDA is required for Exodus tests")
 
     # - parameter
     n_synapses = 1
@@ -87,9 +87,9 @@ def test_FF_equality_slayer():
     ).to("cuda")
 
     # - init LIFSlayer
-    from rockpool.nn.modules.sinabs.lif_slayer import LIFSlayer
+    from rockpool.nn.modules.sinabs.lif_exodus import LIFExodus
 
-    lif_sinabs = LIFSlayer(
+    lif_sinabs = LIFExodus(
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
@@ -130,14 +130,14 @@ def test_FF_equality_slayer():
             )
 
 
-def test_FF_multisyn_equality_slayer():
+def test_FF_multisyn_equality_exodus():
     import torch
     import numpy as np
 
     from rockpool.parameters import Constant
 
     if not torch.cuda.is_available():
-        return
+        pytest.skip("CUDA is required for Exodus tests")
 
     # - parameter
     n_synapses = 2
@@ -163,9 +163,9 @@ def test_FF_multisyn_equality_slayer():
     ).to("cuda")
 
     # - init LIFSlayer
-    from rockpool.nn.modules.sinabs.lif_slayer import LIFSlayer
+    from rockpool.nn.modules.sinabs.lif_exodus import LIFExodus
 
-    lif_sinabs = LIFSlayer(
+    lif_sinabs = LIFExodus(
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
@@ -204,3 +204,50 @@ def test_FF_multisyn_equality_slayer():
                 atol=1e-5,
                 rtol=1e-5,
             )
+
+
+def test_lif_slayer():
+    import torch
+
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA is required for Exodus tests")
+
+    from rockpool.nn.modules import LIFSlayer
+
+    # - Expect deprecation warning
+    with pytest.warns(DeprecationWarning):
+        mod = LIFSlayer(2)
+
+
+def test_exodus_membrane():
+    import torch
+
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA is required for Exodus tests")
+
+    # - init LIFSlayer
+    from rockpool.nn.modules import LIFMembraneExodus
+
+    # - parameter
+    n_synapses = 2
+    n_neurons = 10
+    n_batches = 3
+    T = 100
+    tau_mem = 0.01
+    tau_syn = 0.05
+
+    # - init LIFTorch
+    lm_exodus = LIFMembraneExodus(
+        shape=(n_synapses * n_neurons, n_neurons),
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        dt=1e-3,
+    ).to("cuda")
+
+    # - Generate some data
+    input_data = (
+        torch.rand(n_batches, T, n_synapses * n_neurons, requires_grad=True).cuda()
+        * 0.01
+    )
+
+    out_sinabs, ns_sinabs, rd_sinabs = lm_exodus(input_data)
