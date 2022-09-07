@@ -150,6 +150,9 @@ def test_wavesense_backward():
     from rockpool.parameters import Constant
     import torch
 
+    # - Ensure deterministic testing
+    torch.manual_seed(1)
+
     # model params
     dilations = [2, 16]
     n_out_neurons = 2
@@ -310,6 +313,9 @@ def test_wavesense_reset():
     threshold = 1.0
     dt = 0.001
 
+    # Ensure test is deterministic
+    torch.manual_seed(0)
+
     # model init
     model = WaveSenseNet(
         dilations=dilations,
@@ -333,7 +339,6 @@ def test_wavesense_reset():
     T = 20
 
     # input
-    torch.manual_seed(0)
     inp = torch.rand(n_batches, T, n_inp_neurons) * 10
 
     # forward

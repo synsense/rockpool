@@ -8,11 +8,14 @@ try:
     from .rate_torch import *
     from .lowpass import *
     from .lif_torch import *
+    from .ahp_lif_torch import *
+
     from .lif_bitshift_torch import *
     from .lif_neuron_torch import *
     from .exp_syn_torch import *
     from .updown_torch import *
     from .linear_torch import *
+    from .bool_state import *
 except:
     from rockpool.utilities.backend_management import (
         backend_available,
@@ -22,6 +25,8 @@ except:
     if not backend_available("torch"):
         TorchModule = missing_backend_shim("TorchModule", "torch")
         LIFTorch = missing_backend_shim("LIFTorch", "torch")
+        aLIFTorch = missing_backend_shim("aLIFTorch", "torch")
+
         LowPass = missing_backend_shim("LowPass", "torch")
         RateTorch = missing_backend_shim("RateTorch", "torch")
         LIFBitshiftTorch = missing_backend_shim("LIFBitshiftTorch", "torch")

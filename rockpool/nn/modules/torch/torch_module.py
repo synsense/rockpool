@@ -216,9 +216,7 @@ class TorchModule(Module, nn.Module):
             data = torch.unsqueeze(data, 0)
 
         if data.shape[-1] == 1:
-            data = torch.broadcast_to(
-                data, (data.shape[0], data.shape[1], self.size_in)
-            )
+            data = data.expand((data.shape[0], data.shape[1], self.size_in))
 
         # - Get shape of input
         (n_batches, time_steps, n_connections) = data.shape
@@ -468,6 +466,8 @@ class TorchModule(Module, nn.Module):
 
         # - Ensure other base-class attributes are set
         obj._shape = (None,)
+        obj._force_set_attributes = False
+        obj._in_Module_init = False
         obj._spiking_input = False
         obj._spiking_output = False
         obj._name = obj._get_name()

@@ -2,6 +2,50 @@
 
 All notable changes between Rockpool releases will be documented in this file.
 
+## [v2.4] -- 2022-08
+
+### Major changes
+
+ - `Linear...` modules now *do not* have a bias parameter, by default.
+
+### Added
+
+ - Support for Xylo SNN core v2, via XyloSim. Including biases and quantisation support; mapping and deployment for Xylo SNN core v2 (SYNS61201)
+ - Added support for Xylo-A2 test board, with audio recording support from Xylo AFE (`AFESamna` and `XyloSamna`) 
+ - Support for an LIF neuron including a trainable adaptive threshold (`aLIFTorch`). Deployable to Xylo
+ - New module `BooleanState`, which maintains a boolean state
+ - Support for membrane potential training using `LIFExodus`
+
+### Changed
+
+ - Xylo package support for HW versioning (SYNS61300; SYNS61201)
+ - Ability to return events, membrane potentials or synaptic currents as output from `XyloSim` and `XyloSamna`
+ - Enhanced Xylo `mapper` to be more lenient about weight matrix size --- now assumes missing weights are zero
+ - Xylo `mapper` is now more lenient about HW constraints, permitting larger numbers of input and output channels than supported by existing HDKs
+ - Xylo `mapper` supports a configurable number of maxmimum hidden and output neurons
+ - Running `black` is enforced by the CI pipeline
+ - `Linear...` modules now export bias parameters, if they are present
+ - `Linear...` modules now do not include bias parameters by default
+ - Xylo `mapper` now raises a warning if any linear weights have biases
+ - `LIFSlayer` renamed to `LIFExodus`, corresponding to `sinabs.exodus` library name change
+ - Periodic exponetial surrogate function now supports training thresholds
+
+### Fixed
+
+ - Fixes related to torch modules moved to simulation devices
+ - Fixed issue in `dropout.py`, where if jax was missing an ImportError was raised
+ - Fixed an issue with `Constant` `torch` parameters, where `deepcopy` would raise an error
+ - Fixed issue with newer versions of torch; torch v1.12 is now supported
+ - Updated to support changes in latest jax api
+ - Fixed bug in `WavesenseNet`, where neuron class would not be checked properly
+ - Fixed bug in `channel_quantize`, where *un*quantized weights were returned instead of quantized weights
+
+
+### Deprecated
+
+ - `LIFSlayer` is now deprecated
+
+
 ## [v2.3.1] -- 2022-03-24
 
 ### Hotfix

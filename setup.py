@@ -18,7 +18,7 @@ setup_args = {
             "brian2",
             "pytest>=6.0",
             "pytest-xdist",
-            "torch",
+            "torch>=1.8",
             "torchvision",
             "jax>=0.2.13",
             "jaxlib>=0.1.66",

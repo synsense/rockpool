@@ -1,6 +1,7 @@
 import pytest
 
 pytest.importorskip("scipy")
+pytest.importorskip("xylosim")
 
 
 def test_imports():
@@ -8,13 +9,13 @@ def test_imports():
 
 
 def test_init():
-    from rockpool.devices.xylo.analogFrontEnd import AFE
+    from rockpool.devices.xylo import AFESim
 
-    afe = AFE()
+    afe = AFESim()
 
 
 def test_evolve():
-    from rockpool.devices.xylo.analogFrontEnd import AFE
+    from rockpool.devices.xylo import AFESim
     from rockpool.timeseries import TSContinuous
     import numpy as np
 
@@ -31,7 +32,7 @@ def test_evolve():
     add_noise = True
     seed = 1
 
-    afe = AFE(
+    afe = AFESim(
         shape=num_filters,
         Q=Q,
         fc1=fc1,
@@ -63,12 +64,12 @@ def test_evolve():
 
 
 def test_zero_input():
-    from rockpool.devices.xylo.analogFrontEnd import AFE
+    from rockpool.devices.xylo import AFESim
     import numpy as np
 
     T = 1000
     Nout = 16
-    afe = AFE(Nout)
+    afe = AFESim(Nout)
     out, state, rec = afe(np.zeros((T, Nout)))
 
     assert out.shape == (T, Nout)
