@@ -100,9 +100,9 @@ def test_spike_clipping():
     )
 
     if torch.cuda.is_available():
-        from rockpool.nn.modules import LIFSlayer
+        from rockpool.nn.modules import LIFExodus
 
-        mod_slayer = LIFSlayer(
+        mod_slayer = LIFExodus(
             shape=(n_synapses * n_neurons, n_neurons),
             tau_mem=tau_mem[0].item(),
             tau_syn=tau_syn,
@@ -111,7 +111,7 @@ def test_spike_clipping():
             noise_std=0.0,
             threshold=threshold,
         ).cuda()
-        mod_slayer_xylo = LIFSlayer(
+        mod_slayer_xylo = LIFExodus(
             shape=(n_synapses * n_neurons, n_neurons),
             tau_mem=tau_mem[0].item(),
             tau_syn=tau_syn,

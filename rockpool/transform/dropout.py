@@ -9,13 +9,13 @@ from rockpool.transform.param_transformer import (
     JaxParameterTransformerMixin,
 )
 
-import jax.random as rand
-import jax.numpy as jnp
 import numpy as onp
 
 __all__ = ["Dropout"]
 
 try:
+    import jax.random as rand
+    import jax.numpy as jnp
     from rockpool.nn.modules.jax.jax_module import JaxModule
 
     class JaxDropout(JaxParameterTransformerMixin, JaxModule):
