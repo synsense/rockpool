@@ -27,6 +27,10 @@ __all__ = ["aLIFTorch"]
 
 
 class aLIFTorch(LIFBaseTorch):
+    """
+    A leaky integrate-and-fire spiking neuron model with adaptive hyperpolarisation, with a Torch backend
+    """
+
     def __init__(
         self,
         shape: Union[Tuple, int],
@@ -38,7 +42,7 @@ class aLIFTorch(LIFBaseTorch):
         **kwargs,
     ):
         """
-        A leaky integrate-and-fire spiking neuron model with adaptive hyperpolarisation, with a Torch backend
+        Instantiate an aLIFTorch module
 
         It is built based on LIFTorch with an added inhibitory recurrent connection called ahp (after hyperpolarization) feedback. This connection includes wahp and tau_ahp which currently are set to a constant negative scalar and trainable vectors, respectively. The role of this feedback is to pull down the membrane voltage and reduce the firing rate
 

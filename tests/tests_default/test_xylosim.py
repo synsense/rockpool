@@ -390,7 +390,7 @@ def test_FF_equality_slayer():
     weight = quant_scaling
 
     # - init LIFTorch
-    from rockpool.nn.modules import LIFSlayer
+    from rockpool.nn.modules import LIFExodus
     from rockpool.nn.modules.torch.lif_bitshift_torch import calc_bitshift_decay
 
     dash_mem = calc_bitshift_decay(torch.Tensor([tau_mem]), dt).item()
@@ -402,7 +402,7 @@ def test_FF_equality_slayer():
     tau_mem_slayer = (-dt / torch.log(alpha_bitshift)).item()
     tau_syn_slayer = (-dt / torch.log(beta_bitshift)).item()
 
-    lif_torch = LIFSlayer(
+    lif_torch = LIFExodus(
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem_slayer,
         tau_syn=tau_syn_slayer,

@@ -158,6 +158,10 @@ class ParameterBase:
         if isinstance(self.data, RP_Constant):
             self.__class__ = SimulationParameter
 
+            # - Unpack a torch tensor
+            if isinstance(self.data, Tensor):
+                self.data = tensor(self.data.detach().numpy())
+
         def numel(x):
             if isinstance(x, np.ndarray):
                 return x.size
@@ -207,10 +211,7 @@ class ParameterBase:
             self.data = self.init_func(self.shape)
         else:
             # - If concrete initialisation data is provided, then override the `init_func`
-            if isinstance(data, Tensor):
-                data = tensor(data)
-
-            data_copy = deepcopy(data)
+            data_copy = deepcopy(self.data)
             self.init_func = lambda _: data_copy
 
         # - Cast the data using the cast function
