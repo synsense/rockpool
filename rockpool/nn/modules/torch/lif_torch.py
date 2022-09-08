@@ -209,7 +209,7 @@ class LIFBaseTorch(TorchModule):
         self.decay_training = decay_training
         self.tau_mem: P_tensor = rp.Parameter(
             tau_mem,
-            family="decays",
+            family="taus",
             shape=[(self.size_out,), ()],
             init_func=lambda s: torch.ones(s) * 20e-3,
             cast_fn=self._to_float_tensor,
@@ -220,8 +220,7 @@ class LIFBaseTorch(TorchModule):
             alpha,
             family="decays",
             shape=[(self.size_out,), ()],
-            # init_func=lambda s: torch.ones(s) * 20e-3,
-            init_func=lambda s: torch.exp(-self.dt / self.tau_mem),
+            init_func=lambda s: torch.ones(s) * 0.9,
             cast_fn=self._to_float_tensor,
         )
         """ (Tensor) Membrane decay factor `(Nout,)` or `()` """
@@ -259,8 +258,7 @@ class LIFBaseTorch(TorchModule):
                 ),
                 (),
             ],
-            # init_func=lambda s: torch.ones(s) * 20e-3,
-            init_func=lambda s: torch.exp(-self.dt / self.tau_syn),
+            init_func=lambda s: torch.ones(s) * 0.1,
             cast_fn=self._to_float_tensor,
         )
         """ (Tensor) Synaptic decay factor `(Nin,)` or `()` """
@@ -376,14 +374,12 @@ class LIFBaseTorch(TorchModule):
         # - Return a graph containing neurons and optional weights
         return as_GraphHolder(neurons)
 
-    # @property
     def calc_alpha(self) -> torch.Tensor:
         """
         Decay factor for membrane time constants :py:attr:`.LIFTorch.tau_mem`
         """
         return torch.exp(-self.dt / self.tau_mem).to(self.tau_mem.device)
 
-    @property
     def calc_beta(self) -> torch.Tensor:
         """
         Decay factor for synaptic time constants :py:attr:`.LIFTorch.tau_syn`
@@ -470,16 +466,8 @@ class LIFTorch(LIFBaseTorch):
         )
 
         # - Calculate and cache updated values for decay factors
-        if self.decay_training:
-            alpha = self.alpha
-            beta = self.beta
-        else:
-            # print('here')
-            # print(self.calc_alpha())
-            # print()
-            alpha = self.calc_alpha()
-            beta = self.calc_beta
-
+        alpha = self.alpha  if self.decay_training else self.calc_alpha()
+        beta = self.beta  if self.decay_training else self.calc_beta()
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
 
         # - Generate membrane noise trace
@@ -500,8 +488,8 @@ class LIFTorch(LIFBaseTorch):
                 isyn = isyn + irec
 
             # Decay synaptic and membrane state
-            vmem *= alpha
-            isyn *= beta
+            vmem *= alpha.to(vmem.device)
+            isyn *= beta.to(isyn.device)
 
             # Integrate membrane state and apply noise
             vmem = vmem + isyn.sum(2) + noise_ts[:, t, :] + self.bias
