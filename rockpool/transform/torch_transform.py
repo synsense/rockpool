@@ -685,3 +685,26 @@ def make_act_T_network(
                 setattr(net, k, make_act_T_network(mod[0], act_T_config[k]))
 
     return net
+
+# calculating bit shift decay from time constant
+def calc_bitshift_decay(tau, dt):
+        bitsh = torch.round(torch.log2(tau/dt)).int()
+        bitsh[bitsh < 0] = 0
+        return bitsh  
+
+# calculating quantized decays
+def calc_q_decay(decay):
+        dt = 1e-3
+        tau = -dt/torch.log(decay)
+        N = calc_bitshift_decay(tau, dt) 
+        q_alpha = torch.tensor(1-(1/(2**N)))
+
+        return q_alpha    
+
+#          
+decay_passthrough = make_backward_passthrough(calc_q_decay)
+
+# decay transformation
+def t_decay(decay):
+    t_a = decay_passthrough(decay)
+    return t_a
