@@ -507,12 +507,11 @@ class TorchModule(Module, nn.Module):
             obj._submodulenames.append(name)
 
     def json_to_param(self, jparam):
-
         if not jparam:
             return
 
         for k, param in jparam.items():
-
+            
             if isinstance(param, str):
                 param = json.loads(param)
 
@@ -520,7 +519,13 @@ class TorchModule(Module, nn.Module):
                 self.modules()[k].json_to_param(param)
             else:
                 my_params = self.parameters()
-                my_params.update(self.simulation_parameters())
+               
+                if  '_mod' in my_params:
+                    my_params = my_params['_mod']
+                    my_params.update(self.simulation_parameters()['_mod'])
+                else:
+                    my_params.update(self.simulation_parameters())
+
                 if isinstance(my_params[k], list):
                     my_params[k] = param
                 elif isinstance(my_params[k], int):
