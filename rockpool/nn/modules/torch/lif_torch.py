@@ -466,8 +466,8 @@ class LIFTorch(LIFBaseTorch):
         )
 
         # - Calculate and cache updated values for decay factors
-        alpha = self.alpha  if self.decay_training else self.calc_alpha()
-        beta = self.beta  if self.decay_training else self.calc_beta()
+        alpha = self.alpha if self.decay_training else self.calc_alpha()
+        beta = self.beta if self.decay_training else self.calc_beta()
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
 
         # - Generate membrane noise trace
