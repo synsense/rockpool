@@ -317,7 +317,9 @@ class DynapSim(JaxModule):
         )
 
         if self.size_in != self.size_out:
-            raise ValueError("Multapses are not currently supported in DynapSim pipeline!")
+            raise ValueError(
+                "Multapses are not currently supported in DynapSim pipeline!"
+            )
 
         # - Seed RNG
         if rng_key is None:
@@ -385,6 +387,7 @@ class DynapSim(JaxModule):
             permit_reshape=False,
             cast_fn=jnp.array,
         )
+
         # -- #
         self.Idc = __simparam(Idc)
         self.If_nmda = __simparam(If_nmda)
@@ -414,14 +417,6 @@ class DynapSim(JaxModule):
         self.Vth = __simparam(Vth)
         self.Iw_base = __simparam(Iw_base)
 
-        # self.md = MismatchDevice(
-        #     rng_key,
-        #     percent=0.0,
-        #     **self.state(),
-        #     **self.parameters(),
-        #     **self.simulation_parameters(),
-        # )
-
         # Escape from mismatch
         self.rng_key = State(rng_key, init_func=lambda _: rng_key)
         self.dt = SimulationParameter(dt, shape=())
@@ -436,266 +431,6 @@ class DynapSim(JaxModule):
             "has_rec": has_rec,
             "weight_init_func": Partial(weight_init_func),
         }
-
-    @classmethod
-    def from_specification(
-        cls,
-        shape: Optional[Tuple[int]],
-        has_rec: bool = True,
-        w_rec_mask: np.ndarray = None,
-        Idc: float = dcurrents["Idc"],
-        If_nmda: float = dcurrents["If_nmda"],
-        r_gain_ahp: float = dgain["r_gain_ahp"],
-        r_gain_ampa: float = dgain["r_gain_ampa"],
-        r_gain_gaba: float = dgain["r_gain_gaba"],
-        r_gain_nmda: float = dgain["r_gain_nmda"],
-        r_gain_shunt: float = dgain["r_gain_shunt"],
-        r_gain_mem: float = dgain["r_gain_mem"],
-        t_pulse_ahp: float = dtime["t_pulse_ahp"],
-        t_pulse: float = dtime["t_pulse"],
-        t_ref: float = dtime["t_ref"],
-        Ispkthr: float = dcurrents["Ispkthr"],
-        tau_ahp: float = dtime["tau_ahp"],
-        tau_ampa: float = dtime["tau_ampa"],
-        tau_gaba: float = dtime["tau_gaba"],
-        tau_nmda: float = dtime["tau_nmda"],
-        tau_shunt: float = dtime["tau_shunt"],
-        tau_mem: float = dtime["tau_mem"],
-        Iw_0: float = dweight["Iw_0"],
-        Iw_1: float = dweight["Iw_1"],
-        Iw_2: float = dweight["Iw_2"],
-        Iw_3: float = dweight["Iw_3"],
-        Iw_ahp: float = dcurrents["Iw_ahp"],
-        C_ahp: float = dlayout["C_ahp"],
-        C_ampa: float = dlayout["C_ampa"],
-        C_gaba: float = dlayout["C_gaba"],
-        C_nmda: float = dlayout["C_nmda"],
-        C_pulse_ahp: float = dlayout["C_pulse_ahp"],
-        C_pulse: float = dlayout["C_pulse"],
-        C_ref: float = dlayout["C_ref"],
-        C_shunt: float = dlayout["C_shunt"],
-        C_mem: float = dlayout["C_mem"],
-        Io: float = dlayout["Io"],
-        kappa_n: float = dlayout["kappa_n"],
-        kappa_p: float = dlayout["kappa_p"],
-        Ut: float = dlayout["Ut"],
-        Vth: float = dlayout["Vth"],
-        weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = kaiming,
-        dt: float = 1e-3,
-        rng_key: Optional[Any] = None,
-        spiking_input: bool = False,
-        spiking_output: bool = True,
-    ) -> DynapSim:
-        """
-        from_specification is a class factory method which takes higher level simulation parameters and converts them to circuit level simulator biases
-
-        :param shape: Either a single dimension ``N``, which defines a feed-forward layer of DynapSE AdExpIF neurons, or two dimensions ``(N, N)``, which defines a recurrent layer of DynapSE AdExpIF neurons.
-        :type shape: Optional[Tuple[int]]
-        :param has_rec: When ``True`` the module provides a trainable recurrent weight matrix. ``False``, module is feed-forward, defaults to True
-        :type has_rec: bool, optional
-        :param w_rec_mask: A matrix of encoded bit masks representing bitselect values to select and dot product the base Iw currents (pre, post, gate), for recurrent connections, defaults to None
-        :type w_rec_mask: np.ndarray, optional
-        :param Idc: Constant DC current injected to membrane in Amperes
-        :type Idc: float, optional
-        :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes
-        :type If_nmda: float, optional
-        :param r_gain_ahp: spike frequency adaptation block gain ratio :math:`Igain_ahp/Itau_ahp`
-        :type r_gain_ahp: float, optional
-        :param r_gain_ampa: excitatory AMPA synpse gain ratio :math:`Igain_ampa/Itau_ampa`
-        :type r_gain_ampa: float, optional
-        :param r_gain_gaba: inhibitory GABA synpse gain ratio :math:`Igain_gaba/Itau_gaba `
-        :type r_gain_gaba: float, optional
-        :param r_gain_nmda: excitatory NMDA synpse gain ratio :math:`Igain_nmda/Itau_nmda`
-        :type r_gain_nmda: float, optional
-        :param r_gain_shunt: inhibitory SHUNT synpse gain ratio :math:`Igain_shunt/Itau_shunt`
-        :type r_gain_shunt: float, optional
-        :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`
-        :type r_gain_mem: float, optional
-        :param t_pulse_ahp: the spike pulse width for spike frequency adaptation circuit in seconds
-        :type t_pulse_ahp: float, optional
-        :param t_pulse: the spike pulse width for neuron membrane in seconds
-        :type t_pulse: float, optional
-        :param t_ref: refractory period of the neurons in seconds
-        :type t_ref: float, optional
-        :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes
-        :type Ispkthr: float, optional
-        :param tau_ahp: Spike frequency leakage time constant in seconds
-        :type tau_ahp: float, optional
-        :param tau_ampa: AMPA synapse leakage time constant in seconds
-        :type tau_ampa: float, optional
-        :param tau_gaba: GABA synapse leakage time constant in seconds
-        :type tau_gaba: float, optional
-        :param tau_nmda: NMDA synapse leakage time constant in seconds
-        :type tau_nmda: float, optional
-        :param tau_shunt:SHUNT synapse leakage time constant in seconds
-        :type tau_shunt: float, optional
-        :param tau_mem: Neuron membrane leakage time constant in seconds
-        :type tau_mem: float, optional
-        :param Iw_0: weight bit 0 current of the neurons of the core in Amperes
-        :type Iw_0: float
-        :param Iw_1: weight bit 1 current of the neurons of the core in Amperes
-        :type Iw_1: float
-        :param Iw_2: weight bit 2 current of the neurons of the core in Amperes
-        :type Iw_2: float
-        :param Iw_3: weight bit 3 current of the neurons of the core in Amperes
-        :type Iw_3: float
-        :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes
-        :type Iw_ahp: float
-        :param C_ahp: AHP synapse capacitance in Farads
-        :type C_ahp: float, optional
-        :param C_ampa: AMPA synapse capacitance in Farads
-        :type C_ampa: float, optional
-        :param C_gaba: GABA synapse capacitance in Farads
-        :type C_gaba: float, optional
-        :param C_nmda: NMDA synapse capacitance in Farads
-        :type C_nmda: float, optional
-        :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads
-        :type C_pulse_ahp: float, optional
-        :param C_pulse: pulse-width creation sub-circuit capacitance in Farads
-        :type C_pulse: float, optional
-        :param C_ref: refractory period sub-circuit capacitance in Farads
-        :type C_ref: float, optional
-        :param C_shunt: SHUNT synapse capacitance in Farads
-        :type C_shunt: float, optional
-        :param C_mem: neuron membrane capacitance in Farads
-        :type C_mem: float, optional
-        :param Io: Dark current in Amperes that flows through the transistors even at the idle state
-        :type Io: float, optional
-        :param kappa_n: Subthreshold slope factor (n-type transistor)
-        :type kappa_n: float, optional
-        :param kappa_p: Subthreshold slope factor (p-type transistor)
-        :type kappa_p: float, optional
-        :param Ut: Thermal voltage in Volts
-        :type Ut: float, optional
-        :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific)
-        :type Vth: float, optional
-        :param weight_init_func: The initialisation function to use when generating weights, gets the shape and returns the initial weights, defatuls to None (poisson_DynapSE)
-        :type weight_init_func: Optional[Callable[[Tuple], np.ndarray]], optional
-        :param dt: The time step for the forward-Euler ODE solver, defaults to 1e-3
-        :type dt: float, optional
-        :param rng_key: The Jax RNG seed to use on initialisation. By default, a new seed is generated, defaults to None
-        :type rng_key: Optional[Any], optional
-        :param spiking_input: Whether this module receives spiking input, defaults to True
-        :type spiking_input: bool, optional
-        :param spiking_output: Whether this module produces spiking output, defaults to True
-        :type spiking_output: bool, optional
-        :return: a DynapSim object constructed by high-level values specified
-        :rtype: DynapSim
-        """
-
-        simconfig = DynapSimConfig.from_specification(
-            shape=shape[-1],
-            w_rec_mask=w_rec_mask,
-            Idc=Idc,
-            If_nmda=If_nmda,
-            r_gain_ahp=r_gain_ahp,
-            r_gain_ampa=r_gain_ampa,
-            r_gain_gaba=r_gain_gaba,
-            r_gain_nmda=r_gain_nmda,
-            r_gain_shunt=r_gain_shunt,
-            r_gain_mem=r_gain_mem,
-            t_pulse_ahp=t_pulse_ahp,
-            t_pulse=t_pulse,
-            t_ref=t_ref,
-            Ispkthr=Ispkthr,
-            tau_ahp=tau_ahp,
-            tau_ampa=tau_ampa,
-            tau_gaba=tau_gaba,
-            tau_nmda=tau_nmda,
-            tau_shunt=tau_shunt,
-            tau_mem=tau_mem,
-            Iw_0=Iw_0,
-            Iw_1=Iw_1,
-            Iw_2=Iw_2,
-            Iw_3=Iw_3,
-            Iw_ahp=Iw_ahp,
-            C_ahp=C_ahp,
-            C_ampa=C_ampa,
-            C_gaba=C_gaba,
-            C_nmda=C_nmda,
-            C_pulse_ahp=C_pulse_ahp,
-            C_pulse=C_pulse,
-            C_ref=C_ref,
-            C_shunt=C_shunt,
-            C_mem=C_mem,
-            Io=Io,
-            kappa_n=kappa_n,
-            kappa_p=kappa_p,
-            Ut=Ut,
-            Vth=Vth,
-        )
-
-        _mod = cls.from_DynapSimConfig(
-            shape=shape,
-            simconfig=simconfig,
-            has_rec=has_rec,
-            weight_init_func=weight_init_func,
-            dt=dt,
-            rng_key=rng_key,
-            spiking_input=spiking_input,
-            spiking_output=spiking_output,
-        )
-        return _mod
-
-    @classmethod
-    def from_DynapSimConfig(
-        cls,
-        shape: Optional[Tuple[int]],
-        simconfig: DynapSimConfig,
-        has_rec: bool = True,
-        weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = kaiming,
-        dt: float = 1e-3,
-        rng_key: Optional[Any] = None,
-        spiking_input: bool = False,
-        spiking_output: bool = True,
-        **kwargs,
-    ) -> DynapSim:
-        """
-        from_DynapSimConfig is a class factory method, which uses an existing simulation configuration object to construct a `DynapSim` object
-
-        :param shape: Either a single dimension ``N``, which defines a feed-forward layer of DynapSE AdExpIF neurons, or two dimensions ``(N, N)``, which defines a recurrent layer of DynapSE AdExpIF neurons.
-        :type shape: Optional[Tuple[int]]
-        :param simconfig: the simulation configuration object
-        :type simconfig: DynapSimConfig
-        :param has_rec: When ``True`` the module provides a trainable recurrent weight matrix. ``False``, module is feed-forward, defaults to True
-        :type has_rec: bool, optional
-        :param weight_init_func: The initialisation function to use when generating weights, gets the shape and returns the initial weights, defatuls to None (poisson_DynapSE)
-        :type weight_init_func: Optional[Callable[[Tuple], np.ndarray]], optional
-        :param dt: The time step for the forward-Euler ODE solver, defaults to 1e-3
-        :type dt: float, optional
-        :param rng_key: The Jax RNG seed to use on initialisation. By default, a new seed is generated, defaults to None
-        :type rng_key: Optional[Any], optional
-        :param spiking_input: Whether this module receives spiking input, defaults to True
-        :type spiking_input: bool, optional
-        :param spiking_output: Whether this module produces spiking output, defaults to True
-        :type spiking_output: bool, optional
-        :return: a DynapSim object constructed using a simulation configuration object
-        :rtype: DynapSim
-        """
-
-        if weight_init_func is None:
-            weight_init_func = lambda _: simconfig.w_rec
-
-        __constructor = dict.fromkeys(DynapSimLayout.__annotations__.keys())
-        __constructor.update(dict.fromkeys(DynapSimCurrents.__annotations__.keys()))
-        __constructor.update(dict.fromkeys(DynapSimWeightBits.__annotations__.keys()))
-        __constructor.update(dict.fromkeys(["w_rec"]))
-
-        for key in __constructor:
-            __constructor[key] = simconfig.__getattribute__(key)
-
-        _mod = cls(
-            shape=shape,
-            has_rec=has_rec,
-            weight_init_func=weight_init_func,
-            dt=dt,
-            rng_key=rng_key,
-            spiking_input=spiking_input,
-            spiking_output=spiking_output,
-            **__constructor,
-            **kwargs,
-        )
-        return _mod
 
     @classmethod
     def from_Dynapse1Configuration(cls, config: Dynapse1Configuration) -> DynapSim:
