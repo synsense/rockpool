@@ -67,6 +67,7 @@ from rockpool.devices.dynapse.default import dlayout, dweight, dtime, dgain, dcu
 from rockpool.devices.dynapse.definitions import DynapSimRecord, DynapSimState
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
+from rockpool.nn.modules.native.linear import kaiming
 from rockpool.parameters import Parameter, State, SimulationParameter
 
 from rockpool.devices.dynapse.infrastructure.mismatch import MismatchDevice
@@ -161,11 +162,6 @@ class DynapSim(JaxModule):
 
         I_{mem, j} = I_{reset}
 
-    :Attributes:
-
-    :attr biases: name list of all the low level biases
-    :type biases: List[str]
-
     :Parameters:
 
     :param shape: Either a single dimension ``N``, which defines a feed-forward layer of DynapSE AdExpIF neurons, or two dimensions ``(N, N)``, which defines a recurrent layer of DynapSE AdExpIF neurons.
@@ -224,7 +220,7 @@ class DynapSim(JaxModule):
     :type w_rec: Optional[np.ndarray], optional
     :param has_rec: When ``True`` the module provides a trainable recurrent weight matrix. ``False``, module is feed-forward, defaults to True
     :type has_rec: bool, optional
-    :param weight_init_func: The initialisation function to use when generating weights, gets the shape and returns the initial weights, defatuls to None (poisson_DynapSE)
+    :param weight_init_func: The initialisation function to use when generating weights, gets the shape and returns the initial weights, defatuls to kaiming
     :type weight_init_func: Optional[Callable[[Tuple], np.ndarray]], optional
     :param dt: The time step for the forward-Euler ODE solver, defaults to 1e-3
     :type dt: float, optional
@@ -291,7 +287,7 @@ class DynapSim(JaxModule):
         Vth: Optional[np.ndarray] = dlayout["Vth"],
         w_rec: Optional[jnp.DeviceArray] = None,
         has_rec: bool = False,
-        weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = None,
+        weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = kaiming,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
         spiking_input: bool = False,
@@ -319,6 +315,9 @@ class DynapSim(JaxModule):
             *args,
             **kwargs,
         )
+
+        if self.size_in != self.size_out:
+            raise ValueError("Multapses are not currently supported in DynapSim pipeline!")
 
         # - Seed RNG
         if rng_key is None:
@@ -370,7 +369,8 @@ class DynapSim(JaxModule):
                 cast_fn=jnp.array,
             )
         else:
-            self.w_rec = Parameter(
+            # Do not let it break the pipeline
+            self.w_rec = SimulationParameter(
                 data=jnp.zeros((self.size_out, self.size_in)), family="weights"
             )
 
@@ -414,13 +414,13 @@ class DynapSim(JaxModule):
         self.Vth = __simparam(Vth)
         self.Iw_base = __simparam(Iw_base)
 
-        self.md = MismatchDevice(
-            rng_key,
-            percent=0.0,
-            **self.state(),
-            **self.parameters(),
-            **self.simulation_parameters(),
-        )
+        # self.md = MismatchDevice(
+        #     rng_key,
+        #     percent=0.0,
+        #     **self.state(),
+        #     **self.parameters(),
+        #     **self.simulation_parameters(),
+        # )
 
         # Escape from mismatch
         self.rng_key = State(rng_key, init_func=lambda _: rng_key)
@@ -431,11 +431,11 @@ class DynapSim(JaxModule):
         self.__one = jnp.array(1.0)
         self.__two = jnp.array(2.0)
 
-        # # - Define additional arguments required during initialisation
-        # self._init_args = {
-        #     "has_rec": has_rec,
-        #     "weight_init_func": Partial(weight_init_func),
-        # }
+        # - Define additional arguments required during initialisation
+        self._init_args = {
+            "has_rec": has_rec,
+            "weight_init_func": Partial(weight_init_func),
+        }
 
     @classmethod
     def from_specification(
@@ -480,7 +480,7 @@ class DynapSim(JaxModule):
         kappa_p: float = dlayout["kappa_p"],
         Ut: float = dlayout["Ut"],
         Vth: float = dlayout["Vth"],
-        weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = None,
+        weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = kaiming,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
         spiking_input: bool = False,
@@ -583,11 +583,6 @@ class DynapSim(JaxModule):
         :rtype: DynapSim
         """
 
-        # if weight_init_func is None:
-        #     weight_init_func = lambda s: poisson_weights_se2(
-        #         s, Iw_0=Iw_0, Iw_1=Iw_1, Iw_2=Iw_2, Iw_3=Iw_3
-        #     )
-
         simconfig = DynapSimConfig.from_specification(
             shape=shape[-1],
             w_rec_mask=w_rec_mask,
@@ -648,7 +643,7 @@ class DynapSim(JaxModule):
         shape: Optional[Tuple[int]],
         simconfig: DynapSimConfig,
         has_rec: bool = True,
-        weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = None,
+        weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = kaiming,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
         spiking_input: bool = False,
@@ -728,38 +723,38 @@ class DynapSim(JaxModule):
         :rtype: Tuple[jnp.DeviceArray, Dict[str, jnp.DeviceArray], Dict[str, jnp.DeviceArray]]
         """
 
-        kappa = (self.md.kappa_n + self.md.kappa_p) / 2
+        kappa = (self.kappa_n + self.kappa_p) / 2
 
         # --- Time constant computation utils --- #
-        __pw = lambda ipw, C: (self.md.Vth * C) / ipw
-        __tau = lambda itau, C: ((self.md.Ut / kappa) * C.T).T / itau
+        __pw = lambda ipw, C: (self.Vth * C) / ipw
+        __tau = lambda itau, C: ((self.Ut / kappa) * C.T).T / itau
 
-        tau_mem = lambda itau: __tau(itau, self.md.C_mem)
+        tau_mem = lambda itau: __tau(itau, self.C_mem)
 
         # --- Stateless Parameters --- #
-        t_ref = __pw(self.md.Iref, self.md.C_ref)
-        t_pulse = __pw(self.md.Ipulse, self.md.C_pulse)
-        t_pulse_ahp = __pw(self.md.Ipulse_ahp, self.md.C_pulse_ahp)
+        t_ref = __pw(self.Iref, self.C_ref)
+        t_pulse = __pw(self.Ipulse, self.C_pulse)
+        t_pulse_ahp = __pw(self.Ipulse_ahp, self.C_pulse_ahp)
 
         ## --- Synapse --- ## Nrec
-        Itau_syn_clip = jnp.clip(self.md.Itau_syn, self.md.Io)
-        Igain_syn_clip = jnp.clip(self.md.Igain_syn, self.md.Io)
-        tau_syn = __tau(Itau_syn_clip, self.md.C_syn)
+        Itau_syn_clip = jnp.clip(self.Itau_syn, self.Io)
+        Igain_syn_clip = jnp.clip(self.Igain_syn, self.Io)
+        tau_syn = __tau(Itau_syn_clip, self.C_syn)
 
         ## --- Spike frequency adaptation --- ## Nrec
-        Itau_ahp_clip = jnp.clip(self.md.Itau_ahp, self.md.Io)
-        Igain_ahp_clip = jnp.clip(self.md.Igain_ahp, self.md.Io)
-        tau_ahp = __tau(Itau_ahp_clip, self.md.C_ahp)
+        Itau_ahp_clip = jnp.clip(self.Itau_ahp, self.Io)
+        Igain_ahp_clip = jnp.clip(self.Igain_ahp, self.Io)
+        tau_ahp = __tau(Itau_ahp_clip, self.C_ahp)
 
         ## -- Membrane -- ## Nrec
-        Itau_mem_clip = jnp.clip(self.md.Itau_mem, self.md.Io)
-        Igain_mem_clip = jnp.clip(self.md.Igain_mem, self.md.Io)
+        Itau_mem_clip = jnp.clip(self.Itau_mem, self.Io)
+        Igain_mem_clip = jnp.clip(self.Igain_mem, self.Io)
 
         # Handle Batches
         initial_state = (
-            self.md.iahp,
-            self.md.imem,
-            self.md.iampa,
+            self.iahp,
+            self.imem,
+            self.iampa,
             self.rng_key,
             self.spikes,
             self.timer_ref,
@@ -812,7 +807,7 @@ class DynapSim(JaxModule):
 
             # isyn_inf is the current that a synapse current would reach with a sufficiently long pulse
             isyn_inf = (Igain_syn_clip / Itau_syn_clip) * Iws
-            # isyn_inf = jnp.clip(isyn_inf, self.md.Io)
+            # isyn_inf = jnp.clip(isyn_inf, self.Io)
 
             ## Exponential charge, discharge positive feedback factor arrays
             f_charge = self.__one - jnp.exp(-t_pulse / tau_syn.T).T  # Nrecx4
@@ -823,13 +818,13 @@ class DynapSim(JaxModule):
 
             ## CHARGE if spike occurs -- UNDERSAMPLED -- dt >> t_pulse
             isyn += f_charge * isyn_inf
-            # isyn = jnp.clip(isyn.T, self.md.Io).T  # Nrecx4
+            # isyn = jnp.clip(isyn.T, self.Io).T  # Nrecx4
 
             # ------------------------------------------------------ #
             # --- Forward step: AHP : Spike Frequency Adaptation --- #
             # ------------------------------------------------------ #
 
-            Iws_ahp = self.md.Iw_ahp * spikes  # 0 if no spike, Iw_ahp if spike
+            Iws_ahp = self.Iw_ahp * spikes  # 0 if no spike, Iw_ahp if spike
             iahp_inf = (Igain_ahp_clip / Itau_ahp_clip) * Iws_ahp
 
             # Calculate charge and discharge factors
@@ -841,7 +836,7 @@ class DynapSim(JaxModule):
 
             ## CHARGE if spike occurs -- UNDERSAMPLED -- dt >> t_pulse
             iahp += f_charge_ahp * iahp_inf
-            iahp = jnp.clip(iahp, self.md.Io)  # Nrec
+            iahp = jnp.clip(iahp, self.Io)  # Nrec
 
             # ------------------------------ #
             # --- Forward step: MEMBRANE --- #
@@ -850,21 +845,21 @@ class DynapSim(JaxModule):
             ## Feedback
             _kappa_2 = jnp.power(kappa, self.__two)
             _kappa_prime = _kappa_2 / (kappa + self.__one)
-            f_feedback = jnp.exp(_kappa_prime * (vmem / self.md.Ut))  # 4xNrec
+            f_feedback = jnp.exp(_kappa_prime * (vmem / self.Ut))  # 4xNrec
 
             ## Leakage
             Ileak = Itau_mem_clip + iahp
 
             ## Injection
-            Iin = isyn - Ileak + self.md.Idc
+            Iin = isyn - Ileak + self.Idc
             Iin *= jnp.logical_not(timer_ref.astype(bool)).astype(jnp.float32)
-            Iin = jnp.clip(Iin, self.md.Io)
+            Iin = jnp.clip(Iin, self.Io)
 
             ## Steady state current
             imem_inf = (Igain_mem_clip / Itau_mem_clip) * (Iin - Ileak)
 
             ## Positive feedback
-            Ifb = self.md.Io * f_feedback
+            Ifb = self.Io * f_feedback
             f_imem = ((Ifb) / (Ileak)) * (imem + Igain_mem_clip)
 
             ## Forward Euler Update
@@ -872,21 +867,21 @@ class DynapSim(JaxModule):
                 imem_inf + f_imem - (imem * (self.__one + (iahp / Itau_mem_clip)))
             )
             imem = imem + del_imem * self.dt
-            imem = jnp.clip(imem, self.md.Io)
+            imem = jnp.clip(imem, self.Io)
 
             ## Membrane Potential
-            vmem = (self.md.Ut / kappa) * jnp.log(imem / self.md.Io)
+            vmem = (self.Ut / kappa) * jnp.log(imem / self.Io)
 
             # ------------------------------ #
             # --- Spike Generation Logic --- #
             # ------------------------------ #
 
             ## Detect next spikes (with custom gradient)
-            spikes = step_pwl(imem, self.md.Ispkthr, self.md.Io)
+            spikes = step_pwl(imem, self.Ispkthr, self.Io)
 
             ## Reset imem depending on spiking activity
             bool_spikes = jnp.clip(spikes, 0, 1)
-            imem = (self.__one - bool_spikes) * imem + bool_spikes * self.md.Io
+            imem = (self.__one - bool_spikes) * imem + bool_spikes * self.Io
 
             ## Set the refractrory timer
             timer_ref -= self.dt
