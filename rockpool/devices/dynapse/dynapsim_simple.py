@@ -5,9 +5,10 @@ Trainable parameters
 
 renamed: dynapse1_neuron_synapse_jax.py -> adexplif_jax.py @ 211206
 renamed: adexplif_jax.py -> dynapsim.py @ 220502
-simplified : dynapsim -> dynapsim_simple -> dynapsim @ 220907
+simplified : dynapsim -> dynapsim_simple @ 220907
 
-References:
+References
+
 [1] E. Chicca, F. Stefanini, C. Bartolozzi and G. Indiveri,
     "Neuromorphic Electronic Circuits for Building Autonomous Cognitive Systems,"
     in Proceedings of the IEEE, vol. 102, no. 9, pp. 1367-1388, Sept. 2014,
@@ -37,6 +38,7 @@ Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 13/07/2021
+
 [] TODO : Optional mismatch
 [] TODO : Check LIFjax for core.Tracer and all the other things
 [] TODO : max spikes per dt
@@ -62,7 +64,6 @@ from rockpool.devices.dynapse.config.simconfig import (
     DynapSimWeightBits,
 )
 from rockpool.devices.dynapse.default import dlayout, dweight, dtime, dgain, dcurrents
-from rockpool.devices.dynapse.config.weights import WeightParameters
 from rockpool.devices.dynapse.definitions import DynapSimRecord, DynapSimState
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
@@ -175,16 +176,10 @@ class DynapSim(JaxModule):
     :type If_nmda: Optional[np.ndarray], optinoal
     :param Igain_ahp: gain bias current of the spike frequency adaptation block in Amperes with shape (Nrec,)
     :type Igain_ahp: Optional[np.ndarray], optinoal
-    :param Igain_ampa: gain bias current of excitatory AMPA synapse in Amperes with shape (Nrec,)
-    :type Igain_ampa: Optional[np.ndarray], optinoal
-    :param Igain_gaba: gain bias current of inhibitory GABA synapse in Amperes with shape (Nrec,)
-    :type Igain_gaba: Optional[np.ndarray], optinoal
-    :param Igain_nmda: gain bias current of excitatory NMDA synapse in Amperes with shape (Nrec,)
-    :type Igain_nmda: Optional[np.ndarray], optinoal
-    :param Igain_shunt: gain bias current of the inhibitory SHUNT synapse in Amperes with shape (Nrec,)
-    :type Igain_shunt: Optional[np.ndarray], optinoal
     :param Igain_mem: gain bias current for neuron membrane in Amperes with shape (Nrec,)
     :type Igain_mem: Optional[np.ndarray], optinoal
+    :param Igain_syn: gain bias current of synaptic gates (AMPA, GABA, NMDA, SHUNT) combined in Amperes with shape (Nrec,)
+    :type Igain_syn: Optional[np.ndarray], optinoal
     :param Ipulse_ahp: bias current setting the pulse width for spike frequency adaptation block `t_pulse_ahp` in Amperes with shape (Nrec,)
     :type Ipulse_ahp: Optional[np.ndarray], optinoal
     :param Ipulse: bias current setting the pulse width for neuron membrane `t_pulse` in Amperes with shape (Nrec,)
@@ -195,42 +190,24 @@ class DynapSim(JaxModule):
     :type Ispkthr: Optional[np.ndarray], optinoal
     :param Itau_ahp: Spike frequency adaptation leakage current setting the time constant `tau_ahp` in Amperes with shape (Nrec,)
     :type Itau_ahp: Optional[np.ndarray], optinoal
-    :param Itau_ampa: AMPA synapse leakage current setting the time constant `tau_ampa` in Amperes with shape (Nrec,)
-    :type Itau_ampa: Optional[np.ndarray], optinoal
-    :param Itau_gaba: GABA synapse leakage current setting the time constant `tau_gaba` in Amperes with shape (Nrec,)
-    :type Itau_gaba: Optional[np.ndarray], optinoal
-    :param Itau_nmda: NMDA synapse leakage current setting the time constant `tau_nmda` in Amperes with shape (Nrec,)
-    :type Itau_nmda: Optional[np.ndarray], optinoal
-    :param Itau_shunt: SHUNT synapse leakage current setting the time constant `tau_shunt` in Amperes with shape (Nrec,)
-    :type Itau_shunt: Optional[np.ndarray], optinoal
     :param Itau_mem: Neuron membrane leakage current setting the time constant `tau_mem` in Amperes with shape (Nrec,)
     :type Itau_mem: Optional[np.ndarray], optinoal
+    :param Itau_syn: (AMPA, GABA, NMDA, SHUNT) synapses combined leakage current setting the time constant `tau_syn` in Amperes with shape (Nrec,)
+    :type Itau_syn: Optional[np.ndarray], optinoal
+    :param Iw_base: weight base current of the neurons of the core in Amperes
+    :type Iw_base: Optional[np.ndarray], optinoal
     :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes with shape (Nrec,)
-    :type Iw_ahp: Optional[np.ndarray], optinoal
-    :param Iw_0: weight bit 0 current of the neurons of the core in Amperes
-    :type Iw_ahp: Optional[np.ndarray], optinoal
-    :param Iw_1: weight bit 1 current of the neurons of the core in Amperes
-    :type Iw_ahp: Optional[np.ndarray], optinoal
-    :param Iw_2: weight bit 2 current of the neurons of the core in Amperes
-    :type Iw_ahp: Optional[np.ndarray], optinoal
-    :param Iw_3: weight bit 3 current of the neurons of the core in Amperes
     :type Iw_ahp: Optional[np.ndarray], optinoal
     :param C_ahp: AHP synapse capacitance in Farads with shape (Nrec,)
     :type C_ahp: float, optional
-    :param C_ampa: AMPA synapse capacitance in Farads with shape (Nrec,)
-    :type C_ampa: float, optional
-    :param C_gaba: GABA synapse capacitance in Farads with shape (Nrec,)
-    :type C_gaba: float, optional
-    :param C_nmda: NMDA synapse capacitance in Farads with shape (Nrec,)
-    :type C_nmda: float, optional
+    :param C_syn: synaptic capacitance in Farads with shape (Nrec,)
+    :type C_syn: float, optional
     :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads with shape (Nrec,)
     :type C_pulse_ahp: float, optional
     :param C_pulse: pulse-width creation sub-circuit capacitance in Farads with shape (Nrec,)
     :type C_pulse: float, optional
     :param C_ref: refractory period sub-circuit capacitance in Farads with shape (Nrec,)
     :type C_ref: float, optional
-    :param C_shunt: SHUNT synapse capacitance in Farads with shape (Nrec,)
-    :type C_shunt: float, optional
     :param C_mem: neuron membrane capacitance in Farads with shape (Nrec,)
     :type C_mem: float, optional
     :param Io: Dark current in Amperes that flows through the transistors even at the idle state with shape (Nrec,)
@@ -286,7 +263,7 @@ class DynapSim(JaxModule):
 
     def __init__(
         self,
-        shape: Optional[Tuple[int]] = None,
+        shape: Union[Tuple[int], int],
         Idc: Optional[np.ndarray] = dcurrents["Idc"],
         If_nmda: Optional[np.ndarray] = dcurrents["If_nmda"],
         Igain_ahp: Optional[np.ndarray] = dcurrents["Igain_ahp"],
@@ -299,7 +276,7 @@ class DynapSim(JaxModule):
         Itau_ahp: Optional[np.ndarray] = dcurrents["Itau_ahp"],
         Itau_mem: Optional[np.ndarray] = dcurrents["Itau_mem"],
         Itau_syn: Optional[np.ndarray] = dcurrents["Itau_ampa"],
-        Iw_base: Optional[np.ndarray] = dweight["Iw_0"],
+        Iw_base: Optional[np.ndarray] = dweight["Iw_base"],
         Iw_ahp: Optional[np.ndarray] = dcurrents["Iw_ahp"],
         C_ahp: Optional[np.ndarray] = dlayout["C_ahp"],
         C_syn: Optional[np.ndarray] = dlayout["C_ampa"],
@@ -325,7 +302,15 @@ class DynapSim(JaxModule):
         """
         __init__ Initialize ``DynapSim`` module. Parameters are explained in the class docstring.
         """
-        # self.__shape_check(shape)
+
+        # - Check shape argument
+        if np.size(shape) == 1:
+            shape = (np.array(shape).item(), np.array(shape).item())
+
+        if np.size(shape) > 2:
+            raise ValueError(
+                "`shape` must be a one- or two-element tuple `(Nin, Nout)`."
+            )
 
         super(DynapSim, self).__init__(
             shape=shape,
@@ -337,7 +322,7 @@ class DynapSim(JaxModule):
 
         # - Seed RNG
         if rng_key is None:
-            rng_key = rand.PRNGKey(np.random.randint(0, 2**63))
+            rng_key = rand.PRNGKey(np.random.randint(0, 2 ** 63))
 
         ### --- States --- ####
         __state = lambda init_func: State(
@@ -401,7 +386,7 @@ class DynapSim(JaxModule):
             cast_fn=jnp.array,
         )
         # -- #
-        self.Idc = __parameter(Idc)
+        self.Idc = __simparam(Idc)
         self.If_nmda = __simparam(If_nmda)
         self.Igain_ahp = __simparam(Igain_ahp)
         self.Igain_mem = __simparam(Igain_mem)
@@ -827,7 +812,7 @@ class DynapSim(JaxModule):
 
             # isyn_inf is the current that a synapse current would reach with a sufficiently long pulse
             isyn_inf = (Igain_syn_clip / Itau_syn_clip) * Iws
-            isyn_inf = jnp.clip(isyn_inf, self.md.Io)
+            # isyn_inf = jnp.clip(isyn_inf, self.md.Io)
 
             ## Exponential charge, discharge positive feedback factor arrays
             f_charge = self.__one - jnp.exp(-t_pulse / tau_syn.T).T  # Nrecx4
@@ -871,7 +856,7 @@ class DynapSim(JaxModule):
             Ileak = Itau_mem_clip + iahp
 
             ## Injection
-            Iin = isyn + self.md.Idc - Ileak
+            Iin = isyn - Ileak + self.md.Idc
             Iin *= jnp.logical_not(timer_ref.astype(bool)).astype(jnp.float32)
             Iin = jnp.clip(Iin, self.md.Io)
 
