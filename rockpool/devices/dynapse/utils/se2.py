@@ -224,7 +224,7 @@ def tsevent_to_aer(
     :rtype: List[NormalGridEvent]
     """
     buffer = []
-    __channels = np.unique(timeseries.channels)
+    __channels = set(timeseries.channels)
 
     # Create the default channel map is not provided. NOT RECOMMENDED!
     if channel_map is None:
@@ -233,7 +233,7 @@ def tsevent_to_aer(
             for c in __channels
         }
 
-    if np.unique(list(channel_map.keys())) != __channels:
+    if not __channels <= set(channel_map.keys()):
         raise ValueError(
             "Channel map does not map the channels of the timeseries provided!"
         )
