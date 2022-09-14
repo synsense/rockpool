@@ -39,6 +39,7 @@ dweight = {
     "Iw_1": 2e-9,
     "Iw_2": 4e-9,
     "Iw_3": 8e-9,
+    "Iw_base": 1e-8,
 }
 
 dtime = {
@@ -47,14 +48,14 @@ dtime = {
     "t_ref": 2e-3,
     "tau_ahp": 50e-3,
     "tau_ampa": 10e-3,
-    "tau_gaba": 100e-3,
-    "tau_nmda": 100e-3,
+    "tau_gaba": 10e-3,
+    "tau_nmda": 10e-3,
     "tau_shunt": 10e-3,
     "tau_mem": 20e-3,
 }
 
 dgain = {
-    "r_gain_ahp": 100,
+    "r_gain_ahp": 10,
     "r_gain_ampa": 100,
     "r_gain_gaba": 100,
     "r_gain_nmda": 100,
@@ -74,7 +75,7 @@ dcurrents = {
     "Ipulse_ahp": Ipw_lambda("pulse_ahp"),
     "Ipulse": Ipw_lambda("pulse"),
     "Iref": Ipw_lambda("ref"),
-    "Ispkthr": 1e-6,
+    "Ispkthr": 1e-7,
     "Itau_ahp": Itau_lambda("ahp"),
     "Itau_ampa": Itau_lambda("ampa"),
     "Itau_gaba": Itau_lambda("gaba"),
