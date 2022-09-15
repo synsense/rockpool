@@ -47,7 +47,7 @@ E-mail : ugurcan.cakal@gmail.com
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import jax
 from jax import random as rand
@@ -56,21 +56,13 @@ from jax.tree_util import Partial
 
 from jax import numpy as jnp
 import numpy as np
-from rockpool.devices.dynapse.config.simconfig import (
-    DynapSimConfig,
-    DynapSimCurrents,
-    DynapSimLayout,
-    DynapSimTime,
-    DynapSimWeightBits,
-)
-from rockpool.devices.dynapse.default import dlayout, dweight, dtime, dgain, dcurrents
+
+from rockpool.devices.dynapse.default import dlayout, dweight, dcurrents
 from rockpool.devices.dynapse.definitions import DynapSimRecord, DynapSimState
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.nn.modules.native.linear import kaiming
 from rockpool.parameters import Parameter, State, SimulationParameter
-
-from rockpool.devices.dynapse.infrastructure.mismatch import MismatchDevice
 
 Dynapse1Configuration = Any
 Dynapse2Configuration = Any
