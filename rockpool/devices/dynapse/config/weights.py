@@ -10,6 +10,7 @@ E-mail : ugurcan.cakal@gmail.com
 [] TODO : from_samna() # standalone
 [] TODO : merging and disjoining weight matrices across cores # post-synaptic side is here
 """
+
 from __future__ import annotations
 import logging
 
@@ -22,7 +23,6 @@ from dataclasses import dataclass
 from jax import jit, value_and_grad
 from jax.lax import scan, cond
 from jax.example_libraries import optimizers
-
 from jax import numpy as jnp
 
 # Rockpool
@@ -49,36 +49,23 @@ class WeightParameters:
 
     :Parameters:
 
-    :param weights: The weight matrix to obtain, co-depended to Iw_0, Iw_1, Iw_2, Iw_3 and mux.
+    :param weights: The weight matrix to obtain, co-depended to Iw[0], Iw[1], Iw[2], Iw[3] and intmask.
     :type weights: jnp.DeviceArray
-    :param Iw_0: the first base weight current corresponding to the 0th bit of the bit-mask, in Amperes. In DynapSE1, it's GABA_B base weigth.
-    :type Iw_0: float
-    :param Iw_1: the second base weight current corresponding to the 1st bit of the bit-mask, in Amperes. In DynapSE1, it's GABA_A base weigth.
-    :type Iw_1: float
-    :param Iw_2: the third base weight current corresponding to the 2nd bit of the bit-mask, in Amperes. In DynapSE1, it's NMDA base weigth.
-    :type Iw_2: float
-    :param Iw_3: the fourth base weight current corresponding to the 3rd bit of the bit-mask, in Amperes. In DynapSE1, it's AMPA base weigth.
-    :type Iw_3: float
-    :param mux: A binary value representing uint mask to select and dot product the base Iw currents (pre, post, gate)
-    :type mux: jnp.DeviceArray
+    :param Iw: the base weight currents array, in Amperes.
+    :type Iw: jnp.DeviceArray
+    :param intmask: A binary value representing uint mask to select and dot product the base Iw currents (pre, post)
+    :type intmask: jnp.DeviceArray
 
-        1 = 0001 -> selected bias parameters: Iw_0
-        8 = 1000 -> selected bias parameters: Iw_3
-        5 = 0101 -> selected bias parameterss Iw_0 + Iw_2
+        1 = 0001 -> selected bias parameters: Iw[0]
+        8 = 1000 -> selected bias parameters: Iw[3]
+        5 = 0101 -> selected bias parameterss Iw[0] + Iw[2]
 
-            array([[[ 0,  1, 12,  0],
-                    [11, 10,  4,  1],
-                    [ 7,  0, 15, 15],
-                    [13, 15, 15,  7],
-                    [ 5,  3,  2, 12],
-                    [ 5,  8,  5,  9]],
-
-                   [[12, 13,  9,  0],
-                    [12, 12, 11,  2],
-                    [10, 15,  9, 14],
-                    [ 6,  8, 10,  8],
-                    [15,  1,  1,  9],
-                    [ 5,  2,  7, 13]]])
+            array([[ 0,  1, 12,  0],
+                   [11, 10,  4,  1],
+                   [ 7,  0, 15, 15],
+                   [13, 15, 15,  7],
+                   [ 5,  3,  2, 12],
+                   [ 5,  8,  5,  9]])
 
     :param code_length: the number of bits to reserve for a code, defaults to 4
     :type code_length: Optional[int], optional
@@ -95,9 +82,9 @@ class WeightParameters:
     :type mask_search: bool
     :ivar ae: The autoencoder object to find a bitmask and/or Iw code representation
     :type ae: AutoEncoder
-    :ivar code_implied: The Iw code implied by the Iw bits. non-zero if at least one of Iw_0, Iw_1, Iw_2, Iw_3 is provided
+    :ivar code_implied: The Iw code implied by the Iw bits. non-zero if at least one of Iw[0], Iw[1], Iw[2], Iw[3] is provided
     :type code_implied: jnp.DeviceArray
-    :ivar bitmask_implied: The bitmask implied by the mux. non-zero if mux is not None.
+    :ivar bitmask_implied: The bitmask implied by the intmask. non-zero if intmask is not None.
     :type bitmask_implied: jnp.DeviceArray
 
     NOTE : The current implementation finds the weight parameter and CAM configuration
@@ -107,12 +94,9 @@ class WeightParameters:
     """
 
     weights: Optional[jnp.DeviceArray] = None
-    Iw_0: Optional[float] = None
-    Iw_1: Optional[float] = None
-    Iw_2: Optional[float] = None
-    Iw_3: Optional[float] = None
-    mux: Optional[jnp.DeviceArray] = None
-    code_length: Optional[int] = None
+    Iw: Optional[jnp.DeviceArray] = None
+    intmask: Optional[jnp.DeviceArray] = None
+    code_length: Optional[int] = 4
 
     _optimizers = [
         "sgd",
@@ -130,38 +114,35 @@ class WeightParameters:
         """
         __post_init__ runs after __init__ and initializes the WeightParameters object with default values in the case that they are not specified.
 
-        :raises ValueError: If `weight` is None, then mux and weight bits are required to calculate the weight matrix
+        :raises ValueError: If `weight` is None, then intmask and weight bits are required to calculate the weight matrix
         """
 
-        if self.code_length is None:
-            self.code_length = self.get_code_length()
-
-        # Check if mux & code_length is compatible
-        self.mux = self.mux
+        # Check if intmask & code_length is compatible
+        self.intmask = self.intmask
 
         if self.weights is None:
-            if self.Iw is None or self.mux is None:
+            if self.Iw is None or self.intmask is None:
                 raise ValueError(
-                    "If `weight` is None, then mux and weight bits are required to calculate the weight matrix!"
+                    "If `weight` is None, then intmask and weight bits are required to calculate the weight matrix!"
                 )
             self.weights = self.weight_matrix()
             self.w_flat, self.transforms = self.preprocess(self.weights)
 
         elif self.weights is not None:
             self.weights = jnp.array(self.weights)
-            if self.Iw is not None and self.mux is not None:
+            if self.Iw is not None and self.intmask is not None:
                 raise ValueError(
-                    "Conflict of Interest: Define either the weight matrix or the mux&Iw pair."
+                    "Conflict of Interest: Define either the weight matrix or the intmask&Iw pair."
                     "Not all at the same time!"
                 )
 
             ## - Search for the right code and and the bitmask
             self.code_search = True if self.Iw is None else False
-            self.mask_search = True if self.mux is None else False
+            self.mask_search = True if self.intmask is None else False
             self.w_flat, self.transforms = self.preprocess(self.weights)
 
-            if self.mux is None:
-                self.mux = jnp.zeros(self.shape, int)
+            if self.intmask is None:
+                self.intmask = jnp.zeros(self.shape, int)
 
             ## - Initialize an autoencoder
             logging.info("Run .fit() to find weight parameters and bitmask!")
@@ -179,67 +160,24 @@ class WeightParameters:
             else jnp.full(self.code_length, 0.0)
         )
 
-        self.bitmask_implied = self.quantize_mux(
-            self.code_length, self.mux[self.idx_nonzero]
+        self.bitmask_implied = self.quantize_intmask(
+            self.code_length, self.intmask[self.idx_nonzero]
         )
 
     def weight_matrix(self) -> jnp.DeviceArray:
         """
-        weight_matrix generates a weight matrix for `DynapSE` modules using the base weight currents, and the mux.
+        weight_matrix generates a weight matrix for `DynapSE` modules using the base weight currents, and the intmask.
         In device, we have the opportunity to define 4 different base weight current. Then using a bit mask, we can compose a
         weight current defining the strength of the connection between two neurons. The parameters and usage explained below.
 
         :return: the weight matrix composed using the base weight parameters and the binary bit-mask.
         :rtype: jnp.DeviceArray
         """
-        # To broadcast on the post-synaptic neurons : pre, post, gate -> [(bits), post, pre, gate].T
-        bits_trans = self.quantize_mux(self.code_length, self.mux.transpose(1, 0, 2)).T
-        # Restore the shape : (gate, pre, post) -> pre, post, gate
+        # To broadcast on the post-synaptic neurons : pre, post -> [(bits), post, pre].T
+        bits_trans = self.quantize_intmask(self.code_length, self.intmask).T
         Iw = self.Iw if self.Iw is not None else jnp.zeros(self.code_length)
-        w_rec = jnp.sum(bits_trans * Iw.T, axis=-1).transpose(1, 2, 0)
+        w_rec = jnp.sum(bits_trans * Iw, axis=-1).T
         return w_rec
-
-    def get_code_length(self) -> int:
-        """
-        get_code_length calculates the Iw indicated intermediate code length used in encoding and decoding the weight matrix
-        It also make sure that parameter value definition is consequtive.
-
-        :return: the number of bits to reserve for a code
-        :rtype: int
-        """
-
-        def none_checker(*args) -> None:
-            """
-            none_checker makes sure that none of the arguments given is None
-
-            :raises ValueError: Unexpected None detected!
-            """
-            for arg in args:
-                if arg is None:
-                    raise ValueError(
-                        "Unexpected None detected! Iw bits should be defined `consequtively`"
-                    )
-
-        def consecution_test(id: int) -> int:
-            """
-            consecution_test makes sure that if Iw_x is defined, then all the less significant weight bits should be defined as well
-
-            :param id: the bit id, x in Iw_x
-            :type id: int
-            :return: the code length in the case that no error has raised
-            :rtype: int
-            """
-
-            params = [self.__getattribute__(f"Iw_{i}") for i in range(id)]
-            none_checker(*params)
-            code_len = id + 1
-            return code_len
-
-        for i in reversed(range(4)):
-            if self.__getattribute__(f"Iw_{i}") is not None:
-                return consecution_test(i)
-
-        return 4
 
     def update_encoder(
         self, w_en: jnp.DeviceArray, w_dec: jnp.DeviceArray
@@ -279,6 +217,7 @@ class WeightParameters:
         :return: the mean square error loss between the output and the target + bound violation penatly
         :rtype: float
         """
+        
         # - Assign the provided parameters to the network
         net = self.ae.set_attributes(parameters)
         output, code, bitmask = net(self.w_flat)
@@ -446,10 +385,10 @@ class WeightParameters:
         # Update ae
         self.ae, state, loss_t = self.fit(*args, **kwargs)
 
-        ## Update mux
-        mux_flat = self.multiplex_bitmask(self.ae.n_code, self.ae.bitmask)
-        mux_round = jnp.round(self.mux.at[self.idx_nonzero].set(mux_flat)).astype(int)
-        self.mux = jnp.clip(mux_round, 0, None)
+        ## Update intmask
+        intmask_flat = self.multiplex_bitmask(self.ae.n_code, self.ae.bitmask)
+        intmask_round = jnp.round(self.intmask.at[self.idx_nonzero].set(intmask_flat)).astype(int)
+        self.intmask = jnp.clip(intmask_round, 0, None)
 
         ## Update Iws
         code = self.ae.encode(self.w_flat)
@@ -466,14 +405,14 @@ class WeightParameters:
         :type __name: str
         :param __value: the value to set
         :type __value: Any
-        :raises ValueError: Mux includes elements exceeding the coding capacity!
+        :raises ValueError: intmask includes elements exceeding the coding capacity!
         """
-        if __name == "mux" and __value is not None:
+        if __name == "intmask" and __value is not None:
             __value = jnp.array(__value)
             if hasattr(self, "code_length") and self.code_length is not None:
                 if (__value > (2 ** self.code_length - 1)).any():
                     raise ValueError(
-                        "Mux includes elements exceeding the coding capacity!"
+                        "intmask includes elements exceeding the coding capacity!"
                     )
 
         super().__setattr__(__name, __value)
@@ -512,8 +451,8 @@ class WeightParameters:
         :return: mean square error loss between the bitmask found and the bitmap reconstructed after encoding decoding
         :rtype: float
         """
-        mux = WeightParameters.multiplex_bitmask(n_bits, bitmask).round().astype(int)
-        bitmask_reconstructed = WeightParameters.quantize_mux(n_bits, mux).astype(float)
+        intmask = WeightParameters.multiplex_bitmask(n_bits, bitmask).round().astype(int)
+        bitmask_reconstructed = WeightParameters.quantize_intmask(n_bits, intmask).astype(float)
         penalty = l.mse(bitmask, bitmask_reconstructed)
 
         return penalty
@@ -526,15 +465,15 @@ class WeightParameters:
 
         :param weights: any matrix
         :type weights: jnp.DeviceArray
-        :raises ValueError: Weight matrix provided does not have a proper shape! It should be 3-dimensional with (pre,post,gate)!
+        :raises ValueError: Weight matrix provided does not have a proper shape! It should be 2-dimensional with (pre,post)!
         :return: w_flat, transforms
             w_flat: scaled, flattened, and preprocessed weight matrix
             transforms: the transforms applied to the weight matrix
         :rtype: Tuple[jnp.DeviceArray, Dict[str, Any]]
         """
-        if len(weights.shape) != 3:
+        if len(weights.shape) != 2:
             raise ValueError(
-                "Weight matrix provided does not have a proper shape! It should be 3-dimensional with (pre,post,gate)!"
+                "Weight matrix provided does not have a proper shape! It should be 2-dimensional with (pre,post)!"
             )
 
         diff = jnp.max(weights) - jnp.min(weights) if len(weights) > 0 else 0
@@ -545,7 +484,7 @@ class WeightParameters:
             "shape": weights.shape,
             "scale": scale,
             "idx_nonzero": idx_nonzero,
-            "n_post": weights.shape[-2],
+            "n_post": weights.shape[1],
         }
 
         w_flat = weights[idx_nonzero].flatten() * scale
@@ -591,9 +530,9 @@ class WeightParameters:
             )
 
     @staticmethod
-    def quantize_mux(n_bits: int, mux: jnp.DeviceArray) -> jnp.DeviceArray:
+    def quantize_intmask(n_bits: int, intmask: jnp.DeviceArray) -> jnp.DeviceArray:
         """
-        quantize_mux converts a integer valued bitmask to 4 dimension (4-bits) bitmask representing the indexes of the selection
+        quantize_intmask converts a integer valued bitmask to 4 dimension (4-bits) bitmask representing the indexes of the selection
 
             (n_bits=4)
 
@@ -603,17 +542,17 @@ class WeightParameters:
 
         :param n_bits: number of bits reserved for representing the integer values
         :type n_bits: int
-        :param mux: Integer values representing binary numbers to select (shape,)
-        :type mux: jnp.DeviceArray
+        :param intmask: Integer values representing binary numbers to select (shape,)
+        :type intmask: jnp.DeviceArray
         :return: an array of indices of selected bits, only binary values, (n_bits,shape)
         :rtype: jnp.DeviceArray
         """
 
         pattern = jnp.array([1 << n for n in range(n_bits)])  # [1,2,4,8, ..]
-        mux_ext = jnp.full((n_bits, *mux.shape), mux)  # (n_bits,shape)
+        intmask_ext = jnp.full((n_bits, *intmask.shape), intmask)  # (n_bits,shape)
 
         # Indexes of the IDs to be selected in bits list
-        bitmask = jnp.bitwise_and(mux_ext.T, pattern).T.astype(bool)  # (n_bits,shape)
+        bitmask = jnp.bitwise_and(intmask_ext.T, pattern).T.astype(bool)  # (n_bits,shape)
         return bitmask
 
     @staticmethod
@@ -635,42 +574,10 @@ class WeightParameters:
         :rtype: jnp.DeviceArray
         """
         pattern = jnp.array([1 << n for n in range(n_bits)])  # [1,2,4,8, ..]
-        mux = jnp.sum(bitmask.T * pattern, axis=-1).T
-        return mux
+        intmask = jnp.sum(bitmask.T * pattern, axis=-1).T
+        return intmask
 
     ## PROPERTIES ##
-
-    @property
-    def Iw(self) -> jnp.DeviceArray:
-        """
-        Iw returns a vector of weight current parameters
-        """
-        Iw_x = lambda i: self.__getattribute__(f"Iw_{i}")
-        _Iw = [Iw_x(i) for i in range(self.code_length) if Iw_x(i) is not None]
-
-        return None if len(_Iw) == 0 else jnp.array(_Iw)
-
-    @Iw.setter
-    def Iw(self, new_Iw: ArrayLike) -> None:
-        """
-        Iw is an helper function to update the weight bias parameters all together
-
-        :param new_Iw: Iw vector stacking 4 weight bias currents together : [Iw_0, Iw_1, Iw_2, Iw_3]
-        :type new_Iw: ArrayLike
-        :raises IndexError: new_Iw is hosting more than 4 bias currents
-        """
-        if len(new_Iw) > 4:
-            raise IndexError(f"Not enough Iw bits to set! {len(new_Iw)} > 4")
-        if len(new_Iw) == 0:
-            self.Iw = [None, None, None, None]
-        if len(new_Iw) > 0:
-            self.Iw_0 = new_Iw[0]
-        if len(new_Iw) > 1:
-            self.Iw_1 = new_Iw[1]
-        if len(new_Iw) > 2:
-            self.Iw_2 = new_Iw[2]
-        if len(new_Iw) > 3:
-            self.Iw_3 = new_Iw[3]
 
     @property
     def mse(self):
