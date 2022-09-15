@@ -14,7 +14,7 @@ from rockpool.graph import GenericNeurons
 
 from dataclasses import dataclass, field
 
-__all__ = ["XyloNeurons", "XyloHiddenNeurons", "XyloOutputNeurons"]
+__all__ = ["DynapseNeurons"]
 
 
 @dataclass(eq=False, repr=False)
