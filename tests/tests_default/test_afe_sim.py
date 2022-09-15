@@ -1,6 +1,7 @@
 import pytest
 
 pytest.importorskip("scipy")
+pytest.importorskip("xylosim")
 
 
 def test_imports():

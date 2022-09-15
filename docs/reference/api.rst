@@ -89,6 +89,8 @@ Time series classes
     nn.modules.LIFJax
     nn.modules.LIFTorch
 
+    nn.modules.aLIFTorch
+
     nn.modules.LIFNeuronTorch
     nn.modules.UpDownTorch
 
@@ -109,6 +111,10 @@ Time series classes
 
     nn.modules.ButterMelFilter
     nn.modules.ButterFilter
+
+    nn.modules.LIFExodus
+    nn.modules.LIFMembraneExodus
+
 
 :py:class:`Layer` subclasses from Rockpool v1
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -9,14 +9,24 @@ The WaveSense architecture is described in Weidel et al 2021 [https://arxiv.org/
 
 """
 
-from rockpool.nn.modules import TorchModule, LinearTorch, LIFTorch, ExpSynTorch
+from rockpool.nn.modules import (
+    TorchModule,
+    LinearTorch,
+    LIFTorch,
+    ExpSynTorch,
+    LIFMembraneExodus,
+)
 from rockpool.parameters import Parameter, State, SimulationParameter, Constant
-from rockpool.nn.modules.torch.lif_torch import StepPWL, PeriodicExponential
+from rockpool.nn.modules.torch.lif_torch import (
+    LIFBaseTorch,
+    StepPWL,
+    PeriodicExponential,
+)
 from rockpool.graph import AliasConnection, GraphHolder, connect_modules
 
 import torch
 
-from typing import List, Union, Callable, Optional
+from typing import List, Tuple, Union, Callable, Optional
 from rockpool.typehints import P_tensor
 
 __all__ = ["WaveBlock", "WaveSenseNet"]
@@ -87,7 +97,7 @@ class WaveSenseBlock(TorchModule):
             :param float tau_mem:           Membrane potential time constant of all neurons in WaveSense. Default: 10ms
             :param float base_tau_syn:      Base synaptic time constant. Each synapse has this time constant, except the second synapse in the dilation layer which caclulates the time constant as $dilations * base_tau_syn$. Default: 10ms
             :param float threshold:         Threshold of all spiking neurons. Default: `0.`
-            :param TorchModule neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFSlayer` for speedup
+            :param TorchModule neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFExodus` for speedup
             :param float dt:                Temporal resolution of the simulation. Default: 1ms
         """
         # - Initialise superclass
@@ -166,7 +176,7 @@ class WaveSenseBlock(TorchModule):
         self._record = False
         self._record_dict = {}
 
-    def forward(self, data: torch.tensor) -> (torch.tensor, dict, dict):
+    def forward(self, data: torch.tensor) -> Tuple[torch.tensor, dict, dict]:
         # Expecting data to be of the format (batch, time, Nchannels)
         (n_batches, t_sim, Nchannels) = data.shape
 
@@ -306,6 +316,7 @@ class WaveSenseNet(TorchModule):
         tau_lp: float = Constant(20e-3),
         threshold: float = Constant(1.0),
         neuron_model: TorchModule = LIFTorch,
+        neuron_model_out: TorchModule = None,
         dt: float = 1e-3,
         *args,
         **kwargs,
@@ -327,7 +338,7 @@ class WaveSenseNet(TorchModule):
             :param float base_tau_syn:      Base synaptic time constant. Each synapse has this time constant, except the second synapse in the dilation layer which caclulates the time constant as $dilations * base_tau_syn$. Default: 20ms
             :param float tau_lp:            Time constant of the smooth output. Default: 20ms
             :param float threshold:         Threshold of all neurons in WaveSense. Default: `1.0`
-            :param TorchModule neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFSlayer` for speedup. Default: :py:class:`.LIFTorch`
+            :param TorchModule neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFExodus` for speedup. Default: :py:class:`.LIFTorch`
             :param float dt:                Temporal resolution of the simulation. Default: 1ms
         """
 
@@ -342,6 +353,16 @@ class WaveSenseNet(TorchModule):
         self.n_channels_skip = n_channels_skip
 
         self.neuron_model = neuron_model
+        self.neuron_model_out = (
+            neuron_model_out if neuron_model_out is not None else neuron_model
+        )
+
+        if not issubclass(self.neuron_model, LIFBaseTorch) or not issubclass(
+            self.neuron_model_out, LIFBaseTorch
+        ):
+            raise ValueError(
+                "Only `LIFBaseTorch` subclasses are permitted for Wavesense neuron models."
+            )
 
         # - Input mapping layers
         self.lin1 = LinearTorch(shape=(n_channels_in, n_channels_res), has_bias=False)
@@ -402,19 +423,30 @@ class WaveSenseNet(TorchModule):
         with torch.no_grad():
             self.readout.weight.data = self.readout.weight.data * dt / tau_lp
 
-        self.spk_out = self.neuron_model(
-            shape=(n_classes, n_classes),
-            tau_mem=Constant(tau_lp),
-            tau_syn=Constant(tau_lp),
-            bias=bias,
-            threshold=Constant(threshold),
-            has_rec=False,
-            w_rec=None,
-            noise_std=0,
-            spike_generation_fn=PeriodicExponential,
-            learning_window=0.5,
-            dt=dt,
-        )
+        if self.neuron_model_out is not LIFMembraneExodus:
+            self.spk_out = self.neuron_model_out(
+                shape=(n_classes, n_classes),
+                tau_mem=Constant(tau_lp),
+                tau_syn=Constant(tau_lp),
+                bias=bias,
+                threshold=Constant(threshold),
+                has_rec=False,
+                w_rec=None,
+                noise_std=0,
+                spike_generation_fn=PeriodicExponential,
+                learning_window=0.5,
+                dt=dt,
+            )
+        else:
+            self.spk_out = self.neuron_model_out(
+                shape=(n_classes, n_classes),
+                tau_mem=Constant(tau_lp),
+                tau_syn=Constant(tau_lp),
+                w_rec=None,
+                spike_generation_fn=PeriodicExponential,
+                learning_window=0.5,
+                dt=dt,
+            )
 
         # - Record dt
         self.dt = SimulationParameter(dt)
