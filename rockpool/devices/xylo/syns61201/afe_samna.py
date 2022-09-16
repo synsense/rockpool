@@ -67,7 +67,8 @@ class AFESamna(Module):
         device: XyloA2HDK,
         config: Optional[AFE2Configuration] = None,
         dt: float = 1e-3,
-        change_count: bool = False,
+        amplify_level: str = "low",
+        change_count: Optional[int] = None,
         hibernation_mode: bool = False,
         divisive_norm: bool = False,
         *args,
@@ -77,11 +78,13 @@ class AFESamna(Module):
         Instantiate an AFE module, via a samna backend
 
         Args:
-            device (AFE2HDK): A connected AFE2 HDK device
-            config (AFE2Configuration): A samna AFE2 configuration object
-            dt (float): The desired spike time resolution in seconds
-            change_count (bool): If True, AFE event counter will change from outputting 1 spike out of 4 into outputting 1 out of 1.
+            device (AFE2HDK): A connected AFE2 HDK device.
+            config (AFE2Configuration): A samna AFE2 configuration object.
+            dt (float): The desired spike time resolution in seconds.
+            amplify_level(str): The level of volume gain. Defaul "low" is the one without gain.
+            change_count (int): If is not None, AFE event counter will change from outputting 1 spike out of 4 into outputting 1 out of change_count.
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
+            divisive_norm (bool): If True, divisive normalization will be switched on.
         """
         # - Check input arguments
         if device is None:
@@ -152,17 +155,27 @@ class AFESamna(Module):
         # time.sleep(0.5)
         # xylo_handler = device_io.get_xylo_handler()
 
-        # - Set up known good configuration
-        if change_count:
-            hdu.change_event_counter(device_io)
+        # - Change counter threshold
+        if change_count is not None:
+            if change_count < 0:
+                raise ValueError(
+                    f'{change_count} is negative. Must be non-negative values.'
+                )
+            hdu.change_event_counter(device_io, change_count)
 
+        # - Set up known good configuration
         print("Configuring AFE...")
         hdu.apply_afe2_default_config(self._device)
         print("Configured AFE")
 
+        # - Amplify input volume
+        hdu.amplify_volume(device_io, level=amplify_level)
+
+        # - Set up divisive normalization
         if divisive_norm:
             hdu.DivisiveNormalization(self._afe_write_buf)
 
+        # - Set up hibernation mode
         if hibernation_mode:
             hdu.AFE_hibernation(self._afe_write_buf)
             hdu.write_afe2_register(self._afe_write_buf, 0x25, 0x12)

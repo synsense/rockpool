@@ -743,6 +743,7 @@ def read_neuron_synapse_state(
 
     # - Return the state
     return XyloState(
+        Nin,
         Nhidden,
         Nout,
         np.array(Vmem[:Nhidden], "int16"),

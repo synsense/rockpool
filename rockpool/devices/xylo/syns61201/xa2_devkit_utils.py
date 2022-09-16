@@ -1807,15 +1807,16 @@ def set_power_measure(
     return buf, power
 
 
-def change_event_counter(write_afe_buffer: AFE2WriteBuffer) -> None:
+def change_event_counter(write_afe_buffer: AFE2WriteBuffer, count: int) -> None:
     """
     Change the AFE event count to throw 1 spikes out of 1 to the Xylo core
 
     Args:
         write_afe_buffer (AFE2WriteBuffer): A write buffer connected to the AFE
+        count (int): The value of counter threshold
     """
     for addr in [0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D]:
-        write_afe2_register(write_afe_buffer, addr, 0x00010001)
+        write_afe2_register(write_afe_buffer, addr, count*16**4+count)
 
 
 def amplify_volume(write_afe_buffer: AFE2WriteBuffer, level: str = "low") -> None:

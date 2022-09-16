@@ -46,7 +46,7 @@ class XyloMonitor(Module):
         dt: float = 1e-3,
         output_mode: str = "Spike",
         amplify_level: str = "low",
-        change_count: bool = False,
+        change_count: Optional[int] = False,
         main_clk_rate: int = int(50e6),
         hibernation_mode: bool = False,
         divisive_norm: bool = False,
@@ -62,7 +62,7 @@ class XyloMonitor(Module):
             dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Vmem"]``. Default: "Spike", return events from the output layer.
             amplify_level(str): The level of volume gain. Defaul "low" is the one without gain.
-            change_count (bool): If True, AFE event counter will change from outputting 1 spike out of 4 into outputting 1 out of 1.
+            change_count (int): If is not None, AFE event counter will change from outputting 1 spike out of 4 into outputting 1 out of change_count.
             main_clk_rate(int): The main clock rate of Xylo.
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
             divisive_norm (bool): If True, divisive normalization will be switched on.
@@ -159,8 +159,13 @@ class XyloMonitor(Module):
         self._io.write_config(0x02, 0x30)
 
         # - Change event count number of AFE
-        if change_count:
-            hdkutils.change_event_counter(self._io)
+        if change_count is not None:
+            if change_count < 0:
+                raise ValueError(
+                    f'{change_count} is negative. Must be non-negative values.'
+                )
+            hdkutils.change_event_counter(self._afe_write_buffer, change_count)
+
         # - Set up known good AFE configuration
         print("Configuring AFE...")
         hdkutils.apply_afe2_default_config(self._device)
@@ -179,16 +184,6 @@ class XyloMonitor(Module):
 
         # - Configure to auto mode
         self.auto_config(hibernation=hibernation_mode)
-
-        # - Zero neuron state when building a new module
-        # self.reset_state()
-
-    def reset_state(self) -> "XyloMonitor":
-        # - Reset neuron and synapse state on Xylo
-        hdkutils.reset_neuron_synapse_state(
-            self._device, self._read_buffer, self._write_buffer
-        )
-        return self
 
     @property
     def config(self):
