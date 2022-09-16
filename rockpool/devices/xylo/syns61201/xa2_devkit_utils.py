@@ -840,6 +840,13 @@ def apply_configuration(
         read_buffer (XyloReadBuffer): A connected read buffer for the Xylo HDK
         write_buffer (XyloWriteBuffer): A connected write buffer for the Xylo HDK
     """
+    config.debug.isyn_clock_enable = True
+    config.debug.ra_clock_enable = True
+    config.debug.hm_clock_enable = True
+    config.debug.bias_clock_enable = True
+    config.debug.isyn2_clock_enable = True
+    config.debug.ram_power_enable = True
+
     # - Ideal -- just write the configuration using samna
     hdk.get_xylo_model().apply_configuration(config)
 
