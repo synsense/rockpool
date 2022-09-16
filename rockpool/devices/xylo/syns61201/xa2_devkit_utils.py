@@ -840,12 +840,12 @@ def apply_configuration(
         read_buffer (XyloReadBuffer): A connected read buffer for the Xylo HDK
         write_buffer (XyloWriteBuffer): A connected write buffer for the Xylo HDK
     """
-    config.debug.isyn_clock_enable = True
-    config.debug.ra_clock_enable = True
-    config.debug.hm_clock_enable = True
-    config.debug.bias_clock_enable = True
+    # config.debug.isyn_clock_enable = True
+    # config.debug.ra_clock_enable = True
+    # config.debug.hm_clock_enable = True
+    # config.debug.bias_clock_enable = True
     config.debug.isyn2_clock_enable = True
-    config.debug.ram_power_enable = True
+    # config.debug.ram_power_enable = True
 
     # - Ideal -- just write the configuration using samna
     hdk.get_xylo_model().apply_configuration(config)
@@ -1816,7 +1816,7 @@ def change_event_counter(write_afe_buffer: AFE2WriteBuffer, count: int) -> None:
         count (int): The value of counter threshold
     """
     for addr in [0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D]:
-        write_afe2_register(write_afe_buffer, addr, count*16**4+count)
+        write_afe2_register(write_afe_buffer, addr, count * 16**4 + count)
 
 
 def amplify_volume(write_afe_buffer: AFE2WriteBuffer, level: str = "low") -> None:
