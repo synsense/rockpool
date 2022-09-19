@@ -216,7 +216,7 @@ class LIFBaseTorch(TorchModule):
         )
         """ (Tensor) Membrane time constants `(Nout,)` or `()` """
 
-        if self.decay_training
+        if self.decay_training:
 
             self.alpha: P_tensor = rp.Parameter(
                 alpha,
@@ -228,22 +228,22 @@ class LIFBaseTorch(TorchModule):
             """ (Tensor) Membrane decay factor `(Nout,)` or `()` """
 
             self.beta: P_tensor = rp.Parameter(
-            beta,
-            family="decays",
-            shape=[
-                (
-                    self.size_out,
-                    self.n_synapses,
-                ),
-                (
-                    1,
-                    self.n_synapses,
-                ),
-                (),
-            ],
-            init_func=lambda s: torch.ones(s) * 0.1,
-            cast_fn=self._to_float_tensor,
-        )
+                beta,
+                family="decays",
+                shape=[
+                    (
+                        self.size_out,
+                        self.n_synapses,
+                    ),
+                    (
+                        1,
+                        self.n_synapses,
+                    ),
+                    (),
+                ],
+                init_func=lambda s: torch.ones(s) * 0.1,
+                cast_fn=self._to_float_tensor,
+            )
         """ (Tensor) Synaptic decay factor `(Nin,)` or `()` """
 
         self.tau_syn: P_tensor = rp.Parameter(
@@ -264,8 +264,6 @@ class LIFBaseTorch(TorchModule):
             cast_fn=self._to_float_tensor,
         )
         """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
-
-       
 
         self.bias: P_tensor = rp.Parameter(
             bias,
