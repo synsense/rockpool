@@ -216,14 +216,35 @@ class LIFBaseTorch(TorchModule):
         )
         """ (Tensor) Membrane time constants `(Nout,)` or `()` """
 
-        self.alpha: P_tensor = rp.Parameter(
-            alpha,
+        if self.decay_training
+
+            self.alpha: P_tensor = rp.Parameter(
+                alpha,
+                family="decays",
+                shape=[(self.size_out,), ()],
+                init_func=lambda s: torch.ones(s) * 0.9,
+                cast_fn=self._to_float_tensor,
+            )
+            """ (Tensor) Membrane decay factor `(Nout,)` or `()` """
+
+            self.beta: P_tensor = rp.Parameter(
+            beta,
             family="decays",
-            shape=[(self.size_out,), ()],
-            init_func=lambda s: torch.ones(s) * 0.9,
+            shape=[
+                (
+                    self.size_out,
+                    self.n_synapses,
+                ),
+                (
+                    1,
+                    self.n_synapses,
+                ),
+                (),
+            ],
+            init_func=lambda s: torch.ones(s) * 0.1,
             cast_fn=self._to_float_tensor,
         )
-        """ (Tensor) Membrane decay factor `(Nout,)` or `()` """
+        """ (Tensor) Synaptic decay factor `(Nin,)` or `()` """
 
         self.tau_syn: P_tensor = rp.Parameter(
             tau_syn,
@@ -244,24 +265,7 @@ class LIFBaseTorch(TorchModule):
         )
         """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
 
-        self.beta: P_tensor = rp.Parameter(
-            beta,
-            family="decays",
-            shape=[
-                (
-                    self.size_out,
-                    self.n_synapses,
-                ),
-                (
-                    1,
-                    self.n_synapses,
-                ),
-                (),
-            ],
-            init_func=lambda s: torch.ones(s) * 0.1,
-            cast_fn=self._to_float_tensor,
-        )
-        """ (Tensor) Synaptic decay factor `(Nin,)` or `()` """
+       
 
         self.bias: P_tensor = rp.Parameter(
             bias,
