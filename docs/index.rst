@@ -83,6 +83,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    :maxdepth: 1
    :caption: Developer documentation
 
+   developer/UML-diagrams.ipynb
    developer/release_process.rst
 
 * :ref:`genindex`
