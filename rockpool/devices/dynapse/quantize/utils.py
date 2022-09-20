@@ -14,6 +14,8 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 from dataclasses import dataclass
 
+from rockpool.devices.dynapse.quantize.weight_handler import WeightHandler
+
 
 __all__ = ["autoencoder_quantization"]
 
@@ -28,15 +30,7 @@ def autoencoder_quantization(
     if bits_per_weight > 4:
         raise ValueError("Up-to 4-bits representation supported")
 
-    # w_comp = QuantizationUtils.compress_weights(weights_in, weights_rec)
-
-    # # qw_comp = np.zeros(1)
-
-    # # qw_comp *= np.sign(w_comp)
-
-    # qw_in, qw_rec = QuantizationUtils.decompress_weights(
-    #     w_comp, weights_in.shape, weights_rec.shape
-    # )
+    __handler = WeightHandler(weights_in, weights_rec)
 
     qw_in = None
     qw_rec = None
