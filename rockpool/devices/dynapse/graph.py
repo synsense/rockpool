@@ -21,3 +21,4 @@ __all__ = ["DynapseNeurons"]
 class DynapseNeurons(GenericNeurons):
     dt: Optional[float] = None
     """ float: The ``dt`` time step used for this neuron module """
+    
