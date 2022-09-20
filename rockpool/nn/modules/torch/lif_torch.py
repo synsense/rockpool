@@ -126,9 +126,13 @@ class LIFBaseTorch(TorchModule):
         tau_syn: Optional[Union[FloatVector, P_float]] = None,
         alpha: Optional[Union[FloatVector, P_float]] = None,
         beta: Optional[Union[FloatVector, P_float]] = None,
+        dash_mem: Optional[Union[IntVector, P_int]] = None,
+        dash_syn: Optional[Union[IntVector, P_int]] = None,
+        
         bias: Optional[FloatVector] = None,
         threshold: Optional[FloatVector] = None,
         decay_training: P_bool = False,
+        BitShift_training: P_bool = False,
         has_rec: P_bool = False,
         w_rec: torch.Tensor = None,
         noise_std: P_float = 0.0,
@@ -207,6 +211,8 @@ class LIFBaseTorch(TorchModule):
         """ (float) Noise std.dev. injected onto the membrane of each neuron during evolution """
 
         self.decay_training = decay_training
+        self.BitShift_training = BitShift_training
+
         self.tau_mem: P_tensor = rp.Parameter(
             tau_mem,
             family="taus",
@@ -215,6 +221,25 @@ class LIFBaseTorch(TorchModule):
             cast_fn=self._to_float_tensor,
         )
         """ (Tensor) Membrane time constants `(Nout,)` or `()` """
+        self.tau_syn: P_tensor = rp.Parameter(
+            tau_syn,
+            family="taus",
+            shape=[
+                (
+                    self.size_out,
+                    self.n_synapses,
+                ),
+                (
+                    1,
+                    self.n_synapses,
+                ),
+                (),
+            ],
+            init_func=lambda s: torch.ones(s) * 20e-3,
+            cast_fn=self._to_float_tensor,
+        )
+        """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
+
 
         if self.decay_training:
 
@@ -241,29 +266,42 @@ class LIFBaseTorch(TorchModule):
                     ),
                     (),
                 ],
-                init_func=lambda s: torch.ones(s) * 0.1,
+                init_func=lambda s: torch.ones(s) * 0.9,
                 cast_fn=self._to_float_tensor,
             )
         """ (Tensor) Synaptic decay factor `(Nin,)` or `()` """
 
-        self.tau_syn: P_tensor = rp.Parameter(
-            tau_syn,
-            family="taus",
-            shape=[
-                (
-                    self.size_out,
-                    self.n_synapses,
-                ),
-                (
-                    1,
-                    self.n_synapses,
-                ),
-                (),
-            ],
-            init_func=lambda s: torch.ones(s) * 20e-3,
-            cast_fn=self._to_float_tensor,
-        )
-        """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
+        if self.BitShift_training:
+            
+            self.dash_mem: P_tensor = rp.Parameter(
+                dash_mem,
+                family = "bitshifts",
+                shape=[(self.size_out,), ()],
+                init_func=lambda s: torch.ones(s) ,
+                cast_fn=self._to_float_tensor,
+            )
+        """ (Tensor) Membrane bitshift in xylo `(Nout,)` or `()` """
+        
+        if self.BitShift_training:
+
+            self.dash_syn: P_tensor = rp.Parameter(
+                dash_syn,
+                family = "bitshifts",
+                shape=[
+                    (
+                        self.size_out,
+                        self.n_synapses,
+                    ),
+                    (
+                        1,
+                        self.n_synapses,
+                    ),
+                    (),
+                ],
+                init_func=lambda s: torch.ones(s) ,
+                cast_fn=self._to_float_tensor,
+            )
+        """ (Tensor) synaptic bitshift in xylo `(Nout,)` or `()` """
 
         self.bias: P_tensor = rp.Parameter(
             bias,
@@ -468,8 +506,20 @@ class LIFTorch(LIFBaseTorch):
         )
 
         # - Calculate and cache updated values for decay factors
-        alpha = self.alpha if self.decay_training else self.calc_alpha()
-        beta = self.beta if self.decay_training else self.calc_beta()
+        # alpha = self.alpha if self.decay_training else self.calc_alpha()
+        # beta = self.beta if self.decay_training else self.calc_beta()
+
+       
+        if self.decay_training:
+            alpha = self.alpha
+            beta = self.beta
+        elif self.BitShift_training:
+            alpha = 1-1/(2**self.dash_mem)
+            beta = 1-1/(2**self.dash_syn)   
+        else:
+            alpha = self.calc_alpha()    
+            beta = self.calc_beta()
+
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
 
         # - Generate membrane noise trace
