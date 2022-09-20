@@ -9,8 +9,13 @@ E-mail : ugurcan.cakal@gmail.com
 
 15/09/2022
 """
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
+
 import numpy as np
+from dataclasses import dataclass
+
+
+__all__ = ["autoencoder_quantization"]
 
 
 def autoencoder_quantization(
@@ -23,16 +28,26 @@ def autoencoder_quantization(
     if bits_per_weight > 4:
         raise ValueError("Up-to 4-bits representation supported")
 
-    w_in = None
-    w_rec = None
+    # w_comp = QuantizationUtils.compress_weights(weights_in, weights_rec)
+
+    # # qw_comp = np.zeros(1)
+
+    # # qw_comp *= np.sign(w_comp)
+
+    # qw_in, qw_rec = QuantizationUtils.decompress_weights(
+    #     w_comp, weights_in.shape, weights_rec.shape
+    # )
+
+    qw_in = None
+    qw_rec = None
     Iw_0 = None
     Iw_1 = None
     Iw_2 = None
     Iw_3 = None
 
     return {
-        "weights_in": w_in,
-        "weights_rec": w_rec,
+        "weights_in": qw_in,
+        "weights_rec": qw_rec,
         "Iw_0": Iw_0,
         "Iw_1": Iw_1,
         "Iw_2": Iw_2,
