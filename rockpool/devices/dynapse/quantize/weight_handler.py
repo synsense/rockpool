@@ -1,6 +1,7 @@
 """
 Dynap-SE weight quantization weight handler implementation
 The handler stores the non-zero indexes, flattens the recurrent and input weights and help reconstructing
+Includes utility methods to restore/reshape weight matrices from compartments
 
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
@@ -19,15 +20,35 @@ from jax import numpy as jnp
 
 @dataclass
 class WeightHandler:
+    """
+    WeightHandler encapsulates the simulator weights and provides utilities to use the weight matrices in quantization pipeline.
+    Also provides some utilities to restore a weight matrix from the weight parameters and CAM content.
+
+    :param weights_in: input layer weights used in Dynap-SE2 simulation
+    :type weights_in: Optional[np.ndarray]
+    :param weights_rec: recurrent layer (in-device neurons) weights used in Dynap-SE2 simulation
+    :type weights_rec: Optional[np.ndarray]
+    :param weights_global: global weights (input + rec) weights refered by simulation, used in quantization, if weights_in, weighs_rec provided, do not provide this!
+    :type weights_global: Optional[np.ndarray]
+
+    Examples:
+        Instantitate a WeightHandler module with input and recurrent weights matrix
+
+        >>> wh = WeightHandler(w_in, w_rec)
+    """
+
     weights_in: Optional[np.ndarray] = None
     weights_rec: Optional[np.ndarray] = None
-    weights: Optional[np.ndarray] = None
-    nonzero_mask: Optional[np.ndarray] = None
-    w_flat: Optional[np.ndarray] = None
+    weights_global: Optional[np.ndarray] = None
 
     def __post_init__(self):
-        if self.nonzero_mask is not None or self.w_flat is not None:
-            raise ValueError("Leave them blank!")
+        """
+        __post_init__ runs after __init__ and initializes the WeightHandler object, executes design rule checks
+
+        :raises ValueError: If weights is not defined, input and recurrent weights should be given!
+        :raises ValueError: Either a global weight matrix or two seperate input&recurrent weight matrices are allowed!
+        :raises ValueError: Weight matrix provided does not have a proper shape! It should be 2-dimensional with (pre,post)!
+        """
 
         self.shape_in, self.shape_out = None, None
 
@@ -40,27 +61,42 @@ class WeightHandler:
         ## Make sure that the weight matrices are 2D with (pre,post)
         self.__shape_check()
 
-        if self.weights is None:
+        ## Mutually exclusive setting is possible between in&rec and global
+        if self.weights_global is None:
             if self.weights_in is None or self.weights_rec is None:
                 raise ValueError(
                     "If weights is not defined, input and recurrent weights should be given!"
                 )
-            self.weights = np.vstack((self.weights_in, self.weights_rec))
+            self.weights_global = np.vstack((self.weights_in, self.weights_rec))
 
         else:
             if self.weights_in is not None or self.weights_rec is not None:
                 raise ValueError(
-                    "Either a big weight matrix or two seperate input&recurrent weight matrices can be given at the same time"
+                    "Either a global weight matrix or two seperate input&recurrent weight matrices are allowed!"
                 )
-            if len(self.weights.shape) != 2:
+            if len(self.weights_global.shape) != 2:
                 raise ValueError(
                     "Weight matrix provided does not have a proper shape! It should be 2-dimensional with (pre,post)!"
                 )
 
-        self.nonzero_mask = self.weights.astype(bool)
-        self.w_flat = np.abs(self.weights[self.nonzero_mask].flatten())
+        ## Fill property segment
+        self.__nonzero_mask = self.weights_global.astype(bool)
+        self.__w_flat = np.abs(self.weights_global[self.nonzero_mask].flatten())
+
+        ### Sign
+        __sign_filler = lambda w: np.sign(w) if w is not None else None
+        self.__sign_mask = __sign_filler(self.weights_global)
+        self.__sign_in = __sign_filler(self.weights_in)
+        self.__sign_rec = __sign_filler(self.weights_rec)
 
     def __shape_check(self) -> None:
+        """
+        __shape_check checks the shapes of the given weight matrices
+
+        :raises ValueError: Recurrent weight matrix should be square shaped!
+        :raises ValueError: Weight matrices provided does not have a proper shape! They should be 2-dimensional with (pre,post)!
+        :raises ValueError: The number of neurons should match!
+        """
 
         if self.shape_rec is not None:
             if self.shape_rec[0] != self.shape_rec[1]:
@@ -79,18 +115,29 @@ class WeightHandler:
                     f"The number of neurons should match! {self.weights_in.shape[1]} != {self.weights_rec.shape[1]}"
                 )
 
-    def decompress_flattened_weights(self, compressed: np.ndarray) -> Tuple[np.ndarray]:
+    def reshape_flat_weights(self, w_flat: np.ndarray) -> Tuple[np.ndarray]:
+        """
+        reshape_flat_weights restores the original shape of the input and recurrent weights
+        from the global non-zero flat weight matrix
+
+        :param w_flat: flattened global weight matrix with only non-zero absolute values
+        :type w_flat: np.ndarray
+        :return: w_in, w_rec
+            :w_in: input weight matrix
+            :w_rec: recurrent weight matrix
+        :rtype: Tuple[np.ndarray]
+        """
 
         # Compressed matrix should match the original global matrix shape
-        compressed = np.array(compressed)
+        w_flat = np.array(w_flat)
 
         # Place the elements to the known non-zero indexed places
-        decompressed = np.zeros_like(self.weights, dtype=compressed.dtype)
-        np.place(decompressed, self.nonzero_mask, compressed)
+        w_shaped = np.zeros_like(self.weights_global, dtype=w_flat.dtype)
+        np.place(w_shaped, self.nonzero_mask, w_flat)
 
         # Split the matrix into input and recurrent
-        w_in = decompressed[0 : self.shape_in[0], :]
-        w_rec = decompressed[self.shape_in[0] :, :]
+        w_in = w_shaped[0 : self.shape_in[0], :]
+        w_rec = w_shaped[self.shape_in[0] :, :]
 
         # Make sure that the shape is correct
         assert w_in.shape == self.shape_in
@@ -98,33 +145,45 @@ class WeightHandler:
 
         return w_in, w_rec
 
+    ### --- Utils --- ###
+
     @staticmethod
-    def weight_matrix(
+    def restore_weight_matrix(
         code: np.ndarray,
-        intmask: np.ndarray,
+        int_mask: np.ndarray,
+        sign_mask: Optional[np.ndarray] = None,
         bits_per_weight: Optional[int] = 4,
     ) -> np.ndarray:
-        """
-        weight_matrix generates a weight matrix for `DynapSE` modules using the base weight currents, and the intmask.
-        In device, we have the opportunity to define 4 different base weight current. Then using a bit mask, we can compose a
-        weight current defining the strength of the connection between two neurons. The parameters and usage explained below.
+        """restore_weight_matrix composes the simulated weight matrix that the given Iw vector(code), the int_mask and sign_mask
+        would generate. It only provides a perspective to see the intermediate representation of the configuration.
 
-        :return: the weight matrix composed using the base weight parameters and the binary bit-mask.
+        :param code: the Iw vector functioning as the intermediate code representation [Iw_0, Iw_1, Iw_2, Iw_3]
+        :type code: np.ndarray
+        :param int_mask: integer values representing binary weight selecting CAM masks
+        :type int_mask: np.ndarray
+        :param sign_mask: the +- signs of the weight values, + means excitatory; - means inhibitory. defaults to None
+        :type sign_mask: Optional[np.ndarray], optional
+        :param bits_per_weight: number of bits allocated per weight, defaults to 4
+        :type bits_per_weight: Optional[int], optional
+        :return: the simualated weight matrix
         :rtype: np.ndarray
         """
+
         # To broadcast on the post-synaptic neurons : pre, post -> [(bits), post, pre].T
-        bits_trans = WeightHandler.int2bit_mask(bits_per_weight, intmask).T
-        w_rec = np.sum(bits_trans * code, axis=-1).T
-        return w_rec
+        bits_trans = WeightHandler.int2bit_mask(bits_per_weight, int_mask).T
+        weights = np.sum(bits_trans * code, axis=-1).T
+        if sign_mask is not None:
+            weights *= sign_mask
+        return weights
 
     @staticmethod
     def bit2int_mask(
         n_bits: int,
-        bitmask: Union[jnp.DeviceArray, np.ndarray],
+        bit_mask: Union[jnp.DeviceArray, np.ndarray],
         np_back: Any = np,
     ) -> Union[jnp.DeviceArray, np.ndarray]:
         """
-        bit2int_mask apply 4-bit selection to binary values representing select bits and generates a compressed bitmask
+        bit2int_mask apply 4-bit selection to binary values representing select bits and generates a compressed bit_mask
 
             (n_bits=4)
 
@@ -134,23 +193,25 @@ class WeightHandler:
 
         :param n_bits: number of bits reserved for representing the integer values
         :type n_bits: int
-        :param bitmask: an array of indices of selected bits, only binary values, (n_bits,shape)
-        :type bitmask: jnp.DeviceArray
+        :param bit_mask: an array of indices of selected bits, only binary values, (n_bits,shape)
+        :type bit_mask: jnp.DeviceArray
+        :param np_back: the numpy backend to be used(jax.numpy or numpy), defaults to numpy
+        :type np_back: Any
         :return: integer values representing binary numbers (shape,)
         :rtype: jnp.DeviceArray
         """
         pattern = np_back.array([1 << n for n in range(n_bits)])  # [1,2,4,8, ..]
-        intmask = np_back.sum(bitmask.T * pattern, axis=-1).T
-        return intmask.round().astype(int)
+        int_mask = np_back.sum(bit_mask.T * pattern, axis=-1).T
+        return int_mask.round().astype(int)
 
     @staticmethod
     def int2bit_mask(
         n_bits: int,
-        intmask: Union[jnp.DeviceArray, np.ndarray],
+        int_mask: Union[jnp.DeviceArray, np.ndarray],
         np_back: Any = np,
     ) -> Union[jnp.DeviceArray, np.ndarray]:
         """
-        int2bit_mask converts a integer valued bitmask to 4 dimension (4-bits) bitmask representing the indexes of the selection
+        int2bit_mask converts a integer valued bit_mask to 4 dimension (4-bits) bit_mask representing the indexes of the selection
 
             (n_bits=4)
 
@@ -160,15 +221,44 @@ class WeightHandler:
 
         :param n_bits: number of bits reserved for representing the integer values
         :type n_bits: int
-        :param intmask: Integer values representing binary numbers to select (shape,)
-        :type intmask: jnp.DeviceArray
+        :param int_mask: integer values representing binary numbers to select (shape,)
+        :type int_mask: jnp.DeviceArray
+        :param np_back: the numpy backend to be used(jax.numpy or numpy), defaults to numpy
+        :type np_back: Any
         :return: an array of indices of selected bits, only binary values, (n_bits,shape)
         :rtype: jnp.DeviceArray
         """
 
         pattern = np_back.array([1 << n for n in range(n_bits)])  # [1,2,4,8, ..]
-        intmask_ext = np_back.full((n_bits, *intmask.shape), intmask)  # (n_bits,shape)
+        int_mask_ext = np_back.full((n_bits, *int_mask.shape), int_mask)
 
         # Indexes of the IDs to be selected in bits list
-        bitmask = np_back.bitwise_and(intmask_ext.T, pattern).T.astype(bool)
-        return bitmask
+        bit_mask = np_back.bitwise_and(int_mask_ext.T, pattern).T.astype(bool)
+        return bit_mask
+
+    ### --- Properties --- ###
+
+    @property
+    def w_flat(self) -> np.ndarray:
+        """flattened global weight matrix with only non-zero absolute values"""
+        return self.__w_flat
+
+    @property
+    def nonzero_mask(self) -> np.ndarray:
+        """the positional indexes of the matrix elements with the non-zero values"""
+        return self.__nonzero_mask
+
+    @property
+    def sign_mask(self) -> np.ndarray:
+        """the +- signs of global weight matrix elements"""
+        return self.__sign_mask
+
+    @property
+    def sign_in(self) -> Optional[np.ndarray]:
+        """the +- signs of input weight matrix elements, if input weight matrix is given"""
+        return self.__sign_in
+
+    @property
+    def sign_rec(self) -> Optional[np.ndarray]:
+        """the +- signs of recurrent weight matrix elements, if recurrent weight matrix is given"""
+        return self.__sign_rec
