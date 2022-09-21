@@ -162,7 +162,7 @@ class XyloMonitor(Module):
         if change_count is not None:
             if change_count < 0:
                 raise ValueError(
-                    f'{change_count} is negative. Must be non-negative values.'
+                    f"{change_count} is negative. Must be non-negative values."
                 )
             hdkutils.change_event_counter(self._afe_write_buffer, change_count)
 

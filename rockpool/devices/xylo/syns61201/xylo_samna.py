@@ -592,9 +592,7 @@ class XyloSamna(Module):
 
             # - Separate out power meaurement events by channel
             channels = samna.xyloA2TestBoard.MeasurementChannels
-            io_power = np.array(
-                [e.value for e in ps if e.channel == int(channels.Io)]
-            )
+            io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
             logic_afe_power = np.array(
                 [e.value for e in ps if e.channel == int(channels.LogicAfe)]
             )

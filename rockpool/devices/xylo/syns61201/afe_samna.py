@@ -71,6 +71,7 @@ class AFESamna(Module):
         change_count: Optional[int] = None,
         hibernation_mode: bool = False,
         divisive_norm: bool = False,
+        leak_timing_window: int = int(25e5),
         *args,
         **kwargs,
     ):
@@ -85,6 +86,7 @@ class AFESamna(Module):
             change_count (int): If is not None, AFE event counter will change from outputting 1 spike out of 4 into outputting 1 out of change_count.
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
             divisive_norm (bool): If True, divisive normalization will be switched on.
+            leak_timing_window (int): The timing window setting for leakage calibration.
         """
         # - Check input arguments
         if device is None:
@@ -159,13 +161,13 @@ class AFESamna(Module):
         if change_count is not None:
             if change_count < 0:
                 raise ValueError(
-                    f'{change_count} is negative. Must be non-negative values.'
+                    f"{change_count} is negative. Must be non-negative values."
                 )
             hdu.change_event_counter(device_io, change_count)
 
         # - Set up known good configuration
         print("Configuring AFE...")
-        hdu.apply_afe2_default_config(self._device)
+        hdu.apply_afe2_default_config(self._device, leak_timing_window)
         print("Configured AFE")
 
         # - Amplify input volume

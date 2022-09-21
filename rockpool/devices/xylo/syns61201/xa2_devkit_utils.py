@@ -296,12 +296,13 @@ def read_afe2_events_blocking(
     return timestamps * 1e-6, channels
 
 
-def apply_afe2_default_config(afe2hdk: XyloA2HDK) -> None:
+def apply_afe2_default_config(afe2hdk: XyloA2HDK, leak_timing_window: int) -> None:
     """
     Configure an AFE2 HDK, including self-calibration
 
     Args:
         afe_write_buf (AFE2WriteBuffer): A connected AFE2 write buffer
+        leak_timing_window (int): The timing window setting for leakage calibration
     """
     c = samna.afe2.configuration.AfeConfiguration()
 
@@ -324,7 +325,7 @@ def apply_afe2_default_config(afe2hdk: XyloA2HDK) -> None:
     c.aer_2_saer.calibration.reset = True
 
     c.aer_2_saer.calibration.afe_stable_time = 0x80
-    c.aer_2_saer.calibration.leak_timing_window = 0x2625A0
+    c.aer_2_saer.calibration.leak_timing_window = int(leak_timing_window)
 
     c.aer_2_saer.calibration.leak_td = 0x030D4
     c.aer_2_saer.calibration.leak_target_spike_number = 1
@@ -1917,7 +1918,7 @@ def AFE_hibernation(write_afe_buffer: AFE2WriteBuffer) -> None:
 
 def DivisiveNormalization(write_afe_buffer: AFE2WriteBuffer) -> None:
     write_afe2_register(write_afe_buffer, 0x2B, 0x1F4)
-    write_afe2_register(write_afe_buffer, 0x2A, 0x5000A0)
+    write_afe2_register(write_afe_buffer, 0x2A, 0x5000A1)
 
 
 def pretty_print_register(
