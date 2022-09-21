@@ -27,7 +27,7 @@ from jax import numpy as jnp
 
 # Rockpool
 from rockpool.training import jax_loss as l
-from rockpool.devices.dynapse.config.autoencoder import (
+from rockpool.devices.dynapse.ref.autoencoder import (
     AutoEncoder,
     DigitalAutoEncoder,
     AnalogAutoEncoder,
