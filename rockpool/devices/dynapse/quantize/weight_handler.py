@@ -11,9 +11,10 @@ split from WeightParameters @220922
 
 20/09/2022
 """
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple, Union
 from dataclasses import dataclass
 import numpy as np
+from jax import numpy as jnp
 
 
 @dataclass
@@ -57,7 +58,7 @@ class WeightHandler:
                 )
 
         self.nonzero_mask = self.weights.astype(bool)
-        self.w_flat = self.weights[self.nonzero_mask].flatten()
+        self.w_flat = np.abs(self.weights[self.nonzero_mask].flatten())
 
     def __shape_check(self) -> None:
 
@@ -82,10 +83,9 @@ class WeightHandler:
 
         # Compressed matrix should match the original global matrix shape
         compressed = np.array(compressed)
-        assert compressed.shape == self.weights.shape
 
         # Place the elements to the known non-zero indexed places
-        decompressed = np.zeros_like(self.weights)
+        decompressed = np.zeros_like(self.weights, dtype=compressed.dtype)
         np.place(decompressed, self.nonzero_mask, compressed)
 
         # Split the matrix into input and recurrent
@@ -97,3 +97,78 @@ class WeightHandler:
         assert w_rec.shape == self.shape_rec
 
         return w_in, w_rec
+
+    @staticmethod
+    def weight_matrix(
+        code: np.ndarray,
+        intmask: np.ndarray,
+        bits_per_weight: Optional[int] = 4,
+    ) -> np.ndarray:
+        """
+        weight_matrix generates a weight matrix for `DynapSE` modules using the base weight currents, and the intmask.
+        In device, we have the opportunity to define 4 different base weight current. Then using a bit mask, we can compose a
+        weight current defining the strength of the connection between two neurons. The parameters and usage explained below.
+
+        :return: the weight matrix composed using the base weight parameters and the binary bit-mask.
+        :rtype: np.ndarray
+        """
+        # To broadcast on the post-synaptic neurons : pre, post -> [(bits), post, pre].T
+        bits_trans = WeightHandler.int2bit_mask(bits_per_weight, intmask).T
+        w_rec = np.sum(bits_trans * code, axis=-1).T
+        return w_rec
+
+    @staticmethod
+    def bit2int_mask(
+        n_bits: int,
+        bitmask: Union[jnp.DeviceArray, np.ndarray],
+        np_back: Any = np,
+    ) -> Union[jnp.DeviceArray, np.ndarray]:
+        """
+        bit2int_mask apply 4-bit selection to binary values representing select bits and generates a compressed bitmask
+
+            (n_bits=4)
+
+            [0,0,0,1] -> 1
+            [1,0,0,0] -> 8
+            [0,1,0,1] -> 5
+
+        :param n_bits: number of bits reserved for representing the integer values
+        :type n_bits: int
+        :param bitmask: an array of indices of selected bits, only binary values, (n_bits,shape)
+        :type bitmask: jnp.DeviceArray
+        :return: integer values representing binary numbers (shape,)
+        :rtype: jnp.DeviceArray
+        """
+        pattern = np_back.array([1 << n for n in range(n_bits)])  # [1,2,4,8, ..]
+        intmask = np_back.sum(bitmask.T * pattern, axis=-1).T
+        return intmask.round().astype(int)
+
+    @staticmethod
+    def int2bit_mask(
+        n_bits: int,
+        intmask: Union[jnp.DeviceArray, np.ndarray],
+        np_back: Any = np,
+    ) -> Union[jnp.DeviceArray, np.ndarray]:
+        """
+        int2bit_mask converts a integer valued bitmask to 4 dimension (4-bits) bitmask representing the indexes of the selection
+
+            (n_bits=4)
+
+            1 = 0001 -> selected bit: 0
+            8 = 1000 -> selected bit: 3
+            5 = 0101 -> selected bit 0 and 2
+
+        :param n_bits: number of bits reserved for representing the integer values
+        :type n_bits: int
+        :param intmask: Integer values representing binary numbers to select (shape,)
+        :type intmask: jnp.DeviceArray
+        :return: an array of indices of selected bits, only binary values, (n_bits,shape)
+        :rtype: jnp.DeviceArray
+        """
+
+        pattern = np_back.array([1 << n for n in range(n_bits)])  # [1,2,4,8, ..]
+        intmask_ext = np_back.full((n_bits, *intmask.shape), intmask)  # (n_bits,shape)
+
+        # Indexes of the IDs to be selected in bits list
+        bitmask = np_back.bitwise_and(intmask_ext.T, pattern).T.astype(bool)
+        return bitmask
