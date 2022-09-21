@@ -50,6 +50,7 @@ class XyloMonitor(Module):
         main_clk_rate: int = int(50e6),
         hibernation_mode: bool = False,
         divisive_norm: bool = False,
+        leak_timing_window: int = int(25e5),
         *args,
         **kwargs,
     ):
@@ -66,6 +67,7 @@ class XyloMonitor(Module):
             main_clk_rate(int): The main clock rate of Xylo.
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
             divisive_norm (bool): If True, divisive normalization will be switched on.
+            leak_timing_window (int): The timing window setting for leakage calibration.
 
         """
 
@@ -168,7 +170,7 @@ class XyloMonitor(Module):
 
         # - Set up known good AFE configuration
         print("Configuring AFE...")
-        hdkutils.apply_afe2_default_config(self._device)
+        hdkutils.apply_afe2_default_config(self._device, leak_timing_window)
         print("Configured AFE")
 
         # - Amplify input volume
