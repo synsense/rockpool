@@ -63,7 +63,7 @@ def step_pwl(
 class DigitalAutoEncoder(JaxModule):
     """
     AutoEncoder implements a specific autoencoder architecture that aims to find the
-    optimal weight parameters and the bitmask configuraiton given a weight matrix for `DynapSE` networks.
+    optimal weight parameters and the bit_mask configuraiton given a weight matrix for `DynapSE` networks.
 
     NOTE: If intermediate code representation is known, then add a mean square error term to the
     loss function used in training. It will push the system generate the same code.
@@ -125,14 +125,14 @@ class DigitalAutoEncoder(JaxModule):
         The AutoEncoder architecture is timeless, therefore, there is no time record to hold.
         It uses the rockpool jax backend for the sake of compatibility.
 
-        :param matrix: The weight matrix to encode via a weight currents and bitmask
+        :param matrix: The weight matrix to encode via a weight currents and bit_mask
         :type matrix: jnp.DeviceArray
         :param record: dummy record flag, required for rockpool jax modules, defaults to False
         :type record: bool, optional
-        :return: reconstructed, code, bitmask
+        :return: reconstructed, code, bit_mask
             :reconstructed: the reconstructed weight matrix
             :code: compressed matrix
-            :bitmask: binary decoder
+            :bit_mask: binary decoder
         :rtype: Tuple[jnp.DeviceArray, jnp.DeviceArray, jnp.DeviceArray]
         """
         assert matrix.size == self.size_out
@@ -141,7 +141,7 @@ class DigitalAutoEncoder(JaxModule):
         code = self.encode(matrix)
         reconstructed = self.decode(code)
 
-        return reconstructed, code, self.bitmask
+        return reconstructed, code, self.bit_mask
 
     def encode(self, matrix: jnp.DeviceArray) -> jnp.DeviceArray:
         """
@@ -165,13 +165,13 @@ class DigitalAutoEncoder(JaxModule):
         :rtype: jnp.DeviceArray
         """
         assert code.size == self.n_code
-        return code @ self.bitmask
+        return code @ self.bit_mask
 
     @property
-    def bitmask(self) -> jnp.DeviceArray:
+    def bit_mask(self) -> jnp.DeviceArray:
         """
-        bitmask applies the sigmoid to the decoder weights to scale them in 0,1 with ditribution center at .5
-        Then it applies a heaviside step function with piece-wise linear derivative to obtain a valid bitmask consisting only of bits
+        bit_mask applies the sigmoid to the decoder weights to scale them in 0,1 with ditribution center at .5
+        Then it applies a heaviside step function with piece-wise linear derivative to obtain a valid bit_mask consisting only of bits
         """
         prob = nn.sigmoid(self.w_dec)
         spikes = step_pwl(prob)
@@ -209,7 +209,7 @@ def autoencoder_quantization(
     ## - Get the jit compiled update and value-and-gradient functions
     loss_vgf = jit(
         value_and_grad(
-            lambda params: quantized_weight_reconstruction_loss(
+            lambda params: QuantizationLoss.loss_reconstruction(
                 __encoder, params, jnp.array(__handler.w_flat)
             )
         )
@@ -246,62 +246,30 @@ def autoencoder_quantization(
 
     # Read the results
     optimized_encoder = __encoder.set_attributes(get_params(opt_state))
-    __, code, bitmask = optimized_encoder(__handler.w_flat)
-    code = np.array(code)
+    __, code, bit_mask = optimized_encoder(__handler.w_flat)
 
-    q_weights = WeightHandler.bit2int_mask(bits_per_weight, bitmask)
-    qw_in, qw_rec = __handler.decompress_flattened_weights(q_weights)
+    # --- Get the params --- #
 
-    # Get the params
+    ## Weight bias currents
+    code = np.array(code) * Iw_base
     get_weight_param = lambda idx: code[idx] if len(code) > idx else None
-    Iw_0 = get_weight_param(0)
-    Iw_1 = get_weight_param(1)
-    Iw_2 = get_weight_param(2)
-    Iw_3 = get_weight_param(3)
 
-    return {
-        "loss": loss_t,
+    ## Quantized weights
+    q_weights = WeightHandler.bit2int_mask(bits_per_weight, bit_mask)
+    qw_in, qw_rec = __handler.reshape_flat_weights(q_weights)
+
+    spec = {
         "weights_in": qw_in,
+        "sign_in": __handler.sign_in,
         "weights_rec": qw_rec,
-        "code": code,
-        "Iw_0": Iw_0,
-        "Iw_1": Iw_1,
-        "Iw_2": Iw_2,
-        "Iw_3": Iw_3,
+        "sign_rec": __handler.sign_rec,
+        "Iw_0": get_weight_param(0),
+        "Iw_1": get_weight_param(1),
+        "Iw_2": get_weight_param(2),
+        "Iw_3": get_weight_param(3),
     }
 
-
-def quantized_weight_reconstruction_loss(
-    encoder: JaxModule,
-    parameters: Dict[str, Any],
-    input: jnp.DeviceArray,
-    f_penalty: float = 1e3,
-) -> float:
-    """
-    loss calculates the mean square error loss between output and the target,
-    given a new parameter set. Also, adds the bound violation penalties to the loss calculated.
-
-    :param parameters: new parameter set for the autoencoder
-    :type parameters: Dict[str, Any]
-    :param f_penalty: a factor of multiplication for bound violation penalty, defaults to 1e3
-    :type f_penalty: float, optional
-    :return: the mean square error loss between the output and the target + bound violation penatly
-    :rtype: float
-    """
-
-    # - Assign the provided parameters to the network
-    net = encoder.set_attributes(parameters)
-    output, code, bitmask = net(input)
-
-    # - Code should always be positive (reresent real current value) - #
-    penalty = f_penalty * QuantizationLoss.penalty_negative(code)
-
-    # - Multiplexing and de-multiplexing the bitmask should produce the same bitmask
-    penalty += f_penalty * QuantizationLoss.penalty_reconstruction(len(code), bitmask)
-
-    # - Calculate the loss imposing the bounds
-    _loss = l.mse(output, input) + penalty
-    return _loss
+    return np.array(loss_t), spec
 
 
 def get_optimizer(
@@ -345,6 +313,41 @@ def get_optimizer(
 @dataclass
 class QuantizationLoss:
     @staticmethod
+    def loss_reconstruction(
+        encoder: JaxModule,
+        parameters: Dict[str, Any],
+        input: jnp.DeviceArray,
+        f_penalty: float = 1e3,
+    ) -> float:
+        """
+        loss calculates the mean square error loss between output and the target,
+        given a new parameter set. Also, adds the bound violation penalties to the loss calculated.
+
+        :param parameters: new parameter set for the autoencoder
+        :type parameters: Dict[str, Any]
+        :param f_penalty: a factor of multiplication for bound violation penalty, defaults to 1e3
+        :type f_penalty: float, optional
+        :return: the mean square error loss between the output and the target + bound violation penatly
+        :rtype: float
+        """
+
+        # - Assign the provided parameters to the network
+        net = encoder.set_attributes(parameters)
+        output, code, bit_mask = net(input)
+
+        # - Code should always be positive (reresent real current value) - #
+        penalty = f_penalty * QuantizationLoss.penalty_negative(code)
+
+        # - converting the bit_mask bit2int and int2bit should produce the same decoder
+        penalty += f_penalty * QuantizationLoss.penalty_reconstruction(
+            len(code), bit_mask
+        )
+
+        # - Calculate the loss imposing the bounds
+        _loss = l.mse(output, input) + penalty
+        return _loss
+
+    @staticmethod
     def penalty_negative(param: jnp.DeviceArray) -> float:
         """
         penalty_negative applies a below zero limit violation penalty to any parameter
@@ -363,21 +366,21 @@ class QuantizationLoss:
         return penalty
 
     @staticmethod
-    def penalty_reconstruction(n_bits: int, bitmask: jnp.DeviceArray) -> float:
+    def penalty_reconstruction(n_bits: int, bit_mask: jnp.DeviceArray) -> float:
         """
-        penalty_reconstruction applies a penalty if the bitmask encoding&decoding is non-unique.
-        It also assures that the rounded decoding weights are the same as the bitmask desired, and the
-        bitmask consists of binary values.
+        penalty_reconstruction applies a penalty if the bit_mask encoding&decoding is non-unique.
+        It also assures that the rounded decoding weights are the same as the bit_mask desired, and the
+        bit_mask consists of binary values.
 
         :param n_bits: number of bits reserved for representing the integer values
         :type n_bits: int
-        :param bitmask: the bitmask to check if encoding&decoding is unique
-        :type bitmask: jnp.DeviceArray
-        :return: mean square error loss between the bitmask found and the bitmap reconstructed after encoding decoding
+        :param bit_mask: the bit_mask to check if encoding&decoding is unique
+        :type bit_mask: jnp.DeviceArray
+        :return: mean square error loss between the bit_mask found and the bitmap reconstructed after encoding decoding
         :rtype: float
         """
-        intmask = WeightHandler.bit2int_mask(n_bits, bitmask, jnp)
-        bitmask_reconstructed = WeightHandler.int2bit_mask(n_bits, intmask, jnp)
-        penalty = l.mse(bitmask, bitmask_reconstructed)
+        int_mask = WeightHandler.bit2int_mask(n_bits, bit_mask, jnp)
+        bit_mask_reconstructed = WeightHandler.int2bit_mask(n_bits, int_mask, jnp)
+        penalty = l.mse(bit_mask, bit_mask_reconstructed)
 
         return penalty
