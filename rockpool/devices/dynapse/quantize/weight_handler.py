@@ -13,9 +13,11 @@ split from WeightParameters @220922
 20/09/2022
 """
 from typing import Any, Optional, Tuple, Union
-from dataclasses import dataclass
+
 import numpy as np
 from jax import numpy as jnp
+
+from dataclasses import dataclass
 
 
 @dataclass
