@@ -22,9 +22,9 @@ from copy import deepcopy
 
 # JAX
 from jax import numpy as jnp
-from jax import nn, custom_gradient
-from jax import jit, value_and_grad
+from jax import custom_gradient, jit, value_and_grad
 from jax.lax import scan
+from jax.nn import sigmoid
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from jax.example_libraries import optimizers
 
@@ -43,11 +43,16 @@ __all__ = ["autoencoder_quantization", "__get_optimizer"]
 
 
 def autoencoder_quantization(
+    ## Input
     weights_in: np.ndarray,
     weights_rec: np.ndarray,
     Iw_base: float,
-    n_epoch: int = 100000,
     bits_per_weight: Optional[int] = 4,
+    ## Optimization
+    epoch_limit: int = int(1e7),
+    n_checkpoint: int = int(1e3),
+    eps: float = 1e-5,
+    record_loss: bool = True,
     optimizer: str = "adam",
     step_size: Union[float, Callable[[int], float]] = lambda i: (
         1e-4 / (1.0 + 1e-4 * i)
@@ -66,10 +71,12 @@ def autoencoder_quantization(
     ### --- Optimization Configuration --- ###
 
     ## - Get the optimiser functions
-    init_fun, update_fun, get_params = __get_optimizer(optimizer, step_size, **opt_params)
+    init_fun, update_fun, get_params = __get_optimizer(
+        optimizer, step_size, **opt_params
+    )
 
     ## - Initialize the optimizer with the initial parameters
-    current_state = init_fun(deepcopy(__encoder.parameters()))
+    opt_state = init_fun(deepcopy(__encoder.parameters()))
 
     ## - Get the jit compiled update and value-and-gradient functions
     loss_vgf = jit(
@@ -80,10 +87,26 @@ def autoencoder_quantization(
         )
     )
     update_fun = jit(update_fun)
+    epoch = jnp.array(range(n_checkpoint)).reshape(-1, 1)
+
+    run_for = jit(
+        lambda state: __run_for(epoch, state, get_params, loss_vgf, update_fun)
+    )
 
     ### --- Optimize --- ###
+    rec_loss = []
+    mean_loss = 0
 
-    opt_state, loss_t = __run_for(n_epoch, current_state, get_params, loss_vgf, update_fun)
+    for _ in range(0, epoch_limit, n_checkpoint):
+        opt_state, loss_t = run_for(opt_state)
+
+        if record_loss:
+            rec_loss += list(np.array(loss_t))
+
+        if jnp.abs(mean_loss - jnp.mean(loss_t)) < eps:
+            break
+        else:
+            mean_loss = jnp.mean(loss_t)
 
     ### ---  Read the results --- ###
 
@@ -111,12 +134,12 @@ def autoencoder_quantization(
         "Iw_3": get_weight_param(3),
     }
 
-    return np.array(loss_t), spec
+    return spec, np.array(rec_loss)
 
 
-def __run_for(n_epoch: int, state, get_params, loss_vgf, update_fun):
+def __run_for(epoch: jnp.array, opt_state, get_params, loss_vgf, update_fun):
     def step(
-        state: optimizers.OptimizerState, epoch: int
+        opt_state: optimizers.OptimizerState, epoch: int
     ) -> Tuple[Dict[str, jnp.DeviceArray], optimizers.OptimizerState, jnp.DeviceArray]:
         """
         step stacks together the single iteration step operations during training
@@ -132,16 +155,15 @@ def __run_for(n_epoch: int, state, get_params, loss_vgf, update_fun):
         :rtype: Tuple[Dict[str, jnp.DeviceArray], optimizers.OptimizerState, jnp.DeviceArray]
         """
 
-        params = get_params(state)
+        params = get_params(opt_state)
         loss_val, grads = loss_vgf(params)
-        opt_state = update_fun(epoch, grads, state)
+        opt_state = update_fun(epoch, grads, opt_state)
 
         # Return
         return opt_state, loss_val
 
     # --- Iterate over epochs --- #
-    epoch = jnp.array(range(n_epoch)).reshape(-1, 1)
-    opt_state, loss_t = scan(step, state, epoch)
+    opt_state, loss_t = scan(step, opt_state, epoch)
     return opt_state, loss_t
 
 
@@ -317,7 +339,7 @@ class DigitalAutoEncoder(JaxModule):
         bit_mask applies the sigmoid to the decoder weights to scale them in 0,1 with ditribution center at .5
         Then it applies a heaviside step function with piece-wise linear derivative to obtain a valid bit_mask consisting only of bits
         """
-        prob = nn.sigmoid(self.w_dec)
+        prob = sigmoid(self.w_dec)
         spikes = step_pwl(prob)
         return spikes
 
