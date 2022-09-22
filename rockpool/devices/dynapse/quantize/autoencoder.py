@@ -49,9 +49,10 @@ def autoencoder_quantization(
     Iw_base: float,
     bits_per_weight: Optional[int] = 4,
     ## Optimization
-    epoch_limit: int = int(1e7),
-    n_checkpoint: int = int(1e3),
-    eps: float = 1e-5,
+    fixed_epoch: bool = False,
+    num_epoch: int = int(1e7),
+    num_epoch_checkpoint: int = int(1e3),
+    eps: float = 1e-6,
     record_loss: bool = True,
     optimizer: str = "adam",
     step_size: Union[float, Callable[[int], float]] = lambda i: (
@@ -60,10 +61,7 @@ def autoencoder_quantization(
     opt_params: Optional[Dict[str, Any]] = {},
 ) -> Dict[Any, Any]:
 
-    ### --- Initial DRC and Object Construction --- ###
-
-    if bits_per_weight > 4:
-        raise ValueError("Up-to 4-bits representation supported")
+    ### --- Initial Object Construction --- ###
 
     __handler = WeightHandler(weights_in, weights_rec)
     __encoder = DigitalAutoEncoder(__handler.w_flat.size, bits_per_weight)
@@ -87,35 +85,38 @@ def autoencoder_quantization(
         )
     )
     update_fun = jit(update_fun)
-    epoch = jnp.array(range(n_checkpoint)).reshape(-1, 1)
-
     run_for = jit(
-        lambda state: __run_for(epoch, state, get_params, loss_vgf, update_fun)
+        lambda epoch, state: __run_for(epoch, state, get_params, loss_vgf, update_fun)
     )
 
     ### --- Optimize --- ###
-    rec_loss = []
-    mean_loss = 0
 
-    for _ in range(0, epoch_limit, n_checkpoint):
-        opt_state, loss_t = run_for(opt_state)
+    if not fixed_epoch:
 
-        if record_loss:
-            rec_loss += list(np.array(loss_t))
+        rec_loss = []
+        mean_loss = 0
+        epoch = jnp.array(range(num_epoch_checkpoint)).reshape(-1, 1)
 
-        if jnp.abs(mean_loss - jnp.mean(loss_t)) < eps:
-            break
-        else:
-            mean_loss = jnp.mean(loss_t)
+        for _ in range(0, num_epoch, num_epoch_checkpoint):
+            opt_state, loss_t = run_for(epoch, opt_state)
+
+            if record_loss:
+                rec_loss += list(np.array(loss_t))
+
+            if jnp.abs(mean_loss - jnp.mean(loss_t)) < eps:
+                break
+            else:
+                mean_loss = jnp.mean(loss_t)
+
+    else:
+
+        epoch = jnp.array(range(num_epoch)).reshape(-1, 1)
+        opt_state, rec_loss = run_for(epoch, opt_state)
 
     ### ---  Read the results --- ###
 
     optimized_encoder = __encoder.set_attributes(get_params(opt_state))
     __, code, bit_mask = optimized_encoder(__handler.w_flat)
-
-    ## - Weight bias currents
-    code = np.array(code) * Iw_base
-    get_weight_param = lambda idx: code[idx] if len(code) > idx else None
 
     ## - Quantized weights
     q_weights = WeightHandler.bit2int_mask(bits_per_weight, bit_mask)
@@ -128,10 +129,7 @@ def autoencoder_quantization(
         "sign_in": __handler.sign_in,
         "weights_rec": qw_rec,
         "sign_rec": __handler.sign_rec,
-        "Iw_0": get_weight_param(0),
-        "Iw_1": get_weight_param(1),
-        "Iw_2": get_weight_param(2),
-        "Iw_3": get_weight_param(3),
+        "Iw": np.array(code) * Iw_base,
     }
 
     return spec, np.array(rec_loss)
