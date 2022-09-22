@@ -53,9 +53,7 @@ def autoencoder_quantization(
     eps: float = 1e-6,
     record_loss: bool = True,
     optimizer: str = "adam",
-    step_size: Union[float, Callable[[int], float]] = lambda i: (
-        1e-4 / (1.0 + 1e-4 * i)
-    ),
+    step_size: Union[float, Callable[[int], float]] = 1e-4,
     opt_params: Optional[Dict[str, Any]] = {},
     *args,
     **kwargs,
