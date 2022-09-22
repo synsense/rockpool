@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from copy import deepcopy
 
 # JAX
+import jax
 from jax import numpy as jnp
 from jax import custom_gradient, jit, value_and_grad
 from jax.lax import scan
@@ -267,22 +268,41 @@ def __get_optimizer(
         )
 
 
-### --- Custom gradient implementation --- ###
+### --- Custom gradient implementation --- ##
 
 
-@custom_gradient
-def step_pwl(
-    x: jnp.DeviceArray,
-) -> Tuple[jnp.DeviceArray, Callable[[jnp.DeviceArray], jnp.DeviceArray]]:
+@jax.custom_jvp
+def step_pwl(probs: jnp.DeviceArray) -> jnp.DeviceArray:
     """
-    step_pwl is heaviside step function with piece-wise linear derivative to use as spike-generation surrogate
+    step_pwl is heaviside step function with piece-wise linear derivative to use as thresholded probability value surrogate
 
-    :param jnp.DeviceArray x: Input value
-
-    :return (jnp.DeviceArray, Callable[[jnp.DeviceArray], jnp.DeviceArray]): output value and gradient function
+    :param probs: a probability array
+    :type probs: jnp.DeviceArray
+    :return: the thresholded probability values
+    :rtype: float
     """
-    s = jnp.clip(jnp.floor(x + 0.5), 0.0)
-    return s, lambda g: (g * (x > 0),)
+    thresholded = jnp.clip(jnp.floor(probs + 0.5), 0.0)
+    return thresholded
+
+
+@step_pwl.defjvp
+def step_pwl_jvp(
+    primals: Tuple[jnp.DeviceArray], tangents: Tuple[jnp.DeviceArray]
+) -> Tuple[jnp.DeviceArray]:
+    """
+    step_pwl_jvp custom jvp function defining the custom gradient rule of the step pwl function
+
+    :param primals: the primary variables passed as the input to the `step_pwl` function
+    :type primals: Tuple[jnp.DeviceArray]
+    :param tangents: the first order gradient values of the primal variables
+    :type tangents: Tuple[jnp.DeviceArray]
+    :return: modified forward pass output and the gradient values
+    :rtype: Tuple[jnp.DeviceArray]
+    """
+    (probs,) = primals
+    (probs_dot,) = tangents
+    probs_dot = probs_dot * jnp.clip(probs, 0.0)
+    return step_pwl(*primals), probs_dot
 
 
 ### --- MODULES --- ###
