@@ -1,29 +1,30 @@
 """
-Dynap-SE weight quantization package provides easy to use support
-
-Note : Existing modules are reconstructed considering consistency with Xylo support.
+Dynap-SE autoencoder based quantization package provides easy to use support
 
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 
+Previous : config/autoencoder.py @ 220127
+
 15/09/2022
 
 [] TODO : Think about scale and rescale
 """
+
 from __future__ import annotations
-import logging
 
 from typing import Any, Callable, Dict, Optional, Tuple, Union
 
-from dataclasses import dataclass
 import numpy as np
+from dataclasses import dataclass
 from copy import deepcopy
 
 # JAX
 from jax import numpy as jnp
+from jax import nn, custom_gradient
 from jax import jit, value_and_grad
-from jax.lax import scan, cond
+from jax.lax import scan
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from jax.example_libraries import optimizers
 
@@ -31,18 +32,158 @@ from jax.example_libraries import optimizers
 # Rockpool
 from rockpool.training import jax_loss as l
 from rockpool.devices.dynapse.quantize.weight_handler import WeightHandler
-
-
-__all__ = ["autoencoder_quantization", "get_optimizer"]
-
-from typing import Any, Callable, Dict, Optional, Tuple
-
-# JAX
-from jax import nn, custom_gradient
-
-# Rockpool
 from rockpool.parameters import Parameter
 from rockpool.nn.modules.native.linear import kaiming, xavier
+
+
+__all__ = ["autoencoder_quantization", "__get_optimizer"]
+
+
+### --- UTILITY FUNCTIONS --- ###
+
+
+def autoencoder_quantization(
+    weights_in: np.ndarray,
+    weights_rec: np.ndarray,
+    Iw_base: float,
+    n_epoch: int = 100000,
+    bits_per_weight: Optional[int] = 4,
+    optimizer: str = "adam",
+    step_size: Union[float, Callable[[int], float]] = lambda i: (
+        1e-4 / (1.0 + 1e-4 * i)
+    ),
+    opt_params: Optional[Dict[str, Any]] = {},
+) -> Dict[Any, Any]:
+
+    ### --- Initial DRC and Object Construction --- ###
+
+    if bits_per_weight > 4:
+        raise ValueError("Up-to 4-bits representation supported")
+
+    __handler = WeightHandler(weights_in, weights_rec)
+    __encoder = DigitalAutoEncoder(__handler.w_flat.size, bits_per_weight)
+
+    ### --- Optimization Configuration --- ###
+
+    ## - Get the optimiser functions
+    init_fun, update_fun, get_params = __get_optimizer(optimizer, step_size, **opt_params)
+
+    ## - Initialize the optimizer with the initial parameters
+    current_state = init_fun(deepcopy(__encoder.parameters()))
+
+    ## - Get the jit compiled update and value-and-gradient functions
+    loss_vgf = jit(
+        value_and_grad(
+            lambda params: QuantizationLoss.loss_reconstruction(
+                __encoder, params, jnp.array(__handler.w_flat)
+            )
+        )
+    )
+    update_fun = jit(update_fun)
+
+    ### --- Optimize --- ###
+
+    opt_state, loss_t = __run_for(n_epoch, current_state, get_params, loss_vgf, update_fun)
+
+    ### ---  Read the results --- ###
+
+    optimized_encoder = __encoder.set_attributes(get_params(opt_state))
+    __, code, bit_mask = optimized_encoder(__handler.w_flat)
+
+    ## - Weight bias currents
+    code = np.array(code) * Iw_base
+    get_weight_param = lambda idx: code[idx] if len(code) > idx else None
+
+    ## - Quantized weights
+    q_weights = WeightHandler.bit2int_mask(bits_per_weight, bit_mask)
+    qw_in, qw_rec = __handler.reshape_flat_weights(q_weights)
+
+    ### --- Return --- ###
+
+    spec = {
+        "weights_in": qw_in,
+        "sign_in": __handler.sign_in,
+        "weights_rec": qw_rec,
+        "sign_rec": __handler.sign_rec,
+        "Iw_0": get_weight_param(0),
+        "Iw_1": get_weight_param(1),
+        "Iw_2": get_weight_param(2),
+        "Iw_3": get_weight_param(3),
+    }
+
+    return np.array(loss_t), spec
+
+
+def __run_for(n_epoch: int, state, get_params, loss_vgf, update_fun):
+    def step(
+        state: optimizers.OptimizerState, epoch: int
+    ) -> Tuple[Dict[str, jnp.DeviceArray], optimizers.OptimizerState, jnp.DeviceArray]:
+        """
+        step stacks together the single iteration step operations during training
+
+        :param opt_state: the optimizer's current state
+        :type opt_state: optimizers.OptimizerState
+        :param epoch: the current epoch
+        :type epoch: int
+        :return: params, opt_state, loss_val
+            :params: the network parameters
+            :opt_state: the current time step optimizer state
+            :loss_val: the current loss value
+        :rtype: Tuple[Dict[str, jnp.DeviceArray], optimizers.OptimizerState, jnp.DeviceArray]
+        """
+
+        params = get_params(state)
+        loss_val, grads = loss_vgf(params)
+        opt_state = update_fun(epoch, grads, state)
+
+        # Return
+        return opt_state, loss_val
+
+    # --- Iterate over epochs --- #
+    epoch = jnp.array(range(n_epoch)).reshape(-1, 1)
+    opt_state, loss_t = scan(step, state, epoch)
+    return opt_state, loss_t
+
+
+def __get_optimizer(
+    name: str, *args, **kwargs
+) -> Tuple[optimizers.InitFn, optimizers.UpdateFn, optimizers.ParamsFn]:
+    """
+    _get_optimizer calls the name-requested optimizer and returns the jax optimizer functions
+
+    :param name: the name of the optimizer
+    :type name: str
+    :raises ValueError: Requested optimizer is not available!
+    :return: the optimizer functions
+    :rtype: Tuple[optimizers.InitFn, optimizers.UpdateFn, optimizers.ParamsFn]
+    """
+
+    if name == "sgd":
+        return optimizers.sgd(*args, **kwargs)
+    elif name == "momentum":
+        return optimizers.momentum(*args, **kwargs)
+    elif name == "nesterov":
+        return optimizers.nesterov(*args, **kwargs)
+    elif name == "adagrad":
+        return optimizers.adagrad(*args, **kwargs)
+    elif name == "rmsprop":
+        return optimizers.rmsprop(*args, **kwargs)
+    elif name == "rmsprop_momentum":
+        return optimizers.rmsprop_momentum(*args, **kwargs)
+    elif name == "adam":
+        return optimizers.adam(*args, **kwargs)
+    elif name == "adamax":
+        return optimizers.adamax(*args, **kwargs)
+    elif name == "sm3":
+        return optimizers.sm3(*args, **kwargs)
+    else:
+        raise ValueError(
+            f"The optimizer : {name} is not available!"
+            f"Try one of the optimizer defined in `jax.example_libraries.optimizers'` : sgd, momentum, nesterov, adagrad, rmsprop, rmsprop_momentum, adam, adamax, sm3"
+        )
+
+
+### --- Custom gradient implementation --- ###
 
 
 @custom_gradient
@@ -60,9 +201,12 @@ def step_pwl(
     return s, lambda g: (g * (x > 0),)
 
 
+### --- MODULES --- ###
+
+
 class DigitalAutoEncoder(JaxModule):
     """
-    AutoEncoder implements a specific autoencoder architecture that aims to find the
+    DigitalAutoEncoder implements a specific autoencoder architecture that aims to find the
     optimal weight parameters and the bit_mask configuraiton given a weight matrix for `DynapSE` networks.
 
     NOTE: If intermediate code representation is known, then add a mean square error term to the
@@ -176,138 +320,6 @@ class DigitalAutoEncoder(JaxModule):
         prob = nn.sigmoid(self.w_dec)
         spikes = step_pwl(prob)
         return spikes
-
-
-def autoencoder_quantization(
-    weights_in: np.ndarray,
-    weights_rec: np.ndarray,
-    Iw_base: float,
-    n_epoch: int = 100000,
-    bits_per_weight: Optional[int] = 4,
-    optimizer: str = "adam",
-    step_size: Union[float, Callable[[int], float]] = lambda i: (
-        1e-4 / (1.0 + 1e-4 * i)
-    ),
-    opt_params: Optional[Dict[str, Any]] = {},
-) -> Dict[Any, Any]:
-
-    if bits_per_weight > 4:
-        raise ValueError("Up-to 4-bits representation supported")
-
-    __handler = WeightHandler(weights_in, weights_rec)
-    __encoder = DigitalAutoEncoder(__handler.w_flat.size, bits_per_weight)
-
-    # Optimize #
-
-    ## - Get the optimiser functions
-    init_fun, update_fun, get_params = get_optimizer(optimizer, step_size, **opt_params)
-
-    ## - Initialize the optimizer with the initial parameters
-    params0 = deepcopy(__encoder.parameters())
-    opt_state = init_fun(params0)
-
-    ## - Get the jit compiled update and value-and-gradient functions
-    loss_vgf = jit(
-        value_and_grad(
-            lambda params: QuantizationLoss.loss_reconstruction(
-                __encoder, params, jnp.array(__handler.w_flat)
-            )
-        )
-    )
-    update_fun = jit(update_fun)
-
-    def step(
-        opt_state: optimizers.OptimizerState, epoch: int
-    ) -> Tuple[Dict[str, jnp.DeviceArray], optimizers.OptimizerState, jnp.DeviceArray]:
-        """
-        step stacks together the single iteration step operations during training
-
-        :param opt_state: the optimizer's current state
-        :type opt_state: optimizers.OptimizerState
-        :param epoch: the current epoch
-        :type epoch: int
-        :return: params, opt_state, loss_val
-            :params: the network parameters
-            :opt_state: the current time step optimizer state
-            :loss_val: the current loss value
-        :rtype: Tuple[Dict[str, jnp.DeviceArray], optimizers.OptimizerState, jnp.DeviceArray]
-        """
-
-        params = get_params(opt_state)
-        loss_val, grads = loss_vgf(params)
-        opt_state = update_fun(epoch, grads, opt_state)
-
-        # Return
-        return opt_state, loss_val
-
-    # --- Iterate over epochs --- #
-    epoch = jnp.array(range(n_epoch)).reshape(-1, 1)
-    opt_state, loss_t = scan(step, opt_state, epoch)
-
-    # Read the results
-    optimized_encoder = __encoder.set_attributes(get_params(opt_state))
-    __, code, bit_mask = optimized_encoder(__handler.w_flat)
-
-    # --- Get the params --- #
-
-    ## Weight bias currents
-    code = np.array(code) * Iw_base
-    get_weight_param = lambda idx: code[idx] if len(code) > idx else None
-
-    ## Quantized weights
-    q_weights = WeightHandler.bit2int_mask(bits_per_weight, bit_mask)
-    qw_in, qw_rec = __handler.reshape_flat_weights(q_weights)
-
-    spec = {
-        "weights_in": qw_in,
-        "sign_in": __handler.sign_in,
-        "weights_rec": qw_rec,
-        "sign_rec": __handler.sign_rec,
-        "Iw_0": get_weight_param(0),
-        "Iw_1": get_weight_param(1),
-        "Iw_2": get_weight_param(2),
-        "Iw_3": get_weight_param(3),
-    }
-
-    return np.array(loss_t), spec
-
-
-def get_optimizer(
-    name: str, *args, **kwargs
-) -> Tuple[optimizers.InitFn, optimizers.UpdateFn, optimizers.ParamsFn]:
-    """
-    _get_optimizer calls the name-requested optimizer and returns the jax optimizer functions
-
-    :param name: the name of the optimizer
-    :type name: str
-    :raises ValueError: Requested optimizer is not available!
-    :return: the optimizer functions
-    :rtype: Tuple[optimizers.InitFn, optimizers.UpdateFn, optimizers.ParamsFn]
-    """
-
-    if name == "sgd":
-        return optimizers.sgd(*args, **kwargs)
-    elif name == "momentum":
-        return optimizers.momentum(*args, **kwargs)
-    elif name == "nesterov":
-        return optimizers.nesterov(*args, **kwargs)
-    elif name == "adagrad":
-        return optimizers.adagrad(*args, **kwargs)
-    elif name == "rmsprop":
-        return optimizers.rmsprop(*args, **kwargs)
-    elif name == "rmsprop_momentum":
-        return optimizers.rmsprop_momentum(*args, **kwargs)
-    elif name == "adam":
-        return optimizers.adam(*args, **kwargs)
-    elif name == "adamax":
-        return optimizers.adamax(*args, **kwargs)
-    elif name == "sm3":
-        return optimizers.sm3(*args, **kwargs)
-    else:
-        raise ValueError(
-            f"The optimizer : {name} is not available!"
-            f"Try one of the optimizer defined in `jax.example_libraries.optimizers'` : sgd, momentum, nesterov, adagrad, rmsprop, rmsprop_momentum, adam, adamax, sm3"
-        )
 
 
 @dataclass
