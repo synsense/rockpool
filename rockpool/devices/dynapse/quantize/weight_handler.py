@@ -151,28 +151,28 @@ class WeightHandler:
 
     @staticmethod
     def restore_weight_matrix(
+        n_bits: Optional[int],
         code: np.ndarray,
         int_mask: np.ndarray,
         sign_mask: Optional[np.ndarray] = None,
-        bits_per_weight: Optional[int] = 4,
     ) -> np.ndarray:
         """restore_weight_matrix composes the simulated weight matrix that the given Iw vector(code), the int_mask and sign_mask
         would generate. It only provides a perspective to see the intermediate representation of the configuration.
 
+        :param n_bits: number of bits allocated per weight, defaults to 4
+        :type n_bits: Optional[int], optional
         :param code: the Iw vector functioning as the intermediate code representation [Iw_0, Iw_1, Iw_2, Iw_3]
         :type code: np.ndarray
         :param int_mask: integer values representing binary weight selecting CAM masks
         :type int_mask: np.ndarray
         :param sign_mask: the +- signs of the weight values, + means excitatory; - means inhibitory. defaults to None
         :type sign_mask: Optional[np.ndarray], optional
-        :param bits_per_weight: number of bits allocated per weight, defaults to 4
-        :type bits_per_weight: Optional[int], optional
         :return: the simualated weight matrix
         :rtype: np.ndarray
         """
 
         # To broadcast on the post-synaptic neurons : pre, post -> [(bits), post, pre].T
-        bits_trans = WeightHandler.int2bit_mask(bits_per_weight, int_mask).T
+        bits_trans = WeightHandler.int2bit_mask(n_bits, int_mask).T
         weights = np.sum(bits_trans * code, axis=-1).T
         if sign_mask is not None:
             weights *= sign_mask
