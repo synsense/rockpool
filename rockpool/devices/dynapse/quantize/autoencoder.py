@@ -82,7 +82,7 @@ def autoencoder_quantization(
     :type record_loss: bool, optional
     :param optimizer: one of the optimizer defined in `jax.example_libraries.optimizers` : , defaults to "adam"
     :type optimizer: str, optional
-    :param step_size: positive scalar, or a callable representing a step size schedule that maps the iteration index to a positive scalar. , defaults to 1e-3
+    :param step_size: positive scalar, or a callable representing a step size schedule that maps the iteration index to a positive scalar. , defaults to 1e-4
     :type step_size: Union[float, Callable[[int], float]], optional
     :param opt_params: optimizer parameters dictionary, defaults to {}
     :type opt_params: Optional[Dict[str, Any]], optional
