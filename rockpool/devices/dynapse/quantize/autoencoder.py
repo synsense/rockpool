@@ -9,7 +9,6 @@ Previous : config/autoencoder.py @ 220127
 
 15/09/2022
 
-[] TODO : Think about scale and rescale
 """
 
 from __future__ import annotations
@@ -21,10 +20,10 @@ from copy import deepcopy
 
 # JAX
 import jax
+from jax import jit, value_and_grad
 from jax import numpy as jnp
-from jax import custom_gradient, jit, value_and_grad
-from jax.lax import scan
 from jax.nn import sigmoid
+from jax.lax import scan
 from jax.example_libraries import optimizers
 
 # Rockpool
@@ -110,11 +109,16 @@ def autoencoder_quantization(
     ## - Initialize the optimizer with the initial parameters
     opt_state = init_fun(deepcopy(__encoder.parameters()))
 
+    ## - Preprocess
+    __scale = lambda w: (1.0 / (jnp.max(w) - jnp.min(w) + 1))
+    __scale_factor = __scale(__handler.w_flat)
+    w_flat = __scale_factor * jnp.array(__handler.w_flat)
+
     ## - Get the jit compiled update and value-and-gradient functions
     loss_vgf = jit(
         value_and_grad(
             lambda params: QuantizationLoss.loss_reconstruction(
-                __encoder, params, jnp.array(__handler.w_flat)
+                __encoder, params, w_flat
             )
         )
     )
@@ -156,7 +160,7 @@ def autoencoder_quantization(
     ### ---  Read the results --- ###
 
     optimized_encoder = __encoder.set_attributes(get_params(opt_state))
-    __, code, bit_mask = optimized_encoder(__handler.w_flat)
+    __, code, bit_mask = optimized_encoder(w_flat)
 
     ## - Quantized weights
     q_weights = WeightHandler.bit2int_mask(n_bits, bit_mask)
@@ -169,7 +173,7 @@ def autoencoder_quantization(
         "sign_in": __handler.sign_in,
         "weights_rec": qw_rec,
         "sign_rec": __handler.sign_rec,
-        "Iw": np.array(code) * Iw_base,
+        "Iw": np.array(code) * Iw_base / __scale_factor,
     }
 
     return spec, np.array(rec_loss)
