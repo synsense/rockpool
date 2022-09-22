@@ -26,6 +26,8 @@ class WeightHandler:
     WeightHandler encapsulates the simulator weights and provides utilities to use the weight matrices in quantization pipeline.
     Also provides some utilities to restore a weight matrix from the weight parameters and CAM content.
 
+    :Parameters:
+
     :param weights_in: input layer weights used in Dynap-SE2 simulation
     :type weights_in: Optional[np.ndarray]
     :param weights_rec: recurrent layer (in-device neurons) weights used in Dynap-SE2 simulation

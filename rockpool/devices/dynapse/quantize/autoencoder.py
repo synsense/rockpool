@@ -13,7 +13,6 @@ Previous : config/autoencoder.py @ 220127
 """
 
 from __future__ import annotations
-
 from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import numpy as np
@@ -25,18 +24,17 @@ from jax import numpy as jnp
 from jax import custom_gradient, jit, value_and_grad
 from jax.lax import scan
 from jax.nn import sigmoid
-from rockpool.nn.modules.jax.jax_module import JaxModule
 from jax.example_libraries import optimizers
 
-
 # Rockpool
+from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.training import jax_loss as l
 from rockpool.devices.dynapse.quantize.weight_handler import WeightHandler
 from rockpool.parameters import Parameter
-from rockpool.nn.modules.native.linear import kaiming, xavier
+from rockpool.nn.modules.native.linear import kaiming
 
 
-__all__ = ["autoencoder_quantization", "__get_optimizer"]
+__all__ = ["autoencoder_quantization"]
 
 
 ### --- UTILITY FUNCTIONS --- ###
@@ -47,7 +45,7 @@ def autoencoder_quantization(
     weights_in: np.ndarray,
     weights_rec: np.ndarray,
     Iw_base: float,
-    bits_per_weight: Optional[int] = 4,
+    n_bits: Optional[int] = 4,
     ## Optimization
     fixed_epoch: bool = False,
     num_epoch: int = int(1e7),
@@ -59,12 +57,47 @@ def autoencoder_quantization(
         1e-4 / (1.0 + 1e-4 * i)
     ),
     opt_params: Optional[Dict[str, Any]] = {},
-) -> Dict[Any, Any]:
+    *args,
+    **kwargs,
+) -> Tuple[Dict[str, np.ndarray], np.ndarray]:
+    """
+    autoencoder_quantization is a utility function to use the autoencoder quantization approach
+    in deployment pipelines. One can experiment with the parameters to control the autoencoder training.
+
+    :param weights_in: input layer weights used in Dynap-SE2 simulation
+    :type weights_in: Optional[np.ndarray]
+    :param weights_rec: recurrent layer (in-device neurons) weights used in Dynap-SE2 simulation
+    :type weights_rec: Optional[np.ndarray]
+    :param Iw_base: base weight current in Amperes used in simulation
+    :type Iw_base: float
+    :param n_bits: number of target weight bits, defaults to 4
+    :type n_bits: Optional[int], optional
+    :param fixed_epoch: used fixed number of epochs or control the convergence by loss decrease, defaults to False
+    :type fixed_epoch: bool, optional
+    :param num_epoch: the fixed number of epochs as global limit, defaults to 10,000,000
+    :type num_epoch: int, optional
+    :param num_epoch_checkpoint: at this point (number of epochs), pipeline checks the loss decrease and decide to continue or not, defaults to 1,000.
+    :type num_epoch_checkpoint: int, optional
+    :param eps: the epsilon tolerance value. If the loss does not decrease more than this for five consecutive checkpoints, then training stops. defaults to 1e-6
+    :type eps: float, optional
+    :param record_loss: record the loss evolution or not, defaults to True
+    :type record_loss: bool, optional
+    :param optimizer: one of the optimizer defined in `jax.example_libraries.optimizers` : , defaults to "adam"
+    :type optimizer: str, optional
+    :param step_size: positive scalar, or a callable representing a step size schedule that maps the iteration index to a positive scalar. , defaults to 1e-3
+    :type step_size: Union[float, Callable[[int], float]], optional
+    :param opt_params: optimizer parameters dictionary, defaults to {}
+    :type opt_params: Optional[Dict[str, Any]], optional
+    :return: spec, rec_loss
+        :spec: quantized weights and parameters
+        :rec_loss: the full loss record over the epochs in the case that record_loss = True
+    :rtype: Tuple[Dict[str, np.ndarray], np.ndarray]
+    """
 
     ### --- Initial Object Construction --- ###
 
     __handler = WeightHandler(weights_in, weights_rec)
-    __encoder = DigitalAutoEncoder(__handler.w_flat.size, bits_per_weight)
+    __encoder = DigitalAutoEncoder(__handler.w_flat.size, n_bits)
 
     ### --- Optimization Configuration --- ###
 
@@ -91,10 +124,12 @@ def autoencoder_quantization(
 
     ### --- Optimize --- ###
 
+    ## - Check the loss decrease and decide to stop training before it reaches to num_epochs
     if not fixed_epoch:
 
+        count = 0
         rec_loss = []
-        mean_loss = 0
+        mean_loss = jnp.inf
         epoch = jnp.array(range(num_epoch_checkpoint)).reshape(-1, 1)
 
         for _ in range(0, num_epoch, num_epoch_checkpoint):
@@ -103,13 +138,17 @@ def autoencoder_quantization(
             if record_loss:
                 rec_loss += list(np.array(loss_t))
 
-            if jnp.abs(mean_loss - jnp.mean(loss_t)) < eps:
-                break
+            ### Check the mean loss at each num_epoch_checkpoint
+            if mean_loss - jnp.mean(loss_t) < eps:
+                count += 1
+                if count > 5:
+                    break
             else:
+                count = 0
                 mean_loss = jnp.mean(loss_t)
 
+    ## - Just repeat the process for the number of epochs
     else:
-
         epoch = jnp.array(range(num_epoch)).reshape(-1, 1)
         opt_state, rec_loss = run_for(epoch, opt_state)
 
@@ -119,7 +158,7 @@ def autoencoder_quantization(
     __, code, bit_mask = optimized_encoder(__handler.w_flat)
 
     ## - Quantized weights
-    q_weights = WeightHandler.bit2int_mask(bits_per_weight, bit_mask)
+    q_weights = WeightHandler.bit2int_mask(n_bits, bit_mask)
     qw_in, qw_rec = __handler.reshape_flat_weights(q_weights)
 
     ### --- Return --- ###
@@ -135,7 +174,32 @@ def autoencoder_quantization(
     return spec, np.array(rec_loss)
 
 
-def __run_for(epoch: jnp.array, opt_state, get_params, loss_vgf, update_fun):
+def __run_for(
+    epoch: jnp.array,
+    opt_state: optimizers.OptimizerState,
+    get_params: optimizers.ParamsFn,
+    loss_vgf: Callable[[Any], Tuple[float]],
+    update_fun: optimizers.UpdateFn,
+) -> Tuple[optimizers.OptimizerState, jnp.DeviceArray]:
+    """
+    __run_for is a utility function executing jax training workflow
+
+    :param epoch: the dummy sequence array [0,1,2,3..] standing for epoch ids to be walked through
+    :type epoch: jnp.array
+    :param opt_state: the optimizer's initial state
+    :type opt_state: optimizers.OptimizerState
+    :param get_params: the optimizer's parameter getter
+    :type get_params: optimizers.ParamsFn
+    :param loss_vgf: the loss function returning the loss value and the gradient value
+    :type loss_vgf: Callable[[Any], Tuple[float]]
+    :param update_fun: the optimizers update functions
+    :type update_fun: optimizers.UpdateFn
+    :return: opt_state, loss_val
+        :opt_state: the last optimized state recorded at the end of the last epoch
+        :loss_val: the recorded loss values over epochs
+    :rtype: Tuple[optimizers.OptimizerState, jnp.DeviceArray]
+    """
+
     def step(
         opt_state: optimizers.OptimizerState, epoch: int
     ) -> Tuple[Dict[str, jnp.DeviceArray], optimizers.OptimizerState, jnp.DeviceArray]:
@@ -257,7 +321,7 @@ class DigitalAutoEncoder(JaxModule):
         **kwargs,
     ) -> None:
         """
-        __init__ initialize the `AutoEncoder` module. Parameters are explained in the class docstring.
+        __init__ initialize the `DigitalAutoEncoder` module. Parameters are explained in the class docstring.
         """
 
         super(DigitalAutoEncoder, self).__init__(
@@ -269,16 +333,8 @@ class DigitalAutoEncoder(JaxModule):
 
         # Weight Initialization
         _init = lambda s: jnp.array(weight_init(s))
-        self.w_en = Parameter(
-            w_en,
-            init_func=_init,
-            shape=(self.size_in, n_code),
-        )
-        self.w_dec = Parameter(
-            w_dec,
-            init_func=_init,
-            shape=(n_code, self.size_out),
-        )
+        self.w_en = Parameter(w_en, init_func=_init, shape=(self.size_in, n_code))
+        self.w_dec = Parameter(w_dec, init_func=_init, shape=(n_code, self.size_out))
 
     def evolve(
         self, matrix: jnp.DeviceArray, record: bool = False
@@ -344,17 +400,23 @@ class DigitalAutoEncoder(JaxModule):
 
 @dataclass
 class QuantizationLoss:
+    """
+    QuantizationLoss gathers together the loss function utilities
+    """
+
     @staticmethod
     def loss_reconstruction(
-        encoder: JaxModule,
+        encoder: DigitalAutoEncoder,
         parameters: Dict[str, Any],
         input: jnp.DeviceArray,
         f_penalty: float = 1e3,
     ) -> float:
         """
-        loss calculates the mean square error loss between output and the target,
+        loss_reconstruction calculates the mean square error loss between output and the target,
         given a new parameter set. Also, adds the bound violation penalties to the loss calculated.
 
+        :param encoder: the autoencoder object being optimized to quantize the weights
+        :type encoder: DigitalAutoEncoder
         :param parameters: new parameter set for the autoencoder
         :type parameters: Dict[str, Any]
         :param f_penalty: a factor of multiplication for bound violation penalty, defaults to 1e3
