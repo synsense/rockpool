@@ -4,6 +4,8 @@ Dynap-SE2 samna connection utilities
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
+
+    name change: utils/se2 -> interface/utils @ 220926
 31/05/2022
 """
 from typing import Any, Dict, List, Optional, Tuple
@@ -55,7 +57,7 @@ def connect(bitfile: str) -> Dynapse2Interface:
     if not board.configure_opal_kelly(bitfile):
         raise IOError("Failed to configure Opal Kelly")
 
-    logging.warn(
+    logging.info(
         f"{devices[0].device_type_name} with serial number:{devices[0].serial_number} is connected!"
     )
 
