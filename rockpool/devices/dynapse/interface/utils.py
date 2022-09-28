@@ -6,6 +6,8 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 
     name change: utils/se2 -> interface/utils @ 220926
+
+[] TODO : find_dynapse_boards is similar to xylo, can be merged
 31/05/2022
 """
 from typing import Any, Dict, List, Optional, Tuple
@@ -19,9 +21,11 @@ from rockpool.devices.dynapse.samna_alias.dynapse2 import (
     NormalGridEvent,
     Dynapse2Interface,
     Dynapse2Model,
+    DeviceInfo,
 )
 
 from rockpool.timeseries import TSEvent
+import os
 
 # Try to import samna for device interfacing
 try:
@@ -35,33 +39,77 @@ except:
     )
 
 
-def connect(bitfile: str) -> Dynapse2Interface:
+def __bit_path_Dynapse2Stack() -> str:
     """
-    connect build a connection node between CPU and the device. It allows one to configure the device,
-    read or write AER events to bus, and monitor the activity of device neurons
+    __bit_path_Dynapse2Stack returns the bitfile path of the Dynapse2Stack configuration file.
 
-    :param bitfile: the FPGA configuration bitfile
-    :type bitfile: str
-    :raises ConnectionError: No device connected to the system!
+    :return: bitfile path
+    :rtype: str
+    """
+    __dirname__ = os.path.dirname(os.path.abspath(__file__))
+    __bit_file_path = os.path.join(__dirname__, "bitfiles", "Dynapse2Stack.bit")
+    return __bit_file_path
+
+
+def find_dynapse_boards(name: str = "DYNAP-SE2") -> List[DeviceInfo]:
+    """
+    find_dynapse_boards identifies the Dynap-SE2 boards plugged in to the system
+
+    :param name: the name of the devices, defaults to "DYNAP-SE2"
+    :type name: str, optional
+    :raises ConnectionError: No samna device found plugged in to the system!
+    :return: a list of Dynap-SE2 device info objects among all samna devices
+    :rtype: List[DeviceInfo]
+    """
+
+    dynapse_list = []
+    devices = samna.device.get_all_devices()
+
+    if not devices:
+        raise ConnectionError(f"No samna device found plugged in to the system!")
+
+    # Search the dynapse boards with the right name
+    for d in devices:
+
+        if name.upper() in d.device_type_name.upper():
+            dynapse_list.append(d)
+
+    logging.info(
+        f" Total of {len(dynapse_list)} {name} board(s) found with serial numbers : {[d.serial_number for d in devices]}"
+    )
+
+    return dynapse_list
+
+
+def configure_fpga(
+    device: DeviceInfo, bitfile: Optional[str] = None
+) -> Dynapse2Interface:
+    """
+    configure_fpga configures the FPGA on board and builds a connection node between CPU and the device.
+    It allows one to configure the device, read or write AER events to bus, and monitor the activity of device neurons
+
+    :param device: the device object to open and configure
+    :type device: DeviceInfo
+    :param bitfile: the bitfile path if known, defaults to None
+    :type bitfile: Optional[str], optional
     :raises IOError: Failed to configure Opal Kelly
-    :return: an opened Dynan-SE2 interface node
+    :return: an open and configured Dynan-SE2 interface node
     :rtype: Dynapse2Interface
     """
 
-    devices = samna.device.get_unopened_devices()
-    if not devices:
-        raise ConnectionError("No device connected to the system!")
+    device = samna.device.open_device(device)
 
-    board: Dynapse2Interface = samna.device.open_device(devices[0])
+    if bitfile is None:
+        bitfile = __bit_path_Dynapse2Stack()
 
-    if not board.configure_opal_kelly(bitfile):
+    if not device.configure_opal_kelly(bitfile):
         raise IOError("Failed to configure Opal Kelly")
 
     logging.info(
-        f"{devices[0].device_type_name} with serial number:{devices[0].serial_number} is connected!"
+        f"{device.get_device_type_name()} is connected, configured and ready for operation!"
     )
 
-    return board
+    return device
 
 
 def get_model(board: Dynapse2Interface, reset: bool = True) -> Dynapse2Model:
