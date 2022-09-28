@@ -275,6 +275,15 @@ class NormalGridEvent(SamnaAlias):
 
 
 # --- For Typehinting --- #
+@dataclass
+class DeviceInfo:
+
+    daughter_board_num: np.uint8
+    device_type_name: str
+    logic_version: int
+    serial_number: str
+    usb_bus_number: np.uint32
+    usb_device_address: np.uint32
 
 
 class Dynapse2Interface(ABC):
