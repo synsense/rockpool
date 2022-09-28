@@ -387,6 +387,9 @@ class XyloSamna(Module):
         # - Initialise the xylo HDK
         hdkutils.initialise_xylo_hdk(self._write_buffer)
 
+        # - Turn off direct input from the AFE module
+        device.get_afe_model().set_saer_interface_enable(False)
+
         # - Check that we can access the device node, and that it's a Xylo HDK
         if not hdkutils.verify_xylo_version(
             self._read_buffer, self._write_buffer, timeout=10.0
@@ -583,7 +586,11 @@ class XyloSamna(Module):
 
         # - Read the simulation output data
         xylo_data = hdkutils.read_accel_mode_data(
-            self._state_buffer, Nin, Nhidden, Nout
+            self._state_buffer,
+            Nin,
+            Nhidden,
+            Nout,
+            self.config.synapse2_enable,
         )
 
         if record_power:
@@ -723,6 +730,7 @@ class XyloSamna(Module):
                 Nin,
                 Nhidden,
                 Nout,
+                self.config.synapse2_enable,
                 record,
                 self._output_mode,
             )

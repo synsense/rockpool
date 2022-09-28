@@ -171,7 +171,7 @@ class AFESamna(Module):
         print("Configured AFE")
 
         # - Amplify input volume
-        hdu.amplify_volume(device_io, level=amplify_level)
+        hdu.set_lda_amplification(device_io, level=amplify_level)
 
         # - Set up divisive normalization
         if divisive_norm:

@@ -829,8 +829,8 @@ def reset_neuron_synapse_state(
 def apply_configuration(
     hdk: XyloA2HDK,
     config: XyloConfiguration,
-    read_buffer: Xylo2ReadBuffer,
-    write_buffer: Xylo2WriteBuffer,
+    *_,
+    **__,
 ) -> None:
     """
     Apply a configuration to the Xylo HDK
@@ -838,56 +838,9 @@ def apply_configuration(
     Args:
         hdk (XyloHDK): The Xylo HDK to write the configuration to
         config (XyloConfiguration): A configuration for Xylo
-        read_buffer (XyloReadBuffer): A connected read buffer for the Xylo HDK
-        write_buffer (XyloWriteBuffer): A connected write buffer for the Xylo HDK
     """
-    # config.debug.isyn_clock_enable = True
-    # config.debug.ra_clock_enable = True
-    # config.debug.hm_clock_enable = True
-    # config.debug.bias_clock_enable = True
-    config.debug.isyn2_clock_enable = True
-    # config.debug.ram_power_enable = True
-
     # - Ideal -- just write the configuration using samna
     hdk.get_xylo_model().apply_configuration(config)
-
-
-def zero_memory(
-    write_buffer: Xylo2WriteBuffer,
-) -> None:
-    """
-    Clear all Xylo memory
-
-    This function writes zeros to all memory banks on a Xylo HDK.
-
-    Args:
-        write_buffer (XyloWriteBuffer): A write buffer connected to the desired Xylo HDK
-    """
-    # - Define the memory banks
-    memory_table = {
-        "iwtram": (0x0100, 16000),
-        "iwt2ram": (0x3F80, 16000),
-        "nscram": (0x7E00, 1008),
-        "rsc2ram": (0x81F0, 1000),
-        "nmpram": (0x85D8, 1008),
-        "ndsram": (0x89C8, 1008),
-        "rds2ram": (0x8DB8, 1000),
-        "ndmram": (0x91A0, 1008),
-        "nbram": (0x9590, 1008),
-        "nthram": (0x9980, 1008),
-        "rcram": (0x9D70, 1000),
-        "raram": (0xA158, 1000),
-        "rspkram": (0xA540, 1000),
-        "refocram": (0xA928, 1000),
-        "rforam": (0xAD10, 32000),
-        "rwtram": (0x12A10, 32000),
-        "rwt2ram": (0x1A710, 32000),
-        "owtram": (0x22410, 8000),
-    }
-
-    # - Zero each bank in turn
-    for bank in memory_table.values():
-        write_memory(write_buffer, *bank)
 
 
 def read_neuron_synapse_state(
@@ -896,6 +849,7 @@ def read_neuron_synapse_state(
     Nin: int = 16,
     Nhidden: int = 1000,
     Nout: int = 8,
+    synapse2_enable: bool = False,
     record: bool = False,
     readout_mode: str = "Spike",
 ) -> XyloState:
@@ -908,6 +862,9 @@ def read_neuron_synapse_state(
         Nin (int): Number of input neurons to read. Default: ``16`` (all neurons).
         Nhidden (int): Number of hidden neurons to read. Default: ``1000`` (all neurons).
         Nout (int): Number of output neurons to read. Default: ``8`` (all neurons).
+        synapse2_enable (bool): Synapse 2 is used and should be recoded.
+        record (bool): Enable recording of all state
+        readout_mode (str): Specify the "readout" mode for the network. This must be one of ``['Spike', 'Isyn', 'Vmem']``. Default: ``Spike``; read output spikes
 
     Returns:
         :py:class:`.XyloState`: The recorded state as a ``NamedTuple``. Contains keys ``V_mem_hid``,  ``V_mem_out``, ``I_syn_hid``, ``I_syn_out``, ``I_syn2_hid``, ``Nhidden``, ``Nout``. This state has **no time axis**; the first axis is the neuron ID.
@@ -933,7 +890,11 @@ def read_neuron_synapse_state(
         )
 
         # - Read synaptic currents 2
-        Isyn2 = read_memory(read_buffer, write_buffer, memory_table["rsc2ram"], Nhidden)
+        Isyn2 = (
+            read_memory(read_buffer, write_buffer, memory_table["rsc2ram"], Nhidden)
+            if synapse2_enable
+            else None
+        )
 
         # - Read membrane potential
         Vmem = read_memory(
@@ -1060,20 +1021,6 @@ def read_output_events(
     return np.array([bool(int(e)) for e in string[::-1]], "bool")
 
 
-def num_buffer_neurons(Nhidden: int) -> int:
-    """
-    Number of buffer neurons required for this network on Xylo 1
-
-    Args:
-        Nhidden (int): Number of hidden layer neurons
-
-    Returns:
-        int: The number of buffer neurons
-    """
-    Nbuffer = 2 if Nhidden % 2 == 1 else 1
-    return Nbuffer
-
-
 def get_current_timestamp(
     read_buffer: Xylo2ReadBuffer,
     write_buffer: Xylo2WriteBuffer,
@@ -1140,7 +1087,7 @@ def configure_accel_time_mode(
         state_monitor_buffer (XyloNeuronStateBuffer): A connected neuron state monitor buffer
         monitor_Nhidden (Optional[int]): The number of hidden neurons for which to monitor state during evolution. Default: ``0``, don't monitor any hidden neurons.
         monitor_Noutput (Optional[int]): The number of output neurons for which to monitor state during evolution. Default: ``0``, don't monitor any output neurons.
-        readout: The readout out mode for which to output neuron states. Default: ``Spike''.
+        readout: The readout out mode for which to output neuron states. Default: ``Spike''. Must be one of ``['Isyn', 'Vmem', 'Spike']``.
         record (bool): Iff ``True``, record state during evolution. Default: ``False``, do not record state.
 
     Returns:
@@ -1160,8 +1107,10 @@ def configure_accel_time_mode(
         config.debug.monitor_neuron_i_syn = samna.xyloCore2.configuration.NeuronRange(
             0, monitor_Nhidden + monitor_Noutput
         )
-        config.debug.monitor_neuron_i_syn2 = samna.xyloCore2.configuration.NeuronRange(
-            0, monitor_Nhidden
+        config.debug.monitor_neuron_i_syn2 = (
+            samna.xyloCore2.configuration.NeuronRange(0, monitor_Nhidden)
+            if config.synapse2_enable
+            else None
         )
         config.debug.monitor_neuron_spike = samna.xyloCore2.configuration.NeuronRange(
             0, monitor_Nhidden
@@ -1208,7 +1157,7 @@ def configure_single_step_time_mode(
     config: XyloConfiguration,
 ) -> XyloConfiguration:
     """
-    Switch on single-step model on a Xylo hdk
+    Switch on single-step mode on a Xylo hdk
 
     Args:
         hdk (XyloBaughterBoard): The Xylo HDK to configure
@@ -1238,6 +1187,7 @@ def read_accel_mode_data(
     Nin: int,
     Nhidden: int,
     Nout: int,
+    synapse2_enable: bool = False,
 ) -> XyloState:
     """
     Read accelerated simulation mode data from a Xylo HDK
@@ -1247,6 +1197,7 @@ def read_accel_mode_data(
         Nin (int): Number of input neurons to read. Default: ``16`` (all neurons).
         Nhidden (int): The number of hidden neurons to monitor
         Nout (int): The number of output neurons to monitor
+        synapse2_enable (bool): Synapse 2 is used and should be monitored. Default: ``False``, don't monitor synapse 2
 
     Returns:
         XyloState: The encapsulated state read from the Xylo device
@@ -1254,7 +1205,11 @@ def read_accel_mode_data(
     # - Read data from neuron state buffer
     vmem_ts = np.array(monitor_buffer.get_reservoir_v_mem(), "int16").T
     isyn_ts = np.array(monitor_buffer.get_reservoir_i_syn(), "int16").T
-    isyn2_ts = np.array(monitor_buffer.get_reservoir_i_syn2(), "int16").T
+    isyn2_ts = (
+        np.array(monitor_buffer.get_reservoir_i_syn2(), "int16").T
+        if synapse2_enable
+        else None
+    )
     spikes_ts = np.array(monitor_buffer.get_reservoir_spike(), "int8").T
     spikes_out_ts = np.array(monitor_buffer.get_output_spike(), "int8").T
 
@@ -1276,135 +1231,6 @@ def read_accel_mode_data(
         I_syn2_hid=isyn2_ts,
         Spikes_hid=spikes_ts,
         Spikes_out=spikes_out_ts,
-    )
-
-
-def decode_accel_mode_data(
-    events: List[Any], Nin: int = 16, Nhidden: int = 1000, Nout: int = 8
-) -> Tuple[XyloState, np.ndarray]:
-    """
-    Decode events from accelerated-time operation of the Xylo HDK
-
-    Warnings:
-        ``Nin``, ``Nhidden`` and ``Nout`` must be defined correctly for the network deployed to the Xylo HDK, for this function to operate as expected.
-
-        This function must be called with the *full* list of events from a simulation. Otherwise the data returned will be incomplete. This function will not operate as expected if provided with incomplete data.
-
-        You can use the ``target_timstamp`` argument to `.blocking_read` to ensure that you have read events up to the desired final timestep.
-
-    Args:
-        events (List[Any]): A list of events produced during an accelerated-mode simulation on a Xylo HDK
-        Nhidden (int): The number of defined hidden-layer neurons. Default: ``1000``, expect to read the state of every neuron.
-        Nout (int): The number of defined output-layer neurons. Default: ``8``, expect to read the state of every neuron.
-
-    Returns:
-        (`.XyloState`, np.ndarray): A `.NamedTuple` containing the decoded state resulting from the simulation, and an array of timestamps for each state entry over time
-    """
-
-    # - Define the memory banks
-    memory_table = {
-        "nscram": (0x7E00, 1008),
-        "rsc2ram": (0x81F0, 1000),
-        "nmpram": (0x85D8, 1008),
-        "rspkram": (0xA150, 1000),
-    }
-
-    # - Range checking lambda
-    address_in_range = (
-        lambda address, start, count: address >= start and address < start + count
-    )
-
-    # - Initialise return data lists
-    vmem_out_ts = []
-    times = []
-    vmem_ts = [np.zeros(Nhidden + Nout + num_buffer_neurons(Nhidden), "int16")]
-    isyn_ts = [np.ones(Nhidden + Nout + num_buffer_neurons(Nhidden), "int16")]
-    isyn2_ts = [np.zeros(Nhidden, "int16")]
-    spikes_ts = [np.zeros(Nhidden, "bool")]
-    spikes_out_ts = [np.zeros(Nout, "bool")]
-
-    # - Loop over events and decode
-    for e in events:
-        # - Handle an output spike event
-        if isinstance(e, samna.xyloCore2.event.Spike):
-            # - Save this output event
-            spikes_out_ts[e.timestamp - 1][e.neuron_id] = True
-
-        # - Handle a memory value read event
-        if isinstance(e, samna.xyloCore2.event.MemoryValue):
-            # - Find out which memory block this event corresponds to
-            memory_block = [
-                block
-                for (block, (start, count)) in memory_table.items()
-                if address_in_range(e.address, start, count)
-            ]
-
-            # - Store the returned values
-            if memory_block:
-                if "nmpram" in memory_block:
-                    # - Neuron membrane potentials
-                    vmem_ts[-1][e.address - memory_table["nmpram"][0]] = e.data
-
-                elif "nscram" in memory_block:
-                    # - Neuron synaptic currents
-                    isyn_ts[-1][e.address - memory_table["nscram"][0]] = e.data
-
-                elif "rsc2ram" in memory_block:
-                    # - Neuron synapse 2 currents
-                    isyn2_ts[-1][e.address - memory_table["rsc2ram"][0]] = e.data
-
-                elif "rspkram" in memory_block:
-                    # - Reservoir spike events
-                    spikes_ts[-1][e.address - memory_table["rspkram"][0]] = e.data
-
-        # - Handle the readout event, which signals the *end* of a time step
-        if isinstance(e, samna.xyloCore2.event.Readout):
-            # - Advance the timestep counter
-            timestep = e.timestamp
-            times.append(timestep)
-
-            # - Append new empty arrays to state lists
-            vmem_ts.append(
-                np.zeros(Nhidden + Nout + num_buffer_neurons(Nhidden), "int16")
-            )
-            isyn_ts.append(
-                np.ones(Nhidden + Nout + num_buffer_neurons(Nhidden), "int16")
-            )
-            isyn2_ts.append(np.zeros(Nhidden, "int16"))
-            spikes_ts.append(np.zeros(Nhidden, "bool"))
-            spikes_out_ts.append(np.zeros(Nout, "bool"))
-
-    # - Convert data to numpy arrays
-    vmem_out_ts = np.array(vmem_out_ts, "int16")
-    times = np.array(times)
-
-    # - Trim arrays that end up with one too many elements
-    vmem_ts = np.array(vmem_ts[:-1], "int16")
-    isyn_ts = np.array(isyn_ts[:-1], "int16")
-    isyn2_ts = np.array(isyn2_ts[:-1], "int16")
-    spikes_ts = np.array(spikes_ts[:-1], "bool")
-    spikes_out_ts = np.array(spikes_out_ts[:-1], "bool")
-
-    # - Extract output state and trim reservoir state
-    isyn_out_ts = isyn_ts[:, -Nout:]
-    isyn_ts = isyn_ts[:, :Nhidden]
-    vmem_out_ts = vmem_ts[:, -Nout:]
-    vmem_ts = vmem_ts[:, :Nhidden]
-
-    return (
-        XyloState(
-            Nin,
-            Nhidden,
-            Nout,
-            vmem_ts,
-            isyn_ts,
-            vmem_out_ts,
-            isyn_out_ts,
-            isyn2_ts,
-            spikes_ts,
-            spikes_out_ts,
-        ),
-        times,
     )
 
 
@@ -1494,6 +1320,9 @@ def read_allram_state(
 ) -> XyloAllRam:
     """
     Read and return the all ram in each step as a state
+
+    Warning:
+        Ensure that all RAM clocks are forced to be on when using this function, or you risk getting garbage data back for all memory addresses.
 
     Args:
         read_buffer (XyloReadBuffer): A read buffer connected to the Xylo HDK
@@ -1792,20 +1621,27 @@ def export_registers(
 def set_power_measure(
     hdk: XyloA2HDK,
     frequency: Optional[float] = 5.0,
-):
+) -> Tuple[
+    samna.BasicSinkNode_unifirm_modules_events_measurement,
+    samna.boards.common.power.PowerMonitor,
+]:
     """
     Initialize power consumption measure on a hdk
 
     Args:
         hdk (XyloHDK): The Xylo HDK to be measured
         frequency (float): The frequency of power measurement. Default: 5.0
+
+    Returns:
+        power_buf: Event buffer to read power monitoring events from
+        power_monitor: The power monitoring object
     """
-    power = hdk.get_power_monitor()
-    buf = samna.BasicSinkNode_unifirm_modules_events_measurement()
+    power_monitor = hdk.get_power_monitor()
+    power_buf = samna.BasicSinkNode_unifirm_modules_events_measurement()
     graph = samna.graph.EventFilterGraph()
-    graph.sequential([power.get_source_node(), buf])
-    power.start_auto_power_measurement(frequency)
-    return buf, power
+    graph.sequential([power_monitor.get_source_node(), power_buf])
+    power_monitor.start_auto_power_measurement(frequency)
+    return power_buf, power_monitor
 
 
 def change_event_counter(write_afe_buffer: AFE2WriteBuffer, count: int) -> None:
@@ -1820,13 +1656,15 @@ def change_event_counter(write_afe_buffer: AFE2WriteBuffer, count: int) -> None:
         write_afe2_register(write_afe_buffer, addr, count * 16**4 + count)
 
 
-def amplify_volume(write_afe_buffer: AFE2WriteBuffer, level: str = "low") -> None:
+def set_lda_amplification(
+    write_afe_buffer: AFE2WriteBuffer, level: str = "low"
+) -> None:
     """
     Adjust acoustic gain of LDA module
 
     Args:
         write_afe_buffer (AFE2WriteBuffer): A write buffer connected to the AFE
-        level (str): gain level, which should be in ``low``, ``mid``, and ``high``. Default low level is without gain.
+        level (str): gain level, which should be in ``['low', 'mid', and 'high']``. Default low level is without gain.
     """
 
     assert level in ["low", "mid", "high"]

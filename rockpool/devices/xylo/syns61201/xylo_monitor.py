@@ -174,7 +174,7 @@ class XyloMonitor(Module):
         print("Configured AFE")
 
         # - Amplify input volume
-        hdkutils.amplify_volume(self._io, level=amplify_level)
+        hdkutils.set_lda_amplification(self._io, level=amplify_level)
 
         # - Divisive normalization
         if divisive_norm:
