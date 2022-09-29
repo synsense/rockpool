@@ -8,6 +8,8 @@ E-mail : ugurcan.cakal@gmail.com
     name change: utils/se2 -> interface/utils @ 220926
 
 [] TODO : find_dynapse_boards is similar to xylo, can be merged
+[] TODO : Timeout with multiprocessing/signalling
+[] TODO : Timeout error for configure_dynapse2_fpga
 31/05/2022
 """
 from typing import Any, Dict, List, Optional, Tuple
@@ -489,66 +491,6 @@ def raster_to_aer(
         buffer.extend(events)
 
     return buffer
-
-
-def fpga_time(
-    board: Dynapse2Interface,
-    reset: bool = False,
-    timeout: float = 10e-3,
-    retry: int = 100,
-    dt: float = 1e-6,
-) -> float:
-    """
-    fpga_time bounces a dummy event from FPGA to get the exact FPGA time at that moment.
-
-    :param board: the Dynan-SE2 interface node. (Like a file) It should be opened beforehand.
-    :type board: Dynapse2Interface
-    :param reset: reset the FPGA timeline or not, defaults to False
-    :type reset: bool, optional
-    :param timeout: the time to wait for the event to bounce back, defaults to 100e-3
-    :type timeout: float, optional
-    :param retry: number of retrials in the case that event is not returned back, defaults to 100
-    :type retry: int, optional
-    :param dt: the FPGA time step, defaults to 1e-6
-    :type dt: float, optional
-    :raises TimeoutError: FPGA could not respond!
-    :return: the current FPGA time in seconds (roughly)
-    :rtype: float
-    """
-
-    # Flush the buffers
-    board.output_read()
-
-    # Reset FPGA
-    if reset:
-        reset = board.reset_fpga()
-        while not reset:
-            reset = board.reset_fpga()
-            time.sleep(timeout)
-
-    # Generate a dummy event
-    event = NormalGridEvent(
-        event=Dynapse2Destination(
-            core=[True, True, True, True], x_hop=-1, y_hop=-1, tag=2047
-        ),
-        timestamp=int(timeout / dt),
-    ).samna_object(se2.NormalGridEvent)
-
-    # Send 3 events to the device
-    board.input_interface_write_events(0, [event] * 3)
-    time.sleep(timeout)
-
-    # Try to catch them and read the timestamp
-    for __break in range(retry):
-        evs = board.output_read()
-        if len(evs) > 0:
-            return evs[-1] * dt
-        else:
-            time.sleep(timeout)
-            timeout *= 2
-
-    raise TimeoutError(f"FPGA could not respond, increase number of trials or timeout!")
-
 
 def event_generator(
     event_time: float,
