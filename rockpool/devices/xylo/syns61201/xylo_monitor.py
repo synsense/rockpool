@@ -50,6 +50,7 @@ class XyloMonitor(Module):
         main_clk_rate: int = int(50e6),
         hibernation_mode: bool = False,
         divisive_norm: bool = False,
+        divisive_norm_params: Optional[dict] = None,
         leak_timing_window: int = int(25e5),
         *args,
         **kwargs,
@@ -67,6 +68,7 @@ class XyloMonitor(Module):
             main_clk_rate(int): The main clock rate of Xylo.
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
             divisive_norm (bool): If True, divisive normalization will be switched on.
+            divisive_norm_params (Dict): Specify the divisive normalization parameters, should be structured as {"s": , "p": , "iaf_bias": }.
             leak_timing_window (int): The timing window setting for leakage calibration.
 
         """
@@ -178,7 +180,15 @@ class XyloMonitor(Module):
 
         # - Divisive normalization
         if divisive_norm:
-            hdkutils.DivisiveNormalization(self._afe_write_buffer)
+            if divisive_norm_params is not None:
+                hdkutils.DivisiveNormalization(
+                    write_afe_buffer=self._afe_write_buffer,
+                    s=divisive_norm_params["s"],
+                    p=divisive_norm_params["p"],
+                    iaf_bias=divisive_norm_params["iaf_bias"],
+                )
+            else:
+                hdkutils.DivisiveNormalization(self._afe_write_buffer)
 
         # - Set to hibernation mode
         if hibernation_mode:

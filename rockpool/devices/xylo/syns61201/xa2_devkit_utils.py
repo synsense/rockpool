@@ -1754,9 +1754,22 @@ def AFE_hibernation(write_afe_buffer: AFE2WriteBuffer) -> None:
     write_afe2_register(write_afe_buffer, 0x28, 0x00300009)
 
 
-def DivisiveNormalization(write_afe_buffer: AFE2WriteBuffer) -> None:
+def DivisiveNormalization(
+    write_afe_buffer: AFE2WriteBuffer, s: int = 5, p: int = 0, iaf_bias: int = 10
+) -> None:
+    """
+    The normalized Signal is:
+    PostNF(t) = preNF(t) * (2**p) /(iaf_bias + M(t))
+    M(t) = 2**(-s) * E(t) + (1-2**(-s)) * M(t-1), where E(t) is the input signal, M(t) estimates the background noise level
+
+    Args:
+        write_afe_buffer (AFE2WriteBuffer): A write buffer connected to the AFE
+        s (int): The parameter which indirectly affects the normalized window length
+        p (int): The precision coefficient
+    """
     write_afe2_register(write_afe_buffer, 0x2B, 0x1F4)
-    write_afe2_register(write_afe_buffer, 0x2A, 0x5000A1)
+    data = 1 + iaf_bias * 16 + s * 16**5 + p *16**6
+    write_afe2_register(write_afe_buffer, 0x2A, data)
 
 
 def pretty_print_register(

@@ -71,6 +71,7 @@ class AFESamna(Module):
         change_count: Optional[int] = None,
         hibernation_mode: bool = False,
         divisive_norm: bool = False,
+        divisive_norm_params: Optional[dict] = None,
         leak_timing_window: int = int(25e5),
         *args,
         **kwargs,
@@ -86,6 +87,7 @@ class AFESamna(Module):
             change_count (int): If is not None, AFE event counter will change from outputting 1 spike out of 4 into outputting 1 out of change_count.
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
             divisive_norm (bool): If True, divisive normalization will be switched on.
+            divisive_norm_params (Dict): Specify the divisive normalization parameters, should be structured as {"s": , "p": , "iaf_bias": }.
             leak_timing_window (int): The timing window setting for leakage calibration.
         """
         # - Check input arguments
@@ -175,7 +177,15 @@ class AFESamna(Module):
 
         # - Set up divisive normalization
         if divisive_norm:
-            hdu.DivisiveNormalization(self._afe_write_buf)
+            if divisive_norm_params is not None:
+                hdu.DivisiveNormalization(
+                    write_afe_buffer=self._afe_write_buf,
+                    s=divisive_norm_params["s"],
+                    p=divisive_norm_params["p"],
+                    iaf_bias=divisive_norm_params["iaf_bias"],
+                )
+            else:
+                hdu.DivisiveNormalization(self._afe_write_buf)
 
         # - Set up hibernation mode
         if hibernation_mode:
