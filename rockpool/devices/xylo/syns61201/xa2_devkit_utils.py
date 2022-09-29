@@ -936,7 +936,7 @@ def read_neuron_synapse_state(
         np.array(Vmem[-Nout:], "int16") if Vmem is not None else None,
         np.array(Isyn[-Nout:], "int16") if Isyn is not None else None,
         np.array(Isyn2, "int16") if Isyn2 is not None else None,
-        np.array(Spikes, "bool") if Spikes is not None else None,
+        np.array(Spikes, "int16") if Spikes is not None else None,
         read_output_events(read_buffer, write_buffer)[:Nout],
     )
 
