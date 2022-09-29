@@ -156,16 +156,6 @@ class DynapseSamna(Module):
 
         return spikes_ts, states, record_dict
 
-    def reset_fpga(self) -> bool:
-        """
-        reset_time reset the FPGA configuration!
-        DANGER!
-
-        :return: success flag, True if FPGA is resetted
-        :rtype: bool
-        """
-        return self.board.reset_fpga()
-
     def current_timestamp(
         self,
         reading_interval: float = 10e-3,
