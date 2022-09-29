@@ -387,9 +387,6 @@ class XyloSamna(Module):
         # - Initialise the xylo HDK
         hdkutils.initialise_xylo_hdk(self._write_buffer)
 
-        # - Turn off direct input from the AFE module
-        device.get_afe_model().set_saer_interface_enable(False)
-
         # - Check that we can access the device node, and that it's a Xylo HDK
         if not hdkutils.verify_xylo_version(
             self._read_buffer, self._write_buffer, timeout=10.0
