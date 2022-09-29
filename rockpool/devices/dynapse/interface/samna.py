@@ -109,7 +109,7 @@ class DynapseSamna(Module):
         :type read_timeout: float, optional
         :param offset_fpga: offset the timeseries depending on the current FPGA clock, defaults to True
         :type offset_fpga: bool, optional
-        :param offset: user defined offset in seconds, defaults to True
+        :param offset: user defined offset in seconds, defaults to 100e-3
         :type offset: float, optional
         :param record: record the states in each timestep of evolution or not, defaults to False
         :type record: bool, optional
@@ -139,18 +139,27 @@ class DynapseSamna(Module):
         output_events = capture_events_from_device(self.board, read_timeout)
 
         # Return
-        spikes_ts, channel_map = aer_to_raster(output_events)
-        states = {}
+        spikes_ts, state_dict = aer_to_raster(
+            output_events, dt=self.dt, dt_fpga=self.dt_fpga
+        )
+        states = {
+            "channel_map": state_dict["channel_map"],
+            "input_start_time": offset,
+            "input_stop_time": offset + input_data.shape[0] * self.dt,
+            "record_start_time": state_dict["start_time"],
+            "record_stop_time": state_dict["stop_time"],
+        }
         record_dict = {}
 
         if record is True:
-            record_dict = {"channel_map": channel_map}
+            record_dict = {}
 
         return spikes_ts, states, record_dict
 
-    def reset_time(self) -> bool:
+    def reset_fpga(self) -> bool:
         """
-        reset_time reset the FPGA counters
+        reset_time reset the FPGA configuration!
+        DANGER!
 
         :return: success flag, True if FPGA is resetted
         :rtype: bool
