@@ -344,6 +344,66 @@ def aer_to_tsevent(
     return ts, cmap
 
 
+def aer_to_raster(
+    buffer: List[NormalGridEvent],
+    dt: float = 1e-3,
+    dt_fpga: float = 1e-6,
+) -> Tuple[np.ndarray, Dict[int, Dynapse2Destination]]:
+    """
+    aer_to_raster converts a list of Dynap-SE2 AER packages to a discrete raster record
+
+    :param buffer: the event buffer, a list of Dynap-SE2 AER packages
+    :type buffer: List[NormalGridEvent]
+    :param dt: the raster's timestep resolution, defaults to 1e-3
+    :type dt: float, optional
+    :param dt_fpga: the FPGA timestep resolution, defaults to 1e-6
+    :type dt_fpga: float, optional
+    :return: ts, cmap
+        raster_out: the raster record referenced on the event buffer
+        cmap: the mapping between raster channels and the destinations
+    :rtype: Tuple[np.ndarray, Dict[int, Dynapse2Destination]]
+    """
+
+    # Get a reverse channel map
+    cmap = extract_channel_map(buffer)
+    rcmap = {v: k for k, v in cmap.items()}
+
+    # Create the event/channel lists
+    times = []
+    channels = []
+    for event in buffer:
+        times.append(event.timestamp * dt_fpga)
+        channels.append(rcmap[event.event])
+
+    # Make sure that times all sorted
+    times = np.sort(times)
+    time_course = np.arange(times[0] + dt, times[-1] + dt, dt)
+
+    # Loop vars
+    raster_out = np.zeros((len(time_course), len(cmap)))
+    idx = 0
+    prev_idx = 0
+
+    for i, t in enumerate(time_course):
+
+        # update index
+        idx = np.searchsorted(times, t)
+
+        # Get the spike counts
+        channel_idx, spike_counts = np.unique(
+            channels[prev_idx:idx], return_counts=True
+        )
+
+        # store the output activity
+        if channel_idx.any():
+            raster_out[i, channel_idx] = spike_counts
+
+        # update prev index
+        prev_idx = idx
+
+    return raster_out, cmap
+
+
 def extract_channel_map(
     buffer: List[NormalGridEvent],
 ) -> Dict[int, Dynapse2Destination]:
