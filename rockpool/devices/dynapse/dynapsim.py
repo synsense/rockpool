@@ -157,7 +157,7 @@ class DynapSim(JaxModule):
     :Parameters:
 
     :param shape: Either a single dimension ``N``, which defines a feed-forward layer of DynapSE AdExpIF neurons, or two dimensions ``(N, N)``, which defines a recurrent layer of DynapSE AdExpIF neurons.
-    :type shape: Optional[Tuple[int]], optional
+    :type shape: Tuple[int]
     :param Idc: Constant DC current injected to membrane in Amperes with shape
     :type Idc: Optional[np.ndarray], optinoal
     :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes with shape (Nrec,)
@@ -441,7 +441,7 @@ class DynapSim(JaxModule):
 
         :param input_data: Input array of shape ``(T, Nrec, 4)`` to evolve over. Represents number of spikes at that timebin for different synaptic gates
         :type input_data: jnp.DeviceArray
-        :param record: record the each timestep of evolution or not, defaults to False
+        :param record: record the each timestep of evolution or not, defaults to True
         :type record: bool, optional
         :return: spikes_ts, states, record_dict
             :spikes_ts: is an array with shape ``(T, Nrec)`` containing the output data(spike raster) produced by the module.
