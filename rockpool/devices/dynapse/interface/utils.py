@@ -213,11 +213,8 @@ def aer_to_raster(
         times.append(event.timestamp * dt_fpga)
         channels.append(rcmap[event.event])
 
-    # Make sure that times all sorted
-    if not times:
-        times = [0.0, dt]
     times = np.sort(times)
-    time_course = np.arange(times[0] + dt, times[-1] + dt, dt)
+    time_course = np.arange(times[0] + dt, times[-1] + dt, dt) if times.any() else []
 
     # Loop vars
     raster_out = np.zeros((len(time_course), len(cmap)))
@@ -241,7 +238,13 @@ def aer_to_raster(
         # update prev index
         prev_idx = idx
 
-    return raster_out, cmap
+    state_dict = {
+        "channel_map": cmap,
+        "start_time": times[0] if times.any() else 0.0,
+        "stop_time": times[-1] if times.any() else 0.0,
+    }
+
+    return raster_out, state_dict
 
 
 def extract_channel_map(
