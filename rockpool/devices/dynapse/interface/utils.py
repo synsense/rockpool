@@ -150,81 +150,6 @@ def disconnect(board: Dynapse2Interface) -> None:
     return samna.device.close_device(board)
 
 
-def dispatch_timeseries_to_device(
-    board: Dynapse2Interface,
-    timeseries: TSEvent,
-    channel_map: Optional[Dict[int, Dynapse2Destination]],
-    offset_fpga: bool = True,
-    offset: float = 0.0,
-    dt: float = 1e-6,
-) -> TSEvent:
-    """
-    dispatch_timeseries_to_device creates AER packages using a timeseries object as a reference and sends them to device
-
-    :param board: the Dynan-SE2 interface node. (Like a file) It should be opened beforehand.
-    :type board: Dynapse2Interface
-    :param timeseries: the timeseries to be converted into list of Dynap-SE2 AER packages
-    :type timeseries: TSEvent
-    :param channel_map: the mapping between timeseries channels and the destinations
-    :type channel_map: Optional[Dict[int, Dynapse2Destination]]
-    :param offset_fpga: offset the timeseries depending on the current FPGA clock, defaults to True
-    :type offset_fpga: bool, optional
-    :param offset: user defined offset in seconds, defaults to True
-    :type offset: float, optional
-    :param dt: the FPGA timestep resolution, defaults to 1e-6
-    :type dt: float, optional
-    :return: the shifted (or not shifted) input timeseries
-    :rtype: TSEvent
-    """
-
-    # Get the current FPGA time at the moment and offset the events accordingly
-    if offset_fpga:
-        offset += fpga_time(board)
-
-    timeseries = timeseries.start_at(timeseries.t_start + offset)
-
-    # Convert the TSEvent object to a list of AER packages
-    input_events = tsevent_to_aer(
-        timeseries=timeseries, channel_map=channel_map, return_samna=True, dt=dt
-    )
-
-    # Write the events to the bus
-    board.grid_bus_write_events(input_events)
-
-    return timeseries
-
-
-def capture_timeseries_from_device(
-    board: Dynapse2Interface,
-    duration: float,
-    poll_step: float = 10e-3,
-    dt: float = 1e-6,
-    *args,
-    **kwargs,
-) -> Tuple[TSEvent, Dict[int, Dynapse2Destination]]:
-    """
-    capture_timeseries_from_device records the device's output and converts this to a timeseries object
-
-    :param board: the Dynan-SE2 interface node. (Like a file) It should be opened beforehand.
-    :type board: Dynapse2Interface
-    :param duration: the duration of capturing
-    :type duration: float
-    :param poll_step: the pollling step, 10 ms means the CPU fetches events from FPGA in every 10 ms, defaults to 10e-3
-    :type poll_step: float, optional
-    :param dt: the FPGA timestep resolution, defaults to 1e-6
-    :type dt: float, optional
-    :return: ts, cmap
-        ts: the timeseries object that is converted referenced on the event buffer
-        cmap: the mapping between timeseries channels and the destinations
-    :rtype: Tuple[TSEvent, Dict[int, Dynapse2Destination]]
-    """
-
-    buffer = capture_events_from_device(
-        board=board, duration=duration, poll_step=poll_step
-    )
-    return aer_to_tsevent(buffer=buffer, dt=dt, *args, **kwargs)
-
-
 def capture_events_from_device(
     board: Dynapse2Interface, duration: float, poll_step: float = 10e-3
 ) -> List[NormalGridEvent]:
@@ -255,95 +180,6 @@ def capture_events_from_device(
         toc = time.time()
 
     return record
-
-
-def tsevent_to_aer(
-    timeseries: TSEvent,
-    channel_map: Optional[Dict[int, Dynapse2Destination]],
-    return_samna: bool = True,
-    dt: float = 1e-6,
-) -> List[NormalGridEvent]:
-    """
-    tsevent_to_aer converts a TSEvent timeseries object to a list of AER packages.
-    It uses a channel map to map the channels to destinations, and by default it returns a list of samna objects.
-
-    :param timeseries: the timeseries to be converted into list of Dynap-SE2 AER packages
-    :type timeseries: TSEvent
-    :param channel_map: the mapping between timeseries channels and the destinations
-    :type channel_map: Optional[Dict[int, Dynapse2Destination]]
-    :param return_samna: return actual samna objects or not(aliases), defaults to True
-    :type return_samna: bool, optional
-    :param dt: the FPGA timestep resolution, defaults to 1e-6
-    :type dt: float, optional
-    :raises ValueError: Channel map does not map the channels of the timeseries provided!
-    :return: a list of Dynap-SE2 AER packages
-    :rtype: List[NormalGridEvent]
-    """
-    buffer = []
-    __channels = set(timeseries.channels)
-
-    # Create the default channel map is not provided. NOT RECOMMENDED!
-    if channel_map is None:
-        channel_map = {
-            c: Dynapse2Destination(core=[True] * 4, x_hop=0, y_hop=0, tag=c)
-            for c in __channels
-        }
-
-    if not __channels <= set(channel_map.keys()):
-        raise ValueError(
-            "Channel map does not map the channels of the timeseries provided!"
-        )
-
-    # Create the AER list
-    for t, c in timeseries:
-        timestamp = int(np.around((t / dt)))
-        destination = channel_map[c]
-        event = NormalGridEvent(destination, timestamp)
-        if return_samna:
-            event = event.samna_object(se2.NormalGridEvent)
-        buffer.append(event)
-
-    return buffer
-
-
-def aer_to_tsevent(
-    buffer: List[NormalGridEvent], dt: float = 1e-6, *args, **kwargs
-) -> Tuple[TSEvent, Dict[int, Dynapse2Destination]]:
-    """
-    aer_to_tsevent converts a list of Dynap-SE2 AER packages to a `TSEvent` timeseries object
-
-    :param buffer: the event buffer, a list of Dynap-SE2 AER packages
-    :type buffer: List[NormalGridEvent]
-    :param dt: the FPGA timestep resolution, defaults to 1e-6
-    :type dt: float, optional
-    :return: ts, cmap
-        ts: the timeseries object that is converted referenced on the event buffer
-        cmap: the mapping between timeseries channels and the destinations
-    :rtype: Tuple[TSEvent, Dict[int, Dynapse2Destination]]
-    """
-
-    # Get a reverse channel map
-    cmap = extract_channel_map(buffer)
-    rcmap = {v: k for k, v in cmap.items()}
-
-    # Create the event/channel lists
-    times = []
-    channels = []
-    for event in buffer:
-        times.append(event.timestamp * dt)
-        channels.append(rcmap[event.event])
-
-    # Construct a timeseries object
-    ts = TSEvent(
-        times=times,
-        channels=channels,
-        t_start=(times[0] - dt),
-        t_stop=(times[-1] + dt),
-        *args,
-        **kwargs,
-    )
-
-    return ts, cmap
 
 
 def aer_to_raster(
@@ -378,6 +214,8 @@ def aer_to_raster(
         channels.append(rcmap[event.event])
 
     # Make sure that times all sorted
+    if not times:
+        times = [0.0, dt]
     times = np.sort(times)
     time_course = np.arange(times[0] + dt, times[-1] + dt, dt)
 
@@ -484,7 +322,8 @@ def raster_to_aer(
         destinations = np.argwhere(spikes).flatten()
         timestamp = int(np.around((time / dt_fpga)))
         events = [
-            NormalGridEvent(channel_map[dest], timestamp) for dest in destinations
+            NormalGridEvent(channel_map[dest], timestamp + i)
+            for i, dest in enumerate(destinations)
         ]
         if return_samna:
             events = [event.samna_object(se2.NormalGridEvent) for event in events]
