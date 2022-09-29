@@ -151,33 +151,65 @@ def disconnect(board: Dynapse2Interface) -> None:
 
 
 def capture_events_from_device(
-    board: Dynapse2Interface, duration: float, poll_step: float = 10e-3
+    board: Dynapse2Interface,
+    duration: float,
+    timeout: float = 100e-3,
+    poll_step: float = 10e-3,
+    tolerance: int = 10,
 ) -> List[NormalGridEvent]:
     """
     capture_events_from_device records the device's output and stores in an event buffer
 
     :param board: the Dynan-SE2 interface node. (Like a file) It should be opened beforehand.
     :type board: Dynapse2Interface
-    :param duration: the duration of capturing
+    :param duration: the minimum duration of capturing
     :type duration: float
+    :param timeout: the timeout margin on top of the first succesful capturing
+    :type timeout: float
     :param poll_step: the pollling step, 10 ms means the CPU fetches events from FPGA in every 10 ms, defaults to 10e-3
     :type poll_step: float, optional
+    :param tolerance: the maximum number of empty polling, defaults to 10
+    :type tolerance: int, optional
     :return: the event buffer, a list of Dynap-SE2 AER packages captured
     :rtype: List[NormalGridEvent]
     """
+    
     record = []
 
     # Initial time
     tic = toc = time.time()
 
-    # Polling
+    # Fixed duration Polling
     while toc - tic < duration:
+
         buffer = board.read_events()
         if len(buffer) > 0:
             record += [NormalGridEvent.from_samna(data) for data in buffer]
-
         time.sleep(poll_step)
         toc = time.time()
+
+    # Timeout & Tolerance polling
+    tol_count = 0
+    tic = time.time()
+    while toc - tic < timeout:
+        
+        buffer = board.read_events()
+
+        # If something captured, wait more
+        if len(buffer) > 0:
+            tol_count = 0
+            tic = time.time()
+            record += [NormalGridEvent.from_samna(data) for data in buffer]
+        else:
+            tol_count += 1
+
+        # Wait until next polling time arrives
+        time.sleep(poll_step)
+        toc = time.time()
+
+        # Wait until tol_count hits the tolarance barrier
+        if tol_count > tolerance:
+            break
 
     return record
 
