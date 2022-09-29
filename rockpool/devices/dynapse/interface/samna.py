@@ -91,7 +91,7 @@ class DynapseSamna(Module):
         self,
         input_data: np.ndarray,
         channel_map: Optional[Dict[int, Dynapse2Destination]] = None,
-        read_timeout: float = 5.0,
+        read_timeout: float = 0.5,
         offset_fpga: bool = True,
         offset: float = 100e-3,
         record: bool = False,
@@ -121,6 +121,8 @@ class DynapseSamna(Module):
         """
 
         # Read Current FPGA timestamp, offset the events accordingly
+        simulation_duration = input_data.shape[0] * self.dt
+
         if offset_fpga:
             offset += self.current_timestamp()
 
@@ -136,7 +138,9 @@ class DynapseSamna(Module):
 
         # Write AER packages to the bus
         self.board.grid_bus_write_events(event_sequence)
-        output_events = capture_events_from_device(self.board, read_timeout)
+        output_events = capture_events_from_device(
+            self.board, simulation_duration + read_timeout
+        )
 
         # Return
         spikes_ts, state_dict = aer_to_raster(
@@ -145,7 +149,7 @@ class DynapseSamna(Module):
         states = {
             "channel_map": state_dict["channel_map"],
             "input_start_time": offset,
-            "input_stop_time": offset + input_data.shape[0] * self.dt,
+            "input_stop_time": offset + simulation_duration,
             "record_start_time": state_dict["start_time"],
             "record_stop_time": state_dict["stop_time"],
         }
