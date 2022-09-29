@@ -91,7 +91,7 @@ class DynapseSamna(Module):
         self,
         input_data: np.ndarray,
         channel_map: Optional[Dict[int, Dynapse2Destination]] = None,
-        read_timeout: float = None,
+        read_timeout: float = 5.0,
         offset_fpga: bool = True,
         offset: float = 100e-3,
         record: bool = False,
