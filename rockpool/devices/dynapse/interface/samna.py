@@ -111,6 +111,19 @@ class DynapseSamna(Module):
         number_of_events: int = 10,
         retry: int = 20,
     ) -> float:
+        """
+        current_timestamp bounces a dummy event from FPGA to get the exact FPGA time at that moment.
+
+        :param reading_interval: minimum time to wait for the event to bounce back, defaults to 10e-3
+        :type reading_interval: float, optional
+        :param number_of_events: the number of dummy events to bounce to dispatch, defaults to 10
+        :type number_of_events: int, optional
+        :param retry: number of retrials in the case that event is not returned back. Each time double the reading interval, defaults to 20
+        :type retry: int, optional
+        :raises TimeoutError: "FPGA could not respond, increase number of trials or reading interval!"
+        :return: the current FPGA time in seconds
+        :rtype: float
+        """    
 
         # Flush the buffers
         self.board.output_read()
@@ -137,5 +150,5 @@ class DynapseSamna(Module):
                 reading_interval *= 2
 
         raise TimeoutError(
-            f"FPGA could not respond, increase number of trials or timeout!"
+            f"FPGA could not respond, increase number of trials or reading interval!"
         )
