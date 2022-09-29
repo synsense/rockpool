@@ -492,6 +492,7 @@ def raster_to_aer(
 
     return buffer
 
+
 def event_generator(
     event_time: float,
     core: List[bool] = [True, True, True, True],
