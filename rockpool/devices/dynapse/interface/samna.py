@@ -79,8 +79,30 @@ class DynapseSamna(Module):
         offset_fpga: bool = True,
         offset: float = 100e-3,
         record: bool = False,
-    ) -> Tuple[np.ndarray]:
-        None
+    ) -> Tuple[np.ndarray, Dict, Dict]:
+        """
+        evolve simulates the network on Dynap-SE2 HDK in real-time
+        The function first converts raster plot to a sequence of AER packages and dispatches to the device.
+        Then reads the output buffers
+
+        :param input_data: A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Dynap-SE2, at the corresponding time point.
+        :type input_data: np.ndarray
+        :param channel_map: the mapping between input timeseries channels and the destinations
+        :type channel_map: Optional[Dict[int, Dynapse2Destination]]
+        :param read_timeout: the maximum time to wait until reading finishes, defaults to None
+        :type read_timeout: float, optional
+        :param offset_fpga: offset the timeseries depending on the current FPGA clock, defaults to True
+        :type offset_fpga: bool, optional
+        :param offset: user defined offset in seconds, defaults to True
+        :type offset: float, optional
+        :param record: record the states in each timestep of evolution or not, defaults to False
+        :type record: bool, optional
+        :return: spikes_ts, states, record_dict
+            :spikes_ts: is an array with shape ``(T, Nrec)`` containing the output data(spike raster) produced by the module.
+            :states: is a dictionary containing the updated module state following evolution.
+            :record_dict: is a dictionary containing the recorded state variables during the evolution at each time step, if the ``record`` argument is ``True`` else empty dictionary {}
+        :rtype: Tuple[np.ndarray, Dict, Dict]
+        """
 
         # Read Current FPGA timestamp, offset the events accordingly
         if offset_fpga:
@@ -98,11 +120,25 @@ class DynapseSamna(Module):
 
         # Write AER packages to the bus
         self.board.grid_bus_write_events(event_sequence)
-        output_events = capture_events_from_device(self.board, 5.0)
-        spikes_out = aer_to_raster(output_events)
-        return spikes_out, {}, {}
+        output_events = capture_events_from_device(self.board, read_timeout)
+
+        # Return
+        spikes_ts, channel_map = aer_to_raster(output_events)
+        states = {}
+        record_dict = {}
+
+        if record is True:
+            record_dict = {"channel_map": channel_map}
+
+        return spikes_ts, states, record_dict
 
     def reset_time(self) -> bool:
+        """
+        reset_time reset the FPGA counters
+
+        :return: success flag, True if FPGA is resetted
+        :rtype: bool
+        """
         return self.board.reset_fpga()
 
     def current_timestamp(
