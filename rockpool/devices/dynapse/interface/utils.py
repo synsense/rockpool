@@ -81,17 +81,21 @@ def find_dynapse_boards(name: str = "DYNAP-SE2") -> List[DeviceInfo]:
     return dynapse_list
 
 
-def configure_fpga(
-    device: DeviceInfo, bitfile: Optional[str] = None
+def configure_dynapse2_fpga(
+    device: DeviceInfo,
+    bitfile: Optional[str] = None,
+    timeout: float = 5.0,
 ) -> Dynapse2Interface:
     """
-    configure_fpga configures the FPGA on board and builds a connection node between CPU and the device.
+    configure_dynapse2_fpga configures the FPGA on board and builds a connection node between CPU and the device.
     It allows one to configure the device, read or write AER events to bus, and monitor the activity of device neurons
 
     :param device: the device object to open and configure
     :type device: DeviceInfo
     :param bitfile: the bitfile path if known, defaults to None
     :type bitfile: Optional[str], optional
+    :param timeout: the maximum time limit in seconds  that the device should respons, defaults to 5.0
+    :type timeout: float, optional
     :raises IOError: Failed to configure Opal Kelly
     :return: an open and configured Dynan-SE2 interface node
     :rtype: Dynapse2Interface
