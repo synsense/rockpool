@@ -426,6 +426,71 @@ def extract_channel_map(
     return channel_map
 
 
+def raster_to_aer(
+    raster: np.ndarray,
+    start_time: float = 0.0,
+    channel_map: Optional[Dict[int, Dynapse2Destination]] = None,
+    return_samna: bool = True,
+    dt: float = 1e-3,
+    dt_fpga: float = 1e-6,
+) -> List[NormalGridEvent]:
+    """
+    raster_to_aer converts a discrete raster record to a list of AER packages.
+    It uses a channel map to map the channels to destinations, and by default it returns a list of samna objects.
+
+    :param raster: the discrete timeseries to be converted into list of Dynap-SE2 AER packages
+    :type raster: np.ndarray
+    :param start_time: the start time of the record in seconds, defaults to 0.0
+    :type start_time: float
+    :param channel_map: the mapping between timeseries channels and the destinations
+    :type channel_map: Optional[Dict[int, Dynapse2Destination]]
+    :param return_samna: return actual samna objects or not(aliases), defaults to True
+    :type return_samna: bool, optional
+    :param dt: the raster's timestep resolution, defaults to 1e-3
+    :type dt: float, optional
+    :param dt_fpga: the FPGA timestep resolution, defaults to 1e-6
+    :type dt_fpga: float, optional
+    :raises ValueError: Raster should be 2 dimensional!
+    :raises ValueError: Channel map does not map the channels of the timeseries provided!
+    :return: a list of Dynap-SE2 AER packages
+    :rtype: List[NormalGridEvent]
+    """
+
+    if len(raster.shape) != 2:
+        raise ValueError("Raster should be 2 dimensional!")
+
+    buffer = []
+    duration = raster.shape[0] * dt
+    num_channels = raster.shape[1]
+    __time_course = np.arange(start_time, start_time + duration, dt)
+
+    # Default channel map is NOT RECOMMENDED!
+    if channel_map is None:
+        channel_map = {
+            c: Dynapse2Destination(core=[True] * 4, x_hop=-1, y_hop=-1, tag=c)
+            for c in range(num_channels)
+        }
+
+    if not num_channels <= len(set(channel_map.keys())):
+        raise ValueError(
+            "Channel map does not map the channels of the timeseries provided!"
+        )
+
+    # Create the AER list
+    for spikes, time in zip(raster, __time_course):
+
+        destinations = np.argwhere(spikes).flatten()
+        timestamp = int(np.around((time / dt_fpga)))
+        events = [
+            NormalGridEvent(channel_map[dest], timestamp) for dest in destinations
+        ]
+        if return_samna:
+            events = [event.samna_object(se2.NormalGridEvent) for event in events]
+        buffer.extend(events)
+
+    return buffer
+
+
 def fpga_time(
     board: Dynapse2Interface,
     reset: bool = False,
