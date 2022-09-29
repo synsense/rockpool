@@ -548,3 +548,40 @@ def fpga_time(
             timeout *= 2
 
     raise TimeoutError(f"FPGA could not respond, increase number of trials or timeout!")
+
+
+def event_generator(
+    event_time: float,
+    core: List[bool] = [True, True, True, True],
+    x_hop: int = -1,
+    y_hop: int = -1,
+    tag: np.uint = 2047,
+    dt_fpga: float = 1e-6,
+) -> NormalGridEvent:
+    """
+    event_generator a Dynap-SE2 event generator utility function, can be used to generate dummy events
+
+    :param event_time: the time that the event happened in seconds
+    :type event_time: float
+    :param core: the core mask used while sending the events, defaults to [True, True, True, True]
+            [1,1,1,1] means all 4 cores are on the target
+            [0,0,1,0] means the event will arrive at core 2 only
+    :type core: List[bool], optional
+    :param x_hop: number of chip hops on x axis, defaults -1
+    :type x_hop: int, optional
+    :param y_hop: number of chip hops on y axis, defaults to -1
+    :type y_hop: int, optional
+    :param tag: globally multiplexed locally unique event tag which is used to identify the connection between two neurons, defaults to 2047
+    :type tag: np.uint, optional
+    :param dt_fpga: the FPGA timestep resolution, defaults to 1e-6
+    :type dt_fpga: float, optional
+    :return: a virtual samna AER package for DynapSE2
+    :rtype: NormalGridEvent
+    """
+
+    event = NormalGridEvent(
+        event=Dynapse2Destination(core, x_hop, y_hop, tag),
+        timestamp=int(event_time / dt_fpga),
+    ).samna_object(se2.NormalGridEvent)
+
+    return event
