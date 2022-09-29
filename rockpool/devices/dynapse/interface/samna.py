@@ -11,6 +11,7 @@ E-mail : ugurcan.cakal@gmail.com
 15/09/2022
 [] TODO : configure FPGA inside ?
 [] TODO : It's done when it's done
+[] TODO : Implement read timeout in evolve
 """
 
 from __future__ import annotations
@@ -31,10 +32,7 @@ from rockpool.devices.dynapse.interface.utils import (
 from rockpool.nn.modules.module import Module
 from rockpool.devices.dynapse.samna_alias.dynapse2 import (
     Dynapse2Destination,
-    NormalGridEvent,
     Dynapse2Interface,
-    Dynapse2Model,
-    DeviceInfo,
 )
 
 # Try to import samna for device interfacing
@@ -54,6 +52,21 @@ DT_FPGA = 1e-6
 
 
 class DynapseSamna(Module):
+    """
+    DynapSim solves dynamical chip equations for the DPI neuron and synapse models.
+    Receives configuration as bias currents and solves membrane and synapse dynamics using ``jax`` backend.
+
+    :Parameters:
+
+    :param shape: Two dimensions ``(Nin, Nout)``, which defines a input and output conections of DynapSE neurons.
+    :type shape: Tuple[int]
+    :param board: the Dynan-SE2 interface node. (Like a file) It should be opened beforehand.
+    :type board: Dynapse2Interface
+    :param dt: the simulation timestep resolution, defaults to 1e-3
+    :type dt: float, optional
+
+    """
+
     def __init__(
         self,
         shape: Tuple[int],
@@ -61,8 +74,11 @@ class DynapseSamna(Module):
         dt: float = 1e-3,
     ):
 
+        if np.size(shape) != 2:
+            raise ValueError("`shape` must be a two-element tuple `(Nin, Nout)`.")
+
         if board is None:
-            raise ValueError("`device` must be a valid, opened Xylo HDK device.")
+            raise ValueError("`device` must be a valid, opened Dynap-SE2 HDK device.")
 
         # - Initialise the superclass
         super().__init__(shape=shape, spiking_input=True, spiking_output=True)
@@ -159,7 +175,7 @@ class DynapseSamna(Module):
         :raises TimeoutError: "FPGA could not respond, increase number of trials or reading interval!"
         :return: the current FPGA time in seconds
         :rtype: float
-        """    
+        """
 
         # Flush the buffers
         self.board.output_read()
