@@ -12,6 +12,7 @@ E-mail : ugurcan.cakal@gmail.com
 [] TODO : configure FPGA inside ?
 [] TODO : It's done when it's done
 [] TODO : Implement read timeout in evolve
+[] TODO : config reset, power cycle reset
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from rockpool.devices.dynapse.interface.utils import (
     event_generator,
     raster_to_aer,
     capture_events_from_device,
+    configure_dynapse2_fpga,
 )
 
 
@@ -32,8 +34,12 @@ from rockpool.devices.dynapse.interface.utils import (
 from rockpool.nn.modules.module import Module
 from rockpool.devices.dynapse.samna_alias.dynapse2 import (
     Dynapse2Destination,
+    DeviceInfo,
     Dynapse2Interface,
+    Dynapse2Model,
 )
+
+Dynapse2Configuration = Any
 
 # Try to import samna for device interfacing
 try:
@@ -60,8 +66,8 @@ class DynapseSamna(Module):
 
     :param shape: Two dimensions ``(Nin, Nout)``, which defines a input and output conections of DynapSE neurons.
     :type shape: Tuple[int]
-    :param board: the Dynan-SE2 interface node. (Like a file) It should be opened beforehand.
-    :type board: Dynapse2Interface
+    :param device: the Dynan-SE2 the device object to open and configure
+    :type device: DeviceInfo
     :param dt: the simulation timestep resolution, defaults to 1e-3
     :type dt: float, optional
 
@@ -70,20 +76,20 @@ class DynapseSamna(Module):
     def __init__(
         self,
         shape: Tuple[int],
-        board: Dynapse2Interface,
+        device: DeviceInfo,
         dt: float = 1e-3,
     ):
 
         if np.size(shape) != 2:
             raise ValueError("`shape` must be a two-element tuple `(Nin, Nout)`.")
 
-        if board is None:
-            raise ValueError("`device` must be a valid, opened Dynap-SE2 HDK device.")
+        if device is None:
+            raise ValueError("`device` must be a valid Dynap-SE2 HDK device.")
 
         # - Initialise the superclass
         super().__init__(shape=shape, spiking_input=True, spiking_output=True)
 
-        self.board = board
+        self.board: Dynapse2Interface = configure_dynapse2_fpga(device)
         self.dt = dt
         self.dt_fpga = DT_FPGA
 
@@ -207,3 +213,18 @@ class DynapseSamna(Module):
         raise TimeoutError(
             f"FPGA could not respond, increase number of trials or reading interval!"
         )
+
+    @property
+    def model(self) -> Dynapse2Model:
+        """Returns the HDK model object that can be used to configure the device"""
+        return self.board.get_model()
+
+    @property
+    def config(self) -> Dynapse2Configuration:
+        """Returns the configuration object stored on the Dynap-SE2 board"""
+        return self.model.get_configuration()
+
+    @config.setter
+    def config(self, new_config: Dynapse2Configuration) -> bool:
+        # - Write the configuration to the device
+        return self.model.apply_configuration(new_config)
