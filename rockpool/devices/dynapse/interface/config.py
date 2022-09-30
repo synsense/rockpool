@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from rockpool.devices.dynapse.samna_alias import Dynapse2Configuration
+
 # - Configure exports
 __all__ = ["config_from_specification", "save_config", "load_config"]
 

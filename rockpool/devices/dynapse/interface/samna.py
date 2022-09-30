@@ -35,7 +35,7 @@ from rockpool.devices.dynapse.samna_alias.dynapse2 import (
     Dynapse2Model,
 )
 
-Dynapse2Configuration = Any
+from rockpool.devices.dynapse.samna_alias.dynapse2 import Dynapse2Configuration
 
 # Try to import samna for device interfacing
 try:

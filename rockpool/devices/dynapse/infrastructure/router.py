@@ -34,13 +34,17 @@ import numpy as np
 
 from rockpool.devices.dynapse.definitions import CoreKey, NeuronKey, NUM_CORES
 
+from rockpool.devices.dynapse.samna_alias.dynapse1 import (
+    Dynapse1Synapse,
+    Dynapse1Destination,
+    Dynapse1Configuration,
+)
+from rockpool.devices.dynapse.samna_alias.dynapse2 import (
+    Dynapse2Synapse,
+    Dynapse2Destination,
+    Dynapse2Configuration,
+)
 
-Dynapse1Configuration = Any
-Dynapse2Configuration = Any
-Dynapse1Synapse = Any
-Dynapse2Synapse = Any
-Dynapse1Destination = Any
-Dynapse2Destination = Any
 SynDict = Dict[NeuronKey, List[Union[Dynapse1Synapse, Dynapse2Synapse]]]
 DestDict = Dict[NeuronKey, List[Union[Dynapse1Destination, Dynapse2Destination]]]
 

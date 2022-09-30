@@ -68,9 +68,8 @@ from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
 
 from rockpool.devices.dynapse.infrastructure.mismatch import MismatchDevice
-
-Dynapse1Configuration = Any
-Dynapse2Configuration = Any
+from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1Configuration
+from rockpool.devices.dynapse.samna_alias.dynapse2 import Dynapse2Configuration
 
 
 @jax.custom_jvp
