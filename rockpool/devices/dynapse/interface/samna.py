@@ -9,10 +9,6 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 
 15/09/2022
-[] TODO : configure FPGA inside ?
-[] TODO : It's done when it's done
-[] TODO : Implement read timeout in evolve
-[] TODO : config reset, power cycle reset
 """
 
 from __future__ import annotations
@@ -68,6 +64,8 @@ class DynapseSamna(Module):
     :type shape: Tuple[int]
     :param device: the Dynan-SE2 the device object to open and configure
     :type device: DeviceInfo
+    :param config: a Dynan-SE2 ``samna`` configuration object
+    :type config: Dynapse2Configuration
     :param dt: the simulation timestep resolution, defaults to 1e-3
     :type dt: float, optional
 
@@ -77,6 +75,7 @@ class DynapseSamna(Module):
         self,
         shape: Tuple[int],
         device: DeviceInfo,
+        config: Optional[Dynapse2Configuration] = None,
         dt: float = 1e-3,
     ):
 
@@ -89,9 +88,14 @@ class DynapseSamna(Module):
         # - Initialise the superclass
         super().__init__(shape=shape, spiking_input=True, spiking_output=True)
 
+        # Configure the FPGA, now only Stack board is available
         self.board: Dynapse2Interface = configure_dynapse2_fpga(device)
         self.dt = dt
         self.dt_fpga = DT_FPGA
+
+        # Config requires board
+        if config is not None:
+            self.config = config
 
     def evolve(
         self,
@@ -148,10 +152,12 @@ class DynapseSamna(Module):
             self.board, simulation_duration + read_timeout
         )
 
-        # Return
+        # Read the results
         spikes_ts, state_dict = aer_to_raster(
             output_events, dt=self.dt, dt_fpga=self.dt_fpga
         )
+
+        # Return
         states = {
             "channel_map": state_dict["channel_map"],
             "input_start_time": offset,
