@@ -118,27 +118,6 @@ def configure_dynapse2_fpga(
     return device
 
 
-def get_model(board: Dynapse2Interface, reset: bool = True) -> Dynapse2Model:
-    """
-    get_model obtain a `Dynapse2Model` from an already opened dynapse2interface node
-
-    :param board: the Dynan-SE2 interface node. (Like a file) It should be opened beforehand.
-    :type board: Dynapse2Interface
-    :param reset: reset the model or not, defaults to True
-    :type reset: bool, optional
-    :return: a dynapse2 model object that can be used to configure the device
-    :rtype: Dynapse2Model
-    """
-
-    model: Dynapse2Model = board.get_model()
-
-    if reset:
-        model.reset(se2.ResetType.PowerCycle, 0b1)
-        model.clear_error_queue()
-
-    return model
-
-
 def disconnect(board: Dynapse2Interface) -> None:
     """
     disconnect breaks the connection between CPU and the device
