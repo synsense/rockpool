@@ -27,6 +27,28 @@ class ParameterType(int, Enum):
     n: int = 1
 
 
+class DvsMode(int, Enum):
+    """
+    DvsMode implements the DVS generation enumerator to describe the model DVS128, Davis240c, or Davis346
+    """
+
+    Dvs128: int = 0
+    Davis240c: int = 2
+    Davis346: int = 4
+
+
+class Dendrite(int, Enum):
+    """
+    Dendrite implements the dynapse dendrite types enumerator
+    """
+
+    none: int = 0
+    ampa: int = 1024
+    gaba: int = 512
+    nmda: int = 256
+    shunt: int = 128
+
+
 @dataclass
 class SamnaAlias:
     """
@@ -195,13 +217,13 @@ class Dynapse2Destination(SamnaAlias):
     :param y_hop: number of chip hops on y axis
     :type y_hop: int
     :param tag: globally multiplexed locally unique event tag which is used to identify the connection between two neurons.
-    :type tag: np.uint
+    :type tag: int
     """
 
     core: List[bool]
     x_hop: int
     y_hop: int
-    tag: np.uint
+    tag: int
 
     def __post_init__(self) -> None:
         if abs(self.x_hop) > 7:
@@ -274,7 +296,180 @@ class NormalGridEvent(SamnaAlias):
         )
 
 
+# - Dynapse2Configuration - #
+
+ParamMap = Dict[str, Dynapse2Parameter]
+
+
+@dataclass
+class Dynapse2Configuration(SamnaAlias):
+    chips: List[Dynapse2Chip]
+
+
+@dataclass
+class Dynapse2Chip(SamnaAlias):
+    bioamps: Dynapse2Bioamps
+    cores: List[Dynapse2Core]
+    dvs_if: Dynapse2DvsInterface
+    enable_pg0_reference_monitor: bool
+    enable_pg1_reference_monitor: bool
+    global_parameters: ParamMap
+    param_gen0_powerdown: bool
+    param_gen1_powerdown: bool
+    sadc_enables: Dynapse2Chip_ConfigSadcEnables
+    sadc_group_parameters01: List[ParamMap]
+    sadc_group_parameters23: List[ParamMap]
+    shared_parameters01: ParamMap
+    shared_parameters23: ParamMap
+
+
+@dataclass
+class Dynapse2Chip_ConfigSadcEnables(SamnaAlias):
+    nccf_cal_refbias_v_group1_pg0: bool
+    nccf_cal_refbias_v_group1_pg1: bool
+    nccf_cal_refbias_v_group2_pg0: bool
+    nccf_cal_refbias_v_group2_pg1: bool
+    nccf_extin_vi_group0_pg0: bool
+    nccf_extin_vi_group0_pg1: bool
+    nccf_extin_vi_group2_pg0: bool
+    nccf_extin_vi_group2_pg1: bool
+
+
+@dataclass
+class Dynapse2Bioamps(SamnaAlias):
+    channel_parameters: List[ParamMap]
+    common_parameters: ParamMap
+    gain: int
+    monitor_channel_oauc: bool
+    monitor_channel_oruc: bool
+    monitor_channel_osuc: bool
+    monitor_channel_qfruc: bool
+    monitor_channel_thdc: bool
+    monitor_channel_thuc: bool
+    param_gen2_powerdown: bool
+    route: List[Dynapse2Destination]
+    separate_parameters: bool
+
+
+@dataclass
+class Dynapse2DvsInterface(SamnaAlias):
+    copy_events: bool
+    copy_hop: Vec2_int
+    davis_req_ack_bugfix_delay_ns: int
+    drop_events: bool
+    dvs_mode: DvsMode
+    filter: Dynapse2DvsFilter
+    max: Vec2_unsigned_int
+    off_events: bool
+    on_events: bool
+    origin: Vec2_unsigned_int
+    pixel_destinations: List[Dynapse2Destination]
+    pooling_shift: Vec2_unsigned_int
+
+
+@dataclass
+class Vec2_int(SamnaAlias):
+    x: int
+    y: int
+
+
+@dataclass
+class Vec2_unsigned_int(SamnaAlias):
+    x: int
+    y: int
+
+
+@dataclass
+class Dynapse2DvsFilter(SamnaAlias):
+    @abstractmethod
+    def add(self):
+        pass
+
+    @abstractmethod
+    def clear(self):
+        pass
+
+    @abstractmethod
+    def discard(self):
+        pass
+
+    @abstractmethod
+    def pop(self):
+        pass
+
+    @abstractmethod
+    def remove(self):
+        pass
+
+
+@dataclass
+class Dynapse2Core(SamnaAlias):
+    enable_pulse_extender_monitor1: bool
+    enable_pulse_extender_monitor2: bool
+    enable_syaw_stdbuf_an: bool
+    monitored_neuron: int
+    neuron_monitoring_on: bool
+    neurons: List[Dynapse2Neuron]
+    parameters: ParamMap
+    sadc_enables: Dynapse2Core_CoreSadcEnables
+
+    @abstractmethod
+    def get_id(self) -> int:
+        pass
+
+
+@dataclass
+class Dynapse2Core_CoreSadcEnables(SamnaAlias):
+    deam_edpi: bool
+    deam_idpi: bool
+    dega_idpi: bool
+    denm_edpi: bool
+    denm_idpi: bool
+    desc_idpi: bool
+    from_json: bool
+    soad_dpi: bool
+    soca_dpi: bool
+    soho_degain: bool
+    soho_sogain: bool
+    soif_mem: bool
+    soif_refectory: bool
+    sy_w21: bool
+    sy_w42: bool
+
+
+@dataclass
+class Dynapse2Neuron(SamnaAlias):
+    destinations: List[Dynapse2Destination]
+    latch_coho_ca_mem: bool
+    latch_de_conductance: bool
+    latch_de_mux: bool
+    latch_deam_alpha: bool
+    latch_deam_ampa: bool
+    latch_denm_alpha: bool
+    latch_denm_nmda: bool
+    latch_ho_active: bool
+    latch_ho_enable: bool
+    latch_ho_so_de: bool
+    latch_so_adaptation: bool
+    latch_so_dc: bool
+    latch_soif_kill: bool
+    latch_soif_type: bool
+    synapses: List[Dynapse2Synapse]
+
+
+@dataclass
+class Dynapse2Synapse(SamnaAlias):
+    dendrite: Dendrite
+    mismatched_delay: bool
+    precise_delay: bool
+    stp: bool
+    tag: int
+    weight: List[bool]
+
+
 # --- For Typehinting --- #
+
+
 @dataclass
 class DeviceInfo:
 
