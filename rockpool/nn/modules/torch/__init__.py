@@ -34,3 +34,5 @@ except:
         ExpSynTorch = missing_backend_shim("ExpSynTorch", "torch")
         UpDownTorch = missing_backend_shim("UpDownTorch", "torch")
         LinearTorch = missing_backend_shim("LinearTorch", "torch")
+    else:
+        raise

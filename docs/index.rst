@@ -84,6 +84,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    :caption: Developer documentation
 
    developer/UML-diagrams.ipynb
+   developer/backend-management.ipynb
    developer/release_process.rst
 
 * :ref:`genindex`

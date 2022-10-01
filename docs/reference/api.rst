@@ -258,3 +258,14 @@ Computational graph modules
     :template: module.rst
 
     graph.utils
+
+General utilities
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: module.rst
+
+    utilities.backend_management
+    utilities.jax_tree_utils
+    utilities.type_handling
+
