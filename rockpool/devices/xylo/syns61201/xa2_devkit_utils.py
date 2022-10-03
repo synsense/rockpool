@@ -1768,7 +1768,7 @@ def DivisiveNormalization(
         p (int): The precision coefficient
     """
     write_afe2_register(write_afe_buffer, 0x2B, 0x1F4)
-    data = 1 + iaf_bias * 16 + s * 16**5 + p *16**6
+    data = 1 + iaf_bias * 16 + s * 16**5 + p * 16**6
     write_afe2_register(write_afe_buffer, 0x2A, data)
 
 
