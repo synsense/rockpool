@@ -7,12 +7,12 @@ stages:
 
 unit_tests:
   stage: test
-  image: registry.gitlab.com/synsense/rockpool/test:latest
+  image: "registry.gitlab.com/synsense/rockpool/test:latest"
 
   before_script:
     - pip install --upgrade pip
     - conda install nest-simulator
-    - conda install -c conda-forge cudatoolkit-dev
+    - conda install -c conda-forge cudatoolkit-dev=11.4.0=h5e8e339_5
     - pip install --upgrade .[all] --no-cache-dir
     - python -c 'import samna'
     - pip install sinabs
@@ -27,7 +27,7 @@ nest_tests:
   stage: test
   allow_failure: true
   when: manual
-  image: registry.gitlab.com/synsense/rockpool/test:latest
+  image: "registry.gitlab.com/synsense/rockpool/test:latest"
 
   before_script:
     - pip install --upgrade pip
@@ -39,7 +39,7 @@ nest_tests:
 optional_tests:
   stage: test
   allow_failure: true
-  image: registry.gitlab.com/synsense/rockpool/test:latest
+  image: "registry.gitlab.com/synsense/rockpool/test:latest"
   when: manual
 
   before_script:
@@ -52,7 +52,7 @@ optional_tests:
 documentation_linting:
   stage: docs
   allow_failure: true
-  image: registry.gitlab.com/synsense/rockpool/test:latest
+  image: "registry.gitlab.com/synsense/rockpool/test:latest"
 
   before_script:
     - pip install --upgrade pip
@@ -64,7 +64,7 @@ documentation_linting:
 docs_build:
   stage: docs
   allow_failure: true
-  image: registry.gitlab.com/synsense/rockpool/test:latest
+  image: "registry.gitlab.com/synsense/rockpool/test:latest"
 
   before_script:
     - pip install --upgrade pip
@@ -81,7 +81,7 @@ docs_build:
 
 dist_build:
   stage: build
-  image: registry.gitlab.com/synsense/rockpool/test:latest
+  image: "registry.gitlab.com/synsense/rockpool/test:latest"
 
   dependencies:
     - unit_tests
@@ -100,6 +100,7 @@ dist_build:
 
 black-check:
   stage: test
+  image: "registry.gitlab.com/synsense/rockpool/test:latest"
 
   before_script:
     - pip install --upgrade pip
@@ -114,7 +115,7 @@ pages:
     - master
 
   allow_failure: true
-  image: registry.gitlab.com/synsense/rockpool/test:latest
+  image: "registry.gitlab.com/synsense/rockpool/test:latest"
 
   dependencies:
     - docs_build
@@ -129,7 +130,7 @@ pages:
 pypi_deploy:
   stage: deploy
   when: manual
-  image: registry.gitlab.com/synsense/rockpool/test:latest
+  image: "registry.gitlab.com/synsense/rockpool/test:latest"
 
   only:
     - master
