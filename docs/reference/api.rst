@@ -1,6 +1,9 @@
 Full API summary for |project|
 ==============================
 
+Package structure summary
+-------------------------
+
 .. py:currentmodule::rockpool
 
 .. autosummary::
@@ -259,7 +262,9 @@ Computational graph modules
 
     graph.utils
 
-Utilities
+
+General Utilities
+-----------------
 
 .. autosummary::
     :toctree: _autosummary
