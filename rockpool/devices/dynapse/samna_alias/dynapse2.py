@@ -328,10 +328,14 @@ class Dynapse2Destination(SamnaAlias):
         """
         __post_init__ runs after initialization and checks if the data valid
 
+        :raises ValueError: Core mask requires 4 entries!
         :raises ValueError: Cannot reach beyond +-7 chips in x axis
         :raises ValueError: Cannot reach beyond +-7 chips in y axis
         :raises ValueError: Illegal tag!
         """
+        self.core = list(map(lambda e: bool(e), self.core))
+        if len(self.core) != 4:
+            raise ValueError("Core mask requires 4 entries!")
         if abs(self.x_hop) > 7:
             raise ValueError("Cannot reach beyond +-7 chips in x axis")
         if abs(self.y_hop) > 7:
