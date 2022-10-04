@@ -9,6 +9,7 @@ E-mail : ugurcan.cakal@gmail.com
 """
 
 from __future__ import annotations
+import logging
 from abc import ABC, abstractclassmethod, abstractmethod
 from typing import Any, Dict, List
 
@@ -18,6 +19,13 @@ import json
 import numpy as np
 from enum import Enum
 
+try:
+    import samna
+    import samna.dynapse2 as se2
+except:
+    samna = Any
+    se2 = Any
+    logging.warning("samna installation not found in the environtment! You can still work with simulator to full extend but the objects cannot be converted to device configuration.")
 
 # --- Enums --- #
 
