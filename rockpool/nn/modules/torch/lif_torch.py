@@ -213,32 +213,33 @@ class LIFBaseTorch(TorchModule):
         self.decay_training = decay_training
         self.BitShift_training = BitShift_training
 
-        self.tau_mem: P_tensor = rp.Parameter(
-            tau_mem,
-            family="taus",
-            shape=[(self.size_out,), ()],
-            init_func=lambda s: torch.ones(s) * 20e-3,
-            cast_fn=self._to_float_tensor,
-        )
-        """ (Tensor) Membrane time constants `(Nout,)` or `()` """
-        self.tau_syn: P_tensor = rp.Parameter(
-            tau_syn,
-            family="taus",
-            shape=[
-                (
-                    self.size_out,
-                    self.n_synapses,
-                ),
-                (
-                    1,
-                    self.n_synapses,
-                ),
-                (),
-            ],
-            init_func=lambda s: torch.ones(s) * 20e-3,
-            cast_fn=self._to_float_tensor,
-        )
-        """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
+        if not (self.decay_training or self.BitShift_training):
+            self.tau_mem: P_tensor = rp.Parameter(
+                tau_mem,
+                family="taus",
+                shape=[(self.size_out,), ()],
+                init_func=lambda s: torch.ones(s) * 20e-3,
+                cast_fn=self._to_float_tensor,
+            )
+            """ (Tensor) Membrane time constants `(Nout,)` or `()` """
+            self.tau_syn: P_tensor = rp.Parameter(
+                tau_syn,
+                family="taus",
+                shape=[
+                    (
+                        self.size_out,
+                        self.n_synapses,
+                    ),
+                    (
+                        1,
+                        self.n_synapses,
+                    ),
+                    (),
+                ],
+                init_func=lambda s: torch.ones(s) * 20e-3,
+                cast_fn=self._to_float_tensor,
+            )
+            """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
 
 
         if self.decay_training:
@@ -270,6 +271,7 @@ class LIFBaseTorch(TorchModule):
                 cast_fn=self._to_float_tensor,
             )
         """ (Tensor) Synaptic decay factor `(Nin,)` or `()` """
+
 
         if self.BitShift_training:
             
@@ -513,9 +515,15 @@ class LIFTorch(LIFBaseTorch):
         if self.decay_training:
             alpha = self.alpha
             beta = self.beta
+            self.tau_mem = -(self.dt/torch.log(alpha))
+            self.tau_syn = -(self.dt/torch.log(beta))
+
         elif self.BitShift_training:
             alpha = 1-1/(2**self.dash_mem)
-            beta = 1-1/(2**self.dash_syn)   
+            beta = 1-1/(2**self.dash_syn)  
+
+            self.tau_mem = -(self.dt/torch.log(alpha))
+            self.tau_syn = -(self.dt/torch.log(beta))
         else:
             alpha = self.calc_alpha()    
             beta = self.calc_beta()
