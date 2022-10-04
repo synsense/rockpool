@@ -256,6 +256,9 @@ class Dynapse2Parameter(SamnaAlias):
     _switchable_type: bool = False
 
     def __post_init__(self) -> None:
+        """
+        __post_init__ runs after initialization
+        """
         if self._initial_type is None:
             self._initial_type = self.type
 
@@ -274,7 +277,7 @@ class Dynapse2Parameter(SamnaAlias):
     @classmethod
     def from_samna(cls, obj: Any) -> Dynapse2Parameter:
         """
-        from_samna converts a `Dynapse2Parameter` samna object to and alias object
+        from_samna converts a `Dynapse2Parameter` samna object to an alias object
 
         :param obj: a `samna.dynapse.Dynapse2Parameter` object
         :type obj: Any
@@ -291,6 +294,12 @@ class Dynapse2Parameter(SamnaAlias):
             _initial_type=ParameterType(obj._initial_type.value),
             _switchable_type=obj._switchable_type,
         )
+
+    def to_samna(self) -> samna.dynapse2.Dynapse2Parameter:
+        """
+        to_samna converts the samna alias object to a samna object
+        """
+        return self.samna_object(samna.dynapse2.Dynapse2Parameter)
 
 
 @dataclass
