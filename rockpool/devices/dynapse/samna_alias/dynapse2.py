@@ -19,9 +19,13 @@ import json
 import numpy as np
 from enum import Enum
 
+SAMNA_AVAILABLE = False
+
 try:
     import samna
     import samna.dynapse2 as se2
+
+    SAMNA_AVAILABLE = True
 except:
     samna = Any
     logging.warning(
@@ -85,9 +89,14 @@ class SamnaAlias:
         :return: the samna object
         :rtype: Any
         """
-        obj = cls()
-        obj.from_json(self.to_json())
-        return obj
+        if SAMNA_AVAILABLE:
+            obj = cls()
+            obj.from_json(self.to_json())
+            return obj
+        else:
+            raise ModuleNotFoundError(
+                "samna installation is not found in the environment!"
+            )
 
     @abstractclassmethod
     def from_samna(cls, obj: Any) -> SamnaAlias:
@@ -295,7 +304,7 @@ class Dynapse2Parameter(SamnaAlias):
             _switchable_type=obj._switchable_type,
         )
 
-    def to_samna(self) -> samna.dynapse2.Dynapse2Parameter:
+    def to_samna(self) -> Any:
         """
         to_samna converts the samna alias object to a samna object
         """
@@ -381,7 +390,7 @@ class Dynapse2Destination(SamnaAlias):
         wrapper["core"] = self.jlist_regular(self.core)
         return wrapper
 
-    def to_samna(self) -> samna.dynapse2.Dynapse2Destination:
+    def to_samna(self) -> Any:
         """
         to_samna converts the samna alias object to a samna object
         """
