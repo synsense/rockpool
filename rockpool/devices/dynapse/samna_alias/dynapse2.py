@@ -432,7 +432,7 @@ class NormalGridEvent(SamnaAlias):
         wrapper["event"] = self.event.json_wrapper()
         return wrapper
 
-    def to_samna(self) -> samna.dynapse2.NormalGridEvent:
+    def to_samna(self) -> Any:
         """
         to_samna converts the samna alias object to a samna object
         """
