@@ -98,6 +98,19 @@ class SamnaAlias:
                 "samna installation is not found in the environment!"
             )
 
+    def save(self, path: Optional[str] = None) -> None:
+        """
+        save the file as a json
+
+        :param path: the path to save, default to __class__.__name__.json
+        :type path: str
+        """
+        if path is None:
+            path = self.__class__.__name__ + ".json"
+
+        with open(path, "w") as f:
+            f.write(self.to_json())
+
     @abstractclassmethod
     def from_samna(cls, obj: Any) -> SamnaAlias:
         """
