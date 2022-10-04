@@ -24,8 +24,9 @@ try:
     import samna.dynapse2 as se2
 except:
     samna = Any
-    se2 = Any
-    logging.warning("samna installation not found in the environtment! You can still work with simulator to full extend but the objects cannot be converted to device configuration.")
+    logging.warning(
+        "samna installation not found in the environtment! You can still work with simulator to full extend but the objects cannot be converted to device configuration."
+    )
 
 # --- Enums --- #
 
@@ -98,9 +99,18 @@ class SamnaAlias:
         :return: the samna alias of the actual samna object
         :rtype: SamnaAlias
         """
-        pass
+        raise NotImplementedError("This method needs per class implementation!")
+
+    @abstractclassmethod
+    def to_samna(cls) -> Any:
+        """
+        to_samna is a abstract class method, which should be implemented individually
+        it returns a samna object created by the same data-structure with the alias object
+        """
+        raise NotImplementedError("This method needs per class implementation!")
 
     # --- JSON Converter Utils --- #
+
     def to_json(self) -> str:
         """to_json creates a proper & samna-compatible json string from the samna alias object"""
         return json.dumps({"value0": self.json_wrapper()}, indent="    ")
@@ -186,7 +196,7 @@ class SamnaAlias:
         :type __dict: Dict[str, SamnaAlias]
         :return: a list of dictionaries
         :rtype: List[Dict[str, Any]]
-        """        
+        """
         return list(
             map(
                 lambda __kv: {"key": __kv[0], "value": __kv[1].json_wrapper()},
@@ -195,7 +205,9 @@ class SamnaAlias:
         )
 
     @staticmethod
-    def jlist_dict_alias(__list_dict : List[Dict[str, SamnaAlias]]) -> Dict[List[Dict[str, Any]]]:
+    def jlist_dict_alias(
+        __list_dict: List[Dict[str, SamnaAlias]]
+    ) -> Dict[List[Dict[str, Any]]]:
         """
         jlist_dict_alias processes the list of samna object dictionaries (usually parameter map lists)
         then convert them into a dictionaries of lists of dictionaries of samna compatible entries
@@ -204,10 +216,13 @@ class SamnaAlias:
         :type __list_dict: List[Dict[str, SamnaAlias]]
         :return: the dictionaries of samna compatible entries
         :rtype: Dict[List[Dict[str, Any]]]
-        """        
+        """
         return SamnaAlias.jlist_regular(
             [SamnaAlias.jdict_alias(d) for d in __list_dict]
         )
+
+
+# --- Mainly used samna aliases --- #
 
 
 @dataclass
