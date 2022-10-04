@@ -405,9 +405,9 @@ class NormalGridEvent(SamnaAlias):
     @classmethod
     def from_samna(cls, obj: Any) -> NormalGridEvent:
         """
-        from_samna converts a `NormalGridEvent` samna object to and alias object
+        from_samna converts a `NormalGridEvent` samna object to an alias object
 
-        :param obj: a `samna.dynapse.NormalGridEvent` object
+        :param obj: a `samna.dynapse2.NormalGridEvent` object
         :type obj: Any
         :return: the samna alias version
         :rtype: NormalGridEvent
@@ -417,10 +417,22 @@ class NormalGridEvent(SamnaAlias):
             event=Dynapse2Destination.from_samna(obj.event), timestamp=obj.timestamp
         )
 
+    def json_wrapper(self) -> str:
+        """json_wrapper overrides the base method"""
+        wrapper = self.ctor
+        wrapper["event"] = self.event.json_wrapper()
+        return wrapper
+
+    def to_samna(self) -> samna.dynapse2.NormalGridEvent:
+        """
+        to_samna converts the samna alias object to a samna object
+        """
+        return self.samna_object(samna.dynapse2.NormalGridEvent)
+
 
 # - Dynapse2Configuration - #
 
-ParamMap = Dict[str, Dynapse2Parameter]
+
 
 
 @dataclass
