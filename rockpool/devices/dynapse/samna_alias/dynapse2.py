@@ -325,6 +325,13 @@ class Dynapse2Destination(SamnaAlias):
     tag: int
 
     def __post_init__(self) -> None:
+        """
+        __post_init__ runs after initialization and checks if the data valid
+
+        :raises ValueError: Cannot reach beyond +-7 chips in x axis
+        :raises ValueError: Cannot reach beyond +-7 chips in y axis
+        :raises ValueError: Illegal tag!
+        """
         if abs(self.x_hop) > 7:
             raise ValueError("Cannot reach beyond +-7 chips in x axis")
         if abs(self.y_hop) > 7:
@@ -337,7 +344,7 @@ class Dynapse2Destination(SamnaAlias):
         """
         from_samna converts a `Dynapse2Destination` samna object to an alias object
 
-        :param obj: a samna.dynapse2.Dynapse2Deatination object
+        :param obj: a samna.dynapse2.Dynapse2Destination object
         :type obj: Any
         :return: the samna alias version
         :rtype: Dynapse2Destination
@@ -363,6 +370,18 @@ class Dynapse2Destination(SamnaAlias):
         hash = (hash << 4) | (self.y_hop + 7)
         hash = hash << 12 | self.tag
         return hash
+
+    def json_wrapper(self) -> str:
+        """json_wrapper overrides the base method"""
+        wrapper = self.ctor
+        wrapper["core"] = self.jlist_regular(self.core)
+        return wrapper
+
+    def to_samna(self) -> samna.dynapse2.Dynapse2Destination:
+        """
+        to_samna converts the samna alias object to a samna object
+        """
+        return self.samna_object(samna.dynapse2.Dynapse2Destination)
 
 
 @dataclass
