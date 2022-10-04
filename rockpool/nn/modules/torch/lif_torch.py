@@ -4,6 +4,7 @@ Implement a LIF Module, using a Torch backend
 Provides :py:class:`.LIFBaseTorch` base class for LIF torch modules, and :py:class:`.LIFTorch` module.
 """
 
+from tempfile import gettempprefix
 from typing import Union, Tuple, Callable, Optional, Any
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
@@ -241,6 +242,13 @@ class LIFBaseTorch(TorchModule):
             )
             """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
 
+            # def _tau_to_alpha(self):
+            #     return self.tau_mem * sdsd
+
+
+            # self.alpha = _tau_to_alpha
+            # self.beta = getter
+
 
         if self.decay_training:
 
@@ -304,6 +312,20 @@ class LIFBaseTorch(TorchModule):
                 cast_fn=self._to_float_tensor,
             )
         """ (Tensor) synaptic bitshift in xylo `(Nout,)` or `()` """
+
+
+        if self.decay_training:
+            self.tau_mem = -(self.dt/torch.log(self.alpha))
+            self.tau_syn = -(self.dt/torch.log(self.beta))
+
+        elif self.BitShift_training:
+            alpha = 1-1/(2**self.dash_mem)
+            beta = 1-1/(2**self.dash_syn)  
+
+            self.tau_mem = -(self.dt/torch.log(alpha))
+            self.tau_syn = -(self.dt/torch.log(beta))
+
+
 
         self.bias: P_tensor = rp.Parameter(
             bias,
@@ -515,19 +537,20 @@ class LIFTorch(LIFBaseTorch):
         if self.decay_training:
             alpha = self.alpha
             beta = self.beta
-            self.tau_mem = -(self.dt/torch.log(alpha))
-            self.tau_syn = -(self.dt/torch.log(beta))
-
+            self.tau_mem = -(self.dt/torch.log(self.alpha))
+            self.tau_syn = -(self.dt/torch.log(self.beta))
+          
         elif self.BitShift_training:
             alpha = 1-1/(2**self.dash_mem)
             beta = 1-1/(2**self.dash_syn)  
-
             self.tau_mem = -(self.dt/torch.log(alpha))
             self.tau_syn = -(self.dt/torch.log(beta))
+
         else:
             alpha = self.calc_alpha()    
             beta = self.calc_beta()
 
+    
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
 
         # - Generate membrane noise trace
