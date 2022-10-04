@@ -442,6 +442,25 @@ class NormalGridEvent(SamnaAlias):
 # - Dynapse2Configuration - #
 
 
+class ParamMap(dict):
+    """
+    ParamMap is in fact Dict[str, Dynapse2Parameter]
+    it extends dict and implements from_samna method
+    """
+
+    _param_mapper = lambda kv: (kv[0], Dynapse2Parameter.from_samna(kv[1]))
+
+    @classmethod
+    def from_samna(cls, obj: Any) -> Dict[str, Dynapse2Parameter]:
+        """
+        from_samna converts a `Dict[str, Dynapse2Parameter]` samna object to an alias dictionary
+
+        :param obj: a `Dict[str, samna.dynapse2.Dynapse2Parameter]` object
+        :type obj: Any
+        :return: the samna alias version
+        :rtype: Dict[str, Dynapse2Parameter]
+        """
+        return dict(map(ParamMap._param_mapper, obj.items()))
 
 
 @dataclass
