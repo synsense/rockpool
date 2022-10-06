@@ -314,17 +314,6 @@ class LIFBaseTorch(TorchModule):
         """ (Tensor) synaptic bitshift in xylo `(Nout,)` or `()` """
 
 
-        if self.decay_training:
-            self.tau_mem = -(self.dt/torch.log(self.alpha))
-            self.tau_syn = -(self.dt/torch.log(self.beta))
-
-        elif self.BitShift_training:
-            alpha = 1-1/(2**self.dash_mem)
-            beta = 1-1/(2**self.dash_syn)  
-
-            self.tau_mem = -(self.dt/torch.log(alpha))
-            self.tau_syn = -(self.dt/torch.log(beta))
-
 
 
         self.bias: P_tensor = rp.Parameter(
@@ -381,6 +370,26 @@ class LIFBaseTorch(TorchModule):
         # - Placeholders for state recordings
         self._record_dict = {}
         self._record = False
+
+    
+    # @property
+    # def tau_syn(self): 
+    #     return self.tau_syn
+    #     # if self.decay_training:
+    #     #     self.tau_syn = -(self.dt/torch.log(self.beta))
+    #     # elif self.BitShift_training:
+    #     #     beta = 1-1/(2**self.dash_syn)  
+    #     # # self.tau_mem = -(self.dt/torch.log(alpha))
+    #     #     self.tau_syn = -(self.dt/torch.log(beta))
+    # @property
+    # def tau_mem(self): 
+    #     return self.tau_mem
+    #     # if self.decay_training:
+    #     #     tau_mem = -(self.dt/torch.log(self.alpha))
+    #     # elif self.BitShift_training:
+    #     #     beta = 1-1/(2**self.dash_syn)  
+    #     #     tau_mem = -(self.dt/torch.log(alpha))
+            
 
     def evolve(
         self, input_data: torch.Tensor, record: bool = False
