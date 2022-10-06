@@ -361,7 +361,7 @@ class XyloSim(XyloSimV1):
         **kwargs,
     ):
         # - Evolve using the xylo layer
-        spike_out = np.array(self._xylo_layer.evolve(input_raster))
+        spike_out = np.array(self._xylo_layer.evolve(input_raster.astype(int).tolist()))
         if self.output_mode == "Spike":
             output = spike_out
         elif self.output_mode == "Vmem":

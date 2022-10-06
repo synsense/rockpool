@@ -212,19 +212,19 @@ def config_from_specification(
         )
 
     # - Round and cast all parameters to integer
-    weights_in = np.round(weights_in).astype("int")
-    weights_out = np.round(weights_out).astype("int")
-    weights_rec = np.round(weights_rec).astype("int")
-    dash_mem = np.round(dash_mem).astype("int")
-    dash_mem_out = np.round(dash_mem_out).astype("int")
-    dash_syn = np.round(dash_syn).astype("int")
-    dash_syn_2 = np.round(dash_syn_2).astype("int")
-    dash_syn_out = np.round(dash_syn_out).astype("int")
-    threshold = np.round(threshold).astype("int")
-    threshold_out = np.round(threshold_out).astype("int")
-    weight_shift_in = np.round(weight_shift_in).astype("int")
-    weight_shift_rec = np.round(weight_shift_rec).astype("int")
-    weight_shift_out = np.round(weight_shift_out).astype("int")
+    weights_in = np.round(weights_in).astype("int8")
+    weights_out = np.round(weights_out).astype("int8")
+    weights_rec = np.round(weights_rec).astype("int8")
+    dash_mem = np.round(dash_mem).astype("int8")
+    dash_mem_out = np.round(dash_mem_out).astype("int8")
+    dash_syn = np.round(dash_syn).astype("int8")
+    dash_syn_2 = np.round(dash_syn_2).astype("int8")
+    dash_syn_out = np.round(dash_syn_out).astype("int8")
+    threshold = np.round(threshold).astype("int8")
+    threshold_out = np.round(threshold_out).astype("int8")
+    weight_shift_in = np.round(weight_shift_in).astype("int8")
+    weight_shift_rec = np.round(weight_shift_rec).astype("int8")
+    weight_shift_out = np.round(weight_shift_out).astype("int8")
     if aliases is not None:
         aliases = [np.round(a).astype("int") for a in aliases]
 
@@ -583,11 +583,7 @@ class XyloSamna(Module):
 
         # - Read the simulation output data
         xylo_data = hdkutils.read_accel_mode_data(
-            self._state_buffer,
-            Nin,
-            Nhidden,
-            Nout,
-            self.config.synapse2_enable,
+            self._state_buffer, Nin, Nhidden, Nout, self.config.synapse2_enable,
         )
 
         if record_power:
