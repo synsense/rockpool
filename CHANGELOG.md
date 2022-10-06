@@ -2,6 +2,13 @@
 
 All notable changes between Rockpool releases will be documented in this file.
 
+## [v.2.4.2] -- 2022-10-06
+
+### Hotfix
+
+Improved handling of weights when using `XyloSim.from_specification`
+
+
 ## [v2.4] -- 2022-08
 
 ### Major changes

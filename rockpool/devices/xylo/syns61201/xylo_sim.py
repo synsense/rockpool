@@ -255,7 +255,7 @@ class XyloSim(XyloSimV1):
 
         # - Convert input weights to XyloSynapse objects
         if len(weights_in.shape) == 2:
-            weights_in = weights_in[:, np.newaxis]
+            weights_in = np.expand_dims(weights_in, 2)
 
         _xylo_sim_params.synapses_in = []
         for pre, w_pre in enumerate(weights_in[:, :, 0]):
@@ -272,7 +272,7 @@ class XyloSim(XyloSimV1):
 
         # - Convert recurrent weights to XyloSynapse objects
         if len(weights_rec.shape) == 2:
-            weights_rec = weights_rec[:, np.newaxis]
+            weights_rec = np.expand_dims(weights_rec, 2)
 
         _xylo_sim_params.synapses_rec = []
         for pre, w_pre in enumerate(weights_rec[:, :, 0]):
