@@ -350,5 +350,6 @@ def event_generator(
         event=Dynapse2Destination(core, x_hop, y_hop, tag),
         timestamp=int(event_time / dt_fpga),
     ).samna_object(se2.NormalGridEvent)
+    # .to_samna()
 
     return event
