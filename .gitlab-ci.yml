@@ -12,7 +12,7 @@ unit_tests:
   before_script:
     - pip install --upgrade pip
     - conda install nest-simulator
-    - conda install -c conda-forge cudatoolkit-dev
+    - conda install -c conda-forge cudatoolkit-dev=11.4.0=h5e8e339_5
     - pip install --upgrade .[all] --no-cache-dir
     - python -c 'import samna'
     - pip install sinabs

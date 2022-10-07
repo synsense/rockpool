@@ -6,7 +6,7 @@ See :ref:`/reference/params_types.ipynb` for more information on the available t
 """
 
 import numpy as np
-from typing import Union, Any, Callable
+from typing import Union, Any, Callable, Dict
 from collections import abc
 from jax import numpy as jnp
 
@@ -56,12 +56,9 @@ P_tensor = Union[Tensor, ParameterBase]
 P_Callable = Union[Callable, ParameterBase]
 
 FloatVector = Union[float, np.ndarray, Tensor]
-BoolVector = Union[bool, np.ndarray, Tensor]
 IntVector = Union[int, np.ndarray, Tensor]
-
-# Jax Types
 
 JaxRNGKey = Any
 JaxTreeDef = Any
 
-JP_ndarray = Union[jnp.ndarray, ParameterBase]
+TreeDef = Dict
