@@ -217,39 +217,37 @@ class XyloSim(XyloSimV1):
         assert IENC <= RSNC, "IENC <= RSNC"
 
         if weights_rec is None:
-            weights_rec = np.zeros(
-                (np.shape(weights_in)[1], np.shape(weights_in)[1], 2), int
-            )
+            weights_rec = np.zeros((RSNC, RSNC, 2), int)
 
         if dash_syn is None:
-            dash_syn = np.zeros((np.shape(weights_in)[1]), int)
+            dash_syn = np.zeros(RSNC, int)
 
         if dash_syn_2 is None:
-            dash_syn_2 = np.zeros((np.shape(weights_in)[1]), int)
+            dash_syn_2 = np.zeros(RSNC, int)
 
         if dash_mem is None:
-            dash_mem = np.zeros((np.shape(weights_in)[1]), int)
+            dash_mem = np.zeros(RSNC, int)
 
         if dash_syn_out is None:
-            dash_syn_out = np.zeros((np.shape(weights_out)[1]), int)
+            dash_syn_out = np.zeros(ONC, int)
 
         if dash_mem_out is None:
-            dash_mem_out = np.zeros((np.shape(weights_out)[1]), int)
+            dash_mem_out = np.zeros(ONC, int)
 
         if bias is None:
-            bias = np.zeros((np.shape(weights_in)[1]), int)
+            bias = np.zeros(RSNC, int)
 
         if bias_out is None:
-            bias_out = np.zeros((np.shape(weights_out)[1]), int)
+            bias_out = np.zeros(ONC, int)
 
         if aliases is None:
-            aliases = [[] for _ in range(np.shape(weights_in)[1])]
+            aliases = [[] for _ in range(RSNC)]
 
         if threshold is None:
-            threshold = np.zeros((np.shape(weights_in)[1]), int)
+            threshold = np.zeros(RSNC, int)
 
         if threshold_out is None:
-            threshold_out = np.zeros((np.shape(weights_out)[1]), int)
+            threshold_out = np.zeros(ONC, int)
 
         # - Instantiate the class
         mod = cls(
@@ -259,11 +257,6 @@ class XyloSim(XyloSimV1):
         # - Make a storage object for the extracted configuration
         class _(object):
             pass
-
-        # - Extract network dimensions
-        INC, IENC = weights_in.shape
-        RSNC = weights_rec.shape[0]
-        OENC, ONC = weights_out.shape
 
         _xylo_sim_params = _()
 
