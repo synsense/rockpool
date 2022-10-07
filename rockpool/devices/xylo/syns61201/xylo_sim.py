@@ -252,9 +252,9 @@ class XyloSim(XyloSimV1):
             pass
 
         # - Extract network dimensions
-        NIN, NIEN = weights_in.shape
-        NRSN = weights_rec.shape[0]
-        NOEN, NON = weights_out.shape
+        INC, IENC = weights_in.shape
+        RSNC = weights_rec.shape[0]
+        OENC, ONC = weights_out.shape
 
         _xylo_sim_params = _()
 
@@ -294,7 +294,7 @@ class XyloSim(XyloSimV1):
 
         # - Convert output weights to XyloSynapse objects
         _xylo_sim_params.synapses_out = [[]] * (
-            NRSN - NOEN
+            RSNC - OENC
         )  # - Skip unconnected reservoir neurons
         for pre, w_pre in enumerate(weights_out):
             tmp = []
