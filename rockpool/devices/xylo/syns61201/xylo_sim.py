@@ -207,6 +207,15 @@ class XyloSim(XyloSimV1):
             ValueError: If ``verify_config`` is ``True`` and the configuration is not valid.
         """
         cls.output_mode = output_mode
+
+        # - Extract network dimensions
+        INC, IENC = weights_in.shape
+        RSNC = weights_rec.shape[0]
+        OENC, ONC = weights_out.shape
+
+        assert OENC <= RSNC, "OENC <= RSNC"
+        assert IENC <= RSNC, "IENC <= RSNC"
+
         if weights_rec is None:
             weights_rec = np.zeros(
                 (np.shape(weights_in)[1], np.shape(weights_in)[1], 2), int
