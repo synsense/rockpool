@@ -201,6 +201,7 @@ class AFESamna(Module):
 
         # - Apply configuration
         self._device.get_afe_model().apply_configuration(config)
+        self._config = config
 
         # - Read all registers
         if read_register:
@@ -249,3 +250,13 @@ class AFESamna(Module):
             (int, int): version, revision
         """
         return (self._chip_version, self._chip_revision)
+
+    def save_afe_config(self, filename):
+        """
+            Save an AFE configuration to disk in JSON format
+
+            Args:
+                filename (str): The filename to write to
+            """
+        with open(filename, "w") as f:
+            f.write(self._config.to_json())

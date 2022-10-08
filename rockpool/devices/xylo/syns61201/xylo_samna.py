@@ -583,7 +583,11 @@ class XyloSamna(Module):
 
         # - Read the simulation output data
         xylo_data = hdkutils.read_accel_mode_data(
-            self._state_buffer, Nin, Nhidden, Nout, self.config.synapse2_enable,
+            self._state_buffer,
+            Nin,
+            Nhidden,
+            Nout,
+            self.config.synapse2_enable,
         )
 
         if record_power:

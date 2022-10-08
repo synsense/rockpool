@@ -320,7 +320,7 @@ def apply_afe2_default_config(
         bpf_bias (int): master gm cell bias selected for the band pass filter
         fwr_bias (int): master gm cell bias selected for the full wave rectifier which rectifies the output of the band pass filter bank
         lna_ci_tune (int): extra 0.25p cap witch low active config cap for the low noise amplifier that amplifies the input with given gain
-        lna_ci_tune (int): extra 1p cap witch low active config cap for the low noise amplifier that amplifies the input with given gain
+        lna_cf_tune (int): extra 1p cap witch low active config cap for the low noise amplifier that amplifies the input with given gain
         afe_stable_time (int): stable time for AFE after power on
         leak_timing_window (int): The timing window setting for leakage calibration
         leak_td (int): warm-up time window threshold for leakage calibration
