@@ -52,8 +52,8 @@ class XyloMonitor(Module):
         main_clk_rate: int = int(50e6),
         hibernation_mode: bool = False,
         divisive_norm: bool = False,
-        divisive_norm_params: Optional[dict] = None,
-        leak_timing_window: int = int(25e5),
+        divisive_norm_params: Optional[dict] = {},
+        calibration_params: Optional[dict] = {},
         read_register: bool = False,
         *args,
         **kwargs,
@@ -73,7 +73,7 @@ class XyloMonitor(Module):
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
             divisive_norm (bool): If True, divisive normalization will be switched on.
             divisive_norm_params (Dict): Specify the divisive normalization parameters, should be structured as {"s": , "p": , "iaf_bias": }.
-            leak_timing_window (int): The timing window setting for leakage calibration.
+            calibration_params (Dict): Specify the calibration parameters.
             read_register (bool): If True, will print all register values of AFE and Xylo after initialization.
         """
 
@@ -87,6 +87,12 @@ class XyloMonitor(Module):
                 f'{output_mode} is not supported. Must be one of `["Spike", "Vmem"]`.'
             )
         self._output_mode = output_mode
+
+        # - Check params dict
+        if (type(divisive_norm_params).__name__ != 'dict') or (type(calibration_params).__name__ != 'dict'):
+            raise ValueError(
+                "`divisive_norm_params` and `calibration_params` must be dict."
+            )
 
         # - Get a default configuration
         if config is None:
@@ -185,7 +191,8 @@ class XyloMonitor(Module):
         # - Set up known good AFE configuration
         print("Configuring AFE...")
         afe_config = hdkutils.apply_afe2_default_config(
-            self._device, afe_config, leak_timing_window
+            afe2hdk=self._device, config=afe_config,
+            **calibration_params,
         )
         print("Configured AFE")
 
@@ -194,15 +201,10 @@ class XyloMonitor(Module):
 
         # - Divisive normalization
         if divisive_norm:
-            if divisive_norm_params is not None:
-                afe_config = hdkutils.DivisiveNormalization(
-                    config=afe_config,
-                    s=divisive_norm_params["s"],
-                    p=divisive_norm_params["p"],
-                    iaf_bias=divisive_norm_params["iaf_bias"],
-                )
-            else:
-                afe_config = hdkutils.DivisiveNormalization(afe_config)
+            afe_config = hdkutils.DivisiveNormalization(
+                config=afe_config,
+                **divisive_norm_params,
+            )
 
         # - Set to hibernation mode
         if hibernation_mode:

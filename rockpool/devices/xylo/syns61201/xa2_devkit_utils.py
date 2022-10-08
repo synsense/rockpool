@@ -298,24 +298,44 @@ def read_afe2_events_blocking(
 
 
 def apply_afe2_default_config(
-    afe2hdk: XyloA2HDK, config: AfeConfiguration, leak_timing_window: int
+    afe2hdk: XyloA2HDK,
+    config: AfeConfiguration,
+    bpf_bias: int = 2,
+    fwr_bias: int = 6,
+    lna_ci_tune: int = 5,
+    lna_cf_tune: int = 5,
+    afe_stable_time: int = 0x80,
+    leak_timing_window: int = int(25e5),
+    leak_td: int = 0x030D4,
+    leak_target_spike_number: int = 1,
+    *args,
+    **kwargs,
 ) -> AfeConfiguration:
     """
     Configure an AFE2 HDK, including self-calibration
 
     Args:
         afe_write_buf (AFE2WriteBuffer): A connected AFE2 write buffer
+        config (AfeConfiguration): A configuration for AFE
+        bpf_bias (int): master gm cell bias selected for the band pass filter
+        fwr_bias (int): master gm cell bias selected for the full wave rectifier which rectifies the output of the band pass filter bank
+        lna_ci_tune (int): extra 0.25p cap witch low active config cap for the low noise amplifier that amplifies the input with given gain
+        lna_ci_tune (int): extra 1p cap witch low active config cap for the low noise amplifier that amplifies the input with given gain
+        afe_stable_time (int): stable time for AFE after power on
         leak_timing_window (int): The timing window setting for leakage calibration
+        leak_td (int): warm-up time window threshold for leakage calibration
+        leak_target_spike_number (int): target spike number for leakage calibration
     """
+
     config = AfeConfiguration()
     config.analog_top.enable = True
     config.debug.enable_event_monitor = False
 
-    config.analog_top.bpf.bias = 2
-    config.analog_top.fwr.bias = 6
+    config.analog_top.bpf.bias = int(bpf_bias) if bpf_bias is not None else 2
+    config.analog_top.fwr.bias = int(fwr_bias) if fwr_bias is not None else 6
 
-    config.analog_top.lna.ci_tune = 5
-    config.analog_top.lna.cf_tune = 5
+    config.analog_top.lna.ci_tune = int(lna_ci_tune) if lna_ci_tune is not None else 5
+    config.analog_top.lna.cf_tune = int(lna_cf_tune) if lna_cf_tune is not None else 5
 
     config.analog_top.bpf.scale = True
 
@@ -326,13 +346,19 @@ def apply_afe2_default_config(
     config.aer_2_saer.calibration.mode = 1
     config.aer_2_saer.calibration.reset = True
 
-    config.aer_2_saer.calibration.afe_stable_time = 0x80
-    config.aer_2_saer.calibration.leak_timing_window = int(leak_timing_window)
+    config.aer_2_saer.calibration.afe_stable_time = (
+        int(afe_stable_time) if afe_stable_time is not None else 0x80
+    )
+    config.aer_2_saer.calibration.leak_timing_window = (
+        int(leak_timing_window) if leak_timing_window is not None else 25e5
+    )
 
-    config.aer_2_saer.calibration.leak_td = 0x030D4
-    config.aer_2_saer.calibration.leak_target_spike_number = 1
-
-    # afe2hdk.get_afe_model().apply_configuration(config)
+    config.aer_2_saer.calibration.leak_td = (
+        int(leak_td) if leak_td is not None else 0x030D4
+    )
+    config.aer_2_saer.calibration.leak_target_spike_number = (
+        int(leak_target_spike_number) if leak_target_spike_number is not None else 1
+    )
     return config
 
 
@@ -1767,7 +1793,12 @@ def AFE_hibernation(config: AfeConfiguration) -> AfeConfiguration:
 
 
 def DivisiveNormalization(
-    config: AfeConfiguration, s: int = 5, p: int = 0, iaf_bias: int = 10
+    config: AfeConfiguration,
+    s: int = 5,
+    p: int = 0,
+    iaf_bias: int = 10,
+    *args,
+    **kwargs,
 ) -> AfeConfiguration:
     """
     The normalized Signal is:
@@ -1782,9 +1813,9 @@ def DivisiveNormalization(
     """
 
     config.aer_2_saer.dn.enable = 1
-    config.aer_2_saer.dn.iaf_bias = iaf_bias
-    config.aer_2_saer.dn.p_param = p
-    config.aer_2_saer.dn.s_param = s
+    config.aer_2_saer.dn.iaf_bias = int(iaf_bias) if iaf_bias is not None else 10
+    config.aer_2_saer.dn.p_param = int(p) if p is not None else 0
+    config.aer_2_saer.dn.s_param = int(s) if s is not None else 5
 
     return config
 
