@@ -73,6 +73,7 @@ class AFESamna(Module):
         divisive_norm: bool = False,
         divisive_norm_params: Optional[dict] = None,
         leak_timing_window: int = int(25e5),
+        read_register: bool = False,
         *args,
         **kwargs,
     ):
@@ -89,6 +90,7 @@ class AFESamna(Module):
             divisive_norm (bool): If True, divisive normalization will be switched on.
             divisive_norm_params (Dict): Specify the divisive normalization parameters, should be structured as {"s": , "p": , "iaf_bias": }.
             leak_timing_window (int): The timing window setting for leakage calibration.
+            read_register (bool): If True, will print all register values of AFE after initialization.
         """
         # - Check input arguments
         if device is None:
@@ -165,32 +167,40 @@ class AFESamna(Module):
                 raise ValueError(
                     f"{change_count} is negative. Must be non-negative values."
                 )
-            hdu.change_event_counter(device_io, change_count)
+            config = hdu.change_event_counter(config, change_count)
 
         # - Set up known good configuration
         print("Configuring AFE...")
-        hdu.apply_afe2_default_config(self._device, leak_timing_window)
+        config = hdu.apply_afe2_default_config(self._device, config, leak_timing_window)
         print("Configured AFE")
 
         # - Amplify input volume
-        hdu.set_lda_amplification(device_io, level=amplify_level)
+        config = hdu.set_lna_amplification(config, level=amplify_level)
 
         # - Set up divisive normalization
         if divisive_norm:
             if divisive_norm_params is not None:
-                hdu.DivisiveNormalization(
-                    write_afe_buffer=self._afe_write_buf,
+                config = hdu.DivisiveNormalization(
+                    config=config,
                     s=divisive_norm_params["s"],
                     p=divisive_norm_params["p"],
                     iaf_bias=divisive_norm_params["iaf_bias"],
                 )
             else:
-                hdu.DivisiveNormalization(self._afe_write_buf)
+                config = hdu.DivisiveNormalization(config)
 
         # - Set up hibernation mode
         if hibernation_mode:
-            hdu.AFE_hibernation(self._afe_write_buf)
-            hdu.write_afe2_register(self._afe_write_buf, 0x25, 0x12)
+            config = hdu.AFE_hibernation(config)
+            config.aer_2_saer.hibernation.mode = 2
+            config.aer_2_saer.hibernation.reset = 1
+
+        # - Apply configuration
+        self._device.get_afe_model().apply_configuration(config)
+
+        # - Read all registers
+        if read_register:
+            hdu.read_all_afe2_register(self._afe_read_buf, self._afe_write_buf)
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
         """

@@ -36,6 +36,7 @@ AFE2WriteBuffer = samna.BasicSourceNode_afe2_event_input_event
 AFE2OutputEvent = samna.afe2.event.Spike
 
 from samna.xyloCore2.configuration import XyloConfiguration
+from samna.afe2.configuration import AfeConfiguration
 
 XyloA2HDK = Any
 
@@ -296,7 +297,9 @@ def read_afe2_events_blocking(
     return timestamps * 1e-6, channels
 
 
-def apply_afe2_default_config(afe2hdk: XyloA2HDK, leak_timing_window: int) -> None:
+def apply_afe2_default_config(
+    afe2hdk: XyloA2HDK, config: AfeConfiguration, leak_timing_window: int
+) -> AfeConfiguration:
     """
     Configure an AFE2 HDK, including self-calibration
 
@@ -304,33 +307,33 @@ def apply_afe2_default_config(afe2hdk: XyloA2HDK, leak_timing_window: int) -> No
         afe_write_buf (AFE2WriteBuffer): A connected AFE2 write buffer
         leak_timing_window (int): The timing window setting for leakage calibration
     """
-    c = samna.afe2.configuration.AfeConfiguration()
+    config = AfeConfiguration()
+    config.analog_top.enable = True
+    config.debug.enable_event_monitor = False
 
-    c.analog_top.enable = True
-    c.debug.enable_event_monitor = False
+    config.analog_top.bpf.bias = 2
+    config.analog_top.fwr.bias = 6
 
-    c.analog_top.bpf.bias = 2
-    c.analog_top.fwr.bias = 6
+    config.analog_top.lna.ci_tune = 5
+    config.analog_top.lna.cf_tune = 5
 
-    c.analog_top.lna.ci_tune = 5
-    c.analog_top.lna.cf_tune = 5
+    config.analog_top.bpf.scale = True
 
-    c.analog_top.bpf.scale = True
-
-    afe2hdk.get_afe_model().apply_configuration(c)
+    afe2hdk.get_afe_model().apply_configuration(config)
 
     time.sleep(45)
 
-    c.aer_2_saer.calibration.mode = 1
-    c.aer_2_saer.calibration.reset = True
+    config.aer_2_saer.calibration.mode = 1
+    config.aer_2_saer.calibration.reset = True
 
-    c.aer_2_saer.calibration.afe_stable_time = 0x80
-    c.aer_2_saer.calibration.leak_timing_window = int(leak_timing_window)
+    config.aer_2_saer.calibration.afe_stable_time = 0x80
+    config.aer_2_saer.calibration.leak_timing_window = int(leak_timing_window)
 
-    c.aer_2_saer.calibration.leak_td = 0x030D4
-    c.aer_2_saer.calibration.leak_target_spike_number = 1
+    config.aer_2_saer.calibration.leak_td = 0x030D4
+    config.aer_2_saer.calibration.leak_target_spike_number = 1
 
-    afe2hdk.get_afe_model().apply_configuration(c)
+    # afe2hdk.get_afe_model().apply_configuration(config)
+    return config
 
 
 def read_afe2_module_version(
@@ -1644,34 +1647,40 @@ def set_power_measure(
     return power_buf, power_monitor
 
 
-def change_event_counter(write_afe_buffer: AFE2WriteBuffer, count: int) -> None:
+def change_event_counter(config: AfeConfiguration, count: int) -> AfeConfiguration:
     """
     Change the AFE event count to throw 1 spikes out of 1 to the Xylo core
 
     Args:
-        write_afe_buffer (AFE2WriteBuffer): A write buffer connected to the AFE
+        config (AfeConfiguration): A configuration for AFE
         count (int): The value of counter threshold
     """
-    for addr in [0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D]:
-        write_afe2_register(write_afe_buffer, addr, count * 16**4 + count)
+
+    config.aer_2_saer.channel_thresholds = [count for _ in range(16)]
+    return config
 
 
-def set_lda_amplification(
-    write_afe_buffer: AFE2WriteBuffer, level: str = "low"
-) -> None:
+def set_lna_amplification(
+    config: AfeConfiguration, level: str = "low"
+) -> AfeConfiguration:
     """
     Adjust acoustic gain of LDA module
 
     Args:
-        write_afe_buffer (AFE2WriteBuffer): A write buffer connected to the AFE
+        config (AfeConfiguration): A configuration for AFE
         level (str): gain level, which should be in ``['low', 'mid', and 'high']``. Default low level is without gain.
     """
 
     assert level in ["low", "mid", "high"]
     if level == "mid":
-        write_afe2_register(write_afe_buffer, 0x06, 0x20F00)
+        # write_afe2_register(write_afe_buffer, 0x06, 0x20F00)
+        config.analog_top.lna.ci_tune = 0x0
+        config.analog_top.lna.cf_tune = 0xF
     elif level == "high":
-        write_afe2_register(write_afe_buffer, 0x06, 0x20F50)
+        # write_afe2_register(write_afe_buffer, 0x06, 0x20F50)
+        config.analog_top.lna.ci_tune = 0x5
+        config.analog_top.lna.cf_tune = 0xF
+    return config
 
 
 def config_basic_mode(
@@ -1715,61 +1724,69 @@ def _auto_mode(
         hibernation_mode (bool): the hibernation mode to run. Iff True, the chip will output events only if it receives inputs
     """
 
-    # set Xylo core reading frequency
+    # Set Xylo core reading frequency
     write_register(write_buffer, 0x03, int(main_clk_rate * dt))
     write_register(write_buffer, 0x04, int(main_clk_rate * dt))
 
     # Clear input events
-    for addr in [0x11, 0x12, 0x13, 0x14]:
-        write_register(write_buffer, addr, 0)
+    reset_input_spikes(write_buffer)
 
-    # set Xylo core to auto mode
+    # Set Xylo core to auto mode
     ctrl1 = read_register(read_buffer, write_buffer, 0x01)[0]
     ctrl1 &= 0xFFFFFFFE
     write_register(write_buffer, 0x01, ctrl1)
 
+    # Set hibernation mode
     if hibernation_mode:
         write_afe2_register(write_afe_buffer, 0x25, 0x12)
     write_register(write_buffer, 0x0E, 0x10)
 
     time.sleep(0.1)
 
-    # set FPGA to auto mode
+    # Set FPGA to auto mode
     io.get_xylo_handler().set_operation_mode(samna.xyloCore2.OperationMode.RealTime)
 
 
-def AFE_hibernation(write_afe_buffer: AFE2WriteBuffer) -> None:
+def AFE_hibernation(config: AfeConfiguration) -> AfeConfiguration:
     """
     Switch on hibernation mode on AFE
 
     Args:
-        write_afe_buffer (AFE2WriteBuffer): A write buffer connected to the AFE
+        config (AfeConfiguration): A configuration for AFE
     """
 
     # timing window for active status
-    write_afe2_register(write_afe_buffer, 0x26, 0x1E848)
+    config.aer_2_saer.hibernation.active_status_detection_timing_window = 0xE848
     # timing window for deactive status
-    write_afe2_register(write_afe_buffer, 0x27, 0x1312D0)
+    config.aer_2_saer.hibernation.deactive_status_detection_timing_window = 0x1312D0
     # spike threshold for active and deactive status
-    write_afe2_register(write_afe_buffer, 0x28, 0x00300009)
+    config.aer_2_saer.hibernation.active_mode_spike_threshold = 0x9
+    config.aer_2_saer.hibernation.deactive_mode_spike_threshold = 0x30
+
+    return config
 
 
 def DivisiveNormalization(
-    write_afe_buffer: AFE2WriteBuffer, s: int = 5, p: int = 0, iaf_bias: int = 10
-) -> None:
+    config: AfeConfiguration, s: int = 5, p: int = 0, iaf_bias: int = 10
+) -> AfeConfiguration:
     """
     The normalized Signal is:
     PostNF(t) = preNF(t) * (2**p) /(iaf_bias + M(t))
     M(t) = 2**(-s) * E(t) + (1-2**(-s)) * M(t-1), where E(t) is the input signal, M(t) estimates the background noise level
 
     Args:
-        write_afe_buffer (AFE2WriteBuffer): A write buffer connected to the AFE
+        config (AfeConfiguration): A configuration for AFE
         s (int): The parameter which indirectly affects the normalized window length
         p (int): The precision coefficient
+        iaf_bias (int): The bias parameter
     """
-    write_afe2_register(write_afe_buffer, 0x2B, 0x1F4)
-    data = 1 + iaf_bias * 16 + s * 16**5 + p * 16**6
-    write_afe2_register(write_afe_buffer, 0x2A, data)
+
+    config.aer_2_saer.dn.enable = 1
+    config.aer_2_saer.dn.iaf_bias = iaf_bias
+    config.aer_2_saer.dn.p_param = p
+    config.aer_2_saer.dn.s_param = s
+
+    return config
 
 
 def pretty_print_register(
@@ -2054,3 +2071,37 @@ def set_ram_access(
                 pack_dict(*Xylo2RegistersStruct["CTRL1"], dict_ctrl1), "big"
             ),
         )
+
+
+def read_all_afe2_register(
+    read_buffer: AFE2ReadBuffer,
+    write_buffer: AFE2WriteBuffer,
+):
+    """
+    Read all AFE register values
+
+    Args:
+        read_buffer (AFE2ReadBuffer): A connected read buffer to the XYlo HDK
+        write_buffer (AFE2WriteBuffer): A connected write buffer to the Xylo HDK
+
+    """
+    for address in range(0x49):
+        data = read_afe2_register(read_buffer, write_buffer, address)[0]
+        print("read afe register ", hex(address), hex(data))
+
+
+def read_all_xylo_register(
+    read_buffer: Xylo2ReadBuffer,
+    write_buffer: Xylo2WriteBuffer,
+):
+    """
+    Read all xylo register values
+
+    Args:
+        read_buffer (Xylo2ReadBuffer): A connected read buffer to the XYlo HDK
+        write_buffer (Xylo2WriteBuffer): A connected write buffer to the Xylo HDK
+
+    """
+    for address in range(0x33):
+        data = read_register(read_buffer, write_buffer, address)[0]
+        print("read xylo register ", hex(address), hex(data))

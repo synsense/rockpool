@@ -5,6 +5,7 @@ Samna-backed bridge to Xylo dev kit for SYNS61201 Xylo core v2
 # - Samna imports
 import samna
 from samna.xyloCore2.configuration import XyloConfiguration
+from samna.afe2.configuration import AfeConfiguration
 
 from . import xa2_devkit_utils as hdkutils
 from .xa2_devkit_utils import XyloA2HDK
@@ -43,6 +44,7 @@ class XyloMonitor(Module):
         self,
         device: XyloA2HDK,
         config: XyloConfiguration = None,
+        afe_config: AfeConfiguration = None,
         dt: float = 1e-3,
         output_mode: str = "Spike",
         amplify_level: str = "low",
@@ -52,6 +54,7 @@ class XyloMonitor(Module):
         divisive_norm: bool = False,
         divisive_norm_params: Optional[dict] = None,
         leak_timing_window: int = int(25e5),
+        read_register: bool = False,
         *args,
         **kwargs,
     ):
@@ -61,6 +64,7 @@ class XyloMonitor(Module):
         Args:
             device (XyloA2HDK): An opened `samna` device to a Xylo dev kit
             config (XyloConfiguraration): A Xylo configuration from `samna`
+            afe_config (AFE2Configuration): A samna AFE2 configuration object
             dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Vmem"]``. Default: "Spike", return events from the output layer.
             amplify_level(str): The level of volume gain. Defaul "low" is the one without gain.
@@ -70,7 +74,7 @@ class XyloMonitor(Module):
             divisive_norm (bool): If True, divisive normalization will be switched on.
             divisive_norm_params (Dict): Specify the divisive normalization parameters, should be structured as {"s": , "p": , "iaf_bias": }.
             leak_timing_window (int): The timing window setting for leakage calibration.
-
+            read_register (bool): If True, will print all register values of AFE and Xylo after initialization.
         """
 
         # - Check input arguments
@@ -87,6 +91,14 @@ class XyloMonitor(Module):
         # - Get a default configuration
         if config is None:
             config = samna.xyloCore2.configuration.XyloConfiguration()
+
+        if afe_config is not None:
+            warnings.warn(
+                "Setting a manual configuration for the Xylo-AFE2 is not yet supported."
+            )
+
+        if afe_config is None:
+            afe_config = AfeConfiguration()
 
         # - Store the device
         self._device: XyloA2HDK = device
@@ -168,34 +180,46 @@ class XyloMonitor(Module):
                 raise ValueError(
                     f"{change_count} is negative. Must be non-negative values."
                 )
-            hdkutils.change_event_counter(self._afe_write_buffer, change_count)
+            afe_config = hdkutils.change_event_counter(afe_config, change_count)
 
         # - Set up known good AFE configuration
         print("Configuring AFE...")
-        hdkutils.apply_afe2_default_config(self._device, leak_timing_window)
+        afe_config = hdkutils.apply_afe2_default_config(
+            self._device, afe_config, leak_timing_window
+        )
         print("Configured AFE")
 
         # - Amplify input volume
-        hdkutils.set_lda_amplification(self._io, level=amplify_level)
+        afe_config = hdkutils.set_lna_amplification(afe_config, level=amplify_level)
 
         # - Divisive normalization
         if divisive_norm:
             if divisive_norm_params is not None:
-                hdkutils.DivisiveNormalization(
-                    write_afe_buffer=self._afe_write_buffer,
+                afe_config = hdkutils.DivisiveNormalization(
+                    config=afe_config,
                     s=divisive_norm_params["s"],
                     p=divisive_norm_params["p"],
                     iaf_bias=divisive_norm_params["iaf_bias"],
                 )
             else:
-                hdkutils.DivisiveNormalization(self._afe_write_buffer)
+                afe_config = hdkutils.DivisiveNormalization(afe_config)
 
         # - Set to hibernation mode
         if hibernation_mode:
-            hdkutils.AFE_hibernation(write_afe_buffer=self._afe_write_buffer)
+            afe_config = hdkutils.AFE_hibernation(afe_config)
+
+        # - Apply configuration
+        self._device.get_afe_model().apply_configuration(afe_config)
 
         # - Configure to auto mode
         self.auto_config(hibernation=hibernation_mode)
+
+        # - Read AFE and Xylo configuration
+        if read_register:
+            hdkutils.read_all_afe2_register(
+                self._afe_read_buffer, self._afe_write_buffer
+            )
+            hdkutils.read_all_xylo_register(self._read_buffer, self._write_buffer)
 
     @property
     def config(self):
