@@ -209,45 +209,45 @@ class XyloSim(XyloSimV1):
         cls.output_mode = output_mode
 
         # - Extract network dimensions
-        INC, IENC = weights_in.shape
-        RSNC = weights_rec.shape[0]
-        OENC, ONC = weights_out.shape
+        IN, IEN = weights_in.shape
+        RSN = weights_rec.shape[0]
+        OEN, ON = weights_out.shape
 
-        assert OENC <= RSNC, "OENC <= RSNC"
-        assert IENC <= RSNC, "IENC <= RSNC"
+        assert OEN <= RSN, "OEN <= RSN"
+        assert IEN <= RSN, "IEN <= RSN"
 
         if weights_rec is None:
-            weights_rec = np.zeros((RSNC, RSNC, 2), int)
+            weights_rec = np.zeros((RSN, RSN, 2), int)
 
         if dash_syn is None:
-            dash_syn = np.zeros(RSNC, int)
+            dash_syn = np.zeros(RSN, int)
 
         if dash_syn_2 is None:
-            dash_syn_2 = np.zeros(RSNC, int)
+            dash_syn_2 = np.zeros(RSN, int)
 
         if dash_mem is None:
-            dash_mem = np.zeros(RSNC, int)
+            dash_mem = np.zeros(RSN, int)
 
         if dash_syn_out is None:
-            dash_syn_out = np.zeros(ONC, int)
+            dash_syn_out = np.zeros(ON, int)
 
         if dash_mem_out is None:
-            dash_mem_out = np.zeros(ONC, int)
+            dash_mem_out = np.zeros(ON, int)
 
         if bias is None:
-            bias = np.zeros(RSNC, int)
+            bias = np.zeros(RSN, int)
 
         if bias_out is None:
-            bias_out = np.zeros(ONC, int)
+            bias_out = np.zeros(ON, int)
 
         if aliases is None:
-            aliases = [[] for _ in range(RSNC)]
+            aliases = [[] for _ in range(RSN)]
 
         if threshold is None:
-            threshold = np.zeros(RSNC, int)
+            threshold = np.zeros(RSN, int)
 
         if threshold_out is None:
-            threshold_out = np.zeros(ONC, int)
+            threshold_out = np.zeros(ON, int)
 
         # - Instantiate the class
         mod = cls(
@@ -296,7 +296,7 @@ class XyloSim(XyloSimV1):
 
         # - Convert output weights to XyloSynapse objects
         _xylo_sim_params.synapses_out = [[]] * (
-            RSNC - OENC
+            RSN - OEN
         )  # - Skip unconnected reservoir neurons
         for pre, w_pre in enumerate(weights_out):
             tmp = []
