@@ -89,7 +89,9 @@ class XyloMonitor(Module):
         self._output_mode = output_mode
 
         # - Check params dict
-        if (type(divisive_norm_params).__name__ != 'dict') or (type(calibration_params).__name__ != 'dict'):
+        if (type(divisive_norm_params).__name__ != "dict") or (
+            type(calibration_params).__name__ != "dict"
+        ):
             raise ValueError(
                 "`divisive_norm_params` and `calibration_params` must be dict."
             )
@@ -191,7 +193,8 @@ class XyloMonitor(Module):
         # - Set up known good AFE configuration
         print("Configuring AFE...")
         afe_config = hdkutils.apply_afe2_default_config(
-            afe2hdk=self._device, config=afe_config,
+            afe2hdk=self._device,
+            config=afe_config,
             **calibration_params,
         )
         print("Configured AFE")

@@ -99,7 +99,9 @@ class AFESamna(Module):
             )
 
         # - Check params dict
-        if (type(divisive_norm_params).__name__ != 'dict') or (type(calibration_params).__name__ != 'dict'):
+        if (type(divisive_norm_params).__name__ != "dict") or (
+            type(calibration_params).__name__ != "dict"
+        ):
             raise ValueError(
                 "`divisive_norm_params` and `calibration_params` must be dict."
             )
@@ -178,7 +180,8 @@ class AFESamna(Module):
         # - Set up known good configuration
         print("Configuring AFE...")
         config = hdu.apply_afe2_default_config(
-            afe2hdk=self._device, config=config,
+            afe2hdk=self._device,
+            config=config,
             **calibration_params,
         )
         print("Configured AFE")
@@ -191,7 +194,7 @@ class AFESamna(Module):
             config = hdu.DivisiveNormalization(
                 config=config,
                 **divisive_norm_params,
-                )
+            )
 
         # - Set up hibernation mode
         if hibernation_mode:
@@ -253,10 +256,10 @@ class AFESamna(Module):
 
     def save_afe_config(self, filename):
         """
-            Save an AFE configuration to disk in JSON format
+        Save an AFE configuration to disk in JSON format
 
-            Args:
-                filename (str): The filename to write to
-            """
+        Args:
+            filename (str): The filename to write to
+        """
         with open(filename, "w") as f:
             f.write(self._config.to_json())
