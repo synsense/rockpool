@@ -757,7 +757,9 @@ class Dynapse2DvsInterface(SamnaAlias):
             return super().snake_to_camel(name)
 
     def json_wrapper(self) -> str:
-        """json_wrapper overrides the base method"""
+        """
+        json_wrapper overrides the base method
+        """
         wrapper = self.ctor
         wrapper["copyHop"] = self.copy_hop.json_wrapper()
         wrapper["pixelDestinations"] = self.jlist_alias(self.pixel_destinations)
@@ -872,7 +874,9 @@ class Dynapse2Core(SamnaAlias):
         )
 
     def json_wrapper(self) -> str:
-        """json_wrapper overrides the base method"""
+        """
+        json_wrapper overrides the base method
+        """
         wrapper = self.ctor
         wrapper["neurons"] = self.jlist_alias(self.neurons)
         wrapper["parameters"] = self.jdict_alias(self.parameters)
@@ -992,7 +996,9 @@ class Dynapse2Neuron(SamnaAlias):
         )
 
     def json_wrapper(self) -> str:
-        """json_wrapper overrides the base method"""
+        """
+        json_wrapper overrides the base method
+        """
         wrapper = self.ctor
         wrapper["synapses"] = self.jlist_alias(self.synapses)
         wrapper["destinations"] = self.jlist_alias(self.destinations)
@@ -1033,7 +1039,9 @@ class Dynapse2Synapse(SamnaAlias):
         )
 
     def json_wrapper(self) -> str:
-        """json_wrapper overrides the base method"""
+        """
+        json_wrapper overrides the base method
+        """
         wrapper = self.ctor
         wrapper["weight"] = self.jlist_regular(self.weight)
         return wrapper
