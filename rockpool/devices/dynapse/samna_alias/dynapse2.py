@@ -533,6 +533,39 @@ class Dynapse2Configuration(SamnaAlias):
 
 @dataclass
 class Dynapse2Chip(SamnaAlias):
+    """
+    Dynapse2Chip copies the data segment of a `samna.dynapse2.Dynapse2Chip` object
+
+    :Parameters:
+
+    :param cores: list of `Dynapse2Core` objects
+    :type cores: List[Dynapse2Core]
+    :param global_parameters: param settings of R2R monitoring output buffers: R2R_BUFFER_CCB and R2R_BUFFER_AMPB
+    :type global_parameters: ParamMap
+    :param shared_parameters01: some calibration parameters shared between core 0 and 1
+    :type shared_parameters01: ParamMap
+    :param shared_parameters23: some calibration parameters shared between core 2 and 3
+    :type shared_parameters23: ParamMap
+    :param sadc_group_parameters01: current-based spiking analog to digital converters (sADC) ensure easy monitoring of all relevant neural signals. This group paarameters set some calibration parameters shared between core 0 and 1
+    :type sadc_group_parameters01: List[ParamMap]
+    :param sadc_group_parameters23: current-based spiking analog to digital converters (sADC) ensure easy monitoring of all relevant neural signals. This group paarameters set some calibration parameters shared between core 2 and 3
+    :type sadc_group_parameters23: List[ParamMap]
+    :param sadc_enables: boolean switches to set for current-based spiking analog to digital converters (sADC)
+    :type sadc_enables: Dynapse2Chip_ConfigSadcEnables
+    :param dvs_if: DVS sensor interface object
+    :type dvs_if: Dynapse2DvsInterface
+    :param bioamps: Bio amplifiers setting
+    :type bioamps: Dynapse2Bioamps
+    :param enable_pg0_reference_monitor: parameter generator 0 ref monitoring (do not know what it means)
+    :type enable_pg0_reference_monitor: bool
+    :param enable_pg1_reference_monitor: parameter generator 1 ref monitoring (do not know what it means)
+    :type enable_pg1_reference_monitor: bool
+    :param param_gen0_powerdown: parameter generator 0 power down (do not know what it means)
+    :type param_gen0_powerdown: bool
+    :param param_gen1_powerdown: parameter generator 1 power down (do not know what it means)
+    :type param_gen1_powerdown: bool
+    """
+
     cores: List[Dynapse2Core]
     global_parameters: ParamMap
     shared_parameters01: ParamMap
@@ -552,49 +585,57 @@ class Dynapse2Chip(SamnaAlias):
         """
         from_samna converts a `Dynapse2Chip` samna object to an alias object
 
-        :param obj: a `samna.dynapse.Dynapse2Chip` object
+        :param obj: a `samna.dynapse2.Dynapse2Chip` object
         :type obj: Any
         :return: the samna alias version
         :rtype: Dynapse2Chip
         """
 
         return cls(
-            bioamps=Dynapse2Bioamps.from_samna(obj.bioamps),
             cores=[Dynapse2Core.from_samna(core) for core in obj.cores],
-            dvs_if=Dynapse2DvsInterface.from_samna(obj.dvs_if),
-            enable_pg0_reference_monitor=obj.enable_pg0_reference_monitor,
-            enable_pg1_reference_monitor=obj.enable_pg1_reference_monitor,
             global_parameters=ParamMap.from_samna(obj.global_parameters),
-            param_gen0_powerdown=obj.param_gen0_powerdown,
-            param_gen1_powerdown=obj.param_gen1_powerdown,
-            sadc_enables=Dynapse2Chip_ConfigSadcEnables.from_samna(obj.sadc_enables),
+            shared_parameters01=ParamMap.from_samna(obj.shared_parameters01),
+            shared_parameters23=ParamMap.from_samna(obj.shared_parameters23),
             sadc_group_parameters01=[
                 ParamMap.from_samna(p_map) for p_map in obj.sadc_group_parameters01
             ],
             sadc_group_parameters23=[
                 ParamMap.from_samna(p_map) for p_map in obj.sadc_group_parameters23
             ],
-            shared_parameters01=ParamMap.from_samna(obj.shared_parameters01),
-            shared_parameters23=ParamMap.from_samna(obj.shared_parameters23),
+            sadc_enables=Dynapse2Chip_ConfigSadcEnables.from_samna(obj.sadc_enables),
+            dvs_if=Dynapse2DvsInterface.from_samna(obj.dvs_if),
+            bioamps=Dynapse2Bioamps.from_samna(obj.bioamps),
+            enable_pg0_reference_monitor=obj.enable_pg0_reference_monitor,
+            enable_pg1_reference_monitor=obj.enable_pg1_reference_monitor,
+            param_gen0_powerdown=obj.param_gen0_powerdown,
+            param_gen1_powerdown=obj.param_gen1_powerdown,
         )
 
     def json_wrapper(self) -> str:
-        """json_wrapper overrides the base method"""
+        """
+        json_wrapper overrides the base method
+        """
         wrapper = self.ctor
-        wrapper["bioamps"] = self.bioamps.json_wrapper()
         wrapper["cores"] = self.jlist_alias(self.cores)
-        wrapper["dvsIf"] = self.dvs_if.json_wrapper()
         wrapper["globalParameters"] = self.jdict_alias(self.global_parameters)
-        wrapper["sadcEnables"] = self.sadc_enables.json_wrapper()
+        wrapper["sharedParameters01"] = self.jdict_alias(self.shared_parameters01)
+        wrapper["sharedParameters23"] = self.jdict_alias(self.shared_parameters23)
         wrapper["sadcGroupParameters01"] = self.jlist_dict_alias(
             self.sadc_group_parameters01
         )
         wrapper["sadcGroupParameters23"] = self.jlist_dict_alias(
             self.sadc_group_parameters23
         )
-        wrapper["sharedParameters01"] = self.jdict_alias(self.shared_parameters01)
-        wrapper["sharedParameters23"] = self.jdict_alias(self.shared_parameters23)
+        wrapper["sadcEnables"] = self.sadc_enables.json_wrapper()
+        wrapper["dvsIf"] = self.dvs_if.json_wrapper()
+        wrapper["bioamps"] = self.bioamps.json_wrapper()
         return wrapper
+
+    def to_samna(self) -> Any:
+        """
+        to_samna converts the samna alias object to a samna object
+        """
+        return self.samna_object(samna.dynapse2.Dynapse2Chip)
 
 
 @dataclass
