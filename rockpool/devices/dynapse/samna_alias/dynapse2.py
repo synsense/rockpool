@@ -710,36 +710,44 @@ class Dynapse2Bioamps(SamnaAlias):
         """
         from_samna converts a `Dynapse2Bioamps` samna object to an alias object
 
-        :param obj: a `samna.dynapse.Dynapse2Bioamps` object
+        :param obj: a `samna.dynapse2.Dynapse2Bioamps` object
         :type obj: Any
         :return: the samna alias version
         :rtype: Dynapse2Bioamps
         """
 
         return cls(
+            common_parameters=ParamMap.from_samna(obj.common_parameters),
             channel_parameters=[
                 ParamMap.from_samna(p_map) for p_map in obj.channel_parameters
             ],
-            common_parameters=ParamMap.from_samna(obj.common_parameters),
+            param_gen2_powerdown=obj.param_gen2_powerdown,
             gain=obj.gain,
-            monitor_channel_oauc=obj.monitor_channel_oauc,
+            separate_parameters=obj.separate_parameters,
+            monitor_channel_thuc=obj.monitor_channel_thuc,
+            monitor_channel_thdc=obj.monitor_channel_thdc,
+            monitor_channel_qfruc=obj.monitor_channel_qfruc,
             monitor_channel_oruc=obj.monitor_channel_oruc,
             monitor_channel_osuc=obj.monitor_channel_osuc,
-            monitor_channel_qfruc=obj.monitor_channel_qfruc,
-            monitor_channel_thdc=obj.monitor_channel_thdc,
-            monitor_channel_thuc=obj.monitor_channel_thuc,
-            param_gen2_powerdown=obj.param_gen2_powerdown,
+            monitor_channel_oauc=obj.monitor_channel_oauc,
             route=[Dynapse2Destination.from_samna(dest) for dest in obj.route],
-            separate_parameters=obj.separate_parameters,
         )
 
     def json_wrapper(self) -> str:
-        """json_wrapper overrides the base method"""
+        """
+        json_wrapper overrides the base method
+        """
         wrapper = self.ctor
         wrapper["channelParameters"] = self.jlist_dict_alias(self.channel_parameters)
         wrapper["commonParameters"] = self.jdict_alias(self.common_parameters)
         wrapper["route"] = self.jlist_alias(self.route)
         return wrapper
+
+    def to_samna(self) -> Any:
+        """
+        to_samna converts the samna alias object to a samna object
+        """
+        return self.samna_object(samna.dynapse2.Dynapse2Bioamps)
 
 
 @dataclass
