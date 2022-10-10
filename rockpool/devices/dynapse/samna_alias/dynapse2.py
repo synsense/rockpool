@@ -490,9 +490,12 @@ class ParamMap(dict):
 @dataclass
 class Dynapse2Configuration(SamnaAlias):
     """
-    Dynapse2Configuration mimics the big Dynapse2Configuration object which is used to configure the device
+    Dynapse2Configuration mimics the big `samna.dynapse2.Dynapse2Configuration` object which is used to configure the device
+    It's the main object used to configure chip/core paramaters, weights, memory and so on.
 
-    :param chips: a list of `Dynapse2Chip` object
+    :Parameters:
+
+    :param chips: a list of `Dynapse2Chip` objects
     :type chips: List[Dynapse2Chip]
     """
 
@@ -514,7 +517,9 @@ class Dynapse2Configuration(SamnaAlias):
         )
 
     def json_wrapper(self) -> str:
-        """json_wrapper overrides the base method"""
+        """
+        json_wrapper overrides the base method
+        """
         wrapper = self.ctor
         wrapper["chips"] = [c.json_wrapper() for c in self.chips]
         return wrapper
