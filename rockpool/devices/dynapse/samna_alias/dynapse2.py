@@ -6,7 +6,7 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 08/04/2022
 [] TODO: samna object addresses
-[] TODO: save and load
+[] TODO: save and load json strings
 """
 
 from __future__ import annotations
@@ -254,6 +254,8 @@ class Dynapse2Parameter(SamnaAlias):
     Dynapse2Parameter mimics the parameter object for Dynap-SE2.
     Converting to samna.dynapse2.Dynapse2Parameter is not recommended!
 
+    :Parameters:
+
     :param coarse_value: integer coarse base value :math:`C \\in [0,5]`
     :type coarse_value: np.uint8
     :param fine_value: integer fine value to scale the coarse current :math:`f \\in [0,255]`
@@ -330,6 +332,8 @@ class Dynapse2Destination(SamnaAlias):
     """
     Dynapse2Destination mimics the address part of the samna AER package for DynapSE2
 
+    :Parameters:
+
     :param core: the core mask used while sending the events
             [1,1,1,1] means all 4 cores are on the target
             [0,0,1,0] means the event will arrive at core 2 only
@@ -399,7 +403,9 @@ class Dynapse2Destination(SamnaAlias):
         return hash
 
     def json_wrapper(self) -> str:
-        """json_wrapper overrides the base method"""
+        """
+        json_wrapper overrides the base method
+        """
         wrapper = self.ctor
         wrapper["core"] = self.jlist_regular(self.core)
         return wrapper
@@ -415,6 +421,8 @@ class Dynapse2Destination(SamnaAlias):
 class NormalGridEvent(SamnaAlias):
     """
     NormalGridEvent mimics the samna AER package for DynapSE2
+
+    :Parameters:
 
     :param event: the destination of the package including routing information
     :type event: Dynapse2Destination
@@ -441,7 +449,9 @@ class NormalGridEvent(SamnaAlias):
         )
 
     def json_wrapper(self) -> str:
-        """json_wrapper overrides the base method"""
+        """
+        json_wrapper overrides the base method
+        """
         wrapper = self.ctor
         wrapper["event"] = self.event.json_wrapper()
         return wrapper
