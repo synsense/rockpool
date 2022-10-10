@@ -654,53 +654,40 @@ class Dynapse2Chip_ConfigSadcEnables(SamnaAlias):
         """
         from_samna converts a `Dynapse2Chip_ConfigSadcEnables` samna object to an alias object
 
-        :param obj: a `samna.dynapse.Dynapse2Chip_ConfigSadcEnables` object
+        :param obj: a `samna.dynapse2.Dynapse2Chip_ConfigSadcEnables` object
         :type obj: Any
         :return: the samna alias version
         :rtype: Dynapse2Chip_ConfigSadcEnables
         """
 
         return cls(
-            nccf_cal_refbias_v_group1_pg0=obj.nccf_cal_refbias_v_group1_pg0,
-            nccf_cal_refbias_v_group1_pg1=obj.nccf_cal_refbias_v_group1_pg1,
-            nccf_cal_refbias_v_group2_pg0=obj.nccf_cal_refbias_v_group2_pg0,
-            nccf_cal_refbias_v_group2_pg1=obj.nccf_cal_refbias_v_group2_pg1,
-            nccf_extin_vi_group0_pg0=obj.nccf_extin_vi_group0_pg0,
             nccf_extin_vi_group0_pg1=obj.nccf_extin_vi_group0_pg1,
-            nccf_extin_vi_group2_pg0=obj.nccf_extin_vi_group2_pg0,
+            nccf_cal_refbias_v_group1_pg1=obj.nccf_cal_refbias_v_group1_pg1,
+            nccf_cal_refbias_v_group2_pg1=obj.nccf_cal_refbias_v_group2_pg1,
             nccf_extin_vi_group2_pg1=obj.nccf_extin_vi_group2_pg1,
-        )
-
-    @property
-    def ctor(self) -> Dict[str, Any]:
-        """
-        ctor creates a valid constructor to update a samna object using `from_json()` method
-        convert the snake_case named variables to camelCase to be compatible with C++ methods
-
-        :return: a dictionary of the object datastructure
-        :rtype: Dict[str, Any]
-        """
-        # extend = lambda o: o.ctor if isinstance(o, SamnaAlias) else o
-        return dict(
-            map(
-                lambda kv: (self.snake_to_camel(kv[0]), kv[1]),
-                self.__dict__.items(),
-            )
+            nccf_extin_vi_group0_pg0=obj.nccf_extin_vi_group0_pg0,
+            nccf_cal_refbias_v_group1_pg0=obj.nccf_cal_refbias_v_group1_pg0,
+            nccf_cal_refbias_v_group2_pg0=obj.nccf_cal_refbias_v_group2_pg0,
+            nccf_extin_vi_group2_pg0=obj.nccf_extin_vi_group2_pg0,
         )
 
     def snake_to_camel(self, name: str) -> str:
         """
-        snake_to_camel converts a snake_case variable name to camelCase variable name
-
-        :param name: the snake_case formatted variable name
-        :type name: str
-        :return: a camelCase formatted variable name
-        :rtype: str
+        snake_to_camel overrides the base method.
+        This class requires special attention because the conversion is not as straightforward.
+        The first letters are also capitalized
+        That's because in samna it's defined as a strcut whose members defined full capital letters
         """
 
         # Split the rest of the words
         name = "".join(word.title() for word in name.split("_"))
         return name
+
+    def to_samna(self) -> Any:
+        """
+        to_samna converts the samna alias object to a samna object
+        """
+        return self.samna_object(samna.dynapse2.Dynapse2Chip_ConfigSadcEnables)
 
 
 @dataclass
