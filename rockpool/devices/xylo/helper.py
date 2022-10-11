@@ -31,7 +31,8 @@ def check_version():
                 device = [samna.device.open_device(d)]
                 return device, x
             elif (
-                d.device_type_name == "XyloDevKit" or d.device_type_name == "XyloTestBoard"
+                d.device_type_name == "XyloDevKit"
+                or d.device_type_name == "XyloTestBoard"
             ):
                 version = 1
                 import rockpool.devices.xylo.syns61300 as x

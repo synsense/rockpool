@@ -327,7 +327,6 @@ def apply_afe2_default_config(
         leak_target_spike_number (int): target spike number for leakage calibration
     """
 
-    config = AfeConfiguration()
     config.analog_top.enable = True
     config.debug.enable_event_monitor = False
 
