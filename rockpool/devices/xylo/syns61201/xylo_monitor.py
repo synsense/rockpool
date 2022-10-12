@@ -48,7 +48,7 @@ class XyloMonitor(Module):
         dt: float = 1e-3,
         output_mode: str = "Spike",
         amplify_level: str = "low",
-        change_count: Optional[int] = False,
+        change_count: Optional[int] = None,
         main_clk_rate: int = int(50e6),
         hibernation_mode: bool = False,
         divisive_norm: bool = False,

@@ -1672,7 +1672,7 @@ def set_power_measure(
     return power_buf, power_monitor
 
 
-def change_event_counter(config: AfeConfiguration, count: int) -> AfeConfiguration:
+def change_event_counter(config: AfeConfiguration, count: int = 4) -> AfeConfiguration:
     """
     Change the AFE event count to throw 1 spikes out of 1 to the Xylo core
 
