@@ -7,7 +7,7 @@ Defines the mapper function :py:func:`.mapper`.
 
 Defines the subpackage :py:mod:`.xa2_devkit_utils`.
 
-This package is aliased to :py:mod:`.rockpool.devices.xylo.v2`
+This package is aliased to :py:mod:`.rockpool.devices.xylo.vA2`
 """
 
 from .xylo_sim import *

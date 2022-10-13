@@ -175,7 +175,7 @@ class AFESamna(Module):
                 raise ValueError(
                     f"{change_count} is negative. Must be non-negative values."
                 )
-            config = hdu.change_event_counter(config, change_count)
+            config = hdu.config_afe_channel_thresholds(config, change_count)
 
         # - Set up known good configuration
         print("Configuring AFE...")
@@ -187,7 +187,7 @@ class AFESamna(Module):
         print("Configured AFE")
 
         # - Amplify input volume
-        config = hdu.set_lna_amplification(config, level=amplify_level)
+        config = hdu.config_lna_amplification(config, level=amplify_level)
 
         # - Set up divisive normalization
         if divisive_norm:
