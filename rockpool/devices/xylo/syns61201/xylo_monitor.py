@@ -211,7 +211,7 @@ class XyloMonitor(Module):
 
         # - Set to hibernation mode
         if hibernation_mode:
-            afe_config = hdkutils.AFE_hibernation(afe_config)
+            afe_config = hdkutils.config_AFE_hibernation(afe_config)
 
         # - Apply configuration
         self._device.get_afe_model().apply_configuration(afe_config)

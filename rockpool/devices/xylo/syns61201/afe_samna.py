@@ -198,7 +198,7 @@ class AFESamna(Module):
 
         # - Set up hibernation mode
         if hibernation_mode:
-            config = hdu.AFE_hibernation(config)
+            config = hdu.config_AFE_hibernation(config)
             config.aer_2_saer.hibernation.mode = 2
             config.aer_2_saer.hibernation.reset = 1
 

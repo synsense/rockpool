@@ -1720,7 +1720,7 @@ def config_basic_mode(
     Return:
         updated Xylo configuration
     """
-
+    warn('This devkit utils function should be replaced.')
     config.operation_mode = samna.xyloCore2.OperationMode.Manual
     config.debug.always_update_omp_stat = True
     config.clear_network_state = True
@@ -1748,6 +1748,7 @@ def _auto_mode(
         main_clk_rate (int): main clock rate of Xylo
         hibernation_mode (bool): the hibernation mode to run. Iff True, the chip will output events only if it receives inputs
     """
+    warn('This devkit utils function should be replaced.')
 
     # Set Xylo core reading frequency
     write_register(write_buffer, 0x03, int(main_clk_rate * dt))
@@ -1772,7 +1773,7 @@ def _auto_mode(
     io.get_xylo_handler().set_operation_mode(samna.xyloCore2.OperationMode.RealTime)
 
 
-def AFE_hibernation(config: AfeConfiguration) -> AfeConfiguration:
+def config_AFE_hibernation(config: AfeConfiguration) -> AfeConfiguration:
     """
     Switch on hibernation mode on AFE
 
