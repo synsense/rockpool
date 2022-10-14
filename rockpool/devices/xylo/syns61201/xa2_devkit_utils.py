@@ -315,7 +315,7 @@ def apply_afe2_default_config(
     Configure an AFE2 HDK, including self-calibration
 
     Args:
-        afe_write_buf (AFE2WriteBuffer): A connected AFE2 write buffer
+        afe2hdk (XyloA2HDK): A connected AFE2 HDK device
         config (AfeConfiguration): A configuration for AFE
         bpf_bias (int): master gm cell bias selected for the band pass filter
         fwr_bias (int): master gm cell bias selected for the full wave rectifier which rectifies the output of the band pass filter bank
@@ -1700,11 +1700,9 @@ def config_lna_amplification(
 
     assert level in ["low", "mid", "high"]
     if level == "mid":
-        # write_afe2_register(write_afe_buffer, 0x06, 0x20F00)
         config.analog_top.lna.ci_tune = 0x0
         config.analog_top.lna.cf_tune = 0xF
     elif level == "high":
-        # write_afe2_register(write_afe_buffer, 0x06, 0x20F50)
         config.analog_top.lna.ci_tune = 0x5
         config.analog_top.lna.cf_tune = 0xF
     return config
