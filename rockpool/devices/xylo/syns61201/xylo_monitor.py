@@ -188,7 +188,9 @@ class XyloMonitor(Module):
                 raise ValueError(
                     f"{change_count} is negative. Must be non-negative values."
                 )
-            afe_config = hdkutils.change_event_counter(afe_config, change_count)
+            afe_config = hdkutils.config_afe_channel_thresholds(
+                afe_config, change_count
+            )
 
         # - Set up known good AFE configuration
         print("Configuring AFE...")
@@ -200,7 +202,7 @@ class XyloMonitor(Module):
         print("Configured AFE")
 
         # - Amplify input volume
-        afe_config = hdkutils.set_lna_amplification(afe_config, level=amplify_level)
+        afe_config = hdkutils.config_lna_amplification(afe_config, level=amplify_level)
 
         # - Divisive normalization
         if divisive_norm:
