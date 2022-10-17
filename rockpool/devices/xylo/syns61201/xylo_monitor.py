@@ -18,7 +18,7 @@ from rockpool.parameters import SimulationParameter
 # - Typing
 from typing import Optional, Union, Callable, List
 
-from warnings import warn
+import warnings
 
 try:
     from tqdm.autonotebook import tqdm
@@ -174,13 +174,6 @@ class XyloMonitor(Module):
             raise ValueError(
                 f"AFE version is {(self._chip_version, self._chip_revision)}; expected (1, 0)."
             )
-
-        # - Configure the HDK
-        self._io.write_config(0x1002, 1)
-        self._io.write_config(0x0022, 1)
-
-        # - Set spi clock rate to 1 MHz
-        self._io.write_config(0x02, 0x30)
 
         # - Change event count number of AFE
         if change_count is not None:

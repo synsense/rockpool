@@ -129,11 +129,6 @@ class AFESamna(Module):
         # - Store the dt parameter
         self.dt: P_float = SimulationParameter(dt)
 
-        # - Configure the HDK
-        device_io = self._device.get_io_module()
-        device_io.write_config(0x52, 0b11)
-        # time.sleep(0.5)
-
         # - Create write and read buffers
         self._xylo_core_read_buf = hdu.Xylo2ReadBuffer()
         graph = samna.graph.EventFilterGraph()
@@ -157,19 +152,6 @@ class AFESamna(Module):
             raise ValueError(
                 f"AFE version is {(self._chip_version, self._chip_revision)}; expected (1, 0)."
             )
-
-        # - Configure the HDK
-        device_io.write_config(0x1002, 1)
-        # time.sleep(0.5)
-        device_io.write_config(0x0022, 1)
-        # time.sleep(0.2)
-
-        device_io.write_config(0x54, 1)
-        device_io.write_config(0x0003, 1)
-        device_io.write_config(0x0004, 0x03)
-        device_io.write_config(0x02, 0x30)
-        # time.sleep(0.5)
-        # xylo_handler = device_io.get_xylo_handler()
 
         if not manual_config:
             # - Change counter threshold
