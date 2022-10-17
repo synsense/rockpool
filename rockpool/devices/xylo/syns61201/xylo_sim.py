@@ -295,9 +295,9 @@ class XyloSim(XyloSimV1):
             _xylo_sim_params.synapses_rec.append(tmp)
 
         # - Convert output weights to XyloSynapse objects
-        _xylo_sim_params.synapses_out = [[]] * (
-            RSN - OEN
-        )  # - Skip unconnected reservoir neurons
+        _xylo_sim_params.synapses_out = [
+            [] for _ in range(RSN - OEN)
+        ]  # - Skip unconnected reservoir neurons
         for pre, w_pre in enumerate(weights_out):
             tmp = []
             for post in np.where(w_pre)[0]:
