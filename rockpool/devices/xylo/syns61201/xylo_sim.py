@@ -210,7 +210,7 @@ class XyloSim(XyloSimV1):
 
         # - Extract network dimensions
         IN, IEN = weights_in.shape[0:2]
-        RSN = weights_rec.shape[0]
+        RSN = weights_rec.shape[0] if weights_rec is not None else IEN
         OEN, ON = weights_out.shape
 
         assert OEN <= RSN, "OEN <= RSN"
