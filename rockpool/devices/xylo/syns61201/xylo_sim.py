@@ -209,7 +209,7 @@ class XyloSim(XyloSimV1):
         cls.output_mode = output_mode
 
         # - Extract network dimensions
-        IN, IEN = weights_in.shape
+        IN, IEN = weights_in.shape[0:2]
         RSN = weights_rec.shape[0]
         OEN, ON = weights_out.shape
 
