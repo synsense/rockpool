@@ -256,7 +256,7 @@ class LIFBaseTorch(TorchModule):
                 alpha,
                 family="decays",
                 shape=[(self.size_out,), ()],
-                init_func=lambda s: torch.ones(s) * 0.9,
+                init_func=lambda s: torch.ones(s) * 0.5,
                 cast_fn=self._to_float_tensor,
             )
             """ (Tensor) Membrane decay factor `(Nout,)` or `()` """
@@ -275,7 +275,7 @@ class LIFBaseTorch(TorchModule):
                     ),
                     (),
                 ],
-                init_func=lambda s: torch.ones(s) * 0.9,
+                init_func=lambda s: torch.ones(s) * 0.5,
                 cast_fn=self._to_float_tensor,
             )
         """ (Tensor) Synaptic decay factor `(Nin,)` or `()` """
@@ -312,8 +312,6 @@ class LIFBaseTorch(TorchModule):
                 cast_fn=self._to_float_tensor,
             )
         """ (Tensor) synaptic bitshift in xylo `(Nout,)` or `()` """
-
-
 
 
         self.bias: P_tensor = rp.Parameter(
