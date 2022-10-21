@@ -82,6 +82,21 @@ def make_backward_passthrough(function: Callable) -> Callable:
 floor_passthrough = make_backward_passthrough(torch.floor)
 round_passthrough = make_backward_passthrough(torch.round)
 
+def int_quant(
+    weights : Tensor,
+    bits_per_weight: int = 8,
+    bits_per_threshold: int = 16):
+
+    max_w = torch.max(abs(weights))
+    max_w_quant = 2**(bits_per_weight-1)-1
+    scale = max_w_quant/max_w  
+
+    q_weights = torch.round(scale * weights)
+
+    return q_weights
+
+int_quant_passthrough = make_backward_passthrough(int_quant)
+
 
 def stochastic_rounding(
     value: Tensor,
