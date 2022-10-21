@@ -242,14 +242,6 @@ class LIFBaseTorch(TorchModule):
             )
             """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
 
-            # def _tau_to_alpha(self):
-            #     return self.tau_mem * sdsd
-
-
-            # self.alpha = _tau_to_alpha
-            # self.beta = getter
-
-
         if self.decay_training:
 
             self.alpha: P_tensor = rp.Parameter(
@@ -369,26 +361,6 @@ class LIFBaseTorch(TorchModule):
         self._record_dict = {}
         self._record = False
 
-    
-    # @property
-    # def tau_syn(self): 
-    #     return self.tau_syn
-    #     # if self.decay_training:
-    #     #     self.tau_syn = -(self.dt/torch.log(self.beta))
-    #     # elif self.BitShift_training:
-    #     #     beta = 1-1/(2**self.dash_syn)  
-    #     # # self.tau_mem = -(self.dt/torch.log(alpha))
-    #     #     self.tau_syn = -(self.dt/torch.log(beta))
-    # @property
-    # def tau_mem(self): 
-    #     return self.tau_mem
-    #     # if self.decay_training:
-    #     #     tau_mem = -(self.dt/torch.log(self.alpha))
-    #     # elif self.BitShift_training:
-    #     #     beta = 1-1/(2**self.dash_syn)  
-    #     #     tau_mem = -(self.dt/torch.log(alpha))
-            
-
     def evolve(
         self, input_data: torch.Tensor, record: bool = False
     ) -> Tuple[Any, Any, Any]:
@@ -405,6 +377,11 @@ class LIFBaseTorch(TorchModule):
 
     def as_graph(self) -> GraphModuleBase:
         # - Get neuron parameters for export
+        if self.decay_training:
+            self.tau_mem, self.tau_syn = -(self.dt/torch.log(self.alpha)), -(self.dt/torch.log(self.beta))
+        elif self.BitShift_training:
+            self.tau_mem, self.tau_syn = -(self.dt/torch.log(1-1/(2**self.dash_mem))), -(self.dt/torch.log(1-1/(2**self.dash_syn)))    
+
         tau_mem = self.tau_mem.expand((self.size_out,)).flatten().detach().cpu().numpy()
         tau_syn = (
             self.tau_syn.expand((self.size_out, self.n_synapses))
@@ -536,28 +513,13 @@ class LIFTorch(LIFBaseTorch):
             n_batches, n_timesteps, self.size_out, device=input_data.device
         )
 
-        # - Calculate and cache updated values for decay factors
-        # alpha = self.alpha if self.decay_training else self.calc_alpha()
-        # beta = self.beta if self.decay_training else self.calc_beta()
-
-       
         if self.decay_training:
-            alpha = self.alpha
-            beta = self.beta
-            self.tau_mem = -(self.dt/torch.log(self.alpha))
-            self.tau_syn = -(self.dt/torch.log(self.beta))
-          
+            alpha, beta = self.alpha, self.beta
         elif self.BitShift_training:
-            alpha = 1-1/(2**self.dash_mem)
-            beta = 1-1/(2**self.dash_syn)  
-            self.tau_mem = -(self.dt/torch.log(alpha))
-            self.tau_syn = -(self.dt/torch.log(beta))
-
+            alpha, beta = 1-1/(2**self.dash_mem),  1-1/(2**self.dash_syn)  
         else:
-            alpha = self.calc_alpha()    
-            beta = self.calc_beta()
+            alpha, beta = self.calc_alpha(),self.calc_beta()
 
-    
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
 
         # - Generate membrane noise trace
