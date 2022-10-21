@@ -35,12 +35,13 @@ class StepPWL(torch.autograd.Function):
         x,
         threshold=torch.tensor(1.0),
         window=torch.tensor(0.5),
-        max_spikes_per_dt=torch.tensor(float("inf")),
+        max_spikes_per_dt=torch.tensor(2.0**16),
     ):
         ctx.save_for_backward(x, threshold)
         ctx.window = window
         nr_spikes = ((x >= threshold) * torch.floor(x / threshold)).float()
-        nr_spikes[nr_spikes > max_spikes_per_dt] = max_spikes_per_dt.float()
+        clamp_bool = (nr_spikes > max_spikes_per_dt).float()
+        nr_spikes -= (nr_spikes - max_spikes_per_dt.float()) * clamp_bool
         return nr_spikes
 
     @staticmethod
@@ -69,14 +70,15 @@ class PeriodicExponential(torch.autograd.Function):
         data,
         threshold=1.0,
         window=0.5,
-        max_spikes_per_dt=torch.tensor(float("inf")),
+        max_spikes_per_dt=torch.tensor(2.0**16),
     ):
         ctx.save_for_backward(data.clone())
         ctx.threshold = threshold
         ctx.window = window
         ctx.max_spikes_per_dt = max_spikes_per_dt
         nr_spikes = ((data >= threshold) * torch.floor(data / threshold)).float()
-        nr_spikes[nr_spikes > max_spikes_per_dt] = max_spikes_per_dt.float()
+        clamp_bool = (nr_spikes > max_spikes_per_dt).float()
+        nr_spikes -= (nr_spikes - max_spikes_per_dt.float()) * clamp_bool
         return nr_spikes
 
     @staticmethod
@@ -131,7 +133,7 @@ class LIFBaseTorch(TorchModule):
         noise_std: P_float = 0.0,
         spike_generation_fn: torch.autograd.Function = StepPWL,
         learning_window: P_float = 0.5,
-        max_spikes_per_dt: P_int = torch.tensor(float("inf")),
+        max_spikes_per_dt: P_int = torch.tensor(2.0**16),
         weight_init_func: Optional[
             Callable[[Tuple], torch.tensor]
         ] = lambda s: init.kaiming_uniform_(torch.empty(s)),

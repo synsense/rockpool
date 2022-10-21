@@ -68,7 +68,7 @@ class JaxModule(Module, ABC):
         data: np.ndarray,
         states: Tuple = (),
         target_shapes: Tuple = None,
-    ) -> (np.ndarray, Tuple[np.ndarray]):
+    ) -> Tuple[np.ndarray, Tuple[np.ndarray]]:
         """
         Automatically replicate states over batches and verify input dimensions
 

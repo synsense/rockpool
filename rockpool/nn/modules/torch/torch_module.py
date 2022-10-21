@@ -3,7 +3,7 @@ Provide a base class for build Torch-compatible modules
 """
 __all__ = ["TorchModule", "TorchModuleParameters"]
 
-from rockpool.nn.modules.module import Module
+from rockpool.nn.modules.module import Module, ModuleBase
 
 import torch
 from torch import nn
@@ -44,7 +44,7 @@ class TorchModuleParameters(dict):
         # - Yield leaves over self
         yield from yield_leaves(self)
 
-
+    
 class TorchModule(Module, nn.Module):
     """
     Base class for modules that are compatible with both Torch and Rockpool
@@ -192,7 +192,7 @@ class TorchModule(Module, nn.Module):
         data: torch.Tensor,
         states: Tuple = (),
         target_shapes: Tuple = None,
-    ) -> (torch.Tensor, Tuple[torch.Tensor]):
+    ) -> Tuple[torch.Tensor, Tuple[torch.Tensor]]:
         """
         Automatically replicate states over batches and verify input dimensions
 
