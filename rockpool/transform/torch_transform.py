@@ -84,19 +84,17 @@ round_passthrough = make_backward_passthrough(torch.round)
 
 def int_quant(
     weights : Tensor,
-    bits_per_weight: int = 8,
-    bits_per_threshold: int = 16):
+    n_bits: int = 8):
 
     max_w = torch.max(abs(weights))
-    max_w_quant = 2**(bits_per_weight-1)-1
-    scale = max_w_quant/max_w  
+    max_w_quant = 2**(n_bits-1)-1
+    if max_w !=0:
+        scale = max_w_quant/max_w  
+    else:
+        scale = 1    
 
-    q_weights = torch.round(scale * weights)
-
+    q_weights = round_passthrough(scale * weights)
     return q_weights
-
-int_quant_passthrough = make_backward_passthrough(int_quant)
-
 
 def stochastic_rounding(
     value: Tensor,
