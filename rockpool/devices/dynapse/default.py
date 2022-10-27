@@ -5,6 +5,8 @@ Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 06/07/2022
+
+[] TODO : merge with definitions
 """
 
 Itau_lambda = (
@@ -27,6 +29,7 @@ dlayout = {
     "C_ref": 1.5e-12,
     "C_shunt": 24.5e-12,
     "C_mem": 3e-12,
+    "C_syn": 25e-12,
     "Io": 5e-13,
     "kappa_n": 0.75,
     "kappa_p": 0.66,
