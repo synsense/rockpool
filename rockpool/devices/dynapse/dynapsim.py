@@ -60,6 +60,7 @@ import numpy as np
 from rockpool.devices.dynapse.default import dlayout, dweight, dcurrents
 from rockpool.devices.dynapse.definitions import DynapSimRecord, DynapSimState
 
+
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.nn.modules.native.linear import kaiming
 from rockpool.parameters import Parameter, State, SimulationParameter
@@ -431,7 +432,7 @@ class DynapSim(JaxModule):
     @classmethod
     def from_Dynapse2Configuration(cls, config: Dynapse2Configuration) -> DynapSim:
         None
-
+        
     def evolve(
         self, input_data: jnp.DeviceArray, record: bool = True
     ) -> Tuple[jnp.DeviceArray, Dict[str, jnp.DeviceArray], Dict[str, jnp.DeviceArray]]:
