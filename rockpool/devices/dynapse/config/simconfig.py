@@ -54,6 +54,7 @@ from rockpool.devices.dynapse.samna_alias.dynapse2 import (
 )
 from rockpool.devices.dynapse.ref.weights_old import WeightParameters
 from rockpool.devices.dynapse.infrastructure.router import Router, Connector
+from rockpool.typehints import FloatVector
 
 
 @dataclass
@@ -82,64 +83,64 @@ class DynapSimCurrents(DynapSimProperty):
     DynapSimCurrents contains the common simulation current values of Dynap-SE chips
 
     :param Idc: Constant DC current injected to membrane in Amperes
-    :type Idc: Union[float, np.ndarray]
+    :type Idc: FloatVector
     :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes
-    :type If_nmda: Union[float, np.ndarray]
+    :type If_nmda: FloatVector
     :param Igain_ahp: gain bias current of the spike frequency adaptation block in Amperes
-    :type Igain_ahp: Union[float, np.ndarray]
+    :type Igain_ahp: FloatVector
     :param Igain_ampa: gain bias current of excitatory AMPA synapse in Amperes
-    :type Igain_ampa: Union[float, np.ndarray]
+    :type Igain_ampa: FloatVector
     :param Igain_gaba: gain bias current of inhibitory GABA synapse in Amperes
-    :type Igain_gaba: Union[float, np.ndarray]
+    :type Igain_gaba: FloatVector
     :param Igain_nmda: gain bias current of excitatory NMDA synapse in Amperes
-    :type Igain_nmda: Union[float, np.ndarray]
+    :type Igain_nmda: FloatVector
     :param Igain_shunt: gain bias current of the inhibitory SHUNT synapse in Amperes
-    :type Igain_shunt: Union[float, np.ndarray]
+    :type Igain_shunt: FloatVector
     :param Igain_mem: gain bias current for neuron membrane in Amperes
-    :type Igain_mem: Union[float, np.ndarray]
+    :type Igain_mem: FloatVector
     :param Ipulse_ahp: bias current setting the pulse width for spike frequency adaptation block `t_pulse_ahp` in Amperes
-    :type Ipulse_ahp: Union[float, np.ndarray]
+    :type Ipulse_ahp: FloatVector
     :param Ipulse: bias current setting the pulse width for neuron membrane `t_pulse` in Amperes
-    :type Ipulse: Union[float, np.ndarray]
+    :type Ipulse: FloatVector
     :param Iref: bias current setting the refractory period `t_ref` in Amperes
-    :type Iref: Union[float, np.ndarray]
+    :type Iref: FloatVector
     :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes
-    :type Ispkthr: Union[float, np.ndarray]
+    :type Ispkthr: FloatVector
     :param Itau_ahp: Spike frequency adaptation leakage current setting the time constant `tau_ahp` in Amperes
-    :type Itau_ahp: Union[float, np.ndarray]
+    :type Itau_ahp: FloatVector
     :param Itau_ampa: AMPA synapse leakage current setting the time constant `tau_ampa` in Amperes
-    :type Itau_ampa: Union[float, np.ndarray]
+    :type Itau_ampa: FloatVector
     :param Itau_gaba: GABA synapse leakage current setting the time constant `tau_gaba` in Amperes
-    :type Itau_gaba: Union[float, np.ndarray]
+    :type Itau_gaba: FloatVector
     :param Itau_nmda: NMDA synapse leakage current setting the time constant `tau_nmda` in Amperes
-    :type Itau_nmda: Union[float, np.ndarray]
+    :type Itau_nmda: FloatVector
     :param Itau_shunt: SHUNT synapse leakage current setting the time constant `tau_shunt` in Amperes
-    :type Itau_shunt: Union[float, np.ndarray]
+    :type Itau_shunt: FloatVector
     :param Itau_mem: Neuron membrane leakage current setting the time constant `tau_mem` in Amperes
-    :type Itau_mem: Union[float, np.ndarray]
+    :type Itau_mem: FloatVector
     :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes
-    :type Iw_ahp: Union[float, np.ndarray]
+    :type Iw_ahp: FloatVector
     """
 
-    Idc: Optional[Union[float, np.ndarray]] = dcurrents["Idc"]
-    If_nmda: Optional[Union[float, np.ndarray]] = dcurrents["If_nmda"]
-    Igain_ahp: Optional[Union[float, np.ndarray]] = dcurrents["Igain_ahp"]
-    Igain_ampa: Optional[Union[float, np.ndarray]] = dcurrents["Igain_ampa"]
-    Igain_gaba: Optional[Union[float, np.ndarray]] = dcurrents["Igain_gaba"]
-    Igain_nmda: Optional[Union[float, np.ndarray]] = dcurrents["Igain_nmda"]
-    Igain_shunt: Optional[Union[float, np.ndarray]] = dcurrents["Igain_shunt"]
-    Igain_mem: Optional[Union[float, np.ndarray]] = dcurrents["Igain_mem"]
-    Ipulse_ahp: Optional[Union[float, np.ndarray]] = dcurrents["Ipulse_ahp"]
-    Ipulse: Optional[Union[float, np.ndarray]] = dcurrents["Ipulse"]
-    Iref: Optional[Union[float, np.ndarray]] = dcurrents["Iref"]
-    Ispkthr: Optional[Union[float, np.ndarray]] = dcurrents["Ispkthr"]
-    Itau_ahp: Optional[Union[float, np.ndarray]] = dcurrents["Itau_ahp"]
-    Itau_ampa: Optional[Union[float, np.ndarray]] = dcurrents["Itau_ampa"]
-    Itau_gaba: Optional[Union[float, np.ndarray]] = dcurrents["Itau_gaba"]
-    Itau_nmda: Optional[Union[float, np.ndarray]] = dcurrents["Itau_nmda"]
-    Itau_shunt: Optional[Union[float, np.ndarray]] = dcurrents["Itau_shunt"]
-    Itau_mem: Optional[Union[float, np.ndarray]] = dcurrents["Itau_mem"]
-    Iw_ahp: Optional[Union[float, np.ndarray]] = dcurrents["Iw_ahp"]
+    Idc: FloatVector = dcurrents["Idc"]
+    If_nmda: FloatVector = dcurrents["If_nmda"]
+    Igain_ahp: FloatVector = dcurrents["Igain_ahp"]
+    Igain_ampa: FloatVector = dcurrents["Igain_ampa"]
+    Igain_gaba: FloatVector = dcurrents["Igain_gaba"]
+    Igain_nmda: FloatVector = dcurrents["Igain_nmda"]
+    Igain_shunt: FloatVector = dcurrents["Igain_shunt"]
+    Igain_mem: FloatVector = dcurrents["Igain_mem"]
+    Ipulse_ahp: FloatVector = dcurrents["Ipulse_ahp"]
+    Ipulse: FloatVector = dcurrents["Ipulse"]
+    Iref: FloatVector = dcurrents["Iref"]
+    Ispkthr: FloatVector = dcurrents["Ispkthr"]
+    Itau_ahp: FloatVector = dcurrents["Itau_ahp"]
+    Itau_ampa: FloatVector = dcurrents["Itau_ampa"]
+    Itau_gaba: FloatVector = dcurrents["Itau_gaba"]
+    Itau_nmda: FloatVector = dcurrents["Itau_nmda"]
+    Itau_shunt: FloatVector = dcurrents["Itau_shunt"]
+    Itau_mem: FloatVector = dcurrents["Itau_mem"]
+    Iw_ahp: FloatVector = dcurrents["Iw_ahp"]
 
 
 @dataclass
@@ -148,49 +149,49 @@ class DynapSimLayout(DynapSimProperty):
     DynapSimLayout contains the constant values used in simulation that are related to the exact silicon layout of a Dynap-SE chips.
 
     :param C_ahp: AHP synapse capacitance in Farads
-    :type C_ahp: Union[float, np.ndarray], optional
+    :type C_ahp: FloatVector, optional
     :param C_ampa: AMPA synapse capacitance in Farads
-    :type C_ampa: Union[float, np.ndarray], optional
+    :type C_ampa: FloatVector, optional
     :param C_gaba: GABA synapse capacitance in Farads
-    :type C_gaba: Union[float, np.ndarray], optional
+    :type C_gaba: FloatVector, optional
     :param C_nmda: NMDA synapse capacitance in Farads
-    :type C_nmda: Union[float, np.ndarray], optional
+    :type C_nmda: FloatVector, optional
     :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads
-    :type C_pulse_ahp: Union[float, np.ndarray], optional
+    :type C_pulse_ahp: FloatVector, optional
     :param C_pulse: pulse-width creation sub-circuit capacitance in Farads
-    :type C_pulse: Union[float, np.ndarray], optional
+    :type C_pulse: FloatVector, optional
     :param C_ref: refractory period sub-circuit capacitance in Farads
-    :type C_ref: Union[float, np.ndarray], optional
+    :type C_ref: FloatVector, optional
     :param C_shunt: SHUNT synapse capacitance in Farads
-    :type C_shunt: Union[float, np.ndarray], optional
+    :type C_shunt: FloatVector, optional
     :param C_mem: neuron membrane capacitance in Farads
-    :type C_mem: Union[float, np.ndarray], optional
+    :type C_mem: FloatVector, optional
     :param Io: Dark current in Amperes that flows through the transistors even at the idle state
-    :type Io: Union[float, np.ndarray], optional
+    :type Io: FloatVector, optional
     :param kappa_n: Subthreshold slope factor (n-type transistor)
-    :type kappa_n: Union[float, np.ndarray], optional
+    :type kappa_n: FloatVector, optional
     :param kappa_p: Subthreshold slope factor (p-type transistor)
-    :type kappa_p: Union[float, np.ndarray], optional
+    :type kappa_p: FloatVector, optional
     :param Ut: Thermal voltage in Volts
-    :type Ut: Union[float, np.ndarray], optional
+    :type Ut: FloatVector, optional
     :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific)
-    :type Vth: Union[float, np.ndarray], optional
+    :type Vth: FloatVector, optional
     """
 
-    C_ahp: Optional[Union[float, np.ndarray]] = dlayout["C_ahp"]
-    C_ampa: Optional[Union[float, np.ndarray]] = dlayout["C_ampa"]
-    C_gaba: Optional[Union[float, np.ndarray]] = dlayout["C_gaba"]
-    C_nmda: Optional[Union[float, np.ndarray]] = dlayout["C_nmda"]
-    C_pulse_ahp: Optional[Union[float, np.ndarray]] = dlayout["C_pulse_ahp"]
-    C_pulse: Optional[Union[float, np.ndarray]] = dlayout["C_pulse"]
-    C_ref: Optional[Union[float, np.ndarray]] = dlayout["C_ref"]
-    C_shunt: Optional[Union[float, np.ndarray]] = dlayout["C_shunt"]
-    C_mem: Optional[Union[float, np.ndarray]] = dlayout["C_mem"]
-    Io: Optional[Union[float, np.ndarray]] = dlayout["Io"]
-    kappa_n: Optional[Union[float, np.ndarray]] = dlayout["kappa_n"]
-    kappa_p: Optional[Union[float, np.ndarray]] = dlayout["kappa_p"]
-    Ut: Optional[Union[float, np.ndarray]] = dlayout["Ut"]
-    Vth: Optional[Union[float, np.ndarray]] = dlayout["Vth"]
+    C_ahp: FloatVector = dlayout["C_ahp"]
+    C_ampa: FloatVector = dlayout["C_ampa"]
+    C_gaba: FloatVector = dlayout["C_gaba"]
+    C_nmda: FloatVector = dlayout["C_nmda"]
+    C_pulse_ahp: FloatVector = dlayout["C_pulse_ahp"]
+    C_pulse: FloatVector = dlayout["C_pulse"]
+    C_ref: FloatVector = dlayout["C_ref"]
+    C_shunt: FloatVector = dlayout["C_shunt"]
+    C_mem: FloatVector = dlayout["C_mem"]
+    Io: FloatVector = dlayout["Io"]
+    kappa_n: FloatVector = dlayout["kappa_n"]
+    kappa_p: FloatVector = dlayout["kappa_p"]
+    Ut: FloatVector = dlayout["Ut"]
+    Vth: FloatVector = dlayout["Vth"]
 
 
 @dataclass
@@ -199,19 +200,19 @@ class DynapSimWeightBits(DynapSimProperty):
     DynapSimWeightBits encapsulates weight bit current parameters of Dynap-SE chips
 
     :param Iw_0: weight bit 0 current of the neurons of the core in Amperes
-    :type Iw_0: Union[float, np.ndarray]
+    :type Iw_0: FloatVector
     :param Iw_1: weight bit 1 current of the neurons of the core in Amperes
-    :type Iw_1: Union[float, np.ndarray]
+    :type Iw_1: FloatVector
     :param Iw_2: weight bit 2 current of the neurons of the core in Amperes
-    :type Iw_2: Union[float, np.ndarray]
+    :type Iw_2: FloatVector
     :param Iw_3: weight bit 3 current of the neurons of the core in Amperes
-    :type Iw_3: Union[float, np.ndarray]
+    :type Iw_3: FloatVector
     """
 
-    Iw_0: Optional[Union[float, np.ndarray]] = dweight["Iw_0"]
-    Iw_1: Optional[Union[float, np.ndarray]] = dweight["Iw_1"]
-    Iw_2: Optional[Union[float, np.ndarray]] = dweight["Iw_2"]
-    Iw_3: Optional[Union[float, np.ndarray]] = dweight["Iw_3"]
+    Iw_0: FloatVector = dweight["Iw_0"]
+    Iw_1: FloatVector = dweight["Iw_1"]
+    Iw_2: FloatVector = dweight["Iw_2"]
+    Iw_3: FloatVector = dweight["Iw_3"]
 
     @property
     def Iw(self) -> np.ndarray:
@@ -231,122 +232,122 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
     @classmethod
     def from_specification(
         cls,
-        Idc: float = dcurrents["Idc"],
-        If_nmda: float = dcurrents["If_nmda"],
-        r_gain_ahp: float = dgain["r_gain_ahp"],
-        r_gain_ampa: float = dgain["r_gain_ampa"],
-        r_gain_gaba: float = dgain["r_gain_gaba"],
-        r_gain_nmda: float = dgain["r_gain_nmda"],
-        r_gain_shunt: float = dgain["r_gain_shunt"],
-        r_gain_mem: float = dgain["r_gain_mem"],
-        t_pulse_ahp: float = dtime["t_pulse_ahp"],
-        t_pulse: float = dtime["t_pulse"],
-        t_ref: float = dtime["t_ref"],
-        Ispkthr: float = dcurrents["Ispkthr"],
-        tau_ahp: float = dtime["tau_ahp"],
-        tau_ampa: float = dtime["tau_ampa"],
-        tau_gaba: float = dtime["tau_gaba"],
-        tau_nmda: float = dtime["tau_nmda"],
-        tau_shunt: float = dtime["tau_shunt"],
-        tau_mem: float = dtime["tau_mem"],
-        Iw_0: float = dweight["Iw_0"],
-        Iw_1: float = dweight["Iw_1"],
-        Iw_2: float = dweight["Iw_2"],
-        Iw_3: float = dweight["Iw_3"],
-        Iw_ahp: float = dcurrents["Iw_ahp"],
-        C_ahp: float = dlayout["C_ahp"],
-        C_ampa: float = dlayout["C_ampa"],
-        C_gaba: float = dlayout["C_gaba"],
-        C_nmda: float = dlayout["C_nmda"],
-        C_pulse_ahp: float = dlayout["C_pulse_ahp"],
-        C_pulse: float = dlayout["C_pulse"],
-        C_ref: float = dlayout["C_ref"],
-        C_shunt: float = dlayout["C_shunt"],
-        C_mem: float = dlayout["C_mem"],
-        Io: float = dlayout["Io"],
-        kappa_n: float = dlayout["kappa_n"],
-        kappa_p: float = dlayout["kappa_p"],
-        Ut: float = dlayout["Ut"],
-        Vth: float = dlayout["Vth"],
+        Idc: FloatVector = dcurrents["Idc"],
+        If_nmda: FloatVector = dcurrents["If_nmda"],
+        r_gain_ahp: FloatVector = dgain["r_gain_ahp"],
+        r_gain_ampa: FloatVector = dgain["r_gain_ampa"],
+        r_gain_gaba: FloatVector = dgain["r_gain_gaba"],
+        r_gain_nmda: FloatVector = dgain["r_gain_nmda"],
+        r_gain_shunt: FloatVector = dgain["r_gain_shunt"],
+        r_gain_mem: FloatVector = dgain["r_gain_mem"],
+        t_pulse_ahp: FloatVector = dtime["t_pulse_ahp"],
+        t_pulse: FloatVector = dtime["t_pulse"],
+        t_ref: FloatVector = dtime["t_ref"],
+        Ispkthr: FloatVector = dcurrents["Ispkthr"],
+        tau_ahp: FloatVector = dtime["tau_ahp"],
+        tau_ampa: FloatVector = dtime["tau_ampa"],
+        tau_gaba: FloatVector = dtime["tau_gaba"],
+        tau_nmda: FloatVector = dtime["tau_nmda"],
+        tau_shunt: FloatVector = dtime["tau_shunt"],
+        tau_mem: FloatVector = dtime["tau_mem"],
+        Iw_0: FloatVector = dweight["Iw_0"],
+        Iw_1: FloatVector = dweight["Iw_1"],
+        Iw_2: FloatVector = dweight["Iw_2"],
+        Iw_3: FloatVector = dweight["Iw_3"],
+        Iw_ahp: FloatVector = dcurrents["Iw_ahp"],
+        C_ahp: FloatVector = dlayout["C_ahp"],
+        C_ampa: FloatVector = dlayout["C_ampa"],
+        C_gaba: FloatVector = dlayout["C_gaba"],
+        C_nmda: FloatVector = dlayout["C_nmda"],
+        C_pulse_ahp: FloatVector = dlayout["C_pulse_ahp"],
+        C_pulse: FloatVector = dlayout["C_pulse"],
+        C_ref: FloatVector = dlayout["C_ref"],
+        C_shunt: FloatVector = dlayout["C_shunt"],
+        C_mem: FloatVector = dlayout["C_mem"],
+        Io: FloatVector = dlayout["Io"],
+        kappa_n: FloatVector = dlayout["kappa_n"],
+        kappa_p: FloatVector = dlayout["kappa_p"],
+        Ut: FloatVector = dlayout["Ut"],
+        Vth: FloatVector = dlayout["Vth"],
     ) -> DynapSimCore:
         """
         from_specification is a class factory method helping DynapSimCore object construction
         using higher level representaitons of the currents like gain ratio or time constant whenever applicable.
 
         :param Idc: Constant DC current injected to membrane in Amperes
-        :type Idc: float, optional
+        :type Idc: FloatVector, optional
         :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes
-        :type If_nmda: float, optional
+        :type If_nmda: FloatVector, optional
         :param r_gain_ahp: spike frequency adaptation block gain ratio :math:`Igain_ahp/Itau_ahp`
-        :type r_gain_ahp: float, optional
+        :type r_gain_ahp: FloatVector, optional
         :param r_gain_ampa: excitatory AMPA synpse gain ratio :math:`Igain_ampa/Itau_ampa`
-        :type r_gain_ampa: float, optional
+        :type r_gain_ampa: FloatVector, optional
         :param r_gain_gaba: inhibitory GABA synpse gain ratio :math:`Igain_gaba/Itau_gaba `
-        :type r_gain_gaba: float, optional
+        :type r_gain_gaba: FloatVector, optional
         :param r_gain_nmda: excitatory NMDA synpse gain ratio :math:`Igain_nmda/Itau_nmda`
-        :type r_gain_nmda: float, optional
+        :type r_gain_nmda: FloatVector, optional
         :param r_gain_shunt: inhibitory SHUNT synpse gain ratio :math:`Igain_shunt/Itau_shunt`
-        :type r_gain_shunt: float, optional
+        :type r_gain_shunt: FloatVector, optional
         :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`
-        :type r_gain_mem: float, optional
+        :type r_gain_mem: FloatVector, optional
         :param t_pulse_ahp: the spike pulse width for spike frequency adaptation circuit in seconds
-        :type t_pulse_ahp: float, optional
+        :type t_pulse_ahp: FloatVector, optional
         :param t_pulse: the spike pulse width for neuron membrane in seconds
-        :type t_pulse: float, optional
+        :type t_pulse: FloatVector, optional
         :param t_ref: refractory period of the neurons in seconds
-        :type t_ref: float, optional
+        :type t_ref: FloatVector, optional
         :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes
-        :type Ispkthr: float, optional
+        :type Ispkthr: FloatVector, optional
         :param tau_ahp: Spike frequency leakage time constant in seconds
-        :type tau_ahp: float, optional
+        :type tau_ahp: FloatVector, optional
         :param tau_ampa: AMPA synapse leakage time constant in seconds
-        :type tau_ampa: float, optional
+        :type tau_ampa: FloatVector, optional
         :param tau_gaba: GABA synapse leakage time constant in seconds
-        :type tau_gaba: float, optional
+        :type tau_gaba: FloatVector, optional
         :param tau_nmda: NMDA synapse leakage time constant in seconds
-        :type tau_nmda: float, optional
+        :type tau_nmda: FloatVector, optional
         :param tau_shunt:SHUNT synapse leakage time constant in seconds
-        :type tau_shunt: float, optional
+        :type tau_shunt: FloatVector, optional
         :param tau_mem: Neuron membrane leakage time constant in seconds
-        :type tau_mem: float, optional
+        :type tau_mem: FloatVector, optional
         :param Iw_0: weight bit 0 current of the neurons of the core in Amperes
-        :type Iw_0: float
+        :type Iw_0: FloatVector
         :param Iw_1: weight bit 1 current of the neurons of the core in Amperes
-        :type Iw_1: float
+        :type Iw_1: FloatVector
         :param Iw_2: weight bit 2 current of the neurons of the core in Amperes
-        :type Iw_2: float
+        :type Iw_2: FloatVector
         :param Iw_3: weight bit 3 current of the neurons of the core in Amperes
-        :type Iw_3: float
+        :type Iw_3: FloatVector
         :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes
-        :type Iw_ahp: float
+        :type Iw_ahp: FloatVector
         :param C_ahp: AHP synapse capacitance in Farads
-        :type C_ahp: float, optional
+        :type C_ahp: FloatVector, optional
         :param C_ampa: AMPA synapse capacitance in Farads
-        :type C_ampa: float, optional
+        :type C_ampa: FloatVector, optional
         :param C_gaba: GABA synapse capacitance in Farads
-        :type C_gaba: float, optional
+        :type C_gaba: FloatVector, optional
         :param C_nmda: NMDA synapse capacitance in Farads
-        :type C_nmda: float, optional
+        :type C_nmda: FloatVector, optional
         :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads
-        :type C_pulse_ahp: float, optional
+        :type C_pulse_ahp: FloatVector, optional
         :param C_pulse: pulse-width creation sub-circuit capacitance in Farads
-        :type C_pulse: float, optional
+        :type C_pulse: FloatVector, optional
         :param C_ref: refractory period sub-circuit capacitance in Farads
-        :type C_ref: float, optional
+        :type C_ref: FloatVector, optional
         :param C_shunt: SHUNT synapse capacitance in Farads
-        :type C_shunt: float, optional
+        :type C_shunt: FloatVector, optional
         :param C_mem: neuron membrane capacitance in Farads
-        :type C_mem: float, optional
+        :type C_mem: FloatVector, optional
         :param Io: Dark current in Amperes that flows through the transistors even at the idle state
-        :type Io: Union[float, np.ndarray], optional
+        :type Io: FloatVector, optional
         :param kappa_n: Subthreshold slope factor (n-type transistor)
-        :type kappa_n: Union[float, np.ndarray], optional
+        :type kappa_n: FloatVector, optional
         :param kappa_p: Subthreshold slope factor (p-type transistor)
-        :type kappa_p: Union[float, np.ndarray], optional
+        :type kappa_p: FloatVector, optional
         :param Ut: Thermal voltage in Volts
-        :type Ut: Union[float, np.ndarray], optional
+        :type Ut: FloatVector, optional
         :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific)
-        :type Vth: Union[float, np.ndarray], optional
+        :type Vth: FloatVector, optional
         :return: DynapSimCore object
         :rtype: DynapSimCore
         """
@@ -1217,34 +1218,34 @@ class DynapSimTime(DynapSimCoreHigh):
     DynapSimTime stores the high-level projections of the currents setting time consant values
 
     :param t_pulse_ahp: the spike pulse width for spike frequency adaptation circuit in seconds
-    :type t_pulse_ahp: float, optional
+    :type t_pulse_ahp: FloatVector, optional
     :param t_pulse: the spike pulse width for neuron membrane in seconds
-    :type t_pulse: float, optional
+    :type t_pulse: FloatVector, optional
     :param t_ref: refractory period of the neurons in seconds
-    :type t_ref: float, optional
+    :type t_ref: FloatVector, optional
     :param tau_ahp: Spike frequency leakage time constant in seconds
-    :type tau_ahp: float, optional
+    :type tau_ahp: FloatVector, optional
     :param tau_ampa: AMPA synapse leakage time constant in seconds
-    :type tau_ampa: float, optional
+    :type tau_ampa: FloatVector, optional
     :param tau_gaba: GABA synapse leakage time constant in seconds
-    :type tau_gaba: float, optional
+    :type tau_gaba: FloatVector, optional
     :param tau_nmda: NMDA synapse leakage time constant in seconds
-    :type tau_nmda: float, optional
+    :type tau_nmda: FloatVector, optional
     :param tau_shunt:SHUNT synapse leakage time constant in seconds
-    :type tau_shunt: float, optional
+    :type tau_shunt: FloatVector, optional
     :param tau_mem: Neuron membrane leakage time constant in seconds
-    :type tau_mem: float, optional
+    :type tau_mem: FloatVector, optional
     """
 
-    t_pulse_ahp: Optional[float] = dtime["t_pulse_ahp"]
-    t_pulse: Optional[float] = dtime["t_pulse"]
-    t_ref: Optional[float] = dtime["t_ref"]
-    tau_ahp: Optional[float] = dtime["tau_ahp"]
-    tau_ampa: Optional[float] = dtime["tau_ampa"]
-    tau_gaba: Optional[float] = dtime["tau_gaba"]
-    tau_nmda: Optional[float] = dtime["tau_nmda"]
-    tau_shunt: Optional[float] = dtime["tau_shunt"]
-    tau_mem: Optional[float] = dtime["tau_mem"]
+    t_pulse_ahp: FloatVector = dtime["t_pulse_ahp"]
+    t_pulse: FloatVector = dtime["t_pulse"]
+    t_ref: FloatVector = dtime["t_ref"]
+    tau_ahp: FloatVector = dtime["tau_ahp"]
+    tau_ampa: FloatVector = dtime["tau_ampa"]
+    tau_gaba: FloatVector = dtime["tau_gaba"]
+    tau_nmda: FloatVector = dtime["tau_nmda"]
+    tau_shunt: FloatVector = dtime["tau_shunt"]
+    tau_mem: FloatVector = dtime["tau_mem"]
 
     @classmethod
     def from_DynapSimCore(cls, core: DynapSimCore) -> DynapSimTime:
@@ -1315,14 +1316,14 @@ class DynapSimTime(DynapSimCoreHigh):
 
         _core = replace(core)
 
-        def _tau(name: str) -> float:
+        def _tau(name: str) -> FloatVector:
             """
             _tau converts a time constant to a representative current
 
             :param name: the name of the subcircuit of interest
             :type name: str
             :return: the current in Amperes setting the time constant
-            :rtype: float
+            :rtype: FloatVector
             """
             tau = self.__getattribute__(f"tau_{name}")
             if tau is None:
@@ -1337,14 +1338,14 @@ class DynapSimTime(DynapSimCoreHigh):
 
             return __value
 
-        def _pw(name: str) -> float:
+        def _pw(name: str) -> FloatVector:
             """
             _pw converts a pulse width to a representative current
 
             :param name: the name of the subcircuit of interest
             :type name: str
             :return: the current in Amperes setting the pulse width
-            :rtype: float
+            :rtype: FloatVector
             """
             pw = self.__getattribute__(f"t_{name}")
             if pw is None:
@@ -1367,8 +1368,9 @@ class DynapSimTime(DynapSimCoreHigh):
 
         return _core
 
+
     @staticmethod
-    def tau_converter(tau: float, Ut: float, kappa: float, C: float) -> float:
+    def tau_converter(tau: FloatVector, Ut: FloatVector, kappa: FloatVector, C: FloatVector) -> FloatVector:
         """
         tau_converter converts a time constant to a current value or a current value to a time constant using the conversion above:
 
@@ -1377,15 +1379,15 @@ class DynapSimTime(DynapSimCoreHigh):
             \\tau = \\dfrac{C U_{T}}{\\kappa I_{\\tau}}
 
         :param tau: a time constant or a current setting the time constant
-        :type tau: float
+        :type tau: FloatVector
         :param Ut: Thermal voltage in Volts
-        :type Ut: float, optional
+        :type Ut: FloatVector, optional
         :param kappa: Subthreshold slope factor of the responsible transistor
-        :type kappa: float
+        :type kappa: FloatVector
         :param C: the capacitance value of the subcircuit
-        :type C: float
+        :type C: FloatVector
         :return: a time constant or a current setting the time constant. If a time constant provided as input, the current is returned and vice versa
-        :rtype: float
+        :rtype: FloatVector
         """
         if tau is None or (np.array(tau) <= np.array(0.0)).any():
             return None
@@ -1393,7 +1395,7 @@ class DynapSimTime(DynapSimCoreHigh):
         return _tau
 
     @staticmethod
-    def pw_converter(pw: float, Vth: float, C: float) -> float:
+    def pw_converter(pw: FloatVector, Vth: FloatVector, C: FloatVector) -> FloatVector:
         """
         pw_converter converts a pulse width to a current value or a current value to a pulse width using the conversion above:
 
@@ -1402,13 +1404,13 @@ class DynapSimTime(DynapSimCoreHigh):
             pw = \\dfrac{C V_{th}}{\\kappa I_{pw}}
 
         :param pw: a pulse width or a current setting the pulse width
-        :type pw: float
+        :type pw: FloatVector
         :param Vth: The cut-off Vgs potential of the respective transistor in Volts
-        :type Vth: float
+        :type Vth: FloatVector
         :param C: the capacitance value of the subcircuit
-        :type C: float
+        :type C: FloatVector
         :return: a pulse width or a current setting the pulse width. If a pulse width provided as input, the current is returned and vice versa
-        :rtype: float
+        :rtype: FloatVector
         """
         if pw is None or (np.array(pw) <= np.array(0.0)).any():
             return None
@@ -1422,25 +1424,25 @@ class DynapSimGain(DynapSimCoreHigh):
     DynapSimGain stores the ratio between gain and tau current values
 
     :param r_gain_ahp: spike frequency adaptation block gain ratio :math:`Igain_ahp/Itau_ahp`
-    :type r_gain_ahp: float, optional
+    :type r_gain_ahp: FloatVector, optional
     :param r_gain_ampa: excitatory AMPA synpse gain ratio :math:`Igain_ampa/Itau_ampa`
-    :type r_gain_ampa: float, optional
+    :type r_gain_ampa: FloatVector, optional
     :param r_gain_gaba: inhibitory GABA synpse gain ratio :math:`Igain_gaba/Itau_gaba `
-    :type r_gain_gaba: float, optional
+    :type r_gain_gaba: FloatVector, optional
     :param r_gain_nmda: excitatory NMDA synpse gain ratio :math:`Igain_nmda/Itau_nmda`
-    :type r_gain_nmda: float, optional
+    :type r_gain_nmda: FloatVector, optional
     :param r_gain_shunt: inhibitory SHUNT synpse gain ratio :math:`Igain_shunt/Itau_shunt`
-    :type r_gain_shunt: float, optional
+    :type r_gain_shunt: FloatVector, optional
     :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`
-    :type r_gain_mem: float, optional
+    :type r_gain_mem: FloatVector, optional
     """
 
-    r_gain_ahp: Optional[float] = dgain["r_gain_ahp"]
-    r_gain_ampa: Optional[float] = dgain["r_gain_ampa"]
-    r_gain_gaba: Optional[float] = dgain["r_gain_gaba"]
-    r_gain_nmda: Optional[float] = dgain["r_gain_nmda"]
-    r_gain_shunt: Optional[float] = dgain["r_gain_shunt"]
-    r_gain_mem: Optional[float] = dgain["r_gain_mem"]
+    r_gain_ahp: FloatVector = dgain["r_gain_ahp"]
+    r_gain_ampa: FloatVector = dgain["r_gain_ampa"]
+    r_gain_gaba: FloatVector = dgain["r_gain_gaba"]
+    r_gain_nmda: FloatVector = dgain["r_gain_nmda"]
+    r_gain_shunt: FloatVector = dgain["r_gain_shunt"]
+    r_gain_mem: FloatVector = dgain["r_gain_mem"]
 
     @classmethod
     def from_DynapSimCore(cls, core: DynapSimCore) -> DynapSimGain:
@@ -1491,16 +1493,16 @@ class DynapSimGain(DynapSimCoreHigh):
         return _core
 
     @staticmethod
-    def ratio_gain(Igain: Optional[float], Itau: Optional[float]) -> float:
+    def ratio_gain(Igain: Optional[FloatVector], Itau: Optional[FloatVector]) -> FloatVector:
         """
         ratio_gain checks the parameters and divide Igain by Itau
 
         :param Igain: any gain bias current in Amperes
-        :type Igain: Optional[float]
+        :type Igain: Optional[FloatVector]
         :param Itau: any leakage current in Amperes
-        :type Itau: Optional[float]
+        :type Itau: Optional[FloatVector]
         :return: the ratio between the currents if the currents are properly set
-        :rtype: float
+        :rtype: FloatVector
         """
 
         if (
@@ -1515,19 +1517,19 @@ class DynapSimGain(DynapSimCoreHigh):
 
     @staticmethod
     def gain_current(
-        Igain: Optional[float], r_gain: Optional[float], Itau: Optional[float]
-    ) -> float:
+        Igain: Optional[FloatVector], r_gain: Optional[FloatVector], Itau: Optional[FloatVector]
+    ) -> FloatVector:
         """
         gain_current checks the ratio and Itau to deduce Igain out of them
 
         :param Igain: any gain bias current in Amperes
-        :type Igain: Optional[float]
+        :type Igain: Optional[FloatVector]
         :param r_gain: the ratio between Igain and Itau
-        :type r_gain: Optional[float]
+        :type r_gain: Optional[FloatVector]
         :param Itau: any leakage current in Amperes
-        :type Itau: Optional[float]
+        :type Itau: Optional[FloatVector]
         :return: the gain bias current Igain in Amperes obtained from r_gain and Itau
-        :rtype: float
+        :rtype: FloatVector
         """
         if r_gain is None:
             return Igain
