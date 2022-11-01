@@ -82,19 +82,19 @@ def make_backward_passthrough(function: Callable) -> Callable:
 floor_passthrough = make_backward_passthrough(torch.floor)
 round_passthrough = make_backward_passthrough(torch.round)
 
-def int_quant(
-    weights : Tensor,
-    n_bits: int = 8):
+
+def int_quant(weights: Tensor, n_bits: int = 8):
 
     max_w = torch.max(abs(weights))
-    max_w_quant = 2**(n_bits-1)-1
-    if max_w !=0:
-        scale = max_w_quant/max_w  
+    max_w_quant = 2 ** (n_bits - 1) - 1
+    if max_w != 0:
+        scale = max_w_quant / max_w
     else:
-        scale = 1    
+        scale = 1
 
     q_weights = round_passthrough(scale * weights)
     return q_weights
+
 
 def stochastic_rounding(
     value: Tensor,
@@ -429,7 +429,7 @@ class TWrapper(TorchModule):
             for k, T_fn in self._T_config.items()
         }
 
-    def apply_T(self) -> TorchModule:
+    def apply_T(self, inplace: bool = True) -> TorchModule:
         # - Get transformed attributes
         transformed_attrs = self._T()
         self._mod = self._mod.set_attributes(transformed_attrs)
@@ -532,13 +532,13 @@ def apply_T(T_net: TorchModule, inplace: bool = False) -> TorchModule:
         T_net = copy.deepcopy(T_net)
 
     if isinstance(T_net, TWrapper):
-        T_net = T_net.apply_T()
+        T_net = T_net.apply_T(inplace=inplace)
 
     _, modules = T_net._get_attribute_registry()
 
     if len(T_net.modules()) > 0:
         for k, mod in modules.items():
-            setattr(T_net, k, apply_T(mod[0]))
+            setattr(T_net, k, apply_T(mod[0], inplace=inplace))
 
     return T_net
 
@@ -569,7 +569,7 @@ def remove_T_net(T_net: TorchModule, inplace: bool = False) -> TorchModule:
         _, modules = T_net._get_attribute_registry()
 
         for k, mod in modules.items():
-            setattr(T_net, k, remove_T_net(mod[0]))
+            setattr(T_net, k, remove_T_net(mod[0], inplace=inplace))
 
     return T_net
 
@@ -699,22 +699,25 @@ def make_act_T_network(
 
     return net
 
+
 # calculating bit shift decay from time constant
 def calc_bitshift_decay(tau, dt):
-        bitsh = torch.round(torch.log2(tau/dt)).int()
-        bitsh[bitsh < 0] = 0
-        return bitsh  
+    bitsh = torch.round(torch.log2(tau / dt)).int()
+    bitsh[bitsh < 0] = 0
+    return bitsh
+
 
 # calculating quantized decays
 def calc_q_decay(decay):
-        dt = 1e-3
-        tau = -dt/torch.log(decay)
-        N = calc_bitshift_decay(tau, dt) 
-        q_alpha = torch.tensor(1-(1/(2**N)))
+    dt = 1e-3
+    tau = -dt / torch.log(decay)
+    N = calc_bitshift_decay(tau, dt)
+    q_alpha = torch.tensor(1 - (1 / (2**N)))
 
-        return q_alpha    
+    return q_alpha
 
-#          
+
+#
 decay_passthrough = make_backward_passthrough(calc_q_decay)
 
 # decay transformation
