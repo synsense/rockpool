@@ -131,7 +131,7 @@ def tree_update(target: Tree, additional: Tree) -> None:
         additional (Tree): The source tree to insert / replace nodes from, into ``target``. Will not be modified.
     """
     for k, v in additional.items():
-        if isinstance(v, Tree) and k in target:
+        if isinstance(v, dict) and k in target:
             tree_update(target[k], v)
         else:
             target.update({k: v})
