@@ -5,42 +5,40 @@ Helper function used to check board version and import matching packages.
 import samna
 
 
-def check_version():
+def find_xylo_hdks():
     """
-    Helper function used to check board version and import matching libraries.
+    Enumerate connected Xylo HDKs, and import the corresponding support module
 
     Returns:
-        List[AFEHDK]: A (possibly empty) list of AFE HDK nodes.
-        module: suitable package.
+        List[AFEHDK]: A (possibly empty) list of AFE HDK nodes
+        List[module]: A (possibly empty) list of python modules providing support for the corresponding Xylo HDK
     """
     # - Get a list of devices
     device_list = samna.device.get_all_devices()
 
-    if not len(device_list):
-        raise ValueError("Find No board!")
+    xylo_hdks = []
+    xylo_support_modules = []
 
-    else:
-        for d in device_list:
-            if d.device_type_name == "XyloA2TestBoard":
-                version = 2
-                print(
-                    "The Xylo board version is 2. Importing rockpool.devices.xylo.syns61201 as x "
-                )
-                import rockpool.devices.xylo.syns61201 as x
+    for d in device_list:
+        if d.device_type_name == "XyloA2TestBoard":
+            print(
+                "The connected Xylo HDK contains a Xylo Audio v2 (SYNS61201). Importing `rockpool.devices.xylo.syns61201`"
+            )
+            import rockpool.devices.xylo.syns61201 as x2
 
-                device = [samna.device.open_device(d)]
-                return device, x
-            elif (
-                d.device_type_name == "XyloDevKit"
-                or d.device_type_name == "XyloTestBoard"
-            ):
-                version = 1
-                import rockpool.devices.xylo.syns61300 as x
+            xylo_hdks.append(samna.device.open_device(d))
+            xylo_support_modules.append(x2)
 
-                device = [samna.device.open_device(d)]
-                return device, x
-                print(
-                    "The Xylo board version is 1. Importing rockpool.devices.xylo.syns61300 as x "
-                )
-            else:
-                raise ValueError("No board version matches!")
+        elif (
+            d.device_type_name == "XyloDevKit" or d.device_type_name == "XyloTestBoard"
+        ):
+            print(
+                "The connected Xylo HDK contains a Xylo SNN core (SYNS61300). Importing `rockpool.devices.xylo.syns61300`"
+            )
+
+            import rockpool.devices.xylo.syns61300 as x1
+
+            xylo_hdks.append(samna.device.open_device(d))
+            xylo_support_modules.append(x1)
+
+    return xylo_hdks, xylo_support_modules
