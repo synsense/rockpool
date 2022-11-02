@@ -218,40 +218,47 @@ class XyloSim(XyloSimV1):
             ValueError: If ``verify_config`` is ``True`` and the configuration is not valid.
         """
         cls.output_mode = output_mode
+
+        # - Extract network dimensions
+        IN, IEN = weights_in.shape[0:2]
+        RSN = weights_rec.shape[0] if weights_rec is not None else IEN
+        OEN, ON = weights_out.shape
+
+        assert OEN <= RSN, "OEN <= RSN"
+        assert IEN <= RSN, "IEN <= RSN"
+
         if weights_rec is None:
-            weights_rec = np.zeros(
-                (np.shape(weights_in)[1], np.shape(weights_in)[1], 2), int
-            )
+            weights_rec = np.zeros((RSN, RSN, 2), int)
 
         if dash_syn is None:
-            dash_syn = np.zeros((np.shape(weights_in)[1]), int)
+            dash_syn = np.zeros(RSN, int)
 
         if dash_syn_2 is None:
-            dash_syn_2 = np.zeros((np.shape(weights_in)[1]), int)
+            dash_syn_2 = np.zeros(RSN, int)
 
         if dash_mem is None:
-            dash_mem = np.zeros((np.shape(weights_in)[1]), int)
+            dash_mem = np.zeros(RSN, int)
 
         if dash_syn_out is None:
-            dash_syn_out = np.zeros((np.shape(weights_out)[1]), int)
+            dash_syn_out = np.zeros(ON, int)
 
         if dash_mem_out is None:
-            dash_mem_out = np.zeros((np.shape(weights_out)[1]), int)
+            dash_mem_out = np.zeros(ON, int)
 
         if bias is None:
-            bias = np.zeros((np.shape(weights_in)[1]), int)
+            bias = np.zeros(RSN, int)
 
         if bias_out is None:
-            bias_out = np.zeros((np.shape(weights_out)[1]), int)
+            bias_out = np.zeros(ON, int)
 
         if aliases is None:
-            aliases = [[] for _ in range(np.shape(weights_in)[1])]
+            aliases = [[] for _ in range(RSN)]
 
         if threshold is None:
-            threshold = np.zeros((np.shape(weights_in)[1]), int)
+            threshold = np.zeros(RSN, int)
 
         if threshold_out is None:
-            threshold_out = np.zeros((np.shape(weights_out)[1]), int)
+            threshold_out = np.zeros(ON, int)
 
         # - Instantiate the class
         mod = cls(
@@ -266,7 +273,7 @@ class XyloSim(XyloSimV1):
 
         # - Convert input weights to XyloSynapse objects
         if len(weights_in.shape) == 2:
-            weights_in = weights_in[:, np.newaxis]
+            weights_in = np.expand_dims(weights_in, 2)
 
         _xylo_sim_params.synapses_in = []
         for pre, w_pre in enumerate(weights_in[:, :, 0]):
@@ -283,7 +290,7 @@ class XyloSim(XyloSimV1):
 
         # - Convert recurrent weights to XyloSynapse objects
         if len(weights_rec.shape) == 2:
-            weights_rec = weights_rec[:, np.newaxis]
+            weights_rec = np.expand_dims(weights_rec, 2)
 
         _xylo_sim_params.synapses_rec = []
         for pre, w_pre in enumerate(weights_rec[:, :, 0]):
@@ -299,7 +306,9 @@ class XyloSim(XyloSimV1):
             _xylo_sim_params.synapses_rec.append(tmp)
 
         # - Convert output weights to XyloSynapse objects
-        _xylo_sim_params.synapses_out = []
+        _xylo_sim_params.synapses_out = [
+            [] for _ in range(RSN - OEN)
+        ]  # - Skip unconnected reservoir neurons
         for pre, w_pre in enumerate(weights_out):
             tmp = []
             for post in np.where(w_pre)[0]:
