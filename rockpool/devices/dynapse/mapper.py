@@ -213,6 +213,39 @@ class NPGrid:
             return dest
 
 
+### --- Utility Functions --- ###
+
+
+def get_grid_lines(modules: List[GraphModule]) -> List[Tuple[int]]:
+    """
+    get_grid_lines investigates the list of modules given and finds the grid lines to be used in weight installation
+
+    :param modules: the list of module to investigate
+    :type modules: List[GraphModule]
+    :raises ValueError: No LIF layers found!
+    :return: _description_
+    :rtype: List[Tuple[int]]
+    """
+
+    # - Get the number of neurons represented at each LIF layer
+    len_list = []
+    for mod in modules:
+        if isinstance(mod, LIFNeuronWithSynsRealValue):
+            len_list.append(len(mod.output_nodes))
+
+    if not len_list:
+        raise ValueError("No LIF layers found!")
+
+    # - Accumulate the number of neurons to get a list of region of interests
+    cum = 0
+    roi = [cum]
+    for temp in len_list:
+        cum += temp
+        roi.append(cum)
+
+    # - Compose the grid lines
+    grid_lines = [(_min, _max) for _min, _max in zip(roi, roi[1:])]
+    return grid_lines
 def mapper(
     graph: GraphModuleBase,
 ) -> Dict[str, float]:
