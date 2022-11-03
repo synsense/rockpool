@@ -281,6 +281,112 @@ def recurrent_modules(modules: List[GraphModule]) -> SetList[GraphModule]:
     return recurrent_modules
 
 
+def install_weights(graph: GraphModule) -> np.ndarray:
+
+    ### --- Preprocessing --- ###
+
+    # - Get a list of all modules
+    _, modules = bag_graph(graph)
+    rec_modules = recurrent_modules(modules)
+
+    # - Compose a grid
+    gl = get_grid_lines(modules)
+    ffwd_grid = [NPGrid(row, col) for row, col in zip(gl, gl[1:])]
+    rec_grid = [NPGrid(row, col) for row, col in zip(gl, gl)]
+
+    # - Create the weight matrices
+    n_in = len(graph.input_nodes)
+    n_rec = gl[-1][-1]
+    w_in = np.zeros((n_in, n_rec))
+    w_rec = np.zeros((n_rec, n_rec))
+
+    # - Input grid
+    in_grid = NPGrid((0, n_in), gl[0])
+
+    # - State control
+    layer = -1
+    state = DFA_Placement()
+
+    # - Enqueue input nodes
+    queue: List[GraphNode] = []
+    visited: List[GraphModule] = []
+    queue.extend(graph.input_nodes)
+
+    ### --- Stateful BFS --- ###
+
+    while queue:
+
+        # Dequeue a vertex and process
+        node = queue.pop(0)
+        for sink in node.sink_modules:
+
+            # Enqueue only output nodes
+            if sink not in visited:
+                visited.append(sink)
+                queue.extend(sink.output_nodes)
+
+                # LIF layer found
+                if isinstance(sink, LIFNeuronWithSynsRealValue):
+
+                    # Check state
+                    if not state.lif:
+                        raise ValueError(
+                            "LIF is at unexpected position! Reshape your network!"
+                        )
+
+                    # Get the parameters
+                    pass
+
+                    # State transition
+                    state.next()
+                    layer += 1
+
+                # Weight layer found
+                elif isinstance(sink, LinearWeights):
+
+                    # Recurrent weights
+                    if sink in rec_modules:
+
+                        if not state.rec:
+                            raise ValueError(
+                                "LIF Recurrent weights are at unexpected position! Reshape your network!"
+                            )
+
+                        # Place the weights
+                        rec_grid[layer].place(w_rec, sink.weights)
+
+                        # State transition
+                        state.next(flag_rec=True)
+
+                    # Feed-forward weights
+                    else:
+                        if not state.linear:
+                            raise ValueError(
+                                "Linear weights are at unexpected position! Reshape your network!"
+                            )
+
+                        # Place the weights
+                        if layer >= 0:
+                            # post-lift linear layer
+                            ffwd_grid[layer].place(w_rec, sink.weights)
+                        else:
+                            # initial linear layer
+                            in_grid.place(w_in, sink.weights)
+
+                        # State transition
+                        state.next(flag_rec=False)
+
+                else:
+                    raise TypeError("The graph module is not recognized")
+                print(sink)
+
+    # Check if all the layers visited
+    if sorted(visited, key=lambda m: id(m)) != sorted(modules, key=lambda m: id(m)):
+        raise ValueError("Some modules are not visited!")
+
+    return w_in, w_rec
+
+
 def mapper(
     graph: GraphModuleBase,
 ) -> Dict[str, float]:
