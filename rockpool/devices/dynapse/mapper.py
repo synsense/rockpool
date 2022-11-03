@@ -284,7 +284,23 @@ def recurrent_modules(modules: List[GraphModule]) -> SetList[GraphModule]:
     return recurrent_modules
 
 
-def install_weights(graph: GraphModule) -> np.ndarray:
+def install_weights(graph: GraphModule) -> Tuple[np.ndarray]:
+    """
+    install_weights applies breath first search in computational graph and installs the weights found in the computational graph
+    to one dense weight matrix
+
+    :param graph: the graph head
+    :type graph: GraphModule
+    :raises ValueError: LIF is at unexpected position! Reshape your network!
+    :raises ValueError: LIF Recurrent weights are at unexpected position! Reshape your network!
+    :raises ValueError: Linear weights are at unexpected position! Reshape your network!
+    :raises TypeError: The graph module is not recognized!
+    :raises ValueError: Some modules are not visited!
+    :return: w_in, w_rec
+        :w_in: extended linear input weights
+        :w_rec: merged recurrent weights
+    :rtype: Tuple[np.ndarray]
+    """
 
     ### --- Preprocessing --- ###
 
@@ -380,7 +396,7 @@ def install_weights(graph: GraphModule) -> np.ndarray:
                         state.next(flag_rec=False)
 
                 else:
-                    raise TypeError("The graph module is not recognized")
+                    raise TypeError("The graph module is not recognized!")
                 print(sink)
 
     # Check if all the layers visited
