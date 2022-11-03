@@ -103,12 +103,15 @@ class aLIFTorch(LIFBaseTorch):
             **kwargs,
         )
 
+        # - To-float-tensor conversion utility
+        to_float_tensor = lambda x: torch.as_tensor(x, dtype=torch.float)
+
         self.w_ahp: P_tensor = rp.Parameter(
             w_ahp,
             shape=[(self.size_out,), ()],
             init_func=w_ahp_init_func,
             family="weights",
-            cast_fn=self._to_float_tensor,
+            cast_fn=to_float_tensor,
         )
         """ (Tensor) ahp (after hyperpolarization feedback) weights `(Nout, Nin)` """
 
@@ -121,14 +124,14 @@ class aLIFTorch(LIFBaseTorch):
                 (),
             ],
             init_func=lambda s: torch.ones(s) * 20e-3,
-            cast_fn=self._to_float_tensor,
+            cast_fn=to_float_tensor,
         )
         """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
 
         self.iahp: P_tensor = rp.State(
             shape=(self.size_out),
             init_func=torch.zeros,
-            cast_fn=self._to_float_tensor,
+            cast_fn=to_float_tensor,
         )
         """ (Tensor)  currents `(Nin,)` """
 
