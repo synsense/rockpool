@@ -14,13 +14,13 @@ E-mail : ugurcan.cakal@gmail.com
 15/09/2022
 """
 from __future__ import annotations
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
-from dataclasses import dataclass
+from copy import deepcopy
 import numpy as np
+from dataclasses import dataclass
 
 from rockpool.graph import GraphModuleBase
-
 from rockpool.devices.dynapse.default import dlayout
 
 __all__ = ["mapper", "DRCError", "DRCWarning"]
@@ -123,6 +123,94 @@ class DFA_Placement:
     @classmethod
     def state_linear(cls) -> DFA_Placement:
         return DFA_Placement(lif=False, rec=False, linear=True)
+
+
+@dataclass
+class NPGrid:
+    """
+    Addresses a subset of the numpy array that is to be used for reading or writing
+    Implements error checking methods
+
+    :Parameters:
+
+    :param row: a two dimensional row slice
+    :type row: Tuple[int]
+    :param col: a two dimensional column slice
+    :type col: Tuple[int]
+    """
+
+    row: Tuple[int]
+    col: Tuple[int]
+
+    def __post_init__(self):
+        """
+        __post_init__ checks the row and col limit validity after initialization
+
+        :raises ValueError: row limits (min,max) represented wrong!
+        :raises ValueError: col limits (min,max) represented wrong!
+        :raises ValueError: row lower end be smaller than 0!
+        :raises ValueError: col lower end cannot be smaller than 0!
+        :raises ValueError: row indices should be in the non-decreasing order!
+        :raises ValueError: col indices should be in the non-decreasing order!
+        """
+        if len(self.row) > 2:
+            raise ValueError("row limits (min,max) represented wrong!")
+
+        if len(self.col) > 2:
+            raise ValueError("col limits (min,max) represented wrong!")
+
+        if self.row[0] < 0:
+            raise ValueError("row lower end be smaller than 0!")
+
+        if self.col[0] < 0:
+            raise ValueError("col lower end cannot be smaller than 0!")
+
+        if self.row[1] < self.row[0]:
+            raise ValueError("row indices should be in the non-decreasing order!")
+
+        if self.col[1] < self.col[0]:
+            raise ValueError("col indices should be in the non-decreasing order!")
+
+    def project(
+        self, destination: np.ndarray, source: np.ndarray, in_place: bool = True
+    ) -> np.ndarray:
+        """
+        project places the smaller array to a bigger array given the grid constraints
+
+        :param destination: the bigger destination array
+        :type destination: np.ndarray
+        :param source: the smaller source array
+        :type source: np.ndarray
+        :param in_place: change the destination object in place or deep copy, defaults to True
+        :type in_place: bool, optional
+        :raises ValueError: row indice is beyond the limits of the destination matrix!
+        :raises ValueError: col indice is beyond the limits of the destination matrix!
+        :raises ValueError: Source array shape is different then mask position!
+        :return: modified destination array
+        :rtype: np.ndarray
+        """
+        diff = lambda tup: abs(tup[0] - tup[1])
+
+        if self.row[1] > destination.shape[0]:
+            raise ValueError(
+                "row indice is beyond the limits of the destination matrix!"
+            )
+        if self.col[1] > destination.shape[1]:
+            raise ValueError(
+                "col indice is beyond the limits of the destination matrix!"
+            )
+
+        if (diff(self.row), diff(self.col)) != source.shape:
+            raise ValueError("Source array shape is different then mask position!")
+
+        if in_place:
+            destination[self.row[0] : self.row[1], self.col[0] : self.col[1]] = source
+            return destination
+
+        else:
+            dest = deepcopy(destination)
+            dest[self.row[0] : self.row[1], self.col[0] : self.col[1]] = source
+            return dest
 
 
 def mapper(
