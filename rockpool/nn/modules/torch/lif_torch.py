@@ -129,7 +129,6 @@ class LIFBaseTorch(TorchModule):
         beta: Optional[Union[FloatVector, P_float]] = None,
         dash_mem: Optional[Union[IntVector, P_int]] = None,
         dash_syn: Optional[Union[IntVector, P_int]] = None,
-        
         bias: Optional[FloatVector] = None,
         threshold: Optional[FloatVector] = None,
         decay_training: P_bool = False,
@@ -191,7 +190,7 @@ class LIFBaseTorch(TorchModule):
         """ (float) Euler simulator time-step in seconds"""
 
         # - To-float-tensor conversion utility
-        self._to_float_tensor = lambda x: torch.as_tensor(x, dtype=torch.float)
+        to_float_tensor = lambda x: torch.as_tensor(x, dtype=torch.float)
 
         # - Initialise recurrent weights
         w_rec_shape = (self.size_out, self.size_in)
@@ -201,7 +200,7 @@ class LIFBaseTorch(TorchModule):
                 shape=w_rec_shape,
                 init_func=weight_init_func,
                 family="weights",
-                cast_fn=self._to_float_tensor,
+                cast_fn=to_float_tensor,
             )
             """ (Tensor) Recurrent weights `(Nout, Nin)` """
         else:
@@ -220,9 +219,10 @@ class LIFBaseTorch(TorchModule):
                 family="taus",
                 shape=[(self.size_out,), ()],
                 init_func=lambda s: torch.ones(s) * 20e-3,
-                cast_fn=self._to_float_tensor,
+                cast_fn=to_float_tensor,
             )
             """ (Tensor) Membrane time constants `(Nout,)` or `()` """
+
             self.tau_syn: P_tensor = rp.Parameter(
                 tau_syn,
                 family="taus",
@@ -238,7 +238,7 @@ class LIFBaseTorch(TorchModule):
                     (),
                 ],
                 init_func=lambda s: torch.ones(s) * 20e-3,
-                cast_fn=self._to_float_tensor,
+                cast_fn=to_float_tensor,
             )
             """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
 
@@ -249,7 +249,7 @@ class LIFBaseTorch(TorchModule):
                 family="decays",
                 shape=[(self.size_out,), ()],
                 init_func=lambda s: torch.ones(s) * 0.5,
-                cast_fn=self._to_float_tensor,
+                cast_fn=to_float_tensor,
             )
             """ (Tensor) Membrane decay factor `(Nout,)` or `()` """
 
@@ -268,27 +268,26 @@ class LIFBaseTorch(TorchModule):
                     (),
                 ],
                 init_func=lambda s: torch.ones(s) * 0.5,
-                cast_fn=self._to_float_tensor,
+                cast_fn=to_float_tensor,
             )
         """ (Tensor) Synaptic decay factor `(Nin,)` or `()` """
 
-
         if self.BitShift_training:
-            
+
             self.dash_mem: P_tensor = rp.Parameter(
                 dash_mem,
-                family = "bitshifts",
+                family="bitshifts",
                 shape=[(self.size_out,), ()],
-                init_func=lambda s: torch.ones(s) ,
-                cast_fn=self._to_float_tensor,
+                init_func=lambda s: torch.ones(s),
+                cast_fn=to_float_tensor,
             )
         """ (Tensor) Membrane bitshift in xylo `(Nout,)` or `()` """
-        
+
         if self.BitShift_training:
 
             self.dash_syn: P_tensor = rp.Parameter(
                 dash_syn,
-                family = "bitshifts",
+                family="bitshifts",
                 shape=[
                     (
                         self.size_out,
@@ -300,18 +299,17 @@ class LIFBaseTorch(TorchModule):
                     ),
                     (),
                 ],
-                init_func=lambda s: torch.ones(s) ,
-                cast_fn=self._to_float_tensor,
+                init_func=lambda s: torch.ones(s),
+                cast_fn=to_float_tensor,
             )
         """ (Tensor) synaptic bitshift in xylo `(Nout,)` or `()` """
-
 
         self.bias: P_tensor = rp.Parameter(
             bias,
             shape=[(self.size_out,), ()],
             family="bias",
             init_func=torch.zeros,
-            cast_fn=self._to_float_tensor,
+            cast_fn=to_float_tensor,
         )
         """ (Tensor) Neuron biases `(Nout,)` or `()` """
 
@@ -320,30 +318,30 @@ class LIFBaseTorch(TorchModule):
             shape=[(self.size_out,), ()],
             family="thresholds",
             init_func=torch.ones,
-            cast_fn=self._to_float_tensor,
+            cast_fn=to_float_tensor,
         )
         """ (Tensor) Firing threshold for each neuron `(Nout,)` """
 
         self.learning_window: P_tensor = rp.SimulationParameter(
             learning_window,
-            cast_fn=self._to_float_tensor,
+            cast_fn=to_float_tensor,
         )
         """ (float) Learning window cutoff for surrogate gradient function """
 
         self.vmem: P_tensor = rp.State(
-            shape=self.size_out, init_func=torch.zeros, cast_fn=self._to_float_tensor
+            shape=self.size_out, init_func=torch.zeros, cast_fn=to_float_tensor
         )
         """ (Tensor) Membrane potentials `(Nout,)` """
 
         self.isyn: P_tensor = rp.State(
             shape=(self.size_out, self.n_synapses),
             init_func=torch.zeros,
-            cast_fn=self._to_float_tensor,
+            cast_fn=to_float_tensor,
         )
         """ (Tensor) Synaptic currents `(Nin,)` """
 
         self.spikes: P_tensor = rp.State(
-            shape=self.size_out, init_func=torch.zeros, cast_fn=self._to_float_tensor
+            shape=self.size_out, init_func=torch.zeros, cast_fn=to_float_tensor
         )
         """ (Tensor) Spikes `(Nin,)` """
 
@@ -353,7 +351,7 @@ class LIFBaseTorch(TorchModule):
         """ (Callable) Spike generation function with surrograte gradient """
 
         self.max_spikes_per_dt: P_int = rp.SimulationParameter(
-            max_spikes_per_dt, cast_fn=self._to_float_tensor
+            max_spikes_per_dt, cast_fn=to_float_tensor
         )
         """ (int) Maximum number of events that can be produced in each time-step """
 
@@ -370,17 +368,24 @@ class LIFBaseTorch(TorchModule):
         # - Evolve with superclass evolution
         output_data, _, _ = super().evolve(input_data, record)
 
-        # - Build state record dictionary
+        # - Obtain state record dictionary
         record_dict = self._record_dict if record else {}
+
+        # - Clear record in order to avoid non-leaf tensors hanging around
+        self._record_dict = {}
 
         return output_data, self.state(), record_dict
 
     def as_graph(self) -> GraphModuleBase:
         # - Get neuron parameters for export
         if self.decay_training:
-            self.tau_mem, self.tau_syn = -(self.dt/torch.log(self.alpha)), -(self.dt/torch.log(self.beta))
+            self.tau_mem, self.tau_syn = -(self.dt / torch.log(self.alpha)), -(
+                self.dt / torch.log(self.beta)
+            )
         elif self.BitShift_training:
-            self.tau_mem, self.tau_syn = -(self.dt/torch.log(1-1/(2**self.dash_mem))), -(self.dt/torch.log(1-1/(2**self.dash_syn)))    
+            self.tau_mem, self.tau_syn = -(
+                self.dt / torch.log(1 - 1 / (2**self.dash_mem))
+            ), -(self.dt / torch.log(1 - 1 / (2**self.dash_syn)))
 
         tau_mem = self.tau_mem.expand((self.size_out,)).flatten().detach().cpu().numpy()
         tau_syn = (
@@ -516,9 +521,9 @@ class LIFTorch(LIFBaseTorch):
         if self.decay_training:
             alpha, beta = self.alpha, self.beta
         elif self.BitShift_training:
-            alpha, beta = 1-1/(2**self.dash_mem),  1-1/(2**self.dash_syn)  
+            alpha, beta = 1 - 1 / (2**self.dash_mem), 1 - 1 / (2**self.dash_syn)
         else:
-            alpha, beta = self.calc_alpha(),self.calc_beta()
+            alpha, beta = self.calc_alpha(), self.calc_beta()
 
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
 
