@@ -14,14 +14,17 @@ E-mail : ugurcan.cakal@gmail.com
 15/09/2022
 """
 from __future__ import annotations
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, List, Tuple, Union
 
 from copy import deepcopy
 import numpy as np
 from dataclasses import dataclass
 
-from rockpool.graph import GraphModuleBase
+from rockpool.graph import GraphModule, GraphNode, SetList
+from rockpool.graph.utils import bag_graph
+
 from rockpool.devices.dynapse.default import dlayout
+from rockpool.graph.graph_modules import LIFNeuronWithSynsRealValue, LinearWeights
 
 __all__ = ["mapper", "DRCError", "DRCWarning"]
 
@@ -388,7 +391,7 @@ def install_weights(graph: GraphModule) -> np.ndarray:
 
 
 def mapper(
-    graph: GraphModuleBase,
+    graph: GraphModule,
 ) -> Dict[str, float]:
     """
     mapper mapps a computational graph onto Dynap-SE2 architecture
@@ -396,7 +399,7 @@ def mapper(
     returns a specification object which can be used to create a config object
 
     :param graph: _description_
-    :type graph: GraphModuleBase
+    :type graph: GraphModule
     :return: _description_
     :rtype: Dict[str, float]
     """
