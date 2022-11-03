@@ -13,16 +13,17 @@ E-mail : ugurcan.cakal@gmail.com
 
 15/09/2022
 """
-
-__all__ = ["mapper", "DRCError", "DRCWarning"]
-
+from __future__ import annotations
 from typing import Any, Dict, Optional, Union
 
+from dataclasses import dataclass
 import numpy as np
 
 from rockpool.graph import GraphModuleBase
 
 from rockpool.devices.dynapse.default import dlayout
+
+__all__ = ["mapper", "DRCError", "DRCWarning"]
 
 
 class DRCError(ValueError):
