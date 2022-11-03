@@ -171,11 +171,11 @@ class NPGrid:
         if self.col[1] < self.col[0]:
             raise ValueError("col indices should be in the non-decreasing order!")
 
-    def project(
+    def place(
         self, destination: np.ndarray, source: np.ndarray, in_place: bool = True
     ) -> np.ndarray:
         """
-        project places the smaller array to a bigger array given the grid constraints
+        place places the smaller array to a bigger array given the grid constraints
 
         :param destination: the bigger destination array
         :type destination: np.ndarray
