@@ -35,8 +35,17 @@ class DRCWarning(Warning, DRCError):
 
 def mapper(
     graph: GraphModuleBase,
-    weight_dtype: Union[np.dtype, str] = "float",
 ) -> Dict[str, float]:
+    """
+    mapper mapps a computational graph onto Dynap-SE2 architecture
+
+    returns a specification object which can be used to create a config object
+
+    :param graph: _description_
+    :type graph: GraphModuleBase
+    :return: _description_
+    :rtype: Dict[str, float]
+    """
 
     w_in = None
     w_rec = None
