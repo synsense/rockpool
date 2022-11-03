@@ -29,7 +29,7 @@ def find_xylo_hdks():
 
             xylo_hdks.append(samna.device.open_device(d))
             xylo_support_modules.append(x2)
-            xylo_versions.append('syns61201')
+            xylo_versions.append("syns61201")
 
         elif (
             d.device_type_name == "XyloDevKit" or d.device_type_name == "XyloTestBoard"
@@ -42,6 +42,6 @@ def find_xylo_hdks():
 
             xylo_hdks.append(samna.device.open_device(d))
             xylo_support_modules.append(x1)
-            xylo_versions.append('syns61300')
+            xylo_versions.append("syns61300")
 
     return xylo_hdks, xylo_support_modules, xylo_versions
