@@ -5,7 +5,7 @@ pytest.importorskip("samna")
 
 
 def test_imports():
-    from rockpool.devices.xylo import (
+    from rockpool.devices.xylo.syns61300 import (
         mapper,
         Xylo1Neurons,
         Xylo1HiddenNeurons,
@@ -16,7 +16,7 @@ def test_imports():
 def test_mapper():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapper
+    from rockpool.devices.xylo.syns61300 import mapper
 
     smod = Sequential(
         LinearTorch((5, 6)),
@@ -40,7 +40,7 @@ def test_mapper():
 def test_output_nodes_have_neurons_as_source():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapper, DRCError
+    from rockpool.devices.xylo.syns61300 import mapper, DRCError
 
     # - Output nodes with weights as last layer
     smod = Sequential(
@@ -56,7 +56,7 @@ def test_output_nodes_have_neurons_as_source():
 def test_input_to_neurons_is_a_weight():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapper, DRCError
+    from rockpool.devices.xylo.syns61300 import mapper, DRCError
 
     # - Neuron to neuron connection with no weights
     smod = Sequential(
@@ -72,7 +72,7 @@ def test_input_to_neurons_is_a_weight():
 def test_first_module_is_a_weight():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapper, DRCError
+    from rockpool.devices.xylo.syns61300 import mapper, DRCError
 
     # - Network with no weights on input
     smod = Sequential(
@@ -88,7 +88,7 @@ def test_first_module_is_a_weight():
 def test_le_16_input_channels():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapper, DRCError, DRCWarning
+    from rockpool.devices.xylo.syns61300 import mapper, DRCError, DRCWarning
 
     # - Network with >16 input channels
     smod = Sequential(
@@ -105,7 +105,7 @@ def test_le_16_input_channels():
 def test_le_8_output_channels():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapper, DRCError, DRCWarning
+    from rockpool.devices.xylo.syns61300 import mapper, DRCError, DRCWarning
 
     # - Network with > 8 output channels
     smod = Sequential(
@@ -122,7 +122,7 @@ def test_le_8_output_channels():
 def test_all_neurons_have_same_dt():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapper, DRCError
+    from rockpool.devices.xylo.syns61300 import mapper, DRCError
 
     # - Network with no weights on input
     smod = Sequential(
@@ -139,7 +139,7 @@ def test_all_neurons_have_same_dt():
 def test_output_neurons_cannot_be_recurrent():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapper, DRCError
+    from rockpool.devices.xylo.syns61300 import mapper, DRCError
 
     # - Network with no weights on input
     smod = Sequential(
@@ -156,7 +156,7 @@ def test_output_neurons_cannot_be_recurrent():
 def test_network_too_large():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapper, DRCError
+    from rockpool.devices.xylo.syns61300 import mapper, DRCError
 
     # - Network with too many hidden neurons
     smod = Sequential(
@@ -191,7 +191,7 @@ def test_XyloSim_creation():
     if not backend_available("xylosim", "samna"):
         return
 
-    from rockpool.devices.xylo import mapper, XyloSim
+    from rockpool.devices.xylo.syns61300 import mapper, XyloSim
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
 

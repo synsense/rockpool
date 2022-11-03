@@ -7,10 +7,10 @@ pytest.importorskip("samna")
 def test_imports():
     from rockpool.devices.xylo.syns61201 import mapper
 
-    from rockpool.devices.xylo import (
-        Xylo1Neurons,
-        Xylo1HiddenNeurons,
-        Xylo1OutputNeurons,
+    from rockpool.devices.xylo.syns61201 import (
+        Xylo2Neurons,
+        Xylo2HiddenNeurons,
+        Xylo2OutputNeurons,
     )
 
 
@@ -41,7 +41,7 @@ def test_mapper():
 def test_output_nodes_have_neurons_as_source():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapper, DRCError
+    from rockpool.devices.xylo.syns61201 import mapper, DRCError
 
     # - Output nodes with weights as last layer
     smod = Sequential(
@@ -106,7 +106,7 @@ def test_le_16_input_channels():
 def test_le_8_output_channels():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapper, DRCError, DRCWarning
+    from rockpool.devices.xylo.syns61201 import mapper, DRCError, DRCWarning
 
     # - Network with > 8 output channels
     smod = Sequential(
@@ -123,7 +123,7 @@ def test_le_8_output_channels():
 def test_network_too_large():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapper, DRCError
+    from rockpool.devices.xylo.syns61201 import mapper, DRCError
 
     # - Network with too many hidden neurons
     smod = Sequential(

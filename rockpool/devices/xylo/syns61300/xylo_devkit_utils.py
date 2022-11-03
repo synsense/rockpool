@@ -35,6 +35,8 @@ XyloReadBuffer = samna.BasicSinkNode_xylo_event_output_event
 XyloWriteBuffer = samna.BasicSourceNode_xylo_event_input_event
 XyloNeuronStateBuffer = samna.xylo.NeuronStateSinkNode
 
+__all__ = ["find_xylo_boards"]
+
 
 class XyloState(NamedTuple):
     """

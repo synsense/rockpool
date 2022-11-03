@@ -5,7 +5,7 @@ pytest.importorskip("xylosim")
 
 
 def test_imports():
-    from rockpool.devices.xylo import (
+    from rockpool.devices.xylo.syns61300 import (
         config_from_specification,
         save_config,
         load_config,
@@ -15,7 +15,7 @@ def test_imports():
 
 
 def test_from_specification():
-    from rockpool.devices.xylo import config_from_specification
+    from rockpool.devices.xylo.syns61300 import config_from_specification
     import numpy as np
 
     Nin = 3
@@ -41,7 +41,7 @@ def test_from_specification():
 
 
 def test_save_load():
-    from rockpool.devices.xylo import (
+    from rockpool.devices.xylo.syns61300 import (
         config_from_specification,
         save_config,
         load_config,
@@ -121,7 +121,7 @@ def test_save_load():
 
 
 def test_XyloSamna():
-    from rockpool.devices.xylo import XyloSamna, config_from_specification
+    from rockpool.devices.xylo.syns61300 import XyloSamna, config_from_specification
     import rockpool.devices.xylo.syns61300.xylo_devkit_utils as putils
     import numpy as np
 
