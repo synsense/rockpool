@@ -184,15 +184,15 @@ class NPGrid:
         :type destination: np.ndarray
         :param source: the smaller source array
         :type source: np.ndarray
-        :param in_place: change the destination object in place or deep copy, defaults to True
+        :param in_place: change the destination object in place or deep copy if False, defaults to True
         :type in_place: bool, optional
         :raises ValueError: row indice is beyond the limits of the destination matrix!
         :raises ValueError: col indice is beyond the limits of the destination matrix!
         :raises ValueError: Source array shape is different then mask position!
+        :raises ValueError: Target location includes non-zero elements!
         :return: modified destination array
         :rtype: np.ndarray
         """
-        diff = lambda tup: abs(tup[0] - tup[1])
 
         if self.row[1] > destination.shape[0]:
             raise ValueError(
@@ -203,8 +203,11 @@ class NPGrid:
                 "col indice is beyond the limits of the destination matrix!"
             )
 
-        if (diff(self.row), diff(self.col)) != source.shape:
+        if (self.__diff(self.row), self.__diff(self.col)) != source.shape:
             raise ValueError("Source array shape is different then mask position!")
+
+        if destination[self.row[0] : self.row[1], self.col[0] : self.col[1]].any():
+            raise ValueError("Target location includes non-zero elements!")
 
         if in_place:
             destination[self.row[0] : self.row[1], self.col[0] : self.col[1]] = source
@@ -214,6 +217,51 @@ class NPGrid:
             dest = deepcopy(destination)
             dest[self.row[0] : self.row[1], self.col[0] : self.col[1]] = source
             return dest
+
+    def vplace(
+        self, destination: np.ndarray, source: np.ndarray, in_place: bool = True
+    ) -> np.ndarray:
+        """
+        vplace executes vertical placement on column limits
+
+        :param destination: the bigger destination array
+        :type destination: np.ndarray
+        :param source: the source array
+        :type source: np.ndarray
+        :param in_place: change the destination object in place or deep copy if False, defaults to True
+        :type in_place: bool, optional
+        :raises ValueError: col indice is beyond the limits of the 1D destination matrix!
+        :raises ValueError: 1D source array shape is different then mask position!
+        :raises ValueError: 1D target location includes non-zero elements!
+        :return: modified destination array
+        :rtype: np.ndarray
+        """
+        """ """
+
+        if self.col[1] > destination.shape[0]:
+            raise ValueError(
+                "col indice is beyond the limits of the 1D destination matrix!"
+            )
+
+        if (self.__diff(self.col),) != source.shape:
+            raise ValueError("1D source array shape is different then mask position!")
+
+        if destination[self.col[0] : self.col[1]].any():
+            raise ValueError("1D target location includes non-zero elements!")
+
+        if in_place:
+            destination[self.col[0] : self.col[1]] = source
+            return destination
+
+        else:
+            dest = deepcopy(destination)
+            dest[self.col[0] : self.col[1]] = source
+            return dest
+
+    @staticmethod
+    def __diff(tup: Tuple[int]) -> int:
+        """__diff returns the absolute difference between elements of the tuple"""
+        return abs(tup[0] - tup[1])
 
 
 ### --- Utility Functions --- ###
