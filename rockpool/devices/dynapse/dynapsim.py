@@ -289,9 +289,9 @@ class DynapSim(JaxModule):
         kappa_p: Optional[np.ndarray] = dlayout["kappa_p"],
         Ut: Optional[np.ndarray] = dlayout["Ut"],
         Vth: Optional[np.ndarray] = dlayout["Vth"],
+        Iscale: Optional[np.ndarray] = dweight["Iscale"],
         w_rec: Optional[jnp.DeviceArray] = None,
         has_rec: bool = False,
-        Iscale: Optional[np.ndarray] = dweight["Iscale"],
         weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = kaiming,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
@@ -438,12 +438,32 @@ class DynapSim(JaxModule):
         }
 
     @classmethod
-    def from_Dynapse1Configuration(cls, config: Dynapse1Configuration) -> DynapSim:
-        None
+    def from_graph(
+        cls, se: DynapseNeurons, weights: Optional[LinearWeights] = None
+    ) -> DynapSim:
+        """
+        from_graph constructs a ``DynapSim`` object from a computational graph
 
-    @classmethod
-    def from_Dynapse2Configuration(cls, config: Dynapse2Configuration) -> DynapSim:
-        None
+        :param se: the reference computational graph to restore the computational module
+        :type se: DynapseNeurons
+        :param weights: additional weights graph if one wants to impose recurrent weights, defaults to None
+        :type weights: Optional[LinearWeights], optional
+        :return: a ``DynapSim`` object
+        :rtype: DynapSim
+        """    
+        if not isinstance(se, DynapseNeurons):
+            se = DynapseNeurons._convert_from(se)
+
+        kwargs = {k: np.array(v) for k, v in se.get_full().items()}
+        
+        return cls(
+            shape=(len(se.input_nodes), len(se.output_nodes)),
+            Iscale=se.Iscale,
+            w_rec=np.array(weights.weights) if weights is not None else None,
+            has_rec=True if weights is not None else False,
+            dt=se.dt,
+            **kwargs,
+        )
 
     def evolve(
         self, input_data: jnp.DeviceArray, record: bool = True
