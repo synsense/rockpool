@@ -9,10 +9,31 @@ E-mail : ugurcan.cakal@gmail.com
 
 15/09/2022
 """
-from typing import Optional
-from rockpool.graph import GenericNeurons
 
+from __future__ import annotations
+from typing import Any, Dict, Optional, List, Tuple, Union
+
+import logging
+import numpy as np
 from dataclasses import dataclass, field
+
+from rockpool.typehints import FloatVector, IntVector
+from rockpool.graph import (
+    GenericNeurons,
+    GraphModule,
+    LIFNeuronWithSynsRealValue,
+    replace_module,
+)
+
+from rockpool.devices.dynapse.default import dlayout, dweight, dtime, dgain
+from rockpool.devices.dynapse.config.simconfig import DynapSimGain, DynapSimTime
+
+try:
+    from torch import Tensor
+except:
+    logging.warn("torch is not available!")
+    Tensor = np.ndarray
+
 
 __all__ = ["DynapseNeurons"]
 
@@ -409,5 +430,3 @@ class DynapseNeurons(GenericNeurons):
             - GenericNeurons.__dataclass_fields__.keys()
             - {"Iscale", "dt"}
         )
-
-
