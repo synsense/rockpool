@@ -175,3 +175,100 @@ class DynapseNeurons(GenericNeurons):
                 f"Graph module of type {type(mod).__name__} cannot be converted to a {cls.__name__}"
             )
 
+    @classmethod
+    def merge(cls, graph_list: List[DynapseNeurons]) -> DynapseNeurons:
+        """
+        merge combines a list of computational ``DynapseNeuron`` objects into one. The length of attributes are equal to the
+        number of output nodes. Even though the submodules has single valued attributes, they are repeated as many times as
+        the number of their output neurons.
+
+        NOTE : Returned single object is neither connected to the input nor the outputs of the any of the modules given.
+
+        :param graph_list: an ordered list of DynapseNeuron objects
+        :type graph_list: List[DynapseNeurons]
+        :return: a single ``DynapseNeuron`` object with combined arrays of attributes
+        :rtype: DynapseNeurons
+        """
+
+        if not graph_list:
+            raise ValueError("The merge list is empty!")
+
+        # Initial values
+        n_in = 0
+        n_out = 0
+        name = ""
+        comp_mod_list = []
+        attributes = {attr: [] for attr in cls.current_attrs()}
+
+        # Save the reference values
+        Iscale = graph_list[0].Iscale
+        dt = graph_list[0].dt
+
+        for g in graph_list:
+
+            # Increment the length
+            n_in += len(g.input_nodes)
+            n_out += len(g.output_nodes)
+
+            # Control
+            if g.Iscale != Iscale:
+                raise ValueError(
+                    "Iscale should be the same in all modules in the merge list!"
+                )
+            if g.dt != dt:
+                raise ValueError(
+                    "dt should be the same in all modules in the merge list!"
+                )
+
+            new_attributes = g.get_full()
+
+            # Extend attributes
+            for attr in attributes:
+                attributes[attr].extend(new_attributes[attr])
+
+            # Append to name and the computational module list
+            name += f"__{g.name}__"
+            comp_mod_list.append(g.computational_module)
+
+        # Get the merged module
+        neurons = cls._factory(
+            size_in=n_in,
+            size_out=n_out,
+            name=name,
+            computational_module=comp_mod_list,
+            Iscale=Iscale,
+            dt=dt,
+            **attributes,
+        )
+
+        return neurons
+
+    def get_full(self) -> Dict[str, np.ndarray]:
+        """
+        get_full creates a dictionary of parameteric current attributes with extended current values
+
+        :return: the object dictionary with extended current arrays
+        :rtype: Dict[str, np.ndarray]
+        """
+
+        def __extend__(__name: str) -> Union[FloatVector, IntVector]:
+
+            temp = self.__getattribute__(__name)
+
+            # extend if not FloatVector
+            if isinstance(temp, (int, float)):
+                temp = np.full(len(self.output_nodes), temp).tolist()
+
+            # Check the size if extended
+            elif isinstance(temp, (np.ndarray, list, Tensor)):
+                if len(temp) != len(self.output_nodes):
+                    raise ValueError(
+                        "Extended property does not match with the number of neurons!"
+                    )
+            else:
+                raise TypeError(f"Unrecognized attribute type {type(temp)}!")
+
+            return temp
+
+        return {attr: __extend__(attr) for attr in self.current_attrs()}
+
