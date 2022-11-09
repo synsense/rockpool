@@ -94,7 +94,19 @@ def step_pwl(
 
 
 @step_pwl.defjvp
-def step_pwl_jvp(primals, tangents):
+def step_pwl_jvp(
+    primals: Tuple[jnp.DeviceArray], tangents: Tuple[jnp.DeviceArray]
+) -> Tuple[jnp.DeviceArray]:
+    """
+    step_pwl_jvp custom jvp function defining the custom gradient rule of the step pwl function
+
+    :param primals: the primary variables passed as the input to the `step_pwl` function
+    :type primals: Tuple[jnp.DeviceArray]
+    :param tangents: the first order gradient values of the primal variables
+    :type tangents: Tuple[jnp.DeviceArray]
+    :return: modified forward pass output and the gradient values
+    :rtype: Tuple[jnp.DeviceArray]
+    """
     imem, Ispkthr, Ireset, max_spikes_per_dt = primals
     imem_dot, Ispkthr_dot, Ireset_dot, max_spikes_per_dt_dot = tangents
     primal_out = step_pwl(*primals)
