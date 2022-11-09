@@ -42,7 +42,7 @@ dweight = {
     "Iw_1": 2e-9,
     "Iw_2": 4e-9,
     "Iw_3": 8e-9,
-    "Iw_base": 1e-8,
+    "Iscale": 1e-8,
 }
 
 dtime = {
