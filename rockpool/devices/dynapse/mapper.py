@@ -20,10 +20,11 @@ from copy import deepcopy
 import numpy as np
 from dataclasses import dataclass
 
-from rockpool.graph import GraphModule, GraphNode, SetList
+from rockpool.graph import GraphModule, GraphNode, SetList, GraphHolder, connect_modules
 from rockpool.graph.utils import bag_graph
 
 from rockpool.devices.dynapse.default import dlayout
+from rockpool.devices.dynapse.graph import DynapseNeurons
 from rockpool.graph.graph_modules import LIFNeuronWithSynsRealValue, LinearWeights
 
 __all__ = ["mapper", "DRCError", "DRCWarning"]
@@ -332,9 +333,9 @@ def recurrent_modules(modules: List[GraphModule]) -> SetList[GraphModule]:
     return recurrent_modules
 
 
-def install_weights(graph: GraphModule) -> Tuple[np.ndarray]:
+def transformer(graph: GraphModule) -> Tuple[np.ndarray]:
     """
-    install_weights applies breath first search in computational graph and installs the weights found in the computational graph
+    transformer applies breath first search in computational graph and installs the weights found in the computational graph
     to one dense weight matrix
 
     :param graph: the graph head
@@ -364,6 +365,8 @@ def install_weights(graph: GraphModule) -> Tuple[np.ndarray]:
     # - Create the weight matrices
     n_in = len(graph.input_nodes)
     n_rec = gl[-1][-1]
+
+    ## - weights
     w_in = np.zeros((n_in, n_rec))
     w_rec = np.zeros((n_rec, n_rec))
 
@@ -377,6 +380,7 @@ def install_weights(graph: GraphModule) -> Tuple[np.ndarray]:
     # - Enqueue input nodes
     queue: List[GraphNode] = []
     visited: List[GraphModule] = []
+    lif_layers: List[LIFNeuronWithSynsRealValue] = []
     queue.extend(graph.input_nodes)
 
     ### --- Stateful BFS --- ###
@@ -401,8 +405,8 @@ def install_weights(graph: GraphModule) -> Tuple[np.ndarray]:
                             "LIF is at unexpected position! Reshape your network!"
                         )
 
-                    # Get the parameters
-                    pass
+                    # Store the lif layers in order for later transformation
+                    lif_layers.append(sink)
 
                     # State transition
                     state.next()
@@ -410,6 +414,8 @@ def install_weights(graph: GraphModule) -> Tuple[np.ndarray]:
 
                 # Weight layer found
                 elif isinstance(sink, LinearWeights):
+                    if sink.biases is not None:
+                        raise ValueError("Linear layers should not have biases!")
 
                     # Recurrent weights
                     if sink in rec_modules:
@@ -440,18 +446,45 @@ def install_weights(graph: GraphModule) -> Tuple[np.ndarray]:
                             # initial linear layer
                             in_grid.place(w_in, sink.weights)
 
+                            linear_in: LinearWeights = LinearWeights._factory(
+                                size_in=w_in.shape[0],
+                                size_out=w_in.shape[1],
+                                name=sink.name,
+                                computational_module=sink.computational_module,
+                                weights=w_in,
+                            )
+
                         # State transition
                         state.next(flag_rec=False)
 
                 else:
                     raise TypeError("The graph module is not recognized!")
-                print(sink)
 
     # Check if all the layers visited
     if sorted(visited, key=lambda m: id(m)) != sorted(modules, key=lambda m: id(m)):
         raise ValueError("Some modules are not visited!")
 
-    return w_in, w_rec
+    # - Module transormation
+    __se = [DynapseNeurons._convert_from(lif) for lif in lif_layers]
+    se_layer = DynapseNeurons.merge(__se)
+
+    # - Connecting
+    connect_modules(linear_in, se_layer)
+
+    linear_rec = LinearWeights(
+        se_layer.output_nodes,
+        se_layer.input_nodes,
+        name=f"{se_layer.name}_recurrent_{id(se_layer)}",
+        computational_module=se_layer.computational_module,
+        weights=w_rec,
+    )
+
+    return GraphHolder(
+        linear_in.input_nodes,
+        se_layer.output_nodes,
+        f"{graph.name}_transformed_SE_{id(graph)}",
+        graph.computational_module,
+    )
 
 
 def mapper(
