@@ -677,8 +677,40 @@ class DynapSim(JaxModule):
 
         return record_ts[3], states, record_dict
 
-    def export_Dynapse1Configuration(self) -> Dynapse1Configuration:
-        None
+    def as_graph(self) -> GraphHolder:
+        """
+        as_graph returns a computational graph for the for the simulated Dynap-SE neurons
 
-    def export_Dynapse2Configuration(self) -> Dynapse2Configuration:
-        None
+        :return: a ``GraphHolder`` object wrapping the DynapseNeurons graph.
+        :rtype: GraphHolder
+        """
+
+        # Get simulated current parameters
+        kwargs = {
+            __attr: np.array(self.__getattribute__(__attr)).flatten().tolist()
+            for __attr in DynapseNeurons.current_attrs()
+        }
+
+        # Generate the main computational graph
+        neurons = DynapseNeurons._factory(
+            size_in=self.size_in,
+            size_out=self.size_out,
+            name=f"{type(self).__name__}_{self.name}_{id(self)}",
+            computational_module=self,
+            Iscale=self.Iscale,
+            dt=self.dt,
+            **kwargs,
+        )
+
+        # - Include recurrent weights if present
+        if np.array(self.w_rec).any():
+            # - Weights are connected over the existing input and output nodes
+            w_rec_graph_auto_connected = LinearWeights(
+                neurons.output_nodes,
+                neurons.input_nodes,
+                f"{type(self).__name__}_recurrent_{self.name}_{id(self)}",
+                self,
+                self.w_rec,
+            )
+
+        return as_GraphHolder(neurons)
