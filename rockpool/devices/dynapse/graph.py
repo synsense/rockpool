@@ -272,3 +272,142 @@ class DynapseNeurons(GenericNeurons):
 
         return {attr: __extend__(attr) for attr in self.current_attrs()}
 
+    ### --- Utility Functions --- ###
+    @staticmethod
+    def get_equal_shape(*args) -> Tuple[int]:
+        """
+        get_equal_shape makes sure that the all arguments have the same shape
+
+        :raises ValueError: Attribute shapes does not match!
+        :return: the equal shape of all the arguments
+        :rtype: Tuple[int]
+        """
+
+        shape = np.array(args[0]).shape if len(args) > 0 else ()
+
+        if len(args) > 1:
+            for arg in args[1:]:
+                if np.array(arg).shape != shape:
+                    raise ValueError(
+                        f"Attribute shapes does not match! {np.array(arg).shape} != {shape}"
+                    )
+
+        return shape
+
+    @staticmethod
+    def zero_param(shape: Tuple[int]) -> List[float]:
+        """
+        zero_param creates full zero parameters
+
+        :param shape: the desired shape
+        :type shape: Tuple[int]
+        :return: a zero array
+        :rtype: List[float]
+        """
+        return np.zeros(shape, dtype=float).tolist()
+
+    @staticmethod
+    def nonzero_param(val: float, shape: Tuple[int]) -> List[float]:
+        """
+        nonzero_param creates a non-zero array filled with the same value
+
+        :param val: the non-zero value
+        :type val: float
+        :param shape: the desired shape
+        :type shape: Tuple[int]
+        :return: a non-zero uniform array
+        :rtype: List[float]
+        """
+        return np.full(shape, val, dtype=float).tolist()
+
+    @staticmethod
+    def to_list(v: FloatVector) -> List[float]:
+        """
+        to_list converts any FloatVector to a list
+
+        :param v: the float vector of interest
+        :type v: FloatVector
+        :return: a float list
+        :rtype: List[float]
+        """
+        return np.array(v, dtype=float).tolist()
+
+    @staticmethod
+    def to_list_scale(v: FloatVector, scale: float) -> List[float]:
+        """
+        to_list_scale converts any FloatVector to list and scale
+
+        :param v: the float vector of interest
+        :type v: FloatVector
+        :param scale: the scaling factor
+        :type scale: float
+        :return: a float list
+        :rtype: List[float]
+        """
+        return (np.array(v, dtype=float).flatten() * scale).tolist()
+
+    @staticmethod
+    def leakage_current(tc: FloatVector, C: float) -> FloatVector:
+        """
+        tau_current uses default layout configuration and converts a time constant to a leakage current using the conversion method defined in ``DynapSimTime`` module
+
+        :param tc: the time constant in seconds
+        :type tc: FloatVector
+        :param C: the capacitance value in Farads
+        :type C: float
+        :return: the leakage current
+        :rtype: FloatVector
+        """
+        kappa = (dlayout["kappa_n"] + dlayout["kappa_p"]) / 2.0
+        Itau = DynapSimTime.tau_converter(
+            np.array(tc).flatten(), dlayout["Ut"], kappa, C
+        )
+        return DynapseNeurons.to_list(Itau)
+
+    @staticmethod
+    def gain_current(r: float, Itau: FloatVector) -> FloatVector:
+        """
+        gain_current converts a gain ratio to a amplifier gain current using the leakage current provided
+
+        :param r: the desired amplifier gain ratio
+        :type r: float
+        :param Itau: the depended leakage current
+        :type Itau: FloatVector
+        :return: an amplifier gain current
+        :rtype: FloatVector
+        """
+        Igain = DynapSimGain.gain_current(
+            Igain=None, r_gain=r, Itau=np.array(Itau).flatten()
+        )
+        return DynapseNeurons.to_list(Igain)
+
+    @staticmethod
+    def pulse_current(t_pw: FloatVector, C: float) -> FloatVector:
+        """
+        pulse_current uses default layout configuration and converts a pulse width to a pulse current using the conversion method defined in ``DynapSimTime`` module
+
+        :param t_pw: the pulse width in seconds
+        :type t_pw: FloatVector
+        :param C: the capacitance value in Farads
+        :type C: float
+        :return: _description_
+        :rtype: FloatVector
+        """
+        Ipw = DynapSimTime.pw_converter(np.array(t_pw), dlayout["Vth"], C)
+        return DynapseNeurons.to_list(Ipw)
+
+    @staticmethod
+    def current_attrs() -> List[str]:
+        """
+        current_attrs lists all current paramters stored inside DynapseNeurons computational graph
+
+        :return: a list of parametric curents
+        :rtype: List[str]
+        """
+        return list(
+            DynapseNeurons.__dataclass_fields__.keys()
+            - GenericNeurons.__dataclass_fields__.keys()
+            - {"Iscale", "dt"}
+        )
+
+
