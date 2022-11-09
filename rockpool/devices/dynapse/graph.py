@@ -78,3 +78,100 @@ class DynapseNeurons(GenericNeurons):
     Iscale: Optional[float] = None
     dt: Optional[float] = None
 
+    @classmethod
+    def _convert_from(
+        cls,
+        mod: GraphModule,
+        r_gain_mem: FloatVector = dgain["r_gain_mem"],
+        r_gain_syn: FloatVector = dgain["r_gain_ampa"],
+        t_pulse: FloatVector = dtime["t_pulse"],
+        t_ref: FloatVector = dtime["t_ref"],
+        C_pulse: FloatVector = dlayout["C_pulse"],
+        C_ref: FloatVector = dlayout["C_ref"],
+        C_mem: FloatVector = dlayout["C_mem"],
+        C_syn: FloatVector = dlayout["C_syn"],
+        Iscale: float = dweight["Iscale"],
+    ) -> DynapseNeurons:
+        """
+        _convert_from converts a graph module to DynapseNeuron structure. Uses default parameter
+
+        NOTE
+
+        LIF does not have equivalent computation for
+        * AHP (After-Hyper-Polarization)
+        * NMDA Voltage Depended Gating
+
+        Therefore : Itau_ahp, If_nmda, Igain_ahp, Ipulse_ahp, and, Iw_ahp currents are zero.
+
+        :param mod: the reference graph module
+        :type mod: GraphModule
+        :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`
+        :type r_gain_mem: FloatVector, optional
+        :param r_gain_syn: _description_, defaults to dgain["r_gain_ampa"]
+        :type r_gain_syn: float, optional
+        :param t_pulse: the spike pulse width for neuron membrane in seconds
+        :type t_pulse: FloatVector, optional
+        :param t_ref: refractory period of the neurons in seconds
+        :type t_ref: FloatVector, optional
+        :param C_pulse: pulse-width creation sub-circuit capacitance in Farads, defaults to dlayout["C_pulse"]
+        :type C_pulse: FloatVector, optional
+        :param C_ref: refractory period sub-circuit capacitance in Farads, defaults to dlayout["C_ref"]
+        :type C_ref: FloatVector, optional
+        :param C_mem: neuron membrane capacitance in Farads, defaults to dlayout["C_mem"]
+        :type C_mem: FloatVector, optional
+        :param C_syn: synaptic capacitance in Farads, defaults to dlayout["C_syn"]
+        :type C_syn: FloatVector, optional
+        :param Iscale: the scaling current, defaults to dweight["Iscale"]
+        :type Iscale: float, optional
+        :raises ValueError: _description_
+        :return: _description_
+        :rtype: DynapseNeurons
+        """
+
+        if isinstance(mod, cls):
+            # - No need to do anything
+            return mod
+
+        elif isinstance(mod, LIFNeuronWithSynsRealValue):
+
+            # Some lambda functions for clean computation
+            shape = cls.get_equal_shape(mod.threshold, mod.bias, mod.tau_mem)
+            zero_param = lambda: cls.zero_param(shape)
+            nonzero_param = lambda val: cls.nonzero_param(val, shape)
+
+            # Tau currents has to be re-usable
+            Itau_mem = cls.leakage_current(mod.tau_mem, C_mem)
+            Itau_syn = cls.leakage_current(mod.tau_syn, C_syn)
+
+            # - Build a new neurons module to insert into the graph
+            neurons = cls._factory(
+                size_in=len(mod.input_nodes),
+                size_out=len(mod.output_nodes),
+                name=mod.name,
+                computational_module=mod.computational_module,
+                Ispkthr=cls.to_list_scale(mod.threshold, Iscale),
+                Idc=cls.to_list_scale(mod.bias, Iscale),
+                Itau_mem=Itau_mem,
+                Itau_syn=Itau_syn,
+                Itau_ahp=zero_param(),
+                If_nmda=zero_param(),
+                Igain_ahp=zero_param(),
+                Igain_mem=cls.gain_current(r_gain_mem, Itau_mem),
+                Igain_syn=cls.gain_current(r_gain_syn, Itau_syn),
+                Ipulse_ahp=zero_param(),
+                Ipulse=nonzero_param(cls.pulse_current(t_pulse, C_pulse)),
+                Iref=nonzero_param(cls.pulse_current(t_ref, C_ref)),
+                Iw_ahp=zero_param(),
+                Iscale=Iscale,
+                dt=mod.dt,
+            )
+
+            # - Replace the target module and return
+            replace_module(mod, neurons)
+            return neurons
+
+        else:
+            raise ValueError(
+                f"Graph module of type {type(mod).__name__} cannot be converted to a {cls.__name__}"
+            )
+
