@@ -450,12 +450,16 @@ class DynapSim(JaxModule):
         :type weights: Optional[LinearWeights], optional
         :return: a ``DynapSim`` object
         :rtype: DynapSim
-        """    
+        """
         if not isinstance(se, DynapseNeurons):
             se = DynapseNeurons._convert_from(se)
 
+        if weights is not None:
+            if weights.biases is not None:
+                raise ValueError("Recurrent weight layer biases cannot be defined!")
+
         kwargs = {k: np.array(v) for k, v in se.get_full().items()}
-        
+
         return cls(
             shape=(len(se.input_nodes), len(se.output_nodes)),
             Iscale=se.Iscale,
