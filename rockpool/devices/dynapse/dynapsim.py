@@ -64,9 +64,11 @@ from rockpool.devices.dynapse.definitions import DynapSimRecord, DynapSimState
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.nn.modules.native.linear import kaiming
 from rockpool.parameters import Parameter, State, SimulationParameter
+from rockpool.graph import GraphHolder, LinearWeights, as_GraphHolder
 
 from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1Configuration
 from rockpool.devices.dynapse.samna_alias.dynapse2 import Dynapse2Configuration
+from rockpool.devices.dynapse.graph import DynapseNeurons
 
 
 @jax.custom_jvp
@@ -119,7 +121,7 @@ class DynapSim(JaxModule):
     DynapSim solves dynamical chip equations for the DPI neuron and synapse models.
     Receives configuration as bias currents and solves membrane and synapse dynamics using ``jax`` backend.
     One block has
-        - 4 synapses receiving spikes from the other circuits,
+        - 1 combined synapse receiving spikes from the other circuits,
         - 1 recurrent synapse for spike frequency adaptation,
         - 1 membrane evaluating the state and deciding fire or not
 
@@ -195,8 +197,8 @@ class DynapSim(JaxModule):
     :type Itau_mem: Optional[np.ndarray], optinoal
     :param Itau_syn: (AMPA, GABA, NMDA, SHUNT) synapses combined leakage current setting the time constant `tau_syn` in Amperes with shape (Nrec,)
     :type Itau_syn: Optional[np.ndarray], optinoal
-    :param Iw_base: weight base current of the neurons of the core in Amperes
-    :type Iw_base: Optional[np.ndarray], optinoal
+    :param Iscale: weight scaling current of the neurons of the core in Amperes
+    :type Iscale: Optional[np.ndarray], optinoal
     :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes with shape (Nrec,)
     :type Iw_ahp: Optional[np.ndarray], optinoal
     :param C_ahp: AHP synapse capacitance in Farads with shape (Nrec,)
@@ -256,8 +258,6 @@ class DynapSim(JaxModule):
     :type timer_ref: jnp.DeviceArray
     :ivar vmem: Membrane potential states of the neurons in Volts with shape (Nrec,)
     :type vmem: jnp.DeviceArray
-    :ivar md: The mismatch device to fluctuate the states, parameters and the simulation parameters
-    :type md: MismatchDevice
     """
 
     __doc__ += "\nJaxModule" + JaxModule.__doc__
@@ -277,7 +277,6 @@ class DynapSim(JaxModule):
         Itau_ahp: Optional[np.ndarray] = dcurrents["Itau_ahp"],
         Itau_mem: Optional[np.ndarray] = dcurrents["Itau_mem"],
         Itau_syn: Optional[np.ndarray] = dcurrents["Itau_ampa"],
-        Iw_base: Optional[np.ndarray] = dweight["Iw_base"],
         Iw_ahp: Optional[np.ndarray] = dcurrents["Iw_ahp"],
         C_ahp: Optional[np.ndarray] = dlayout["C_ahp"],
         C_syn: Optional[np.ndarray] = dlayout["C_ampa"],
@@ -292,6 +291,7 @@ class DynapSim(JaxModule):
         Vth: Optional[np.ndarray] = dlayout["Vth"],
         w_rec: Optional[jnp.DeviceArray] = None,
         has_rec: bool = False,
+        Iscale: Optional[np.ndarray] = dweight["Iscale"],
         weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = kaiming,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
@@ -365,7 +365,7 @@ class DynapSim(JaxModule):
             cast_fn=jnp.array,
         )
 
-        # Special Handler for wrec
+        # Special handler for wrec
         if isinstance(has_rec, jax.core.Tracer) or has_rec:
             self.w_rec = Parameter(
                 data=w_rec,
@@ -420,7 +420,7 @@ class DynapSim(JaxModule):
         self.kappa_p = __simparam(kappa_p)
         self.Ut = __simparam(Ut)
         self.Vth = __simparam(Vth)
-        self.Iw_base = __simparam(Iw_base)
+        self.Iscale = SimulationParameter(Iscale, shape=())
 
         # Escape from mismatch
         self.rng_key = State(rng_key, init_func=lambda _: rng_key)
@@ -444,7 +444,7 @@ class DynapSim(JaxModule):
     @classmethod
     def from_Dynapse2Configuration(cls, config: Dynapse2Configuration) -> DynapSim:
         None
-        
+
     def evolve(
         self, input_data: jnp.DeviceArray, record: bool = True
     ) -> Tuple[jnp.DeviceArray, Dict[str, jnp.DeviceArray], Dict[str, jnp.DeviceArray]]:
@@ -543,7 +543,7 @@ class DynapSim(JaxModule):
 
             ## Real time weight is 0 if no spike, w_rec if spike event occurs
             ws_rec = jnp.dot(self.w_rec.T, spikes).T  # Nrec
-            Iws = (ws_rec + ws_input) * self.Iw_base
+            Iws = (ws_rec + ws_input) * self.Iscale
 
             # isyn_inf is the current that a synapse current would reach with a sufficiently long pulse
             isyn_inf = (Igain_syn_clip / Itau_syn_clip) * Iws
