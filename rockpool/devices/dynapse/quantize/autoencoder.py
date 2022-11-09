@@ -44,7 +44,7 @@ def autoencoder_quantization(
     ## Input
     weights_in: np.ndarray,
     weights_rec: np.ndarray,
-    Iw_base: float,
+    Iscale: float,
     n_bits: Optional[int] = 4,
     ## Optimization
     fixed_epoch: bool = False,
@@ -66,8 +66,8 @@ def autoencoder_quantization(
     :type weights_in: Optional[np.ndarray]
     :param weights_rec: recurrent layer (in-device neurons) weights used in Dynap-SE2 simulation
     :type weights_rec: Optional[np.ndarray]
-    :param Iw_base: base weight current in Amperes used in simulation
-    :type Iw_base: float
+    :param Iscale: base weight scaling current in Amperes used in simulation
+    :type Iscale: float
     :param n_bits: number of target weight bits, defaults to 4
     :type n_bits: Optional[int], optional
     :param fixed_epoch: used fixed number of epochs or control the convergence by loss decrease, defaults to False
@@ -171,7 +171,7 @@ def autoencoder_quantization(
         "sign_in": __handler.sign_in,
         "weights_rec": qw_rec,
         "sign_rec": __handler.sign_rec,
-        "Iw": np.array(code) * Iw_base / __scale_factor,
+        "Iw": np.array(code) * Iscale / __scale_factor,
     }
 
     return spec, np.array(rec_loss)
