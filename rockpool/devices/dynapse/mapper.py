@@ -66,7 +66,7 @@ def mapper(
     Itau_shunt = None
     Itau_mem = None
     Iw_ahp = None
-    Iw_base = None
+    Iscale = None
 
     return {
         "mapped_graph": graph,
@@ -91,5 +91,5 @@ def mapper(
         "Itau_shunt": Itau_shunt,
         "Itau_mem": Itau_mem,
         "Iw_ahp": Iw_ahp,
-        "Iw_base": Iw_base,
+        "Iscale": Iscale,
     }
