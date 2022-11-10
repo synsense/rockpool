@@ -674,528 +674,459 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
         return DynapSimGain.from_DynapSimCore(self)
 
 
-@dataclass
-class DynapSimConfig(DynapSimCore):
-    """
-    DynapSimConfig stores the simulation currents, layout parameters and weight matrices necessary to
-    configure a DynapSE1/SE2 simulator
+# @dataclass
+# class DynapSimConfig(DynapSimCore):
+#     """
+#     DynapSimConfig stores the simulation currents, layout parameters and weight matrices necessary to
+#     configure a DynapSE1/SE2 simulator
 
-    :param shape: the network shape (n_input, n_hidden, n_output)
-    :type shape: Optional[Union[Tuple[int], int]], optional
-    :param w_in: input weight matrix
-    :type w_in: np.ndarray, optional
-    :param w_rec: recurrent weight matrix
-    :type w_rec: np.ndarray, optional
-    :param w_out: output weight matrix
-    :type w_out: np.ndarray, optional
-    :param cores: dictionary of simulation cores
-    :type cores: Optional[Dict[str, DynapSimCore]], optional
-    :param router: the router object reading the memory content to create the weight masks
-    """
+#     :param w_in: input weight matrix, 4-bits
+#     :type w_in: np.ndarray, optional
+#     :param w_rec: recurrent weight matrix, 4-bits
+#     :type w_rec: np.ndarray, optional
+#     :param w_out: output weight matrix, 1-bit
+#     :type w_out: np.ndarray, optional
+#     :param cores: dictionary of simulation cores
+#     :type cores: Optional[Dict[str, DynapSimCore]], optional
+#     """
 
-    shape: Optional[Union[Tuple[int], int]] = None
-    w_in: np.ndarray = None
-    w_rec: np.ndarray = None
-    w_out: np.ndarray = None
-    cores: Optional[Dict[str, DynapSimCore]] = field(default=None, repr=False)
-    router: Optional[Router] = field(default=None, repr=False)
+#     w_in: Optional[np.ndarray] = None
+#     w_rec: Optional[np.ndarray] = None
+#     w_out: Optional[np.ndarray] = None
 
-    def __post_init__(self) -> None:
-        self.shape = self.__shape_check(self.shape)
+#     def __post_init__(self) -> None:
 
-    @staticmethod
-    def __shape_check(shape: Tuple[int]) -> Tuple[int]:
-        """
-        __shape_check checks the shape and fixes the dimensionality in case it's necessary
+#         # - Set dimensions - #
+#         dim_getter = lambda w, d: w[d] if w is not None else None
 
-        :param shape: the network shape (n_input, n_hidden, n_output)
-        :type shape: Tuple[int]
-        :raises ValueError: Shape dimensions should represent (input, hidden, output) layers
-        :return: the fixed shape
-        :rtype: Tuple[int]
-        """
-        if isinstance(shape, int):
-            shape = (None, shape, None)
-        if isinstance(shape, tuple) and len(shape) != 3:
-            raise ValueError(
-                f"Shape dimensions should represent (input, hidden, output) layers"
-            )
-        return shape
+#         self.n_in = dim_getter(self.w_in, 0)
+#         self.n_rec = dim_getter(self.w_rec, 0)
+#         self.n_out = dim_getter(self.w_out, 1)
 
-    @staticmethod
-    def __merge_cores(
-        cores: Dict[CoreKey, DynapSimCore],
-        core_map: Dict[CoreKey, List[np.uint8]],
-    ) -> Dict[str, np.ndarray]:
-        """
-        __merge_cores merge core properties in arrays, number of elements representing the number of neurons
+#         # - Shape check - #
+#         def check_shape_2d(w: Optional[np.ndarray]) -> None:
+#             if w is not None:
+#                 if len(w.shape) != 2:
+#                     raise ValueError("Input weights should be 2 dimensional!")
 
-        :param cores: a dictionary of simualtion cores
-        :type cores: Dict[CoreKey, DynapSimCore]
-        :param core_map: a dictionary of the mapping between active cores and list of active neurons
-        :type core_map: Dict[CoreKey, List[np.uint8]]
-        :return: a dictionary of merged attributes
-        :rtype: Dict[str, np.ndarray]
-        """
-        attr_dict = dict.fromkeys(DynapSimCore().__dict__.keys(), np.empty((0)))
+#         check_shape_2d(self.w_in)  # in_tag -> neuron
+#         check_shape_2d(self.w_rec)  # neuron -> neuron
+#         check_shape_2d(self.w_out)  # neuron -> out_tag
 
-        for (h, c), _core in cores.items():
-            core_dict = _core.get_full(len(core_map[h, c]))
-            for __attr in attr_dict:
-                attr_dict[__attr] = np.concatenate(
-                    (attr_dict[__attr], core_dict[__attr])
-                )
+#         # - Shape match - #
+#         def shape_match(w: Optional[np.ndarray], dim: int) -> None:
+#             if w is not None and self.w_rec is not None:
+#                 assert w.shape[dim] == self.w_rec.shape[0]
+#                 assert w.shape[dim] == self.w_rec.shape[1]
 
-        return attr_dict
+#         shape_match(self.w_in, 1)
+#         shape_match(self.w_out, 0)
 
-    @classmethod
-    def from_specification(
-        cls,
-        shape: Optional[Union[Tuple[int], int]],
-        w_in: Optional[np.ndarray] = None,
-        w_rec: Optional[np.ndarray] = None,
-        w_in_mask: Optional[np.ndarray] = None,
-        w_rec_mask: Optional[np.ndarray] = None,
-        w_out: Optional[np.ndarray] = None,
-        Idc: float = dcurrents["Idc"],
-        If_nmda: float = dcurrents["If_nmda"],
-        r_gain_ahp: float = dgain["r_gain_ahp"],
-        r_gain_ampa: float = dgain["r_gain_ampa"],
-        r_gain_gaba: float = dgain["r_gain_gaba"],
-        r_gain_nmda: float = dgain["r_gain_nmda"],
-        r_gain_shunt: float = dgain["r_gain_shunt"],
-        r_gain_mem: float = dgain["r_gain_mem"],
-        t_pulse_ahp: float = dtime["t_pulse_ahp"],
-        t_pulse: float = dtime["t_pulse"],
-        t_ref: float = dtime["t_ref"],
-        Ispkthr: float = dcurrents["Ispkthr"],
-        tau_ahp: float = dtime["tau_ahp"],
-        tau_ampa: float = dtime["tau_ampa"],
-        tau_gaba: float = dtime["tau_gaba"],
-        tau_nmda: float = dtime["tau_nmda"],
-        tau_shunt: float = dtime["tau_shunt"],
-        tau_mem: float = dtime["tau_mem"],
-        Iw_0: float = dweight["Iw_0"],
-        Iw_1: float = dweight["Iw_1"],
-        Iw_2: float = dweight["Iw_2"],
-        Iw_3: float = dweight["Iw_3"],
-        Iw_ahp: float = dcurrents["Iw_ahp"],
-        C_ahp: float = dlayout["C_ahp"],
-        C_ampa: float = dlayout["C_ampa"],
-        C_gaba: float = dlayout["C_gaba"],
-        C_nmda: float = dlayout["C_nmda"],
-        C_pulse_ahp: float = dlayout["C_pulse_ahp"],
-        C_pulse: float = dlayout["C_pulse"],
-        C_ref: float = dlayout["C_ref"],
-        C_shunt: float = dlayout["C_shunt"],
-        C_mem: float = dlayout["C_mem"],
-        Io: float = dlayout["Io"],
-        kappa_n: float = dlayout["kappa_n"],
-        kappa_p: float = dlayout["kappa_p"],
-        Ut: float = dlayout["Ut"],
-        Vth: float = dlayout["Vth"],
-    ) -> DynapSimConfig:
-        """
-        from_specification is a class factory method using the weight specifications and the current/layout parameters
-        One can directly define w_in/w_rec/w_out or one can define the weight masks.
-        If weight masks are defined, weight matrices are calculated using the simulation currents and weight masks together
-        All the simulation currents and layout parameter can be passed by kwargs. For more info, please check `DynapSimCore.from_specification()`
+#     @staticmethod
+#     def merge_cores(
+#         cores: Dict[CoreKey, DynapSimCore],
+#         core_map: Dict[CoreKey, List[np.uint8]],
+#     ) -> Dict[str, np.ndarray]:
+#         """
+#         merge_cores merge core properties in arrays, number of elements representing the number of neurons
 
-        :param shape: the network shape (n_input, n_hidden, n_output). If shape is int, then it means that the input and output should not be considered.
-        :type shape: Optional[Union[Tuple[int], int]]
-        :param w_in: input weight matrix
-        :type w_in: Optional[np.ndarray], optional
-        :param w_rec: recurrent weight matrix
-        :type w_rec: Optional[np.ndarray], optional
-        :param w_in_mask: the weight mask to set the input weight matrix. Used if `w_in` is None
-        :type w_in_mask: Optional[np.ndarray], optional
-        :param w_rec_mask: the weight mask to set the recurrent weight matrix. Used if `w_rec` is None
-        :type w_rec_mask: Optional[np.ndarray], optional
-        :param w_out: the output weight mask (binary in general)
-        :type w_out: Optional[np.ndarray], optional
-        :param Idc: Constant DC current injected to membrane in Amperes
-        :type Idc: float, optional
-        :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes
-        :type If_nmda: float, optional
-        :param r_gain_ahp: spike frequency adaptation block gain ratio :math:`Igain_ahp/Itau_ahp`
-        :type r_gain_ahp: float, optional
-        :param r_gain_ampa: excitatory AMPA synpse gain ratio :math:`Igain_ampa/Itau_ampa`
-        :type r_gain_ampa: float, optional
-        :param r_gain_gaba: inhibitory GABA synpse gain ratio :math:`Igain_gaba/Itau_gaba `
-        :type r_gain_gaba: float, optional
-        :param r_gain_nmda: excitatory NMDA synpse gain ratio :math:`Igain_nmda/Itau_nmda`
-        :type r_gain_nmda: float, optional
-        :param r_gain_shunt: inhibitory SHUNT synpse gain ratio :math:`Igain_shunt/Itau_shunt`
-        :type r_gain_shunt: float, optional
-        :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`
-        :type r_gain_mem: float, optional
-        :param t_pulse_ahp: the spike pulse width for spike frequency adaptation circuit in seconds
-        :type t_pulse_ahp: float, optional
-        :param t_pulse: the spike pulse width for neuron membrane in seconds
-        :type t_pulse: float, optional
-        :param t_ref: refractory period of the neurons in seconds
-        :type t_ref: float, optional
-        :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes
-        :type Ispkthr: float, optional
-        :param tau_ahp: Spike frequency leakage time constant in seconds
-        :type tau_ahp: float, optional
-        :param tau_ampa: AMPA synapse leakage time constant in seconds
-        :type tau_ampa: float, optional
-        :param tau_gaba: GABA synapse leakage time constant in seconds
-        :type tau_gaba: float, optional
-        :param tau_nmda: NMDA synapse leakage time constant in seconds
-        :type tau_nmda: float, optional
-        :param tau_shunt:SHUNT synapse leakage time constant in seconds
-        :type tau_shunt: float, optional
-        :param tau_mem: Neuron membrane leakage time constant in seconds
-        :type tau_mem: float, optional
-        :param Iw_0: weight bit 0 current of the neurons of the core in Amperes
-        :type Iw_0: float
-        :param Iw_1: weight bit 1 current of the neurons of the core in Amperes
-        :type Iw_1: float
-        :param Iw_2: weight bit 2 current of the neurons of the core in Amperes
-        :type Iw_2: float
-        :param Iw_3: weight bit 3 current of the neurons of the core in Amperes
-        :type Iw_3: float
-        :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes
-        :type Iw_ahp: float
-        :param C_ahp: AHP synapse capacitance in Farads
-        :type C_ahp: float, optional
-        :param C_ampa: AMPA synapse capacitance in Farads
-        :type C_ampa: float, optional
-        :param C_gaba: GABA synapse capacitance in Farads
-        :type C_gaba: float, optional
-        :param C_nmda: NMDA synapse capacitance in Farads
-        :type C_nmda: float, optional
-        :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads
-        :type C_pulse_ahp: float, optional
-        :param C_pulse: pulse-width creation sub-circuit capacitance in Farads
-        :type C_pulse: float, optional
-        :param C_ref: refractory period sub-circuit capacitance in Farads
-        :type C_ref: float, optional
-        :param C_shunt: SHUNT synapse capacitance in Farads
-        :type C_shunt: float, optional
-        :param C_mem: neuron membrane capacitance in Farads
-        :type C_mem: float, optional
-        :param Io: Dark current in Amperes that flows through the transistors even at the idle state
-        :type Io: Union[float, np.ndarray], optional
-        :param kappa_n: Subthreshold slope factor (n-type transistor)
-        :type kappa_n: Union[float, np.ndarray], optional
-        :param kappa_p: Subthreshold slope factor (p-type transistor)
-        :type kappa_p: Union[float, np.ndarray], optional
-        :param Ut: Thermal voltage in Volts
-        :type Ut: Union[float, np.ndarray], optional
-        :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific)
-        :type Vth: Union[float, np.ndarray], optional
-        :return: a `DynapSimConfig` object created from specifications
-        :rtype: DynapSimConfig
-        """
+#         :param cores: a dictionary of simualtion cores
+#         :type cores: Dict[CoreKey, DynapSimCore]
+#         :param core_map: a dictionary of the mapping between active cores and list of active neurons
+#         :type core_map: Dict[CoreKey, List[np.uint8]]
+#         :return: a dictionary of merged attributes
+#         :rtype: Dict[str, np.ndarray]
+#         """
+#         attr_dict = dict.fromkeys(DynapSimCore().__dict__.keys(), np.empty((0)))
 
-        # Create the default maps
-        tag_in, n_rec, tag_out = cls.__shape_check(shape)
-        idx_map = cls.default_idx_map(n_rec)
-        core_map = Connector.core_map_from_idx_map(idx_map)
+#         for (h, c), _core in cores.items():
+#             core_dict = _core.get_full(len(core_map[h, c]))
+#             for __attr in attr_dict:
+#                 attr_dict[__attr] = np.concatenate(
+#                     (attr_dict[__attr], core_dict[__attr])
+#                 )
 
-        # Fill the core dictionary with simulated cores generated by the SAME specifications
-        cores = {}
-        for h, c in core_map:
-            cores[(h, c)] = DynapSimCore.from_specification(
-                Idc=Idc,
-                If_nmda=If_nmda,
-                r_gain_ahp=r_gain_ahp,
-                r_gain_ampa=r_gain_ampa,
-                r_gain_gaba=r_gain_gaba,
-                r_gain_nmda=r_gain_nmda,
-                r_gain_shunt=r_gain_shunt,
-                r_gain_mem=r_gain_mem,
-                t_pulse_ahp=t_pulse_ahp,
-                t_pulse=t_pulse,
-                t_ref=t_ref,
-                Ispkthr=Ispkthr,
-                tau_ahp=tau_ahp,
-                tau_ampa=tau_ampa,
-                tau_gaba=tau_gaba,
-                tau_nmda=tau_nmda,
-                tau_shunt=tau_shunt,
-                tau_mem=tau_mem,
-                Iw_0=Iw_0,
-                Iw_1=Iw_1,
-                Iw_2=Iw_2,
-                Iw_3=Iw_3,
-                Iw_ahp=Iw_ahp,
-                C_ahp=C_ahp,
-                C_ampa=C_ampa,
-                C_gaba=C_gaba,
-                C_nmda=C_nmda,
-                C_pulse_ahp=C_pulse_ahp,
-                C_pulse=C_pulse,
-                C_ref=C_ref,
-                C_shunt=C_shunt,
-                C_mem=C_mem,
-                Io=Io,
-                kappa_n=kappa_n,
-                kappa_p=kappa_p,
-                Ut=Ut,
-                Vth=Vth,
-            )
+#         return attr_dict
 
-        attr_dict = cls.__merge_cores(cores, core_map)
+#     @classmethod
+#     def from_specification(
+#         cls,
+#         w_in: Optional[np.ndarray] = None,
+#         w_rec: Optional[np.ndarray] = None,
+#         Idc: float = dcurrents["Idc"],
+#         If_nmda: float = dcurrents["If_nmda"],
+#         r_gain_ahp: float = dgain["r_gain_ahp"],
+#         r_gain_ampa: float = dgain["r_gain_ampa"],
+#         r_gain_gaba: float = dgain["r_gain_gaba"],
+#         r_gain_nmda: float = dgain["r_gain_nmda"],
+#         r_gain_shunt: float = dgain["r_gain_shunt"],
+#         r_gain_mem: float = dgain["r_gain_mem"],
+#         t_pulse_ahp: float = dtime["t_pulse_ahp"],
+#         t_pulse: float = dtime["t_pulse"],
+#         t_ref: float = dtime["t_ref"],
+#         Ispkthr: float = dcurrents["Ispkthr"],
+#         tau_ahp: float = dtime["tau_ahp"],
+#         tau_ampa: float = dtime["tau_ampa"],
+#         tau_gaba: float = dtime["tau_gaba"],
+#         tau_nmda: float = dtime["tau_nmda"],
+#         tau_shunt: float = dtime["tau_shunt"],
+#         tau_mem: float = dtime["tau_mem"],
+#         Iscale: float = dweight["Iscale"],
+#         Iw_ahp: float = dcurrents["Iw_ahp"],
+#     ) -> DynapSimConfig:
+#         """
+#         from_specification is a class factory method using the weight specifications and the current/layout parameters
+#         One can directly define w_in/w_rec/w_out or one can define the weight masks.
+#         If weight masks are defined, weight matrices are calculated using the simulation currents and weight masks together
+#         All the simulation currents and layout parameter can be passed by kwargs. For more info, please check `DynapSimCore.from_specification()`
 
-        def get_weight(mask: np.ndarray, n_in: int, n_rec: int) -> np.ndarray:
-            """
-            get_weight creates the weight matrix using the mask given
+#         :param w_in: input weight matrix, 4-bits
+#         :type w_in: np.ndarray, optional
+#         :param w_rec: recurrent weight matrix, 4-bits
+#         :type w_rec: np.ndarray, optional
+#         :param w_out: output weight matrix, 1-bit
+#         :type w_out: np.ndarray, optional
+#         :param Idc: Constant DC current injected to membrane in Amperes
+#         :type Idc: float, optional
+#         :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes
+#         :type If_nmda: float, optional
+#         :param r_gain_ahp: spike frequency adaptation block gain ratio :math:`Igain_ahp/Itau_ahp`
+#         :type r_gain_ahp: float, optional
+#         :param r_gain_ampa: excitatory AMPA synpse gain ratio :math:`Igain_ampa/Itau_ampa`
+#         :type r_gain_ampa: float, optional
+#         :param r_gain_gaba: inhibitory GABA synpse gain ratio :math:`Igain_gaba/Itau_gaba `
+#         :type r_gain_gaba: float, optional
+#         :param r_gain_nmda: excitatory NMDA synpse gain ratio :math:`Igain_nmda/Itau_nmda`
+#         :type r_gain_nmda: float, optional
+#         :param r_gain_shunt: inhibitory SHUNT synpse gain ratio :math:`Igain_shunt/Itau_shunt`
+#         :type r_gain_shunt: float, optional
+#         :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`
+#         :type r_gain_mem: float, optional
+#         :param t_pulse_ahp: the spike pulse width for spike frequency adaptation circuit in seconds
+#         :type t_pulse_ahp: float, optional
+#         :param t_pulse: the spike pulse width for neuron membrane in seconds
+#         :type t_pulse: float, optional
+#         :param t_ref: refractory period of the neurons in seconds
+#         :type t_ref: float, optional
+#         :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes
+#         :type Ispkthr: float, optional
+#         :param tau_ahp: Spike frequency leakage time constant in seconds
+#         :type tau_ahp: float, optional
+#         :param tau_ampa: AMPA synapse leakage time constant in seconds
+#         :type tau_ampa: float, optional
+#         :param tau_gaba: GABA synapse leakage time constant in seconds
+#         :type tau_gaba: float, optional
+#         :param tau_nmda: NMDA synapse leakage time constant in seconds
+#         :type tau_nmda: float, optional
+#         :param tau_shunt:SHUNT synapse leakage time constant in seconds
+#         :type tau_shunt: float, optional
+#         :param tau_mem: Neuron membrane leakage time constant in seconds
+#         :type tau_mem: float, optional
+#         :param Iw_0: weight bit 0 current of the neurons of the core in Amperes
+#         :type Iw_0: float
+#         :param Iw_1: weight bit 1 current of the neurons of the core in Amperes
+#         :type Iw_1: float
+#         :param Iw_2: weight bit 2 current of the neurons of the core in Amperes
+#         :type Iw_2: float
+#         :param Iw_3: weight bit 3 current of the neurons of the core in Amperes
+#         :type Iw_3: float
+#         :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes
+#         :type Iw_ahp: float
+#         :return: a `DynapSimConfig` object created from specifications
+#         :rtype: DynapSimConfig
+#         """
 
-            :param mask: the binary encoded weight mask
-            :type mask: np.ndarray
-            :param n_in: axis=0 length
-            :type n_in: int
-            :param n_rec: axis=1 length
-            :type n_rec: int
-            :return: the weight matrix
-            :rtype: np.ndarray
-            """
-            if mask is None:
-                mask = cls.poisson_mask((n_in, n_rec, 4))
-            wparam = cls.__get_weight_params(mask, attr_dict)
-            return mask, wparam.weights
+#         # Create the default maps
+#         # idx_map = cls.default_idx_map(n_rec)
+#         # core_map = Connector.core_map_from_idx_map(idx_map)
 
-        ## Get Weights
-        if w_in is None and tag_in is not None:
-            w_in_mask, w_in = get_weight(w_in_mask, tag_in, n_rec)
+#         tag_in, tag_rec = w_in.shape[0:2] if w_in is not None else None, None
+#         n_rec = w_rec.shape[0] if w_rec is not None else tag_rec
 
-        if w_rec is None:
-            w_rec_mask, w_rec = get_weight(w_rec_mask, n_rec, n_rec)
+#         # autoencoder
 
-        if w_out is None and tag_out is not None:
-            w_out = np.eye(n_rec, tag_out)
+#         # Fill the core dictionary with simulated cores generated by the SAME specifications
+#         dummy_core = DynapSimCore.from_specification(
+#             Idc=Idc,
+#             If_nmda=If_nmda,
+#             r_gain_ahp=r_gain_ahp,
+#             r_gain_ampa=r_gain_ampa,
+#             r_gain_gaba=r_gain_gaba,
+#             r_gain_nmda=r_gain_nmda,
+#             r_gain_shunt=r_gain_shunt,
+#             r_gain_mem=r_gain_mem,
+#             t_pulse_ahp=t_pulse_ahp,
+#             t_pulse=t_pulse,
+#             t_ref=t_ref,
+#             Ispkthr=Ispkthr,
+#             tau_ahp=tau_ahp,
+#             tau_ampa=tau_ampa,
+#             tau_gaba=tau_gaba,
+#             tau_nmda=tau_nmda,
+#             tau_shunt=tau_shunt,
+#             tau_mem=tau_mem,
+#             Iw_0=Iw_0,
+#             Iw_1=Iw_1,
+#             Iw_2=Iw_2,
+#             Iw_3=Iw_3,
+#             Iw_ahp=Iw_ahp,
+#         )
 
-        # Store the router as well
-        router = Router(
-            n_chips=(len(core_map) // NUM_CHIPS) + 1,
-            shape=shape,
-            core_map=core_map,
-            idx_map=idx_map,
-            w_in_mask=w_in_mask,
-            w_rec_mask=w_rec_mask,
-            w_out_mask=w_out,
-        )
+#         # attr_dict = cls.merge_cores(cores, core_map)
+#         attr_dict = dummy_core.get_full(n_rec)
 
-        _mod = cls(
-            shape=shape,
-            w_in=w_in,
-            w_rec=w_rec,
-            w_out=w_out,
-            cores=cores,
-            router=router,
-            **attr_dict,
-        )
-        return _mod
+#         def get_weight(mask: np.ndarray, n_in: int, n_rec: int) -> np.ndarray:
+#             """
+#             get_weight creates the weight matrix using the mask given
 
-    @classmethod
-    def __from_samna(
-        cls,
-        config: Union[Dynapse1Configuration, Dynapse2Configuration],
-        router_constructor: Callable[
-            [Union[Dynapse1Configuration, Dynapse2Configuration]], Router
-        ],
-        simcore_constructor: Callable[
-            [Union[Dynapse1Core, Dynapse2Core]], DynapSimCore
-        ],
-        **kwargs,
-    ) -> DynapSimConfig:
-        """
-        __from_samna is the common class factory method for Dynap-SE1 and Dynap-SE2 samna configuration objects
-        One can overwrite any simulation parameter by passing them in kwargs like (...tau_mem = 1e-3)
+#             :param mask: the binary encoded weight mask
+#             :type mask: np.ndarray
+#             :param n_in: axis=0 length
+#             :type n_in: int
+#             :param n_rec: axis=1 length
+#             :type n_rec: int
+#             :return: the weight matrix
+#             :rtype: np.ndarray
+#             """
+#             if mask is None:
+#                 mask = cls.poisson_mask((n_in, n_rec, 4))
+#             wparam = cls.__get_weight_params(mask, attr_dict)
+#             return mask, wparam.weights
 
-        :param config: the samna device configuration object
-        :type config: Union[Dynapse1Configuration, Dynapse2Configuration]
-        :param router_constructor: the device specific router constructor method
-        :type router_constructor: Callable[ [Union[Dynapse1Configuration, Dynapse2Configuration]], Router ]
-        :param simcore_constructor: the device specific simcore constructor method
-        :type simcore_constructor: Callable[ [Union[Dynapse1Core, Dynapse2Core]], DynapSimCore ]
-        :return: a DynapSimConfig object constructed using samna configuration objects
-        :rtype: DynapSimConfig
-        """
+#         ## Get Weights
+#         if w_in is None and tag_in is not None:
+#             w_in_mask, w_in = get_weight(w_in_mask, tag_in, n_rec)
 
-        router = router_constructor(config)
-        core_map = router.core_map
+#         if w_rec is None:
+#             w_rec_mask, w_rec = get_weight(w_rec_mask, n_rec, n_rec)
 
-        cores: Dict[CoreKey, DynapSimCore] = {}
+#         if w_out is None and tag_out is not None:
+#             w_out = np.eye(n_rec, tag_out)
 
-        for h, c in core_map:
-            simcore = simcore_constructor(config.chips[h].cores[c])
-            cores[(h, c)] = simcore
+#         # Store the router as well
+#         router = Router(
+#             n_chips=(len(core_map) // NUM_CHIPS) + 1,
+#             shape=shape,
+#             core_map=core_map,
+#             idx_map=idx_map,
+#             w_in_mask=w_in_mask,
+#             w_rec_mask=w_rec_mask,
+#             w_out_mask=w_out,
+#         )
 
-        # Overwrite the simulation the cores if kwargs given
-        if kwargs:
-            for key, value in kwargs.items():
-                if key in DynapSimCurrents.__annotations__:
-                    for c in cores:
-                        cores[c] = cores[c].update(key, value)
+#         _mod = cls(
+#             w_in=w_in,
+#             w_rec=w_rec,
+#             w_out=w_out,
+#             **attr_dict,
+#         )
+#         return _mod
 
-                if key in DynapSimTime.__annotations__:
-                    for c in cores:
-                        cores[c] = cores[c].update_time_constant(key, value)
+#     @classmethod
+#     def __from_samna(
+#         cls,
+#         config: Union[Dynapse1Configuration, Dynapse2Configuration],
+#         router_constructor: Callable[
+#             [Union[Dynapse1Configuration, Dynapse2Configuration]], Router
+#         ],
+#         simcore_constructor: Callable[
+#             [Union[Dynapse1Core, Dynapse2Core]], DynapSimCore
+#         ],
+#         **kwargs,
+#     ) -> DynapSimConfig:
+#         """
+#         __from_samna is the common class factory method for Dynap-SE1 and Dynap-SE2 samna configuration objects
+#         One can overwrite any simulation parameter by passing them in kwargs like (...tau_mem = 1e-3)
 
-                if key in DynapSimGain.__annotations__:
-                    for c in cores:
-                        cores[c] = cores[c].update_gain_ratio(key, value)
+#         :param config: the samna device configuration object
+#         :type config: Union[Dynapse1Configuration, Dynapse2Configuration]
+#         :param router_constructor: the device specific router constructor method
+#         :type router_constructor: Callable[ [Union[Dynapse1Configuration, Dynapse2Configuration]], Router ]
+#         :param simcore_constructor: the device specific simcore constructor method
+#         :type simcore_constructor: Callable[ [Union[Dynapse1Core, Dynapse2Core]], DynapSimCore ]
+#         :return: a DynapSimConfig object constructed using samna configuration objects
+#         :rtype: DynapSimConfig
+#         """
 
-        # Merge the cores, get the weights, return the module
-        attr_dict = cls.__merge_cores(cores, core_map)
-        w_in_param = cls.__get_weight_params(router.w_in_mask, attr_dict)
-        w_rec_param = cls.__get_weight_params(router.w_rec_mask, attr_dict)
+#         router = router_constructor(config)
+#         core_map = router.core_map
 
-        _mod = cls(
-            shape=router.shape,
-            w_in=w_in_param.weights,
-            w_rec=w_rec_param.weights,
-            w_out=router.w_out_mask,
-            cores=cores,
-            router=router,
-            **attr_dict,
-        )
+#         cores: Dict[CoreKey, DynapSimCore] = {}
 
-        return _mod
+#         for h, c in core_map:
+#             simcore = simcore_constructor(config.chips[h].cores[c])
+#             cores[(h, c)] = simcore
 
-    @classmethod
-    def from_Dynapse1Configuration(
-        cls, config: Dynapse1Configuration, **kwargs
-    ) -> DynapSimConfig:
-        """
-        from_Dynapse1Configuration is the Dynap-SE1 specific class factory method exploiting `.__from_samna()`
+#         # Overwrite the simulation the cores if kwargs given
+#         if kwargs:
+#             for key, value in kwargs.items():
+#                 if key in DynapSimCurrents.__annotations__:
+#                     for c in cores:
+#                         cores[c] = cores[c].update(key, value)
 
-        :param config: the samna configuration object
-        :type config: Dynapse1Configuration
-        :return: a DynapSimConfig object obtained using samna `Dynapse1Configuration` object
-        :rtype: DynapSimConfig
-        """
-        return cls.__from_samna(
-            config=config,
-            router_constructor=Router.from_Dynapse1Configuration,
-            simcore_constructor=DynapSimCore.from_Dynapse1Core,
-            Ispkthr=1e-6,
-            Ipulse_ahp=3.5e-7,
-            **kwargs,
-        )
+#                 if key in DynapSimTime.__annotations__:
+#                     for c in cores:
+#                         cores[c] = cores[c].update_time_constant(key, value)
 
-    @classmethod
-    def from_Dynapse2Configuration(
-        cls, config: Dynapse2Configuration, **kwargs
-    ) -> DynapSimConfig:
-        """
-        from_Dynapse2Configuration is the Dynap-SE2 specific class factory method exploiting `.__from_samna()`
+#                 if key in DynapSimGain.__annotations__:
+#                     for c in cores:
+#                         cores[c] = cores[c].update_gain_ratio(key, value)
 
-        :param config: the samna configuration object
-        :type config: Dynapse2Configuration
-        :return: a DynapSimConfig object obtained using samna `Dynapse2Configuration` object
-        :rtype: DynapSimConfig
-        """
-        return cls.__from_samna(
-            config=config,
-            router_constructor=Router.from_Dynapse2Configuration,
-            simcore_constructor=DynapSimCore.from_Dynapse2Core,
-            **kwargs,
-        )
+#         # Merge the cores, get the weights, return the module
+#         attr_dict = cls.merge_cores(cores, core_map)
+#         w_in_param = cls.__get_weight_params(router.w_in_mask, attr_dict)
+#         w_rec_param = cls.__get_weight_params(router.w_rec_mask, attr_dict)
 
-    ### --- Utilities --- ###
+#         _mod = cls(
+#             shape=router.shape,
+#             w_in=w_in_param.weights,
+#             w_rec=w_rec_param.weights,
+#             w_out=router.w_out_mask,
+#             cores=cores,
+#             router=router,
+#             **attr_dict,
+#         )
 
-    @staticmethod
-    def __get_weight_params(
-        mask: np.ndarray, attr_dict: Dict[str, np.ndarray]
-    ) -> WeightParameters:
-        """
-        __get_weight_params creates a weight parameter object using a merged attribute dictionary
+#         return _mod
 
-        :param mask: the weight mask obtained from router
-        :type mask: np.ndarray
-        :param attr_dict: a merged attribute dictioary obtained from several simulation cores
-        :type attr_dict: Dict[str, np.ndarray]
-        :return: a trainable weight parameter object
-        :rtype: WeightParameters
-        """
-        _wparam = WeightParameters(
-            Iw_0=attr_dict["Iw_0"],
-            Iw_1=attr_dict["Iw_1"],
-            Iw_2=attr_dict["Iw_2"],
-            Iw_3=attr_dict["Iw_3"],
-            mux=mask,
-        )
-        return _wparam
+#     @classmethod
+#     def from_Dynapse1Configuration(
+#         cls, config: Dynapse1Configuration, **kwargs
+#     ) -> DynapSimConfig:
+#         """
+#         from_Dynapse1Configuration is the Dynap-SE1 specific class factory method exploiting `.__from_samna()`
 
-    @staticmethod
-    def default_idx_map(size: int) -> Dict[int, NeuronKey]:
-        """
-        default_idx_map creates the default index map with a random number of neurons splitting the neurons across different cores
+#         :param config: the samna configuration object
+#         :type config: Dynapse1Configuration
+#         :return: a DynapSimConfig object obtained using samna `Dynapse1Configuration` object
+#         :rtype: DynapSimConfig
+#         """
+#         return cls.__from_samna(
+#             config=config,
+#             router_constructor=Router.from_Dynapse1Configuration,
+#             simcore_constructor=DynapSimCore.from_Dynapse1Core,
+#             Ispkthr=1e-6,
+#             Ipulse_ahp=3.5e-7,
+#             **kwargs,
+#         )
 
-        :param size: desired simulation size, the total number of neurons
-        :type size: int
-        :return: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
-        :rtype: Dict[int, NeuronKey]
-        """
+#     @classmethod
+#     def from_Dynapse2Configuration(
+#         cls, config: Dynapse2Configuration, **kwargs
+#     ) -> DynapSimConfig:
+#         """
+#         from_Dynapse2Configuration is the Dynap-SE2 specific class factory method exploiting `.__from_samna()`
 
-        h = lambda idx: idx // (NUM_CORES * NUM_NEURONS)
-        c = lambda idx: idx // NUM_NEURONS
-        n = lambda idx: idx - c(idx) * NUM_NEURONS
-        idx_map = {idx: (h(idx), c(idx), n(idx)) for idx in range(size)}
+#         :param config: the samna configuration object
+#         :type config: Dynapse2Configuration
+#         :return: a DynapSimConfig object obtained using samna `Dynapse2Configuration` object
+#         :rtype: DynapSimConfig
+#         """
+#         return cls.__from_samna(
+#             config=config,
+#             router_constructor=Router.from_Dynapse2Configuration,
+#             simcore_constructor=DynapSimCore.from_Dynapse2Core,
+#             **kwargs,
+#         )
 
-        return idx_map
+#     ### --- Utilities --- ###
 
-    @staticmethod
-    def poisson_mask(
-        shape: Tuple[int],
-        fill_rate: Union[float, List[float]] = [0.25, 0.2, 0.04, 0.06],
-        n_bits: int = 4,
-        seed: Optional[int] = None,
-    ) -> np.ndarray:
-        """
-        poisson_mask creates a three-dimensional weight mask using a poisson distribution
-        The function takes desired fill rates of the matrices and converts it to a poisson lambda.
-        The analytical solution is here:
+#     @staticmethod
+#     def __get_weight_params(
+#         mask: np.ndarray, attr_dict: Dict[str, np.ndarray]
+#     ) -> WeightParameters:
+#         """
+#         __get_weight_params creates a weight parameter object using a merged attribute dictionary
 
-        .. math ::
-            f(X=x) = \\dfrac{\\lambda^{x}\\cdot e^{-\\lambda}}{x!}
-            f(X=0) = e^{-\\lambda}
-            p = 1 - f(X=0) = 1 - e^{-\\lambda}
-            e^{-\\lambda} = 1-p
-            \\lambda = -ln(1-p) ; 0<p<1
+#         :param mask: the weight mask obtained from router
+#         :type mask: np.ndarray
+#         :param attr_dict: a merged attribute dictioary obtained from several simulation cores
+#         :type attr_dict: Dict[str, np.ndarray]
+#         :return: a trainable weight parameter object
+#         :rtype: WeightParameters
+#         """
+#         _wparam = WeightParameters(
+#             Iw_0=attr_dict["Iw_0"],
+#             Iw_1=attr_dict["Iw_1"],
+#             Iw_2=attr_dict["Iw_2"],
+#             Iw_3=attr_dict["Iw_3"],
+#             mux=mask,
+#         )
+#         return _wparam
 
-        :param shape: the three-dimensional shape of the weight matrix
-        :type shape: Tuple[int]
-        :param fill_rate: the fill rates desired to be converted to a list of posisson rates of the weights specific to synaptic-gates (3rd dimension)
-        :type fill_rate: Union[float, List[float]]
-        :param n_bits: number of weight parameter bits used
-        :type n_bits: int
-        :raises ValueError: The possion rate list given does not have the same shape with the 3rd dimension
-        :return: 3D numpy array representing a Dynap-SE connectivity matrix
-        :rtype: np.ndarray
-        """
-        np.random.seed(seed)
+#     @staticmethod
+#     def default_idx_map(size: int) -> Dict[int, NeuronKey]:
+#         """
+#         default_idx_map creates the default index map with a random number of neurons splitting the neurons across different cores
 
-        if isinstance(shape, int):
-            shape = (shape,)
+#         :param size: desired simulation size, the total number of neurons
+#         :type size: int
+#         :return: a dictionary of the mapping between matrix indexes of the neurons and their neuron keys
+#         :rtype: Dict[int, NeuronKey]
+#         """
 
-        if isinstance(fill_rate, float):
-            fill_rate = [fill_rate] * shape[-1]
+#         h = lambda idx: idx // (NUM_CORES * NUM_NEURONS)
+#         c = lambda idx: idx // NUM_NEURONS
+#         n = lambda idx: idx - c(idx) * NUM_NEURONS
+#         idx_map = {idx: (h(idx), c(idx), n(idx)) for idx in range(size)}
 
-        if len(fill_rate) != shape[-1]:
-            raise ValueError(
-                "The possion rate list given does not have the same shape with the last dimension"
-            )
+#         return idx_map
 
-        lambda_list = -np.log(1 - np.array(fill_rate))
+#     @staticmethod
+#     def poisson_mask(
+#         shape: Tuple[int],
+#         fill_rate: Union[float, List[float]] = [0.25, 0.2, 0.04, 0.06],
+#         n_bits: int = 4,
+#         seed: Optional[int] = None,
+#     ) -> np.ndarray:
+#         """
+#         poisson_mask creates a three-dimensional weight mask using a poisson distribution
+#         The function takes desired fill rates of the matrices and converts it to a poisson lambda.
+#         The analytical solution is here:
 
-        # First create a base weight matrix
-        w_shape = [s for s in shape]
-        w_shape[-1] = 1
-        columns = [np.random.poisson(l, w_shape) for l in lambda_list]
+#         .. math ::
+#             f(X=x) = \\dfrac{\\lambda^{x}\\cdot e^{-\\lambda}}{x!}
+#             f(X=0) = e^{-\\lambda}
+#             p = 1 - f(X=0) = 1 - e^{-\\lambda}
+#             e^{-\\lambda} = 1-p
+#             \\lambda = -ln(1-p) ; 0<p<1
 
-        # Scale the position mask
-        pos_mask = np.concatenate(columns, axis=-1)
-        pos_mask = np.clip(pos_mask, 0, 1)
-        weight = pos_mask * np.random.randint(0, 2 ** n_bits, shape)
+#         :param shape: the three-dimensional shape of the weight matrix
+#         :type shape: Tuple[int]
+#         :param fill_rate: the fill rates desired to be converted to a list of posisson rates of the weights specific to synaptic-gates (3rd dimension)
+#         :type fill_rate: Union[float, List[float]]
+#         :param n_bits: number of weight parameter bits used
+#         :type n_bits: int
+#         :raises ValueError: The possion rate list given does not have the same shape with the 3rd dimension
+#         :return: 3D numpy array representing a Dynap-SE connectivity matrix
+#         :rtype: np.ndarray
+#         """
+#         np.random.seed(seed)
 
-        return weight
+#         if isinstance(shape, int):
+#             shape = (shape,)
+
+#         if isinstance(fill_rate, float):
+#             fill_rate = [fill_rate] * shape[-1]
+
+#         if len(fill_rate) != shape[-1]:
+#             raise ValueError(
+#                 "The possion rate list given does not have the same shape with the last dimension"
+#             )
+
+#         lambda_list = -np.log(1 - np.array(fill_rate))
+
+#         # First create a base weight matrix
+#         w_shape = [s for s in shape]
+#         w_shape[-1] = 1
+#         columns = [np.random.poisson(l, w_shape) for l in lambda_list]
+
+#         # Scale the position mask
+#         pos_mask = np.concatenate(columns, axis=-1)
+#         pos_mask = np.clip(pos_mask, 0, 1)
+#         weight = pos_mask * np.random.randint(0, 2 ** n_bits, shape)
+
+#         return weight
 
 
 @dataclass
