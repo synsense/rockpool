@@ -11,7 +11,7 @@ E-mail : ugurcan.cakal@gmail.com
 09/11/2022
 """
 from __future__ import annotations
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Union
 
 from copy import deepcopy
 import numpy as np
@@ -276,7 +276,7 @@ def get_grid_lines(modules: List[GraphModule]) -> List[Tuple[int]]:
     # - Get the number of neurons represented at each LIF layer
     len_list = []
     for mod in modules:
-        if isinstance(mod, LIFNeuronWithSynsRealValue):
+        if isinstance(mod, (LIFNeuronWithSynsRealValue, DynapseNeurons)):
             len_list.append(len(mod.output_nodes))
 
     if not len_list:
@@ -374,7 +374,7 @@ def transformer(graph: GraphModule) -> Tuple[np.ndarray]:
     # - Enqueue input nodes
     queue: List[GraphNode] = []
     visited: List[GraphModule] = []
-    lif_layers: List[LIFNeuronWithSynsRealValue] = []
+    lif_layers: List[Union[LIFNeuronWithSynsRealValue, DynapseNeurons]] = []
     queue.extend(graph.input_nodes)
 
     ### --- Stateful BFS --- ###
@@ -391,7 +391,7 @@ def transformer(graph: GraphModule) -> Tuple[np.ndarray]:
                 queue.extend(sink.output_nodes)
 
                 # LIF layer found
-                if isinstance(sink, LIFNeuronWithSynsRealValue):
+                if isinstance(sink, (LIFNeuronWithSynsRealValue, DynapseNeurons)):
 
                     # Check state
                     if not state.lif:
