@@ -54,3 +54,11 @@ NUM_NEURONS = 256
 NUM_SYNAPSES = 64
 NUM_DESTINATION_TAGS = 4
 NUM_POISSON_SOURCES = 1024
+
+
+class DRCError(ValueError):
+    pass
+
+
+class DRCWarning(Warning, DRCError):
+    pass
