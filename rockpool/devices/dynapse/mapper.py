@@ -174,66 +174,36 @@ class DynapseGraphContainer:
         return self.simulator.Iscale
 
 
-def mapper(
-    graph: GraphModule,
-) -> Dict[str, float]:
+def mapper(graph: GraphModule, in_place=False) -> Dict[str, float]:
     """
-    mapper mapps a computational graph onto Dynap-SE2 architecture
+    mapper maps a computational graph onto Dynap-SE2 architecture.
 
-    returns a specification object which can be used to create a config object
+    It requires post-processing steps such as
+        * weight_quantization (float -> 4-bit)
+        * parameter_selection (Isyn -> I_ampa, Igaba, Inmda, Ishunt)
+        * parameter_quantization (current value -> coarse-fine : 1e-8 -> (3,75))
+        * parameter_clustering (allocates seperate cores for different groups)
+        * config (create a samna config object to deploy everything to hardware)
 
-    :param graph: _description_
+    :param graph: Any graph(constraint) aimed to be deployed to Dynap-SE2
     :type graph: GraphModule
-    :return: _description_
+    :return: a specification object which can be used to create a config object
     :rtype: Dict[str, float]
     """
 
-    w_in = None
-    w_rec = None
+    try:
+        wrapper = DynapseGraphContainer.from_graph_holder(graph)
+    except:
+        graph = transformer(deepcopy(graph)) if not in_place else transformer(graph)
+        wrapper = DynapseGraphContainer.from_graph_holder(graph)
 
-    Idc = None
-    If_nmda = None
-    Igain_ahp = None
-    Igain_ampa = None
-    Igain_gaba = None
-    Igain_nmda = None
-    Igain_shunt = None
-    Igain_mem = None
-    Ipulse_ahp = None
-    Ipulse = None
-    Iref = None
-    Ispkthr = None
-    Itau_ahp = None
-    Itau_ampa = None
-    Itau_gaba = None
-    Itau_nmda = None
-    Itau_shunt = None
-    Itau_mem = None
-    Iw_ahp = None
-    Iscale = None
-
-    return {
+    specs = {
         "mapped_graph": graph,
-        "weights_in": w_in,
-        "weights_rec": w_rec,
-        "Idc": Idc,
-        "If_nmda": If_nmda,
-        "Igain_ahp": Igain_ahp,
-        "Igain_ampa": Igain_ampa,
-        "Igain_gaba": Igain_gaba,
-        "Igain_nmda": Igain_nmda,
-        "Igain_shunt": Igain_shunt,
-        "Igain_mem": Igain_mem,
-        "Ipulse_ahp": Ipulse_ahp,
-        "Ipulse": Ipulse,
-        "Iref": Iref,
-        "Ispkthr": Ispkthr,
-        "Itau_ahp": Itau_ahp,
-        "Itau_ampa": Itau_ampa,
-        "Itau_gaba": Itau_gaba,
-        "Itau_nmda": Itau_nmda,
-        "Itau_shunt": Itau_shunt,
-        "Itau_mem": Itau_mem,
-        "Iw_ahp": Iw_ahp,
-        "Iscale": Iscale,
+        "weights_in": wrapper.w_in,
+        "weights_rec": wrapper.w_rec,
+        "Iscale": wrapper.Iscale,
     }
+
+    specs.update(wrapper.current_dict)
+
+    return specs
