@@ -64,7 +64,7 @@ def make_backward_passthrough(function: Callable) -> Callable:
 
     class Wrapper(torch.autograd.Function):
         """A torch.autograd.Function that wraps a function with a pass-through gradient."""
-
+        
         @staticmethod
         def forward(self, x):
             self.save_for_backward(x)
@@ -83,17 +83,33 @@ floor_passthrough = make_backward_passthrough(torch.floor)
 round_passthrough = make_backward_passthrough(torch.round)
 
 
-def int_quant(weights: Tensor, n_bits: int = 8):
+def int_quant(value: Tensor,
+                 n_bits: int = 8):
+    """
+    Transforms a tensor to a quantized space with a range of integer values defined by n_bits 
+    
+    Examples
 
-    max_w = torch.max(abs(weights))
-    max_w_quant = 2 ** (n_bits - 1) - 1
-    if max_w != 0:
-        scale = max_w_quant / max_w
+        >>> int_quant(torch.tensor([-1, -0.50, 0.25, 0, 0.25, 0.5, 1]), n_bits = 3)
+        tensor([-3., -2., -1.,  0.,  1.,  2.,  3.])
+
+    Args:
+        value (torch.Tensor): A Tensor of values to be quantized 
+        nbits (int): defines the maximum integer in the quantized tensor 
+
+    
+    Returns: torch.tensor: (q_value) quantized values 
+    """ 
+
+    max_value = torch.max(torch.abs(value))
+    max_value_quant = 2 ** (n_bits - 1) - 1
+    if max_value != 0:
+        scale = max_value_quant / max_value
     else:
         scale = 1
+    q_value = round_passthrough(scale * value)
 
-    q_weights = round_passthrough(scale * weights)
-    return q_weights
+    return q_value
 
 
 def stochastic_rounding(
@@ -700,27 +716,63 @@ def make_act_T_network(
     return net
 
 
-# calculating bit shift decay from time constant
-def calc_bitshift_decay(tau, dt):
-    bitsh = torch.round(torch.log2(tau / dt)).int()
-    bitsh[bitsh < 0] = 0
-    return bitsh
+# # calculating bit shift decay from time constant
+# def calc_bitshift_decay(tau, dt):
+#     """
+#     Args:
 
 
-# calculating quantized decays
-def calc_q_decay(decay):
-    dt = 1e-3
-    tau = -dt / torch.log(decay)
-    N = calc_bitshift_decay(tau, dt)
-    q_alpha = torch.tensor(1 - (1 / (2**N)))
-
-    return q_alpha
+#     Returns:
+    
+#     """
+#     bitsh = torch.round(torch.log2(tau / dt)).int()
+#     bitsh[bitsh < 0] = 0
+#     return bitsh
 
 
-#
-decay_passthrough = make_backward_passthrough(calc_q_decay)
+# # calculating quantized decays
+# def calc_q_decay(decay):
+#     dt = 1e-3
+#     tau = -dt / torch.log(decay)
+#     N = calc_bitshift_decay(tau, dt)
+#     q_alpha = torch.tensor(1 - (1 / (2**N)))
 
-# decay transformation
-def t_decay(decay):
+#     return q_alpha
+
+
+# decay_passthrough = make_backward_passthrough(calc_q_decay)
+
+
+
+# # decay transformation
+# def t_decay(decay):
+#     t_a = decay_passthrough(decay)
+#     return t_a
+
+class class_calc_q_decay():
+
+    def __init__(self,dt):
+        self.dt = dt
+
+    def calc_bitshift_decay(self,decay):
+        tau = -self.dt / torch.log(decay)
+
+        bitsh = torch.round(torch.log2(tau /self.dt)).int()
+        bitsh[bitsh < 0] = 0
+        q_alpha = torch.tensor(1 - (1 / (2**bitsh)))   
+
+        return q_alpha
+
+
+    def __call__(self, decay):
+    
+        return self.calc_bitshift_decay(decay)
+
+
+def t_decay(decay, dt = 1e-3):
+
+    fn = class_calc_q_decay(dt = dt)
+    # print(fn)
+    decay_passthrough = make_backward_passthrough(fn)
     t_a = decay_passthrough(decay)
     return t_a
