@@ -20,19 +20,16 @@ from dataclasses import dataclass
 from rockpool.graph import GraphModule, GraphNode, SetList, GraphHolder, connect_modules
 from rockpool.graph.utils import bag_graph
 
-from rockpool.devices.dynapse.default import dlayout
 from rockpool.devices.dynapse.graph import DynapseNeurons
 from rockpool.graph.graph_modules import LIFNeuronWithSynsRealValue, LinearWeights
 
-__all__ = ["mapper", "DRCError", "DRCWarning"]
-
-
-class DRCError(ValueError):
-    pass
-
-
-class DRCWarning(Warning, DRCError):
-    pass
+__all__ = [
+    "DFA_Placement",
+    "NPGrid",
+    "get_grid_lines",
+    "recurrent_modules",
+    "transformer",
+]
 
 
 @dataclass
