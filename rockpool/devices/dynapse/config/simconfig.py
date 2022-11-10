@@ -1368,9 +1368,10 @@ class DynapSimTime(DynapSimCoreHigh):
 
         return _core
 
-
     @staticmethod
-    def tau_converter(tau: FloatVector, Ut: FloatVector, kappa: FloatVector, C: FloatVector) -> FloatVector:
+    def tau_converter(
+        tau: FloatVector, Ut: FloatVector, kappa: FloatVector, C: FloatVector
+    ) -> FloatVector:
         """
         tau_converter converts a time constant to a current value or a current value to a time constant using the conversion above:
 
@@ -1493,7 +1494,9 @@ class DynapSimGain(DynapSimCoreHigh):
         return _core
 
     @staticmethod
-    def ratio_gain(Igain: Optional[FloatVector], Itau: Optional[FloatVector]) -> FloatVector:
+    def ratio_gain(
+        Igain: Optional[FloatVector], Itau: Optional[FloatVector]
+    ) -> FloatVector:
         """
         ratio_gain checks the parameters and divide Igain by Itau
 
@@ -1517,7 +1520,9 @@ class DynapSimGain(DynapSimCoreHigh):
 
     @staticmethod
     def gain_current(
-        Igain: Optional[FloatVector], r_gain: Optional[FloatVector], Itau: Optional[FloatVector]
+        Igain: Optional[FloatVector],
+        r_gain: Optional[FloatVector],
+        Itau: Optional[FloatVector],
     ) -> FloatVector:
         """
         gain_current checks the ratio and Itau to deduce Igain out of them
