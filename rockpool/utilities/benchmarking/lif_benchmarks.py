@@ -11,6 +11,7 @@ __all__ = [
     "lif_torch_benchmark",
     "lif_torch_cuda_benchmark",
     "lif_torch_cuda_graph_benchmark",
+    "lif_exodus_cuda_benchmark",
     "all_lif_benchmarks",
 ]
 
@@ -30,11 +31,11 @@ def jax_lif_nojit_benchmark():
         return bench_obj
 
     def create_fn(bench_obj):
-        (layer_size, mod, input_static) = bench_obj
+        (layer_size, _, _) = bench_obj
         LIFJax(layer_size)
 
     def evolve_fn(bench_obj):
-        (layer_size, mod, input_static) = bench_obj
+        (_, mod, input_static) = bench_obj
         mod(input_static)
 
     benchmark_title = f"LIFJax, no JIT"
@@ -59,7 +60,7 @@ def jax_lif_jit_cpu_benchmark():
 
     def create_fn(bench_obj):
         (layer_size, mod, input_static) = bench_obj
-        jax.jit(LIFJax(layer_size))
+        jax.jit(LIFJax(layer_size), backend="cpu")
 
     def evolve_fn(bench_obj):
         (layer_size, mod, input_static) = bench_obj
@@ -86,11 +87,11 @@ def jax_lif_jit_gpu_benchmark():
         return bench_obj
 
     def create_fn(bench_obj):
-        (layer_size, mod, input_static) = bench_obj
-        jax.jit(LIFJax(layer_size))
+        (layer_size, _, _) = bench_obj
+        jax.jit(LIFJax(layer_size), backend="gpu")
 
     def evolve_fn(bench_obj):
-        (layer_size, mod, input_static) = bench_obj
+        (_, mod, input_static) = bench_obj
         mod(input_static)
 
     benchmark_title = f"LIFJax, with GPU JIT compilation"
@@ -114,11 +115,11 @@ def jax_lif_jit_tpu_benchmark():
         return bench_obj
 
     def create_fn(bench_obj):
-        (layer_size, mod, input_static) = bench_obj
-        jax.jit(LIFJax(layer_size))
+        (layer_size, _, _) = bench_obj
+        jax.jit(LIFJax(layer_size), backend="tpu")
 
     def evolve_fn(bench_obj):
-        (layer_size, mod, input_static) = bench_obj
+        (_, mod, input_static) = bench_obj
         mod(input_static)
 
     benchmark_title = f"LIFJax, with TPU JIT compilation"
@@ -141,11 +142,11 @@ def lif_benchmark():
         return bench_obj
 
     def create_fn(bench_obj):
-        (layer_size, mod, input_static) = bench_obj
+        (layer_size, _, _) = bench_obj
         LIF(layer_size)
 
     def evolve_fn(bench_obj):
-        (layer_size, mod, input_static) = bench_obj
+        (_, mod, input_static) = bench_obj
         mod(input_static)
 
     benchmark_title = f"LIF with no acceleration (numpy backend)"
@@ -168,11 +169,11 @@ def lif_torch_benchmark():
         return bench_obj
 
     def create_fn(bench_obj):
-        (layer_size, mod, input_static) = bench_obj
+        (layer_size, _, _) = bench_obj
         LIFTorch(layer_size)
 
     def evolve_fn(bench_obj):
-        (layer_size, mod, input_static) = bench_obj
+        (_, mod, input_static) = bench_obj
         mod(input_static)
 
     benchmark_title = f"LIFTorch on CPU"
@@ -197,11 +198,11 @@ def lif_torch_cuda_benchmark():
         return bench_obj
 
     def create_fn(bench_obj):
-        (layer_size, mod, input_static) = bench_obj
+        (layer_size, _, _) = bench_obj
         LIFTorch(layer_size).cuda()
 
     def evolve_fn(bench_obj):
-        (layer_size, mod, input_static) = bench_obj
+        (_, mod, input_static) = bench_obj
         mod(input_static)
 
     benchmark_title = f"LIFTorch on a CUDA device"
@@ -293,13 +294,42 @@ def lif_torch_cuda_graph_benchmark():
     return prepare_fn, create_fn, evolve_fn, benchmark_title
 
 
+def lif_exodus_cuda_benchmark():
+    from rockpool.nn.modules import LIFExodus
+    import torch
+
+    assert torch.cuda.is_available(), "CUDA is required for this benchmark"
+
+    def prepare_fn(batch_size, time_steps, layer_size):
+        mod = LIFExodus(layer_size).cuda()
+        input_static = torch.randn(batch_size, time_steps, layer_size, device="cuda")
+
+        mod(input_static)
+
+        bench_obj = (layer_size, mod, input_static)
+
+        return bench_obj
+
+    def create_fn(bench_obj):
+        (layer_size, _, _) = bench_obj
+        LIFExodus(layer_size).cuda()
+
+    def evolve_fn(bench_obj):
+        (_, mod, input_static) = bench_obj
+        mod(input_static)
+
+    benchmark_title = f"LIFExodus on a CUDA device"
+
+    return prepare_fn, create_fn, evolve_fn, benchmark_title
+
 all_lif_benchmarks = [
+    lif_exodus_cuda_benchmark,
     lif_benchmark,
+    lif_torch_cuda_graph_benchmark,
+    lif_torch_cuda_benchmark,
+    lif_torch_benchmark,
     jax_lif_nojit_benchmark,
     jax_lif_jit_cpu_benchmark,
     jax_lif_jit_gpu_benchmark,
     jax_lif_jit_tpu_benchmark,
-    lif_torch_benchmark,
-    lif_torch_cuda_benchmark,
-    lif_torch_cuda_graph_benchmark,
 ]

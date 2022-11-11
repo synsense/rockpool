@@ -66,7 +66,7 @@ def benchmark_neurons(
     create_fn: Callable,
     evolve_fn: Callable,
     benchmark_desc: Optional[str] = None,
-    layer_sizes: List[int] = [1, 2, 5, 10, 20, 50, 100, 500, 1000, 2000],
+    layer_sizes: List[int] = [1, 2, 5, 10, 20, 50, 100, 500, 1000, 2000, 5000, 10000],
     num_batches: int = 10,
     num_timesteps: int = 1000,
 ) -> Tuple[List, List, List]:
@@ -122,14 +122,20 @@ def benchmark_neurons(
 
             # - Benchmark evolution
             evolution_times.append(timeit(lambda: evolve_fn(bench_obj)))
+
         except Exception as e:
             # - Fail nicely with a warning if a benchmark dies
             warnings.warn(f"Benchmarking for layer size {l_size} failed with error {str(e)}.")
-            pass
+            
+            # - No results for this run
+            creation_times.append([])
+            evolution_times.append([])
 
+    # - Build a description of the benchmark
     benchmark_desc = f"{benchmark_desc}; " if benchmark_desc is not None else ""
     benchmark_desc = f"{benchmark_desc}B = {num_batches}, T = {num_timesteps}"
 
+    # - Return benchmark results
     return creation_times, evolution_times, layer_sizes, benchmark_desc
 
 
@@ -155,10 +161,14 @@ def plot_benchmark_results(
     ax.boxplot(creation_times, labels=layer_sizes)
     ax.set_xlabel("Num. LIF neurons")
     ax.set_ylabel("Creation time (s)")
+    ax.set_yscale('log')
+    ax.set_ylim([1e-5, 1e1])
     ax.set_title(benchmark_title)
 
     ax = plt.axes() if axes is None else axes[1]
     ax.boxplot(evolution_times, labels=layer_sizes)
     ax.set_xlabel("Num. LIF neurons")
     ax.set_ylabel("Evolution time (s)")
+    ax.set_yscale('log')
+    ax.set_ylim([1e-4, 1e2])
     ax.set_title(benchmark_title)
