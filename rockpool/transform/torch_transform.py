@@ -48,6 +48,8 @@ __all__ = [
     "make_backward_passthrough",
     "make_act_T_config",
     "make_act_T_network",
+    "int_quant",
+    "t_decay",
 ]
 
 
@@ -64,7 +66,7 @@ def make_backward_passthrough(function: Callable) -> Callable:
 
     class Wrapper(torch.autograd.Function):
         """A torch.autograd.Function that wraps a function with a pass-through gradient."""
-        
+
         @staticmethod
         def forward(self, x):
             self.save_for_backward(x)
@@ -83,23 +85,22 @@ floor_passthrough = make_backward_passthrough(torch.floor)
 round_passthrough = make_backward_passthrough(torch.round)
 
 
-def int_quant(value: Tensor,
-                 n_bits: int = 8):
+def int_quant(value: Tensor, n_bits: int = 8):
     """
-    Transforms a tensor to a quantized space with a range of integer values defined by n_bits 
-    
+    Transforms a tensor to a quantized space with a range of integer values defined by n_bits
+
     Examples
 
         >>> int_quant(torch.tensor([-1, -0.50, 0.25, 0, 0.25, 0.5, 1]), n_bits = 3)
         tensor([-3., -2., -1.,  0.,  1.,  2.,  3.])
 
     Args:
-        value (torch.Tensor): A Tensor of values to be quantized 
-        nbits (int): defines the maximum integer in the quantized tensor 
+        value (torch.Tensor): A Tensor of values to be quantized
+        nbits (int): defines the maximum integer in the quantized tensor
 
-    
-    Returns: torch.tensor: (q_value) quantized values 
-    """ 
+
+    Returns: torch.tensor: (q_value) quantized values
+    """
 
     max_value = torch.max(torch.abs(value))
     max_value_quant = 2 ** (n_bits - 1) - 1
@@ -716,63 +717,71 @@ def make_act_T_network(
     return net
 
 
-# # calculating bit shift decay from time constant
-# def calc_bitshift_decay(tau, dt):
-#     """
-#     Args:
+class class_calc_q_decay:
+    """
+    function used to calculate bitshift equivalent of decay (\exp(-dt/tau))
 
+    Args:
+    decay (torch.Tensor) : alpha and beta parameters from decay parameter family of LIF neurons
+    dt (float) : Euler simulator time-step in seconds
 
-#     Returns:
-    
-#     """
-#     bitsh = torch.round(torch.log2(tau / dt)).int()
-#     bitsh[bitsh < 0] = 0
-#     return bitsh
+    Returns:
+    q_decay (torch.Tensor)
 
+    """
 
-# # calculating quantized decays
-# def calc_q_decay(decay):
-#     dt = 1e-3
-#     tau = -dt / torch.log(decay)
-#     N = calc_bitshift_decay(tau, dt)
-#     q_alpha = torch.tensor(1 - (1 / (2**N)))
-
-#     return q_alpha
-
-
-# decay_passthrough = make_backward_passthrough(calc_q_decay)
-
-
-
-# # decay transformation
-# def t_decay(decay):
-#     t_a = decay_passthrough(decay)
-#     return t_a
-
-class class_calc_q_decay():
-
-    def __init__(self,dt):
+    def __init__(self, dt):
         self.dt = dt
 
-    def calc_bitshift_decay(self,decay):
+    def calc_bitshift_decay(self, decay):
         tau = -self.dt / torch.log(decay)
 
-        bitsh = torch.round(torch.log2(tau /self.dt)).int()
+        bitsh = torch.round(torch.log2(tau / self.dt)).int()
         bitsh[bitsh < 0] = 0
-        q_alpha = torch.tensor(1 - (1 / (2**bitsh)))   
+        q_alpha = torch.tensor(1 - (1 / (2**bitsh)))
 
         return q_alpha
 
-
     def __call__(self, decay):
-    
+
         return self.calc_bitshift_decay(decay)
 
 
-def t_decay(decay, dt = 1e-3):
+def t_decay(decay: Tensor, dt: float = 1e-3):
 
-    fn = class_calc_q_decay(dt = dt)
-    # print(fn)
+    """
+    quantizes decay factor (\exp (-dt/tau)) of LIF neurons: alpha and beta respectively for Vmem and Isyn
+    the quantization is done based one converting the decay to bitshoft subtraction and reconstructing decay.
+    the trasnformation is passed to make_backward_passthrough function that applies it in the forward pass of Torch module
+
+    note: this transform can be used only if decay_training = True atleast one of LIF modules in teh network
+    Examples:
+        applying on tensors:
+        >>> alpha = torch.rand(10)
+        tensor([0.4156, 0.8306, 0.1557, 0.9475, 0.4532, 0.3585, 0.4014, 0.9380, 0.9426, 0.7212])
+        >>> tt.t_decay(alpha)
+        tensor([0.0000, 0.7500, 0.0000, 0.9375, 0.0000, 0.0000, 0.0000, 0.9375, 0.9375,
+        0.7500])
+
+        applying to decay parameter family of a network:
+
+        >>> net = Sequential(LinearTorch((2,2)), LIFTorch(2, decay_training=True))
+        >>> tconfig = tt.make_param_T_config(net, lambda p : tt.t_decay(p), 'decays')
+        : {'1_LIFTorch': {'alpha': <function <lambda> at 0x7fb32efbb280>, 'beta': <function <lambda> at 0x7fb32efbb280>}}
+        >>> T_net = make_param_T_network(net, T_config)
+            : TorchSequential  with shape (2, 2) {
+                LinearTorch '0_LinearTorch' with shape (2, 2)
+                TWrapper '1_LIFTorch' with shape (2, 2) {
+                    LIFTorch '_mod' with shape (2, 2) }}
+
+    Args:
+    decay (torch.Tensor) : alpha and beta parameters from decay parameter family of LIF neurons
+    dt (float) : Euler simulator time-step in seconds
+
+    Returns:
+    q_decay (torch.Tensor)
+
+    """
+    fn = class_calc_q_decay(dt=dt)
     decay_passthrough = make_backward_passthrough(fn)
-    t_a = decay_passthrough(decay)
-    return t_a
+    q_decay = dec
