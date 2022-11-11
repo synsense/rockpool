@@ -125,8 +125,10 @@ def benchmark_neurons(
 
         except Exception as e:
             # - Fail nicely with a warning if a benchmark dies
-            warnings.warn(f"Benchmarking for layer size {l_size} failed with error {str(e)}.")
-            
+            warnings.warn(
+                f"Benchmarking for layer size {l_size} failed with error {str(e)}."
+            )
+
             # - No results for this run
             creation_times.append([])
             evolution_times.append([])
@@ -161,7 +163,7 @@ def plot_benchmark_results(
     ax.boxplot(creation_times, labels=layer_sizes)
     ax.set_xlabel("Num. LIF neurons")
     ax.set_ylabel("Creation time (s)")
-    ax.set_yscale('log')
+    ax.set_yscale("log")
     ax.set_ylim([1e-5, 1e1])
     ax.set_title(benchmark_title)
 
@@ -169,6 +171,6 @@ def plot_benchmark_results(
     ax.boxplot(evolution_times, labels=layer_sizes)
     ax.set_xlabel("Num. LIF neurons")
     ax.set_ylabel("Evolution time (s)")
-    ax.set_yscale('log')
+    ax.set_yscale("log")
     ax.set_ylim([1e-4, 1e2])
     ax.set_title(benchmark_title)

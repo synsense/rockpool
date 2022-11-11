@@ -322,6 +322,7 @@ def lif_exodus_cuda_benchmark():
 
     return prepare_fn, create_fn, evolve_fn, benchmark_title
 
+
 all_lif_benchmarks = [
     lif_exodus_cuda_benchmark,
     lif_benchmark,
