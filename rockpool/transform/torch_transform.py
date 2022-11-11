@@ -784,4 +784,5 @@ def t_decay(decay: Tensor, dt: float = 1e-3):
     """
     fn = class_calc_q_decay(dt=dt)
     decay_passthrough = make_backward_passthrough(fn)
-    q_decay = dec
+    q_decay = decay_passthrough(decay)
+    return q_decay
