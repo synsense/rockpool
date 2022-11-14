@@ -24,7 +24,7 @@ See Also:
      - :py:mod:`~rockpool.devices.xylo.syns65300`
      - Xylo Audio v1. Two synapses per neuron. Includes Analog audio front-end core and Xylo SNN core. Includes AFE simulation modules.
    * - SYNS61201
-     - :py:mod:`~rockpool.devices.xylo.61201`
+     - :py:mod:`~rockpool.devices.xylo.syns61201`
      - Xylo Audio v2. Two synapses per neuron. Includes Analog audio front-end core and Xylo SNN core. Includes divisive normalisation simulation modules. Includes AFE simulation modules.
 """
 
