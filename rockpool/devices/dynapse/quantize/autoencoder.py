@@ -94,6 +94,9 @@ def autoencoder_quantization(
 
     ### --- Initial Object Construction --- ###
 
+    if not isinstance(Iscale, float):
+        raise ValueError("Iscale should be float!")
+
     __handler = WeightHandler(weights_in, weights_rec)
     __encoder = DigitalAutoEncoder(__handler.w_flat.size, n_bits)
 
@@ -171,10 +174,11 @@ def autoencoder_quantization(
         "sign_in": __handler.sign_in,
         "weights_rec": qw_rec,
         "sign_rec": __handler.sign_rec,
-        "Iw": np.array(code) * Iscale / __scale_factor,
+        "Iw": np.array(code) * Iscale / np.array(__scale_factor),
+        "quantization_loss": rec_loss[-1],
     }
 
-    return spec, np.array(rec_loss)
+    return spec
 
 
 def __run_for(
