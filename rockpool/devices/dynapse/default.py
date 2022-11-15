@@ -9,6 +9,8 @@ E-mail : ugurcan.cakal@gmail.com
 [] TODO : merge with definitions
 """
 
+from rockpool.devices.dynapse.definitions import NUM_CORES, NUM_CHIPS
+
 Itau_lambda = (
     lambda name: (
         (dlayout["Ut"] / ((dlayout["kappa_p"] + dlayout["kappa_n"]) / 2))
@@ -87,3 +89,6 @@ dcurrents = {
     "Itau_mem": Itau_lambda("mem"),
     "Iw_ahp": 1e-9,
 }
+
+CHIP_MAP = {i: i // NUM_CORES for i in range(NUM_CORES * NUM_CHIPS)}
+CHIP_POS = {0: (1, 0), 1: (2, 0), 3: (3, 0), 4: (4, 0)}
