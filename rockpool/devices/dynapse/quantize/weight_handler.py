@@ -54,7 +54,7 @@ class WeightHandler:
         :raises ValueError: Weight matrix provided does not have a proper shape! It should be 2-dimensional with (pre,post)!
         """
 
-        self.shape_in, self.shape_out = None, None
+        self.shape_in, self.shape_rec, self.shape_out = None, None, None
 
         if self.weights_in is not None:
             self.shape_in = self.weights_in.shape
@@ -67,11 +67,16 @@ class WeightHandler:
 
         ## Mutually exclusive setting is possible between in&rec and global
         if self.weights_global is None:
-            if self.weights_in is None or self.weights_rec is None:
+            if self.weights_in is None and self.weights_rec is None:
                 raise ValueError(
-                    "If weights is not defined, input and recurrent weights should be given!"
+                    "If weights is not defined, input or recurrent weights should be given!"
                 )
-            self.weights_global = np.vstack((self.weights_in, self.weights_rec))
+            if self.weights_in is None:
+                self.weights_global = self.weights_rec
+            elif self.weights_rec is None:
+                self.weights_global = self.weights_in
+            else:
+                self.weights_global = np.vstack((self.weights_in, self.weights_rec))
 
         else:
             if self.weights_in is not None or self.weights_rec is not None:
@@ -140,12 +145,14 @@ class WeightHandler:
         np.place(w_shaped, self.nonzero_mask, w_flat)
 
         # Split the matrix into input and recurrent
-        w_in = w_shaped[0 : self.shape_in[0], :]
-        w_rec = w_shaped[self.shape_in[0] :, :]
+        w_in = w_shaped[0 : self.shape_in[0], :] if self.shape_in is not None else None
+        w_rec = (
+            w_shaped[-self.shape_rec[0] :, :] if self.shape_rec is not None else None
+        )
 
         # Make sure that the shape is correct
-        assert w_in.shape == self.shape_in
-        assert w_rec.shape == self.shape_rec
+        # assert w_in.shape == self.shape_in
+        # assert w_rec.shape == self.shape_rec
 
         return w_in, w_rec
 
