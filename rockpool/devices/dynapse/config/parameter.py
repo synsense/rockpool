@@ -43,4 +43,4 @@ from rockpool.graph.graph_modules import LIFNeuronWithSynsRealValue, LinearWeigh
 #     **kwargs
 # ):
 
-    # for key, val in kwargs.items():
+# for key, val in kwargs.items():
