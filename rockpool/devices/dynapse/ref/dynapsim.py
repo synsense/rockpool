@@ -61,7 +61,7 @@ from rockpool.devices.dynapse.config.simconfig import (
     DynapSimWeightBits,
 )
 from rockpool.devices.dynapse.default import dlayout, dweight, dtime, dgain, dcurrents
-from rockpool.devices.dynapse.config.weights import WeightParameters
+from rockpool.devices.dynapse.ref.weights import WeightParameters
 from rockpool.devices.dynapse.definitions import DynapSimRecord, DynapSimState
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
