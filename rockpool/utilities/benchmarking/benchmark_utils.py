@@ -165,6 +165,7 @@ def plot_benchmark_results(
     ax.set_ylabel("Creation time (s)")
     ax.set_yscale("log")
     ax.set_ylim([1e-5, 1e1])
+    ax.yaxis.grid(linestyle='--')
     ax.set_title(benchmark_title)
 
     ax = plt.axes() if axes is None else axes[1]
@@ -173,4 +174,5 @@ def plot_benchmark_results(
     ax.set_ylabel("Evolution time (s)")
     ax.set_yscale("log")
     ax.set_ylim([1e-4, 1e2])
+    ax.yaxis.grid(linestyle='--')
     ax.set_title(benchmark_title)
