@@ -217,7 +217,7 @@ class WeightParameters:
         :return: the mean square error loss between the output and the target + bound violation penatly
         :rtype: float
         """
-        
+
         # - Assign the provided parameters to the network
         net = self.ae.set_attributes(parameters)
         output, code, bitmask = net(self.w_flat)
@@ -387,7 +387,9 @@ class WeightParameters:
 
         ## Update intmask
         intmask_flat = self.multiplex_bitmask(self.ae.n_code, self.ae.bitmask)
-        intmask_round = jnp.round(self.intmask.at[self.idx_nonzero].set(intmask_flat)).astype(int)
+        intmask_round = jnp.round(
+            self.intmask.at[self.idx_nonzero].set(intmask_flat)
+        ).astype(int)
         self.intmask = jnp.clip(intmask_round, 0, None)
 
         ## Update Iws
@@ -451,8 +453,12 @@ class WeightParameters:
         :return: mean square error loss between the bitmask found and the bitmap reconstructed after encoding decoding
         :rtype: float
         """
-        intmask = WeightParameters.multiplex_bitmask(n_bits, bitmask).round().astype(int)
-        bitmask_reconstructed = WeightParameters.quantize_intmask(n_bits, intmask).astype(float)
+        intmask = (
+            WeightParameters.multiplex_bitmask(n_bits, bitmask).round().astype(int)
+        )
+        bitmask_reconstructed = WeightParameters.quantize_intmask(
+            n_bits, intmask
+        ).astype(float)
         penalty = l.mse(bitmask, bitmask_reconstructed)
 
         return penalty
@@ -552,7 +558,9 @@ class WeightParameters:
         intmask_ext = jnp.full((n_bits, *intmask.shape), intmask)  # (n_bits,shape)
 
         # Indexes of the IDs to be selected in bits list
-        bitmask = jnp.bitwise_and(intmask_ext.T, pattern).T.astype(bool)  # (n_bits,shape)
+        bitmask = jnp.bitwise_and(intmask_ext.T, pattern).T.astype(
+            bool
+        )  # (n_bits,shape)
         return bitmask
 
     @staticmethod
