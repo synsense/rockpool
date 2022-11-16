@@ -15,12 +15,12 @@ References
     doi: 10.1109/JPROC.2014.2313954.
 
 [2] C. Bartolozzi and G. Indiveri, “Synaptic dynamics in analog vlsi,” Neural
-    Comput., vol. 19, no. 10, p. 2581–2603, Oct. 2007. [Online]. Available:
+    Comput., vol. 19, no. 10, p. 2581-2603, Oct. 2007. [Online]. Available:
     https://doi.org/10.1162/neco.2007.19.10.2581
 
 [3] P. Livi and G. Indiveri, “A current-mode conductance-based silicon neuron for
     address-event neuromorphic systems,” in 2009 IEEE International Symposium on
-    Circuits and Systems, May 2009, pp. 2898–2901
+    Circuits and Systems, May 2009, pp. 2898-2901
 
 [4] Dynap-SE1 Neuromorphic Chip Simulator for NICE Workshop 2021
     https://code.ini.uzh.ch/yigit/NICE-workshop-2021
@@ -59,16 +59,12 @@ import numpy as np
 
 from rockpool.devices.dynapse.default import dlayout, dweight, dcurrents
 from rockpool.devices.dynapse.definitions import DynapSimRecord, DynapSimState
-
+from rockpool.devices.dynapse.graph import DynapseNeurons
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.nn.modules.native.linear import kaiming
 from rockpool.parameters import Parameter, State, SimulationParameter
 from rockpool.graph import GraphHolder, LinearWeights, as_GraphHolder
-
-from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1Configuration
-from rockpool.devices.dynapse.samna_alias.dynapse2 import Dynapse2Configuration
-from rockpool.devices.dynapse.graph import DynapseNeurons
 
 
 @jax.custom_jvp
