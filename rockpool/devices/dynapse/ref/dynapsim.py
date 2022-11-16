@@ -388,7 +388,7 @@ class DynapSim(JaxModule):
 
         # - Seed RNG
         if rng_key is None:
-            rng_key = rand.PRNGKey(np.random.randint(0, 2 ** 63))
+            rng_key = rand.PRNGKey(np.random.randint(0, 2**63))
 
         ### --- States --- ####
         __state = lambda init_func: State(

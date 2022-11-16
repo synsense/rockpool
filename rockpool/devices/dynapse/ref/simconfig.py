@@ -1192,7 +1192,7 @@ class DynapSimConfig(DynapSimCore):
         # Scale the position mask
         pos_mask = np.concatenate(columns, axis=-1)
         pos_mask = np.clip(pos_mask, 0, 1)
-        weight = pos_mask * np.random.randint(0, 2 ** n_bits, shape)
+        weight = pos_mask * np.random.randint(0, 2**n_bits, shape)
 
         return weight
 

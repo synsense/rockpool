@@ -471,7 +471,7 @@ class WeightParameters:
         if __name == "mux" and __value is not None:
             __value = jnp.array(__value)
             if hasattr(self, "code_length") and self.code_length is not None:
-                if (__value > (2 ** self.code_length - 1)).any():
+                if (__value > (2**self.code_length - 1)).any():
                     raise ValueError(
                         "Mux includes elements exceeding the coding capacity!"
                     )
