@@ -57,7 +57,7 @@ def autoencoder_quantization(
     opt_params: Optional[Dict[str, Any]] = {},
     *args,
     **kwargs,
-) -> Tuple[Dict[str, np.ndarray], np.ndarray]:
+) -> Dict[str, Union[np.ndarray, float]]:
     """
     autoencoder_quantization is a utility function to use the autoencoder quantization approach
     in deployment pipelines. One can experiment with the parameters to control the autoencoder training.
@@ -85,11 +85,9 @@ def autoencoder_quantization(
     :param step_size: positive scalar, or a callable representing a step size schedule that maps the iteration index to a positive scalar. , defaults to 1e-4
     :type step_size: Union[float, Callable[[int], float]], optional
     :param opt_params: optimizer parameters dictionary, defaults to {}
-    :type opt_params: Optional[Dict[str, Any]], optional
-    :return: spec, rec_loss
-        :spec: quantized weights and parameters
-        :rec_loss: the full loss record over the epochs in the case that record_loss = True
-    :rtype: Tuple[Dict[str, np.ndarray], np.ndarray]
+    :type opt_params: Optional[Dict[str, Any]]
+    :return: A dictionary of quantized weights and parameters, the quantization loss
+    :rtype: Dict[str, Union[np.ndarray, float]]
     """
 
     ### --- Initial Object Construction --- ###
@@ -170,12 +168,12 @@ def autoencoder_quantization(
     ### --- Return --- ###
 
     spec = {
-        "weights_in": qw_in,
-        "sign_in": __handler.sign_in,
-        "weights_rec": qw_rec,
-        "sign_rec": __handler.sign_rec,
+        "weights_in": np.array(qw_in),
+        "sign_in": np.array(__handler.sign_in),
+        "weights_rec": np.array(qw_rec),
+        "sign_rec": np.array(__handler.sign_rec),
         "Iw": np.array(code) * Iscale / np.array(__scale_factor),
-        "quantization_loss": rec_loss[-1],
+        "quantization_loss": float(rec_loss[-1]),
     }
 
     return spec
