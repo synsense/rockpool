@@ -54,7 +54,7 @@ class WeightHandler:
         :raises ValueError: Weight matrix provided does not have a proper shape! It should be 2-dimensional with (pre,post)!
         """
 
-        self.shape_in, self.shape_rec, self.shape_out = None, None, None
+        self.shape_in, self.shape_rec = None, None
 
         if self.weights_in is not None:
             self.shape_in = self.weights_in.shape
@@ -67,14 +67,18 @@ class WeightHandler:
 
         ## Mutually exclusive setting is possible between in&rec and global
         if self.weights_global is None:
+            # Neither w_in nor w_rec
             if self.weights_in is None and self.weights_rec is None:
                 raise ValueError(
                     "If weights is not defined, input or recurrent weights should be given!"
                 )
-            if self.weights_in is None:
+            # Only w_rec
+            elif self.weights_in is None:
                 self.weights_global = self.weights_rec
+            # Only w_in
             elif self.weights_rec is None:
                 self.weights_global = self.weights_in
+            # Both w_in and w_rec
             else:
                 self.weights_global = np.vstack((self.weights_in, self.weights_rec))
 
@@ -149,10 +153,6 @@ class WeightHandler:
         w_rec = (
             w_shaped[-self.shape_rec[0] :, :] if self.shape_rec is not None else None
         )
-
-        # Make sure that the shape is correct
-        # assert w_in.shape == self.shape_in
-        # assert w_rec.shape == self.shape_rec
 
         return w_in, w_rec
 
