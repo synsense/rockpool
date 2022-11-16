@@ -23,8 +23,8 @@ class SampleGenerator:
     """
     SampleGenerator creates a signal including two pulses and one result representing
     a temporal XOR task. The signal can be temporally shaped using the parameters.
-    
-    0 ^ 0 = 0 :   
+
+    0 ^ 0 = 0 :
     __    __    ______
       |__|  |__|
 
@@ -39,7 +39,7 @@ class SampleGenerator:
     ____________|  |__
 
     1 ^ 0 = 1 :
-       __    
+       __
     __|  |__    ______
             |__|
                  __
@@ -51,9 +51,9 @@ class SampleGenerator:
 
     ____________    __
                 |__|
-    
 
-    :Signal Schudule:                       
+
+    :Signal Schudule:
                         ________________                                                                ________________
                        |                |                                                              |                |
      margin + delay[0] | pulse_width[0] | min_pulse_delay + delay[1]                    response_delay | response_width | margin + <rest>
@@ -61,7 +61,7 @@ class SampleGenerator:
                                                                      |                |
                                                                      | pulse_width[1] |
                                                                      |________________|
-    :Parameters:        
+    :Parameters:
 
     :param num_samples: number of samples produced, defaults to 100
     :type num_samples: int, optional
@@ -161,7 +161,7 @@ class SampleGenerator:
     def logical_xor(self) -> np.ndarray:
         """
         logic builts the logic behind the temporal xor task. It creates a batch of instances
-        
+
         :return: signed xor sample with 2 inputs and 1 output (num_samples, 3)
         :rtype: np.ndarray
         """
@@ -174,7 +174,7 @@ class SampleGenerator:
     def gaussian_filter(self) -> np.ndarray:
         """
         gaussian_filter creates a gaussian filter given the sigma value for smoothing purposes
-        
+
         .. math ::
 
             \\dfrac{1}{\\sqrt{2\\pi \\sigma^{2}}} \\text{exp} \\left( -\\dfrac{(x-\\mu)^{2}}{2\\sigma^{2}}   \\right)
@@ -240,7 +240,11 @@ class SampleGenerator:
         return pulse_width, delay
 
     def input_signal(
-        self, intro: int, pulse_width: np.ndarray, pulse_delay: int, sign: np.ndarray,
+        self,
+        intro: int,
+        pulse_width: np.ndarray,
+        pulse_delay: int,
+        sign: np.ndarray,
     ) -> np.ndarray:
         """
         input_signal creates the input signal with two square-wave pulses
@@ -279,7 +283,7 @@ class SampleGenerator:
                          ________________
                         |                |
          response_delay | response_width | outro
-        ________________|                |_________        
+        ________________|                |_________
 
         :param outro: the idle time passed after the response wave ends in number of timesteps
         :type outro: int
@@ -303,19 +307,19 @@ class SampleGenerator:
     ) -> np.ndarray:
         """
         pad_sample applies padding to the input signal and the response signal in order to have equal length signals.
-            
+
             Padded input and the response signal
                      __
             __    __|  |______
               |__|
                          __
             ____________|  |__
-        
+
         :param input_signal: the input xor signal
         :type input_signal: np.ndarray
         :param response_signal: the xor gate response signal
         :type response_signal: np.ndarray
-        :return: a training instance including an input signal and the expected response (2,n_sample_length) 
+        :return: a training instance including an input signal and the expected response (2,n_sample_length)
         :rtype: np.ndarray
         """
         # Get the paddings
@@ -336,7 +340,7 @@ class SampleGenerator:
 
         :param idx: the sample index
         :type idx: int
-        :return: a training instance including an input signal and the expected response (2,n_sample_length) 
+        :return: a training instance including an input signal and the expected response (2,n_sample_length)
         :rtype: np.ndarray
         """
         sign = self.logic[idx]
@@ -357,7 +361,7 @@ class SampleGenerator:
     def batch(self, offset: int = 0, size: Optional[int] = None) -> np.ndarray:
         """
         batch creates a batch of raw samples and then applies gaussian filter
-        
+
         :param offset: the read index start offset, defaults to 0
         :type offset: int, optional
         :param size: the size of the sample batch, should be smaller than or equal to the number of samples, defaults to None
@@ -410,7 +414,10 @@ class TemporalXORData:
     """
 
     def __init__(
-        self, *args, train_val_test: np.ndarray = [0.88, 0.1, 0.02], **kwargs,
+        self,
+        *args,
+        train_val_test: np.ndarray = [0.88, 0.1, 0.02],
+        **kwargs,
     ) -> None:
         """
         __init__ Initialize ``TemporalXORData`` module. Parameters are explained in the class docstring.
@@ -543,7 +550,7 @@ class TemporalXORData:
         """
         save_disk creates a database consisting of train, validation and tests sets of temporal xor samples
         with input and response signals, then save this to the disk. If free memory space is small, then
-        memory batch option provides an opportunity to create the samples in batches then saving to the disk 
+        memory batch option provides an opportunity to create the samples in batches then saving to the disk
         in append mode
 
         :param hdf5_path: the file path for the newly generated hdf5 database
@@ -588,7 +595,7 @@ class TemporalXORData:
         i.e. [100, 100, 88] means that in the first iteration, 100 samples
         are fitted to the memory, in second 100, in the last 88.
 
-        :param num_samples: the total number of samples 
+        :param num_samples: the total number of samples
         :type num_samples: int
         :batch_size: the desired batch_size
         :type batch_size: int
@@ -717,7 +724,7 @@ class TemporalXOR(Dataset):
     :type memory_batch: Optional[int], optional
 
     :Instance Variables:
-    
+
     :ivar subset: the name of the subset in database : "train", "val", or "test"
     :type subset: str
     :ivar data_file: h5py file opened for easy access
@@ -743,9 +750,9 @@ class TemporalXOR(Dataset):
         super(TemporalXOR, self).__init__(
             save_to, transform=transform, target_transform=target_transform
         )
-        
+
         if self._check_exists() and (len(args) > 0 or len(kwargs) > 0):
-        # If any input found in *arg or in **kwargs, then delete the existing database and re-create
+            # If any input found in *arg or in **kwargs, then delete the existing database and re-create
             os.remove(os.path.join(self.location_on_system, self.filename))
 
         if not self._check_exists():
@@ -852,6 +859,7 @@ class TemporalXOR(Dataset):
         """
         _check_exists checks if the hdf5 data file present in the expected location
         """
-        return self._is_file_present() and self._folder_contains_at_least_n_files_of_type(
-            1, self.extension
+        return (
+            self._is_file_present()
+            and self._folder_contains_at_least_n_files_of_type(1, self.extension)
         )
