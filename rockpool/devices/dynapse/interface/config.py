@@ -383,7 +383,7 @@ class WeightAllocator:
 
         # Fill the core mask
         for key in target_cores:
-            mask = [cid in target_cores[key] for cid in reverse_chip_map[key]]
+            mask = [cid in target_cores[key] for cid in sorted(reverse_chip_map[key])]
             target_cores[key] = mask
 
         return target_cores
