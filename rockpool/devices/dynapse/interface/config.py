@@ -313,10 +313,38 @@ class WeightAllocator:
         return placement[0], placement[1]
 
     @staticmethod
-    def sram_set(
-        dest: Dynapse2Destination, tag, core, x_hop, y_hop
+    def sram_entry(
+        core: Optional[List[bool]] = None,
+        x_hop: Optional[int] = None,
+        y_hop: Optional[int] = None,
+        tag: Optional[int] = None,
     ) -> Dynapse2Destination:
-        None
+        """
+        sram_entry constructs a ``Dynapse2Destinaton`` object and updates its data segment if the parameters are provided
+
+       :param core: the core mask used while sending the events, defaults to None
+            [1,1,1,1] means all 4 cores are on the target
+            [0,0,1,0] means the event will arrive at core 2 only
+        :type core: Optional[List[bool]], optional
+        :param x_hop: number of chip hops on x axis, defaults to None
+        :type x_hop: Optional[int], optional
+        :param y_hop: number of chip hops on y axis, defaults to None
+        :type y_hop: Optional[int], optional
+        :param tag: globally multiplexed locally unique event tag which is used to identify the connection between two neurons, defaults to None
+        :type tag: Optional[int], optional
+        :return: a real ``Dynapse2Destination`` samna object
+        :rtype: Dynapse2Destination
+        """
+        dest = samna.dynapse2.Dynapse2Destination()
+        if core is not None:
+            dest.core = core
+        if x_hop is not None:
+            dest.x_hop = x_hop
+        if y_hop is not None:
+            dest.y_hop = y_hop
+        if tag is not None:
+            dest.tag = tag
+        return dest
 
     @staticmethod
     def cam_entry(
