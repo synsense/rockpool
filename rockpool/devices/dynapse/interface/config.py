@@ -300,17 +300,35 @@ class WeightAllocator:
 
         return target_cores
 
-    def get_direction(self, source: int, destination: int) -> Tuple[int]:
-        source_core = self.core_map[source]
-        destination_core = self.core_map[destination]
+    @staticmethod
+    def manhattan(
+        dest_chip: int,
+        source_chip: int,
+        chip_pos: Optional[Dict[int, Tuple[int]]] = None,
+    ) -> Tuple[int]:
+        """
+        manhattan calculates the manhattan distance between two chips installed on the system
 
-        source_chip = self.chip_map[source_core]
-        destination_chip = self.chip_map[destination_core]
-
-        placement = np.array(self.chip_pos[destination_chip]) - np.array(
-            self.chip_pos[source_chip]
-        )
-        return placement[0], placement[1]
+        :param dest_chip: destination chip ID
+        :type dest_chip: int
+        :param source_chip: source chip ID
+        :type source_chip: int
+        :param chip_pos: chip position dictionary
+        :type chip_pos: Dict[int, Tuple[int]]
+        :return: x_hop, y_hop
+            :x_hop: number of chip hops on x axis
+            :y_hop: number of chip hops on y axis
+        :rtype: Tuple[int]
+        """
+        if dest_chip == source_chip:
+            return (0, 0)
+        elif chip_pos is None:
+            raise ValueError("More than one chip! Provide position dictionary!")
+        else:
+            dest_position = np.array(chip_pos[dest_chip])
+            source_position = np.array(chip_pos[source_chip])
+            distance = dest_position - source_position
+            return (distance[0], distance[1])
 
     @staticmethod
     def sram_entry(
