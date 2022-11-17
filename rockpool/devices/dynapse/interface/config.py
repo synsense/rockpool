@@ -416,6 +416,7 @@ class WeightAllocator:
         x_hop: Optional[int] = None,
         y_hop: Optional[int] = None,
         tag: Optional[int] = None,
+        use_samna: bool = False,
     ) -> Dynapse2Destination:
         """
         sram_entry constructs a ``Dynapse2Destinaton`` object and updates its data segment if the parameters are provided
@@ -430,18 +431,23 @@ class WeightAllocator:
         :type y_hop: Optional[int], optional
         :param tag: globally multiplexed locally unique event tag which is used to identify the connection between two neurons, defaults to None
         :type tag: Optional[int], optional
-        :return: a real ``Dynapse2Destination`` samna object
+        :param use_samna: use original samna package or the alias version, defaults to True
+        :type use_samna: bool, optional
+        :return: a configured ``Dynapse2Destination`` object
         :rtype: Dynapse2Destination
         """
-        dest = samna.dynapse2.Dynapse2Destination()
-        if core is not None:
-            dest.core = core
-        if x_hop is not None:
-            dest.x_hop = x_hop
-        if y_hop is not None:
-            dest.y_hop = y_hop
-        if tag is not None:
-            dest.tag = tag
+        if use_samna:
+            dest = samna.dynapse2.Dynapse2Destination()
+            if core is not None:
+                dest.core = core
+            if x_hop is not None:
+                dest.x_hop = x_hop
+            if y_hop is not None:
+                dest.y_hop = y_hop
+            if tag is not None:
+                dest.tag = tag
+        else:
+            dest = Dynapse2Destination(core, x_hop, y_hop, tag)
         return dest
 
     @staticmethod
@@ -449,6 +455,7 @@ class WeightAllocator:
         dendrite: Optional[Dendrite] = None,
         weight: Optional[List[bool]] = None,
         tag: Optional[int] = None,
+        use_samna: bool = False,
     ) -> Dynapse2Synapse:
         """
         cam_entry constructs a ``Dynapse2Synapse`` object and updates its data segment if the parameters are provided
@@ -459,16 +466,29 @@ class WeightAllocator:
         :type weight: Optional[List[bool]], optional
         :param tag: the virtual address, defaults to None
         :type tag: Optional[int], optional
-        :return: a real ``Dynapse2Synapse`` samna object
+        :param use_samna: use original samna package or the alias version, defaults to True
+        :type use_samna: bool, optional
+        :return: a configured ``Dynapse2Synapse`` samna object
         :rtype: Dynapse2Synapse
         """
-        syn = samna.dynapse2.Dynapse2Synapse()
-        if dendrite is not None:
-            syn.dendrite = dendrite
-        if weight is not None:
-            syn.weight = weight
-        if tag is not None:
-            syn.tag = tag
+
+        if use_samna:
+            syn = samna.dynapse2.Dynapse2Synapse()
+            if dendrite is not None:
+                syn.dendrite = dendrite
+            if weight is not None:
+                syn.weight = weight
+            if tag is not None:
+                syn.tag = tag
+        else:
+            syn = Dynapse2Synapse(
+                dendrite=dendrite,
+                stp=False,
+                weight=weight,
+                precise_delay=False,
+                mismatched_delay=False,
+                tag=tag,
+            )
         return syn
 
 
