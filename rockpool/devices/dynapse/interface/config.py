@@ -319,12 +319,31 @@ class WeightAllocator:
         None
 
     @staticmethod
-    def cam_set(
-        syn: Dynapse2Synapse, tag: int, dendrite: Dendrite, weight: int
+    def cam_entry(
+        dendrite: Optional[Dendrite] = None,
+        weight: Optional[List[bool]] = None,
+        tag: Optional[int] = None,
     ) -> Dynapse2Synapse:
-        syn.tag = tag
-        # syn.dendrite = dendrite
-        syn.weight = weight
+        """
+        cam_entry constructs a ``Dynapse2Synapse`` object and updates its data segment if the parameters are provided
+
+        :param dendrite: the type of the dendrite, AMPA, GABA, NMDA, SHUNT and NONE are options, defaults to None
+        :type dendrite: Optional[Dendrite], optional
+        :param weight: 4 bit weight mask chosing the base weight parameters, defaults to None
+        :type weight: Optional[List[bool]], optional
+        :param tag: the virtual address, defaults to None
+        :type tag: Optional[int], optional
+        :return: a real ``Dynapse2Synapse`` samna object
+        :rtype: Dynapse2Synapse
+        """
+        syn = samna.dynapse2.Dynapse2Synapse()
+        if dendrite is not None:
+            syn.dendrite = dendrite
+        if weight is not None:
+            syn.weight = weight
+        if tag is not None:
+            syn.tag = tag
+        return syn
 
 
 def config_from_specification(
