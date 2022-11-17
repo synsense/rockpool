@@ -137,37 +137,55 @@ class WeightAllocator:
         return vtag_list, rtag_list, otag_list
 
     def CAM_content(
-        self, num_synapses: int = NUM_SYNAPSES
+        self, num_synapses: int = NUM_SYNAPSES, num_bits: int = 4
     ) -> Dict[int, List[Dynapse2Synapse]]:
-        content = {
-            nrec: [samna.dynapse2.Dynapse2Synapse() for _ in range(num_synapses)]
-            for nrec in range(self.n_neuron)
-        }
-        syn_counter = [0 for _ in range(self.n_neuron)]
+        """
+        CAM_content reads the weight matrices and generates required CAM entries
 
+        :param num_synapses: maximum number of synapses to be stored per neuron, defaults to NUM_SYNAPSES
+        :type num_synapses: int, optional
+        :param num_bits: the number of bits allocated per weight, defaults to 4
+        :type num_bits: int, optional
+        :raises DRCError: Maximum SRAM capacity exceeded!
+        :return: a dictionary of CAM entries of neurons (neuron_id : CAM content)
+        :rtype: Dict[int, List[Dynapse2Synapse]]
+        """
+
+        # Input
         if self.weights_in is not None:
-            for nin in range(self.n_in):
-                for nrec in range(self.n_neuron):
-                    if self.weights_in[nin][nrec] > 0:
-                        self.cam_set(
-                            content[nrec][syn_counter[nrec]],
-                            tag=self.virtual_tags[nin],
-                            dendrite=None,
-                            weight=self.w_in_bool[nrec][nin],
-                        )
-                        syn_counter[nrec] += 1
+            content_in = self.matrix_to_synapse(
+                self.weights_in, self.sign_in, self.virtual_tags, num_synapses, num_bits
+            )
+        else:
+            content_in = {}
 
+        # Recurrent
         if self.weights_rec is not None:
-            for row in range(self.n_neuron):
-                for nrec in range(self.n_neuron):
-                    if self.weights_rec[row][nrec] > 0:
-                        self.cam_set(
-                            content[nrec][syn_counter[nrec]],
-                            tag=self.recurrent_tags[row],
-                            dendrite=None,
-                            weight=self.w_rec_bool[nrec][row],
-                        )
-                        syn_counter[nrec] += 1
+            content_rec = self.matrix_to_synapse(
+                self.weights_rec,
+                self.sign_rec,
+                self.recurrent_tags,
+                num_synapses,
+                num_bits,
+            )
+        else:
+            content_rec = {}
+
+        # Merge input and recurrent routing information together
+        content = {nrec: [] for nrec in range(self.n_neuron)}
+
+        for nrec in range(self.n_neuron):
+            temp = []
+            if nrec in content_in:
+                temp.extend(content_in[nrec])
+            if nrec in content_rec:
+                temp.extend(content_rec[nrec])
+            # Fill the rest with empty destinations
+            if len(temp) <= num_synapses:
+                temp.extend([self.cam_entry() for _ in range(num_synapses - len(temp))])
+                content[nrec] = temp
+            else:
+                raise DRCError("Maximum SRAM capacity exceeded!")
 
         return content
 
