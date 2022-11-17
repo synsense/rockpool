@@ -458,9 +458,6 @@ class WeightAllocator:
         :return: a Dynap-SE2 dendrite type
         :rtype: Dendrite
         """
-
-        if not isinstance(sign, int):
-            raise TypeError("sign has to be an integer!")
         if sign > 0:
             return Dendrite.ampa
         elif sign < 0:
