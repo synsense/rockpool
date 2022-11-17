@@ -83,10 +83,10 @@ class WeightAllocator:
 
         self.__shape_check()
         self.tag_list = (
-            np.array(range(NUM_TAGS)) if self.tag_list is None else self.tag_list
+            np.array(range(NUM_TAGS))
+            if self.tag_list is None
+            else np.array(self.tag_list)
         )
-        if len(self.core_map) != self.n_neuron:
-            raise DRCError("Core map does not match the number of neurons!")
 
         self.n_chip = len(set(self.chip_map.values()))
         self.w_in_bool = (
