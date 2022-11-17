@@ -287,6 +287,7 @@ class WeightAllocator:
         pre_core_map: Dict[int, int],
         post_core_map: Dict[int, int],
         chip_map: Dict[int, int],
+        chip_pos: Dict[int, Tuple[int]],
         tag_list: List[int],
         num_dest: int = NUM_DEST,
     ) -> Dict[int, List[Dynapse2Destination]]:
@@ -301,6 +302,8 @@ class WeightAllocator:
         :type post_core_map: Dict[int, int]
         :param chip_map: global chip map (core_id : chip_id)
         :type chip_map: Dict[int, int]
+        :param chip_pos: global chip position dictionary (chip_id : (xpos,ypos))
+        :type chip_pos: Dict[int, int]
         :param tag_list: neuron-tag mapping (neuron_id : tag) which maps the neurons to their virtual addresses
         :type tag_list: List[int]
         :param num_dest: maximum number of destinations, defaults to NUM_DEST
@@ -336,7 +339,9 @@ class WeightAllocator:
             if dest_dict:
                 source_chip = chip_map[pre_core_map[pre]]
                 for dest_chip, core_mask in dest_dict.items():
-                    x_hop, y_hop = WeightAllocator.manhattan(dest_chip, source_chip)
+                    x_hop, y_hop = WeightAllocator.manhattan(
+                        dest_chip, source_chip, chip_pos
+                    )
                 if len(content[pre]) < num_dest:
                     content[pre].append(
                         WeightAllocator.sram_entry(
