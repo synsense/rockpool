@@ -330,7 +330,8 @@ class WeightAllocator:
 def config_from_specification(
     weights_in: Optional[IntVector],
     weights_rec: Optional[IntVector],
-    Iscale: FloatVector,
+    sign_in: Optional[IntVector],
+    sign_rec: Optional[IntVector],
     If_nmda: FloatVector,
     Itau_syn: FloatVector,
     Ispkthr: FloatVector,
@@ -344,8 +345,6 @@ def config_from_specification(
     Idc: FloatVector,
     Iw_ahp: FloatVector,
     Iref: FloatVector,
-    sign_in: Optional[IntVector],
-    sign_rec: Optional[IntVector],
     Iw: FloatVector,
     chip_map: Dict[int, int],
     chip_pos: Dict[int, Tuple[int]],
@@ -393,11 +392,3 @@ def config_from_specification(
     )
 
     return core.export_Dynapse2Parameters()
-
-
-def save_config(*args, **kwargs) -> Any:
-    None
-
-
-def load_config(*args, **kwargs) -> Any:
-    None
