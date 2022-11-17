@@ -227,6 +227,55 @@ class WeightAllocator:
 
         return content
 
+    @staticmethod
+    def matrix_to_synapse(
+        matrix: np.ndarray,
+        sign: np.ndarray,
+        tag_list: List[int],
+        num_synapses: int = NUM_SYNAPSES,
+        num_bits: int = 4,
+    ) -> Dict[int, List[Dynapse2Synapse]]:
+        """
+        matrix_to_synapse interprets the given weight matrix and generates a list of synapses to be stored in neural CAMs
+
+        :param matrix: the weight matrix representing the connectivity structure
+        :type matrix: np.ndarray
+        :param sign: the sign matrix labeling the connections as synaptic gate type (AMPA-GABA)
+        :type sign: np.ndarray
+        :param tag_list: neuron-tag mapping (neuron_id : tag) which maps the neurons to their virtual addresses
+        :type tag_list: List[int]
+        :param num_synapses: maximum number of synapses to be stored per neuron, defaults to NUM_SYNAPSES
+        :type num_synapses: int, optional
+        :param num_bits: number of weight bits, defaults to 4
+        :type num_bits: int, optional
+        :raises DRCError: Maximum synapse limit per neuron reached!
+        :return: a dictionary of CAM entries per neuron
+        :rtype: Dict[int, List[Dynapse2Synapse]]
+        """
+
+        n_pre, n_post = matrix.shape
+        content = {n_post: [] for n_post in range(n_post)}
+
+        # post, pre, bits
+        mem_matrix = WeightHandler.int2bit_mask(num_bits, matrix).T
+
+        # Convert the weight matrix content to CAM content
+        for pre in range(n_pre):
+            for post in range(n_post):
+                ## Identify the synapses
+                if matrix[pre][post] > 0:
+                    if len(content[post]) < num_synapses:
+                        content[post].append(
+                            WeightAllocator.cam_entry(
+                                WeightAllocator.get_dendrite(sign[pre][post]),
+                                mem_matrix[post][pre],
+                                tag_list[pre],
+                            )
+                        )
+                    else:
+                        raise DRCError("Maximum synapse limit per neuron reached!")
+
+        return content
 
     @staticmethod
     def matrix_to_destination(
@@ -256,7 +305,7 @@ class WeightAllocator:
         :param num_dest: maximum number of destinations, defaults to NUM_DEST
         :type num_dest: int, optional
         :raises DRCError: Maximum destination limit reached!
-        :return: a dictionary of SRAM entries
+        :return: a dictionary of SRAM entries per neuron
         :rtype: Dict[int, List[Dynapse2Destination]]
         """
 
