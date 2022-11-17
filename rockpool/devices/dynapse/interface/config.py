@@ -282,21 +282,38 @@ class WeightAllocator:
 
         return content
 
-    def destinate(
-        self, core_list: List[int], core_per_chip: int = 4
+    @staticmethod
+    def mask_cores(
+        core_list: List[int], chip_map: Dict[int, int]
     ) -> Dict[int, List[bool]]:
+        """
+        mask_cores gets a core list and converts it into a chip id & coremask representaion
 
-        modifier = 0
-        target_cores = {ch: [] for ch in range(self.n_chip)}
+        :param core_list: the list of global core ids
+        :type core_list: List[int]
+        :param chip_map: global chip map (core_id : chip_id)
+        :type chip_map: Dict[int, int]
+        :return: dictionary of destination chips and the coremask to be applied to them
+        :rtype: Dict[int, List[bool]]
+        """
+
+        target_cores: Dict[int, List[bool]] = {}
+        reverse_chip_map: Dict[int, List[int]] = {v: [] for v in set(chip_map.values())}
+        for k, v in chip_map.items():
+            reverse_chip_map[v].append(k)
+
+        # - Get a chip & core list
         for core in core_list:
-            if core not in target_cores[self.chip_map[core]]:
-                target_cores[self.chip_map[core]].append(core)
+            chip = chip_map[core]
+            if chip not in target_cores:
+                target_cores[chip] = [core]
+            elif core not in target_cores[chip]:
+                target_cores[chip].append(core)
 
+        # Fill the core mask
         for key in target_cores:
-            mask = np.array([False for _ in range(core_per_chip)])
-            mask[np.array(target_cores[key]) + modifier] = True
-            target_cores[key] = mask.tolist()
-            modifier -= 4
+            mask = [cid in target_cores[key] for cid in reverse_chip_map[key]]
+            target_cores[key] = mask
 
         return target_cores
 
