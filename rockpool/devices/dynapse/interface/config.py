@@ -322,7 +322,7 @@ class WeightAllocator:
         """
         sram_entry constructs a ``Dynapse2Destinaton`` object and updates its data segment if the parameters are provided
 
-       :param core: the core mask used while sending the events, defaults to None
+        :param core: the core mask used while sending the events, defaults to None
             [1,1,1,1] means all 4 cores are on the target
             [0,0,1,0] means the event will arrive at core 2 only
         :type core: Optional[List[bool]], optional
