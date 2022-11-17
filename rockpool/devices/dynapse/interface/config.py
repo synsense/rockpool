@@ -430,7 +430,7 @@ class WeightAllocator:
         if use_samna:
             syn = samna.dynapse2.Dynapse2Synapse()
             if dendrite is not None:
-                syn.dendrite = dendrite
+                syn.dendrite = samna.dynapse2.Dendrite(dendrite)
             if weight is not None:
                 syn.weight = weight
             if tag is not None:
