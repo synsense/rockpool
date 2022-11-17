@@ -130,7 +130,21 @@ class WeightAllocator:
         else:
             raise ValueError("Unexpected Error Occurded!")
 
-    def tag_selector(self) -> None:
+    def tag_selector(self) -> Tuple[List[int]]:
+        """
+        tag_selector separates the tag space as virtual, recurrent and output tags
+
+        :raises DRCError: There are not enough tags to support network implementation!
+        :return: vtag_list, rtag_list, otag_list
+            :vtag_list: virtual tags available
+            :rtag_list: recurrent tags available
+            :otag_list: output tags available
+        :rtype: Tuple[List[int]]
+        """
+        if self.n_in + 2 * self.n_neuron > len(self.tag_list):
+            raise DRCError(
+                "There are not enough tags to support network implementation!"
+            )
         vtag_list = self.tag_list[: self.n_in]
         rtag_list = self.tag_list[self.n_in : self.n_in + self.n_neuron]
         otag_list = self.tag_list[-self.n_neuron :]
