@@ -280,6 +280,69 @@ class WeightAllocator:
                         y_hop=directions[0],
                     )
 
+
+    @staticmethod
+    def matrix_to_destination(
+        matrix: np.ndarray,
+        pre_core_map: Dict[int, int],
+        post_core_map: Dict[int, int],
+        chip_map: Dict[int, int],
+        tag_map: Dict[int, int],
+    ) -> Dict[int, List[Dynapse2Destination]]:
+        """
+        matrix_to_destination interprets a given weight matrix and generates a list of destinations to be stored in SRAMs
+
+        :param matrix: the weight matrix representing the connectivity structure
+        :type matrix: np.ndarray
+        :param pre_core_map: core map (neuron_id : core_id) for the pre-synaptic neurons (axis 0)
+        :type pre_core_map: Dict[int, int]
+        :param post_core_map: core map (neuron_id : core_id) for the post-synaptic neurons (axis 1)
+        :type post_core_map: Dict[int, int]
+        :param chip_map: global chip map (core_id : chip_id)
+        :type chip_map: Dict[int, int]
+        :param tag_map: neuron-tag dictionary (neuron_id : tag) which maps the neurons to their virtual addresses
+        :type tag_map: Dict[int, int]
+        :raises DRCError: DRCError: Maximum destination limit reached!
+        :return: a dictionary of SRAM entries
+        :rtype: Dict[int, List[Dynapse2Destination]]
+        """
+
+        n_pre, n_post = matrix.shape
+
+        # pre neurons send events to several post locations
+        content = {pre: [] for pre in range(n_pre)}
+        dest_cores: List[List[int]] = [[] for _ in range(n_pre)]
+        dest_chips: List[Dict[int, List[bool]]] = [{} for _ in range(n_pre)]
+
+        # - Get a list of destination cores of the pre-neurons
+        for pre in range(n_pre):
+            for post in range(n_post):
+                ## Identify destination cores
+                if matrix[pre][post] > 0:
+                    if post_core_map[post] not in dest_cores[pre]:
+                        dest_cores[pre].append(post_core_map[post])
+
+        # - Convert a list of destination cores to chip and core mask pairs
+        for i, core_list in enumerate(dest_cores):
+            dest_chips[i] = (
+                WeightAllocator.mask_cores(core_list, chip_map) if core_list else {}
+            )
+
+        # - Find the number of hops between source and destination chips and fill the mem content
+        for pre, dest_dict in enumerate(dest_chips):
+            if dest_dict:
+                source_chip = chip_map[pre_core_map[pre]]
+                for dest_chip, core_mask in dest_dict.items():
+                    x_hop, y_hop = WeightAllocator.manhattan(dest_chip, source_chip)
+                if len(content[pre]) < NUM_DEST:
+                    content[pre].append(
+                        WeightAllocator.sram_entry(
+                            core_mask, x_hop, y_hop, tag_map[pre]
+                        )
+                    )
+                else:
+                    raise DRCError("Maximum destination limit reached!")
+
         return content
 
     @staticmethod
