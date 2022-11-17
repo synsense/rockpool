@@ -90,5 +90,5 @@ dcurrents = {
     "Iw_ahp": 1e-9,
 }
 
-CHIP_MAP = {i: i // NUM_CORES for i in range(NUM_CORES * NUM_CHIPS)}
-CHIP_POS = {0: (1, 0), 1: (2, 0), 3: (3, 0), 4: (4, 0)}
+CHIP_MAP = {i: i // NUM_CORES for i in range(-NUM_CORES, NUM_CORES * NUM_CHIPS)}
+CHIP_POS = {-1: (0, 0), 0: (1, 0), 1: (2, 0), 3: (3, 0), 4: (4, 0)}
