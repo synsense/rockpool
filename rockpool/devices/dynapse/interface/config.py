@@ -89,17 +89,20 @@ class WeightAllocator:
         )
 
         self.n_chip = len(set(self.chip_map.values()))
+
         self.w_in_bool = (
             WeightHandler.int2bit_mask(4, self.weights_in).T
             if self.weights_in is not None
             else None
         )  # neuron, connection, bits
+
         self.w_rec_bool = (
             WeightHandler.int2bit_mask(4, self.weights_rec).T
             if self.weights_rec is not None
             else None
         )  # neuron, connection, bits
-        self.virtual_tags, self.recurrent_tags = self.__tag_selector()
+
+        self.virtual_tags, self.recurrent_tags, self.output_tags = self.tag_selector()
 
     def __shape_check(self) -> None:
         if self.weights_in is None and self.weights_rec is None:
@@ -128,8 +131,8 @@ class WeightAllocator:
         elif self.weights_rec is not None:
             self.weights_rec = np.array(self.weights_rec)
             self.sign_rec = np.array(self.sign_rec)
-            self.n_neuron = self.weights_rec.shape[1]
             self.n_in = self.weights_rec.shape[0]
+            self.n_neuron = self.weights_rec.shape[1]
             if self.weights_rec.shape != self.sign_rec.shape:
                 raise DRCError(
                     "Recurrent sign shape does not match the recurrent weight shape!"
