@@ -457,6 +457,30 @@ class WeightAllocator:
             )
         return syn
 
+    @staticmethod
+    def get_dendrite(sign: int) -> Dendrite:
+        """
+        get_dendrite takes a sign and returns a type of dendrite (AMPA or GABA supported now)
+
+        :param sign: an integer number
+        :type sign: int
+        :raises TypeError: sign has to be an integer!
+        :raises ValueError: Data provided could not recognized!
+        :return: a Dynap-SE2 dendrite type
+        :rtype: Dendrite
+        """
+
+        if not isinstance(sign, int):
+            raise TypeError("sign has to be an integer!")
+        if sign > 0:
+            return Dendrite.ampa
+        elif sign < 0:
+            return Dendrite.gaba
+        elif sign == 0:
+            return Dendrite.none
+        else:
+            raise ValueError("Data provided could not recognized!")
+
 
 def config_from_specification(
     weights_in: Optional[IntVector],
