@@ -287,7 +287,8 @@ class WeightAllocator:
         pre_core_map: Dict[int, int],
         post_core_map: Dict[int, int],
         chip_map: Dict[int, int],
-        tag_map: Dict[int, int],
+        tag_list: List[int],
+        num_dest: int = NUM_DEST,
     ) -> Dict[int, List[Dynapse2Destination]]:
         """
         matrix_to_destination interprets a given weight matrix and generates a list of destinations to be stored in SRAMs
@@ -300,8 +301,10 @@ class WeightAllocator:
         :type post_core_map: Dict[int, int]
         :param chip_map: global chip map (core_id : chip_id)
         :type chip_map: Dict[int, int]
-        :param tag_map: neuron-tag dictionary (neuron_id : tag) which maps the neurons to their virtual addresses
-        :type tag_map: Dict[int, int]
+        :param tag_list: neuron-tag mapping (neuron_id : tag) which maps the neurons to their virtual addresses
+        :type tag_list: List[int]
+        :param num_dest: maximum number of destinations, defaults to NUM_DEST
+        :type num_dest: int, optional
         :raises DRCError: DRCError: Maximum destination limit reached!
         :return: a dictionary of SRAM entries
         :rtype: Dict[int, List[Dynapse2Destination]]
@@ -334,10 +337,10 @@ class WeightAllocator:
                 source_chip = chip_map[pre_core_map[pre]]
                 for dest_chip, core_mask in dest_dict.items():
                     x_hop, y_hop = WeightAllocator.manhattan(dest_chip, source_chip)
-                if len(content[pre]) < NUM_DEST:
+                if len(content[pre]) < num_dest:
                     content[pre].append(
                         WeightAllocator.sram_entry(
-                            core_mask, x_hop, y_hop, tag_map[pre]
+                            core_mask, x_hop, y_hop, tag_list[pre]
                         )
                     )
                 else:
