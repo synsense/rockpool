@@ -360,15 +360,16 @@ class Dynapse2Destination(SamnaAlias):
         :raises ValueError: Cannot reach beyond +-7 chips in y axis
         :raises ValueError: Illegal tag!
         """
-        self.core = list(map(lambda e: bool(e), self.core))
-        if len(self.core) != 4:
-            raise ValueError("Core mask requires 4 entries!")
-        if abs(self.x_hop) > 7:
+        if self.core is not None:
+            self.core = list(map(lambda e: bool(e), self.core)) 
+            if len(self.core) != 4:
+                raise ValueError("Core mask requires 4 entries!")
+        if self.x_hop is not None and abs(self.x_hop) > 7:
             raise ValueError("Cannot reach beyond +-7 chips in x axis")
-        if abs(self.y_hop) > 7:
+        if self.y_hop is not None and abs(self.y_hop) > 7:
             raise ValueError("Cannot reach beyond +-7 chips in y axis")
-        if self.tag > 2048 or self.tag < 0:
-            raise ValueError("Illegal tag!")
+        if self.tag is not None and (self.tag > 2048 or self.tag < 0):
+                raise ValueError("Illegal tag!")
 
     @classmethod
     def from_samna(cls, obj: Any) -> Dynapse2Destination:
@@ -1066,9 +1067,10 @@ class Dynapse2Synapse(SamnaAlias):
     tag: int
 
     def __post_init__(self):
-        self.weight = list(map(lambda e: bool(e), self.weight))
-        if len(self.weight) != 4:
-            raise ValueError("Weight mask requires 4 entries!")
+        if self.weight is not None:
+            self.weight = list(map(lambda e: bool(e), self.weight))
+            if len(self.weight) != 4:
+                raise ValueError("Weight mask requires 4 entries!")
 
     @classmethod
     def from_samna(cls, obj: Any) -> Dynapse2Synapse:
