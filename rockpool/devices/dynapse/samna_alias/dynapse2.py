@@ -361,7 +361,7 @@ class Dynapse2Destination(SamnaAlias):
         :raises ValueError: Illegal tag!
         """
         if self.core is not None:
-            self.core = list(map(lambda e: bool(e), self.core)) 
+            self.core = list(map(lambda e: bool(e), self.core))
             if len(self.core) != 4:
                 raise ValueError("Core mask requires 4 entries!")
         if self.x_hop is not None and abs(self.x_hop) > 7:
@@ -369,7 +369,7 @@ class Dynapse2Destination(SamnaAlias):
         if self.y_hop is not None and abs(self.y_hop) > 7:
             raise ValueError("Cannot reach beyond +-7 chips in y axis")
         if self.tag is not None and (self.tag > 2048 or self.tag < 0):
-                raise ValueError("Illegal tag!")
+            raise ValueError("Illegal tag!")
 
     @classmethod
     def from_samna(cls, obj: Any) -> Dynapse2Destination:
