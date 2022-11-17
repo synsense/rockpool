@@ -91,18 +91,6 @@ class WeightAllocator:
 
         self.n_chip = len(set(self.chip_map.values()))
 
-        self.w_in_bool = (
-            WeightHandler.int2bit_mask(4, self.weights_in).T
-            if self.weights_in is not None
-            else None
-        )  # neuron, connection, bits
-
-        self.w_rec_bool = (
-            WeightHandler.int2bit_mask(4, self.weights_rec).T
-            if self.weights_rec is not None
-            else None
-        )  # neuron, connection, bits
-
         self.virtual_tags, self.recurrent_tags, self.output_tags = self.tag_selector()
 
     def __shape_check(self) -> None:
