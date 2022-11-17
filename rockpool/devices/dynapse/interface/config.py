@@ -190,20 +190,11 @@ class WeightAllocator:
         else:
             raise ValueError("Unexpected Error Occurded!")
 
-    def __tag_selector(self) -> None:
-        vtag_start = 0
-        vtag_idx = (
-            list(range(vtag_start, self.weights_in.shape[0]))
-            if self.weights_in is not None
-            else []
-        )
-        rtag_start = vtag_idx[-1] if vtag_idx else 0
-        rtag_idx = (
-            list(range(rtag_start, self.weights_rec.shape[0]))
-            if self.weights_rec is not None
-            else []
-        )
-        return self.tag_list[vtag_idx], self.tag_list[rtag_idx]
+    def tag_selector(self) -> None:
+        vtag_list = self.tag_list[: self.n_in]
+        rtag_list = self.tag_list[self.n_in : self.n_in + self.n_neuron]
+        otag_list = self.tag_list[-self.n_neuron :]
+        return vtag_list, rtag_list, otag_list
 
     def CAM_content(
         self, num_synapses: int = NUM_SYNAPSES
