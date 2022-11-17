@@ -243,42 +243,58 @@ class WeightAllocator:
     def SRAM_content(
         self, num_dest: int = NUM_DEST
     ) -> Dict[int, List[Dynapse2Destination]]:
+        """
+        SRAM_content reads the weight matrices and generates required SRAM entries
 
-        content = {
-            nrec: [Dynapse2Destination([0, 0, 0, 0], 0, 0, 0) for _ in range(num_dest)]
-            for nrec in range(self.n_neuron)
-        }
-        dest_counter = [0 for _ in range(self.n_neuron)]
-        dest_core_list = [[] for _ in range(self.n_neuron)]
-        dest_list: List[Dict[int, List[bool]]] = [{} for _ in range(self.n_neuron)]
+        :param num_dest: maximum number of destinations to be stored per neuron, defaults to NUM_DEST
+        :type num_dest: int, optional
+        :raises DRCError: Maximum SRAM capacity exceeded!
+        :return: a dictionary of SRAM entries of neurons (neuron_id : SRAM content)
+        :rtype: Dict[int, List[Dynapse2Destination]]
+        """
 
+        # - Internal routing
         if self.weights_rec is not None:
-            for nrec in range(self.n_neuron):
-                for col in range(self.n_neuron):
-                    ## Destination cores
-                    if self.weights_rec[nrec][col] > 0:
-                        if self.core_map[col] not in dest_core_list[nrec]:
-                            dest_core_list[nrec].append(self.core_map[col])
-                            dest_counter[nrec] += 1
+            content_rec = self.matrix_to_destination(
+                self.weights_rec,
+                self.core_map,
+                self.core_map,
+                self.chip_map,
+                self.chip_pos,
+                self.recurrent_tags,
+                num_dest,
+            )
+        else:
+            content_rec = {}
 
-            for i, core_list in enumerate(dest_core_list):
-                dest_list[i] = self.destinate(core_list) if core_list else {}
+        # Output Routing
+        content_out = self.matrix_to_destination(
+            np.eye(self.n_neuron),
+            self.core_map,
+            dict(zip(self.core_map.keys(), np.full(len(self.core_map), -1))),
+            self.chip_map,
+            self.chip_pos,
+            self.output_tags,
+            num_dest,
+        )
 
-            for nrec in range(self.n_neuron):
-                source_chip = self.chip_map[self.core_map[nrec]]
-                for d, (destination_chip, core_map) in enumerate(
-                    dest_list[nrec].items()
-                ):
-                    directions = np.array(self.chip_pos[destination_chip]) - np.array(
-                        self.chip_pos[source_chip]
-                    )
-                    self.sram_set(
-                        content[nrec][d],
-                        tag=self.recurrent_tags[nrec],
-                        core=core_map,
-                        x_hop=directions[0],
-                        y_hop=directions[0],
-                    )
+        # Merge recurrent routing information and output together
+        content = {nrec: [] for nrec in range(self.n_neuron)}
+
+        for nrec in range(self.n_neuron):
+            temp = []
+            if nrec in content_rec:
+                temp.extend(content_rec[nrec])
+            if nrec in content_out:
+                temp.extend(content_out[nrec])
+            # Fill the rest with empty destinations
+            if len(temp) <= num_dest:
+                temp.extend([self.sram_entry() for _ in range(num_dest - len(temp))])
+                content[nrec] = temp
+            else:
+                raise DRCError("Maximum SRAM capacity exceeded!")
+
+        return content
 
 
     @staticmethod
