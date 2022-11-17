@@ -255,7 +255,7 @@ class WeightAllocator:
         :type tag_list: List[int]
         :param num_dest: maximum number of destinations, defaults to NUM_DEST
         :type num_dest: int, optional
-        :raises DRCError: DRCError: Maximum destination limit reached!
+        :raises DRCError: Maximum destination limit reached!
         :return: a dictionary of SRAM entries
         :rtype: Dict[int, List[Dynapse2Destination]]
         """
