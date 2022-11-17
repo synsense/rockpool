@@ -67,68 +67,16 @@ def __get_num_cores(config: Dynapse2Configuration) -> int:
     return n_cores
 
 
-# def config_from_specification(
-#     config: Optional[Dynapse2Configuration] = None,
-#     weights_in: Optional[np.ndarray] = None, # 4-bit
-#     weights_rec: Optional[np.ndarray] = None, # 4-bit
-#     weights_out: Optional[np.ndarray] = None, # 1-bit
-#     # gain params
-#     r_gain_ahp: Union[float, np.ndarray, None] = dgain["r_gain_ahp"],
-#     r_gain_ampa: Union[float, np.ndarray, None] = dgain["r_gain_ampa"],
-#     r_gain_gaba: Union[float, np.ndarray, None] = dgain["r_gain_gaba"],
-#     r_gain_nmda: Union[float, np.ndarray, None] = dgain["r_gain_nmda"],
-#     r_gain_shunt: Union[float, np.ndarray, None] = dgain["r_gain_shunt"],
-#     r_gain_mem: Union[float, np.ndarray, None] = dgain["r_gain_mem"],
-#     ## time params
-#     t_pulse_ahp: Union[float, np.ndarray, None] = dtime["t_pulse_ahp"],
-#     t_pulse: Union[float, np.ndarray, None] = dtime["t_pulse"],
-#     t_ref: Union[float, np.ndarray, None] = dtime["t_ref"],
-#     ## tau params
-#     tau_ahp: Union[float, np.ndarray, None] = dtime["tau_ahp"],
-#     tau_ampa: Union[float, np.ndarray, None] = dtime["tau_ampa"],
-#     tau_gaba: Union[float, np.ndarray, None] = dtime["tau_gaba"],
-#     tau_nmda: Union[float, np.ndarray, None] = dtime["tau_nmda"],
-#     tau_shunt: Union[float, np.ndarray, None] = dtime["tau_shunt"],
-#     tau_mem: Union[float, np.ndarray, None] = dtime["tau_mem"],
-#     ## weight params
-#     Iw_0: Union[float, np.ndarray, None] = dweight["Iw_0"],
-#     Iw_1: Union[float, np.ndarray, None] = dweight["Iw_1"],
-#     Iw_2: Union[float, np.ndarray, None] = dweight["Iw_2"],
-#     Iw_3: Union[float, np.ndarray, None] = dweight["Iw_3"],
-#     Iw_ahp: Union[float, np.ndarray, None] = dcurrents["Iw_ahp"],
-#     Ispkthr: Union[float, np.ndarray, None] = dcurrents["Ispkthr"],
-#     If_nmda: Union[float, np.ndarray, None] = dcurrents["If_nmda"],
-#     Idc: Union[float, np.ndarray, None] = dcurrents["Idc"],
-#     *args,
-#     **kwargs
-# ) -> Dynapse2Configuration:
-
-#     if config is None:
-#         config = samna.dynapse2.Dynapse2Configuration() if SAMNA_AVAILABLE else None
-#         logging.warn(
-#             "Fetch the samna object from the actual device and provide ``config = model.get_configuration()``!"
-#         )
-
-#     # get number of cores available
-#     n_cores = __get_num_cores(config)
-
-
-#     # Set Parameters
-
-#     # Set Memory
-
-#     return config
-
-
 @dataclass
 class WeightAllocator:
+
     weights_in: Optional[IntVector]
     weights_rec: Optional[IntVector]
     sign_in: Optional[IntVector]
     sign_rec: Optional[IntVector]
     core_map: Dict[int, int]
-    chip_map = CHIP_MAP
-    chip_pos = CHIP_POS
+    chip_map: Dict[int, int] = field(default_factory=lambda: CHIP_MAP)
+    chip_pos: Dict[int, Tuple[int]] = field(default_factory=lambda: CHIP_POS)
     tag_list: Optional[IntVector] = None
 
     def __post_init__(self) -> None:
