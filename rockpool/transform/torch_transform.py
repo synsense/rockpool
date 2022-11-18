@@ -85,9 +85,7 @@ floor_passthrough = make_backward_passthrough(torch.floor)
 round_passthrough = make_backward_passthrough(torch.round)
 
 
-def int_quant(value: Tensor, 
-    maintain_zero: bool = True,
-    n_bits: int = 8):
+def int_quant(value: Tensor, maintain_zero: bool = True, n_bits: int = 8):
     """
     Transforms a tensor to a quantized space with a range of integer values defined by n_bits
 
@@ -105,7 +103,7 @@ def int_quant(value: Tensor,
     """
     if not maintain_zero:
         l = value.max() - value.min()
-        value = value - (l/2)
+        value = value - (l / 2)
 
     max_value = torch.max(torch.abs(value))
     max_value_quant = 2 ** (n_bits - 1) - 1
