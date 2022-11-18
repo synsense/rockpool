@@ -85,18 +85,28 @@ floor_passthrough = make_backward_passthrough(torch.floor)
 round_passthrough = make_backward_passthrough(torch.round)
 
 
-def int_quant(value: Tensor, maintain_zero: bool = True, n_bits: int = 8):
+def int_quant(
+    value: Tensor,
+    maintain_zero: bool = True,
+    map_to_max: bool = False,
+    n_bits: int = 8,
+    max_n_bits: int = 8,
+):
     """
     Transforms a tensor to a quantized space with a range of integer values defined by n_bits
 
     Examples
 
-        >>> int_quant(torch.tensor([-1, -0.50, 0.25, 0, 0.25, 0.5, 1]), n_bits = 3)
+        >>> int_quant(torch.tensor([-1, -0.50, 0.25, 0, 0.25, 0.5, 1]), n_bits = 3,  map_to_max = False)
         tensor([-3., -2., -1.,  0.,  1.,  2.,  3.])
-
+        >>> int_quant(torch.tensor([-1, -0.50, 0.25, 0, 0.25, 0.5, 1]), n_bits = 3, map_to_max = True)
+        tensor([-127.,  -64.,   32.,    0.,   32.,   64.,  127.])
     Args:
         value (torch.Tensor): A Tensor of values to be quantized
+        maintain_zero (bool): If ``True``, ensure that input values of zero map to zero in the output space (Default: ``True``). If ``False``, the output range may shift zero w.r.t. the input range.
+        map_to_max (bool): If True the integer values in the quantized output are mapped to the extremes of bitdepth
         nbits (int): defines the maximum integer in the quantized tensor
+        max_n_bits (int): maximum allowed bitdepth
 
 
     Returns: torch.tensor: (q_value) quantized values
@@ -112,6 +122,11 @@ def int_quant(value: Tensor, maintain_zero: bool = True, n_bits: int = 8):
         scale = max_value_quant / max_value
     else:
         scale = 1
+
+    if map_to_max:
+        max_range = 2 ** (max_n_bits - 1) - 1
+        scale *= max_range / max_value_quant
+
     q_value = round_passthrough(scale * value)
 
     return q_value
@@ -171,7 +186,7 @@ def stochastic_rounding(
         input_range (Optional[List]): If defined, a specific input range to use (``[min_value, max_value]``), as floating point numbers. If ``None`` (default), use the range of input values to define the input range.
         output_range (Optional[List]): If defined, a specific output range to use (``[min_value, max_value]``), as floating point numbers. If ``None`` (default), use the range of input values to define the input range.
         num_levels (int): The number of output levels to quantise to (Default: ``2**8``)
-        maintain_zero (bool): Iff ``True``, ensure that input values of zero map to zero in the output space (Default: ``True``). If ``False``, the output range may shift zero w.r.t. the input range.
+        maintain_zero (bool): If ``True``, ensure that input values of zero map to zero in the output space (Default: ``True``). If ``False``, the output range may shift zero w.r.t. the input range.
 
     Returns:
         torch.Tensor: Floating point stochastically rounded values
