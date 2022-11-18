@@ -267,6 +267,12 @@ def test_int_quant():
     rounded_levels = int_quant(value, maintain_zero=False, n_bits=nbit)
     assert rounded_levels.min() == -N_max
 
+    max_n_bits = 8
+    max_range = 2 ** (nbit - 1) - 1
+    rounded_levels = int_quant(value, maintain_zero=False, map_to_max=True, n_bits=nbit)
+    assert rounded_levels.min() == -max_range
+    assert rounded_levels.max() == max_range
+
 
 @check_torch_ver
 def net_test_int_quant():
