@@ -23,7 +23,7 @@ from rockpool.devices.dynapse.samna_alias.dynapse2 import (
     Dynapse2Destination,
     Dendrite,
 )
-from rockpool.devices.dynapse.default import CHIP_MAP, CHIP_POS
+from rockpool.devices.dynapse.default import CORE_MAP, CHIP_MAP, CHIP_POS
 
 from rockpool.typehints import FloatVector, IntVector
 from rockpool.devices.dynapse.config.simconfig import DynapSimCore
@@ -34,7 +34,6 @@ from rockpool.devices.dynapse.definitions import (
     NUM_TAGS,
     NUM_SYNAPSES,
     NUM_DEST,
-    NUM_CORES,
 )
 from rockpool.devices.dynapse.quantize.weight_handler import WeightHandler
 
@@ -44,13 +43,13 @@ try:
     import samna
 except:
     samna = Any
-    print(
+    logging.warning(
         "Device interface requires `samna` package which is not installed on the system"
     )
     SAMNA_AVAILABLE = False
 
 # - Configure exports
-__all__ = ["config_from_specification", "save_config", "load_config"]
+__all__ = ["config_from_specification"]
 
 
 def __get_num_cores(config: Dynapse2Configuration) -> int:
@@ -70,19 +69,43 @@ def __get_num_cores(config: Dynapse2Configuration) -> int:
 
 @dataclass
 class WeightAllocator:
+    """
+    WeightAllocator helps allocating memory (SRAM&CAM) reflecting the connectivity content in weight matrices
+
+    :Parameters:
+
+    :param weights_in: quantized input weight matrix
+    :type weights_in: Optional[IntVector]
+    :param weights_rec: quantized recurrent weight matrix
+    :type weights_rec: Optional[IntVector]
+    :param sign_in: input weight directions (+1 : excitatory, -1 : inhibitory)
+    :type sign_in: Optional[IntVector]
+    :param sign_rec: recurrent weight directions (+1 : excitatory, -1 : inhibitory)
+    :type sign_rec: Optional[IntVector]
+    :param core_map: core map (neuron_id : core_id) for in-device neurons, defaults to CORE_MAP
+    :type core_map: Dict[int, int], optional
+    :param chip_map: chip map (core_id : chip_id) for all cores, defaults to CHIP_MAP
+    :type chip_map: Dict[int, int], optional
+    :param chip_pos: global chip position dictionary (chip_id : (xpos,ypos)), defaults to CHIP_POS
+    :type chip_pos: Dict[int, Tuple[int]], optional
+    :param tag_list: neuron-tag mapping (neuron_id : tag) which maps the neurons to their virtual addresses, defaults to None
+    :type tag_list: Optional[IntVector], optional
+    """
 
     weights_in: Optional[IntVector]
     weights_rec: Optional[IntVector]
     sign_in: Optional[IntVector]
     sign_rec: Optional[IntVector]
-    core_map: Dict[int, int]
+    core_map: Dict[int, int] = field(default_factory=lambda: CORE_MAP)
     chip_map: Dict[int, int] = field(default_factory=lambda: CHIP_MAP)
     chip_pos: Dict[int, Tuple[int]] = field(default_factory=lambda: CHIP_POS)
     tag_list: Optional[IntVector] = None
 
     def __post_init__(self) -> None:
+        """__post_init__ runs after object construction, control&organize the data structure of the object"""
 
         self.__shape_check()
+
         self.tag_list = (
             np.array(range(NUM_TAGS))
             if self.tag_list is None
@@ -90,7 +113,6 @@ class WeightAllocator:
         )
 
         self.n_chip = len(set(self.chip_map.values()))
-
         self.virtual_tags, self.recurrent_tags, self.output_tags = self.tag_selector()
 
     def __shape_check(self) -> None:
@@ -103,7 +125,7 @@ class WeightAllocator:
         :raises DRCError: Recurrent sign shape does not match the recurrent weight shape!
         :raises DRCError: Recurrent sign shape does not match the recurrent weight shape!
         :raises ValueError: Unexpected Error Occurded!
-        """        
+        """
         if self.weights_in is None and self.weights_rec is None:
             raise DRCError("No weights given for allocation!")
 
