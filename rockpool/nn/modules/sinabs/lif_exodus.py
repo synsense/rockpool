@@ -134,49 +134,41 @@ class LIFExodus(LIFBaseTorch):
         # - Get input data size
         (n_batches, time_steps, n_connections) = data.shape
 
-        # - Reshape input data to de-interleave synapses
-        data = data.reshape(n_batches, time_steps, self.n_neurons, self.n_synapses)
-
-        # Exponential leak
-        # Generate buffer for synaptic current
-        isyn_exodus = torch.zeros(
-            n_batches * self.n_neurons, self.n_synapses, time_steps
-        ).to(data.device)
-
         # - Broadcast parameters to full size for this module
-        beta = self.beta.expand((self.n_neurons, self.n_synapses))
-        threshold = self.threshold.expand((self.n_neurons,))
-        alpha = self.alpha.expand((self.n_neurons,))
+        beta = self.beta.expand((n_batches, self.n_neurons, self.n_synapses)).flatten()
+        alpha = self.alpha.expand((n_batches, self.n_neurons)).flatten().contiguous()
+        membrane_subtract = self.threshold.expand((n_batches, self.n_neurons)).flatten()
+        # Threshold must be float
+        threshold = float(self.threshold)
+       
+        # Bring data into format expected by exodus: (batches*neurons*synapses, timesteps)
+        data = data.movedim(1, -1).flatten(0, -2)
 
-        for syn in range(self.n_synapses):
-            # bring data into format expected by exodus
-            inp = (
-                data[:, :, :, syn]
-                .movedim(1, -1)
-                .reshape(n_batches * self.n_neurons, time_steps)
-            )
+        # Decay data by one timestep to match xylo behavior
+        data = beta.unsqueeze(-1) * data
 
-            isyn_exodus[:, syn] = LeakyIntegrator.apply(
-                inp.contiguous(),
-                isyn[:, :, syn].flatten().contiguous(),
-                beta[0, syn],
-                True,
-            )
+        # Synaptic dynamics: Calculate I_syn and bring to shape
+        # (batches*neurons, synapses, timesteps)
+        isyn_exodus = LeakyIntegrator.apply(
+            data.contiguous(), # Input
+            beta.contiguous(),  # beta
+            isyn.flatten().contiguous(), # initial state
+        ).reshape(-1, self.n_synapses, time_steps)
 
+        # Membrane dynamics: Calculate v_mem
         spikes, vmem_exodus = IntegrateAndFire.apply(
-            isyn_exodus.sum(1),  # input
-            threshold[0],  # membrane subtract
-            alpha[0],  # alpha
-            vmem.squeeze(),  # init state
-            spikes.squeeze(),  # last activations
-            threshold[0],  # threshold
+            isyn_exodus.sum(1).contiguous(),  # input
+            alpha.contiguous(),  # alpha
+            vmem.flatten().contiguous(),  # init state
+            threshold,  # threshold
+            membrane_subtract.contiguous(),  # membrane subtract
             None,  # threshold low
             self.spike_generation_fn,
             None if torch.isinf(self.max_spikes_per_dt) else self.max_spikes_per_dt,
         )
 
         # Subtract spikes from Vmem as exodus subtracts them starting from the next timestep
-        vmem_exodus.data = vmem_exodus.data - spikes.data * threshold[0]
+        vmem_exodus.data = vmem_exodus.data - spikes.data * threshold
 
         # Bring states to rockpool dimensions
         isyn_exodus = (
@@ -320,38 +312,28 @@ class LIFMembraneExodus(LIFBaseTorch):
         # - Get input data size
         (n_batches, time_steps, n_connections) = data.shape
 
-        # - Reshape input data to de-interleave synapses
-        data = data.reshape(n_batches, time_steps, self.n_neurons, self.n_synapses)
-
-        # Generate buffer for synaptic current
-        isyn_exodus = torch.zeros(
-            n_batches * self.n_neurons, self.n_synapses, time_steps
-        ).to(data.device)
-
         # - Broadcast parameters to full size for this module
-        beta = self.beta.expand((self.n_neurons, self.n_synapses))
-        alpha = self.alpha.expand((self.n_neurons,))
+        beta = self.beta.expand((n_batches, self.n_neurons, self.n_synapses)).flatten()
+        alpha = self.alpha.expand((n_batches, self.n_neurons)).flatten().contiguous()
 
-        for syn in range(self.n_synapses):
-            # bring data into format expected by exodus
-            inp = (
-                data[:, :, :, syn]
-                .movedim(1, -1)
-                .reshape(n_batches * self.n_neurons, time_steps)
-            )
+        # Bring data into format expected by exodus: (batches*neurons*synapses, timesteps)
+        data = data.movedim(1, -1).flatten(0, -2)
 
-            isyn_exodus[:, syn] = LeakyIntegrator.apply(
-                inp.contiguous(),
-                isyn[:, :, syn].flatten().contiguous(),
-                beta[0, syn],
-                True,
-            )
+        # Decay data by one timestep to match xylo behavior
+        data = beta.unsqueeze(-1) * data
+
+        # Synaptic dynamics: Calculate I_syn and bring to shape
+        # (batches*neurons, synapses, timesteps)
+        isyn_exodus = LeakyIntegrator.apply(
+            data.contiguous(), # Input
+            beta.contiguous(),  # beta
+            isyn.flatten().contiguous(), # initial state
+        ).reshape(-1, self.n_synapses, time_steps)
 
         vmem_exodus = LeakyIntegrator.apply(
-            isyn_exodus.sum(1),  # input
-            vmem.flatten().contiguous(),
-            alpha[0],  # alpha
-            True,
+            isyn_exodus.sum(1).contiguous(),  # input
+            alpha.contiguous(),  # alpha
+            vmem.flatten().contiguous(),  # initial state
         )
 
         # Bring states to rockpool dimensions
