@@ -140,7 +140,7 @@ class LIFExodus(LIFBaseTorch):
         membrane_subtract = self.threshold.expand((n_batches, self.n_neurons)).flatten()
         # Threshold must be float
         threshold = float(self.threshold)
-       
+
         # Bring data into format expected by exodus: (batches*neurons*synapses, timesteps)
         data = data.movedim(1, -1).flatten(0, -2)
 
@@ -150,9 +150,9 @@ class LIFExodus(LIFBaseTorch):
         # Synaptic dynamics: Calculate I_syn and bring to shape
         # (batches*neurons, synapses, timesteps)
         isyn_exodus = LeakyIntegrator.apply(
-            data.contiguous(), # Input
+            data.contiguous(),  # Input
             beta.contiguous(),  # beta
-            isyn.flatten().contiguous(), # initial state
+            isyn.flatten().contiguous(),  # initial state
         ).reshape(-1, self.n_synapses, time_steps)
 
         # Membrane dynamics: Calculate v_mem
@@ -325,9 +325,9 @@ class LIFMembraneExodus(LIFBaseTorch):
         # Synaptic dynamics: Calculate I_syn and bring to shape
         # (batches*neurons, synapses, timesteps)
         isyn_exodus = LeakyIntegrator.apply(
-            data.contiguous(), # Input
+            data.contiguous(),  # Input
             beta.contiguous(),  # beta
-            isyn.flatten().contiguous(), # initial state
+            isyn.flatten().contiguous(),  # initial state
         ).reshape(-1, self.n_synapses, time_steps)
 
         vmem_exodus = LeakyIntegrator.apply(
