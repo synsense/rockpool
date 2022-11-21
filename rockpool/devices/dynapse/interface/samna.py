@@ -101,7 +101,7 @@ class DynapseSamna(Module):
         self,
         input_data: np.ndarray,
         channel_map: Optional[Dict[int, Dynapse2Destination]] = None,
-        read_timeout: float = 0.5,
+        read_timeout: float = 1.0,
         offset_fpga: bool = True,
         offset: float = 100e-3,
         record: bool = False,
@@ -131,7 +131,11 @@ class DynapseSamna(Module):
         """
 
         # Read Current FPGA timestamp, offset the events accordingly
+        assert input_data.shape[1] == self.size_in
         simulation_duration = input_data.shape[0] * self.dt
+
+        # Flush AER Buffers
+        self.flush_aer_buffers()
 
         if offset_fpga:
             offset += self.current_timestamp()
@@ -193,7 +197,7 @@ class DynapseSamna(Module):
         """
 
         # Flush the buffers
-        self.board.output_read()
+        self.flush_aer_buffers()
 
         # Generate dummy events
         events = [
