@@ -185,7 +185,10 @@ class WeightAllocator:
         return vtag_list, rtag_list, otag_list
 
     def CAM_content(
-        self, num_synapses: int = NUM_SYNAPSES, num_bits: int = 4
+        self,
+        num_synapses: int = NUM_SYNAPSES,
+        num_bits: int = 4,
+        use_samna: bool = False,
     ) -> Dict[int, List[Dynapse2Synapse]]:
         """
         CAM_content reads the weight matrices and generates required CAM entries
@@ -194,6 +197,8 @@ class WeightAllocator:
         :type num_synapses: int, optional
         :param num_bits: the number of bits allocated per weight, defaults to 4
         :type num_bits: int, optional
+        :param use_samna: use original samna package or the alias version, defaults to False
+        :type use_samna: bool, optional
         :raises DRCError: Maximum SRAM capacity exceeded!
         :return: a dictionary of CAM entries of neurons (neuron_id : CAM content)
         :rtype: Dict[int, List[Dynapse2Synapse]]
@@ -202,7 +207,12 @@ class WeightAllocator:
         # Input
         if self.weights_in is not None:
             content_in = self.matrix_to_synapse(
-                self.weights_in, self.sign_in, self.virtual_tags, num_synapses, num_bits
+                self.weights_in,
+                self.sign_in,
+                self.virtual_tags,
+                num_synapses,
+                num_bits,
+                use_samna,
             )
         else:
             content_in = {}
@@ -215,6 +225,7 @@ class WeightAllocator:
                 self.recurrent_tags,
                 num_synapses,
                 num_bits,
+                use_samna,
             )
         else:
             content_rec = {}
@@ -230,7 +241,12 @@ class WeightAllocator:
                 temp.extend(content_rec[nrec])
             # Fill the rest with empty destinations
             if len(temp) <= num_synapses:
-                temp.extend([self.cam_entry() for _ in range(num_synapses - len(temp))])
+                temp.extend(
+                    [
+                        self.cam_entry(use_samna=use_samna)
+                        for _ in range(num_synapses - len(temp))
+                    ]
+                )
                 content[nrec] = temp
             else:
                 raise DRCError("Maximum SRAM capacity exceeded!")
@@ -238,13 +254,15 @@ class WeightAllocator:
         return content
 
     def SRAM_content(
-        self, num_dest: int = NUM_DEST
+        self, num_dest: int = NUM_DEST, use_samna: bool = False
     ) -> Dict[int, List[Dynapse2Destination]]:
         """
         SRAM_content reads the weight matrices and generates required SRAM entries
 
         :param num_dest: maximum number of destinations to be stored per neuron, defaults to NUM_DEST
         :type num_dest: int, optional
+        :param use_samna: use original samna package or the alias version, defaults to False
+        :type use_samna: bool, optional
         :raises DRCError: Maximum SRAM capacity exceeded!
         :return: a dictionary of SRAM entries of neurons (neuron_id : SRAM content)
         :rtype: Dict[int, List[Dynapse2Destination]]
@@ -260,6 +278,7 @@ class WeightAllocator:
                 self.chip_pos,
                 self.recurrent_tags,
                 num_dest,
+                use_samna,
             )
         else:
             content_rec = {}
@@ -273,6 +292,7 @@ class WeightAllocator:
             self.chip_pos,
             self.output_tags,
             num_dest,
+            use_samna,
         )
 
         # Merge recurrent routing information and output together
@@ -286,7 +306,12 @@ class WeightAllocator:
                 temp.extend(content_out[nrec])
             # Fill the rest with empty destinations
             if len(temp) <= num_dest:
-                temp.extend([self.sram_entry() for _ in range(num_dest - len(temp))])
+                temp.extend(
+                    [
+                        self.sram_entry(use_samna=use_samna)
+                        for _ in range(num_dest - len(temp))
+                    ]
+                )
                 content[nrec] = temp
             else:
                 raise DRCError("Maximum SRAM capacity exceeded!")
@@ -300,6 +325,7 @@ class WeightAllocator:
         tag_list: List[int],
         num_synapses: int = NUM_SYNAPSES,
         num_bits: int = 4,
+        use_samna: bool = False,
     ) -> Dict[int, List[Dynapse2Synapse]]:
         """
         matrix_to_synapse interprets the given weight matrix and generates a list of synapses to be stored in neural CAMs
@@ -314,6 +340,8 @@ class WeightAllocator:
         :type num_synapses: int, optional
         :param num_bits: number of weight bits, defaults to 4
         :type num_bits: int, optional
+        :param use_samna: use original samna package or the alias version, defaults to False
+        :type use_samna: bool, optional
         :raises DRCError: Maximum synapse limit per neuron reached!
         :return: a dictionary of CAM entries per neuron
         :rtype: Dict[int, List[Dynapse2Synapse]]
@@ -336,6 +364,7 @@ class WeightAllocator:
                                 WeightAllocator.get_dendrite(sign[pre][post]),
                                 mem_matrix[post][pre],
                                 tag_list[pre],
+                                use_samna,
                             )
                         )
                     else:
@@ -352,6 +381,7 @@ class WeightAllocator:
         chip_pos: Dict[int, Tuple[int]],
         tag_list: List[int],
         num_dest: int = NUM_DEST,
+        use_samna: bool = False,
     ) -> Dict[int, List[Dynapse2Destination]]:
         """
         matrix_to_destination interprets a given weight matrix and generates a list of destinations to be stored in SRAMs
@@ -370,6 +400,8 @@ class WeightAllocator:
         :type tag_list: List[int]
         :param num_dest: maximum number of destinations, defaults to NUM_DEST
         :type num_dest: int, optional
+        :param use_samna: use original samna package or the alias version, defaults to False
+        :type use_samna: bool, optional
         :raises DRCError: Maximum destination limit reached!
         :return: a dictionary of SRAM entries per neuron
         :rtype: Dict[int, List[Dynapse2Destination]]
@@ -407,7 +439,7 @@ class WeightAllocator:
                 if len(content[pre]) < num_dest:
                     content[pre].append(
                         WeightAllocator.sram_entry(
-                            core_mask, x_hop, y_hop, tag_list[pre]
+                            core_mask, x_hop, y_hop, tag_list[pre], use_samna
                         )
                     )
                 else:
