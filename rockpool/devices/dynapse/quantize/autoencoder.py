@@ -166,13 +166,17 @@ def autoencoder_quantization(
     qw_in, qw_rec = __handler.reshape_flat_weights(q_weights)
 
     ### --- Return --- ###
+    Iw = np.array(code) * Iscale / np.array(__scale_factor)
 
     spec = {
         "weights_in": qw_in,
         "sign_in": __handler.sign_in,
         "weights_rec": qw_rec,
         "sign_rec": __handler.sign_rec,
-        "Iw": np.array(code) * Iscale / np.array(__scale_factor),
+        "Iw_0": Iw[0],
+        "Iw_1": Iw[1],
+        "Iw_2": Iw[2],
+        "Iw_3": Iw[3],
         "quantization_loss": float(rec_loss[-1]),
     }
 
