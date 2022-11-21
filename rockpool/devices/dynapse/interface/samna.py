@@ -234,3 +234,21 @@ class DynapseSamna(Module):
     def config(self, new_config: Dynapse2Configuration) -> bool:
         # - Write the configuration to the device
         return self.model.apply_configuration(new_config)
+
+    def hard_reset(self, password: Optional[int] = None) -> None:
+        """
+        hard_reset reset FPGA and whole logic implementation
+
+        :param password: hardcoded password value to prevent this method from users, defaults to None
+        :type password: Optional[int], optional
+        :raises Warning: Hard reset will flush whole FPGA configuration. If you need to do this, look into the code and find the password!
+        :raises ValueError: Wrong password!
+        """
+        if password is None:
+            raise Warning(
+                "Hard reset will flush whole FPGA configuration. If you need to do this, look into the code and find the password!"
+            )
+        elif password == 22051995:
+            self.board.reset_fpga()
+        else:
+            raise ValueError("Wrong password!")
