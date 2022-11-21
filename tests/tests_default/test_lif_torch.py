@@ -330,3 +330,55 @@ def test_LIFTorch_reset():
     assert mod.tau_mem.device == device
     assert mod.threshold.device == device
     assert mod.bias.device == device
+
+
+def test_LIFTorch_tc_training():
+
+    from rockpool.nn.modules.torch import LIFTorch
+    from rockpool.parameters import Constant
+
+    mod = LIFTorch(1, bias=Constant(0), threshold=Constant(1.0))
+    assert "tau_mem" in mod.parameters().keys()
+    assert "tau_syn" in mod.parameters().keys()
+
+
+def test_LIFTorch_decay_training():
+    from rockpool.nn.modules.torch import LIFTorch
+    from rockpool.parameters import Constant
+
+    mod = LIFTorch(1, bias=Constant(0), threshold=Constant(1.0), decay_training=True)
+    assert "alpha" in mod.parameters().keys()
+    assert "beta" in mod.parameters().keys()
+
+    mod = LIFTorch(1, bias=Constant(0), threshold=Constant(1.0), decay_training=False)
+    assert "alpha" not in mod.parameters().keys()
+    assert "beta" not in mod.parameters().keys()
+
+
+def test_LIFTorch_bitshift_training():
+
+    from rockpool.nn.modules.torch import LIFTorch
+    from rockpool.parameters import Constant
+
+    mod = LIFTorch(
+        1,
+        bias=Constant(0),
+        tau_mem=Constant(0),
+        tau_syn=Constant(0.02),
+        threshold=Constant(1.0),
+        BitShift_training=True,
+    )
+
+    assert "dash_mem" in mod.parameters().keys()
+    assert "dash_syn" in mod.parameters().keys()
+
+    mod = LIFTorch(
+        1,
+        bias=Constant(0),
+        tau_mem=Constant(0),
+        tau_syn=Constant(0.02),
+        threshold=Constant(1.0),
+        BitShift_training=False,
+    )
+
+    assert mod.parameters() == {}

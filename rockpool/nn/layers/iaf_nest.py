@@ -142,7 +142,7 @@ class _BaseNestProcess(multiprocessing.Process):
 
     def evolve_nest(
         self, num_timesteps: int
-    ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
+    ) -> Tuple[np.ndarray, np.ndarray, Union[np.ndarray, None]]:
         """
         Evolve state of nest simulation by defined number of timesteps
 
@@ -185,7 +185,7 @@ class _BaseNestProcess(multiprocessing.Process):
 
     def evolve(
         self, event_times, event_channels, num_timesteps: int
-    ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
+    ) -> Tuple[np.ndarray, np.ndarray, Union[np.ndarray, None]]:
         """
         Evolve state of nest simulation by defined number of timesteps
 
@@ -312,7 +312,7 @@ class _BaseNestProcess(multiprocessing.Process):
         self.nest_module = nest
 
         self.nest_module.ResetKernel()
-        self.nest_module.hl_api.set_verbosity("M_FATAL")
+        self.nest_module.set_verbosity("M_FATAL")
         try:
             self.nest_module.SetKernelStatus(
                 {
@@ -332,7 +332,7 @@ class _BaseNestProcess(multiprocessing.Process):
         self._pop = self.nest_module.Create(self.model, self.size)
 
         # - Add spike detector to record layer outputs
-        self._sd = self.nest_module.Create("spike_detector")
+        self._sd = self.nest_module.Create("spike_recorder")
         self.nest_module.Connect(self._pop, self._sd)
 
         # - Set parameters
@@ -540,7 +540,7 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
 
     def evolve(
         self, event_times: np.ndarray, event_channels: np.ndarray, num_timesteps: int
-    ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
+    ) -> Tuple[np.ndarray, np.ndarray, Union[np.ndarray, None]]:
         """
         Evolve state of nest simulation by defined number of timesteps
 
@@ -714,7 +714,7 @@ class FFIAFNestV1(Layer):
 
         def evolve(
             self, time_base: np.ndarray, input_steps: np.ndarray, num_timesteps: int
-        ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
+        ) -> Tuple[np.ndarray, np.ndarray, Union[np.ndarray, None]]:
             """
             Evolve state of nest simulation by defined number of timesteps
 

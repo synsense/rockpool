@@ -169,7 +169,7 @@ Conversion utilities
     training.adversarial_jax.adversarial_loss
 
 ``PyTorch`` training utilities
----------------------------
+-------------------------------
 
 .. autosummary::
     :toctree: _autosummary
@@ -177,6 +177,17 @@ Conversion utilities
     :template: module.rst
 
     training.torch_loss
+
+``PyTorch`` transformation API (beta)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+    :toctree: _autosummary
+    :recursive:
+    :template: module.rst
+
+    transform.torch_transform
+
 
 Xylo hardware support and simulation
 ------------------------------------

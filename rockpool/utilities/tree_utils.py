@@ -11,7 +11,7 @@ import copy
 from rockpool.typehints import Tree, Leaf, Node, TreeDef
 from typing import Tuple, Any, Dict, Callable, Union, List, Optional
 
-__all__ = ["tree_map", "tree_flatten", "tree_unflatten"]
+__all__ = ["tree_map", "tree_flatten", "tree_unflatten", "tree_update"]
 
 
 def tree_map(tree: Tree, f: Callable) -> Tree:
@@ -116,3 +116,22 @@ def tree_unflatten(
             tree[k] = leaves_tail.pop(0)
 
     return tree
+
+
+def tree_update(target: Tree, additional: Tree) -> None:
+    """
+    Perform a recursive update of a tree to insert or replace nodes from a second tree
+
+    Requires a ``target`` `Tree`, which will be modified in place, and a source `Tree` ``additional``, which will provide the source data to update in ``target``.
+
+    Both ``target`` and ``additional`` will be traversed depth-first simultaneously. `Leaf` nodes that exist in ``target`` but not in ``additional`` will not be modified. `Leaf` nodes that exist in ``additional`` but not in ``target`` will be inserted into ``target`` at the corresponding location. `Leaf` nodes that exist in both trees will have their data updated from ``additional`` to ``target``, using the python :py:func:`update` function.
+
+    Args:
+        target (Tree): The tree to update (will be modified in place)
+        additional (Tree): The source tree to insert / replace nodes from, into ``target``. Will not be modified.
+    """
+    for k, v in additional.items():
+        if isinstance(v, dict) and k in target:
+            tree_update(target[k], v)
+        else:
+            target.update({k: v})
