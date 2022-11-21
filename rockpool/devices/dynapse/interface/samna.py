@@ -252,3 +252,14 @@ class DynapseSamna(Module):
             self.board.reset_fpga()
         else:
             raise ValueError("Wrong password!")
+
+    def flush_aer_buffers(self, chip_mask: int = 0x1):
+        """
+        flush_aer_buffers applies a logic reset to a set of chips chosen
+
+        :param chip_mask: a selection of chips to flush all buffers, defaults to 0x1 (only chip 1)
+        :type chip_mask: int, optional
+        :raises ValueError: Could not flush buffers!
+        """
+        if not self.model.reset(se2.ResetType.LogicReset, chip_mask):
+            raise ValueError("Could not flush buffers!")
