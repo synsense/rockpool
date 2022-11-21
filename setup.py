@@ -28,7 +28,8 @@ setup_args = {
             "sphinx-rtd-theme",
             "recommonmark",
             "pandoc",
-            "sinabs",
+            "sinabs>=1.0",
+            "sinabs-exodus>=1.1",
             "xylosim",
             "samna>=0.10.32.0",
         ]
