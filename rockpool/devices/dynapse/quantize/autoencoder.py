@@ -95,6 +95,21 @@ def autoencoder_quantization(
     if not isinstance(Iscale, float):
         raise ValueError("Iscale should be float!")
 
+    # weights might not be defined, still return
+    if weights_in is None and weights_rec is None:
+        spec = {
+            "weights_in": None,
+            "sign_in": None,
+            "weights_rec": None,
+            "sign_rec": None,
+            "Iw_0": 0.0,
+            "Iw_1": 0.0,
+            "Iw_2": 0.0,
+            "Iw_3": 0.0,
+            "quantization_loss": None,
+        }
+        return spec
+
     __handler = WeightHandler(weights_in, weights_rec)
     __encoder = DigitalAutoEncoder(__handler.w_flat.size, n_bits)
 
