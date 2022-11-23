@@ -1099,6 +1099,12 @@ class Dynapse2Synapse(SamnaAlias):
         wrapper["weight"] = self.jlist_regular(self.weight)
         return wrapper
 
+    def to_samna(self) -> Any:
+        """
+        to_samna converts the samna alias object to a samna object
+        """
+        return self.samna_object(samna.dynapse2.Dynapse2Synapse)
+
 
 # --- For Typehinting --- #
 
