@@ -99,7 +99,7 @@ class DynapseSamna(Module):
 
     def evolve(
         self,
-        input_data: np.ndarray,
+        input_data: Optional[np.ndarray] = None,
         channel_map: Optional[Dict[int, Dynapse2Destination]] = None,
         read_timeout: float = 1.0,
         offset_fpga: bool = True,
@@ -131,50 +131,57 @@ class DynapseSamna(Module):
         """
 
         # Read Current FPGA timestamp, offset the events accordingly
-        assert input_data.shape[1] == self.size_in
-        simulation_duration = input_data.shape[0] * self.dt
-
         # Flush AER Buffers
         self.flush_aer_buffers()
-
         if offset_fpga:
-            offset += self.current_timestamp()
+            start_time = offset + self.current_timestamp()
 
-        # Convert the input data to aer sequence
-        event_sequence = raster_to_aer(
-            input_data,
-            start_time=offset,
-            channel_map=channel_map,
-            return_samna=True,
+        # It's OK not to provide any data
+        if input_data is not None:
+            assert input_data.shape[1] == self.size_in
+            simulation_duration = input_data.shape[0] * self.dt
+
+            # Convert the input data to aer sequence
+            event_sequence = raster_to_aer(
+                input_data,
+                start_time=start_time,
+                channel_map=channel_map,
+                return_samna=True,
+                dt=self.dt,
+                dt_fpga=self.dt_fpga,
+            )
+            # Write AER packages to the bus
+            self.board.grid_bus_write_events(event_sequence)
+
+        else:
+            simulation_duration = 0.0
+
+        output_events = capture_events_from_device(
+            self.board, simulation_duration + read_timeout, control_tag=self.control_tag
+        )
+
+        # Read the results
+        stop_time = start_time + simulation_duration + read_timeout
+        spikes, channel_map = aer_to_raster(
+            output_events,
+            start_time=start_time,
+            stop_time=stop_time,
             dt=self.dt,
             dt_fpga=self.dt_fpga,
         )
 
-        # Write AER packages to the bus
-        self.board.grid_bus_write_events(event_sequence)
-        output_events = capture_events_from_device(
-            self.board, simulation_duration + read_timeout
-        )
-
-        # Read the results
-        spikes_ts, state_dict = aer_to_raster(
-            output_events, dt=self.dt, dt_fpga=self.dt_fpga
-        )
-
         # Return
         states = {
-            "channel_map": state_dict["channel_map"],
-            "input_start_time": offset,
-            "input_stop_time": offset + simulation_duration,
-            "record_start_time": state_dict["start_time"],
-            "record_stop_time": state_dict["stop_time"],
+            "channel_map": channel_map,
+            "start_time": start_time,
+            "stop_time": stop_time,
         }
-        record_dict = {}
+        record_dict = {"output_events": output_events}
 
         if record is True:
             record_dict = {}
 
-        return spikes_ts, states, record_dict
+        return spikes, states, record_dict
 
     def current_timestamp(
         self,
