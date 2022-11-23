@@ -59,7 +59,6 @@ class DynapseSamna(Module):
     Receives configuration as bias currents and solves membrane and synapse dynamics using ``jax`` backend.
 
     :Parameters:
-
     :param shape: Two dimensions ``(Nin, Nout)``, which defines a input and output conections of DynapSE neurons.
     :type shape: Tuple[int]
     :param device: the Dynan-SE2 the device object to open and configure
@@ -68,6 +67,9 @@ class DynapseSamna(Module):
     :type config: Dynapse2Configuration
     :param dt: the simulation timestep resolution, defaults to 1e-3
     :type dt: float, optional
+    :param control_tag: a tag used in special occacions such as current time reading. Do not capture events with this tag, defaults to 2047
+    :type control_tag: int, optional
+
 
     """
 
@@ -77,6 +79,7 @@ class DynapseSamna(Module):
         device: DeviceInfo,
         config: Optional[Dynapse2Configuration] = None,
         dt: float = 1e-3,
+        control_tag: int = 2047,
     ):
 
         if np.size(shape) != 2:
@@ -92,6 +95,10 @@ class DynapseSamna(Module):
         self.board: Dynapse2Interface = configure_dynapse2_fpga(device)
         self.dt = dt
         self.dt_fpga = DT_FPGA
+        self.control_tag = control_tag
+
+        # Do the initial reading, it prepares the board for further simulation
+        self.current_timestamp()
 
         # Config requires board
         if config is not None:
