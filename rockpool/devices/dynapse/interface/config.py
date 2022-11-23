@@ -35,6 +35,7 @@ from rockpool.devices.dynapse.definitions import (
     NUM_SYNAPSES,
     NUM_DEST,
     NUM_CORES,
+    NUM_NEURONS,
 )
 from rockpool.devices.dynapse.quantize.weight_handler import WeightHandler
 
