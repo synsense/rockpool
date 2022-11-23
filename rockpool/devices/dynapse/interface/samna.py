@@ -215,7 +215,7 @@ class DynapseSamna(Module):
 
         # Generate dummy events
         events = [
-            event_generator(ts, dt_fpga=self.dt_fpga)
+            event_generator(ts, dt_fpga=self.dt_fpga, tag=self.control_tag)
             for ts in np.arange(
                 0, reading_interval, reading_interval / number_of_events
             )
@@ -226,13 +226,17 @@ class DynapseSamna(Module):
         time.sleep(reading_interval)
 
         # Try to catch them and read the last timestamp
+        evs = self.board.output_read()
+
         for __break in range(retry):
-            evs = self.board.output_read()
             if len(evs) > 0:
+                self.flush_aer_buffers()
                 return evs[-1] * self.dt_fpga
             else:
                 time.sleep(reading_interval)
                 reading_interval *= 2
+
+            evs = self.board.output_read()
 
         raise TimeoutError(
             f"FPGA could not respond, increase number of trials or reading interval!"
