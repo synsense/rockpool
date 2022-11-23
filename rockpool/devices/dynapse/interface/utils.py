@@ -133,6 +133,7 @@ def capture_events_from_device(
     board: Dynapse2Interface,
     duration: float,
     poll_step: float = 10e-3,
+    control_tag: int = 2047,
 ) -> List[NormalGridEvent]:
     """
     capture_events_from_device records the device's output and stores in an event buffer
@@ -143,6 +144,8 @@ def capture_events_from_device(
     :type duration: float
     :param poll_step: the pollling step, 10 ms means the CPU fetches events from FPGA in every 10 ms, defaults to 10e-3
     :type poll_step: float, optional
+    :param control_tag: a tag used in special occacions such as current time reading. Do not capture events with this tag, defaults to 2047
+    :type control_tag: int, optional
     :return: the event buffer, a list of Dynap-SE2 AER packages captured
     :rtype: List[NormalGridEvent]
     """
@@ -157,7 +160,11 @@ def capture_events_from_device(
 
         buffer = board.read_events()
         if len(buffer) > 0:
-            record += [NormalGridEvent.from_samna(data) for data in buffer]
+            record += [
+                NormalGridEvent.from_samna(data)
+                for data in buffer
+                if data.event.tag != control_tag
+            ]
         time.sleep(poll_step)
         toc = time.time()
 
