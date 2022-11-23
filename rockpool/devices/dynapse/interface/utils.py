@@ -132,8 +132,8 @@ def disconnect(board: Dynapse2Interface) -> None:
 def capture_events_from_device(
     board: Dynapse2Interface,
     duration: float,
+    control_tag: int,
     poll_step: float = 10e-3,
-    control_tag: int = 2047,
 ) -> List[NormalGridEvent]:
     """
     capture_events_from_device records the device's output and stores in an event buffer
@@ -142,10 +142,10 @@ def capture_events_from_device(
     :type board: Dynapse2Interface
     :param duration: the minimum duration of capturing
     :type duration: float
-    :param poll_step: the pollling step, 10 ms means the CPU fetches events from FPGA in every 10 ms, defaults to 10e-3
-    :type poll_step: float, optional
     :param control_tag: a tag used in special occacions such as current time reading. Do not capture events with this tag, defaults to 2047
     :type control_tag: int, optional
+    :param poll_step: the pollling step, 10 ms means the CPU fetches events from FPGA in every 10 ms, defaults to 10e-3
+    :type poll_step: float, optional
     :return: the event buffer, a list of Dynap-SE2 AER packages captured
     :rtype: List[NormalGridEvent]
     """
