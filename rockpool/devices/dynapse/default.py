@@ -48,9 +48,9 @@ dweight = {
 }
 
 dtime = {
-    "t_pulse_ahp": 1e-6,
+    "t_pulse_ahp": 1e-12,
     "t_pulse": 10e-6,
-    "t_ref": 2e-3,
+    "t_ref": 1e-3,
     "tau_ahp": 50e-3,
     "tau_ampa": 10e-3,
     "tau_gaba": 10e-3,
@@ -60,7 +60,7 @@ dtime = {
 }
 
 dgain = {
-    "r_gain_ahp": 10,
+    "r_gain_ahp": 1,
     "r_gain_ampa": 100,
     "r_gain_gaba": 100,
     "r_gain_nmda": 100,
@@ -87,7 +87,7 @@ dcurrents = {
     "Itau_nmda": Itau_lambda("nmda"),
     "Itau_shunt": Itau_lambda("shunt"),
     "Itau_mem": Itau_lambda("mem"),
-    "Iw_ahp": 1e-9,
+    "Iw_ahp": 0.0,
 }
 
 CORE_MAP = {i: i // NUM_NEURONS for i in range(NUM_NEURONS * NUM_CORES * NUM_CHIPS)}
