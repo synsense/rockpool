@@ -281,7 +281,10 @@ class WeightAllocator:
         return content
 
     def SRAM_content(
-        self, num_dest: int = NUM_DEST, use_samna: bool = False
+        self,
+        num_dest: int = NUM_DEST,
+        use_samna: bool = False,
+        monitor_neurons: List[int] = [],
     ) -> Dict[int, List[Dynapse2Destination]]:
         """
         SRAM_content reads the weight matrices and generates required SRAM entries
@@ -290,10 +293,25 @@ class WeightAllocator:
         :type num_dest: int, optional
         :param use_samna: use original samna package or the alias version, defaults to False
         :type use_samna: bool, optional
+        :param monitor_neurons: list of neuron ids to be monitored, defaults to []
+        :type monitor_neurons: List[int], optional
         :raises DRCError: Maximum SRAM capacity exceeded!
         :return: a dictionary of SRAM entries of neurons (neuron_id : SRAM content)
         :rtype: Dict[int, List[Dynapse2Destination]]
         """
+
+        def get_monitor_destination(neuron_id: int) -> Dynapse2Destination:
+            """
+            get_monitor_destination returns an SRAM entry which helps to monitor a respective neuron's output activity
+
+            :param neuron_id: the neuron to be monitored
+            :type neuron_id: int
+            :return: a dummy destination package to be catched by FPGA
+            :rtype: Dynapse2Destination
+            """
+            return self.sram_entry(
+                [True, True, True, True], -7, -7, neuron_id, use_samna
+            )
 
         # - Internal routing
         if self.weights_rec is not None:
@@ -310,36 +328,24 @@ class WeightAllocator:
         else:
             content_rec = {}
 
-        # Output Routing
-        content_out = self.matrix_to_destination(
-            np.eye(self.n_neuron),
-            self.core_map,
-            dict(zip(self.core_map.keys(), np.full(len(self.core_map), -1))),
-            self.chip_map,
-            self.chip_pos,
-            self.output_tags,
-            num_dest,
-            use_samna,
-        )
+        for n in content_rec:
+            if n not in monitor_neurons:
+                monitor_neurons.append(n)
+
+        content = {n: [get_monitor_destination(n)] for n in monitor_neurons}
 
         # Merge recurrent routing information and output together
-        content = {nrec: [] for nrec in range(self.n_neuron)}
 
-        for nrec in range(self.n_neuron):
-            temp = []
-            if nrec in content_rec:
-                temp.extend(content_rec[nrec])
-            if nrec in content_out:
-                temp.extend(content_out[nrec])
-            # Fill the rest with empty destinations
-            if len(temp) <= num_dest:
-                temp.extend(
+        for n in content:
+            if n in content_rec:
+                content[n].extend(content_rec[n])
+            if len(content[n]) <= num_dest:
+                content[n].extend(
                     [
                         self.sram_entry(use_samna=use_samna)
-                        for _ in range(num_dest - len(temp))
+                        for _ in range(num_dest - len(content[n]))
                     ]
                 )
-                content[nrec] = temp
             else:
                 raise DRCError("Maximum SRAM capacity exceeded!")
 
