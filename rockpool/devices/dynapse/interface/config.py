@@ -547,10 +547,10 @@ class WeightAllocator:
 
     @staticmethod
     def sram_entry(
-        core: Optional[List[bool]] = None,
-        x_hop: Optional[int] = None,
-        y_hop: Optional[int] = None,
-        tag: Optional[int] = None,
+        core: Optional[List[bool]] = [False, False, False, False],
+        x_hop: Optional[int] = 0,
+        y_hop: Optional[int] = 0,
+        tag: Optional[int] = 0,
         use_samna: bool = False,
     ) -> Dynapse2Destination:
         """
@@ -573,23 +573,19 @@ class WeightAllocator:
         """
         if use_samna:
             dest = samna.dynapse2.Dynapse2Destination()
-            if core is not None:
-                dest.core = core
-            if x_hop is not None:
-                dest.x_hop = x_hop
-            if y_hop is not None:
-                dest.y_hop = y_hop
-            if tag is not None:
-                dest.tag = tag
+            dest.core = core
+            dest.x_hop = x_hop
+            dest.y_hop = y_hop
+            dest.tag = tag
         else:
-            dest = Dynapse2Destination(core, x_hop, y_hop, tag)
+            dest = Dynapse2Destination(core, x_hop, y_hop, int(tag))
         return dest
 
     @staticmethod
     def cam_entry(
-        dendrite: Optional[Dendrite] = None,
-        weight: Optional[List[bool]] = None,
-        tag: Optional[int] = None,
+        dendrite: Optional[Dendrite] = Dendrite.none,
+        weight: List[bool] = [False, False, False, False],
+        tag: int = 0,
         use_samna: bool = False,
     ) -> Dynapse2Synapse:
         """
@@ -609,12 +605,9 @@ class WeightAllocator:
 
         if use_samna:
             syn = samna.dynapse2.Dynapse2Synapse()
-            if dendrite is not None:
-                syn.dendrite = samna.dynapse2.Dendrite(dendrite)
-            if weight is not None:
-                syn.weight = weight
-            if tag is not None:
-                syn.tag = tag
+            syn.dendrite = samna.dynapse2.Dendrite(dendrite)
+            syn.weight = weight
+            syn.tag = tag
         else:
             syn = Dynapse2Synapse(
                 dendrite=dendrite,
@@ -622,7 +615,7 @@ class WeightAllocator:
                 weight=weight,
                 precise_delay=False,
                 mismatched_delay=False,
-                tag=tag,
+                tag=int(tag),
             )
         return syn
 
