@@ -80,6 +80,17 @@ def __get_num_cores(config: Dynapse2Configuration) -> int:
     return n_cores
 
 
+def __get_actual_num_cores(*args) -> int:
+    """
+    __get_num_cores process a number of parameters and makes sure that their size match
+    """
+    num_cores = len(args[0])
+    for arg in args:
+        if len(arg) != num_cores:
+            raise ValueError("Shape incicating number of cores does not match")
+    return num_cores
+
+
 @dataclass
 class WeightAllocator:
     """
