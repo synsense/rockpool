@@ -173,14 +173,21 @@ def capture_events_from_device(
 
 def aer_to_raster(
     buffer: List[NormalGridEvent],
+    stop_time: float,
+    start_time: float = 0,
     dt: float = 1e-3,
     dt_fpga: float = 1e-6,
 ) -> Tuple[np.ndarray, Dict[int, Dynapse2Destination]]:
     """
     aer_to_raster converts a list of Dynap-SE2 AER packages to a discrete raster record
+    The events does not meet the start and stop time criteria are descarded
 
     :param buffer: the event buffer, a list of Dynap-SE2 AER packages
     :type buffer: List[NormalGridEvent]
+    :param stop_time: the stop time cut-off for the events.
+    :type stop_time: float
+    :param start_time: the start time cut-off for the events, defaults to 0
+    :type start_time: float, optional
     :param dt: the raster's timestep resolution, defaults to 1e-3
     :type dt: float, optional
     :param dt_fpga: the FPGA timestep resolution, defaults to 1e-6
@@ -202,38 +209,21 @@ def aer_to_raster(
         times.append(event.timestamp * dt_fpga)
         channels.append(rcmap[event.event])
 
-    times = np.sort(times)
-    time_course = np.arange(times[0] + dt, times[-1] + dt, dt) if times.any() else []
+    # sort time and channel arrays in the same order
+    idx = np.argsort(times)
+    times = np.array(times)[idx]
+    channels = np.array(channels)[idx]
 
-    # Loop vars
+    # generate the output raster
+    time_course = np.arange(start_time, stop_time, dt)
     raster_out = np.zeros((len(time_course), len(cmap)))
-    idx = 0
-    prev_idx = 0
 
-    for i, t in enumerate(time_course):
-
-        # update index
-        idx = np.searchsorted(times, t)
-
-        # Get the spike counts
-        channel_idx, spike_counts = np.unique(
-            channels[prev_idx:idx], return_counts=True
-        )
-
-        # store the output activity
-        if channel_idx.any():
-            raster_out[i, channel_idx] = spike_counts
-
-        # update prev index
-        prev_idx = idx
-
-    state_dict = {
-        "channel_map": cmap,
-        "start_time": times[0] if times.any() else 0.0,
-        "stop_time": times[-1] if times.any() else 0.0,
-    }
-
-    return raster_out, state_dict
+    # Save the data meeting the start and stop time criteria and discard the rest
+    for i, t in enumerate(times):
+        idx = np.searchsorted(time_course, t)
+        if idx < len(raster_out):
+            raster_out[idx][channels[i]] += 1
+    return raster_out, cmap
 
 
 def extract_channel_map(
