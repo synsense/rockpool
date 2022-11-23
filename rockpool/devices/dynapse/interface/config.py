@@ -34,6 +34,7 @@ from rockpool.devices.dynapse.definitions import (
     NUM_TAGS,
     NUM_SYNAPSES,
     NUM_DEST,
+    NUM_CORES,
 )
 from rockpool.devices.dynapse.quantize.weight_handler import WeightHandler
 
@@ -50,6 +51,18 @@ except:
 
 # - Configure exports
 __all__ = ["config_from_specification"]
+
+
+def __get_num_chips(config: Dynapse2Configuration) -> int:
+    """
+    __get_num_cores process a configuration object and returns the number of chips available
+
+    :param config: samna dynapse2 configuration object
+    :type config: Dynapse2Configuration
+    :return: number of Dynap-SE2 chips available
+    :rtype: int
+    """
+    return len(config.chips)
 
 
 def __get_num_cores(config: Dynapse2Configuration) -> int:
