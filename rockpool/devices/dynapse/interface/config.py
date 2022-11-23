@@ -642,67 +642,109 @@ class WeightAllocator:
 
 
 def config_from_specification(
-    weights_in: Optional[IntVector],
-    weights_rec: Optional[IntVector],
-    sign_in: Optional[IntVector],
-    sign_rec: Optional[IntVector],
-    If_nmda: FloatVector,
-    Itau_syn: FloatVector,
-    Ispkthr: FloatVector,
-    Ipulse: FloatVector,
-    Igain_ahp: FloatVector,
-    Itau_mem: FloatVector,
-    Itau_ahp: FloatVector,
-    Ipulse_ahp: FloatVector,
-    Igain_mem: FloatVector,
-    Igain_syn: FloatVector,
-    Idc: FloatVector,
-    Iw_ahp: FloatVector,
-    Iref: FloatVector,
-    Iw: FloatVector,
-    chip_map: Dict[int, int],
-    chip_pos: Dict[int, Tuple[int]],
+    n_cluster: int,
+    core_map: List[int],
+    weights_in: List[Optional[IntVector]],
+    weights_rec: List[Optional[IntVector]],
+    sign_in: List[Optional[IntVector]],
+    sign_rec: List[Optional[IntVector]],
+    If_nmda: List[FloatVector],
+    Itau_syn: List[FloatVector],
+    Ispkthr: List[FloatVector],
+    Ipulse: List[FloatVector],
+    Igain_ahp: List[FloatVector],
+    Itau_mem: List[FloatVector],
+    Itau_ahp: List[FloatVector],
+    Ipulse_ahp: List[FloatVector],
+    Igain_mem: List[FloatVector],
+    Igain_syn: List[FloatVector],
+    Idc: List[FloatVector],
+    Iw_ahp: List[FloatVector],
+    Iref: List[FloatVector],
+    Iw_0: List[FloatVector],
+    Iw_1: List[FloatVector],
+    Iw_2: List[FloatVector],
+    Iw_3: List[FloatVector],
+    chip_map: Dict[int, int] = CHIP_MAP,
+    chip_pos: Dict[int, Tuple[int]] = CHIP_POS,
+    num_cores: int = NUM_CORES,
+    num_neurons: int = NUM_NEURONS,
     *args,
     **kwargs,
 ) -> Dynapse2Configuration:
 
-    core = DynapSimCore(
-        Idc=Idc[0],
-        If_nmda=If_nmda[0],
-        Igain_ahp=Igain_ahp[0],
-        Igain_ampa=Igain_syn[0],
-        Igain_gaba=Igain_syn[0],
-        Igain_nmda=Igain_syn[0],
-        Igain_shunt=Igain_syn[0],
-        Igain_mem=Igain_mem[0],
-        Ipulse_ahp=Ipulse_ahp[0],
-        Ipulse=Ipulse[0],
-        Iref=Iref[0],
-        Ispkthr=Ispkthr[0],
-        Itau_ahp=Itau_ahp[0],
-        Itau_ampa=Itau_syn[0],
-        Itau_gaba=Itau_syn[0],
-        Itau_nmda=Itau_syn[0],
-        Itau_shunt=Itau_syn[0],
-        Itau_mem=Itau_mem[0],
-        Iw_ahp=Iw_ahp[0],
-        Iw_0=Iw[0],
-        Iw_1=Iw[1],
-        Iw_2=Iw[2],
-        Iw_3=Iw[3],
-    )
+    new_config = samna.dynapse2.Dynapse2Configuration()
+    ## -- Get cores one by one -- ##
+    for c in range(n_cluster):
 
-    n_neurons = np.array(weights_rec).shape[1]
-    core_map = {n: 0 for n in range(n_neurons)}
+        core = DynapSimCore(
+            Idc=Idc[c],
+            If_nmda=If_nmda[c],
+            Igain_ahp=Igain_ahp[c],
+            Igain_ampa=Igain_syn[c],
+            Igain_gaba=Igain_syn[c],
+            Igain_nmda=Igain_syn[c],
+            Igain_shunt=Igain_syn[c],
+            Igain_mem=Igain_mem[c],
+            Ipulse_ahp=Ipulse_ahp[c],
+            Ipulse=Ipulse[c],
+            Iref=Iref[c],
+            Ispkthr=Ispkthr[c],
+            Itau_ahp=Itau_ahp[c],
+            Itau_ampa=Itau_syn[c],
+            Itau_gaba=Itau_syn[c],
+            Itau_nmda=Itau_syn[c],
+            Itau_shunt=Itau_syn[c],
+            Itau_mem=Itau_mem[c],
+            Iw_ahp=Iw_ahp[c],
+            Iw_0=Iw_0[c],
+            Iw_1=Iw_1[c],
+            Iw_2=Iw_2[c],
+            Iw_3=Iw_3[c],
+        )
 
-    __handler = WeightAllocator(
-        weights_in=weights_in,
-        weights_rec=weights_rec,
-        sign_in=sign_in,
-        sign_rec=sign_rec,
-        core_map=core_map,
-        chip_map=chip_map,
-        chip_pos=chip_pos,
-    )
+        allocator = WeightAllocator(
+            weights_in=weights_in[c],
+            weights_rec=weights_rec[c],
+            sign_in=sign_in[c],
+            sign_rec=sign_rec[c],
+            core_map=core_map,
+            chip_map=chip_map,
+            chip_pos=chip_pos,
+        )
 
-    return core.export_Dynapse2Parameters()
+        sram = allocator.SRAM_content(
+            use_samna=True, monitor_neurons=list(range(num_neurons))
+        )
+        cam = allocator.CAM_content(use_samna=True)
+
+        ch = core_map[c]
+        core_concfig = new_config.chips[ch].cores[c % num_cores]
+
+        for n, cam_content in cam.items():
+            core_concfig.neurons[n].synapses = cam_content
+            core_concfig.neurons[n].latch_so_dc = True
+
+        for n, sram_content in sram.items():
+            core_concfig.neurons[n].destinations = sram_content
+
+        params = core.export_Dynapse2Parameters()
+
+        for key, (coarse, fine) in params.items():
+            core_concfig.parameters[key].coarse_value = coarse
+            core_concfig.parameters[key].fine_value = fine
+
+    channel_map = {
+        i: Dynapse2Destination(
+            core=[True, False, False, False], x_hop=0, y_hop=0, tag=int(tag)
+        )
+        for i, tag in enumerate(allocator.virtual_tags)
+    }
+
+    return {
+        "config": new_config,
+        "input_channel_map": channel_map,
+        "sram": sram,
+        "cam": cam,
+        "biasgen": params,
+    }
