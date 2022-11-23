@@ -150,11 +150,14 @@ class WeightAllocator:
         :raises DRCError: Recurrent sign shape does not match the recurrent weight shape!
         :raises ValueError: Unexpected Error Occurded!
         """
+
+        # Only bias excitation, no weights
         if self.weights_in is None and self.weights_rec is None:
-            raise DRCError("No weights given for allocation!")
+            self.n_in = 0
+            self.n_neuron = 0
 
         # Feed-forward network
-        if self.weights_in is not None:
+        elif self.weights_in is not None:
             self.weights_in = np.array(self.weights_in)
             self.sign_in = np.array(self.sign_in)
             self.n_in = self.weights_in.shape[0]
