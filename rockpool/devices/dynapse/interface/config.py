@@ -352,6 +352,34 @@ class WeightAllocator:
 
         return content
 
+    def input_channel_map(self) -> Dict[int, Dynapse2Destination]:
+        """
+        input_channel_map reads the input weight matrix and generates a input channel map
+        This input cahnnel map can be used to feed the chip with events
+
+        :return: the mapping between input timeseries channels and the destinations
+        :rtype: Dict[int, Dynapse2Destination]
+        """
+        if self.weights_in is not None:
+            pre_core_map = [0 for n in range(self.weights_in.shape[0])]
+            content = self.matrix_to_destination(
+                self.weights_in,
+                pre_core_map,
+                self.core_map,
+                self.chip_map,
+                self.chip_pos,
+                self.virtual_tags,
+                num_dest=1,
+                use_samna=False,
+            )
+
+            # Unwrap single element destination lists
+            content = dict(map(lambda t: (t[0], t[1][0]), content.items()))
+        else:
+            content = {}
+
+        return content
+
     @staticmethod
     def matrix_to_synapse(
         matrix: np.ndarray,
