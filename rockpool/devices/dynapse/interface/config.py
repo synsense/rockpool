@@ -108,7 +108,7 @@ class WeightAllocator:
     :param sign_rec: recurrent weight directions (+1 : excitatory, -1 : inhibitory)
     :type sign_rec: Optional[IntVector]
     :param core_map: core map (neuron_id : core_id) for in-device neurons, defaults to CORE_MAP
-    :type core_map: Dict[int, int], optional
+    :type core_map: List[int] , optional
     :param chip_map: chip map (core_id : chip_id) for all cores, defaults to CHIP_MAP
     :type chip_map: Dict[int, int], optional
     :param chip_pos: global chip position dictionary (chip_id : (xpos,ypos)), defaults to CHIP_POS
@@ -121,7 +121,7 @@ class WeightAllocator:
     weights_rec: Optional[IntVector]
     sign_in: Optional[IntVector]
     sign_rec: Optional[IntVector]
-    core_map: Dict[int, int] = field(default_factory=lambda: CORE_MAP)
+    core_map: List[int] = field(default_factory=lambda: CORE_MAP)
     chip_map: Dict[int, int] = field(default_factory=lambda: CHIP_MAP)
     chip_pos: Dict[int, Tuple[int]] = field(default_factory=lambda: CHIP_POS)
     tag_list: Optional[IntVector] = None
@@ -409,8 +409,8 @@ class WeightAllocator:
     @staticmethod
     def matrix_to_destination(
         matrix: np.ndarray,
-        pre_core_map: Dict[int, int],
-        post_core_map: Dict[int, int],
+        pre_core_map: List[int],
+        post_core_map: List[int],
         chip_map: Dict[int, int],
         chip_pos: Dict[int, Tuple[int]],
         tag_list: List[int],
@@ -423,9 +423,9 @@ class WeightAllocator:
         :param matrix: the weight matrix representing the connectivity structure
         :type matrix: np.ndarray
         :param pre_core_map: core map (neuron_id : core_id) for the pre-synaptic neurons (axis 0)
-        :type pre_core_map: Dict[int, int]
+        :type pre_core_map: List[int]
         :param post_core_map: core map (neuron_id : core_id) for the post-synaptic neurons (axis 1)
-        :type post_core_map: Dict[int, int]
+        :type post_core_map: List[int]
         :param chip_map: global chip map (core_id : chip_id)
         :type chip_map: Dict[int, int]
         :param chip_pos: global chip position dictionary (chip_id : (xpos,ypos))
