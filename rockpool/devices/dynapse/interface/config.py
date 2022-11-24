@@ -677,23 +677,25 @@ def config_from_specification(
     weights_rec: List[Optional[IntVector]],
     sign_in: List[Optional[IntVector]],
     sign_rec: List[Optional[IntVector]],
+    # params
+    Idc: List[FloatVector],
     If_nmda: List[FloatVector],
-    Itau_syn: List[FloatVector],
-    Ispkthr: List[FloatVector],
-    Ipulse: List[FloatVector],
     Igain_ahp: List[FloatVector],
-    Itau_mem: List[FloatVector],
-    Itau_ahp: List[FloatVector],
-    Ipulse_ahp: List[FloatVector],
     Igain_mem: List[FloatVector],
     Igain_syn: List[FloatVector],
-    Idc: List[FloatVector],
-    Iw_ahp: List[FloatVector],
+    Ipulse_ahp: List[FloatVector],
+    Ipulse: List[FloatVector],
     Iref: List[FloatVector],
+    Ispkthr: List[FloatVector],
+    Itau_ahp: List[FloatVector],
+    Itau_mem: List[FloatVector],
+    Itau_syn: List[FloatVector],
+    Iw_ahp: List[FloatVector],
     Iw_0: List[FloatVector],
     Iw_1: List[FloatVector],
     Iw_2: List[FloatVector],
     Iw_3: List[FloatVector],
+    # definitions
     chip_map: Dict[int, int] = CHIP_MAP,
     chip_pos: Dict[int, Tuple[int]] = CHIP_POS,
     num_cores: int = NUM_CORES,
@@ -703,9 +705,15 @@ def config_from_specification(
 ) -> Dynapse2Configuration:
 
     new_config = samna.dynapse2.Dynapse2Configuration()
+
     ## -- Get cores one by one -- ##
     for c in range(n_cluster):
 
+        # Get the right chip and the indicated core config
+        ch = chip_map[c]
+        core_config = new_config.chips[ch].cores[c % num_cores]
+
+        # Convert the core parameters
         core = DynapSimCore(
             Idc=Idc[c],
             If_nmda=If_nmda[c],
@@ -732,6 +740,7 @@ def config_from_specification(
             Iw_3=Iw_3[c],
         )
 
+        # Allocate memory for the weights
         allocator = WeightAllocator(
             weights_in=weights_in[c],
             weights_rec=weights_rec[c],
@@ -742,38 +751,33 @@ def config_from_specification(
             chip_pos=chip_pos,
         )
 
+        # SRAM blocks are responsible for storing the destinations of the neurons
         sram = allocator.SRAM_content(
-            use_samna=True, monitor_neurons=list(range(num_neurons))
+            use_samna=True,
+            monitor_neurons=list(range(c * num_neurons, (c + 1) * num_neurons)),
         )
+
+        # CAM blocks are responsible for storing the incoming connections of the neurons
         cam = allocator.CAM_content(use_samna=True)
 
-        ch = core_map[c]
-        core_concfig = new_config.chips[ch].cores[c % num_cores]
-
-        for n, cam_content in cam.items():
-            core_concfig.neurons[n].synapses = cam_content
-            core_concfig.neurons[n].latch_so_dc = True
-
-        for n, sram_content in sram.items():
-            core_concfig.neurons[n].destinations = sram_content
-
+        # Neural parameters are shared across all neurons inside the core
         params = core.export_Dynapse2Parameters()
 
-        for key, (coarse, fine) in params.items():
-            core_concfig.parameters[key].coarse_value = coarse
-            core_concfig.parameters[key].fine_value = fine
+        # Update the configuration object
+        for n, cam_content in cam.items():
+            core_config.neurons[n].synapses = cam_content
+            if Idc > 0:
+                core_config.neurons[n].latch_so_dc = True
 
-    channel_map = {
-        i: Dynapse2Destination(
-            core=[True, False, False, False], x_hop=0, y_hop=0, tag=int(tag)
-        )
-        for i, tag in enumerate(allocator.virtual_tags)
-    }
+        for n, sram_content in sram.items():
+            core_config.neurons[n].destinations = sram_content
+
+        for key, (coarse, fine) in params.items():
+            core_config.parameters[key].coarse_value = coarse
+            core_config.parameters[key].fine_value = fine
 
     return {
         "config": new_config,
-        "input_channel_map": channel_map,
-        "sram": sram,
-        "cam": cam,
+        "input_channel_map": allocator.input_channel_map(),
         "biasgen": params,
     }
