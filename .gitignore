@@ -1,5 +1,7 @@
 .idea
 output
+._.DS_Store
+.DS_Store
 .pyc
 __pycache__
 .ipynb_checkpoints
@@ -21,6 +23,6 @@ docs/tutorials/data
 docs/tutorials/lightning_logs
 docs/tutorials/mlruns
 *test_samna_config.json
-tests/tests_default/MNIST
 tests/tests_default/mlruns
 tests/tests_default/lightning_logs
+tests/tests_default/MNIST

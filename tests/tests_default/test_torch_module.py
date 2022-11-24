@@ -250,7 +250,7 @@ def test_API_semantics():
     assert isinstance(b.parameters(), dict)
 
     # - Check __repr__
-    repr_Rockpool = "B  with shape (None,) {\n    A 'a' with shape (None,) {\n        LIFTorch 'slayer' with shape (1, 1)\n        Linear 'lin' with shape (None,)\n        Linear 'lin' with shape (None,)\n    }\n}"
+    repr_Rockpool = "B  with shape (None,) {\n    A 'a' with shape (None,) {\n        LIFTorch 'slayer' with shape (1, 1)\n        Linear 'lin' with shape (None,)\n    }\n}"
 
     assert str(b) == repr_Rockpool
 
