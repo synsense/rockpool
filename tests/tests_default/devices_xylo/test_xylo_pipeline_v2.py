@@ -12,7 +12,7 @@ def test_pipeline_v2():
     import numpy as np
     import torch
     import copy
-    from rockpool.transform import global_quantize, channel_quantize
+    from rockpool.transform.quantize_methods import global_quantize, channel_quantize
     from rockpool.nn.networks import WaveSenseNet
     from rockpool.nn.modules import (
         LIFBitshiftTorch,
