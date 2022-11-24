@@ -62,7 +62,8 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    :caption: Training and deploying to HW
 
    devices/xylo-overview.ipynb
-   tutorials/quick-xylo/deploy_to_xylo.ipynb
+   devices/quick-xylo/deploy_to_xylo.ipynb
+   devices/quick-xylo/xylo-audio-2-intro.ipynb
    devices/torch-training-spiking-for-xylo.ipynb
    devices/analog-frontend-example.ipynb
 

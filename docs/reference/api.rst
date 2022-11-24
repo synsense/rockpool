@@ -141,6 +141,7 @@ These classes are deprecated, but are still usable via the high-level API, until
     nn.layers.RecIAFSpkInNest
     nn.layers.RecAEIFSpkInNest
 
+
 Conversion utilities
 --------------------
 
@@ -151,6 +152,7 @@ Conversion utilities
     nn.modules.timed_module.TimedModuleWrapper
     nn.modules.timed_module.LayerToTimedModule
     nn.modules.timed_module.astimedmodule
+
 
 ``Jax`` training utilities
 ---------------------------
@@ -167,6 +169,7 @@ Conversion utilities
 
     training.adversarial_jax.pga_attack
     training.adversarial_jax.adversarial_loss
+
 
 ``PyTorch`` training utilities
 -------------------------------
@@ -195,46 +198,47 @@ Xylo hardware support and simulation
 .. autosummary::
     :toctree: _autosummary
 
-    devices.xylo.config_from_specification
-    devices.xylo.load_config
-    devices.xylo.save_config
+    devices.xylo.syns61201.config_from_specification
+    devices.xylo.syns61201.load_config
+    devices.xylo.syns61201.save_config
 
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.XyloSim
-    devices.xylo.XyloSamna
-    devices.xylo.AFESim
-    devices.xylo.AFESamna
-    devices.xylo.DivisiveNormalisation
+    devices.xylo.syns61201.XyloSim
+    devices.xylo.syns61201.XyloSamna
+    devices.xylo.syns61201.XyloMonitor
+    devices.xylo.syns61201.AFESim
+    devices.xylo.syns61201.AFESamna
+    devices.xylo.syns61201.DivisiveNormalisation
 
 .. autosummary::
     :toctree: _autosummary
     :template: module.rst
 
     devices.xylo
-    devices.xylo.xylo_devkit_utils
 
 .. autosummary::
     :toctree: _autosummary
     :template: module.rst
 
-    devices.xylo.syns61201
     devices.xylo.syns61300
+    devices.xylo.syns61201
     devices.xylo.syns65300
 
 .. autosummary::
     :toctree: _autosummary
 
-    devices.xylo.mapper
+    devices.xylo.syns61201.mapper
 
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.XyloHiddenNeurons
-    devices.xylo.XyloOutputNeurons
+    devices.xylo.syns61201.XyloHiddenNeurons
+    devices.xylo.syns61201.XyloOutputNeurons
+
 
 Graph tracing and mapping
 -------------------------

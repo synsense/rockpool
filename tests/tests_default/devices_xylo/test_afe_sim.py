@@ -10,13 +10,13 @@ def test_imports():
 
 
 def test_init():
-    from rockpool.devices.xylo import AFESim
+    from rockpool.devices.xylo.syns61201 import AFESim
 
     afe = AFESim()
 
 
 def test_evolve():
-    from rockpool.devices.xylo import AFESim
+    from rockpool.devices.xylo.syns61201 import AFESim
     from rockpool.timeseries import TSContinuous
     import numpy as np
 
@@ -65,7 +65,7 @@ def test_evolve():
 
 
 def test_zero_input():
-    from rockpool.devices.xylo import AFESim
+    from rockpool.devices.xylo.syns61201 import AFESim
     import numpy as np
 
     T = 1000
