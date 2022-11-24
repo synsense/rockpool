@@ -703,6 +703,67 @@ def config_from_specification(
     *args,
     **kwargs,
 ) -> Dynapse2Configuration:
+    """
+    config_from_specification gets a specification and creates a samna configuration object for Dynap-SE2 chip.
+    All the parameteres and weight matrices are provided as lists, indices indicating the exact cluster(core id).
+
+    :param n_cluster: total number of clusters, neural cores allocated
+    :type n_cluster: int
+    :param core_map: core map (neuron_id : core_id) for in-device neurons, defaults to CORE_MAP
+    :type core_map: List[int]
+    :param weights_in: a list of quantized input weight matrices
+    :type weights_in: List[Optional[IntVector]]
+    :param weights_rec: a list of quantized recurrent weight matrices
+    :type weights_rec: List[Optional[IntVector]]
+    :param sign_in: a list of input weight directions (+1 : excitatory, -1 : inhibitory) matrices
+    :type sign_in: List[Optional[IntVector]]
+    :param sign_rec: a list of recurrent weight directions (+1 : excitatory, -1 : inhibitory) matrices
+    :type sign_rec: List[Optional[IntVector]]
+    :param Idc: a list of Constant DC current injected to membrane in Amperes
+    :type Idc: List[FloatVector]
+    :param If_nmda: a list of NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes
+    :type If_nmda: List[FloatVector]
+    :param Igain_ahp: a list of gain bias current of the spike frequency adaptation block in Amperes
+    :type Igain_ahp: List[FloatVector]
+    :param Igain_mem: a list of gain bias current for neuron membrane in Amperes
+    :type Igain_mem: List[FloatVector]
+    :param Igain_syn: a list of gain bias current of synaptic gates (AMPA, GABA, NMDA, SHUNT) combined in Amperes
+    :type Igain_syn: List[FloatVector]
+    :param Ipulse_ahp: a list of bias current setting the pulse width for spike frequency adaptation block `t_pulse_ahp` in Amperes
+    :type Ipulse_ahp: List[FloatVector]
+    :param Ipulse: a list of bias current setting the pulse width for neuron membrane `t_pulse` in Amperes
+    :type Ipulse: List[FloatVector]
+    :param Iref: a list of bias current setting the refractory period `t_ref` in Amperes
+    :type Iref: List[FloatVector]
+    :param Ispkthr: a list of spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes
+    :type Ispkthr: List[FloatVector]
+    :param Itau_ahp: a list of Spike frequency adaptation leakage current setting the time constant `tau_ahp` in Amperes
+    :type Itau_ahp: List[FloatVector]
+    :param Itau_mem: a list of Neuron membrane leakage current setting the time constant `tau_mem` in Amperes
+    :type Itau_mem: List[FloatVector]
+    :param Itau_syn: a list of (AMPA, GABA, NMDA, SHUNT) synapses combined leakage current setting the time constant `tau_syn` in Amperes
+    :type Itau_syn: List[FloatVector]
+    :param Iw_ahp: a list of spike frequency adaptation weight current of the neurons of the core in Amperes
+    :type Iw_ahp: List[FloatVector]
+    :param Iw_0: a list of weight bit 0 current of the neurons of the core in Amperes
+    :type Iw_0: List[FloatVector]
+    :param Iw_1: a list of weight bit 1 current of the neurons of the core in Amperes
+    :type Iw_1: List[FloatVector]
+    :param Iw_2: a list of weight bit 2 current of the neurons of the core in Amperes
+    :type Iw_2: List[FloatVector]
+    :param Iw_3: a list of weight bit 3 current of the neurons of the core in Amperes
+    :type Iw_3: List[FloatVector]
+    :param chip_map: chip map (core_id : chip_id) for all cores, defaults to CHIP_MAP
+    :type chip_map: Dict[int, int], optional
+    :param chip_pos: global chip position dictionary (chip_id : (xpos,ypos)), defaults to CHIP_POS
+    :type chip_pos: Dict[int, Tuple[int]], optional
+    :param num_cores: the number of cores per chip, defaults to NUM_CORES
+    :type num_cores: int, optional
+    :param num_neurons: the number of neurons per core, defaults to NUM_NEURONS
+    :type num_neurons: int, optional
+    :return: a modified samna ``Dynapse2Configuration`` object
+    :rtype: Dynapse2Configuration
+    """
 
     new_config = samna.dynapse2.Dynapse2Configuration()
 
