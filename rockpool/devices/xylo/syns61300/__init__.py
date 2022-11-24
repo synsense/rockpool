@@ -15,6 +15,13 @@ from rockpool.utilities.backend_management import (
     missing_backend_shim,
 )
 
+from .xylo_graph_modules import *
+
+# from .xylo_mapper import *
+# from .xylo_sim import *
+# from .xylo_samna import *
+# from .xylo_devkit_utils import *
+
 try:
     from .xylo_sim import *
 except (ImportError, ModuleNotFoundError) as err:
@@ -23,15 +30,24 @@ except (ImportError, ModuleNotFoundError) as err:
     else:
         raise
 
-from .xylo_mapper import *
-
 try:
-    from ..xylo_samna import *
+    from .xylo_mapper import *
 except (ImportError, ModuleNotFoundError) as err:
-    if not backend_available("samna"):
-        XyloSamna = missing_backend_shim("XyloSamna", "samna")
+    if not backend_available("xylosim", "samna"):
+        XyloSim = missing_backend_shim("mapper", "xylosim, samna")
     else:
         raise
 
-
-from .. import xylo_devkit_utils
+try:
+    from .xylo_samna import *
+    from .xylo_devkit_utils import *
+except (ImportError, ModuleNotFoundError) as err:
+    if not backend_available("samna"):
+        XyloSamna = missing_backend_shim("XyloSamna", "samna")
+        config_from_specification = missing_backend_shim(
+            "config_from_specification", "samna"
+        )
+        save_config = missing_backend_shim("save_config", "samna")
+        load_config = missing_backend_shim("load_config", "samna")
+    else:
+        raise
