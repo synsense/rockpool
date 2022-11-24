@@ -350,7 +350,7 @@ class XyloSamna(Module):
 
         Args:
             device (XyloA2HDK): An opened `samna` device to a Xylo dev kit
-            config (XyloConfiguraration): A Xylo configuration from `samna`
+            config (XyloConfiguration): A Xylo configuration from `samna`
             dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
             power_frequency (float): The frequency of power measurement. Default: 5.0

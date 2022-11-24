@@ -20,7 +20,7 @@ docs/tutorials/cache
 docs/tutorials/data
 docs/tutorials/lightning_logs
 docs/tutorials/mlruns
-test_samna_config.json
+*test_samna_config.json
 tests/tests_default/MNIST
 tests/tests_default/mlruns
 tests/tests_default/lightning_logs

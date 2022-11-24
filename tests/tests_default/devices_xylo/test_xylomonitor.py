@@ -3,7 +3,7 @@ import pytest
 pytest.importorskip("samna")
 
 
-def test_XyloSamna():
+def test_XyloMonitor():
     from rockpool.devices.xylo.syns61201 import XyloMonitor, config_from_specification
     import rockpool.devices.xylo.syns61201.xa2_devkit_utils as putils
     import numpy as np
@@ -38,7 +38,7 @@ def test_XyloSamna():
         aliases=None,
     )
 
-    # - Make a XyloSamna module
+    # - Make a XyloMonitor module
     mod_xylo = XyloMonitor(daughterboard, config, dt, output_mode="Vmem")
 
     # - Simulate with random input
