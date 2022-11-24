@@ -90,6 +90,11 @@ dcurrents = {
     "Iw_ahp": 0.0,
 }
 
-CORE_MAP = {i: i // NUM_NEURONS for i in range(NUM_NEURONS * NUM_CORES * NUM_CHIPS)}
+CORE_MAP = [i // NUM_NEURONS for i in range(NUM_NEURONS * NUM_CORES * NUM_CHIPS)]
 CHIP_MAP = {i: i // NUM_CORES for i in range(-NUM_CORES, NUM_CORES * NUM_CHIPS)}
 CHIP_POS = {-1: (0, 0), 0: (1, 0), 1: (2, 0), 3: (3, 0), 4: (4, 0)}
+
+if __name__ == "__main__":
+    print("CORE_MAP\n", CHIP_MAP)
+    print("CHIP_MAP\n", CHIP_MAP)
+    print("CHIP_POS\n", CHIP_POS)
