@@ -11,7 +11,7 @@ from enum import Enum
 __all__ = ["Dynapse1SynType"]
 
 
-class Dynapse1SynType(Enum, int):
+class Dynapse1SynType(int, Enum):
     NMDA = 2
     AMPA = 3
     GABA_B = 0
