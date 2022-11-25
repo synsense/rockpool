@@ -73,15 +73,19 @@ def autoencoder_quantization(
         "Iw_3": [],
         "quantization_loss": [],
     }
-    n_neuron = weights_rec.shape[1]
 
     for n in range(n_cluster):
+        if weights_in is not None:
+            w_in = np.zeros_like(weights_in)
+            w_in[:, core_map == n] = weights_in[:, core_map == n]
+        else:
+            w_in = None
 
-        w_in = np.zeros_like(weights_in)
-        w_rec = np.zeros_like(weights_rec)
-
-        w_in[:, core_map == n] = weights_in[:, core_map == n]
-        w_rec[:, core_map == n] = weights_rec[:, core_map == n]
+        if weights_rec is not None:
+            w_rec = np.zeros_like(weights_rec) if w_rec is not None else w_rec
+            w_rec[:, core_map == n] = weights_rec[:, core_map == n]
+        else:
+            w_rec = None
 
         __temp = single_autoencoder(
             w_in,
