@@ -14,11 +14,11 @@ E-mail : ugurcan.cakal@gmail.com
 
 from typing import Dict, Optional, List
 from abc import abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
-from rockpool.devices.dynapse.lookup import param_name as _params
+from rockpool.devices.dynapse.lookup import device2sim_se1
 from .definitions import Dynapse1SynType
 
 __all__ = [
@@ -31,8 +31,6 @@ __all__ = [
     "Dynapse1Chip",
     "Dynapse1Configuration",
 ]
-
-SE1_PARAMS = list(_params.se1_bias.keys())
 
 
 @dataclass
@@ -49,7 +47,7 @@ class Dynapse1Parameter:
         :raises ValueError: Invalid Parameter Name
         """
 
-        if self.param_name not in SE1_PARAMS:
+        if self.param_name not in device2sim_se1:
             raise ValueError(f"{self.param_name} : Invalid parameter name!")
 
         self.type = self.param_name[-1]
