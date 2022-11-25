@@ -76,13 +76,13 @@ def autoencoder_quantization(
 
     for n in range(n_cluster):
         if weights_in is not None:
-            w_in = np.zeros_like(weights_in) if weights_in is not None else weights_in
+            w_in = np.zeros_like(weights_in)
             w_in[:, core_map == n] = weights_in[:, core_map == n]
         else:
             w_in = None
 
         if weights_rec is not None:
-            w_rec = np.zeros_like(weights_rec) if weights_rec is not None else weights_rec
+            w_rec = np.zeros_like(weights_rec)
             w_rec[:, core_map == n] = weights_rec[:, core_map == n]
         else:
             w_rec = None
