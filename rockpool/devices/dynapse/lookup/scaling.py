@@ -18,7 +18,9 @@ E-mail : ugurcan.cakal@gmail.com
 14/01/2022
 """
 
-se1 = {
+__all__ = ["scale_factor_se1", "scale_factor_se2"]
+
+scale_factor_se1 = {
     "IF_AHTAU_N": 1.0,
     "IF_AHTHR_N": 1.0,
     "IF_AHW_P": 1.0,
@@ -46,7 +48,7 @@ se1 = {
     "R2R_P": 1.0,
 }
 
-se2 = {
+scale_factor_se2 = {
     "LBWR_VB_P": 0.57,
     "SOIF_GAIN_N": 1.05,
     "SOIF_LEAK_N": 0.61,
