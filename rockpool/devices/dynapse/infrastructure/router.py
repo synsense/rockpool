@@ -34,12 +34,10 @@ import numpy as np
 
 from rockpool.devices.dynapse.definitions import CoreKey, NeuronKey, NUM_CORES
 
-from rockpool.devices.dynapse.samna_alias.dynapse1 import (
+from rockpool.devices.dynapse.samna_alias import (
     Dynapse1Synapse,
     Dynapse1Destination,
     Dynapse1Configuration,
-)
-from rockpool.devices.dynapse.samna_alias.dynapse2 import (
     Dynapse2Synapse,
     Dynapse2Destination,
     Dynapse2Configuration,

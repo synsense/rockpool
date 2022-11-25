@@ -12,8 +12,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from rockpool.devices.dynapse.lookup import paramgen, scaling_factor
-from rockpool.devices.dynapse.samna_alias.dynapse1 import Dynapse1Parameter
-from rockpool.devices.dynapse.samna_alias.dynapse2 import Dynapse2Parameter
+from rockpool.devices.dynapse.samna_alias import Dynapse1Parameter, Dynapse2Parameter
 
 
 class BiasGen:

@@ -17,7 +17,7 @@ import logging
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
-from rockpool.devices.dynapse.samna_alias.dynapse2 import (
+from rockpool.devices.dynapse.samna_alias import (
     Dynapse2Configuration,
     Dynapse2Synapse,
     Dynapse2Destination,

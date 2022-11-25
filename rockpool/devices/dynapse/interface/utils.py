@@ -18,15 +18,13 @@ import time
 import logging
 import numpy as np
 
-from rockpool.devices.dynapse.samna_alias.dynapse2 import (
+from rockpool.devices.dynapse.samna_alias import (
     Dynapse2Destination,
     NormalGridEvent,
     Dynapse2Interface,
-    Dynapse2Model,
     DeviceInfo,
 )
 
-from rockpool.timeseries import TSEvent
 import os
 
 # Try to import samna for device interfacing

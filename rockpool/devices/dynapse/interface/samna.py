@@ -28,14 +28,13 @@ from rockpool.devices.dynapse.interface.utils import (
 
 # - Rockpool imports
 from rockpool.nn.modules.module import Module
-from rockpool.devices.dynapse.samna_alias.dynapse2 import (
+from rockpool.devices.dynapse.samna_alias import (
     Dynapse2Destination,
     DeviceInfo,
     Dynapse2Interface,
     Dynapse2Model,
+    Dynapse2Configuration,
 )
-
-from rockpool.devices.dynapse.samna_alias.dynapse2 import Dynapse2Configuration
 
 # Try to import samna for device interfacing
 try:

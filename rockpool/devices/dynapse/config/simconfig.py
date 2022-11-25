@@ -42,17 +42,12 @@ from rockpool.devices.dynapse.infrastructure.biasgen import (
 
 from rockpool.devices.dynapse.lookup import param_name
 from rockpool.devices.dynapse.default import dlayout, dweight, dtime, dgain, dcurrents
-from rockpool.devices.dynapse.samna_alias.dynapse1 import (
+from rockpool.devices.dynapse.samna_alias import (
     Dynapse1Parameter,
     Dynapse1Core,
-    Dynapse1Configuration,
-)
-from rockpool.devices.dynapse.samna_alias.dynapse2 import (
     Dynapse2Parameter,
     Dynapse2Core,
-    Dynapse2Configuration,
 )
-from rockpool.devices.dynapse.ref.weights_old import WeightParameters
 from rockpool.devices.dynapse.infrastructure.router import Router, Connector
 from rockpool.typehints import FloatVector
 
