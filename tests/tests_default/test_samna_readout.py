@@ -5,8 +5,8 @@ pytest.importorskip("xylosim")
 
 
 def test_XyloSamna_readout():
-    from rockpool.devices.xylo import XyloSamna, config_from_specification
-    import rockpool.devices.xylo.xylo_devkit_utils as putils
+    from rockpool.devices.xylo.syns61300 import XyloSamna, config_from_specification
+    import rockpool.devices.xylo.syns61300.xylo_devkit_utils as putils
     import numpy as np
 
     xylo_hdk_nodes = putils.find_xylo_boards()
