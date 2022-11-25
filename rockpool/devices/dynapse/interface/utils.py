@@ -18,6 +18,7 @@ import time
 import logging
 import numpy as np
 
+from rockpool.devices.dynapse.lookup import SE2_STACK_FPGA_FILEPATH
 from rockpool.devices.dynapse.samna_alias import (
     Dynapse2Destination,
     NormalGridEvent,
@@ -37,18 +38,6 @@ except:
     print(
         "Device interface requires `samna` package which is not installed on the system"
     )
-
-
-def __bit_path_Dynapse2Stack() -> str:
-    """
-    __bit_path_Dynapse2Stack returns the bitfile path of the Dynapse2Stack configuration file.
-
-    :return: bitfile path
-    :rtype: str
-    """
-    __dirname__ = os.path.dirname(os.path.abspath(__file__))
-    __bit_file_path = os.path.join(__dirname__, "bitfiles", "Dynapse2Stack.bit")
-    return __bit_file_path
 
 
 def find_dynapse_boards(name: str = "DYNAP-SE2") -> List[DeviceInfo]:
@@ -104,7 +93,7 @@ def configure_dynapse2_fpga(
     device = samna.device.open_device(device)
 
     if bitfile is None:
-        bitfile = __bit_path_Dynapse2Stack()
+        bitfile = SE2_STACK_FPGA_FILEPATH
 
     if not device.configure_opal_kelly(bitfile):
         raise IOError("Failed to configure Opal Kelly")
