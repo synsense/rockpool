@@ -8,6 +8,8 @@ E-mail : ugurcan.cakal@gmail.com
 """
 from enum import Enum
 
+__all__ = ["Dynapse1SynType"]
+
 
 class Dynapse1SynType(Enum, int):
     NMDA = 2
