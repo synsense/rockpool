@@ -8,3 +8,9 @@ from .parameter_name import *
 from .paramgen import *
 from .scaling import *
 from .transistor import *
+
+## Get FPGA configuration file
+import os
+
+__dirname__ = os.path.dirname(os.path.abspath(__file__))
+SE2_STACK_FPGA_FILEPATH = os.path.join(__dirname__, "bitfiles", "Dynapse2Stack.bit")
