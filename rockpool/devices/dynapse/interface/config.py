@@ -825,10 +825,12 @@ def config_from_specification(
         params = core.export_Dynapse2Parameters()
 
         # Update the configuration object
+        for n in range(num_neurons):
+            if Idc[c] > 0:
+                core_config.neurons[n].latch_so_dc = True
+
         for n, cam_content in cam.items():
             core_config.neurons[n].synapses = cam_content
-            if Idc > 0:
-                core_config.neurons[n].latch_so_dc = True
 
         for n, sram_content in sram.items():
             core_config.neurons[n].destinations = sram_content
