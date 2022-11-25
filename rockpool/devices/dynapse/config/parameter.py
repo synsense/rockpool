@@ -9,16 +9,7 @@ E-mail : ugurcan.cakal@gmail.com
 from __future__ import annotations
 from typing import Optional, List, Tuple, Union
 from rockpool.typehints import FloatVector
-
-from copy import deepcopy
 import numpy as np
-from dataclasses import dataclass
-
-from rockpool.graph import GraphModule, GraphNode, SetList, GraphHolder, connect_modules
-from rockpool.graph.utils import bag_graph
-
-from rockpool.devices.dynapse.graph import DynapseNeurons
-from rockpool.graph.graph_modules import LIFNeuronWithSynsRealValue, LinearWeights
 
 ### --- Utility Functions --- ###
 
