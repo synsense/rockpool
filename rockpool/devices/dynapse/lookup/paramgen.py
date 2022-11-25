@@ -12,30 +12,19 @@ E-mail : ugurcan.cakal@gmail.com
 """
 import numpy as np
 
-COARSE_BASE_EXT = [
-    1.5e-11,  # I0
-    1.05e-10,  # I1
-    8.2e-10,  # I2
-    6.5e-09,  # I3
-    5e-08,  # I4
-    4e-07,  # I5
-    3.2e-06,  # I6
-    2.4e-05,  # I7
-]
-
-N_FINE = 256
+__all__ = ["paramgen_se1", "paramgen_se2"]
 
 ## -- GENERATE ANALYTICAL TABLE FOR SE1 -- ##
-bases = np.array(
-    [np.array(COARSE_BASE_EXT) * (f / (N_FINE - 1)) for f in range(N_FINE)]
-).T
-coarses = np.array(range(len(COARSE_BASE_EXT)))
-__dict = dict(zip(coarses, bases))
-se1 = {"N": __dict, "P": __dict}
+
+f_res = 256
+c_base = [1.5e-11, 1.05e-10, 8.2e-10, 6.5e-09, 5e-08, 4e-07, 3.2e-06, 2.4e-05]
+bases = np.array([np.array(c_base) * (f / (f_res)) for f in range(1, f_res + 1)]).T
+__dict = dict(zip(range(len(c_base)), bases))
+paramgen_se1 = {"N": __dict, "P": __dict}
 
 ### --- ###
 
-se2 = {
+paramgen_se2 = {
     "N": {
         0: [
             4.936110919490739e-13,
