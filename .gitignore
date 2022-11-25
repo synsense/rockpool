@@ -26,8 +26,6 @@ docs/tutorials/mlruns
 tests/tests_default/mlruns
 tests/tests_default/lightning_logs
 tests/tests_default/MNIST
-
-*.bit
 *.DS_Store
 
 ## -- Temporary addition, will be removed after
