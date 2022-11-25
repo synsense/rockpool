@@ -11,6 +11,8 @@ E-mail : ugurcan.cakal@gmail.com
 18/01/2022
 """
 
+__all__ = ["sim2device_se1", "sim2device_se2", "device2sim_se1", "device2sim_se2"]
+
 
 table = {
     "Idc": ["Idc", "IF_DC_P", "SOIF_DC_P"],
@@ -38,12 +40,8 @@ table = {
     "Iw_ahp": ["Iw_ahp", "IF_AHW_P", "SOAD_W_N"],
 }
 
-se1 = {k: v[1] for k, v in table.items() if v[1] is not None}
-se2 = {k: v[2] for k, v in table.items() if v[2] is not None}
+sim2device_se1 = {k: v[1] for k, v in table.items() if v[1] is not None}
+sim2device_se2 = {k: v[2] for k, v in table.items() if v[2] is not None}
 
-se1_bias = {v: k for k, v in se1.items()}
-se2_bias = {v: k for k, v in se2.items()}
-
-if __name__ == "__main__":
-
-    print("SOIF_DC_P" in se2_bias)
+device2sim_se1 = {v: k for k, v in sim2device_se1.items()}
+device2sim_se2 = {v: k for k, v in sim2device_se2.items()}
