@@ -11,7 +11,12 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from rockpool.devices.dynapse.lookup import paramgen, scaling_factor
+from rockpool.devices.dynapse.lookup import (
+    paramgen_se1,
+    paramgen_se2,
+    scale_factor_se1,
+    scale_factor_se2,
+)
 from rockpool.devices.dynapse.samna_alias import Dynapse1Parameter, Dynapse2Parameter
 
 
@@ -149,7 +154,7 @@ class BiasGenSE1(BiasGen):
         __init__ initialize the common module with full list of coarse base currents
         """
         super(BiasGenSE1, self).__init__(
-            paramgen_table=paramgen.se1, scaling_factor_table=scaling_factor.se1
+            paramgen_table=paramgen_se1, scaling_factor_table=scale_factor_se1
         )
 
 
@@ -165,5 +170,5 @@ class BiasGenSE2(BiasGen):
         __init__ initialize the common module with shrinked list of coarse base currents
         """
         super(BiasGenSE2, self).__init__(
-            paramgen_table=paramgen.se2, scaling_factor_table=scaling_factor.se2
+            paramgen_table=paramgen_se2, scaling_factor_table=scale_factor_se2
         )

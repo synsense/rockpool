@@ -40,7 +40,7 @@ from rockpool.devices.dynapse.infrastructure.biasgen import (
     BiasGenSE2,
 )
 
-from rockpool.devices.dynapse.lookup import param_name
+from rockpool.devices.dynapse.lookup import sim2device_se1, sim2device_se2
 from rockpool.devices.dynapse.default import dlayout, dweight, dtime, dgain, dcurrents
 from rockpool.devices.dynapse.samna_alias import (
     Dynapse1Parameter,
@@ -441,7 +441,7 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
         _mod = cls.__from_samna(
             biasgen=BiasGenSE1(),
             param_getter=lambda name: core.parameter_group.param_map[name],
-            param_map=param_name.se1,
+            param_map=sim2device_se1,
         )
 
         return _mod
@@ -459,7 +459,7 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
         _mod = cls.__from_samna(
             biasgen=BiasGenSE2(),
             param_getter=lambda name: core.parameters[name],
-            param_map=param_name.se2,
+            param_map=sim2device_se2,
         )
         return _mod
 
@@ -497,7 +497,7 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
         """
         return self.__export_parameters(
             biasgen=BiasGenSE1(),
-            param_map=param_name.se1,
+            param_map=sim2device_se1,
         )
 
     def export_Dynapse2Parameters(self) -> Dict[str, Tuple[np.uint8, np.uint8]]:
@@ -510,7 +510,7 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
         """
         return self.__export_parameters(
             biasgen=BiasGenSE2(),
-            param_map=param_name.se2,
+            param_map=sim2device_se2,
         )
 
     def update(self, attr: str, value: Any) -> DynapSimCore:
