@@ -45,13 +45,14 @@ Dependencies
 * scipy_ for scipy_-backed modules
 * numba_ for numba_-backed modules
 * NEST_ for NEST_-backed modules
-* Jax_ for Jax_-backed modules
+* Jax_ and Jaxlib_ for Jax_-backed modules
 * PyTorch_ for Torch_-backed modules
 * Brian2_ for Brian_-backed modules
 * Sinabs_ for Sinabs_-backed modules
+* Samna_, Xylosim_, Bitstruct_ for building and deploying modules to the Xylo hardware family
 * Matplotlib_ or HoloViews_ for plotting :py:class:`.TimeSeries`
 * PyTest_ for running tests
-* Sphinx_, pandoc_, NBSphinx_ and Sphinx-autobuild_ for building documentation
+* Sphinx_, pandoc_, recommonmark_, NBSphinx_, sphinx-rtd-theme_ and Sphinx-autobuild_ for building documentation
 
 To automatically install most of the extra dependencies required by |project|, use the command
 
@@ -67,7 +68,7 @@ or
 
 if using zsh. Some dependencies, such as pandoc_ and NEST_, must be installed manually.
 
-To check which computational back-ends are available to |project|, use the :py:func:`.list_backends` function:
+To check which computational back-ends are available to |project|, use the :func:`.list_backends` function:
 
 .. code-block:: python
 
@@ -162,6 +163,7 @@ To run all the unit tests for |project|, use ``pytest``:
 .. _scipy: https://www.scipy.org
 .. _numba: https://numba.pydata.org
 .. _Jax: https://github.com/google/jax
+.. _Jaxlib: https://github.com/google/jax
 .. _PyTorch: https://pytorch.org/
 .. _Torch: https://pytorch.org/
 .. _NEST: https://www.nest-simulator.org
@@ -178,3 +180,8 @@ To run all the unit tests for |project|, use ``pytest``:
 .. _Matplotlib: https://matplotlib.org
 .. _Holoviews: http://holoviews.org
 .. _tqdm: https://github.com/tqdm/tqdm
+.. _Samna: https://pypi.org/project/samna/
+.. _Xylosim: https://pypi.org/project/xylosim/
+.. _Bitstruct: https://pypi.org/project/bitstruct/
+.. _sphinx-rtd-theme: https://pypi.org/project/sphinx-rtd-theme/
+.. _recommonmark: https://pypi.org/project/sphinx-rtd-theme/

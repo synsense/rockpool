@@ -267,7 +267,7 @@ class XyloSim(Module):
             )
         cls.output_mode = output_mode
 
-        from rockpool.devices.xylo import config_from_specification
+        from rockpool.devices.xylo.syns61300 import config_from_specification
 
         # - Convert specification to xylo configuration
         config, is_valid, status = config_from_specification(

@@ -91,9 +91,6 @@ class SequentialMixin(ABC):
                 submod,
             )
 
-        # - Record module list
-        self._submodule_names = submod_names
-
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
         # - Initialise state and record dictionaries
         new_state_dict = {}
@@ -102,8 +99,8 @@ class SequentialMixin(ABC):
         x = input_data
 
         # - Loop through submodules
-        for submod_name in self._submodule_names:
-            # - Get this submodule and weight
+        for submod_name in self._submodulenames:
+            # - Get this submodule
             mod = getattr(self, submod_name)
 
             # - Push data through submodule
@@ -129,7 +126,7 @@ class SequentialMixin(ABC):
         Returns:
             Module: The ``item``th module in the sequence
         """
-        return self.modules()[self._submodule_names[item]]
+        return self.modules()[self._submodulenames[item]]
 
     def as_graph(self):
         mod_graphs = []
@@ -149,7 +146,7 @@ class SequentialMixin(ABC):
 
     def _wrap_recorded_state(self, state_dict: dict, t_start: float = 0.0) -> dict:
         # - Wrap each sub-dictionary in turn
-        for mod_name in self._submodule_names:
+        for mod_name in self._submodulenames:
             mod = self.modules()[mod_name]
             state_dict[mod_name].update(
                 mod._wrap_recorded_state(state_dict[mod_name], t_start)

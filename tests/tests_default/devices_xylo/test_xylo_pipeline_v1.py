@@ -5,14 +5,14 @@ pytest.importorskip("samna")
 pytest.importorskip("xylosim")
 
 
-def test_pipeline():
-    from rockpool.devices.xylo import mapper, config_from_specification
-    from rockpool.devices.xylo import XyloSim
+def test_pipeline_v1():
+    from rockpool.devices.xylo.syns61300 import mapper, config_from_specification
+    from rockpool.devices.xylo.syns61300 import XyloSim
 
     import numpy as np
     import torch
     import copy
-    from rockpool.transform import global_quantize, channel_quantize
+    from rockpool.transform.quantize_methods import global_quantize, channel_quantize
     from rockpool.nn.networks import WaveSenseNet
     from rockpool.nn.modules import (
         LIFBitshiftTorch,

@@ -1,5 +1,7 @@
 .idea
 output
+._.DS_Store
+.DS_Store
 .pyc
 __pycache__
 .ipynb_checkpoints
@@ -26,3 +28,7 @@ docs/tutorials/mlruns
 ## -- Temporary addition, will be removed after
 docs/devices/DynapSE/frozen_noise_classification
 docs/devices/DynapSE/syn_tau
+*test_samna_config.json
+tests/tests_default/mlruns
+tests/tests_default/lightning_logs
+tests/tests_default/MNIST

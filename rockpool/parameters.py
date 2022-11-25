@@ -16,11 +16,14 @@ __all__ = ["Parameter", "State", "SimulationParameter", "Constant"]
 from rockpool.utilities.backend_management import backend_available
 
 if backend_available("torch"):
-    from torch import Tensor
+    from torch import tensor, Tensor
 else:
 
     class Tensor:
         pass
+
+    def tensor(_):
+        return _
 
 
 class RP_Constant:
@@ -157,9 +160,7 @@ class ParameterBase:
 
             # - Unpack a torch tensor
             if isinstance(self.data, Tensor):
-                import torch
-
-                self.data = torch.tensor(self.data.detach().numpy())
+                self.data = tensor(self.data.detach().numpy())
 
         def numel(x):
             if isinstance(x, np.ndarray):

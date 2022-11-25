@@ -17,11 +17,11 @@ from rockpool.typehints import IntVector, FloatVector
 
 from dataclasses import dataclass, field
 
-__all__ = ["XyloNeurons", "XyloHiddenNeurons", "XyloOutputNeurons"]
+__all__ = ["Xylo2Neurons", "Xylo2HiddenNeurons", "Xylo2OutputNeurons"]
 
 
 @dataclass(eq=False, repr=False)
-class XyloNeurons(GenericNeurons):
+class Xylo2Neurons(GenericNeurons):
     """
     Base class for all Xylo graph module classes
     """
@@ -33,7 +33,7 @@ class XyloNeurons(GenericNeurons):
     """ IntVector: The threshold parameters for each neuron ``(N,)`` """
 
     bias: Union[IntVector, FloatVector] = field(default_factory=list)
-    # """ IntVector: The bias parameters for each neuron ``(N,)
+    """ IntVector: The bias parameters for each neuron ``(N,)`` """
 
     dash_mem: Union[IntVector, FloatVector] = field(default_factory=list)
     """ IntVector: The membrane decay parameters for each neuron ``(N,)`` """
@@ -119,9 +119,9 @@ class XyloNeurons(GenericNeurons):
 
 
 @dataclass(eq=False, repr=False)
-class XyloHiddenNeurons(XyloNeurons):
+class Xylo2HiddenNeurons(Xylo2Neurons):
     """
-    A :py:class:`.graph.GraphModule` encapsulating Xylo v1 hidden neurons
+    A :py:class:`.graph.GraphModule` encapsulating Xylo v2 hidden neurons
     """
 
     def __post_init__(self, *args, **kwargs):
@@ -135,7 +135,7 @@ class XyloHiddenNeurons(XyloNeurons):
 
 
 @dataclass(eq=False, repr=False)
-class XyloOutputNeurons(XyloNeurons):
+class Xylo2OutputNeurons(Xylo2Neurons):
     """
     A :py:class:`.graph.GraphModule` encapsulating Xylo V1 output neurons
     """
