@@ -11,7 +11,9 @@ E-mail : ugurcan.cakal@gmail.com
 14/01/2022
 """
 
-table = {
+__all__ = ["transistor_se2"]
+
+transistor_se2 = {
     "LBWR_VB_P": "(s.5)",
     "SOIF_GAIN_N": "(s3)",
     "SOIF_LEAK_N": "(5.6x6)",
