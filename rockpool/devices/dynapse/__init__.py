@@ -13,6 +13,7 @@ JAX-backend Dynap-SE1/SE2 simulator support which allows people to
 
 from . import samna_alias as sa
 
-from .simulation import *
+from .simulation import DynapSim
 from .mapping import DynapseNeurons, mapper
 from .parameters import parameter_clustering, BiasGenSE2, DynapSimCore
+from .quantization import autoencoder_quantization
