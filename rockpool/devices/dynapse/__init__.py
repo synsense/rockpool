@@ -13,3 +13,6 @@ JAX-backend Dynap-SE1/SE2 simulator support which allows people to
 
 from . import samna_alias as sa
 from .dynapsim import DynapSim
+
+from .parameters.cluster import parameter_clustering
+from .parameters.biasgen import BiasGenSE2
