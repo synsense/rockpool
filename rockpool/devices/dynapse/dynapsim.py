@@ -62,7 +62,7 @@ from rockpool.devices.dynapse.lookup import (
     default_weights,
     default_currents,
 )
-from rockpool.devices.dynapse.definitions import DynapSimRecord, DynapSimState
+from rockpool.devices.dynapse.typehints import DynapSimRecord, DynapSimState
 from rockpool.devices.dynapse.graph import DynapseNeurons
 
 from rockpool.nn.modules.jax.jax_module import JaxModule

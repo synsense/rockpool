@@ -33,7 +33,7 @@ from rockpool.graph.graph_modules import LinearWeights
 from rockpool.devices.dynapse.dynapsim import DynapSim
 from rockpool.devices.dynapse.graph import DynapseNeurons
 from rockpool.devices.dynapse.config.transform import transformer, recurrent_modules
-from rockpool.devices.dynapse.definitions import DRCError
+from rockpool.devices.dynapse.typehints import DRCError
 
 
 __all__ = ["DynapseGraphContainer", "mapper"]
