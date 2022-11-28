@@ -21,7 +21,9 @@ from rockpool.graph.utils import bag_graph
 from rockpool.devices.dynapse.mapping import DynapseNeurons
 from rockpool.graph.graph_modules import LIFNeuronWithSynsRealValue, LinearWeights
 
-from . import recurrent_modules, NPGrid, DFA_Placement
+from .grid import NPGrid
+from .state_machine import DFA_Placement
+from .recurrent_modules import recurrent_modules
 
 __all__ = ["lifnet_to_dynapsim"]
 

@@ -27,7 +27,7 @@ from rockpool.graph.utils import bag_graph
 from rockpool.graph.graph_modules import LinearWeights
 from rockpool.devices.dynapse.typehints import DRCError
 
-from . import DynapseNeurons
+from .graph import DynapseNeurons
 from .utils import lifnet_to_dynapsim, recurrent_modules
 
 __all__ = ["mapper"]

@@ -22,7 +22,7 @@ from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter
 from rockpool.nn.modules.native.linear import kaiming
 
-from . import step_pwl_ae
+from .gradient import step_pwl_ae
 
 
 __all__ = ["DigitalAutoEncoder"]

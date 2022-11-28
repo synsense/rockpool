@@ -17,7 +17,8 @@ from dataclasses import dataclass
 # Rockpool
 from rockpool.training import jax_loss as l
 
-from . import DigitalAutoEncoder, WeightHandler
+from .digital import DigitalAutoEncoder
+from .weight_handler import WeightHandler
 
 
 __all__ = ["QuantizationLoss"]

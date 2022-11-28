@@ -25,8 +25,9 @@ from jax.lax import scan
 from jax.example_libraries import optimizers
 
 # Rockpool
-
-from . import QuantizationLoss, DigitalAutoEncoder, WeightHandler
+from .loss import QuantizationLoss
+from .digital import DigitalAutoEncoder
+from .weight_handler import WeightHandler
 
 __all__ = ["learn_weights"]
 
