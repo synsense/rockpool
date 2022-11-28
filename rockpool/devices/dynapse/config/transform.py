@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from rockpool.graph import GraphModule, GraphNode, SetList, GraphHolder, connect_modules
 from rockpool.graph.utils import bag_graph
 
-from rockpool.devices.dynapse.graph import DynapseNeurons
+from rockpool.devices.dynapse.map.graph import DynapseNeurons
 from rockpool.graph.graph_modules import LIFNeuronWithSynsRealValue, LinearWeights
 
 __all__ = [
