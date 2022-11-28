@@ -26,8 +26,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from dataclasses import dataclass, replace, field
 import numpy as np
 
-from rockpool.devices.dynapse.infrastructure.biasgen import (
-    BiasGen,
+from rockpool.devices.dynapse.parameters import (
     BiasGenSE1,
     BiasGenSE2,
 )
@@ -407,7 +406,7 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
     @classmethod
     def __from_samna(
         cls,
-        biasgen: BiasGen,
+        biasgen: Union[BiasGenSE1, BiasGenSE2],
         param_getter: Callable[[str], Union[Dynapse1Parameter, Dynapse2Parameter]],
         param_map: Dict[str, str],
     ) -> DynapSimCore:
@@ -415,7 +414,7 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
         __from_samna is a class factory method which uses samna configuration objects to extract the simulation currents
 
         :param biasgen: the bias generator to convert the device parameters with coarse and fine values to bias currents
-        :type biasgen: BiasGen
+        :type biasgen: Union[BiasGenSE1, BiasGenSE2]
         :param param_getter: a function wich returns a samna parameter object given a name
         :type param_getter: Callable[[str], Union[Dynapse1Parameter, Dynapse2Parameter]]
         :param param_map: the dictionary of simulated currents and their respective device configaration parameter names like {"Idc": "SOIF_DC_P"}
@@ -465,7 +464,7 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
 
     def __export_parameters(
         self,
-        biasgen: BiasGen,
+        biasgen: Union[BiasGenSE1, BiasGenSE2],
         param_map: Dict[str, str],
     ) -> Dict[str, Tuple[np.uint8, np.uint8]]:
         """
@@ -473,7 +472,7 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
         It converts all current values to their coarse-fine value representations for device configuration
 
         :param biasgen: the device specific bias generator
-        :type biasgen: BiasGen
+        :type biasgen: Union[BiasGenSE1, BiasGenSE2]
         :param param_map: the simulation current -> parameter name conversion table
         :type param_map: Dict[str, str]
         :return: a dictionary of mapping between parameter names and respective coarse-fine values
