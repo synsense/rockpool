@@ -70,6 +70,8 @@ from rockpool.nn.modules.native.linear import kaiming
 from rockpool.parameters import Parameter, State, SimulationParameter
 from rockpool.graph import GraphHolder, LinearWeights, as_GraphHolder
 
+__all__ = ["DynapSim", "step_pwl"]
+
 
 @jax.custom_jvp
 def step_pwl(
