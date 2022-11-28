@@ -19,6 +19,8 @@ from jax import numpy as jnp
 
 from dataclasses import dataclass
 
+__all__ = ["WeightHandler"]
+
 
 @dataclass
 class WeightHandler:

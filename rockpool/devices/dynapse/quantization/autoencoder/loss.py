@@ -16,9 +16,8 @@ from dataclasses import dataclass
 
 # Rockpool
 from rockpool.training import jax_loss as l
-from rockpool.devices.dynapse.quantize.weight_handler import WeightHandler
 
-from . import DigitalAutoEncoder
+from . import DigitalAutoEncoder, WeightHandler
 
 
 __all__ = ["QuantizationLoss"]
