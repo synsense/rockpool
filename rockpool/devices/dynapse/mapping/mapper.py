@@ -22,18 +22,12 @@ from dataclasses import dataclass
 
 from rockpool.typehints import FloatVector
 
-from rockpool.nn.modules.module import ModuleBase
-from rockpool.nn.modules import LinearJax
-from rockpool.nn.combinators import Sequential
-
 from rockpool.graph import GraphModule, GraphHolder
 from rockpool.graph.utils import bag_graph
 from rockpool.graph.graph_modules import LinearWeights
-
-from rockpool.devices.dynapse.dynapsim import DynapSim
-from rockpool.devices.dynapse.mapping import DynapseNeurons
 from rockpool.devices.dynapse.typehints import DRCError
 
+from . import DynapseNeurons
 from .utils import lifnet_to_dynapsim, recurrent_modules
 
 __all__ = ["mapper"]
@@ -126,24 +120,6 @@ class DynapseGraphContainer:
                 )
 
             return cls(simulator=modules[2], input=modules[0], recurrent=modules[1])
-
-    def get_sequential(self) -> ModuleBase:
-        """
-        get_sequential restores the stored DynapSim computational graph as a ``JaxSequential`` combinator.
-
-        :return: a computational module restored from computational graph stored
-        :rtype: ModuleBase
-        """
-
-        in_layer = LinearJax.from_graph(self.input) if self.input is not None else None
-        dynapsim_layer = DynapSim.from_graph(self.simulator, self.recurrent)
-
-        if in_layer is None:
-            mod = Sequential(dynapsim_layer)
-        else:
-            mod = Sequential(in_layer, dynapsim_layer)
-
-        return mod
 
     @property
     def w_in(self) -> Optional[FloatVector]:
