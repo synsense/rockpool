@@ -16,6 +16,7 @@ from jax import numpy as jnp
 
 from rockpool.utilities.property_arrays import ArrayLike
 
+
 class MismatchDevice:
     """
     MismatchDevice applies random numerical deviation to the data-frames provided to simulate the effect of analog device mismatch
