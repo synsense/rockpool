@@ -14,9 +14,6 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from rockpool.graph import GraphModule, LIFNeuronWithSynsRealValue
-from rockpool.devices.dynapse import DynapseNeurons
-
 __all__ = ["NPGrid"]
 
 
