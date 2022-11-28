@@ -14,5 +14,5 @@ JAX-backend Dynap-SE1/SE2 simulator support which allows people to
 from . import samna_alias as sa
 
 from .dynapsim import DynapSim
-from .mapping import DynapseNeurons
+from .mapping import DynapseNeurons, mapper
 from .parameters import parameter_clustering, BiasGenSE2, DynapSimCore
