@@ -33,7 +33,13 @@ from rockpool.devices.dynapse.infrastructure.biasgen import (
 )
 
 from rockpool.devices.dynapse.lookup import sim2device_se1, sim2device_se2
-from rockpool.devices.dynapse.default import dlayout, dweight, dtime, dgain, dcurrents
+from rockpool.devices.dynapse.default import (
+    default_layout,
+    default_weights,
+    default_time_constants,
+    default_gain_ratios,
+    default_currents,
+)
 from rockpool.devices.dynapse.samna_alias import (
     Dynapse1Parameter,
     Dynapse1Core,
@@ -109,25 +115,25 @@ class DynapSimCurrents(DynapSimProperty):
     :type Iw_ahp: FloatVector
     """
 
-    Idc: FloatVector = dcurrents["Idc"]
-    If_nmda: FloatVector = dcurrents["If_nmda"]
-    Igain_ahp: FloatVector = dcurrents["Igain_ahp"]
-    Igain_ampa: FloatVector = dcurrents["Igain_ampa"]
-    Igain_gaba: FloatVector = dcurrents["Igain_gaba"]
-    Igain_nmda: FloatVector = dcurrents["Igain_nmda"]
-    Igain_shunt: FloatVector = dcurrents["Igain_shunt"]
-    Igain_mem: FloatVector = dcurrents["Igain_mem"]
-    Ipulse_ahp: FloatVector = dcurrents["Ipulse_ahp"]
-    Ipulse: FloatVector = dcurrents["Ipulse"]
-    Iref: FloatVector = dcurrents["Iref"]
-    Ispkthr: FloatVector = dcurrents["Ispkthr"]
-    Itau_ahp: FloatVector = dcurrents["Itau_ahp"]
-    Itau_ampa: FloatVector = dcurrents["Itau_ampa"]
-    Itau_gaba: FloatVector = dcurrents["Itau_gaba"]
-    Itau_nmda: FloatVector = dcurrents["Itau_nmda"]
-    Itau_shunt: FloatVector = dcurrents["Itau_shunt"]
-    Itau_mem: FloatVector = dcurrents["Itau_mem"]
-    Iw_ahp: FloatVector = dcurrents["Iw_ahp"]
+    Idc: FloatVector = default_currents["Idc"]
+    If_nmda: FloatVector = default_currents["If_nmda"]
+    Igain_ahp: FloatVector = default_currents["Igain_ahp"]
+    Igain_ampa: FloatVector = default_currents["Igain_ampa"]
+    Igain_gaba: FloatVector = default_currents["Igain_gaba"]
+    Igain_nmda: FloatVector = default_currents["Igain_nmda"]
+    Igain_shunt: FloatVector = default_currents["Igain_shunt"]
+    Igain_mem: FloatVector = default_currents["Igain_mem"]
+    Ipulse_ahp: FloatVector = default_currents["Ipulse_ahp"]
+    Ipulse: FloatVector = default_currents["Ipulse"]
+    Iref: FloatVector = default_currents["Iref"]
+    Ispkthr: FloatVector = default_currents["Ispkthr"]
+    Itau_ahp: FloatVector = default_currents["Itau_ahp"]
+    Itau_ampa: FloatVector = default_currents["Itau_ampa"]
+    Itau_gaba: FloatVector = default_currents["Itau_gaba"]
+    Itau_nmda: FloatVector = default_currents["Itau_nmda"]
+    Itau_shunt: FloatVector = default_currents["Itau_shunt"]
+    Itau_mem: FloatVector = default_currents["Itau_mem"]
+    Iw_ahp: FloatVector = default_currents["Iw_ahp"]
 
 
 @dataclass
@@ -165,20 +171,20 @@ class DynapSimLayout(DynapSimProperty):
     :type Vth: FloatVector, optional
     """
 
-    C_ahp: FloatVector = dlayout["C_ahp"]
-    C_ampa: FloatVector = dlayout["C_ampa"]
-    C_gaba: FloatVector = dlayout["C_gaba"]
-    C_nmda: FloatVector = dlayout["C_nmda"]
-    C_pulse_ahp: FloatVector = dlayout["C_pulse_ahp"]
-    C_pulse: FloatVector = dlayout["C_pulse"]
-    C_ref: FloatVector = dlayout["C_ref"]
-    C_shunt: FloatVector = dlayout["C_shunt"]
-    C_mem: FloatVector = dlayout["C_mem"]
-    Io: FloatVector = dlayout["Io"]
-    kappa_n: FloatVector = dlayout["kappa_n"]
-    kappa_p: FloatVector = dlayout["kappa_p"]
-    Ut: FloatVector = dlayout["Ut"]
-    Vth: FloatVector = dlayout["Vth"]
+    C_ahp: FloatVector = default_layout["C_ahp"]
+    C_ampa: FloatVector = default_layout["C_ampa"]
+    C_gaba: FloatVector = default_layout["C_gaba"]
+    C_nmda: FloatVector = default_layout["C_nmda"]
+    C_pulse_ahp: FloatVector = default_layout["C_pulse_ahp"]
+    C_pulse: FloatVector = default_layout["C_pulse"]
+    C_ref: FloatVector = default_layout["C_ref"]
+    C_shunt: FloatVector = default_layout["C_shunt"]
+    C_mem: FloatVector = default_layout["C_mem"]
+    Io: FloatVector = default_layout["Io"]
+    kappa_n: FloatVector = default_layout["kappa_n"]
+    kappa_p: FloatVector = default_layout["kappa_p"]
+    Ut: FloatVector = default_layout["Ut"]
+    Vth: FloatVector = default_layout["Vth"]
 
 
 @dataclass
@@ -196,10 +202,10 @@ class DynapSimWeightBits(DynapSimProperty):
     :type Iw_3: FloatVector
     """
 
-    Iw_0: FloatVector = dweight["Iw_0"]
-    Iw_1: FloatVector = dweight["Iw_1"]
-    Iw_2: FloatVector = dweight["Iw_2"]
-    Iw_3: FloatVector = dweight["Iw_3"]
+    Iw_0: FloatVector = default_weights["Iw_0"]
+    Iw_1: FloatVector = default_weights["Iw_1"]
+    Iw_2: FloatVector = default_weights["Iw_2"]
+    Iw_3: FloatVector = default_weights["Iw_3"]
 
     @property
     def Iw(self) -> np.ndarray:
@@ -219,43 +225,43 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
     @classmethod
     def from_specification(
         cls,
-        Idc: FloatVector = dcurrents["Idc"],
-        If_nmda: FloatVector = dcurrents["If_nmda"],
-        r_gain_ahp: FloatVector = dgain["r_gain_ahp"],
-        r_gain_ampa: FloatVector = dgain["r_gain_ampa"],
-        r_gain_gaba: FloatVector = dgain["r_gain_gaba"],
-        r_gain_nmda: FloatVector = dgain["r_gain_nmda"],
-        r_gain_shunt: FloatVector = dgain["r_gain_shunt"],
-        r_gain_mem: FloatVector = dgain["r_gain_mem"],
-        t_pulse_ahp: FloatVector = dtime["t_pulse_ahp"],
-        t_pulse: FloatVector = dtime["t_pulse"],
-        t_ref: FloatVector = dtime["t_ref"],
-        Ispkthr: FloatVector = dcurrents["Ispkthr"],
-        tau_ahp: FloatVector = dtime["tau_ahp"],
-        tau_ampa: FloatVector = dtime["tau_ampa"],
-        tau_gaba: FloatVector = dtime["tau_gaba"],
-        tau_nmda: FloatVector = dtime["tau_nmda"],
-        tau_shunt: FloatVector = dtime["tau_shunt"],
-        tau_mem: FloatVector = dtime["tau_mem"],
-        Iw_0: FloatVector = dweight["Iw_0"],
-        Iw_1: FloatVector = dweight["Iw_1"],
-        Iw_2: FloatVector = dweight["Iw_2"],
-        Iw_3: FloatVector = dweight["Iw_3"],
-        Iw_ahp: FloatVector = dcurrents["Iw_ahp"],
-        C_ahp: FloatVector = dlayout["C_ahp"],
-        C_ampa: FloatVector = dlayout["C_ampa"],
-        C_gaba: FloatVector = dlayout["C_gaba"],
-        C_nmda: FloatVector = dlayout["C_nmda"],
-        C_pulse_ahp: FloatVector = dlayout["C_pulse_ahp"],
-        C_pulse: FloatVector = dlayout["C_pulse"],
-        C_ref: FloatVector = dlayout["C_ref"],
-        C_shunt: FloatVector = dlayout["C_shunt"],
-        C_mem: FloatVector = dlayout["C_mem"],
-        Io: FloatVector = dlayout["Io"],
-        kappa_n: FloatVector = dlayout["kappa_n"],
-        kappa_p: FloatVector = dlayout["kappa_p"],
-        Ut: FloatVector = dlayout["Ut"],
-        Vth: FloatVector = dlayout["Vth"],
+        Idc: FloatVector = default_currents["Idc"],
+        If_nmda: FloatVector = default_currents["If_nmda"],
+        r_gain_ahp: FloatVector = default_gain_ratios["r_gain_ahp"],
+        r_gain_ampa: FloatVector = default_gain_ratios["r_gain_ampa"],
+        r_gain_gaba: FloatVector = default_gain_ratios["r_gain_gaba"],
+        r_gain_nmda: FloatVector = default_gain_ratios["r_gain_nmda"],
+        r_gain_shunt: FloatVector = default_gain_ratios["r_gain_shunt"],
+        r_gain_mem: FloatVector = default_gain_ratios["r_gain_mem"],
+        t_pulse_ahp: FloatVector = default_time_constants["t_pulse_ahp"],
+        t_pulse: FloatVector = default_time_constants["t_pulse"],
+        t_ref: FloatVector = default_time_constants["t_ref"],
+        Ispkthr: FloatVector = default_currents["Ispkthr"],
+        tau_ahp: FloatVector = default_time_constants["tau_ahp"],
+        tau_ampa: FloatVector = default_time_constants["tau_ampa"],
+        tau_gaba: FloatVector = default_time_constants["tau_gaba"],
+        tau_nmda: FloatVector = default_time_constants["tau_nmda"],
+        tau_shunt: FloatVector = default_time_constants["tau_shunt"],
+        tau_mem: FloatVector = default_time_constants["tau_mem"],
+        Iw_0: FloatVector = default_weights["Iw_0"],
+        Iw_1: FloatVector = default_weights["Iw_1"],
+        Iw_2: FloatVector = default_weights["Iw_2"],
+        Iw_3: FloatVector = default_weights["Iw_3"],
+        Iw_ahp: FloatVector = default_currents["Iw_ahp"],
+        C_ahp: FloatVector = default_layout["C_ahp"],
+        C_ampa: FloatVector = default_layout["C_ampa"],
+        C_gaba: FloatVector = default_layout["C_gaba"],
+        C_nmda: FloatVector = default_layout["C_nmda"],
+        C_pulse_ahp: FloatVector = default_layout["C_pulse_ahp"],
+        C_pulse: FloatVector = default_layout["C_pulse"],
+        C_ref: FloatVector = default_layout["C_ref"],
+        C_shunt: FloatVector = default_layout["C_shunt"],
+        C_mem: FloatVector = default_layout["C_mem"],
+        Io: FloatVector = default_layout["Io"],
+        kappa_n: FloatVector = default_layout["kappa_n"],
+        kappa_p: FloatVector = default_layout["kappa_p"],
+        Ut: FloatVector = default_layout["Ut"],
+        Vth: FloatVector = default_layout["Vth"],
     ) -> DynapSimCore:
         """
         from_specification is a class factory method helping DynapSimCore object construction
@@ -1155,15 +1161,15 @@ class DynapSimTime(DynapSimCoreHigh):
     :type tau_mem: FloatVector, optional
     """
 
-    t_pulse_ahp: FloatVector = dtime["t_pulse_ahp"]
-    t_pulse: FloatVector = dtime["t_pulse"]
-    t_ref: FloatVector = dtime["t_ref"]
-    tau_ahp: FloatVector = dtime["tau_ahp"]
-    tau_ampa: FloatVector = dtime["tau_ampa"]
-    tau_gaba: FloatVector = dtime["tau_gaba"]
-    tau_nmda: FloatVector = dtime["tau_nmda"]
-    tau_shunt: FloatVector = dtime["tau_shunt"]
-    tau_mem: FloatVector = dtime["tau_mem"]
+    t_pulse_ahp: FloatVector = default_time_constants["t_pulse_ahp"]
+    t_pulse: FloatVector = default_time_constants["t_pulse"]
+    t_ref: FloatVector = default_time_constants["t_ref"]
+    tau_ahp: FloatVector = default_time_constants["tau_ahp"]
+    tau_ampa: FloatVector = default_time_constants["tau_ampa"]
+    tau_gaba: FloatVector = default_time_constants["tau_gaba"]
+    tau_nmda: FloatVector = default_time_constants["tau_nmda"]
+    tau_shunt: FloatVector = default_time_constants["tau_shunt"]
+    tau_mem: FloatVector = default_time_constants["tau_mem"]
 
     @classmethod
     def from_DynapSimCore(cls, core: DynapSimCore) -> DynapSimTime:
@@ -1356,12 +1362,12 @@ class DynapSimGain(DynapSimCoreHigh):
     :type r_gain_mem: FloatVector, optional
     """
 
-    r_gain_ahp: FloatVector = dgain["r_gain_ahp"]
-    r_gain_ampa: FloatVector = dgain["r_gain_ampa"]
-    r_gain_gaba: FloatVector = dgain["r_gain_gaba"]
-    r_gain_nmda: FloatVector = dgain["r_gain_nmda"]
-    r_gain_shunt: FloatVector = dgain["r_gain_shunt"]
-    r_gain_mem: FloatVector = dgain["r_gain_mem"]
+    r_gain_ahp: FloatVector = default_gain_ratios["r_gain_ahp"]
+    r_gain_ampa: FloatVector = default_gain_ratios["r_gain_ampa"]
+    r_gain_gaba: FloatVector = default_gain_ratios["r_gain_gaba"]
+    r_gain_nmda: FloatVector = default_gain_ratios["r_gain_nmda"]
+    r_gain_shunt: FloatVector = default_gain_ratios["r_gain_shunt"]
+    r_gain_mem: FloatVector = default_gain_ratios["r_gain_mem"]
 
     @classmethod
     def from_DynapSimCore(cls, core: DynapSimCore) -> DynapSimGain:

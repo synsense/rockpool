@@ -18,11 +18,11 @@ __all__ = [
     "CORE_MAP",
     "CHIP_MAP",
     "CHIP_POS",
-    "dlayout",
-    "dweight",
-    "dtime",
-    "dgain",
-    "dcurrents",
+    "default_layout",
+    "default_weights",
+    "default_time_constants",
+    "default_gain_ratios",
+    "default_currents",
 ]
 
 ## -- Constants -- ##
@@ -48,17 +48,23 @@ CHIP_POS = {-1: (0, 0), 0: (1, 0), 1: (2, 0), 3: (3, 0), 4: (4, 0)}
 
 Itau_lambda = (
     lambda name: (
-        (dlayout["Ut"] / ((dlayout["kappa_p"] + dlayout["kappa_n"]) / 2))
-        * dlayout[f"C_{name}"]
+        (
+            default_layout["Ut"]
+            / ((default_layout["kappa_p"] + default_layout["kappa_n"]) / 2)
+        )
+        * default_layout[f"C_{name}"]
     )
-    / dtime[f"tau_{name}"]
+    / default_time_constants[f"tau_{name}"]
 )
-Ipw_lambda = lambda name: (dlayout["Vth"] * dlayout[f"C_{name}"]) / dtime[f"t_{name}"]
-Igain_lambda = lambda name: Itau_lambda(name) * dgain[f"r_gain_{name}"]
+Ipw_lambda = (
+    lambda name: (default_layout["Vth"] * default_layout[f"C_{name}"])
+    / default_time_constants[f"t_{name}"]
+)
+Igain_lambda = lambda name: Itau_lambda(name) * default_gain_ratios[f"r_gain_{name}"]
 
 ## -- Default Parameter Dictionaries -- ##
 
-dlayout = {
+default_layout = {
     "C_ahp": 40e-12,
     "C_ampa": 24.5e-12,
     "C_gaba": 25e-12,
@@ -76,7 +82,7 @@ dlayout = {
     "Vth": 7e-1,
 }
 
-dweight = {
+default_weights = {
     "Iw_0": 1e-9,
     "Iw_1": 2e-9,
     "Iw_2": 4e-9,
@@ -84,7 +90,7 @@ dweight = {
     "Iscale": 1e-8,
 }
 
-dtime = {
+default_time_constants = {
     "t_pulse_ahp": 1e-12,
     "t_pulse": 10e-6,
     "t_ref": 1e-3,
@@ -96,7 +102,7 @@ dtime = {
     "tau_mem": 20e-3,
 }
 
-dgain = {
+default_gain_ratios = {
     "r_gain_ahp": 1,
     "r_gain_ampa": 100,
     "r_gain_gaba": 100,
@@ -105,9 +111,9 @@ dgain = {
     "r_gain_mem": 4,
 }
 
-dcurrents = {
-    "Idc": dlayout["Io"],
-    "If_nmda": dlayout["Io"],
+default_currents = {
+    "Idc": default_layout["Io"],
+    "If_nmda": default_layout["Io"],
     "Igain_ahp": Igain_lambda("ahp"),
     "Igain_ampa": Igain_lambda("ampa"),
     "Igain_gaba": Igain_lambda("gaba"),

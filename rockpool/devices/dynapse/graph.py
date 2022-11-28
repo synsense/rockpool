@@ -25,7 +25,12 @@ from rockpool.graph import (
     replace_module,
 )
 
-from rockpool.devices.dynapse.default import dlayout, dweight, dtime, dgain
+from rockpool.devices.dynapse.default import (
+    default_layout,
+    default_weights,
+    default_time_constants,
+    default_gain_ratios,
+)
 from rockpool.devices.dynapse.config.simconfig import DynapSimGain, DynapSimTime
 
 try:
@@ -91,15 +96,15 @@ class DynapseNeurons(GenericNeurons):
     def _convert_from(
         cls,
         mod: GraphModule,
-        r_gain_mem: FloatVector = dgain["r_gain_mem"],
-        r_gain_syn: FloatVector = dgain["r_gain_ampa"],
-        t_pulse: FloatVector = dtime["t_pulse"],
-        t_ref: FloatVector = dtime["t_ref"],
-        C_pulse: FloatVector = dlayout["C_pulse"],
-        C_ref: FloatVector = dlayout["C_ref"],
-        C_mem: FloatVector = dlayout["C_mem"],
-        C_syn: FloatVector = dlayout["C_syn"],
-        Iscale: float = dweight["Iscale"],
+        r_gain_mem: FloatVector = default_gain_ratios["r_gain_mem"],
+        r_gain_syn: FloatVector = default_gain_ratios["r_gain_ampa"],
+        t_pulse: FloatVector = default_time_constants["t_pulse"],
+        t_ref: FloatVector = default_time_constants["t_ref"],
+        C_pulse: FloatVector = default_layout["C_pulse"],
+        C_ref: FloatVector = default_layout["C_ref"],
+        C_mem: FloatVector = default_layout["C_mem"],
+        C_syn: FloatVector = default_layout["C_syn"],
+        Iscale: float = default_weights["Iscale"],
     ) -> DynapseNeurons:
         """
         _convert_from converts a graph module to DynapseNeuron structure. Uses default parameter
@@ -367,9 +372,9 @@ class DynapseNeurons(GenericNeurons):
         :return: the leakage current
         :rtype: FloatVector
         """
-        kappa = (dlayout["kappa_n"] + dlayout["kappa_p"]) / 2.0
+        kappa = (default_layout["kappa_n"] + default_layout["kappa_p"]) / 2.0
         Itau = DynapSimTime.tau_converter(
-            np.array(tc).flatten(), dlayout["Ut"], kappa, C
+            np.array(tc).flatten(), default_layout["Ut"], kappa, C
         )
         return DynapseNeurons.to_list(Itau)
 
@@ -402,7 +407,7 @@ class DynapseNeurons(GenericNeurons):
         :return: _description_
         :rtype: FloatVector
         """
-        Ipw = DynapSimTime.pw_converter(np.array(t_pw), dlayout["Vth"], C)
+        Ipw = DynapSimTime.pw_converter(np.array(t_pw), default_layout["Vth"], C)
         return DynapseNeurons.to_list(Ipw)
 
     @staticmethod
