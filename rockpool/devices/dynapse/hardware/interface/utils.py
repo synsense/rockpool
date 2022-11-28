@@ -26,18 +26,26 @@ from rockpool.devices.dynapse.samna_alias import (
     DeviceInfo,
 )
 
-import os
 
 # Try to import samna for device interfacing
 try:
     import samna
-    import samna.dynapse2 as se2
 except:
     samna = Any
-    se2 = Any
-    print(
+    logging.warning(
         "Device interface requires `samna` package which is not installed on the system"
     )
+
+__all__ = [
+    "find_dynapse_boards",
+    "configure_dynapse2_fpga",
+    "disconnect",
+    "capture_events_from_device",
+    "aer_to_raster",
+    "extract_channel_map",
+    "raster_to_aer",
+    "event_generator",
+]
 
 
 def find_dynapse_boards(name: str = "DYNAP-SE2") -> List[DeviceInfo]:
@@ -295,7 +303,9 @@ def raster_to_aer(
             for i, dest in enumerate(destinations)
         ]
         if return_samna:
-            events = [event.samna_object(se2.NormalGridEvent) for event in events]
+            events = [
+                event.samna_object(samna.dynapse2.NormalGridEvent) for event in events
+            ]
         buffer.extend(events)
 
     return buffer
@@ -333,7 +343,7 @@ def event_generator(
     event = NormalGridEvent(
         event=Dynapse2Destination(core, x_hop, y_hop, tag),
         timestamp=int(event_time / dt_fpga),
-    ).samna_object(se2.NormalGridEvent)
+    ).samna_object(samna.dynapse2.NormalGridEvent)
     # .to_samna()
 
     return event
