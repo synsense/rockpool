@@ -29,8 +29,8 @@ from rockpool.typehints import FloatVector, IntVector
 from rockpool.devices.dynapse.config.simconfig import DynapSimCore
 
 from dataclasses import dataclass, field
-from rockpool.devices.dynapse.definitions import (
-    DRCError,
+from rockpool.devices.dynapse.definitions import DRCError
+from rockpool.devices.dynapse.default import (
     NUM_TAGS,
     NUM_SYNAPSES,
     NUM_DEST,

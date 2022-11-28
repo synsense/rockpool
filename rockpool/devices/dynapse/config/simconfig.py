@@ -26,14 +26,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from dataclasses import dataclass, replace, field
 import numpy as np
 
-from rockpool.devices.dynapse.definitions import (
-    CoreKey,
-    NeuronKey,
-    NUM_CHIPS,
-    NUM_CORES,
-    NUM_NEURONS,
-)
-
 from rockpool.devices.dynapse.infrastructure.biasgen import (
     BiasGen,
     BiasGenSE1,

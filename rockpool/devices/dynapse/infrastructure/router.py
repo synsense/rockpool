@@ -32,7 +32,8 @@ from typing import (
 
 import numpy as np
 
-from rockpool.devices.dynapse.definitions import CoreKey, NeuronKey, NUM_CORES
+from rockpool.devices.dynapse.definitions import CoreKey, NeuronKey
+from rockpool.devices.dynapse.default import NUM_CORES
 
 from rockpool.devices.dynapse.samna_alias import (
     Dynapse1Synapse,
