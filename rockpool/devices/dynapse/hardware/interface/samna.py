@@ -17,14 +17,6 @@ from typing import Any, Dict, Optional, List, Tuple
 import time
 
 import numpy as np
-from rockpool.devices.dynapse.interface.utils import (
-    aer_to_raster,
-    event_generator,
-    raster_to_aer,
-    capture_events_from_device,
-    configure_dynapse2_fpga,
-)
-
 
 # - Rockpool imports
 from rockpool.nn.modules.module import Module
@@ -36,19 +28,26 @@ from rockpool.devices.dynapse.samna_alias import (
     Dynapse2Configuration,
 )
 
+from .utils import (
+    aer_to_raster,
+    event_generator,
+    raster_to_aer,
+    capture_events_from_device,
+    configure_dynapse2_fpga,
+)
+
 # Try to import samna for device interfacing
 try:
     import samna
-    import samna.dynapse2 as se2
 except:
     samna = Any
-    se2 = Any
     print(
         "Device interface requires `samna` package which is not installed on the system"
     )
 
 # - Configure exports
 __all__ = ["DynapseSamna"]
+
 DT_FPGA = 1e-6
 
 
@@ -282,5 +281,5 @@ class DynapseSamna(Module):
         :type chip_mask: int, optional
         :raises ValueError: Could not flush buffers!
         """
-        if not self.model.reset(se2.ResetType.LogicReset, chip_mask):
+        if not self.model.reset(samna.dynapse2.ResetType.LogicReset, chip_mask):
             raise ValueError("Could not flush buffers!")
