@@ -1,5 +1,5 @@
 """
-Dynap-SE1 common definitions and methods
+Dynap-SE1 common type hinting definitions
 
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
@@ -7,53 +7,36 @@ E-mail : ugurcan.cakal@gmail.com
 22/12/2021
 """
 
-from typing import Dict, List, Tuple, Union
+from typing import Tuple
 import numpy as np
 
-from jax import numpy as jnp
-
-
-ArrayLike = Union[np.ndarray, List, Tuple]
 NeuronKey = Tuple[np.uint8, np.uint8, np.uint16]
 CoreKey = Tuple[np.uint8, np.uint8]
 
 DynapSimRecord = Tuple[
-    jnp.DeviceArray,  # iahp
-    jnp.DeviceArray,  # iampa
-    jnp.DeviceArray,  # igaba
-    jnp.DeviceArray,  # imem
-    jnp.DeviceArray,  # inmda
-    jnp.DeviceArray,  # ishunt
-    jnp.DeviceArray,  # spikes
-    jnp.DeviceArray,  # vmem
+    np.ndarray,  # iahp
+    np.ndarray,  # iampa
+    np.ndarray,  # igaba
+    np.ndarray,  # imem
+    np.ndarray,  # inmda
+    np.ndarray,  # ishunt
+    np.ndarray,  # spikes
+    np.ndarray,  # vmem
 ]
 
 
 DynapSimState = Tuple[
-    jnp.DeviceArray,  # iahp
-    jnp.DeviceArray,  # iampa
-    jnp.DeviceArray,  # igaba
-    jnp.DeviceArray,  # imem
-    jnp.DeviceArray,  # inmda
-    jnp.DeviceArray,  # ishunt
-    jnp.DeviceArray,  # rng_key
-    jnp.DeviceArray,  # spikes
-    jnp.DeviceArray,  # timer_ref
-    jnp.DeviceArray,  # vmem
+    np.ndarray,  # iahp
+    np.ndarray,  # iampa
+    np.ndarray,  # igaba
+    np.ndarray,  # imem
+    np.ndarray,  # inmda
+    np.ndarray,  # ishunt
+    np.ndarray,  # rng_key
+    np.ndarray,  # spikes
+    np.ndarray,  # timer_ref
+    np.ndarray,  # vmem
 ]
-
-WeightRecord = Tuple[
-    jnp.DeviceArray,  # loss
-    jnp.DeviceArray,  # w_en
-    jnp.DeviceArray,  # w_dec
-]
-
-NUM_CHIPS = 4
-NUM_CORES = 4
-NUM_NEURONS = 256
-NUM_SYNAPSES = 64
-NUM_DEST = 4
-NUM_TAGS = 2048
 
 
 class DRCError(ValueError):
