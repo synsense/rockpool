@@ -11,11 +11,9 @@ E-mail : ugurcan.cakal@gmail.com
 09/11/2022
 """
 from __future__ import annotations
-from typing import Optional, List, Tuple, Union
+from typing import List, Tuple, Union
 
-from copy import deepcopy
 import numpy as np
-from dataclasses import dataclass
 
 from rockpool.graph import GraphModule, GraphNode, SetList, GraphHolder, connect_modules
 from rockpool.graph.utils import bag_graph
@@ -23,9 +21,7 @@ from rockpool.graph.utils import bag_graph
 from rockpool.devices.dynapse.mapping import DynapseNeurons
 from rockpool.graph.graph_modules import LIFNeuronWithSynsRealValue, LinearWeights
 
-from .state_machine import DFA_Placement
-from .grid import NPGrid
-from .recurrent_modules import recurrent_modules
+from . import recurrent_modules, NPGrid, DFA_Placement
 
 __all__ = ["lifnet_to_dynapsim"]
 
