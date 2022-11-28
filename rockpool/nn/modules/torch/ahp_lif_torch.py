@@ -103,12 +103,15 @@ class aLIFTorch(LIFBaseTorch):
             **kwargs,
         )
 
+        # - To-float-tensor conversion utility
+        to_float_tensor = lambda x: torch.as_tensor(x, dtype=torch.float)
+
         self.w_ahp: P_tensor = rp.Parameter(
             w_ahp,
             shape=[(self.size_out,), ()],
             init_func=w_ahp_init_func,
             family="weights",
-            cast_fn=self._to_float_tensor,
+            cast_fn=to_float_tensor,
         )
         """ (Tensor) ahp (after hyperpolarization feedback) weights `(Nout, Nin)` """
 
@@ -121,31 +124,16 @@ class aLIFTorch(LIFBaseTorch):
                 (),
             ],
             init_func=lambda s: torch.ones(s) * 20e-3,
-            cast_fn=self._to_float_tensor,
+            cast_fn=to_float_tensor,
         )
         """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
 
         self.iahp: P_tensor = rp.State(
             shape=(self.size_out),
             init_func=torch.zeros,
-            cast_fn=self._to_float_tensor,
+            cast_fn=to_float_tensor,
         )
         """ (Tensor)  currents `(Nin,)` """
-
-        # - Placeholder for state recording
-        self._record_iahp = None
-
-    def evolve(
-        self, input_data: torch.Tensor, record: bool = False
-    ) -> Tuple[Any, Any, Any]:
-        # - Evolve with superclass evolution
-        output_data, _, record_dict = super().evolve(input_data, record)
-
-        # - Augment state record with iahp
-        if record:
-            record_dict["iahp"] = self._record_iahp
-
-        return output_data, self.state(), record_dict
 
     @property
     def gamma(self) -> torch.Tensor:
@@ -189,25 +177,39 @@ class aLIFTorch(LIFBaseTorch):
 
         # - Set up state record and output
         if self._record:
-            self._record_vmem = torch.zeros(n_batches, n_timesteps, self.size_out)
-            self._record_isyn = torch.zeros(
-                n_batches, n_timesteps, self.size_out, self.n_synapses
+            self._record_dict["vmem"] = torch.zeros(
+                n_batches, n_timesteps, self.size_out, device=vmem.device
             )
-            self._record_irec = torch.zeros(
-                n_batches, n_timesteps, self.size_out, self.n_synapses
+            self._record_dict["isyn"] = torch.zeros(
+                n_batches,
+                n_timesteps,
+                self.size_out,
+                self.n_synapses,
+                device=vmem.device,
+            )
+            self._record_dict["irec"] = torch.zeros(
+                n_batches,
+                n_timesteps,
+                self.size_out,
+                self.n_synapses,
+                device=vmem.device,
             )
 
-            self._record_iahp = torch.zeros(n_batches, n_timesteps, self.size_out)
+            self._record_dict["iahp"] = torch.zeros(
+                n_batches, n_timesteps, self.size_out, device=vmem.device
+            )
 
-            self._record_U = torch.zeros(n_batches, n_timesteps, self.size_out)
+            self._record_dict["U"] = torch.zeros(
+                n_batches, n_timesteps, self.size_out, device=vmem.device
+            )
 
-        self._record_spikes = torch.zeros(
-            n_batches, n_timesteps, self.size_out, device=input_data.device
+        self._record_dict["spikes"] = torch.zeros(
+            n_batches, n_timesteps, self.size_out, device=vmem.device
         )
 
         # - Calculate and cache updated values for decay factors
-        alpha = self.alpha
-        beta = self.beta
+        alpha = self.calc_alpha()
+        beta = self.calc_beta()
         gamma = self.gamma
 
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
@@ -263,18 +265,18 @@ class aLIFTorch(LIFBaseTorch):
 
             # - Maintain state record
             if self._record:
-                self._record_vmem[:, t] = vmem
-                self._record_isyn[:, t] = isyn
+                self._record_dict["vmem"][:, t] = vmem
+                self._record_dict["isyn"][:, t] = isyn
                 if hasattr(self, "w_rec"):
-                    self._record_irec[:, t] = irec
+                    self._record_dict["irec"][:, t] = irec
 
                 if hasattr(self, "w_ahp"):
-                    self._record_iahp[:, t] = iahp
+                    self._record_dict["iahp"][:, t] = iahp
 
-                self._record_U[:, t] = sigmoid(vmem * 20.0, self.threshold)
+                self._record_dict["U"][:, t] = sigmoid(vmem * 20.0, self.threshold)
 
             # - Maintain output spike record
-            self._record_spikes[:, t] = spikes
+            self._record_dict["spikes"][:, t] = spikes
 
         # - Update states
         self.vmem = vmem[0].detach()
@@ -283,7 +285,7 @@ class aLIFTorch(LIFBaseTorch):
         self.spikes = spikes[0].detach()
 
         # - Return output
-        return self._record_spikes
+        return self._record_dict["spikes"]
 
     def as_graph(self) -> GraphModuleBase:
         def syn_integration(self):
