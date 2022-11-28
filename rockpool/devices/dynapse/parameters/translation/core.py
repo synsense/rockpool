@@ -1,0 +1,512 @@
+"""
+Dynap-SE1/SE2 full board configuration classes and methods
+
+renamed : dynapse1_simconfig.py -> simconfig.py @ 211208
+split_from : simconfig.py -> layout.py @ 220114
+split_from : simconfig.py -> circuits.py @ 220114
+merged from : layout.py -> simcore.py @ 220505
+merged from : circuits.py -> simcore.py @ 220505
+merged from : board.py -> simcore.py @ 220531
+renamed : simcore.py -> simconfig.py @ 220531
+
+Project Owner : Dylan Muir, SynSense AG
+Author : Ugurcan Cakal
+E-mail : ugurcan.cakal@gmail.com
+03/05/2022
+
+[] TODO : Add r_spkthr to gain
+[] TODO : add from_bias methods to samna aliases
+"""
+
+from __future__ import annotations
+import logging
+
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
+from dataclasses import dataclass, replace, field
+import numpy as np
+
+from rockpool.devices.dynapse.parameters import (
+    BiasGenSE1,
+    BiasGenSE2,
+)
+
+from rockpool.devices.dynapse.lookup import (
+    sim2device_se1,
+    sim2device_se2,
+    default_layout,
+    default_weights,
+    default_time_constants,
+    default_gain_ratios,
+    default_currents,
+)
+
+from rockpool.devices.dynapse.samna_alias import (
+    Dynapse1Parameter,
+    Dynapse1Core,
+    Dynapse2Parameter,
+    Dynapse2Core,
+)
+
+from rockpool.typehints import FloatVector
+
+from .low_level import DynapSimCurrents, DynapSimLayout, DynapSimWeightBits
+from .high_level import DynapSimTime, DynapSimGain
+from .high_level.base import DynapSimCoreHigh
+
+__all__ = ["DynapSimCore"]
+
+
+@dataclass
+class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
+    """
+    DynapSE1SimCore stores the simulation currents and manages the conversion from configuration objects
+    It also provides easy update mechanisms using coarse&fine values, high-level parameter representations and etc.
+    """
+
+    __doc__ += "\nDynapSimCurrents" + DynapSimCurrents.__doc__
+    __doc__ += "\nDynapSimLayout" + DynapSimLayout.__doc__
+
+    @classmethod
+    def from_specification(
+        cls,
+        Idc: FloatVector = default_currents["Idc"],
+        If_nmda: FloatVector = default_currents["If_nmda"],
+        r_gain_ahp: FloatVector = default_gain_ratios["r_gain_ahp"],
+        r_gain_ampa: FloatVector = default_gain_ratios["r_gain_ampa"],
+        r_gain_gaba: FloatVector = default_gain_ratios["r_gain_gaba"],
+        r_gain_nmda: FloatVector = default_gain_ratios["r_gain_nmda"],
+        r_gain_shunt: FloatVector = default_gain_ratios["r_gain_shunt"],
+        r_gain_mem: FloatVector = default_gain_ratios["r_gain_mem"],
+        t_pulse_ahp: FloatVector = default_time_constants["t_pulse_ahp"],
+        t_pulse: FloatVector = default_time_constants["t_pulse"],
+        t_ref: FloatVector = default_time_constants["t_ref"],
+        Ispkthr: FloatVector = default_currents["Ispkthr"],
+        tau_ahp: FloatVector = default_time_constants["tau_ahp"],
+        tau_ampa: FloatVector = default_time_constants["tau_ampa"],
+        tau_gaba: FloatVector = default_time_constants["tau_gaba"],
+        tau_nmda: FloatVector = default_time_constants["tau_nmda"],
+        tau_shunt: FloatVector = default_time_constants["tau_shunt"],
+        tau_mem: FloatVector = default_time_constants["tau_mem"],
+        Iw_0: FloatVector = default_weights["Iw_0"],
+        Iw_1: FloatVector = default_weights["Iw_1"],
+        Iw_2: FloatVector = default_weights["Iw_2"],
+        Iw_3: FloatVector = default_weights["Iw_3"],
+        Iw_ahp: FloatVector = default_currents["Iw_ahp"],
+        C_ahp: FloatVector = default_layout["C_ahp"],
+        C_ampa: FloatVector = default_layout["C_ampa"],
+        C_gaba: FloatVector = default_layout["C_gaba"],
+        C_nmda: FloatVector = default_layout["C_nmda"],
+        C_pulse_ahp: FloatVector = default_layout["C_pulse_ahp"],
+        C_pulse: FloatVector = default_layout["C_pulse"],
+        C_ref: FloatVector = default_layout["C_ref"],
+        C_shunt: FloatVector = default_layout["C_shunt"],
+        C_mem: FloatVector = default_layout["C_mem"],
+        Io: FloatVector = default_layout["Io"],
+        kappa_n: FloatVector = default_layout["kappa_n"],
+        kappa_p: FloatVector = default_layout["kappa_p"],
+        Ut: FloatVector = default_layout["Ut"],
+        Vth: FloatVector = default_layout["Vth"],
+    ) -> DynapSimCore:
+        """
+        from_specification is a class factory method helping DynapSimCore object construction
+        using higher level representaitons of the currents like gain ratio or time constant whenever applicable.
+
+        :param Idc: Constant DC current injected to membrane in Amperes
+        :type Idc: FloatVector, optional
+        :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes
+        :type If_nmda: FloatVector, optional
+        :param r_gain_ahp: spike frequency adaptation block gain ratio :math:`Igain_ahp/Itau_ahp`
+        :type r_gain_ahp: FloatVector, optional
+        :param r_gain_ampa: excitatory AMPA synpse gain ratio :math:`Igain_ampa/Itau_ampa`
+        :type r_gain_ampa: FloatVector, optional
+        :param r_gain_gaba: inhibitory GABA synpse gain ratio :math:`Igain_gaba/Itau_gaba `
+        :type r_gain_gaba: FloatVector, optional
+        :param r_gain_nmda: excitatory NMDA synpse gain ratio :math:`Igain_nmda/Itau_nmda`
+        :type r_gain_nmda: FloatVector, optional
+        :param r_gain_shunt: inhibitory SHUNT synpse gain ratio :math:`Igain_shunt/Itau_shunt`
+        :type r_gain_shunt: FloatVector, optional
+        :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`
+        :type r_gain_mem: FloatVector, optional
+        :param t_pulse_ahp: the spike pulse width for spike frequency adaptation circuit in seconds
+        :type t_pulse_ahp: FloatVector, optional
+        :param t_pulse: the spike pulse width for neuron membrane in seconds
+        :type t_pulse: FloatVector, optional
+        :param t_ref: refractory period of the neurons in seconds
+        :type t_ref: FloatVector, optional
+        :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes
+        :type Ispkthr: FloatVector, optional
+        :param tau_ahp: Spike frequency leakage time constant in seconds
+        :type tau_ahp: FloatVector, optional
+        :param tau_ampa: AMPA synapse leakage time constant in seconds
+        :type tau_ampa: FloatVector, optional
+        :param tau_gaba: GABA synapse leakage time constant in seconds
+        :type tau_gaba: FloatVector, optional
+        :param tau_nmda: NMDA synapse leakage time constant in seconds
+        :type tau_nmda: FloatVector, optional
+        :param tau_shunt:SHUNT synapse leakage time constant in seconds
+        :type tau_shunt: FloatVector, optional
+        :param tau_mem: Neuron membrane leakage time constant in seconds
+        :type tau_mem: FloatVector, optional
+        :param Iw_0: weight bit 0 current of the neurons of the core in Amperes
+        :type Iw_0: FloatVector
+        :param Iw_1: weight bit 1 current of the neurons of the core in Amperes
+        :type Iw_1: FloatVector
+        :param Iw_2: weight bit 2 current of the neurons of the core in Amperes
+        :type Iw_2: FloatVector
+        :param Iw_3: weight bit 3 current of the neurons of the core in Amperes
+        :type Iw_3: FloatVector
+        :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes
+        :type Iw_ahp: FloatVector
+        :param C_ahp: AHP synapse capacitance in Farads
+        :type C_ahp: FloatVector, optional
+        :param C_ampa: AMPA synapse capacitance in Farads
+        :type C_ampa: FloatVector, optional
+        :param C_gaba: GABA synapse capacitance in Farads
+        :type C_gaba: FloatVector, optional
+        :param C_nmda: NMDA synapse capacitance in Farads
+        :type C_nmda: FloatVector, optional
+        :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads
+        :type C_pulse_ahp: FloatVector, optional
+        :param C_pulse: pulse-width creation sub-circuit capacitance in Farads
+        :type C_pulse: FloatVector, optional
+        :param C_ref: refractory period sub-circuit capacitance in Farads
+        :type C_ref: FloatVector, optional
+        :param C_shunt: SHUNT synapse capacitance in Farads
+        :type C_shunt: FloatVector, optional
+        :param C_mem: neuron membrane capacitance in Farads
+        :type C_mem: FloatVector, optional
+        :param Io: Dark current in Amperes that flows through the transistors even at the idle state
+        :type Io: FloatVector, optional
+        :param kappa_n: Subthreshold slope factor (n-type transistor)
+        :type kappa_n: FloatVector, optional
+        :param kappa_p: Subthreshold slope factor (p-type transistor)
+        :type kappa_p: FloatVector, optional
+        :param Ut: Thermal voltage in Volts
+        :type Ut: FloatVector, optional
+        :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific)
+        :type Vth: FloatVector, optional
+        :return: DynapSimCore object
+        :rtype: DynapSimCore
+        """
+
+        # Depended default parameter initialization
+        Idc = Io if Idc is None else Idc
+        If_nmda = Io if If_nmda is None else If_nmda
+
+        # Construct the core with compulsory low level current parameters
+        _core = cls(
+            Idc=Idc,
+            If_nmda=If_nmda,
+            Ispkthr=Ispkthr,
+            Iw_0=Iw_0,
+            Iw_1=Iw_1,
+            Iw_2=Iw_2,
+            Iw_3=Iw_3,
+            Iw_ahp=Iw_ahp,
+            C_ahp=C_ahp,
+            C_ampa=C_ampa,
+            C_gaba=C_gaba,
+            C_nmda=C_nmda,
+            C_pulse_ahp=C_pulse_ahp,
+            C_pulse=C_pulse,
+            C_ref=C_ref,
+            C_shunt=C_shunt,
+            C_mem=C_mem,
+            Io=Io,
+            kappa_n=kappa_n,
+            kappa_p=kappa_p,
+            Ut=Ut,
+            Vth=Vth,
+        )
+
+        # Set the Itau currents
+        _time = DynapSimTime(
+            t_pulse_ahp,
+            t_pulse,
+            t_ref,
+            tau_ahp,
+            tau_ampa,
+            tau_gaba,
+            tau_nmda,
+            tau_shunt,
+            tau_mem,
+        )
+        _core = _time.update_DynapSimCore(_core)
+
+        # Set Igain currents depending on the ratio between related Itau currents
+        _gain = DynapSimGain(
+            r_gain_ahp,
+            r_gain_ampa,
+            r_gain_gaba,
+            r_gain_nmda,
+            r_gain_shunt,
+            r_gain_mem,
+        )
+        _core = _gain.update_DynapSimCore(_core)
+
+        return _core
+
+    @classmethod
+    def __from_samna(
+        cls,
+        biasgen: Union[BiasGenSE1, BiasGenSE2],
+        param_getter: Callable[[str], Union[Dynapse1Parameter, Dynapse2Parameter]],
+        param_map: Dict[str, str],
+    ) -> DynapSimCore:
+        """
+        __from_samna is a class factory method which uses samna configuration objects to extract the simulation currents
+
+        :param biasgen: the bias generator to convert the device parameters with coarse and fine values to bias currents
+        :type biasgen: Union[BiasGenSE1, BiasGenSE2]
+        :param param_getter: a function wich returns a samna parameter object given a name
+        :type param_getter: Callable[[str], Union[Dynapse1Parameter, Dynapse2Parameter]]
+        :param param_map: the dictionary of simulated currents and their respective device configaration parameter names like {"Idc": "SOIF_DC_P"}
+        :type param_map: Dict[str, str]
+        :return: a dynapse core simulation object whose parameters are imported from a samna configuration object
+        :rtype: DynapSimCore
+        """
+        _current = lambda name: biasgen.param_to_bias(name, param_getter(name))
+        _dict = {sim: _current(param) for sim, param in param_map.items()}
+        _mod = cls(**_dict)
+        return _mod
+
+    @classmethod
+    def from_Dynapse1Core(cls, core: Dynapse1Core) -> DynapSimCore:
+        """
+        from_Dynapse1Core is a class factory method which uses a samna Dynapse1Core object to extract the simualation current parameters
+
+        :param core: a samna Dynapse1Core configuration object used to configure the core properties
+        :type core: Dynapse1Core
+        :return: a dynapse core simulation object whose parameters are imported from a samna configuration object
+        :rtype: DynapSimCore
+        """
+        _mod = cls.__from_samna(
+            biasgen=BiasGenSE1(),
+            param_getter=lambda name: core.parameter_group.param_map[name],
+            param_map=sim2device_se1,
+        )
+
+        return _mod
+
+    @classmethod
+    def from_Dynapse2Core(cls, core: Dynapse2Core) -> DynapSimCore:
+        """
+        from_Dynapse2Core is a class factory method which uses a samna Dynapse2Core object to extract the simualation current parameters
+
+        :param core: a samna Dynapse2Core configuration object used to configure the core properties
+        :type core: Dynapse2Core
+        :return: a dynapse core simulation object whose parameters are imported from a samna configuration object
+        :rtype: DynapSimCore
+        """
+        _mod = cls.__from_samna(
+            biasgen=BiasGenSE2(),
+            param_getter=lambda name: core.parameters[name],
+            param_map=sim2device_se2,
+        )
+        return _mod
+
+    def __export_parameters(
+        self,
+        biasgen: Union[BiasGenSE1, BiasGenSE2],
+        param_map: Dict[str, str],
+    ) -> Dict[str, Tuple[np.uint8, np.uint8]]:
+        """
+        __export_parameters is the common export method for Dynap-SE1 and Dynap-SE2.
+        It converts all current values to their coarse-fine value representations for device configuration
+
+        :param biasgen: the device specific bias generator
+        :type biasgen: Union[BiasGenSE1, BiasGenSE2]
+        :param param_map: the simulation current -> parameter name conversion table
+        :type param_map: Dict[str, str]
+        :return: a dictionary of mapping between parameter names and respective coarse-fine values
+        :rtype: Dict[str, Tuple[np.uint8, np.uint8]]
+        """
+
+        converter = lambda sim, param: biasgen.get_coarse_fine(
+            param, self.__getattribute__(sim)
+        )
+
+        param_dict = {param: converter(sim, param) for sim, param in param_map.items()}
+        return param_dict
+
+    def export_Dynapse1Parameters(self) -> Dict[str, Tuple[np.uint8, np.uint8]]:
+        """
+        export_Dynapse1Parameters is Dynap-SE1 specific parameter extraction method using `DynapSimCore.__export_parameters()` method.
+        It converts all current values to their coarse-fine value representations for device configuration
+
+        :return: a dictionary of mapping between parameter names and respective coarse-fine values
+        :rtype: Dict[str, Tuple[np.uint8, np.uint8]]
+        """
+        return self.__export_parameters(
+            biasgen=BiasGenSE1(),
+            param_map=sim2device_se1,
+        )
+
+    def export_Dynapse2Parameters(self) -> Dict[str, Tuple[np.uint8, np.uint8]]:
+        """
+        export_Dynapse2Parameters is Dynap-SE2 specific parameter extraction method using `DynapSimCore.__export_parameters()` method.
+        It converts all current values to their coarse-fine value representations for device configuration
+
+        :return: a dictionary of mapping between parameter names and respective coarse-fine values
+        :rtype: Dict[str, Tuple[np.uint8, np.uint8]]
+        """
+        return self.__export_parameters(
+            biasgen=BiasGenSE2(),
+            param_map=sim2device_se2,
+        )
+
+    def update(self, attr: str, value: Any) -> DynapSimCore:
+        """
+        update_current updates an attribute and returns a new object, does not change the original object.
+
+        :param attr: any attribute that belongs to DynapSimCore object
+        :type attr: str
+        :param value: the new value to set
+        :type value: Any
+        :return: updated DynapSimCore object
+        :rtype: DynapSimCore
+        """
+        if attr in list(self.__dict__.keys()):
+            _updated = replace(self)
+            _updated.__setattr__(attr, value)
+            self.compare(self, _updated)
+
+        return _updated
+
+    def __update_high_level(
+        self,
+        obj: DynapSimCoreHigh,
+        attr_getter: Callable[[str], Any],
+        attr: str,
+        value: Any,
+    ) -> DynapSimCore:
+        """
+        __update_high_level updates high level representations of the current values like time constants and gain ratios.
+        The current values are updated accordingly without changing the original object.
+
+        :param obj: the high level object that stores the projections of the current values
+        :type obj: DynapSimCoreHigh
+        :param attr_getter: a function to get the high level attribute from the high level object
+        :type attr_getter: Callable[[str], Any]
+        :param attr: any attribute that belongs to any DynapSimCoreHigh object
+        :type attr: str
+        :param value: the new value to set
+        :type value: Any
+        :return: updated DynapSimCore object
+        :rtype: DynapSimCore
+        """
+        if attr in list(obj.__dict__.keys()):
+            obj.__setattr__(attr, value)
+            _updated = obj.update_DynapSimCore(self)
+            logging.info(
+                f" {attr} value changed from {attr_getter(attr)} to {obj.__getattribute__(attr)}"
+            )
+            self.compare(self, _updated)
+
+        return _updated
+
+    def update_time_constant(self, attr: str, value: Any) -> DynapSimCore:
+        """
+        update_time_constant updates currents setting time constant attributes that have a representation in `DynapSimTime()` class instances
+
+        :param attr: any attribute that belongs to any DynapSimTime object
+        :type attr: str
+        :param value: the new value to set
+        :type value: Any
+        :return: updated DynapSimCore object
+        :rtype: DynapSimCore
+        """
+        return self.__update_high_level(
+            obj=DynapSimTime(),
+            attr_getter=lambda name: self.time.__getattribute__(name),
+            attr=attr,
+            value=value,
+        )
+
+    def update_gain_ratio(self, attr: str, value: Any) -> DynapSimCore:
+        """
+        update_gain_ratio updates currents setting gain ratio (Igain/Itau) attributes that have a representation in `DynapSimGain()` class instances
+
+        :param attr: any attribute that belongs to any DynapSimGain object
+        :type attr: str
+        :param value: the new value to set
+        :type value: Any
+        :return: updated DynapSimCore object
+        :rtype: DynapSimCore
+        """
+        return self.__update_high_level(
+            obj=DynapSimGain(),
+            attr_getter=lambda name: self.gain.__getattribute__(name),
+            attr=attr,
+            value=value,
+        )
+
+    @staticmethod
+    def compare(core1: DynapSimCore, core2: DynapSimCore) -> Dict[str, Tuple[Any]]:
+        """
+        compare compares two DynapSimCore objects detects the different values set
+
+        :param core1: the first core object
+        :type core1: DynapSimCore
+        :param core2: the second core object to compare against the first one
+        :type core2: DynapSimCore
+        :return: a dictionary of changed values
+        :rtype: Dict[str, Tuple[Any]]
+        """
+
+        changed = {}
+        for key in core1.__dict__:
+            val1 = core1.__getattribute__(key)
+            val2 = core2.__getattribute__(key)
+            if val1 != val2:
+                changed[key] = (val1, val2)
+                logging.info(f" {key} value changed from {val1} to {val2}")
+
+        return changed
+
+    @property
+    def layout(self) -> DynapSimLayout:
+        """
+        layout returns a subset of object which belongs to DynapSimLayout
+        """
+        __dict = dict.fromkeys(DynapSimLayout.__annotations__.keys())
+        for key in __dict:
+            __dict[key] = self.__getattribute__(key)
+        return DynapSimLayout(**__dict)
+
+    @property
+    def currents(self) -> DynapSimCurrents:
+        """
+        currents returns a subset of object which belongs to DynapSimCurrents
+        """
+        __dict = dict.fromkeys(DynapSimCurrents.__annotations__.keys())
+        for key in __dict:
+            __dict[key] = self.__getattribute__(key)
+        return DynapSimCurrents(**__dict)
+
+    @property
+    def weight_bits(self) -> DynapSimWeightBits:
+        """
+        weight_bits returns a subset of object which belongs to DynapSimWeightBits
+        """
+        __dict = dict.fromkeys(DynapSimWeightBits.__annotations__.keys())
+        for key in __dict:
+            __dict[key] = self.__getattribute__(key)
+        return DynapSimWeightBits(**__dict)
+
+    @property
+    def time(self) -> DynapSimTime:
+        """
+        time creates the high level time constants set by currents
+        Ipulse_ahp, Ipulse, Iref, Itau_ahp, Itau_ampa, Itau_gaba, Itau_nmda, Itau_shunt, Itau_mem
+        """
+        return DynapSimTime.from_DynapSimCore(self)
+
+    @property
+    def gain(self) -> DynapSimGain:
+        """
+        gain creates the high level gain ratios set by currents
+        Igain_ahp, Igain_ampa, Igain_gaba, Igain_nmda, Igain_shunt, Igain_mem
+        """
+        return DynapSimGain.from_DynapSimCore(self)
