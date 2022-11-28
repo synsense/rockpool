@@ -25,7 +25,7 @@ from rockpool.devices.dynapse.samna_alias import (
 )
 
 from rockpool.typehints import FloatVector, IntVector
-from rockpool.devices.dynapse.config.simconfig import DynapSimCore
+from rockpool.devices.dynapse.parameters import DynapSimCore
 
 from dataclasses import dataclass, field
 from rockpool.devices.dynapse.typehints import DRCError

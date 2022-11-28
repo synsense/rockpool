@@ -31,7 +31,7 @@ from rockpool.devices.dynapse.lookup import (
     default_time_constants,
     default_gain_ratios,
 )
-from rockpool.devices.dynapse.config.simconfig import DynapSimGain, DynapSimTime
+from rockpool.devices.dynapse.parameters import DynapSimGain, DynapSimTime
 
 try:
     from torch import Tensor
