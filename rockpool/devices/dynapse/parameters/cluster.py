@@ -1,5 +1,5 @@
 """
-Dynap-SE parameter selection functions 
+Dynap-SE parameter clustering utilities
 
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
@@ -7,14 +7,17 @@ E-mail : ugurcan.cakal@gmail.com
 09/11/2022
 """
 from __future__ import annotations
-from typing import Optional, List, Tuple, Union
+
 from rockpool.typehints import FloatVector
+
 import numpy as np
+
+__all__ = ["parameter_clustering"]
 
 ### --- Utility Functions --- ###
 
 
-def get_n_neurons(*args) -> int:
+def get_num_neurons(*args) -> int:
     n_neurons = len(args[0])
     for arg in args:
         if len(arg) != n_neurons:
@@ -43,7 +46,7 @@ def parameter_clustering(
     **kwargs,
 ):
 
-    n_neurons = get_n_neurons(
+    n_neurons = get_num_neurons(
         Idc,
         If_nmda,
         Igain_ahp,
