@@ -19,6 +19,8 @@ from rockpool.devices.dynapse.lookup import (
 )
 from rockpool.devices.dynapse.samna_alias import Dynapse1Parameter, Dynapse2Parameter
 
+__all__ = ["BiasGenSE1", "BiasGenSE2"]
+
 
 class BiasGen:
     """
