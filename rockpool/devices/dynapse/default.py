@@ -6,10 +6,45 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 06/07/2022
 
-[] TODO : merge with definitions
 """
 
-from rockpool.devices.dynapse.definitions import NUM_NEURONS, NUM_CORES, NUM_CHIPS
+__all__ = [
+    "NUM_CHIPS",
+    "NUM_CORES",
+    "NUM_NEURONS",
+    "NUM_SYNAPSES",
+    "NUM_DEST",
+    "NUM_TAGS",
+    "CORE_MAP",
+    "CHIP_MAP",
+    "CHIP_POS",
+    "dlayout",
+    "dweight",
+    "dtime",
+    "dgain",
+    "dcurrents",
+]
+
+## -- Constants -- ##
+NUM_CHIPS = 4
+NUM_CORES = 4
+NUM_NEURONS = 256
+NUM_SYNAPSES = 64
+NUM_DEST = 4
+NUM_TAGS = 2048
+
+## -- Maps -- ##
+
+# Neuron ID -> Core ID
+CORE_MAP = [i // NUM_NEURONS for i in range(NUM_NEURONS * NUM_CORES * NUM_CHIPS)]
+
+# Core ID -> Chip ID
+CHIP_MAP = {i: i // NUM_CORES for i in range(-NUM_CORES, NUM_CORES * NUM_CHIPS)}
+
+# Chip ID -> Chip position in x-y coordinates
+CHIP_POS = {-1: (0, 0), 0: (1, 0), 1: (2, 0), 3: (3, 0), 4: (4, 0)}
+
+## -- Some Utilities -- ##
 
 Itau_lambda = (
     lambda name: (
@@ -20,6 +55,8 @@ Itau_lambda = (
 )
 Ipw_lambda = lambda name: (dlayout["Vth"] * dlayout[f"C_{name}"]) / dtime[f"t_{name}"]
 Igain_lambda = lambda name: Itau_lambda(name) * dgain[f"r_gain_{name}"]
+
+## -- Default Parameter Dictionaries -- ##
 
 dlayout = {
     "C_ahp": 40e-12,
@@ -90,6 +127,13 @@ dcurrents = {
     "Iw_ahp": 0.0,
 }
 
+
+NUM_CHIPS = 4
+NUM_CORES = 4
+NUM_NEURONS = 256
+NUM_SYNAPSES = 64
+NUM_DEST = 4
+NUM_TAGS = 2048
 CORE_MAP = [i // NUM_NEURONS for i in range(NUM_NEURONS * NUM_CORES * NUM_CHIPS)]
 CHIP_MAP = {i: i // NUM_CORES for i in range(-NUM_CORES, NUM_CORES * NUM_CHIPS)}
 CHIP_POS = {-1: (0, 0), 0: (1, 0), 1: (2, 0), 3: (3, 0), 4: (4, 0)}
