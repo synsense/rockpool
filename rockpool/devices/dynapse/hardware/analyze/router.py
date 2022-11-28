@@ -36,6 +36,8 @@ from rockpool.devices.dynapse.samna_alias import (
 
 from .memory import Connector, ConnectorSE1, ConnectorSE2, SynDict, DestDict
 
+__all__ = ["Router"]
+
 
 @dataclass
 class Router:
