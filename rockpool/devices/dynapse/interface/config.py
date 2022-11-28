@@ -39,7 +39,7 @@ from rockpool.devices.dynapse.lookup import (
     CHIP_MAP,
     CHIP_POS,
 )
-from rockpool.devices.dynapse.quantize.weight_handler import WeightHandler
+from rockpool.devices.dynapse.quantization import WeightHandler
 
 # Try to import samna for device interfacing
 SAMNA_AVAILABLE = True
