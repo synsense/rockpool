@@ -57,7 +57,7 @@ from jax.tree_util import Partial
 from jax import numpy as jnp
 import numpy as np
 
-from rockpool.devices.dynapse.default import (
+from rockpool.devices.dynapse.lookup import (
     default_layout,
     default_weights,
     default_currents,

@@ -32,14 +32,16 @@ from rockpool.devices.dynapse.infrastructure.biasgen import (
     BiasGenSE2,
 )
 
-from rockpool.devices.dynapse.lookup import sim2device_se1, sim2device_se2
-from rockpool.devices.dynapse.default import (
+from rockpool.devices.dynapse.lookup import (
+    sim2device_se1,
+    sim2device_se2,
     default_layout,
     default_weights,
     default_time_constants,
     default_gain_ratios,
     default_currents,
 )
+
 from rockpool.devices.dynapse.samna_alias import (
     Dynapse1Parameter,
     Dynapse1Core,

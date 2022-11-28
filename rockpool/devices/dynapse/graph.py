@@ -25,7 +25,7 @@ from rockpool.graph import (
     replace_module,
 )
 
-from rockpool.devices.dynapse.default import (
+from rockpool.devices.dynapse.lookup import (
     default_layout,
     default_weights,
     default_time_constants,

@@ -23,19 +23,21 @@ from rockpool.devices.dynapse.samna_alias import (
     Dynapse2Destination,
     Dendrite,
 )
-from rockpool.devices.dynapse.default import CORE_MAP, CHIP_MAP, CHIP_POS
 
 from rockpool.typehints import FloatVector, IntVector
 from rockpool.devices.dynapse.config.simconfig import DynapSimCore
 
 from dataclasses import dataclass, field
 from rockpool.devices.dynapse.definitions import DRCError
-from rockpool.devices.dynapse.default import (
+from rockpool.devices.dynapse.lookup import (
     NUM_TAGS,
     NUM_SYNAPSES,
     NUM_DEST,
     NUM_CORES,
     NUM_NEURONS,
+    CORE_MAP,
+    CHIP_MAP,
+    CHIP_POS,
 )
 from rockpool.devices.dynapse.quantize.weight_handler import WeightHandler
 
