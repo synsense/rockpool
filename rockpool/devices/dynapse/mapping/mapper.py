@@ -34,9 +34,9 @@ from rockpool.devices.dynapse.dynapsim import DynapSim
 from rockpool.devices.dynapse.mapping import DynapseNeurons
 from rockpool.devices.dynapse.typehints import DRCError
 
-from .transform import transformer, recurrent_modules
+from .utils import lifnet_to_dynapsim, recurrent_modules
 
-__all__ = ["DynapseGraphContainer", "mapper"]
+__all__ = ["mapper"]
 
 
 @dataclass
@@ -194,7 +194,11 @@ def mapper(graph: GraphModule, in_place=False) -> Dict[str, float]:
     try:
         wrapper = DynapseGraphContainer.from_graph_holder(graph)
     except:
-        graph = transformer(deepcopy(graph)) if not in_place else transformer(graph)
+        graph = (
+            lifnet_to_dynapsim(deepcopy(graph))
+            if not in_place
+            else lifnet_to_dynapsim(graph)
+        )
         wrapper = DynapseGraphContainer.from_graph_holder(graph)
 
     specs = {
