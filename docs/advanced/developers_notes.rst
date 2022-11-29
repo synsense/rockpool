@@ -16,6 +16,7 @@ Checklist for releasing a new |project| version
 - Make and push a tag to the ``master`` branch for the new version (i.e. "vX.Y.Z")
 - Once all CI tasks have succeeded, a manual CI task "pypi_deploy" will be available. Run this task to deploy to PyPI. **This task must be run from the internal Rockpool repository**
 - A pull request for the `conda feedstock <https://github.com/ai-cortex/rockpool-feedstock>`_ should be created automatically by a conda-forge bot. Check and merge this PR to bump the version on ``conda-forge``
+- Merge ``master`` back into ``develop``
 - Bump the version number in the ``develop`` branch to something like "vX.Y.Z.dev"
 
 Headings for ``CHANGELOG.md``
