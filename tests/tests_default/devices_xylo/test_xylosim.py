@@ -13,7 +13,7 @@ def test_configure():
     from samna.xylo.configuration import ReservoirNeuron, OutputNeuron
     from samna.xylo.configuration import XyloConfiguration
     from samna.xylo import validate_configuration
-    from rockpool.devices import xylo
+    from rockpool.devices.xylo.syns61300 import XyloSim
     import numpy as np
 
     # - Build a network
@@ -63,7 +63,7 @@ def test_configure():
     assert valid, message
 
     # - Build a simulated Xylo Module
-    mod_xylo_sim = xylo.XyloSim.from_config(c, dt=dt)
+    mod_xylo_sim = XyloSim.from_config(c, dt=dt)
 
     # - Simulate the evolution of the network on Xylo
     T = 1000
@@ -72,9 +72,9 @@ def test_configure():
     output_raster, _, _ = mod_xylo_sim(input_raster)
 
     # - Build a simulated Xylo Module, specifying output mode
-    mod_xylo_sim_vmem = xylo.XyloSim.from_config(c, dt=dt, output_mode="Vmem")
-    mod_xylo_sim_isyn = xylo.XyloSim.from_config(c, dt=dt, output_mode="Isyn")
-    mod_xylo_sim_spike = xylo.XyloSim.from_config(c, dt=dt, output_mode="Spike")
+    mod_xylo_sim_vmem = XyloSim.from_config(c, dt=dt, output_mode="Vmem")
+    mod_xylo_sim_isyn = XyloSim.from_config(c, dt=dt, output_mode="Isyn")
+    mod_xylo_sim_spike = XyloSim.from_config(c, dt=dt, output_mode="Spike")
 
     # - Simulate the evolution of the network on Xylo
     T = 1000
@@ -86,8 +86,8 @@ def test_configure():
 
 
 def test_specification():
-    # - Samna imports
-    from rockpool.devices import xylo
+    # - Rockpool imports
+    from rockpool.devices.xylo.syns61300 import XyloSim
 
     import numpy as np
 
@@ -101,10 +101,10 @@ def test_specification():
         "weights_out": np.ones((Nhidden, Nout), "int"),
     }
 
-    mod_xylo_sim = xylo.XyloSim.from_specification(**spec)
-    mod_xylo_sim_vmem = xylo.XyloSim.from_specification(**spec, output_mode="Vmem")
-    mod_xylo_sim_isyn = xylo.XyloSim.from_specification(**spec, output_mode="Isyn")
-    mod_xylo_sim_spike = xylo.XyloSim.from_specification(**spec, output_mode="Spike")
+    mod_xylo_sim = XyloSim.from_specification(**spec)
+    mod_xylo_sim_vmem = XyloSim.from_specification(**spec, output_mode="Vmem")
+    mod_xylo_sim_isyn = XyloSim.from_specification(**spec, output_mode="Isyn")
+    mod_xylo_sim_spike = XyloSim.from_specification(**spec, output_mode="Spike")
 
     # - Test complete spec
     spec = {
@@ -124,10 +124,10 @@ def test_specification():
         "aliases": None,
     }
 
-    mod_xylo_sim = xylo.XyloSim.from_specification(**spec)
-    mod_xylo_sim_vmem = xylo.XyloSim.from_specification(**spec, output_mode="Vmem")
-    mod_xylo_sim_isyn = xylo.XyloSim.from_specification(**spec, output_mode="Isyn")
-    mod_xylo_sim_spike = xylo.XyloSim.from_specification(**spec, output_mode="Spike")
+    mod_xylo_sim = XyloSim.from_specification(**spec)
+    mod_xylo_sim_vmem = XyloSim.from_specification(**spec, output_mode="Vmem")
+    mod_xylo_sim_isyn = XyloSim.from_specification(**spec, output_mode="Isyn")
+    mod_xylo_sim_spike = XyloSim.from_specification(**spec, output_mode="Spike")
 
     # - Simulate the evolution of the network on Xylo
     T = 1000
@@ -138,7 +138,7 @@ def test_specification():
 
 def test_from_config():
     # - Samna imports
-    from rockpool.devices import xylo
+    from rockpool.devices.xylo.syns61300 import XyloSim, config_from_specification
     from samna.xylo import validate_configuration
     import numpy as np
 
@@ -152,15 +152,15 @@ def test_from_config():
         "weights_out": np.ones((Nhidden, Nout), "int"),
     }
 
-    c, _, _ = xylo.config_from_specification(**spec)
+    c, _, _ = config_from_specification(**spec)
     valid, message = validate_configuration(c)
     assert valid, message
 
-    mod_xylo_sim_vmem = xylo.XyloSim.from_config(c, output_mode="Vmem")
-    mod_xylo_sim_isyn = xylo.XyloSim.from_config(c, output_mode="Isyn")
-    mod_xylo_sim_spike = xylo.XyloSim.from_config(c, output_mode="Spike")
+    mod_xylo_sim_vmem = XyloSim.from_config(c, output_mode="Vmem")
+    mod_xylo_sim_isyn = XyloSim.from_config(c, output_mode="Isyn")
+    mod_xylo_sim_spike = XyloSim.from_config(c, output_mode="Spike")
 
-    mod_xylo_sim = xylo.XyloSim.from_config(c)
+    mod_xylo_sim = XyloSim.from_config(c)
     mod_xylo_sim.timed()
 
     # - Simulate the evolution of the network on Xylo
@@ -469,12 +469,11 @@ def test_FF_equality_slayer():
 
 def test_xylo_vs_xylosim():
     # - Samna imports
-    from rockpool.devices import xylo
+    import samna
     from samna.xylo import validate_configuration
 
-    import samna
-    from rockpool.devices.xylo import xylo_devkit_utils as xu
-    from rockpool.devices import xylo as x
+    from rockpool.devices.xylo.syns61300 import xylo_devkit_utils as xu
+    import rockpool.devices.xylo.syns61300 as x
 
     import numpy as np
 
@@ -502,16 +501,16 @@ def test_xylo_vs_xylosim():
     }
 
     # - Create configuration object
-    conf, _, _ = xylo.config_from_specification(**spec)
+    conf, _, _ = x.config_from_specification(**spec)
 
     # - Check for validity
     valid, message = validate_configuration(conf)
     assert valid
 
     # - Create XyloSim object
-    mod_xylo_sim_vmem = xylo.XyloSim.from_config(conf, output_mode="Vmem")
-    mod_xylo_sim_isyn = xylo.XyloSim.from_config(conf, output_mode="Isyn")
-    mod_xylo_sim_spike = xylo.XyloSim.from_config(conf)
+    mod_xylo_sim_vmem = x.XyloSim.from_config(conf, output_mode="Vmem")
+    mod_xylo_sim_isyn = x.XyloSim.from_config(conf, output_mode="Isyn")
+    mod_xylo_sim_spike = x.XyloSim.from_config(conf)
     mod_xylo_sim_vmem.timed()
     mod_xylo_sim_isyn.timed()
     mod_xylo_sim_spike.timed()

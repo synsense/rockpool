@@ -2,7 +2,40 @@
 
 All notable changes between Rockpool releases will be documented in this file.
 
-## [v.2.4.2] -- 2022-10-06
+## [v2.5] -- 2022-11-29
+
+### Added
+
+* Added support for Xylo-Audio v2 (SYNS61201) devices and HDK
+* Added hardware versioning for Xylo devices
+* Added a beta implementation of Quantisation-Aware Training for Torch backend in ``rockpool.transform.torch_transform``
+* Added support for parameter boundary constraints in ``rockpool.training.torch_loss``
+* Added tutorial for Spiking Heidelberg Digits audio classification
+* Added tutorial and documentation for WaveSense network architecture
+* Added support to ``LIFTorch`` for training decays and bitshift parameters
+* Added a new utility package ``rockpool.utilities.tree_utils``
+
+### Changed
+
+* Updated support for Exodus v1.1
+* Updated ``XyloSim.from_specification`` to handle  NIEN ≠ NRSN ≠ NOEN for Xylo devices
+* Updated ``LIFTorch`` to provide proper ``tau``s for ``.as_graph()`` in case of decay and bitshift traning
+* Improved backend management, to test torch version requirements 
+
+### Fixed
+
+* Fixed usage of Jax optimisers in tutorial notebooks to reflect Jax API changes
+* Fixed issues with ``LIFTorch`` and ``aLIFTorch``, preventing ``deepcopy`` protocol
+* Fixed bug in `tree_utils`, where `Tree` was used instead of `dict` in `isinstance` check
+* Replaced outdated reference from ``FFRateEuler`` to ``Rate`` module in high-level API tutorial
+* Fixed seeds in torch and numpy to avoid ``nan`` loss problem while training in tutorial
+* Fixed bug in ``TorchModule`` where assigning to an existing registered attribute would clear the family of the attribute
+* Fixed a bug in Constant handling for `torch.Tensor`s, which would raise errors in torch 1.12
+* Fixed bug in ``LIFTorch``, which would cause recorded state to hang around post-evolution, causing errors from `deepcopy`
+* Fixed bug in `Module._register_module()`, where replacing an existing submodule would cause the string representation to be incorrect
+
+
+## [v2.4.2] -- 2022-10-06
 
 ### Hotfix
 
