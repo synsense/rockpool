@@ -141,6 +141,16 @@ These classes are deprecated, but are still usable via the high-level API, until
     nn.layers.RecIAFSpkInNest
     nn.layers.RecAEIFSpkInNest
 
+Standard networks
+------------------
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    nn.networks.wavesense.WaveSenseNet
+    nn.networks.wavesense.WaveBlock
+
 
 Conversion utilities
 --------------------
