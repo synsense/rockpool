@@ -245,7 +245,7 @@ class TorchModule(Module, nn.Module):
         )
         return data, states
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key, value: Any):
         if isinstance(value, nn.Parameter):
             # - Also register as a rockpool parameter
             self._register_attribute(key, rp.Parameter(value, None, None, value.shape))
@@ -279,6 +279,11 @@ class TorchModule(Module, nn.Module):
             # - Convert torch module to a Rockpool Module and assign
             TorchModule.from_torch(value, retain_torch_api=True)
             self._register_module(key, value)
+
+        # - Handle torch parameter being set new values
+        if hasattr(self, key) and isinstance(getattr(self, key), torch.nn.Parameter):
+            if not isinstance(value, torch.nn.Parameter):
+                value = torch.nn.Parameter(value)
 
         # Assign attribute with setattr
         super().__setattr__(key, value)
@@ -321,22 +326,34 @@ class TorchModule(Module, nn.Module):
     def register_buffer(
         self, name: str, tensor: torch.Tensor, persistent: bool = True, *args, **kwargs
     ) -> None:
-        # - Register a Rockpool State or SimulationParameter
-        if persistent:
-            self._register_attribute(
-                name, rp.State(tensor, None, None, np.shape(tensor))
-            )
+        # - Check if we are re-assigning a registered attribute
+        __registered_attributes, __modules = self._get_attribute_registry()
+        if name in __registered_attributes:
+            __registered_attributes[name][0] = tensor
         else:
-            self._register_attribute(
-                name, rp.SimulationParameter(tensor, None, None, np.shape(tensor))
-            )
+            # - Register a Rockpool State or SimulationParameter
+            if persistent:
+                self._register_attribute(
+                    name, rp.State(tensor, None, None, np.shape(tensor))
+                )
+            else:
+                self._register_attribute(
+                    name, rp.SimulationParameter(tensor, None, None, np.shape(tensor))
+                )
 
         # - Register the buffer with torch
         super().register_buffer(name, tensor, persistent, *args, **kwargs)
 
     def register_parameter(self, name: str, param: nn.Parameter) -> None:
-        # - Register the parameter with Rockpool
-        self._register_attribute(name, rp.Parameter(param, None, None, np.shape(param)))
+        # - Check if we are being called with an already-registered parameter
+        __registered_attributes, __modules = self._get_attribute_registry()
+        if name in __registered_attributes:
+            __registered_attributes[name][0] = param
+        else:
+            # - Register the parameter with Rockpool
+            self._register_attribute(
+                name, rp.Parameter(param, None, None, np.shape(param))
+            )
 
         # - Register the parameter with Torch
         super().register_parameter(name, param)
@@ -490,7 +507,6 @@ class TorchModule(Module, nn.Module):
             obj._submodulenames.append(name)
 
     def json_to_param(self, jparam):
-
         if not jparam:
             return
 
@@ -503,7 +519,13 @@ class TorchModule(Module, nn.Module):
                 self.modules()[k].json_to_param(param)
             else:
                 my_params = self.parameters()
-                my_params.update(self.simulation_parameters())
+
+                if "_mod" in my_params:
+                    my_params = my_params["_mod"]
+                    my_params.update(self.simulation_parameters()["_mod"])
+                else:
+                    my_params.update(self.simulation_parameters())
+
                 if isinstance(my_params[k], list):
                     my_params[k] = param
                 elif isinstance(my_params[k], int):

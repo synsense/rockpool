@@ -21,7 +21,7 @@ import warnings
 import imp
 import pathlib as pl
 
-basedir = pl.Path(imp.find_module("rockpool")[1]) / "devices" / "xylo" / "v3"
+basedir = pl.Path(imp.find_module("rockpool")[1]) / "devices" / "xylo" / "syns61201"
 
 from typing import Tuple, Union
 

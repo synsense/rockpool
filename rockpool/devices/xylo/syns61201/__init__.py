@@ -1,16 +1,56 @@
 """
-Package to sypport the Xylo HW SYNS61201 (Xylo-A2)
+Package to support the Xylo HW SYNS61201 (Xylo-A2)
 
-Defines the Rockpool modules :py:class:`.XyloSim`, :py:class:`.AFESim`, :py:class:`.AFESamna`.
+Defines the Rockpool modules :py:class:`.XyloSim`, :py:class:`.AFESim`, :py:class:`.AFESamna`, :py:class:`.DivisiveNormalisation`, :py:class:`.DivisiveNormalisationNoLFSR`.  
 
 Defines the mapper function :py:func:`.mapper`.
 
 Defines the subpackage :py:mod:`.xa2_devkit_utils`.
 
-This package is aliased to :py:mod:`.rockpool.devices.xylo.v2`
+This package is aliased to :py:mod:`.rockpool.devices.xylo.vA2`
 """
 
-from .xylo_sim import *
-from .xylo_mapper import *
+from rockpool.utilities.backend_management import (
+    backend_available,
+    missing_backend_shim,
+)
+
+
 from ..syns65300.afe_sim import *
-from .afe_samna import *
+from .xylo_graph_modules import *
+
+try:
+    from .xylo_sim import *
+except (ImportError, ModuleNotFoundError) as err:
+    if not backend_available("xylosim", "samna"):
+        XyloSim = missing_backend_shim("XyloSim", "xylosim, samna")
+    else:
+        raise
+
+try:
+    from .xylo_mapper import *
+except (ImportError, ModuleNotFoundError) as err:
+    if not backend_available("xylosim", "samna"):
+        XyloSim = missing_backend_shim("mapper", "xylosim, samna")
+    else:
+        raise
+
+try:
+    from .xylo_samna import *
+    from .xa2_devkit_utils import *
+    from .xylo_monitor import *
+    from .afe_samna import *
+except (ImportError, ModuleNotFoundError) as err:
+    if not backend_available("samna"):
+        AFESamna = missing_backend_shim("AFESamna", "samna")
+        XyloSamna = missing_backend_shim("XyloSamna", "samna")
+        XyloMonitor = missing_backend_shim("XyloSamna", "samna")
+        config_from_specification = missing_backend_shim(
+            "config_from_specification", "samna"
+        )
+        save_config = missing_backend_shim("save_config", "samna")
+        load_config = missing_backend_shim("load_config", "samna")
+    else:
+        raise
+
+from .xylo_divisive_normalisation import *

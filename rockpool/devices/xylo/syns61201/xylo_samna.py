@@ -1,5 +1,5 @@
 """
-Samna-backed bridge to Xylo dev kit
+Samna-backed bridge to Xylo dev kit for SYNS61201 Xylo core v2
 """
 
 # - System imports
@@ -9,21 +9,21 @@ from os import makedirs
 # - Samna imports
 import samna
 
-from samna.xylo.configuration import (
+from samna.xyloCore2.configuration import (
     ReservoirNeuron,
     OutputNeuron,
 )
-from samna.xylo.configuration import XyloConfiguration
+from samna.xyloCore2.configuration import XyloConfiguration
 
-from samna.xylo import validate_configuration
+from samna.xyloCore2 import validate_configuration
 
 # - Rockpool imports
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 from rockpool import TSContinuous, TSEvent
 
-from . import xylo_devkit_utils as hdkutils
-from .xylo_devkit_utils import XyloHDK
+from . import xa2_devkit_utils as hdkutils
+from .xa2_devkit_utils import XyloA2HDK
 
 # - Numpy
 import numpy as np
@@ -31,7 +31,7 @@ import numpy as np
 import time
 
 # - Typing
-from typing import Optional, Union, Callable, List
+from typing import Optional, Union, Callable, List, Tuple
 
 from warnings import warn
 
@@ -58,13 +58,15 @@ def config_from_specification(
     dash_syn_out: Optional[np.ndarray] = None,
     threshold: Optional[np.ndarray] = None,
     threshold_out: Optional[np.ndarray] = None,
+    bias_hidden: Optional[np.ndarray] = None,
+    bias_out: Optional[np.ndarray] = None,
     weight_shift_in: int = 0,
     weight_shift_rec: int = 0,
     weight_shift_out: int = 0,
     aliases: Optional[List[List[int]]] = None,
     *args,
     **kwargs,
-) -> (XyloConfiguration, bool, str):
+) -> Tuple[XyloConfiguration, bool, str]:
     """
     Convert a full network specification to a xylo config and validate it
 
@@ -87,7 +89,7 @@ def config_from_specification(
         weight_shift_out (int): The number of bits to left-shift each output layer weight. Default: ``0``
         aliases (Optional[List[List[int]]]): For each neuron in the hidden population, a list containing the alias targets for that neuron
 
-    Returns: (:py:class:`.samna.xylo.XyloConfiguration`, bool, str): config, is_valid, message
+    Returns: (:py:class:`.samna.xyloCore2.XyloConfiguration`, bool, str): config, is_valid, message
         ``config`` will be a `XyloConfiguration`.
         ``is_valid`` will be a boolean flag ``True`` iff the configuration is valid.
         ``message`` will be an empty string if the configuration is valid, or a message indicating why the configuration is invalid.
@@ -146,6 +148,10 @@ def config_from_specification(
     dash_mem = np.ones(Nhidden, "int") if dash_mem is None else np.array(dash_mem)
     dash_syn = np.ones(Nhidden, "int") if dash_syn is None else np.array(dash_syn)
     dash_syn_2 = np.ones(Nhidden, "int") if dash_syn_2 is None else np.array(dash_syn_2)
+    if bias_hidden is not None:
+        bias_hidden = np.round(np.array(bias_hidden)).astype("int")
+    if bias_out is not None:
+        bias_out = np.round(np.array(bias_out)).astype("int")
 
     if (
         np.size(dash_mem) != Nhidden
@@ -206,27 +212,36 @@ def config_from_specification(
         )
 
     # - Round and cast all parameters to integer
-    weights_in = np.round(weights_in).astype("int")
-    weights_out = np.round(weights_out).astype("int")
-    weights_rec = np.round(weights_rec).astype("int")
-    dash_mem = np.round(dash_mem).astype("int")
-    dash_mem_out = np.round(dash_mem_out).astype("int")
-    dash_syn = np.round(dash_syn).astype("int")
-    dash_syn_2 = np.round(dash_syn_2).astype("int")
-    dash_syn_out = np.round(dash_syn_out).astype("int")
+    weights_in = np.round(weights_in).astype("int8")
+    weights_out = np.round(weights_out).astype("int8")
+    weights_rec = np.round(weights_rec).astype("int8")
+    dash_mem = np.round(dash_mem).astype("int8")
+    dash_mem_out = np.round(dash_mem_out).astype("int8")
+    dash_syn = np.round(dash_syn).astype("int8")
+    dash_syn_2 = np.round(dash_syn_2).astype("int8")
+    dash_syn_out = np.round(dash_syn_out).astype("int8")
     threshold = np.round(threshold).astype("int")
     threshold_out = np.round(threshold_out).astype("int")
-    weight_shift_in = np.round(weight_shift_in).astype("int")
-    weight_shift_rec = np.round(weight_shift_rec).astype("int")
-    weight_shift_out = np.round(weight_shift_out).astype("int")
+    weight_shift_in = np.round(weight_shift_in).astype("int8")
+    weight_shift_rec = np.round(weight_shift_rec).astype("int8")
+    weight_shift_out = np.round(weight_shift_out).astype("int8")
     if aliases is not None:
         aliases = [np.round(a).astype("int") for a in aliases]
 
     # - Build the configuration
     config = XyloConfiguration()
 
-    # - WORKAROUD: Ensure that RAM power is enabled, and the chip clock is running
-    config.debug.clock_enable = True
+    if bias_hidden is not None or bias_out is not None:
+        config.bias_enable = True
+
+    # - Ensure that RAM power is enabled, and the chip clock is running
+    config.debug.isyn_clock_enable = True
+    if enable_isyn2:
+        config.debug.isyn2_clock_enable = True
+    config.debug.ra_clock_enable = True
+    if config.bias_enable:
+        config.debug.bias_clock_enable = True
+    config.debug.hm_clock_enable = True
     config.debug.ram_power_enable = True
 
     config.synapse2_enable = enable_isyn2
@@ -252,6 +267,8 @@ def config_from_specification(
         neuron.i_syn2_decay = dash_syn_2[i]
         neuron.v_mem_decay = dash_mem[i]
         neuron.threshold = threshold[i]
+        if bias_hidden is not None:
+            neuron.v_mem_bias = bias_hidden[i]
         reservoir_neurons.append(neuron)
 
     config.reservoir.neurons = reservoir_neurons
@@ -262,6 +279,8 @@ def config_from_specification(
         neuron.i_syn_decay = dash_syn_out[i]
         neuron.v_mem_decay = dash_mem_out[i]
         neuron.threshold = threshold_out[i]
+        if bias_out is not None:
+            neuron.v_mem_bias = bias_out[i]
         readout_neurons.append(neuron)
 
     config.readout.neurons = readout_neurons
@@ -318,10 +337,11 @@ class XyloSamna(Module):
 
     def __init__(
         self,
-        device: XyloHDK,
+        device: XyloA2HDK,
         config: XyloConfiguration = None,
         dt: float = 1e-3,
         output_mode: str = "Spike",
+        power_frequency: Optional[float] = 5.0,
         *args,
         **kwargs,
     ):
@@ -329,10 +349,11 @@ class XyloSamna(Module):
         Instantiate a Module with Xylo dev-kit backend
 
         Args:
-            device (XyloHDK): An opened `samna` device to a Xylo dev kit
-            config (XyloConfiguraration): A Xylo configuration from `samna`
+            device (XyloA2HDK): An opened `samna` device to a Xylo dev kit
+            config (XyloConfiguration): A Xylo configuration from `samna`
             dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
+            power_frequency (float): The frequency of power measurement. Default: 5.0
         """
         # - Check input arguments
         if device is None:
@@ -347,7 +368,7 @@ class XyloSamna(Module):
 
         # - Get a default configuration
         if config is None:
-            config = samna.xylo.configuration.XyloConfiguration()
+            config = samna.xyloCore2.configuration.XyloConfiguration()
 
         # - Get the network shape
         Nin, Nhidden = np.shape(config.input.weights)
@@ -375,7 +396,7 @@ class XyloSamna(Module):
             )
 
         # - Store the device
-        self._device: XyloHDK = device
+        self._device: XyloA2HDK = device
         """ `.XyloHDK`: The Xylo HDK used by this module """
 
         # - Store the configuration (and apply it)
@@ -395,15 +416,20 @@ class XyloSamna(Module):
         # - Zero neuron state when building a new module
         self.reset_state()
 
+        # - Set power measurement module
+        self._power_buf, self.power = hdkutils.set_power_measure(
+            self._device, power_frequency
+        )
+
     @property
     def config(self):
         # - Return the configuration stored on Xylo HDK
-        return self._device.get_model().get_configuration()
+        return self._device.get_xylo_model().get_configuration()
 
     @config.setter
     def config(self, new_config):
         # - Test for a valid configuration
-        is_valid, msg = samna.xylo.validate_configuration(new_config)
+        is_valid, msg = samna.xyloCore2.validate_configuration(new_config)
         if not is_valid:
             raise ValueError(f"Invalid configuration for the Xylo HDK: {msg}")
 
@@ -414,6 +440,7 @@ class XyloSamna(Module):
 
         # - Store the configuration locally
         self._config = new_config
+        self._device.get_afe_model().set_saer_interface_enable(False)
 
     def reset_state(self) -> "XyloSamna":
         # - Reset neuron and synapse state on Xylo
@@ -446,14 +473,21 @@ class XyloSamna(Module):
                 record=record,
             )
 
+    def _config_hibernation_mode(self):
+        """
+        Configure the Xylo HDK to use hibernation mode
+        """
+        self.config = hdkutils.config_hibernation_mode(self._config, True)
+
     def evolve(
         self,
         input: np.ndarray,
         record: bool = False,
         read_timeout: float = None,
+        record_power: bool = False,
         *args,
         **kwargs,
-    ) -> (np.ndarray, dict, dict):
+    ) -> Tuple[np.ndarray, dict, dict]:
         """
         Evolve a network on the Xylo HDK in accelerated-time mode
 
@@ -463,6 +497,7 @@ class XyloSamna(Module):
             input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
             record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
             read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
+            record_power (bool): Iff ``True``, record the power consumption during each evolve.
 
         Returns:
             (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
@@ -480,11 +515,17 @@ class XyloSamna(Module):
         # - Configure the recording mode
         self._configure_accel_time_mode(Nhidden, Nout, record)
 
+        # - Switch on or off RAM clocks depending on state access mode
+        if record or self._output_mode != "Spike":
+            hdkutils.set_ram_access(True, self._read_buffer, self._write_buffer)
+        else:
+            hdkutils.set_ram_access(False, self._read_buffer, self._write_buffer)
+
         # - Get current timestamp
         start_timestep = hdkutils.get_current_timestamp(
             self._read_buffer, self._write_buffer
         )
-        final_timestep = start_timestep + len(input) - 1
+        final_timestamp = start_timestep + len(input) - 1
 
         # -- Encode input events
         input_events_list = []
@@ -496,56 +537,77 @@ class XyloSamna(Module):
         # - Generate input events
         for timestep, channel, count in zip(spikes[:, 0], spikes[:, 1], counts):
             for _ in range(count):
-                event = samna.xylo.event.Spike()
+                event = samna.xyloCore2.event.Spike()
                 event.neuron_id = channel
                 event.timestamp = start_timestep + timestep
                 input_events_list.append(event)
 
         # - Add an extra event to ensure readout for entire input extent
-        event = samna.xylo.event.Spike()
-        event.timestamp = final_timestep + 1
+        event = samna.xyloCore2.event.Spike()
+        event.timestamp = final_timestamp + 1
         input_events_list.append(event)
 
-        # - Clear the input event count register to make sure the dummy event is ignored
-        for addr in [0x0C, 0x0D, 0x0E, 0x0F]:
-            event = samna.xylo.event.WriteRegisterValue()
-            event.address = addr
-            input_events_list.append(event)
+        # - Clear the input registers to ensure the dummy event has no effect
+        input_events_list.extend(hdkutils.gen_clear_input_registers_events())
 
         # - Clear the read and state buffers
         self._state_buffer.reset()
         self._read_buffer.get_events()
+
+        if record_power:
+            self._power_buf.get_events()
 
         # - Write the events and trigger the simulation
         self._write_buffer.write(input_events_list)
 
         # - Determine a reasonable read timeout
         if read_timeout is None:
-            read_timeout = len(input) * self.dt * Nhidden / 800.0
-            read_timeout = read_timeout * 10.0 if record else read_timeout
+            read_timeout = len(input) * self.dt * Nhidden / 100.0
+            read_timeout = read_timeout * 100.0 if record else read_timeout
 
-        # - Wait until the simulation is finished
+        # - Read output events from Xylo HDK
         read_events, is_timeout = hdkutils.blocking_read(
             self._read_buffer,
             timeout=max(read_timeout, 1.0),
-            target_timestamp=final_timestep,
+            target_timestamp=final_timestamp,
         )
 
+        # - Handle a timeout error
         if is_timeout:
             message = f"Processing didn't finish for {read_timeout}s. Read {len(read_events)} events"
             readout_events = [e for e in read_events if hasattr(e, "timestamp")]
 
             if len(readout_events) > 0:
-                message += f", first timestamp: {readout_events[0].timestamp}, final timestamp: {readout_events[-1].timestamp}, target timestamp: {final_timestep}"
+                message += f", first timestamp: {readout_events[0].timestamp}, final timestamp: {readout_events[-1].timestamp}, target timestamp: {final_timestamp}"
             raise TimeoutError(message)
 
         # - Read the simulation output data
         xylo_data = hdkutils.read_accel_mode_data(
-            self._state_buffer, Nin, Nhidden, Nout
+            self._state_buffer,
+            Nin,
+            Nhidden,
+            Nout,
+            self.config.synapse2_enable,
         )
 
+        if record_power:
+            # - Get all recent power events from the power measurement
+            ps = self._power_buf.get_events()
+
+            # - Separate out power meaurement events by channel
+            channels = samna.xyloA2TestBoard.MeasurementChannels
+            io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
+            logic_afe_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.LogicAfe)]
+            )
+            io_afe_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.IoAfe)]
+            )
+            logic_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.Logic)]
+            )
+
         if record:
-            # - Build a recorded state dictionary
             rec_dict = {
                 "Vmem": np.array(xylo_data.V_mem_hid),
                 "Isyn": np.array(xylo_data.I_syn_hid),
@@ -553,12 +615,23 @@ class XyloSamna(Module):
                 "Spikes": np.array(xylo_data.Spikes_hid),
                 "Vmem_out": np.array(xylo_data.V_mem_out),
                 "Isyn_out": np.array(xylo_data.I_syn_out),
-                "times": np.arange(start_timestep, final_timestep + 1),
+                "times": np.arange(start_timestep, final_timestamp + 1),
             }
         else:
             rec_dict = {}
 
-        # - This module accepts no state
+        # - Return power recordings if requested
+        if record_power:
+            rec_dict.update(
+                {
+                    "io_power": io_power,
+                    "logic_afe_power": logic_afe_power,
+                    "io_afe_power": io_afe_power,
+                    "logic_power": logic_power,
+                }
+            )
+
+        # - This module holds no state
         new_state = {}
 
         # - Return spike output, new state and record dictionary
@@ -576,9 +649,9 @@ class XyloSamna(Module):
         read_timeout: float = 5.0,
         *args,
         **kwargs,
-    ) -> (np.ndarray, dict, dict):
+    ) -> Tuple[np.ndarray, dict, dict]:
         """
-        Evolve a network on the Xylo HDK in single-step manual mode. For debug purposes only. Uses 'samna.xylo.OperationMode.Manual' in samna.
+        Evolve a network on the Xylo HDK in single-step manual mode. For debug purposes only. Uses 'samna.xyloCore2.OperationMode.Manual' in samna.
 
         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
 
@@ -598,11 +671,11 @@ class XyloSamna(Module):
         """
 
         # - Get some information about the network size
-        _, Nhidden, Nout = self.shape
+        Nin, Nhidden, Nout = self.shape
 
         # - Select single-step simulation mode
         # - Applies the configuration via `self.config`
-        self.config = hdkutils.configure_single_step_time_mode(self.config)
+        self.config = hdkutils.configure_single_step_time_mode(self._config)
 
         # - Wait until xylo is ready
         t_start = time.time()
@@ -648,10 +721,17 @@ class XyloSamna(Module):
                 break
 
             # - Read all synapse and neuron states for this time step
+            this_state = hdkutils.read_neuron_synapse_state(
+                self._read_buffer,
+                self._write_buffer,
+                Nin,
+                Nhidden,
+                Nout,
+                self.config.synapse2_enable,
+                record,
+                self._output_mode,
+            )
             if record:
-                this_state = hdkutils.read_neuron_synapse_state(
-                    self._read_buffer, self._write_buffer, Nhidden, Nout
-                )
                 vmem_ts.append(this_state.V_mem_hid)
                 isyn_ts.append(this_state.I_syn_hid)
                 isyn2_ts.append(this_state.I_syn2_hid)
@@ -664,6 +744,8 @@ class XyloSamna(Module):
                 self._read_buffer, self._write_buffer
             )
             output_ts.append(output_events)
+            isyn_out_ts.append(this_state.I_syn_out)
+            vmem_out_ts.append(this_state.V_mem_out)
 
         if record:
             # - Build a recorded state dictionary
@@ -679,366 +761,13 @@ class XyloSamna(Module):
         else:
             rec_dict = {}
 
-        # - Return the output spikes, the (empty) new state dictionary, and the recorded state dictionary
-        return np.array(output_ts), {}, rec_dict
-
-    def _evolve_manual_allram(
-        self,
-        input: np.ndarray,
-        record: bool = False,
-        read_timeout: float = 5.0,
-        *args,
-        **kwargs,
-    ) -> (np.ndarray, dict, dict):
-        """
-        Evolve a network on the Xylo HDK in single-step manual mode, while recording the entire RAM contents of Xylo. Uses 'samna.xylo.OperationMode.Manual' in samna.
-
-        Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
-
-        Args:
-            input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
-            record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
-            read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
-
-        Returns:
-            (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
-            ``output`` is a raster ``(T, Nout)``, containing events for each channel in each time bin. Time bins in ``output`` correspond to the time bins in ``input``.
-            ``new_state`` is an empty dictiionary. The Xylo HDK does not permit querying or setting state.
-            ``record_dict`` is a dictionary containing recorded internal all RAM state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
-
-        Raises:
-            `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
-        """
-
-        # - Get some information about the network size
-        Nin, Nhidden, Nout = self.shape
-
-        # - Select single-step simulation mode
-        self.config = hdkutils.configure_single_step_time_mode(self.config)
-
-        # - Wait until xylo is ready
-        t_start = time.time()
-        while not hdkutils.is_xylo_ready(self._read_buffer, self._write_buffer):
-            if time.time() - t_start > read_timeout:
-                raise TimeoutError("Timed out waiting for Xylo to be ready.")
-
-        # - Get current timestamp
-        start_timestep = hdkutils.get_current_timestamp(
-            self._read_buffer, self._write_buffer
-        )
-        final_timestep = start_timestep + len(input) - 1
-
-        # - Reset input spike registers
-        hdkutils.reset_input_spikes(self._write_buffer)
-
-        # - Initialise lists for internal all RAM state
-        vmem_ts = []
-        isyn_ts = []
-        isyn2_ts = []
-        vmem_out_ts = []
-        isyn_out_ts = []
-        spikes_ts = []
-        output_ts = []
-
-        input_weight_ram_ts = []
-        input_weight_2ram_ts = []
-        neuron_dash_syn_ram_ts = []
-        reservoir_dash_syn_2ram_ts = []
-        neuron_dash_mem_ram_ts = []
-        neuron_threshold_ram_ts = []
-        reservoir_config_ram_ts = []
-        reservoir_aliasing_ram_ts = []
-        reservoir_effective_fanout_count_ram_ts = []
-        recurrent_fanout_ram_ts = []
-        recurrent_weight_ram_ts = []
-        recurrent_weight_2ram_ts = []
-        output_weight_ram_ts = []
-
-        # - Loop over time steps
-        for timestep in tqdm(range(len(input))):
-            # - Send input events for this time-step
-            hdkutils.send_immediate_input_spikes(self._write_buffer, input[timestep])
-
-            # - Evolve one time-step on Xylo
-            hdkutils.advance_time_step(self._write_buffer)
-
-            # - Wait until xylo has finished the simulation of this time step
-            t_start = time.time()
-            is_timeout = False
-            while not hdkutils.is_xylo_ready(self._read_buffer, self._write_buffer):
-                if time.time() - t_start > read_timeout:
-                    is_timeout = True
-                    break
-
-            if is_timeout:
-                break
-
-            # - Read all RAM states for this time step
-            if record:
-                this_state = hdkutils.read_allram_state(
-                    self._read_buffer, self._write_buffer, Nin, Nhidden, Nout
-                )
-                vmem_ts.append(this_state.V_mem_hid)
-                isyn_ts.append(this_state.I_syn_hid)
-                isyn2_ts.append(this_state.I_syn2_hid)
-                vmem_out_ts.append(this_state.V_mem_out)
-                isyn_out_ts.append(this_state.I_syn_out)
-                spikes_ts.append(this_state.Spikes_hid)
-
-                input_weight_ram_ts.append(this_state.IWTRAM_state)
-                input_weight_2ram_ts.append(this_state.IWT2RAM_state)
-                neuron_dash_syn_ram_ts.append(this_state.NDSRAM_state)
-                reservoir_dash_syn_2ram_ts.append(this_state.RDS2RAM_state)
-                neuron_dash_mem_ram_ts.append(this_state.NDMRAM_state)
-                neuron_threshold_ram_ts.append(this_state.NTHRAM_state)
-                reservoir_config_ram_ts.append(this_state.RCRAM_state)
-                reservoir_aliasing_ram_ts.append(this_state.RARAM_state)
-                reservoir_effective_fanout_count_ram_ts.append(
-                    this_state.REFOCRAM_state
-                )
-                recurrent_fanout_ram_ts.append(this_state.RFORAM_state)
-                recurrent_weight_ram_ts.append(this_state.RWTRAM_state)
-                recurrent_weight_2ram_ts.append(this_state.RWT2RAM_state)
-                output_weight_ram_ts.append(this_state.OWTRAM_state)
-
-            # - Read the output event register
-            output_events = hdkutils.read_output_events(
-                self._read_buffer, self._write_buffer
-            )
-            output_ts.append(output_events)
-
-        if record:
-            # - Build a recorded state dictionary
-            rec_dict = {
-                "Vmem": np.array(vmem_ts),
-                "Isyn": np.array(isyn_ts),
-                "Isyn2": np.array(isyn2_ts),
-                "Spikes": np.array(spikes_ts),
-                "Vmem_out": np.array(vmem_out_ts),
-                "Isyn_out": np.array(isyn_out_ts),
-                "times": np.arange(start_timestep, final_timestep + 1),
-                "Input_weight_ram": np.array(input_weight_ram_ts),
-                "Input_weight_2ram": np.array(input_weight_2ram_ts),
-                "Neuron_dash_syn_ram": np.array(neuron_dash_syn_ram_ts),
-                "Reservoir_dash_syn_2ram": np.array(reservoir_dash_syn_2ram_ts),
-                "Neuron_dash_mem_ram": np.array(neuron_dash_mem_ram_ts),
-                "Neuron_threshold_ram": np.array(neuron_threshold_ram_ts),
-                "Reservoir_config_ram": np.array(reservoir_config_ram_ts),
-                "Reservoir_aliasing_ram": np.array(reservoir_aliasing_ram_ts),
-                "Reservoir_effective_fanout_count_ram": np.array(
-                    reservoir_effective_fanout_count_ram_ts
-                ),
-                "Recurrent_fanout_ram": np.array(recurrent_fanout_ram_ts),
-                "Recurrent_weight_ram": np.array(recurrent_weight_ram_ts),
-                "Recurrent_weight_2ram": np.array(recurrent_weight_2ram_ts),
-                "Output_weight_ram": np.array(output_weight_ram_ts),
-            }
-        else:
-            rec_dict = {}
-
-        # - Return the output spikes, the (empty) new state dictionary, and the recorded state dictionary
-        return np.array(output_ts), {}, rec_dict
-
-    def _evolve_manual_ram_register(
-        self,
-        input: np.ndarray,
-        record: bool = False,
-        read_timeout: float = 5.0,
-        *args,
-        **kwargs,
-    ) -> (np.ndarray, dict, dict):
-        """
-        Evolve a network on the Xylo HDK in single-step manual mode, while recording the entire RAM and register contents of Xylo. Uses 'samna.xylo.OperationMode.Manual' in samna.
-
-        Evolve a network on the Xylo HDK with manual mode. It is through 'samna.xylo.OperationMode.Manual' in samna.
-
-        Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
-
-        Args:
-            input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
-            record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
-            read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
-
-        Returns:
-            (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
-            ``output`` is a raster ``(T, Nout)``, containing events for each channel in each time bin. Time bins in ``output`` correspond to the time bins in ``input``.
-            ``new_state`` is an empty dictiionary. The Xylo HDK does not permit querying or setting state.
-            ``record_dict`` is a dictionary containing recorded internal all RAM and register state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
-
-        Raises:
-            `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
-        """
-        # - Get some information about the network size
-        Nin, Nhidden, Nout = self.shape
-
-        # - Select single-step simulation mode
-        self.config = hdkutils.configure_single_step_time_mode(self.config)
-
-        # - Initialise lists for recording state
-        vmem_ts = []
-        isyn_ts = []
-        isyn2_ts = []
-        vmem_out_ts = []
-        isyn_out_ts = []
-        spikes_ts = []
-        output_ts = []
-
-        input_weight_ram_ts = []
-        input_weight_2ram_ts = []
-        neuron_dash_syn_ram_ts = []
-        reservoir_dash_syn_2ram_ts = []
-        neuron_dash_mem_ram_ts = []
-        neuron_threshold_ram_ts = []
-        reservoir_config_ram_ts = []
-        reservoir_aliasing_ram_ts = []
-        reservoir_effective_fanout_count_ram_ts = []
-        recurrent_fanout_ram_ts = []
-        recurrent_weight_ram_ts = []
-        recurrent_weight_2ram_ts = []
-        output_weight_ram_ts = []
-
-        # - Read all ram and register before evolve_manual
-        this_state = hdkutils.read_allram_state(
-            self._read_buffer, self._write_buffer, Nin, Nhidden, Nout
-        )
-        vmem_ts.append(this_state.V_mem_hid)
-        isyn_ts.append(this_state.I_syn_hid)
-        isyn2_ts.append(this_state.I_syn2_hid)
-        vmem_out_ts.append(this_state.V_mem_out)
-        isyn_out_ts.append(this_state.I_syn_out)
-        spikes_ts.append(this_state.Spikes_hid)
-
-        input_weight_ram_ts.append(this_state.IWTRAM_state)
-        input_weight_2ram_ts.append(this_state.IWT2RAM_state)
-        neuron_dash_syn_ram_ts.append(this_state.NDSRAM_state)
-        reservoir_dash_syn_2ram_ts.append(this_state.RDS2RAM_state)
-        neuron_dash_mem_ram_ts.append(this_state.NDMRAM_state)
-        neuron_threshold_ram_ts.append(this_state.NTHRAM_state)
-        reservoir_config_ram_ts.append(this_state.RCRAM_state)
-        reservoir_aliasing_ram_ts.append(this_state.RARAM_state)
-        reservoir_effective_fanout_count_ram_ts.append(this_state.REFOCRAM_state)
-        recurrent_fanout_ram_ts.append(this_state.RFORAM_state)
-        recurrent_weight_ram_ts.append(this_state.RWTRAM_state)
-        recurrent_weight_2ram_ts.append(this_state.RWT2RAM_state)
-        output_weight_ram_ts.append(this_state.OWTRAM_state)
-
-        # - Create a folder to save register state in each timestamp
-        folder = "./registers/"
-        newFolder = Path(folder)
-        if not newFolder.exists():
-            makedirs(newFolder)
-
-        # - Save the register state before evolve_manual as '-1' timestamp.
-        file = folder + "register_-1.txt"
-        hdkutils.export_registers(self._read_buffer, self._write_buffer, file)
-
-        # - Wait until xylo is ready
-        t_start = time.time()
-        while not hdkutils.is_xylo_ready(self._read_buffer, self._write_buffer):
-            if time.time() - t_start > read_timeout:
-                raise TimeoutError("Timed out waiting for Xylo to be ready.")
-
-        # - Get current timestamp
-        start_timestep = hdkutils.get_current_timestamp(
-            self._read_buffer, self._write_buffer
-        )
-        final_timestep = start_timestep + len(input) - 1
-
-        # - Reset input spike registers
-        hdkutils.reset_input_spikes(self._write_buffer)
-
-        # - Loop over time steps
-        for timestep in tqdm(range(len(input))):
-            # - Send input events for this time-step
-            hdkutils.send_immediate_input_spikes(self._write_buffer, input[timestep])
-
-            # - Save register just after give input but before evolve_manual for each timestamp
-            file = folder + f"register_{timestep}_spkin.txt"
-            hdkutils.export_registers(self._read_buffer, self._write_buffer, file)
-
-            # - Evolve one time-step on Xylo HDK
-            hdkutils.advance_time_step(self._write_buffer)
-
-            # - Wait until Xylo HDK has finished the simulation of this time step
-            t_start = time.time()
-            is_timeout = False
-            while not hdkutils.is_xylo_ready(self._read_buffer, self._write_buffer):
-                if time.time() - t_start > read_timeout:
-                    is_timeout = True
-                    break
-
-            if is_timeout:
-                break
-
-            # - Read all RAM and register state for this time step
-            if record:
-                this_state = hdkutils.read_allram_state(
-                    self._read_buffer, self._write_buffer, Nin, Nhidden, Nout
-                )
-                vmem_ts.append(this_state.V_mem_hid)
-                isyn_ts.append(this_state.I_syn_hid)
-                isyn2_ts.append(this_state.I_syn2_hid)
-                vmem_out_ts.append(this_state.V_mem_out)
-                isyn_out_ts.append(this_state.I_syn_out)
-                spikes_ts.append(this_state.Spikes_hid)
-
-                input_weight_ram_ts.append(this_state.IWTRAM_state)
-                input_weight_2ram_ts.append(this_state.IWT2RAM_state)
-                neuron_dash_syn_ram_ts.append(this_state.NDSRAM_state)
-                reservoir_dash_syn_2ram_ts.append(this_state.RDS2RAM_state)
-                neuron_dash_mem_ram_ts.append(this_state.NDMRAM_state)
-                neuron_threshold_ram_ts.append(this_state.NTHRAM_state)
-                reservoir_config_ram_ts.append(this_state.RCRAM_state)
-                reservoir_aliasing_ram_ts.append(this_state.RARAM_state)
-                reservoir_effective_fanout_count_ram_ts.append(
-                    this_state.REFOCRAM_state
-                )
-                recurrent_fanout_ram_ts.append(this_state.RFORAM_state)
-                recurrent_weight_ram_ts.append(this_state.RWTRAM_state)
-                recurrent_weight_2ram_ts.append(this_state.RWT2RAM_state)
-                output_weight_ram_ts.append(this_state.OWTRAM_state)
-
-                # - Save register after evolve_manual for each timestamp
-                file = folder + f"register_{timestep}.txt"
-                hdkutils.export_registers(self._read_buffer, self._write_buffer, file)
-
-            # - Read the output event register
-            output_events = hdkutils.read_output_events(
-                self._read_buffer, self._write_buffer
-            )
-            output_ts.append(output_events)
-
-        if record:
-            # - Build a recorded state dictionary
-            rec_dict = {
-                "Vmem": np.array(vmem_ts),
-                "Isyn": np.array(isyn_ts),
-                "Isyn2": np.array(isyn2_ts),
-                "Spikes": np.array(spikes_ts),
-                "Vmem_out": np.array(vmem_out_ts),
-                "Isyn_out": np.array(isyn_out_ts),
-                "times": np.arange(start_timestep, final_timestep + 1),
-                "Input_weight_ram": np.array(input_weight_ram_ts),
-                "Input_weight_2ram": np.array(input_weight_2ram_ts),
-                "Neuron_dash_syn_ram": np.array(neuron_dash_syn_ram_ts),
-                "Reservoir_dash_syn_2ram": np.array(reservoir_dash_syn_2ram_ts),
-                "Neuron_dash_mem_ram": np.array(neuron_dash_mem_ram_ts),
-                "Neuron_threshold_ram": np.array(neuron_threshold_ram_ts),
-                "Reservoir_config_ram": np.array(reservoir_config_ram_ts),
-                "Reservoir_aliasing_ram": np.array(reservoir_aliasing_ram_ts),
-                "Reservoir_effective_fanout_count_ram": np.array(
-                    reservoir_effective_fanout_count_ram_ts
-                ),
-                "Recurrent_fanout_ram": np.array(recurrent_fanout_ram_ts),
-                "Recurrent_weight_ram": np.array(recurrent_weight_ram_ts),
-                "Recurrent_weight_2ram": np.array(recurrent_weight_2ram_ts),
-                "Output_weight_ram": np.array(output_weight_ram_ts),
-            }
-        else:
-            rec_dict = {}
-
-        # - Return the output spikes, the (empty) new state dictionary, and the recorded state dictionary
-        return np.array(output_ts), {}, rec_dict
+        # - Return spike output, new state and record dictionary
+        if self._output_mode == "Spike":
+            return np.array(output_ts), {}, rec_dict
+        elif self._output_mode == "Isyn":
+            return np.array(isyn_out_ts), {}, rec_dict
+        elif self._output_mode == "Vmem":
+            return np.array(vmem_out_ts), {}, rec_dict
 
     def _wrap_recorded_state(self, state_dict: dict, t_start: float = 0.0) -> dict:
         args = {"dt": self.dt, "t_start": t_start}
