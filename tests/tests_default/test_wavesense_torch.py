@@ -301,6 +301,9 @@ def test_wavesense_reset():
     from rockpool.nn.modules import LIFTorch
     import torch
 
+    # - Ensure test is deterministic
+    torch.manual_seed(1)
+
     # model params
     dilations = [2, 16]
     n_out_neurons = 2

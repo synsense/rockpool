@@ -5,19 +5,18 @@ pytest.importorskip("samna")
 
 
 def test_imports():
-    from rockpool.devices.xylo.syns61201 import mapper
-
-    from rockpool.devices.xylo import (
-        XyloNeurons,
-        XyloHiddenNeurons,
-        XyloOutputNeurons,
+    from rockpool.devices.xylo.syns61300 import (
+        mapper,
+        Xylo1Neurons,
+        Xylo1HiddenNeurons,
+        Xylo1OutputNeurons,
     )
 
 
 def test_mapper():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo.syns61201 import mapper
+    from rockpool.devices.xylo.syns61300 import mapper
 
     smod = Sequential(
         LinearTorch((5, 6)),
@@ -41,7 +40,7 @@ def test_mapper():
 def test_output_nodes_have_neurons_as_source():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapper, DRCError
+    from rockpool.devices.xylo.syns61300 import mapper, DRCError
 
     # - Output nodes with weights as last layer
     smod = Sequential(
@@ -57,7 +56,7 @@ def test_output_nodes_have_neurons_as_source():
 def test_input_to_neurons_is_a_weight():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo.syns61201 import mapper, DRCError
+    from rockpool.devices.xylo.syns61300 import mapper, DRCError
 
     # - Neuron to neuron connection with no weights
     smod = Sequential(
@@ -73,7 +72,7 @@ def test_input_to_neurons_is_a_weight():
 def test_first_module_is_a_weight():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo.syns61201 import mapper, DRCError
+    from rockpool.devices.xylo.syns61300 import mapper, DRCError
 
     # - Network with no weights on input
     smod = Sequential(
@@ -89,9 +88,9 @@ def test_first_module_is_a_weight():
 def test_le_16_input_channels():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo.syns61201 import mapper, DRCWarning
+    from rockpool.devices.xylo.syns61300 import mapper, DRCError, DRCWarning
 
-    # - Network with no weights on input
+    # - Network with >16 input channels
     smod = Sequential(
         LinearTorch((32, 2)),
         LIFTorch((2,)),
@@ -106,7 +105,7 @@ def test_le_16_input_channels():
 def test_le_8_output_channels():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapper, DRCError, DRCWarning
+    from rockpool.devices.xylo.syns61300 import mapper, DRCError, DRCWarning
 
     # - Network with > 8 output channels
     smod = Sequential(
@@ -120,10 +119,44 @@ def test_le_8_output_channels():
         mapper(smod.as_graph(), max_output_neurons=32)
 
 
+def test_all_neurons_have_same_dt():
+    from rockpool.nn.modules import LinearTorch, LIFTorch
+    from rockpool.nn.combinators import Sequential
+    from rockpool.devices.xylo.syns61300 import mapper, DRCError
+
+    # - Network with no weights on input
+    smod = Sequential(
+        LinearTorch((2, 3)),
+        LIFTorch((3,), dt=10e-3),
+        LinearTorch((3, 4)),
+        LIFTorch((4,), dt=20e-3),
+    )
+
+    with pytest.raises(DRCError):
+        mapper(smod.as_graph())
+
+
+def test_output_neurons_cannot_be_recurrent():
+    from rockpool.nn.modules import LinearTorch, LIFTorch
+    from rockpool.nn.combinators import Sequential
+    from rockpool.devices.xylo.syns61300 import mapper, DRCError
+
+    # - Network with no weights on input
+    smod = Sequential(
+        LinearTorch((2, 3)),
+        LIFTorch((3,)),
+        LinearTorch((3, 4)),
+        LIFTorch((4, 4), has_rec=True),
+    )
+
+    with pytest.raises(DRCError):
+        mapper(smod.as_graph())
+
+
 def test_network_too_large():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo import mapper, DRCError
+    from rockpool.devices.xylo.syns61300 import mapper, DRCError
 
     # - Network with too many hidden neurons
     smod = Sequential(
@@ -152,75 +185,13 @@ def test_network_too_large():
     mapper(smod.as_graph(), max_output_neurons=64)
 
 
-def test_all_neurons_have_same_dt():
-    from rockpool.nn.modules import LinearTorch, LIFTorch
-    from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo.syns61201 import mapper, DRCError
-
-    # - Network with no weights on input
-    smod = Sequential(
-        LinearTorch((2, 3)),
-        LIFTorch((3,), dt=10e-3),
-        LinearTorch((3, 4)),
-        LIFTorch((4,), dt=20e-3),
-    )
-
-    with pytest.raises(DRCError):
-        mapper(smod.as_graph())
-
-
-def test_output_neurons_cannot_be_recurrent():
-    from rockpool.nn.modules import LinearTorch, LIFTorch
-    from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo.syns61201 import mapper, DRCError
-
-    # - Network with no weights on input
-    smod = Sequential(
-        LinearTorch((2, 3)),
-        LIFTorch((3,)),
-        LinearTorch((3, 4)),
-        LIFTorch((4, 4), has_rec=True),
-    )
-
-    with pytest.raises(DRCError):
-        mapper(smod.as_graph())
-
-
-def test_network_too_large():
-    from rockpool.nn.modules import LinearTorch, LIFTorch
-    from rockpool.nn.combinators import Sequential
-    from rockpool.devices.xylo.syns61201 import mapper, DRCError
-
-    # - Network with too many hidden neurons
-    smod = Sequential(
-        LinearTorch((2, 2000)),
-        LIFTorch((2000,)),
-        LinearTorch((2000, 4)),
-        LIFTorch((4,)),
-    )
-
-    with pytest.raises(DRCError):
-        mapper(smod.as_graph())
-
-    # - Network with too many output neurons
-    smod = Sequential(
-        LinearTorch((2, 3)),
-        LIFTorch((3,)),
-        LinearTorch((3, 64)),
-        LIFTorch((64,)),
-    )
-
-    with pytest.raises(DRCError):
-        mapper(smod.as_graph())
-
-
 def test_XyloSim_creation():
     from rockpool.utilities.backend_management import backend_available
 
     if not backend_available("xylosim", "samna"):
         return
 
-    from rockpool.devices.xylo.syns61201 import mapper, XyloSim
+    from rockpool.devices.xylo.syns61300 import mapper, XyloSim
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential
 

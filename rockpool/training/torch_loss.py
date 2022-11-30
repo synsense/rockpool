@@ -12,7 +12,18 @@ if not backend_available("torch"):
 from rockpool.nn.modules import TorchModule
 import torch
 
-__all__ = ["summed_exp_boundary_loss", "ParameterBoundaryRegularizer"]
+from copy import deepcopy
+
+from typing import Tuple
+
+import rockpool.utilities.tree_utils as tu
+
+__all__ = [
+    "summed_exp_boundary_loss",
+    "ParameterBoundaryRegularizer",
+    "make_bounds",
+    "bounds_cost",
+]
 
 
 def summed_exp_boundary_loss(data, lower_bound=None, upper_bound=None):
@@ -102,3 +113,77 @@ class ParameterBoundaryRegularizer(TorchModule):
 
     def forward(self, input):
         return summed_exp_boundary_loss(input, self.lower_bound, self.upper_bound)
+
+
+def make_bounds(params: dict) -> Tuple[dict, dict]:
+    """
+    Convenience function to build a bounds template for a problem
+
+    This function works hand-in-hand with :py:func:`.bounds_cost`, to enforce minimum and/or maximum parameter bounds. :py:func:`.make_bounds` accepts a set of parameters (e.g. as returned from the :py:meth:`Module.parameters` method), and returns a ready-made dictionary of bounds (with no restrictions by default).
+
+    See Also:
+        See :ref:`/in-depth/jax-training.ipynb` for examples for using :py:func:`.make_bounds` and :py:func:`.bounds_cost`.
+
+    :py:func:`.make_bounds` returns two dictionaries, representing the lower and upper bounds respectively. Initially all entries will be set to ``-np.inf`` and ``np.inf``, indicating that no bounds should be enforced. You must edit these dictionaries to set the bounds.
+
+    Args:
+        params (dict): Dictionary of parameters defining an optimisation problem. This can be provided as the parameter dictionary returned by :py:meth:`Module.parameters`.
+
+    Returns:
+        (dict, dict): ``lower_bounds``, ``upper_bounds``. Each dictionary mimics the structure of ``params``, with initial bounds set to ``-np.inf`` and ``np.inf`` (i.e. no bounds enforced).
+    """
+    # - Make copies
+    lower_bounds = deepcopy(params)
+    upper_bounds = deepcopy(params)
+
+    # - Reset to -inf and inf
+    lower_bounds = tu.tree_map(lower_bounds, lambda _: -float("inf"))
+    upper_bounds = tu.tree_map(upper_bounds, lambda _: float("inf"))
+
+    return lower_bounds, upper_bounds
+
+
+def bounds_cost(params: dict, lower_bounds: dict, upper_bounds: dict) -> torch.Tensor:
+    """
+    Impose a cost on parameters that violate bounds constraints
+
+    This function works hand-in-hand with :py:func:`.make_bounds` to enforce greater-than and less-than constraints on parameter values. This is designed to be used as a component of a loss function, to ensure parameter values fall in a reasonable range.
+
+    :py:func:`.bounds_cost` imposes a value of 1.0 for each parameter element that exceeds a bound infinitesimally, increasing exponentially as the bound is exceeded, or 0.0 for each parameter within the bounds. You will most likely want to scale this by a penalty factor within your cost function.
+
+    Warnings:
+        :py:func:`.bounds_cost` does **not** clip parameters to the bounds. It is possible for parameters to exceed the bounds during optimisation. If this must be prevented, you should clip the parameters explicitly.
+
+    See Also:
+        See :ref:`/in-depth/jax-training.ipynb` for examples for using :py:func:`.make_bounds` and :py:func:`.bounds_cost`.
+
+    Args:
+        params (dict): A dictionary of parameters over which to impose bounds
+        lower_bounds (dict): A dictionary of lower bounds for parameters matching your model, modified from that returned by :py:func:`.make_bounds`
+        upper_bounds (dict): A dictionary of upper bounds for parameters matching your model, modified from that returned by :py:func:`.make_bounds`
+
+    Returns:
+        float: The cost to include in the cost function.
+    """
+    # - Flatten all parameter dicts
+    params, tree_def_params = tu.tree_flatten(params)
+    lower_bounds, tree_def_minparams = tu.tree_flatten(lower_bounds)
+    upper_bounds, tree_def_maxparams = tu.tree_flatten(upper_bounds)
+
+    if len(params) != len(lower_bounds) != len(upper_bounds):
+        raise KeyError(
+            "`lower_bounds` and `upper_bounds` must have the same keys as `params`."
+        )
+
+    # - Define a bounds function
+    def bound(p, lower, upper):
+        lb_cost_all = torch.exp(-(p - lower))
+        ub_cost_all = torch.exp(-(upper - p))
+
+        lb_cost = torch.sum(lb_cost_all[p < lower])
+        ub_cost = torch.sum(ub_cost_all[p > upper])
+
+        return lb_cost + ub_cost
+
+    # - Map bounds function over parameters and return
+    return torch.sum(torch.stack(list(map(bound, params, lower_bounds, upper_bounds))))

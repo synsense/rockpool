@@ -1,5 +1,5 @@
 """
-XyloSim-backed module compatible with Xylo. Requires XyloSim
+XyloSim-backed module compatible with Xylo core v2. Requires XyloSim package.
 """
 
 # - Rockpool imports
@@ -48,9 +48,9 @@ class XyloSim(XyloSimV1):
 
         """
 
-        raise NotImplementedError(
-            "from_config() not implemented for XyloSimV2 due to lacking samna support."
-        )
+        # raise NotImplementedError(
+        #     "from_config() not implemented for XyloSimV2 due to lacking samna support."
+        # )
         cls.output_mode = output_mode
 
         # - Instantiate the class
@@ -108,6 +108,7 @@ class XyloSim(XyloSimV1):
         _xylo_sim_params.dash_syn = []
         _xylo_sim_params.dash_mem = []
         _xylo_sim_params.aliases = []
+        _xylo_sim_params.bias = []
 
         for neuron in config.reservoir.neurons:
             if neuron.alias_target:
@@ -117,20 +118,27 @@ class XyloSim(XyloSimV1):
             _xylo_sim_params.threshold.append(neuron.threshold)
             _xylo_sim_params.dash_mem.append(neuron.v_mem_decay)
             _xylo_sim_params.dash_syn.append([neuron.i_syn_decay, neuron.i_syn2_decay])
+            _xylo_sim_params.bias.append(neuron.v_mem_bias)
 
         # - Configure readout neurons
         _xylo_sim_params.threshold_out = []
         _xylo_sim_params.dash_syn_out = []
         _xylo_sim_params.dash_mem_out = []
+        _xylo_sim_params.bias_out = []
 
         for neuron in config.readout.neurons:
             _xylo_sim_params.threshold_out.append(neuron.threshold)
             _xylo_sim_params.dash_mem_out.append(neuron.v_mem_decay)
             _xylo_sim_params.dash_syn_out.append([neuron.i_syn_decay])
+            _xylo_sim_params.bias_out.append(neuron.v_mem_bias)
 
         _xylo_sim_params.weight_shift_inp = config.input.weight_bit_shift
         _xylo_sim_params.weight_shift_rec = config.reservoir.weight_bit_shift
         _xylo_sim_params.weight_shift_out = config.readout.weight_bit_shift
+
+        _xylo_sim_params.has_bias = False
+        if config.bias_enable:
+            _xylo_sim_params.has_bias = True
 
         # - Instantiate a Xylo Simulation layer
         mod._xylo_layer = XyloLayer(
@@ -140,6 +148,9 @@ class XyloSim(XyloSimV1):
             aliases=_xylo_sim_params.aliases,
             threshold=_xylo_sim_params.threshold,
             threshold_out=_xylo_sim_params.threshold_out,
+            has_bias=_xylo_sim_params.has_bias,
+            bias=_xylo_sim_params.bias,
+            bias_out=_xylo_sim_params.bias_out,
             weight_shift_inp=_xylo_sim_params.weight_shift_inp,
             weight_shift_rec=_xylo_sim_params.weight_shift_rec,
             weight_shift_out=_xylo_sim_params.weight_shift_out,
@@ -207,40 +218,47 @@ class XyloSim(XyloSimV1):
             ValueError: If ``verify_config`` is ``True`` and the configuration is not valid.
         """
         cls.output_mode = output_mode
+
+        # - Extract network dimensions
+        IN, IEN = weights_in.shape[0:2]
+        RSN = weights_rec.shape[0] if weights_rec is not None else IEN
+        OEN, ON = weights_out.shape
+
+        assert OEN <= RSN, "OEN <= RSN"
+        assert IEN <= RSN, "IEN <= RSN"
+
         if weights_rec is None:
-            weights_rec = np.zeros(
-                (np.shape(weights_in)[1], np.shape(weights_in)[1], 2), int
-            )
+            weights_rec = np.zeros((RSN, RSN, 2), int)
 
         if dash_syn is None:
-            dash_syn = np.zeros((np.shape(weights_in)[1]), int)
+            dash_syn = np.zeros(RSN, int)
 
         if dash_syn_2 is None:
-            dash_syn_2 = np.zeros((np.shape(weights_in)[1]), int)
+            dash_syn_2 = np.zeros(RSN, int)
 
         if dash_mem is None:
-            dash_mem = np.zeros((np.shape(weights_in)[1]), int)
+            dash_mem = np.zeros(RSN, int)
 
         if dash_syn_out is None:
-            dash_syn_out = np.zeros((np.shape(weights_out)[1]), int)
+            dash_syn_out = np.zeros(ON, int)
 
         if dash_mem_out is None:
-            dash_mem_out = np.zeros((np.shape(weights_out)[1]), int)
+            dash_mem_out = np.zeros(ON, int)
 
         if bias is None:
-            bias = np.zeros((np.shape(weights_in)[1]), int)
+            bias = np.zeros(RSN, int)
 
         if bias_out is None:
-            bias_out = np.zeros((np.shape(weights_out)[1]), int)
+            bias_out = np.zeros(ON, int)
 
         if aliases is None:
-            aliases = [[] for _ in range(np.shape(weights_in)[1])]
+            aliases = [[] for _ in range(RSN)]
 
         if threshold is None:
-            threshold = np.zeros((np.shape(weights_in)[1]), int)
+            threshold = np.zeros(RSN, int)
 
         if threshold_out is None:
-            threshold_out = np.zeros((np.shape(weights_out)[1]), int)
+            threshold_out = np.zeros(ON, int)
 
         # - Instantiate the class
         mod = cls(
@@ -255,7 +273,7 @@ class XyloSim(XyloSimV1):
 
         # - Convert input weights to XyloSynapse objects
         if len(weights_in.shape) == 2:
-            weights_in = weights_in[:, np.newaxis]
+            weights_in = np.expand_dims(weights_in, 2)
 
         _xylo_sim_params.synapses_in = []
         for pre, w_pre in enumerate(weights_in[:, :, 0]):
@@ -272,7 +290,7 @@ class XyloSim(XyloSimV1):
 
         # - Convert recurrent weights to XyloSynapse objects
         if len(weights_rec.shape) == 2:
-            weights_rec = weights_rec[:, np.newaxis]
+            weights_rec = np.expand_dims(weights_rec, 2)
 
         _xylo_sim_params.synapses_rec = []
         for pre, w_pre in enumerate(weights_rec[:, :, 0]):
@@ -288,7 +306,9 @@ class XyloSim(XyloSimV1):
             _xylo_sim_params.synapses_rec.append(tmp)
 
         # - Convert output weights to XyloSynapse objects
-        _xylo_sim_params.synapses_out = []
+        _xylo_sim_params.synapses_out = [
+            [] for _ in range(RSN - OEN)
+        ]  # - Skip unconnected reservoir neurons
         for pre, w_pre in enumerate(weights_out):
             tmp = []
             for post in np.where(w_pre)[0]:
@@ -350,9 +370,9 @@ class XyloSim(XyloSimV1):
         **kwargs,
     ):
         # - Evolve using the xylo layer
-        spike_out = np.array(self._xylo_layer.evolve(input_raster))
+        spike_out = np.array(self._xylo_layer.evolve(input_raster.astype(int).tolist()))
         if self.output_mode == "Spike":
-            output = spike_out.T
+            output = spike_out
         elif self.output_mode == "Vmem":
             output = np.array(self._xylo_layer.rec_v_mem_out).T
         elif self.output_mode == "Isyn":

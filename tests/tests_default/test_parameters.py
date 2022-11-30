@@ -52,6 +52,7 @@ def test_parameters():
     assert isinstance(Constant(np.array(3)), np.ndarray)
     assert isinstance(Constant(np.array(3)), RP_Constant)
     assert isinstance(Constant(t.tensor(4)), t.Tensor)
+    assert isinstance(Constant(t.tensor(4)), RP_Constant)
 
     class TestMod(Module):
         def __init__(self, shape, param):

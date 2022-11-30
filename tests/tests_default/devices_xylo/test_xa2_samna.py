@@ -1,28 +1,19 @@
 import pytest
 
 pytest.importorskip("samna")
-pytest.importorskip("xylosim")
-
-
-def test_imports():
-    from rockpool.devices.xylo import (
-        config_from_specification,
-        save_config,
-        load_config,
-        XyloSamna,
-    )
-    import rockpool.devices.xylo.xylo_devkit_utils as putils
 
 
 def test_from_specification():
-    from rockpool.devices.xylo import config_from_specification
+    from rockpool.devices.xylo import vA2
+
+    # from rockpool.devices.xylo.syns61201 import config_from_specification
     import numpy as np
 
     Nin = 3
     Nhidden = 5
     Nout = 2
 
-    config, valid, msg = config_from_specification(
+    config, valid, msg = vA2.config_from_specification(
         weights_in=np.zeros((Nin, Nhidden, 2)),
         weights_out=np.zeros((Nhidden, Nout)),
         weights_rec=np.zeros((Nhidden, Nhidden, 2)),
@@ -33,6 +24,8 @@ def test_from_specification():
         dash_syn_out=np.ones(Nout),
         threshold=np.ones(Nhidden),
         threshold_out=np.ones(Nout),
+        bias_hidden=np.ones(Nhidden),
+        bias_out=np.ones(Nout),
         weight_shift_in=1,
         weight_shift_rec=1,
         weight_shift_out=1,
@@ -41,7 +34,7 @@ def test_from_specification():
 
 
 def test_save_load():
-    from rockpool.devices.xylo import (
+    from rockpool.devices.xylo.syns61201 import (
         config_from_specification,
         save_config,
         load_config,
@@ -69,8 +62,8 @@ def test_save_load():
         aliases=None,
     )
 
-    save_config(config, "test_samna_config.json")
-    conf2 = load_config("test_samna_config.json")
+    save_config(config, "../test_samna_config.json")
+    conf2 = load_config("../test_samna_config.json")
 
     # - Test configuration should be equal
     np.testing.assert_allclose(config.input.weights, conf2.input.weights)
@@ -121,14 +114,14 @@ def test_save_load():
 
 
 def test_XyloSamna():
-    from rockpool.devices.xylo import XyloSamna, config_from_specification
-    import rockpool.devices.xylo.xylo_devkit_utils as putils
+    from rockpool.devices.xylo.syns61201 import XyloSamna, config_from_specification
+    import rockpool.devices.xylo.syns61201.xa2_devkit_utils as putils
     import numpy as np
 
-    xylo_hdk_nodes = putils.find_xylo_boards()
+    xylo_hdk_nodes = putils.find_xylo_a2_boards()
 
     if len(xylo_hdk_nodes) == 0:
-        pytest.skip("A connected Xylo HDK is required to run this test")
+        pytest.skip("A connected Xylo2 HDK is required to run this test")
 
     daughterboard = xylo_hdk_nodes[0]
 
@@ -139,20 +132,24 @@ def test_XyloSamna():
     dt = 1e-3
 
     config, valid, msg = config_from_specification(
-        weights_in=np.random.uniform(-127, 127, size=(Nin, Nhidden, 2)),
-        weights_out=np.random.uniform(-127, 127, size=(Nhidden, Nout)),
-        weights_rec=np.random.uniform(-127, 127, size=(Nhidden, Nhidden, 2)),
-        dash_mem=2 * np.ones(Nhidden),
-        dash_mem_out=3 * np.ones(Nout),
-        dash_syn=4 * np.ones(Nhidden),
-        dash_syn_2=2 * np.ones(Nhidden),
-        dash_syn_out=3 * np.ones(Nout),
-        threshold=128 * np.ones(Nhidden),
-        threshold_out=256 * np.ones(Nout),
+        weights_in=np.random.uniform(-127, 127, size=(Nin, Nhidden, 2)).astype(int),
+        weights_out=np.random.uniform(-127, 127, size=(Nhidden, Nout)).astype(int),
+        weights_rec=np.random.uniform(-127, 127, size=(Nhidden, Nhidden, 2)).astype(
+            int
+        ),
+        dash_mem=2 * np.ones(Nhidden, dtype=int),
+        dash_mem_out=3 * np.ones(Nout, dtype=int),
+        dash_syn=4 * np.ones(Nhidden, dtype=int),
+        dash_syn_2=2 * np.ones(Nhidden, dtype=int),
+        dash_syn_out=3 * np.ones(Nout, dtype=int),
+        threshold=128 * np.ones(Nhidden, dtype=int),
+        threshold_out=256 * np.ones(Nout, dtype=int),
         weight_shift_in=1,
         weight_shift_rec=1,
         weight_shift_out=1,
         aliases=None,
+        bias_hidden=np.ones(Nhidden, dtype=int),
+        bias_out=np.ones(Nout, dtype=int),
     )
 
     # - Make a XyloSamna module

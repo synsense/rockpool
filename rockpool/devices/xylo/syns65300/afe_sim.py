@@ -13,7 +13,7 @@ import numpy as np
 from scipy.signal import butter, lfilter
 from scipy import signal, fftpack
 
-from typing import Union
+from typing import Union, Tuple
 
 P_int = Union[int, ParameterBase]
 P_float = Union[float, ParameterBase]
@@ -37,7 +37,7 @@ try:
         thr_up: float,
         c_iaf: float,
         leakage: float,
-    ) -> (np.ndarray, np.ndarray):
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Encode a signal as events, using an LIF neuron membrane
 
@@ -79,7 +79,7 @@ except:
         thr_up: float,
         c_iaf: float,
         leakage: float,
-    ) -> (np.ndarray, np.ndarray):
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Encode a signal as events, using an LIF neuron membrane
 
@@ -352,7 +352,7 @@ class AFESim(Module):
 
     def _butter_bandpass(
         self, lowcut: float, highcut: float, fs: float, order: int = 2
-    ) -> (float, float):
+    ) -> Tuple[float, float]:
         """
         Build a Butterworth bandpass filter from specification
 
@@ -392,7 +392,7 @@ class AFESim(Module):
 
     def _butter_highpass(
         self, cutoff: float, fs: float, order: int = 1
-    ) -> (float, float):
+    ) -> Tuple[float, float]:
         """
         Build a Butterworth high-pass filter from specifications
 

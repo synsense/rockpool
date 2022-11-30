@@ -1,5 +1,5 @@
 """
-Mapper package for Xylo
+Mapper package for Xylo core v2
 
 - Create a graph using the :py:meth:`~.graph.GraphModule.as_graph` API
 - Call :py:func:`.mapper`
@@ -21,10 +21,10 @@ from rockpool.graph import (
     find_modules_of_subclass,
     find_recurrent_modules,
 )
-from rockpool.devices.xylo.xylo_graph_modules import (
-    XyloHiddenNeurons,
-    XyloOutputNeurons,
-    XyloNeurons,
+from .xylo_graph_modules import (
+    Xylo2HiddenNeurons,
+    Xylo2OutputNeurons,
+    Xylo2Neurons,
 )
 from rockpool.devices.xylo.syns61300.xylo_mapper import (
     xylo_drc,
@@ -41,9 +41,9 @@ __all__ = ["mapper", "DRCError", "DRCWarning"]
 
 def mapper(
     graph: GraphModuleBase,
-    weight_dtype: Union[np.dtype, str] = "int8",
-    threshold_dtype: Union[np.dtype, str] = "int16",
-    dash_dtype: Union[np.dtype, str] = "uint8",
+    weight_dtype: Union[np.dtype, str] = "float",
+    threshold_dtype: Union[np.dtype, str] = "float",
+    dash_dtype: Union[np.dtype, str] = "float",
     max_hidden_neurons: int = 1000,
     max_output_neurons: int = 8,
 ) -> dict:
@@ -83,7 +83,7 @@ def mapper(
     # - Replace these output neurons with XyloOutputNeurons
     for on in output_neurons:
         try:
-            XyloOutputNeurons._convert_from(on)
+            Xylo2OutputNeurons._convert_from(on)
         except Exception as e:
             raise DRCError(f"Error replacing output neuron module {on}.") from e
 
@@ -91,9 +91,9 @@ def mapper(
     nodes, modules = bag_graph(graph)
 
     for m in modules:
-        if isinstance(m, GenericNeurons) and not isinstance(m, XyloOutputNeurons):
+        if isinstance(m, GenericNeurons) and not isinstance(m, Xylo2OutputNeurons):
             try:
-                XyloHiddenNeurons._convert_from(m)
+                Xylo2HiddenNeurons._convert_from(m)
             except Exception as e:
                 raise DRCError(f"Error replacing module {m}.") from e
 
@@ -103,7 +103,7 @@ def mapper(
     available_hidden_neuron_ids = list(range(max_hidden_neurons))
     try:
         allocated_hidden_neurons = assign_ids_to_class(
-            graph, XyloHiddenNeurons, available_hidden_neuron_ids
+            graph, Xylo2HiddenNeurons, available_hidden_neuron_ids
         )
     except Exception as e:
         raise DRCError("Failed to allocate HW resources for hidden neurons.") from e
@@ -114,7 +114,7 @@ def mapper(
     )
     try:
         allocated_output_neurons = assign_ids_to_class(
-            graph, XyloOutputNeurons, available_output_neuron_ids
+            graph, Xylo2OutputNeurons, available_output_neuron_ids
         )
     except Exception as e:
         raise DRCError("Failed to allocate HW resources for output neurons.") from e
@@ -123,8 +123,8 @@ def mapper(
     input_channels = list(range(len(graph.input_nodes)))
 
     # - How many synapses are we using for hidden neurons?
-    hidden_neurons: SetList[XyloHiddenNeurons] = find_modules_of_subclass(
-        graph, XyloHiddenNeurons
+    hidden_neurons: SetList[Xylo2HiddenNeurons] = find_modules_of_subclass(
+        graph, Xylo2HiddenNeurons
     )
     num_hidden_synapses = 1
     for hn in hidden_neurons:
@@ -135,7 +135,7 @@ def mapper(
 
     # - Build an input weight matrix
     input_weight_mod: LinearWeights = graph.input_nodes[0].sink_modules[0]
-    target_neurons: XyloNeurons = input_weight_mod.output_nodes[0].sink_modules[0]
+    target_neurons: Xylo2Neurons = input_weight_mod.output_nodes[0].sink_modules[0]
     # ^ Since DRC passed, we know this is valid
 
     weight_num_synapses = (
@@ -187,10 +187,10 @@ def mapper(
                 sm
                 for n in w.output_nodes
                 for sm in n.sink_modules
-                if isinstance(sm, XyloNeurons)
+                if isinstance(sm, Xylo2Neurons)
             ]
         )
-        target_neurons: XyloNeurons = sm[0]
+        target_neurons: Xylo2Neurons = sm[0]
 
         # - How many target synapses per neuron?
         num_target_syns = (
@@ -205,17 +205,17 @@ def mapper(
                 sm
                 for n in w.input_nodes
                 for sm in n.source_modules
-                if isinstance(sm, XyloNeurons)
+                if isinstance(sm, Xylo2Neurons)
             ]
         )
-        source_neurons: XyloNeurons = sm[0]
+        source_neurons: Xylo2Neurons = sm[0]
 
         # - Get source and target HW IDs
         source_ids = source_neurons.hw_ids
         target_ids = target_neurons.hw_ids
 
         # - Does this go in the recurrent or output weights?
-        if isinstance(target_neurons, XyloHiddenNeurons):
+        if isinstance(target_neurons, Xylo2HiddenNeurons):
             # - Recurrent weights
             these_weights = np.reshape(
                 w.weights, (len(source_ids), len(target_ids), num_target_syns)
@@ -230,7 +230,7 @@ def mapper(
                 )
             ] = these_weights
 
-        elif isinstance(target_neurons, XyloOutputNeurons):
+        elif isinstance(target_neurons, Xylo2OutputNeurons):
             # - Output weights
             these_source_indices = [w_out_source_ids.index(id) for id in source_ids]
             these_dest_indices = [w_out_dest_ids.index(id) for id in target_ids]
@@ -252,11 +252,11 @@ def mapper(
 
     # --- Extract parameters from nodes ---
 
-    hidden_neurons: SetList[XyloHiddenNeurons] = find_modules_of_subclass(
-        graph, XyloHiddenNeurons
+    hidden_neurons: SetList[Xylo2HiddenNeurons] = find_modules_of_subclass(
+        graph, Xylo2HiddenNeurons
     )
-    output_neurons: SetList[XyloOutputNeurons] = find_modules_of_subclass(
-        graph, XyloOutputNeurons
+    output_neurons: SetList[Xylo2OutputNeurons] = find_modules_of_subclass(
+        graph, Xylo2OutputNeurons
     )
     num_hidden_neurons = len(allocated_hidden_neurons)
     num_output_neurons = len(allocated_output_neurons)
@@ -297,7 +297,7 @@ def mapper(
         threshold_out[these_indices] = n.threshold
         bias_out[these_indices] = n.bias
 
-    neurons: SetList[XyloNeurons] = find_modules_of_subclass(graph, XyloNeurons)
+    neurons: SetList[Xylo2Neurons] = find_modules_of_subclass(graph, Xylo2Neurons)
     dt = None
     for n in neurons:
         dt = n.dt if dt is None else dt
@@ -314,10 +314,10 @@ def mapper(
                 sm
                 for n in a.input_nodes
                 for sm in n.source_modules
-                if isinstance(sm, XyloNeurons)
+                if isinstance(sm, Xylo2Neurons)
             ]
         )
-        source_neurons: XyloNeurons = sm[0]
+        source_neurons: Xylo2Neurons = sm[0]
 
         # - Find the destination neurons
         sm = SetList(
@@ -325,10 +325,10 @@ def mapper(
                 sm
                 for n in a.output_nodes
                 for sm in n.source_modules
-                if isinstance(sm, XyloNeurons)
+                if isinstance(sm, Xylo2Neurons)
             ]
         )
-        target_neurons: XyloNeurons = sm[0]
+        target_neurons: Xylo2Neurons = sm[0]
 
         # - Get the source and target HW IDs
         source_ids = source_neurons.hw_ids

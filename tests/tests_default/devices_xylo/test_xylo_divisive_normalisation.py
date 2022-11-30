@@ -9,7 +9,7 @@ def test_imports():
 
 
 def test_DN():
-    from rockpool.devices.xylo import DivisiveNormalisation, LowPassMode
+    from rockpool.devices.xylo.syns61201 import DivisiveNormalisation, LowPassMode
 
     import numpy as np
 
@@ -24,7 +24,7 @@ def test_DN():
 
 
 def test_DN_NoLFSR():
-    from rockpool.devices.xylo import DivisiveNormalisationNoLFSR, LowPassMode
+    from rockpool.devices.xylo.syns61201 import DivisiveNormalisationNoLFSR, LowPassMode
 
     import numpy as np
 
@@ -39,7 +39,7 @@ def test_DN_NoLFSR():
 
 
 def test_DN_zero_input():
-    from rockpool.devices.xylo import DivisiveNormalisation
+    from rockpool.devices.xylo.syns61201 import DivisiveNormalisation
 
     import numpy as np
 

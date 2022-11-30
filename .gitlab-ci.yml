@@ -12,11 +12,10 @@ unit_tests:
   before_script:
     - pip install --upgrade pip
     - conda install nest-simulator
-    - conda install -c conda-forge cudatoolkit-dev
+    - conda install -c conda-forge cudatoolkit-dev=11.4.0=h5e8e339_5
     - pip install --upgrade .[all] --no-cache-dir
     - python -c 'import samna'
-    - pip install sinabs
-    - pip install git+https://github.com/synsense/sinabs-exodus@main || exit_code=$?
+    - pip install 'sinabs-exodus>=1.1' || exit_code=$?
     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
 
   script:
