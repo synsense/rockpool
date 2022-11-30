@@ -159,3 +159,26 @@ def list_backends():
 
     for backend in __backend_specs.keys():
         print(f"{backend:>15}: {backend_available(backend)}")
+
+
+def torch_version_satisfied(
+    req_major: int = 0, req_minor: int = 0, req_patch: int = 0
+) -> bool:
+    if not backend_available("torch"):
+        return False
+
+    import torch
+
+    # - Check torch version
+    lib_major, lib_minor, lib_patch = torch.__version__.split(".")
+    patch_vers = lib_patch.split("+")
+
+    if len(patch_vers) > 1:
+        lib_patch, *lib_cuda = patch_vers
+
+    if int(lib_major) >= req_major:
+        if int(lib_minor) >= req_minor:
+            if int(lib_patch) >= req_patch:
+                return True
+
+    return False
