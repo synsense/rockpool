@@ -335,7 +335,7 @@ class DynapseSamna(Module):
         :type timeout: float, optional
         :param poll_step: the pollling step, 1 ms means the CPU fetches events from FPGA in every 1 ms, defaults to 1e-3
         :type poll_step: float, optional
-        :raises TimeoutError: FPGA could not respond in {timeout} seconds, increase the timeout!
+        :raises TimeoutError: FPGA could not respond in {timeout} seconds!
         :return: the current FPGA time in seconds
         :rtype: float
         """
@@ -348,7 +348,7 @@ class DynapseSamna(Module):
 
         if not done:
             raise TimeoutError(
-                f"FPGA could not respond in {timeout} seconds, increase the timeout!"
+                f"FPGA could not respond in {timeout} seconds!"
             )
         else:
             return t_done
