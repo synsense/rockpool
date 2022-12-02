@@ -14,6 +14,7 @@ E-mail : ugurcan.cakal@gmail.com
 """
 from __future__ import annotations
 import logging
+import numpy as np
 
 from typing import Any, Dict, List, Optional, Tuple
 from rockpool.devices.dynapse.samna_alias import Dynapse2Configuration
@@ -137,6 +138,10 @@ def config_from_specification(
     """
 
     new_config = samna.dynapse2.Dynapse2Configuration()
+    core_map = np.array(core_map)
+
+    if len(core_map.shape) != 1:
+        raise ValueError("Core_map should be one dimensional!")
 
     ## -- Get cores one by one -- ##
     for c in range(n_cluster):
@@ -196,16 +201,22 @@ def config_from_specification(
         params = core.export_Dynapse2Parameters()
 
         # Update the configuration object
-        for n in range(num_neurons):
-            if Idc[c] > 0:
+
+        ## DC excitation
+        if Idc[c] > 0:
+            nidx = np.where(core_map == c)[0]
+            for n in nidx:
                 core_config.neurons[n].latch_so_dc = True
 
+        ## Receiving connections
         for n, cam_content in cam.items():
             core_config.neurons[n].synapses = cam_content
 
+        ## Broadcasting connections
         for n, sram_content in sram.items():
             core_config.neurons[n].destinations = sram_content
 
+        ## Parameters
         for key, (coarse, fine) in params.items():
             core_config.parameters[key].coarse_value = coarse
             core_config.parameters[key].fine_value = fine
