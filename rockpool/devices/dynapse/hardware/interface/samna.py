@@ -101,6 +101,12 @@ class DynapseSamna(Module):
         self.app_config = config
         self.leaky_config = self.get_leaky_config()
 
+        # Discharge the capacitors by default
+        self.discharge_capacitors()
+
+        # Read the current time stamp initially, it will make sure that the circuit is responsive
+        self.current_timestamp()
+
     @property
     def model(self) -> Dynapse2Model:
         """Returns the HDK model object that can be used to configure the device"""
@@ -558,7 +564,7 @@ class DynapseSamna(Module):
             idx = np.searchsorted(time_course, t)
             if idx < len(raster_out):
                 raster_out[idx][channels[i]] += 1
-        
+
         return raster_out, cmap
 
     @staticmethod
@@ -579,7 +585,7 @@ class DynapseSamna(Module):
             if data.event not in destinations:
                 destinations.append(data.event)
 
-        destinations = sorted(destinations, key=lambda obj : obj.tag)
+        destinations = sorted(destinations, key=lambda obj: obj.tag)
         channel_map = dict(zip(range(len(destinations)), destinations))
 
         return channel_map
