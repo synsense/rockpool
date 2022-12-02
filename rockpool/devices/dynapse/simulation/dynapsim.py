@@ -53,8 +53,9 @@ import jax
 from jax import random as rand
 from jax.lax import scan
 from jax.tree_util import Partial
-
 from jax import numpy as jnp
+
+import sys
 import numpy as np
 
 from rockpool.devices.dynapse.lookup import (
@@ -65,12 +66,14 @@ from rockpool.devices.dynapse.lookup import (
 from rockpool.devices.dynapse.typehints import DynapSimRecord, DynapSimState
 from rockpool.devices.dynapse.mapping import DynapseNeurons
 
+
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.nn.modules.native.linear import kaiming
 from rockpool.parameters import Parameter, State, SimulationParameter
 from rockpool.graph import GraphHolder, LinearWeights, as_GraphHolder
 
 from .surrogate import step_pwl
+from .mismatch import dynapse_mismatch_generator
 
 __all__ = ["DynapSim"]
 
@@ -190,8 +193,10 @@ class DynapSim(JaxModule):
     :type weight_init_func: Optional[Callable[[Tuple], np.ndarray]], optional
     :param dt: The time step for the forward-Euler ODE solver, defaults to 1e-3
     :type dt: float, optional
+    :param percent_mismatch: Gaussian parameter mismatch percentage (check ``dynapse_mismatch_generator`` implementation), defaults to None
+    :type percent_mismatch: Optional[float], optional
     :param rng_key: The Jax RNG seed to use on initialisation. By default, a new seed is generated, defaults to None
-    :type rng_key: Optional[Any], optional
+    :type rng_key: Optional[jnp.DeviceArray], optional
     :param spiking_input: Whether this module receives spiking input, defaults to True
     :type spiking_input: bool, optional
     :param spiking_output: Whether this module produces spiking output, defaults to True
@@ -253,7 +258,8 @@ class DynapSim(JaxModule):
         has_rec: bool = False,
         weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = kaiming,
         dt: float = 1e-3,
-        rng_key: Optional[Any] = None,
+        percent_mismatch: Optional[float] = None,
+        rng_key: Optional[jnp.DeviceArray] = None,
         spiking_input: bool = False,
         spiking_output: bool = True,
         *args,
@@ -390,6 +396,23 @@ class DynapSim(JaxModule):
         self.__one = jnp.array(1.0)
         self.__two = jnp.array(2.0)
 
+        # One time mismatch
+        if rng_key is None:
+            rng_key = jnp.array(
+                [np.random.randint(sys.maxsize, size=2)], dtype=jnp.uint32
+            )
+
+        if percent_mismatch is not None:
+            rng_key, _ = rand.split(rng_key)
+            regenerate_mismatch = dynapse_mismatch_generator(
+                percent_deviation=percent_mismatch
+            )
+            new_params = regenerate_mismatch(
+                self.simulation_parameters(), rng_key=rng_key
+            )
+            for key in new_params:
+                self.__setattr__(key, new_params[key])
+
         # - Define additional arguments required during initialisation
         self._init_args = {
             "has_rec": has_rec,
@@ -508,7 +531,6 @@ class DynapSim(JaxModule):
                 record: Updated record instance to including spikes, igaba, ishunt, inmda, iampa, iahp, imem, and vmem states
             :rtype: Tuple[DynapSimState, DynapSimRecord]
             """
-            # [] TODO : Would you allow currents to go below Io or not?!!!!
 
             (
                 iahp,
