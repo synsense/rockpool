@@ -347,9 +347,7 @@ class DynapseSamna(Module):
         _, done, t_done = self.poll_events(timeout, poll_step)
 
         if not done:
-            raise TimeoutError(
-                f"FPGA could not respond in {timeout} seconds!"
-            )
+            raise TimeoutError(f"FPGA could not respond in {timeout} seconds!")
         else:
             return t_done
 
