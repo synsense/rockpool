@@ -43,10 +43,8 @@ __all__ = ["config_from_specification"]
 def config_from_specification(
     n_cluster: int,
     core_map: List[int],
-    weights_in: List[Optional[IntVector]],
-    weights_rec: List[Optional[IntVector]],
-    sign_in: List[Optional[IntVector]],
-    sign_rec: List[Optional[IntVector]],
+    weights_in: Optional[List[Optional[IntVector]]],
+    weights_rec: Optional[List[Optional[IntVector]]],
     # params
     Idc: List[FloatVector],
     If_nmda: List[FloatVector],
@@ -61,10 +59,13 @@ def config_from_specification(
     Itau_mem: List[FloatVector],
     Itau_syn: List[FloatVector],
     Iw_ahp: List[FloatVector],
-    Iw_0: List[FloatVector],
-    Iw_1: List[FloatVector],
-    Iw_2: List[FloatVector],
-    Iw_3: List[FloatVector],
+    # Optionals
+    sign_in: Optional[List[Optional[IntVector]]] = None,
+    sign_rec: Optional[List[Optional[IntVector]]] = None,
+    Iw_0: Optional[List[FloatVector]] = None,
+    Iw_1: Optional[List[FloatVector]] = None,
+    Iw_2: Optional[List[FloatVector]] = None,
+    Iw_3: Optional[List[FloatVector]] = None,
     # definitions
     chip_map: Dict[int, int] = CHIP_MAP,
     chip_pos: Dict[int, Tuple[int]] = CHIP_POS,
@@ -82,13 +83,9 @@ def config_from_specification(
     :param core_map: core map (neuron_id : core_id) for in-device neurons, defaults to CORE_MAP
     :type core_map: List[int]
     :param weights_in: a list of quantized input weight matrices
-    :type weights_in: List[Optional[IntVector]]
+    :type weights_in: Optional[List[Optional[IntVector]]]
     :param weights_rec: a list of quantized recurrent weight matrices
-    :type weights_rec: List[Optional[IntVector]]
-    :param sign_in: a list of input weight directions (+1 : excitatory, -1 : inhibitory) matrices
-    :type sign_in: List[Optional[IntVector]]
-    :param sign_rec: a list of recurrent weight directions (+1 : excitatory, -1 : inhibitory) matrices
-    :type sign_rec: List[Optional[IntVector]]
+    :type weights_rec: Optional[List[Optional[IntVector]]]
     :param Idc: a list of Constant DC current injected to membrane in Amperes
     :type Idc: List[FloatVector]
     :param If_nmda: a list of NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes
@@ -115,14 +112,18 @@ def config_from_specification(
     :type Itau_syn: List[FloatVector]
     :param Iw_ahp: a list of spike frequency adaptation weight current of the neurons of the core in Amperes
     :type Iw_ahp: List[FloatVector]
-    :param Iw_0: a list of weight bit 0 current of the neurons of the core in Amperes
-    :type Iw_0: List[FloatVector]
-    :param Iw_1: a list of weight bit 1 current of the neurons of the core in Amperes
-    :type Iw_1: List[FloatVector]
-    :param Iw_2: a list of weight bit 2 current of the neurons of the core in Amperes
-    :type Iw_2: List[FloatVector]
-    :param Iw_3: a list of weight bit 3 current of the neurons of the core in Amperes
-    :type Iw_3: List[FloatVector]
+    :param sign_in: a list of input weight directions (+1 : excitatory, -1 : inhibitory) matrices, defaults to None
+    :type sign_in: Optional[List[Optional[IntVector]]]
+    :param sign_rec: a list of recurrent weight directions (+1 : excitatory, -1 : inhibitory) matrices, defaults to None
+    :type sign_rec: Optional[List[Optional[IntVector]]]
+    :param Iw_0: a list of weight bit 0 current of the neurons of the core in Amperes, defaults to None
+    :type Iw_0: Optional[List[FloatVector]]
+    :param Iw_1: a list of weight bit 1 current of the neurons of the core in Amperes, defaults to None
+    :type Iw_1: Optional[List[FloatVector]]
+    :param Iw_2: a list of weight bit 2 current of the neurons of the core in Amperes, defaults to None
+    :type Iw_2: Optional[List[FloatVector]]
+    :param Iw_3: a list of weight bit 3 current of the neurons of the core in Amperes, defaults to None
+    :type Iw_3: Optional[List[FloatVector]]
     :param chip_map: chip map (core_id : chip_id) for all cores, defaults to CHIP_MAP
     :type chip_map: Dict[int, int], optional
     :param chip_pos: global chip position dictionary (chip_id : (xpos,ypos)), defaults to CHIP_POS
@@ -165,18 +166,18 @@ def config_from_specification(
             Itau_shunt=Itau_syn[c],
             Itau_mem=Itau_mem[c],
             Iw_ahp=Iw_ahp[c],
-            Iw_0=Iw_0[c],
-            Iw_1=Iw_1[c],
-            Iw_2=Iw_2[c],
-            Iw_3=Iw_3[c],
+            Iw_0=Iw_0[c] if Iw_0 is not None else 0.0,
+            Iw_1=Iw_1[c] if Iw_1 is not None else 0.0,
+            Iw_2=Iw_2[c] if Iw_2 is not None else 0.0,
+            Iw_3=Iw_3[c] if Iw_3 is not None else 0.0,
         )
 
         # Allocate memory for the weights
         allocator = WeightAllocator(
-            weights_in=weights_in[c],
-            weights_rec=weights_rec[c],
-            sign_in=sign_in[c],
-            sign_rec=sign_rec[c],
+            weights_in=weights_in[c] if weights_in is not None else None,
+            weights_rec=weights_rec[c] if weights_rec is not None else None,
+            sign_in=sign_in[c] if sign_in is not None else None,
+            sign_rec=sign_rec[c] if sign_rec is not None else None,
             core_map=core_map,
             chip_map=chip_map,
             chip_pos=chip_pos,
