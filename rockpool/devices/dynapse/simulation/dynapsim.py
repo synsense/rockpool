@@ -530,7 +530,7 @@ class DynapSim(JaxModule):
 
             # isyn_inf is the current that a synapse current would reach with a sufficiently long pulse
             isyn_inf = (Igain_syn_clip / Itau_syn_clip) * Iws
-            # isyn_inf = jnp.clip(isyn_inf, self.Io)
+            isyn_inf = jnp.clip(isyn_inf, self.Io)
 
             ## Exponential charge, discharge positive feedback factor arrays
             f_charge = self.__one - jnp.exp(-t_pulse / tau_syn.T).T  # Nrecx4
@@ -541,7 +541,6 @@ class DynapSim(JaxModule):
 
             ## CHARGE if spike occurs -- UNDERSAMPLED -- dt >> t_pulse
             isyn += f_charge * isyn_inf
-            # isyn = jnp.clip(isyn.T, self.Io).T  # Nrecx4
 
             # ------------------------------------------------------ #
             # --- Forward step: AHP : Spike Frequency Adaptation --- #
