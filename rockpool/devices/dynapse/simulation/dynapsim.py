@@ -379,11 +379,11 @@ class DynapSim(JaxModule):
         self.kappa_p = __simparam(kappa_p)
         self.Ut = __simparam(Ut)
         self.Vth = __simparam(Vth)
-        self.Iscale = SimulationParameter(Iscale, shape=())
 
         # Escape from mismatch
         self.rng_key = State(rng_key, init_func=lambda _: rng_key)
-        self.dt = SimulationParameter(dt, shape=())
+        self.Iscale = Iscale
+        self.dt = dt
 
         # Performance : Use device arrays in calculations
         self.__zero = jnp.array(0.0)
