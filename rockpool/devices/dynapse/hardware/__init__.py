@@ -8,5 +8,5 @@ Supporting operations:
 * Exporting to a device configuration from a simulation configuration
 """
 
-from .config import config_from_specification
+from .to_config import config_from_specification
 from .interface import DynapseSamna, find_dynapse_boards

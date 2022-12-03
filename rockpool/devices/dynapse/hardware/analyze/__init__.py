@@ -1,2 +1,2 @@
-from router import *
-from memory import *
+from .router import *
+from .memory import *
