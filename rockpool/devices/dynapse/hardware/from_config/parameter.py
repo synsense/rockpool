@@ -6,17 +6,21 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 04/12/2022
 """
+from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from dataclasses import dataclass
 
 import numpy as np
 
 from rockpool.typehints import FloatVector
 
-from rockpool.devices.dynapse.samna_alias import Dendrite
+from rockpool.devices.dynapse.samna_alias import Dendrite, Dynapse2Configuration
 from rockpool.devices.dynapse.quantization import WeightHandler
 from rockpool.devices.dynapse.parameters import DynapSimCurrents
+from rockpool.devices.dynapse.lookup import CHIP_POS
+
+from .memory import MemorySE2
 
 
 @dataclass
@@ -70,6 +74,31 @@ class ParameterHandler:
 
         # Compute each column's dendritic score (see ``class.dendrite_score``)
         self.score_list = [self.dendrite_score(n) for n in range(n_rec)]
+
+    @classmethod
+    def from_config(
+        cls, config: Dynapse2Configuration, chip_pos: Dict[int, Tuple[int]] = CHIP_POS
+    ) -> ParameterHandler:
+        """
+        from_config is a class factory method which construct the parameter handler object by processing a samna configuration object
+
+        :param config: a samna configuration object used to configure all the system level properties
+        :type config: Dynapse2Configuration
+        :param chip_pos: global chip position dictionary (chip_id : (xpos,ypos)), defaults to CHIP_POS
+        :type chip_pos: Dict[int, Tuple[int]], optional
+        :return: a parameter handler object which leads a simulation network construction
+        :rtype: ParameterHandler
+        """
+        mem = MemorySE2(chip_pos)
+        spec = mem.spec_from_config(config)
+        handler = cls(
+            spec["weights_in"],
+            spec["dendrites_in"],
+            spec["weights_rec"],
+            spec["dendrites_rec"],
+            spec["core_map"],
+        )
+        return handler
 
     def dendrite_score(self, post_neuron_id: int) -> Dict[Dendrite, int]:
         """
@@ -308,3 +337,29 @@ class ParameterHandler:
         """get_sign_rec returns the recurrent sign mask (see ``class.__sign_mask``)
         the +- signs of the weight values, + means excitatory; - means inhibitory"""
         return self.__sign_mask(self.dendrites_rec)
+
+    def __decode_core_list(self, hash: int) -> int:
+        """__decode_core_list is a wrapper for ``MemorySE2.decode_hash`` using tuple length as 2 for core address extraction"""
+        return MemorySE2.decode_hash(hash, tuple_length=2)
+
+    @property
+    def core_list(self) -> List[Tuple[int]]:
+        """core_list returns list of unique core addresses from the core_map"""
+        core_list = set(map(MemorySE2.address_hash, self.core_map))
+        core_list = list(map(self.__decode_core_list, core_list))
+        return core_list
+
+    @property
+    def n_in(self) -> int:
+        """n_in returns the number of input (virtual) neurons"""
+        if self.weights_in.any():
+            return self.weights_in.shape[0]
+        elif self.weights_rec.any():
+            return self.weights_rec.shape[0]
+        else:
+            return 0
+
+    @property
+    def n_rec(self) -> int:
+        """n_rec returns the number of recurrent (hardware) neurons"""
+        return len(self.core_map)
