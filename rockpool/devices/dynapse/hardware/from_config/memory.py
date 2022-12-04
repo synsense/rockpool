@@ -309,7 +309,8 @@ class MemorySE2:
 
         return weights, dendrites
 
-    def address_hash(self, addr_tuple: Tuple[int], n_bit: int = 8) -> int:
+    @staticmethod
+    def address_hash(addr_tuple: Tuple[int], n_bit: int = 8) -> int:
         """
         address_hash implements and encoding method for neuron addresses (chip, core, neuron)
         It makes it possible to use neuron locations as the dictionary keys
@@ -326,7 +327,8 @@ class MemorySE2:
             hash = (hash << n_bit) | addr
         return hash
 
-    def decode_hash(self, hash: int, n_bit: int = 8, tuple_length: int = 3) -> int:
+    @staticmethod
+    def decode_hash(hash: int, n_bit: int = 8, tuple_length: int = 3) -> int:
         """
         decode_hash restores the full physical address of a neuron from the encoded version
 
