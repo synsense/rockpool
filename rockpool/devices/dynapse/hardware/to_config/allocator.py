@@ -379,18 +379,17 @@ class WeightAllocator:
         for pre in range(n_pre):
             for post in range(n_post):
                 ## Identify the synapses
-                if matrix[pre][post] > 0:
-                    if len(content[post]) < num_synapses:
-                        content[post].append(
-                            WeightAllocator.cam_entry(
-                                WeightAllocator.get_dendrite(sign[pre][post]),
-                                mem_matrix[post][pre],
-                                tag_list[pre],
-                                use_samna,
-                            )
+                if len(content[post]) < num_synapses:
+                    content[post].append(
+                        WeightAllocator.cam_entry(
+                            WeightAllocator.get_dendrite(sign[pre][post]),
+                            mem_matrix[post][pre],
+                            tag_list[pre],
+                            use_samna,
                         )
-                    else:
-                        raise DRCError("Maximum synapse limit per neuron reached!")
+                    )
+                else:
+                    raise DRCError("Maximum synapse limit per neuron reached!")
 
         return content
 
