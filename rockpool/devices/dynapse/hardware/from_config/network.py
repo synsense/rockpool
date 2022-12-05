@@ -22,6 +22,8 @@ from rockpool.devices.dynapse.simulation import DynapSim
 
 from .parameter import ParameterHandler
 
+__all__ = ["dynapsim_from_config"]
+
 
 def dynapsim_from_config(
     config: Dynapse2Configuration,

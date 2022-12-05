@@ -17,4 +17,9 @@ from .simulation import DynapSim, dynapse_mismatch_generator
 from .mapping import DynapseNeurons, mapper
 from .parameters import parameter_clustering, BiasGenSE2, DynapSimCore
 from .quantization import autoencoder_quantization
-from .hardware import config_from_specification, DynapseSamna, find_dynapse_boards
+from .hardware import (
+    config_from_specification,
+    DynapseSamna,
+    find_dynapse_boards,
+    dynapsim_from_config,
+)
