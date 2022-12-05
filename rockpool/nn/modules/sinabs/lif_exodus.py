@@ -135,8 +135,14 @@ class LIFExodus(LIFBaseTorch):
         (n_batches, time_steps, n_connections) = data.shape
 
         # - Broadcast parameters to full size for this module
-        beta = self.beta.expand((n_batches, self.n_neurons, self.n_synapses)).flatten()
-        alpha = self.alpha.expand((n_batches, self.n_neurons)).flatten().contiguous()
+        beta = (
+            self.calc_beta()
+            .expand((n_batches, self.n_neurons, self.n_synapses))
+            .flatten()
+        )
+        alpha = (
+            self.calc_alpha().expand((n_batches, self.n_neurons)).flatten().contiguous()
+        )
         membrane_subtract = self.threshold.expand((n_batches, self.n_neurons)).flatten()
         # Threshold must be float
         threshold = float(self.threshold)
@@ -187,17 +193,15 @@ class LIFExodus(LIFBaseTorch):
             .to(data.device)
         )
 
-        if self._record:
-            self._record_vmem = vmem_exodus
-            self._record_isyn = isyn_exodus
-
-        self._record_spikes = spikes
+        self._record_dict["vmem"] = vmem_exodus
+        self._record_dict["isyn"] = isyn_exodus
+        self._record_dict["spikes"] = spikes
 
         self.vmem = vmem_exodus[0, -1].detach()
         self.isyn = isyn_exodus[0, -1].detach()
         self.spikes = spikes[0, -1].detach()
 
-        return self._record_spikes
+        return self._record_dict["spikes"]
 
 
 class LIFMembraneExodus(LIFBaseTorch):
@@ -274,9 +278,6 @@ class LIFMembraneExodus(LIFBaseTorch):
         delattr(self, "spikes")
         delattr(self, "spike_generation_fn")
         delattr(self, "max_spikes_per_dt")
-        delattr(self, "_record_spikes")
-        delattr(self, "_record_irec")
-        delattr(self, "_record_U")
 
         # - Check that CUDA is available
         if not torch.cuda.is_available():
@@ -312,8 +313,14 @@ class LIFMembraneExodus(LIFBaseTorch):
         (n_batches, time_steps, n_connections) = data.shape
 
         # - Broadcast parameters to full size for this module
-        beta = self.beta.expand((n_batches, self.n_neurons, self.n_synapses)).flatten()
-        alpha = self.alpha.expand((n_batches, self.n_neurons)).flatten().contiguous()
+        beta = (
+            self.calc_beta()
+            .expand((n_batches, self.n_neurons, self.n_synapses))
+            .flatten()
+        )
+        alpha = (
+            self.calc_alpha().expand((n_batches, self.n_neurons)).flatten().contiguous()
+        )
 
         # Bring data into format expected by exodus: (batches*neurons*synapses, timesteps)
         data = data.movedim(1, -1).flatten(0, -2)
@@ -347,9 +354,8 @@ class LIFMembraneExodus(LIFBaseTorch):
             .to(data.device)
         )
 
-        if self._record:
-            self._record_vmem = vmem_exodus
-            self._record_isyn = isyn_exodus
+        self._record_dict["vmem"] = vmem_exodus
+        self._record_dict["isyn"] = isyn_exodus
 
         self.vmem = vmem_exodus[0, -1].detach()
         self.isyn = isyn_exodus[0, -1].detach()
