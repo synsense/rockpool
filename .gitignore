@@ -29,6 +29,5 @@ tests/tests_default/MNIST
 *.DS_Store
 
 ## -- Temporary addition, will be removed after
-docs/devices/DynapSE/frozen_noise_classification
-docs/devices/DynapSE/syn_tau
+docs/devices/DynapSE/to_be_deleted
 
