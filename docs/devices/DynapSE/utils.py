@@ -17,6 +17,8 @@ import matplotlib.pyplot as plt
 from rockpool.timeseries import TSContinuous
 from rockpool.devices.dynapse.typehints import NeuronKey
 
+__all__ = ["poisson_spike_train", "plot_Ix", "split_yaxis", "FrozenNoiseDataset"]
+
 
 def poisson_spike_train(
     n_channels: int,
@@ -172,3 +174,59 @@ def split_yaxis(
 
     arrange_ylim(top_ax, 1, f_top)
     arrange_ylim(bottom_ax, 0, f_bottom)
+
+
+class FrozenNoiseDataset:
+    """
+    FrozenNoise is a synthetic dataset implementation for testing DynapSim training pipeline.
+    It generates possion spike train rasters
+
+    :param n_samples: number of samples included in the dataset
+    :type n_samples: int
+    :param n_channels: number of spiking channels (input neurons), defaults to 60
+    :type n_channels: int, optional
+    :param duration: the duration of each synthetic recording, defaults to 500e-3
+    :type duration: float, optional
+    :param dt: The discrete time resolution of the recording, defaults to 1e-3, defaults to 1e-3
+    :type dt: float, optional
+    :param rate: mean firing rate in Hz (applies to all channels), defaults to 50
+    :type rate: float, optional
+    :param seed: random number generator seed, defaults to 2022
+    :type seed: Optional[float], optional
+    """
+
+    def __init__(
+        self,
+        n_samples: int,
+        n_channels: int = 60,
+        duration: float = 500e-3,
+        dt: float = 1e-3,
+        rate: float = 50,
+        seed: Optional[float] = 2022,
+    ) -> None:
+        """__init__ parameters explained in class header"""
+
+        self.n_in = n_channels
+        self.n_out = n_samples
+        self.input_raster = poisson_spike_train(
+            n_channels, duration, rate, dt, batch_size=n_samples, seed=seed
+        )
+        # One hot encoded target labels
+        self.labels = np.expand_dims(np.identity(n_samples, dtype=float), 1)
+
+    def __getitem__(self, index: int) -> Tuple[np.ndarray]:
+        """
+        __getitem__ [] getter implementation
+
+        :param index: the sample index
+        :type index: int
+        :return: data, label
+            :data: a single sample, raster
+            :label: one hot encoded class of the sample
+        :rtype: Tuple[np.ndarray]
+        """
+        return self.input_raster[index], self.labels[index]
+
+    def __len__(self) -> int:
+        """__len__ returns the number of samples stored"""
+        return len(self.input_raster)
