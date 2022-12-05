@@ -7,14 +7,14 @@ E-mail : ugurcan.cakal@gmail.com
 
 15/09/2022
 """
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import matplotlib
 
 import numpy as np
 import matplotlib.pyplot as plt
 
-from rockpool.timeseries import TSContinuous
+from rockpool.timeseries import TSEvent, TSContinuous
 from rockpool.devices.dynapse.typehints import NeuronKey
 
 __all__ = ["poisson_spike_train", "plot_Ix", "split_yaxis", "FrozenNoiseDataset"]
@@ -208,6 +208,7 @@ class FrozenNoiseDataset:
 
         self.n_in = n_channels
         self.n_out = n_samples
+        self.dt = dt
         self.input_raster = poisson_spike_train(
             n_channels, duration, rate, dt, batch_size=n_samples, seed=seed
         )
@@ -230,3 +231,34 @@ class FrozenNoiseDataset:
     def __len__(self) -> int:
         """__len__ returns the number of samples stored"""
         return len(self.input_raster)
+
+    def plot_samples(
+        self, idx: Optional[List[int]] = None, adjust_size: bool = False
+    ) -> None:
+        """
+        plot_samples visualizes the samples indicated by the idx list, stored in dataset
+
+        :param idx: the index list of samples to be visualized, defaults to None
+        :type idx: Optional[List[int]], optional
+        :param adjust_size: adjust the size of the resulting plot accordingly or not, defaults to False
+        :type adjust_size: bool, optional
+        """
+        if idx is None:
+            idx = list(range(len(self)))
+
+        fig, axes = plt.subplots(len(idx), 1, sharex=True)
+        if adjust_size:
+            fig.set_size_inches(5.6, len(idx) * (self.n_in / 50))
+
+        # plot each sample indicated in idx
+        for i, ax in enumerate(axes):
+            plt.sca(ax)
+            sample, label = self[i]
+            label_int = int(np.where(label.flatten() == 1)[0])
+            noise = TSEvent.from_raster(
+                sample, dt=self.dt, name=f"Frozen Noise {label_int}"
+            )
+            noise.plot(s=10)
+            plt.xlabel("")
+
+        plt.tight_layout()
