@@ -111,7 +111,7 @@ def test_FF_equality_exodus():
 
     assert np.allclose(out_torch.detach().cpu(), out_sinabs.detach().cpu())
 
-    for key in ns_torch.keys():
+    for key in ns_sinabs.keys():
         if not ns_torch[key] == None and not ns_sinabs[key] == None:
             assert np.allclose(
                 ns_torch[key].detach().cpu(),
@@ -120,7 +120,7 @@ def test_FF_equality_exodus():
                 rtol=1e-5,
             )
 
-    for key in rd_torch.keys():
+    for key in rd_sinabs.keys():
         if not rd_torch[key] == None and not rd_sinabs[key] == None:
             assert np.allclose(
                 rd_torch[key].detach().cpu(),
@@ -187,7 +187,7 @@ def test_FF_multisyn_equality_exodus():
 
     assert np.allclose(out_torch.detach().cpu(), out_sinabs.detach().cpu())
 
-    for key in ns_torch.keys():
+    for key in ns_sinabs.keys():
         if not ns_torch[key] == None and not ns_sinabs[key] == None:
             assert np.allclose(
                 ns_torch[key].detach().cpu(),
@@ -196,7 +196,7 @@ def test_FF_multisyn_equality_exodus():
                 rtol=1e-5,
             )
 
-    for key in rd_torch.keys():
+    for key in rd_sinabs.keys():
         if not rd_torch[key] == None and not rd_sinabs[key] == None:
             assert np.allclose(
                 rd_torch[key].detach().cpu(),
