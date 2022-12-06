@@ -129,7 +129,7 @@ class DynapseSamna(Module):
         read_timeout: float = 60.0,
         offset: float = 100e-3,
         poll_step: float = 1e-3,
-        record: bool = True,
+        record: bool = False,
     ) -> Tuple[np.ndarray, Dict, Dict]:
         """
         evolve simulates the network on Dynap-SE2 HDK in real-time
