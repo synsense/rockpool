@@ -16,7 +16,7 @@ from . import samna_alias as sa
 from .simulation import DynapSim, dynapse_mismatch_generator
 from .mapping import DynapseNeurons, mapper
 from .mapping.converter import dynapsim_from_graph
-from .parameters import parameter_clustering, BiasGenSE2, DynapSimCore
+from .parameters import parameter_clustering, DynapSimCore
 from .quantization import autoencoder_quantization
 from .hardware import (
     config_from_specification,
