@@ -168,9 +168,7 @@ class DynapseSamna(Module):
         start_time = offset + self.current_timestamp()
 
         # Convert the input data to aer sequence
-        event_sequence = self.__raster_to_aer(
-            input_data, start_time=start_time, channel_map=self.input_channel_map
-        )
+        event_sequence = self.__raster_to_aer(input_data, start_time=start_time)
 
         # Write AER packages to the bus
         self.board.grid_bus_write_events(event_sequence)
@@ -391,7 +389,6 @@ class DynapseSamna(Module):
         self,
         raster: np.ndarray,
         start_time: float = 0.0,
-        channel_map: Optional[Dict[int, Dynapse2Destination]] = None,
     ) -> List[NormalGridEvent]:
         """
         __raster_to_aer converts a discrete raster record to a list of AER packages.
@@ -401,8 +398,6 @@ class DynapseSamna(Module):
         :type raster: np.ndarray
         :param start_time: the start time of the record in seconds, defaults to 0.0
         :type start_time: float
-        :param channel_map: the mapping between timeseries channels and the destinations
-        :type channel_map: Optional[Dict[int, Dynapse2Destination]]
         :raises ValueError: Raster should be 2 dimensional!
         :raises ValueError: Channel map does not map the channels of the timeseries provided!
         :return: a list of Dynap-SE2 AER packages
@@ -417,11 +412,7 @@ class DynapseSamna(Module):
         num_channels = raster.shape[1]
         __time_course = np.arange(start_time, start_time + duration, self.dt)
 
-        # Default channel map is NOT RECOMMENDED!
-        if channel_map is None:
-            channel_map = self.__default_channel_map(num_channels)
-
-        if not num_channels <= len(set(channel_map.keys())):
+        if not num_channels <= len(set(self.input_channel_map.keys())):
             raise ValueError(
                 "Channel map does not map the channels of the timeseries provided!"
             )
@@ -432,7 +423,7 @@ class DynapseSamna(Module):
             destinations = np.argwhere(spikes).flatten()
             timestamp = int(np.around((time / self.dt_fpga)))
             events = [
-                NormalGridEvent(channel_map[dest], timestamp + i).to_samna()
+                NormalGridEvent(self.input_channel_map[dest], timestamp + i).to_samna()
                 for i, dest in enumerate(destinations)
             ]
             buffer.extend(events)
