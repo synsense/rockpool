@@ -13,7 +13,7 @@ JAX-backend Dynap-SE2 simulator support which allows people to
 
 from . import samna_alias as sa
 
-from .simulation import DynapSim, dynapse_mismatch_generator
+from .simulation import DynapSim
 from .mapping import DynapseNeurons, mapper
 from .mapping.converter import dynapsim_from_graph
 from .parameters import parameter_clustering, DynapSimCore
