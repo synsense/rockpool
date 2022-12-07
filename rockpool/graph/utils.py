@@ -17,7 +17,7 @@ from rockpool.graph.graph_base import (
 
 import copy
 
-from typing import Any, Optional, Union, Iterable
+from typing import Any, Optional, Tuple, Iterable
 
 __all__ = [
     "connect_modules",
@@ -234,7 +234,7 @@ def replace_module(target_module: GraphModule, replacement_module: GraphModule) 
     replacement_module.output_nodes = target_module.output_nodes
 
 
-def find_recurrent_modules(graph: GraphModuleBase) -> SetList[GraphModule]:
+def find_recurrent_modules(graph: GraphModuleBase) -> Tuple[SetList[GraphModule]]:
     """
     Search for graph modules that are connected in a one-module loop
 
@@ -245,6 +245,7 @@ def find_recurrent_modules(graph: GraphModuleBase) -> SetList[GraphModule]:
 
     Returns:
         SetList[GraphModule]: A collection containing all identified recurrent modules in the graph
+        Tuple[SetList[GraphNode]] : modules, recurrent_modules. `modules` will be a :py:class:`SetList` containing all the reachable :py:class:`GraphModule` s in `graph`. `recurrent_modules` is a collection containing all identified recurrent modules in the graph
     """
     _, modules = bag_graph(graph)
 
@@ -262,4 +263,4 @@ def find_recurrent_modules(graph: GraphModuleBase) -> SetList[GraphModule]:
         if len(set(source_modules).intersection(dest_modules)) > 0:
             recurrent_modules.add(m)
 
-    return recurrent_modules
+    return modules, recurrent_modules
