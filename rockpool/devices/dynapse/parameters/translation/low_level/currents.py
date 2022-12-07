@@ -1,21 +1,10 @@
 """
-Dynap-SE1/SE2 full board configuration classes and methods
-
-renamed : dynapse1_simconfig.py -> simconfig.py @ 211208
-split_from : simconfig.py -> layout.py @ 220114
-split_from : simconfig.py -> circuits.py @ 220114
-merged from : layout.py -> simcore.py @ 220505
-merged from : circuits.py -> simcore.py @ 220505
-merged from : board.py -> simcore.py @ 220531
-renamed : simcore.py -> simconfig.py @ 220531
+Dynap-SE2 full board configuration classes and methods
 
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 03/05/2022
-
-[] TODO : Add r_spkthr to gain
-[] TODO : add from_bias methods to samna aliases
 """
 
 from dataclasses import dataclass
