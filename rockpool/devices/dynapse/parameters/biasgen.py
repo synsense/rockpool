@@ -7,43 +7,36 @@ E-mail : ugurcan.cakal@gmail.com
 02/09/2021
 """
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from rockpool.devices.dynapse.lookup import (
-    paramgen_se1,
-    paramgen_se2,
-    scale_factor_se1,
-    scale_factor_se2,
-)
-from rockpool.devices.dynapse.samna_alias import Dynapse1Parameter, Dynapse2Parameter
+from dataclasses import dataclass, field
+from rockpool.devices.dynapse.lookup import paramgen_se2, scale_factor_se2
+from rockpool.devices.dynapse.samna_alias import Dynapse2Parameter
 
-__all__ = ["BiasGenSE1", "BiasGenSE2"]
+__all__ = ["BiasGenSE2"]
 
 
-class BiasGen:
+@dataclass
+class BiasGenSE2:
     """
-    BiasGen is a static class encapsulating coarse and fine value to bias current conversion utilities.
+    BiasGenSE2 is a class encapsulating coarse and fine value to bias current conversion utilities.
 
-    :param paramgen_table: parameter bias generator transistor current responses to given coarse and fine value tuples, defaults to None
-    :type paramgen_table: Optional[Dict[str, Dict[int, List[float]]]], optional
-    :param scaling_factor_table: a mapping between bias parameter names and their scaling factors, defaults to None
-    :type scaling_factor_table: optional, Dict[str, float]
+    :param paramgen_table: parameter bias generator transistor current responses to given coarse and fine value tuples, defaults to paramgen_se2
+    :type paramgen_table: Dict[str, Dict[int, List[float]]], optional
+    :param scaling_factor_table: a mapping between bias parameter names and their scaling factors, defaults to scale_factor_se2
+    :type scaling_factor_table: Dict[str, float], optional
     """
 
-    def __init__(
-        self,
-        paramgen_table: Optional[Dict[str, Dict[int, List[float]]]] = None,
-        scaling_factor_table: Optional[Dict[str, float]] = None,
-    ) -> None:
-        """
-        __init__ initializes the common SE1 and SE2 BiasGen module
-        """
-        self.paramgen_table = paramgen_table
-        self.scaling_factor_table = scaling_factor_table
+    paramgen_table: Dict[str, Dict[int, List[float]]] = field(
+        default_factory=lambda: paramgen_se2
+    )
+    scaling_factor_table: Dict[str, float] = field(
+        default_factory=lambda: scale_factor_se2
+    )
 
-    def get_bias(
+    def digital_to_analog(
         self,
         coarse: np.uint8,
         fine: np.uint8,
@@ -51,8 +44,7 @@ class BiasGen:
         type: Optional[str] = "N",
     ) -> np.float64:
         """
-        get_bias overwrites the common get_bias() method and extend it's capabilities such as transistor type
-        specific bias current calculation and lookup table usage
+        digital_to_analog gets a coarse and a fine value tuple (digital) and returns the corresponding analog current
 
         :param coarse: integer coarse value :math:`C \\in [0,5]`
         :type coarse: np.uint8
@@ -68,30 +60,29 @@ class BiasGen:
         bias = self.paramgen_table[type][coarse][fine] * scaling_factor
         return bias
 
-    def param_to_bias(
-        self, param_name: str, param: Union[Dynapse1Parameter, Dynapse2Parameter]
-    ) -> float:
+    def param_to_analog(self, param_name: str, param: Dynapse2Parameter) -> float:
         """
-        param_to_bias convert samna `Dynapse1Parameter` or `Dynapse2Parameter` object to a bias current to be used in the simulator
+        param_to_bias convert samna `Dynapse2Parameter` object to a bias current to be used in the simulator
 
         :param param_name: the parameter name
         :type param_name: str
         :param param: samna parameter object storing a coarse and fine value tuple and the name of the device bias current
-        :type param: Union[Dynapse1Parameter, Dynapse2Parameter]
+        :type param: Dynapse2Parameter
         :return: corrected bias current value by multiplying a scaling factor
         :rtype: float
         """
         scale = self.scaling_factor_table[param_name]
-        bias = self.get_bias(param.coarse_value, param.fine_value, scale, param.type)
+        bias = self.digital_to_analog(
+            param.coarse_value, param.fine_value, scale, param.type
+        )
         return bias
 
-    def get_coarse_fine(
+    def analog_to_digital(
         self, name: str, current_value: float
     ) -> Tuple[np.uint8, np.uint8]:
         """
-        get_coarse_fine converts a current valeu to a coarse and fine tuple representation using
-        the `BiasGen.__coarse_fine()` method. the scaling factor and the transistor type are found
-        using the name of the parameter
+        analog_to_digital converts a current value to a coarse and fine tuple representation using the `.__coarse_fine()` method.
+        The scaling factor and the transistor type are found using the name of the parameter
 
         :param name: the name of the parameter
         :type name: str
@@ -133,7 +124,7 @@ class BiasGen:
         coarse, fine = min(
             candidates,
             key=lambda key: abs(
-                self.get_bias(*key, scaling_factor, type) - current_value
+                self.digital_to_analog(*key, scaling_factor, type) - current_value
             ),
         )
         return coarse, fine
@@ -141,36 +132,5 @@ class BiasGen:
     @property
     def n_coarse(self) -> int:
         """n_coarse returns the number of coarse bases"""
+        assert self.paramgen_table["N"] == self.paramgen_table["P"]
         return len(self.paramgen_table["N"])
-
-
-class BiasGenSE1(BiasGen):
-    """
-    BiasGenSE1 is Dynap-SE1 specific bias generator.
-    """
-
-    __doc__ += BiasGen.__doc__
-
-    def __init__(self) -> None:
-        """
-        __init__ initialize the common module with full list of coarse base currents
-        """
-        super(BiasGenSE1, self).__init__(
-            paramgen_table=paramgen_se1, scaling_factor_table=scale_factor_se1
-        )
-
-
-class BiasGenSE2(BiasGen):
-    """
-    BiasGenSE2 is Dynap-SE2 specific bias generator
-    """
-
-    __doc__ += BiasGen.__doc__
-
-    def __init__(self) -> None:
-        """
-        __init__ initialize the common module with shrinked list of coarse base currents
-        """
-        super(BiasGenSE2, self).__init__(
-            paramgen_table=paramgen_se2, scaling_factor_table=scale_factor_se2
-        )
