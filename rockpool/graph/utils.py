@@ -131,7 +131,7 @@ def bag_graph(
     graph: GraphModuleBase,
     nodes_bag: Optional[SetList[GraphNode]] = None,
     modules_bag: Optional[SetList[GraphModule]] = None,
-) -> (SetList[GraphNode], SetList[GraphModule]):
+) -> Tuple[SetList[GraphNode]]:
     """
     Convert a graph into a collection of connection nodes and modules, by traversal
 
@@ -143,7 +143,7 @@ def bag_graph(
         modules_bag (SetList): The initial modules bag. Used in recursive calls. Default: ``None``
 
     Returns:
-        (SetList[GraphNode], SetList[GraphModule]): nodes, modules. `nodes` will be a :py:class:`SetList` containing all the reachable :py:class:`GraphNode` s in `graph`. `modules` will be a :py:class:`SetList` containing all the reachable :py:class:`GraphModule` s in `graph`.
+        Tuple[SetList[GraphNode]]: nodes, modules. `nodes` will be a :py:class:`SetList` containing all the reachable :py:class:`GraphNode` s in `graph`. `modules` will be a :py:class:`SetList` containing all the reachable :py:class:`GraphModule` s in `graph`.
     """
     nodes_bag = SetList() if nodes_bag is None else nodes_bag
     modules_bag = SetList() if modules_bag is None else modules_bag
