@@ -221,8 +221,7 @@ def config_from_specification(
             core_config.parameters[key].coarse_value = coarse
             core_config.parameters[key].fine_value = fine
 
-    return {
-        "config": new_config,
-        "input_channel_map": allocator.input_channel_map(),
-        "biasgen": params,
-    }
+        ## Returns
+        input_channel_map = allocator.input_channel_map()
+
+    return new_config, input_channel_map
