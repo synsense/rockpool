@@ -1,28 +1,17 @@
 """
-Dynap-SE1 and Dynap-SE2 circuit bias generator transistor current responses to given coarse and fine value tuples
+Dynap-SE2 circuit bias generator transistor current responses to given coarse and fine value tuples
 
 Obtained from 
 https://hardware.basket.office.synsense.ai/documentation/dynapse2docs/Sections/input_interface_config.html
-for more accurate simulation of DynapSE-2 bias generator
+for more accurate simulation of Dynap-SE2 bias generator
 
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 14/01/2022
 """
-import numpy as np
 
-__all__ = ["paramgen_se1", "paramgen_se2"]
-
-## -- GENERATE ANALYTICAL TABLE FOR SE1 -- ##
-
-f_res = 256
-c_base = [1.5e-11, 1.05e-10, 8.2e-10, 6.5e-09, 5e-08, 4e-07, 3.2e-06, 2.4e-05]
-bases = np.array([np.array(c_base) * (f / (f_res)) for f in range(1, f_res + 1)]).T
-__dict = dict(zip(range(len(c_base)), bases))
-paramgen_se1 = {"N": __dict, "P": __dict}
-
-### --- ###
+__all__ = ["paramgen_se2"]
 
 paramgen_se2 = {
     "N": {
