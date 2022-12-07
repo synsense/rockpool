@@ -30,6 +30,8 @@ def dynapsim_from_config(
     Iscale: float = default_weights["Iscale"],
     percent_mismatch: Optional[float] = None,
     dt: float = 1e-3,
+    *args,
+    **kwargs,
 ) -> ModuleBase:
     """
     dynapsim_from_config constructs a DynapSim simulation network by processing a samna configuration object
