@@ -1,5 +1,5 @@
 """
-Dynap-SE1 common type hinting definitions
+Dynap-SE2 common type hinting definitions
 
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
