@@ -3,10 +3,6 @@ Low level DynapSE simulator.
 Solves the characteristic equations to simulate the circuits.
 Trainable parameters
 
-renamed: dynapse1_neuron_synapse_jax.py -> adexplif_jax.py @ 211206
-renamed: adexplif_jax.py -> dynapsim.py @ 220502
-simplified : dynapsim -> dynapsim_simple @ 220907
-
 References
 
 [1] E. Chicca, F. Stefanini, C. Bartolozzi and G. Indiveri,
@@ -38,11 +34,6 @@ Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 13/07/2021
-
-[] TODO : Optional mismatch
-[] TODO : Check LIFjax for core.Tracer and all the other things
-[] TODO : max spikes per dt
-[] TODO : time and gain maybe as histogram
 """
 
 from __future__ import annotations
