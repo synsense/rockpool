@@ -67,11 +67,11 @@ def dynapse_mismatch_generator(
         :rtype: Dict[str, jnp.DeviceArray]
         """
 
-        def __atomic_mismatch(
+        def __map_fun(
             array: jnp.DeviceArray, rng_key: jnp.DeviceArray
         ) -> jnp.DeviceArray:
             """
-            __atomic_mismatch _summary_
+            __map_fun is the mapping functions that applies the deviation to all leaves of the tree
 
             :param array: single parameter to deviate
             :type array: jnp.DeviceArray
@@ -83,7 +83,7 @@ def dynapse_mismatch_generator(
             deviation = sigma_eff * rand.normal(rng_key, array.shape)
             return array + deviation * array
 
-        new_params = tree_map_with_rng(params, __atomic_mismatch, rng_key)
+        new_params = tree_map_with_rng(params, __map_fun, rng_key)
 
         return new_params
 

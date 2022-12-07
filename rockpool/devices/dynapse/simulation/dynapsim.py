@@ -64,7 +64,7 @@ from rockpool.parameters import Parameter, State, SimulationParameter
 from rockpool.graph import GraphHolder, LinearWeights, as_GraphHolder
 
 from .surrogate import step_pwl
-from .mismatch import dynapse_mismatch_generator
+from rockpool.transform.mismatch import dynapse_mismatch_generator
 
 __all__ = ["DynapSim"]
 
