@@ -13,16 +13,16 @@ from jax import random as rand
 from jax import numpy as jnp
 from rockpool.utilities.jax_tree_utils import tree_map_with_rng
 
-__all__ = ["dynapse_mismatch_generator"]
+__all__ = ["mismatch_generator"]
 
 
-def dynapse_mismatch_generator(
+def mismatch_generator(
     percent_deviation: float = 0.30, sigma_rule: float = 3.0
 ) -> Callable[
     [Tuple[Dict[str, jnp.DeviceArray], jnp.DeviceArray]], Dict[str, jnp.DeviceArray]
 ]:
     """
-    dynapse_mismatch_generator returns a function which simulates the analog device mismatch effect.
+    mismatch_generator returns a function which simulates the analog device mismatch effect.
     The function deviates the parameter values provided in statistical means.
     The calculation parameters should be based on statistical knowledge obtained from emprical observations.
     That is, if one observes up-to-30% mismatch between the expected current and the measured
