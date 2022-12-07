@@ -1,38 +1,24 @@
 """
-Dynap-SE1/SE2 full board configuration classes and methods
-
-renamed : dynapse1_simconfig.py -> simconfig.py @ 211208
-split_from : simconfig.py -> layout.py @ 220114
-split_from : simconfig.py -> circuits.py @ 220114
-merged from : layout.py -> simcore.py @ 220505
-merged from : circuits.py -> simcore.py @ 220505
-merged from : board.py -> simcore.py @ 220531
-renamed : simcore.py -> simconfig.py @ 220531
+Dynap-SE2 full board configuration classes and methods
 
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 03/05/2022
-
-[] TODO : Add r_spkthr to gain
-[] TODO : add from_bias methods to samna aliases
 """
 
 from __future__ import annotations
+
+from typing import Any, Callable, Dict, Tuple
+from dataclasses import dataclass, replace
+
 import logging
-
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-
-from dataclasses import dataclass, replace, field
 import numpy as np
 
-from rockpool.devices.dynapse.parameters import (
-    BiasGenSE1,
-    BiasGenSE2,
-)
+
+from rockpool.devices.dynapse.parameters import param_to_analog, analog_to_digital
 
 from rockpool.devices.dynapse.lookup import (
-    sim2device_se1,
     sim2device_se2,
     default_layout,
     default_weights,
@@ -41,12 +27,7 @@ from rockpool.devices.dynapse.lookup import (
     default_currents,
 )
 
-from rockpool.devices.dynapse.samna_alias import (
-    Dynapse1Parameter,
-    Dynapse1Core,
-    Dynapse2Parameter,
-    Dynapse2Core,
-)
+from rockpool.devices.dynapse.samna_alias import Dynapse2Core
 
 from rockpool.typehints import FloatVector
 
@@ -60,7 +41,7 @@ __all__ = ["DynapSimCore"]
 @dataclass
 class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
     """
-    DynapSE1SimCore stores the simulation currents and manages the conversion from configuration objects
+    DynapSimCore stores the simulation currents and manages the conversion from configuration objects
     It also provides easy update mechanisms using coarse&fine values, high-level parameter representations and etc.
     """
 
@@ -248,113 +229,32 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
         return _core
 
     @classmethod
-    def __from_samna(
-        cls,
-        biasgen: Union[BiasGenSE1, BiasGenSE2],
-        param_getter: Callable[[str], Union[Dynapse1Parameter, Dynapse2Parameter]],
-        param_map: Dict[str, str],
-    ) -> DynapSimCore:
+    def from_Dynapse2Core(cls, core: Dynapse2Core) -> DynapSimCore:
         """
-        __from_samna is a class factory method which uses samna configuration objects to extract the simulation currents
+        from_Dynapse2Core is a class factory method which uses samna configuration objects to extract the simulation currents
 
-        :param biasgen: the bias generator to convert the device parameters with coarse and fine values to bias currents
-        :type biasgen: Union[BiasGenSE1, BiasGenSE2]
-        :param param_getter: a function wich returns a samna parameter object given a name
-        :type param_getter: Callable[[str], Union[Dynapse1Parameter, Dynapse2Parameter]]
-        :param param_map: the dictionary of simulated currents and their respective device configaration parameter names like {"Idc": "SOIF_DC_P"}
-        :type param_map: Dict[str, str]
         :return: a dynapse core simulation object whose parameters are imported from a samna configuration object
         :rtype: DynapSimCore
         """
-        _current = lambda name: biasgen.param_to_bias(name, param_getter(name))
-        _dict = {sim: _current(param) for sim, param in param_map.items()}
+        _current = lambda name: param_to_analog(name, core.parameters[name])
+        _dict = {sim: _current(param) for sim, param in sim2device_se2.items()}
         _mod = cls(**_dict)
         return _mod
 
-    @classmethod
-    def from_Dynapse1Core(cls, core: Dynapse1Core) -> DynapSimCore:
-        """
-        from_Dynapse1Core is a class factory method which uses a samna Dynapse1Core object to extract the simualation current parameters
-
-        :param core: a samna Dynapse1Core configuration object used to configure the core properties
-        :type core: Dynapse1Core
-        :return: a dynapse core simulation object whose parameters are imported from a samna configuration object
-        :rtype: DynapSimCore
-        """
-        _mod = cls.__from_samna(
-            biasgen=BiasGenSE1(),
-            param_getter=lambda name: core.parameter_group.param_map[name],
-            param_map=sim2device_se1,
-        )
-
-        return _mod
-
-    @classmethod
-    def from_Dynapse2Core(cls, core: Dynapse2Core) -> DynapSimCore:
-        """
-        from_Dynapse2Core is a class factory method which uses a samna Dynapse2Core object to extract the simualation current parameters
-
-        :param core: a samna Dynapse2Core configuration object used to configure the core properties
-        :type core: Dynapse2Core
-        :return: a dynapse core simulation object whose parameters are imported from a samna configuration object
-        :rtype: DynapSimCore
-        """
-        _mod = cls.__from_samna(
-            biasgen=BiasGenSE2(),
-            param_getter=lambda name: core.parameters[name],
-            param_map=sim2device_se2,
-        )
-        return _mod
-
-    def __export_parameters(
-        self,
-        biasgen: Union[BiasGenSE1, BiasGenSE2],
-        param_map: Dict[str, str],
-    ) -> Dict[str, Tuple[np.uint8, np.uint8]]:
-        """
-        __export_parameters is the common export method for Dynap-SE1 and Dynap-SE2.
-        It converts all current values to their coarse-fine value representations for device configuration
-
-        :param biasgen: the device specific bias generator
-        :type biasgen: Union[BiasGenSE1, BiasGenSE2]
-        :param param_map: the simulation current -> parameter name conversion table
-        :type param_map: Dict[str, str]
-        :return: a dictionary of mapping between parameter names and respective coarse-fine values
-        :rtype: Dict[str, Tuple[np.uint8, np.uint8]]
-        """
-
-        converter = lambda sim, param: biasgen.get_coarse_fine(
-            param, self.__getattribute__(sim)
-        )
-
-        param_dict = {param: converter(sim, param) for sim, param in param_map.items()}
-        return param_dict
-
-    def export_Dynapse1Parameters(self) -> Dict[str, Tuple[np.uint8, np.uint8]]:
-        """
-        export_Dynapse1Parameters is Dynap-SE1 specific parameter extraction method using `DynapSimCore.__export_parameters()` method.
-        It converts all current values to their coarse-fine value representations for device configuration
-
-        :return: a dictionary of mapping between parameter names and respective coarse-fine values
-        :rtype: Dict[str, Tuple[np.uint8, np.uint8]]
-        """
-        return self.__export_parameters(
-            biasgen=BiasGenSE1(),
-            param_map=sim2device_se1,
-        )
-
     def export_Dynapse2Parameters(self) -> Dict[str, Tuple[np.uint8, np.uint8]]:
         """
-        export_Dynapse2Parameters is Dynap-SE2 specific parameter extraction method using `DynapSimCore.__export_parameters()` method.
-        It converts all current values to their coarse-fine value representations for device configuration
+        export_Dynapse2Parameters converts all current values to their coarse-fine value representations for device configuration
 
         :return: a dictionary of mapping between parameter names and respective coarse-fine values
         :rtype: Dict[str, Tuple[np.uint8, np.uint8]]
         """
-        return self.__export_parameters(
-            biasgen=BiasGenSE2(),
-            param_map=sim2device_se2,
+        converter = lambda sim, param: analog_to_digital(
+            param, self.__getattribute__(sim)
         )
+        param_dict = {
+            param: converter(sim, param) for sim, param in sim2device_se2.items()
+        }
+        return param_dict
 
     def update(self, attr: str, value: Any) -> DynapSimCore:
         """
