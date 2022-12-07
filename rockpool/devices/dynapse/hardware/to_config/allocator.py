@@ -26,7 +26,7 @@ from rockpool.devices.dynapse.samna_alias import (
 from rockpool.typehints import FloatVector, IntVector
 
 from dataclasses import dataclass, field
-from rockpool.devices.dynapse.typehints import DRCError
+from rockpool.typehints import DRCError
 from rockpool.devices.dynapse.lookup import (
     NUM_TAGS,
     NUM_SYNAPSES,

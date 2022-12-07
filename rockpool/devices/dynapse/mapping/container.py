@@ -24,7 +24,7 @@ from rockpool.typehints import FloatVector
 from rockpool.graph import GraphHolder
 from rockpool.graph.utils import bag_graph
 from rockpool.graph.graph_modules import LinearWeights
-from rockpool.devices.dynapse.typehints import DRCError
+from rockpool.typehints import DRCError
 
 from .graph import DynapseNeurons
 from .utils import recurrent_modules
