@@ -48,7 +48,7 @@ def lifnet_to_dynapsim(graph: GraphModule) -> Tuple[np.ndarray]:
     ### --- Preprocessing --- ###
 
     # - Get a list of all modules
-    modules, rec_modules = find_recurrent_modules(modules)
+    modules, rec_modules = find_recurrent_modules(graph)
 
     # - Compose a grid
     gl = get_grid_lines(modules)
