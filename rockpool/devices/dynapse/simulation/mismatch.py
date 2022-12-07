@@ -1,6 +1,7 @@
 """
-Device mismatch implementation for DynapSE modules
+Analog device mismatch transformation(jax) implementation
 
+Dynap-SE2 API support project
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
@@ -10,8 +11,7 @@ from typing import Callable, Dict, Tuple
 
 from jax import random as rand
 from jax import numpy as jnp
-from jax.tree_util import tree_flatten, tree_unflatten
-
+from rockpool.utilities.jax_tree_utils import tree_map_with_rng
 
 __all__ = ["dynapse_mismatch_generator"]
 
@@ -83,17 +83,8 @@ def dynapse_mismatch_generator(
             deviation = sigma_eff * rand.normal(rng_key, array.shape)
             return array + deviation * array
 
-        # Flatten the pytree
-        params_flat, tree = tree_flatten(params)
+        new_params = tree_map_with_rng(params, __atomic_mismatch, rng_key)
 
-        # Generate enough random number generator keys
-        rng_key_list = rand.split(rng_key, len(params_flat))
-
-        # Apply mismatch to every leaf
-        mismatched_params = map(__atomic_mismatch, params_flat, rng_key_list)
-
-        # Restructure
-        new_params = tree_unflatten(tree, mismatched_params)
         return new_params
 
     return regenerate_mismatch
