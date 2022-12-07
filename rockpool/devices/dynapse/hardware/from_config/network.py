@@ -40,7 +40,7 @@ def dynapsim_from_config(
     :type config: Dynapse2Configuration
     :param Iscale: network weight scaling current, defaults to default_weights["Iscale"]
     :type Iscale: float, optional
-    :param percent_mismatch: Gaussian parameter mismatch percentage (check ``dynapse_mismatch_generator`` implementation), defaults to None
+    :param percent_mismatch: Gaussian parameter mismatch percentage (check ``transforms.mismatch_generator`` implementation), defaults to None
     :type percent_mismatch: Optional[float], optional
     :param dt: The time step for the forward-Euler ODE solver, defaults to 1e-3
     :type dt: float, optional

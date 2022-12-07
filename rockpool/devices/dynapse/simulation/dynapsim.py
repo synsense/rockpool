@@ -62,9 +62,9 @@ from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.nn.modules.native.linear import kaiming
 from rockpool.parameters import Parameter, State, SimulationParameter
 from rockpool.graph import GraphHolder, LinearWeights, as_GraphHolder
+from rockpool.transform.mismatch import mismatch_generator
 
 from .surrogate import step_pwl
-from rockpool.transform.mismatch import dynapse_mismatch_generator
 
 __all__ = ["DynapSim"]
 
@@ -184,7 +184,7 @@ class DynapSim(JaxModule):
     :type weight_init_func: Optional[Callable[[Tuple], np.ndarray]], optional
     :param dt: The time step for the forward-Euler ODE solver, defaults to 1e-3
     :type dt: float, optional
-    :param percent_mismatch: Gaussian parameter mismatch percentage (check ``dynapse_mismatch_generator`` implementation), defaults to None
+    :param percent_mismatch: Gaussian parameter mismatch percentage (check ``transforms.mismatch_generator`` implementation), defaults to None
     :type percent_mismatch: Optional[float], optional
     :param rng_key: The Jax RNG seed to use on initialisation. By default, a new seed is generated, defaults to None
     :type rng_key: Optional[jnp.DeviceArray], optional
@@ -395,9 +395,7 @@ class DynapSim(JaxModule):
 
         if percent_mismatch is not None:
             rng_key, _ = rand.split(rng_key)
-            regenerate_mismatch = dynapse_mismatch_generator(
-                percent_deviation=percent_mismatch
-            )
+            regenerate_mismatch = mismatch_generator(percent_deviation=percent_mismatch)
             new_params = regenerate_mismatch(
                 self.simulation_parameters(), rng_key=rng_key
             )
