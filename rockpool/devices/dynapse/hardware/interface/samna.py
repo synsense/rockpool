@@ -59,6 +59,8 @@ class DynapseSamna(Module):
     :type device: DeviceInfo
     :param config: a Dynan-SE2 ``samna`` configuration object
     :type config: Dynapse2Configuration
+    :param channel_map: the mapping between input timeseries channels and the destinations
+    :type channel_map: Dict[int, Dynapse2Destination]
     :param dt: the simulation timestep resolution, defaults to 1e-3
     :type dt: float, optional
     :param dt_fpga: the FPGA timestep resolution, defaults to 1e-6
@@ -74,6 +76,7 @@ class DynapseSamna(Module):
         shape: Tuple[int],
         device: DeviceInfo,
         config: Dynapse2Configuration,
+        channel_map: Dict[int, Dynapse2Destination],
         dt: float = 1e-3,
         dt_fpga: float = 1e-6,
         control_tag: int = 2047,
@@ -93,6 +96,7 @@ class DynapseSamna(Module):
         self.dt_fpga = dt_fpga
         self.control_tag = control_tag
         self.control_hop = control_hop
+        self.input_channel_map = channel_map
 
         # Configure the FPGA, now only Stack board is available
         self.board: Dynapse2Interface = self.__configure_dynapse2_fpga(device)
@@ -125,7 +129,6 @@ class DynapseSamna(Module):
     def evolve(
         self,
         input_data: np.ndarray,
-        channel_map: Optional[Dict[int, Dynapse2Destination]] = None,
         read_timeout: float = 60.0,
         offset: float = 100e-3,
         poll_step: float = 1e-3,
@@ -138,8 +141,7 @@ class DynapseSamna(Module):
 
         :param input_data: A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Dynap-SE2, at the corresponding time point.
         :type input_data: np.ndarray
-        :param channel_map: the mapping between input timeseries channels and the destinations
-        :type channel_map: Optional[Dict[int, Dynapse2Destination]]
+
         :param read_timeout: the maximum time to wait until reading finishes, defaults to 60.0
         :type read_timeout: float, optional
         :param offset: user defined start time offset in seconds, defaults to 100e-3
@@ -167,7 +169,7 @@ class DynapseSamna(Module):
 
         # Convert the input data to aer sequence
         event_sequence = self.__raster_to_aer(
-            input_data, start_time=start_time, channel_map=channel_map
+            input_data, start_time=start_time, channel_map=self.input_channel_map
         )
 
         # Write AER packages to the bus
