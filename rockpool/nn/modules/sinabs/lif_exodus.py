@@ -47,9 +47,9 @@ class LIFExodus(LIFBaseTorch):
         Warnings:
             Exodus does not currently support training time constants, biases or thresholds. Use :py:class:`LIFTorch` or py:class:`LIFJax` to train those parameters.
 
-            Exodus currently only supports a single membrane time constant.
+            Exodus currently only supports a single threshold for the layer.
 
-            Exodus does not support neuron biases.
+            Exodus does not currently support training thresholds.
 
             Exodus does not support noise injection.
 
@@ -66,6 +66,7 @@ class LIFExodus(LIFBaseTorch):
             shape (tuple): The shape of this module
             tau_syn (float): An optional array with concrete initialisation data for the synaptic time constants. If not provided, 50ms will be used by default.
             tau_mem (float): An optional array with concrete initialisation data for the membrane time constants. If not provided, 20ms will be used by default.
+            bias (float): 
             threshold (float): An optional array specifying the firing threshold of each neuron. If not provided, ``1.`` will be used by default.
             learning_window (float): Cutoff value for the surrogate gradient. Default: 0.5
             dt (float): Time step in seconds. Default: 1 ms.
@@ -87,7 +88,7 @@ class LIFExodus(LIFBaseTorch):
             tau_syn=tau_syn,
             tau_mem=tau_mem,
             threshold=Constant(threshold),
-            bias=Constant(bias),
+            bias=bias,
             has_rec=False,
             noise_std=0.0,
             learning_window=learning_window,
@@ -154,9 +155,10 @@ class LIFExodus(LIFBaseTorch):
             isyn.flatten().contiguous(),  # initial state
         ).reshape(-1, self.n_synapses, time_steps)
 
-        # - For bias, add simply to isyn_exodus
-        # bias = torch.tensor(self.bias).expand((n_batches, time_steps, self.n_neurons, self.n_synapses)).flatten().contiguous()
-        # isyn_exodus += self.bias
+        # Add bias to isyn_exodus, to be added onto the membrane
+        bias = self.bias.reshape((1, -1, 1, 1))
+        bias = bias.expand((n_batches, self.n_neurons, self.n_synapses, time_steps)).flatten(0, 1).contiguous()
+        isyn_exodus = isyn_exodus + bias
 
         # Membrane dynamics: Calculate v_mem
         spikes, vmem_exodus = IntegrateAndFire.apply(
