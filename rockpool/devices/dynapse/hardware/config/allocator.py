@@ -375,14 +375,15 @@ class WeightAllocator:
             for post in range(n_post):
                 ## Identify the synapses
                 if len(content[post]) < num_synapses:
-                    content[post].append(
-                        WeightAllocator.cam_entry(
-                            WeightAllocator.get_dendrite(sign[pre][post]),
-                            mem_matrix[post][pre],
-                            tag_list[pre],
-                            use_samna,
+                    if matrix[pre][post] > 0:
+                        content[post].append(
+                            WeightAllocator.cam_entry(
+                                WeightAllocator.get_dendrite(sign[pre][post]),
+                                mem_matrix[post][pre],
+                                tag_list[pre],
+                                use_samna,
+                            )
                         )
-                    )
                 else:
                     raise DRCError("Maximum synapse limit per neuron reached!")
 
@@ -433,8 +434,10 @@ class WeightAllocator:
         # - Get a list of destination cores of the pre-neurons
         for pre in range(n_pre):
             for post in range(n_post):
-                if post_core_map[post] not in dest_cores[pre]:
-                    dest_cores[pre].append(post_core_map[post])
+                ## Identify destination cores
+                if matrix[pre][post] > 0:
+                    if post_core_map[post] not in dest_cores[pre]:
+                        dest_cores[pre].append(post_core_map[post])
 
         # - Convert a list of destination cores to chip and core mask pairs
         for i, core_list in enumerate(dest_cores):
