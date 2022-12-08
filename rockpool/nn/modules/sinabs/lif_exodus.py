@@ -207,7 +207,7 @@ class LIFMembraneExodus(LIFBaseTorch):
         shape: tuple,
         tau_syn: P_float = 0.05,
         tau_mem: P_float = 0.02,
-        bias: P_float = 0.,
+        bias: P_float = 0.0,
         *args,
         **kwargs,
     ):
