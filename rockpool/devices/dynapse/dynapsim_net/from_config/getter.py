@@ -30,7 +30,7 @@ __all__ = ["dynapsim_net_from_config"]
 
 def dynapsim_net_from_config(
     config: Dynapse2Configuration,
-    input_channel_map: Optional[Dict[int, Dynapse2Destination]],
+    input_channel_map: Optional[Dict[int, Dynapse2Destination]] = None,
     Iscale: float = default_weights["Iscale"],
     percent_mismatch: Optional[float] = None,
     dt: float = 1e-3,
@@ -42,7 +42,7 @@ def dynapsim_net_from_config(
 
     :param config: a samna configuration object used to configure all the system level properties
     :type config: Dynapse2Configuration
-    :param input_channel_map: the mapping between input timeseries channels and the destinations
+    :param input_channel_map: the mapping between input timeseries channels and the destinations, Providing an input channel map restores the zero rows that may occur in the simulation input weight matrices. The exact same dimensional weight matrix can only be restored in this way
     :type input_channel_map: Dict[int, Dynapse2Destination]
     :param Iscale: network weight scaling current, defaults to default_weights["Iscale"]
     :type Iscale: float, optional
@@ -101,9 +101,9 @@ def dynapsim_net_from_config(
 
     # Input layer (external world -> hardware)
     if w_in_scaled.any():
+        # Restore zero rows
         if input_channel_map is not None:
-            shape = (len(input_channel_map), w_in_scaled.shape[1])
-            w_in_scaled = __restore_zero_rows(shape, input_channel_map, w_in_scaled)
+            w_in_scaled = __restore_zero_rows(w_in_scaled, input_channel_map)
 
         in_layer = LinearJax(w_in_scaled.shape, w_in_scaled, has_bias=False)
     else:
@@ -143,10 +143,28 @@ def dynapsim_net_from_config(
 
 ### --- Private Section --- ###
 def __restore_zero_rows(
-    shape: Tuple[int],
-    channel_map: Dict[int, Dynapse2Destination],
     trimmed_weights: np.ndarray,
+    channel_map: Dict[int, Dynapse2Destination],
 ) -> np.ndarray:
-    non_zero_idx = [key for key, val in channel_map.items() if val]
+    """
+    __restore_zero_rows restores the zero rows that occur in the simulation weights but lost in config object
+    Configuration object does not store a connection information if all weights from one input channel to all neurons are zero
+    However, input channel map stores. This function exploits the input channel map and restores the zero rows
+
+    :param trimmed_weights: the weight matrix contatining only rows with at least one non-zero entitiy
+    :type trimmed_weights: np.ndarray
+    :param channel_map: the mapping between input timeseries channels and the hardware destinations
+    :type channel_map: Dict[int, Dynapse2Destination]
+    :return: the restored weight matrix with (possibly) zero rows.
+    :rtype: np.ndarray
+    """
+
+    # Obtain an empty matrix
+    shape = (len(channel_map), trimmed_weights.shape[1])
     weights = np.zeros(shape)
+
+    # Re-shape the trimmed weight matrix
+    non_zero_idx = [key for key, val in channel_map.items() if val]
     weights[non_zero_idx, :] = trimmed_weights
+
+    return weights
