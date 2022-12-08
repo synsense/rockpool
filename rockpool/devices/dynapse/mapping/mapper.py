@@ -154,7 +154,6 @@ def __get_cluster_map(
     :rtype: Tuple[int, np.ndarray]
     """
 
-
     min_cluster = n_neurons // max_neuron_per_cluster + 1
 
     ### --- Check if the cluster size and maximum number of neurons per cluster match --- ###
@@ -175,7 +174,8 @@ def __get_cluster_map(
     ## -- Get a clustered core map in accordance with the clustering method chosen -- ##
 
     if clustering_method == "greedy":
-        core_map = np.array([n // max_neuron_per_cluster for n in range(n_neurons)])
+        neuron_per_cluster = np.floor(n_neurons / n_cluster)
+        core_map = np.array([n // neuron_per_cluster for n in range(n_neurons)])
     elif clustering_method == "random":
         core_map = np.random.permutation([n % n_cluster for n in range(n_neurons)])
     else:
