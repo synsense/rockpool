@@ -135,8 +135,10 @@ def dynapsim_net_from_spec(
         else None
     )
 
+    n_rec = len(core_map)
+
     dynapsim_layer = DynapSim(
-        shape=weights_rec.shape if weights_rec is not None else None,
+        shape=(n_rec, n_rec),
         Idc=Idc_unc,
         If_nmda=If_nmda_unc,
         Igain_ahp=Igain_ahp_unc,
