@@ -332,6 +332,8 @@ class WeightAllocator:
                 num_dest=1,
                 use_samna=False,
             )
+        else:
+            content = {}
 
         return content
 
