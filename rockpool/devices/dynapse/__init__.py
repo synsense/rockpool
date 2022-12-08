@@ -18,9 +18,5 @@ from .mapping import DynapseNeurons, mapper
 from .mapping.converter import dynapsim_from_graph
 from .parameters import DynapSimCore
 from .quantization import autoencoder_quantization
-from .hardware import (
-    config_from_specification,
-    DynapseSamna,
-    find_dynapse_boards,
-    dynapsim_from_config,
-)
+from .hardware import DynapseSamna, find_dynapse_boards, config_from_specification
+from .dynapsim_net import dynapsim_from_config
