@@ -15,8 +15,7 @@ from . import samna_alias as sa
 
 from .simulation import DynapSim
 from .mapping import DynapseNeurons, mapper
-from .mapping.converter import dynapsim_from_graph
 from .parameters import DynapSimCore
 from .quantization import autoencoder_quantization
 from .hardware import DynapseSamna, find_dynapse_boards, config_from_specification
-from .dynapsim_net import dynapsim_from_config
+from .dynapsim_net import dynapsim_net_from_config, dynapsim_net_from_spec
