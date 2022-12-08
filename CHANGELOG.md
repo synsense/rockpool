@@ -2,6 +2,10 @@
 
 All notable changes between Rockpool releases will be documented in this file.
 
+## Unreleased
+
+* LIFExodus now supports training time constants, and multiple time constants
+
 ## [v2.5] -- 2022-11-29
 
 ### Added
