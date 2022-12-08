@@ -60,7 +60,7 @@ class DynapseSamna(Module):
     :param config: a Dynan-SE2 ``samna`` configuration object
     :type config: Dynapse2Configuration
     :param channel_map: the mapping between input timeseries channels and the destinations
-    :type channel_map: Dict[int, Dynapse2Destination]
+    :type channel_map: Dict[int, List[Dynapse2Destination]]
     :param dt: the simulation timestep resolution, defaults to 1e-3
     :type dt: float, optional
     :param dt_fpga: the FPGA timestep resolution, defaults to 1e-6
@@ -73,18 +73,14 @@ class DynapseSamna(Module):
 
     def __init__(
         self,
-        shape: Tuple[int],
         device: DeviceInfo,
         config: Dynapse2Configuration,
-        channel_map: Dict[int, Dynapse2Destination],
+        channel_map: Dict[int, List[Dynapse2Destination]],
         dt: float = 1e-3,
         dt_fpga: float = 1e-6,
         control_tag: int = 2047,
         control_hop: int = -7,
     ):
-
-        if np.size(shape) != 2:
-            raise ValueError("`shape` must be a two-element tuple `(Nin, Nout)`.")
 
         if device is None:
             raise ValueError("`device` must be a valid Dynap-SE2 HDK device.")
