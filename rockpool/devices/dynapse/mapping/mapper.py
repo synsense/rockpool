@@ -100,7 +100,7 @@ def mapper(
         "mapped_graph": graph,
         "weights_in": wrapper.w_in,
         "weights_rec": wrapper.w_rec,
-        "Iscale": [wrapper.Iscale] * n_cluster,
+        "Iscale": wrapper.Iscale,
         "n_cluster": n_cluster,
         "core_map": core_map,
         "n_neuron": n_neurons,
