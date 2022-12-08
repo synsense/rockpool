@@ -424,10 +424,14 @@ class DynapseSamna(Module):
 
             destinations = np.argwhere(spikes).flatten()
             timestamp = int(np.around((time / self.dt_fpga)))
-            events = [
-                NormalGridEvent(self.input_channel_map[dest], timestamp + i).to_samna()
-                for i, dest in enumerate(destinations)
-            ]
+            events = []
+            for i, dest in enumerate(destinations):
+                events.extend(
+                    [
+                        NormalGridEvent(event, timestamp + i).to_samna()
+                        for event in self.input_channel_map[dest]
+                    ]
+                )
             buffer.extend(events)
 
         # Append control events
