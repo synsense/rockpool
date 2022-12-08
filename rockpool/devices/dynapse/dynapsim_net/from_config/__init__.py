@@ -1,3 +1,3 @@
 from .memory import *
 from .parameter import *
-from .network_getter import *
+from .getter import *
