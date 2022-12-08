@@ -133,8 +133,10 @@ def config_from_specification(
     :type num_cores: int, optional
     :param num_neurons: the number of neurons per core, defaults to NUM_NEURONS
     :type num_neurons: int, optional
-    :return: a modified samna ``Dynapse2Configuration`` object
-    :rtype: Dynapse2Configuration
+    :return: config, input_channel_map
+        :config: a modified samna ``Dynapse2Configuration`` object
+        :input_channel_map: the mapping between input timeseries channels and the destinations
+    :rtype: Tuple[Dynapse2Configuration, Dict[int, Dynapse2Destination]]
     """
 
     new_config = samna.dynapse2.Dynapse2Configuration()
