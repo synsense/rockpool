@@ -333,11 +333,6 @@ class WeightAllocator:
                 use_samna=False,
             )
 
-            # Unwrap single element destination lists
-            content = dict(map(lambda t: (t[0], t[1][0]), content.items()))
-        else:
-            content = {}
-
         return content
 
     @staticmethod
