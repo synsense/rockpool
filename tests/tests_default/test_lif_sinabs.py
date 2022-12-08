@@ -227,10 +227,7 @@ def test_ExpSynExodus():
     ).to("cuda")
 
     # - Generate some data
-    input_data = (
-        torch.rand(n_batches, T, n_synapses, requires_grad=True).cuda()
-        * 0.01
-    )
+    input_data = torch.rand(n_batches, T, n_synapses, requires_grad=True).cuda() * 0.01
 
     out_sinabs, ns_sinabs, rd_sinabs = lm_exodus(input_data)
     out_sinabs.sum().backward()

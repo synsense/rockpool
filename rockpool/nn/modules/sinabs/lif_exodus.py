@@ -66,7 +66,7 @@ class LIFExodus(LIFBaseTorch):
             shape (tuple): The shape of this module
             tau_syn (float): An optional array with concrete initialisation data for the synaptic time constants. If not provided, 50ms will be used by default.
             tau_mem (float): An optional array with concrete initialisation data for the membrane time constants. If not provided, 20ms will be used by default.
-            bias (float): 
+            bias (float):
             threshold (float): An optional array specifying the firing threshold of each neuron. If not provided, ``1.`` will be used by default.
             learning_window (float): Cutoff value for the surrogate gradient. Default: 0.5
             dt (float): Time step in seconds. Default: 1 ms.
@@ -105,7 +105,7 @@ class LIFExodus(LIFBaseTorch):
 
         # - Move module to CUDA device
         self.cuda()
-        
+
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
         Forward method for processing data through this layer
@@ -164,7 +164,11 @@ class LIFExodus(LIFBaseTorch):
 
         # Add bias to isyn_exodus, to be added onto the membrane
         bias = self.bias.reshape((1, -1, 1, 1))
-        bias = bias.expand((n_batches, self.n_neurons, self.n_synapses, time_steps)).flatten(0, 1).contiguous()
+        bias = (
+            bias.expand((n_batches, self.n_neurons, self.n_synapses, time_steps))
+            .flatten(0, 1)
+            .contiguous()
+        )
         isyn_exodus = isyn_exodus + bias
 
         # Membrane dynamics: Calculate v_mem
@@ -208,6 +212,7 @@ class LIFExodus(LIFBaseTorch):
         self.spikes = spikes[0, -1].detach()
 
         return self._record_dict["spikes"]
+
 
 class ExpSynExodus(LIFBaseTorch):
     def __init__(
@@ -308,9 +313,7 @@ class ExpSynExodus(LIFBaseTorch):
         data = data.to("cuda")
 
         # - Replicate data and states out by batches
-        data, (isyn,) = self._auto_batch(
-            data, (self.isyn,)
-        )
+        data, (isyn,) = self._auto_batch(data, (self.isyn,))
 
         # - Get input data size
         (n_batches, time_steps, n_connections) = data.shape
@@ -349,15 +352,13 @@ class ExpSynExodus(LIFBaseTorch):
         return self._record_dict["isyn"]
 
 
-
-
 class LIFMembraneExodus(LIFBaseTorch):
     def __init__(
         self,
         shape: tuple,
         tau_syn: P_float = 0.05,
         tau_mem: P_float = 0.02,
-        bias: P_float = 0.,
+        bias: P_float = 0.0,
         *args,
         **kwargs,
     ):
