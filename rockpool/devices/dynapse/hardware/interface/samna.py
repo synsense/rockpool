@@ -33,6 +33,8 @@ from rockpool.devices.dynapse.samna_alias import (
 )
 
 from rockpool.devices.dynapse.lookup import SE2_STACK_FPGA_FILEPATH
+from rockpool.devices.dynapse.dynapsim_net.from_config import MemorySE2
+
 
 # Try to import samna for device interfacing
 try:
@@ -85,8 +87,12 @@ class DynapseSamna(Module):
         if device is None:
             raise ValueError("`device` must be a valid Dynap-SE2 HDK device.")
 
+        # Obtain the shape
+        __in = len(channel_map)
+        __rec = len(MemorySE2().spec_from_config(config)["core_map"])
+
         # - Initialise the superclass
-        super().__init__(shape=shape, spiking_input=True, spiking_output=True)
+        super().__init__(shape=(__in, __rec), spiking_input=True, spiking_output=True)
 
         self.dt = dt
         self.dt_fpga = dt_fpga
