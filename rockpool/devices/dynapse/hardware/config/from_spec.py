@@ -193,7 +193,7 @@ def config_from_specification(
         # SRAM blocks are responsible for storing the destinations of the neurons
         sram = allocator.SRAM_content(
             use_samna=True,
-            monitor_neurons=list(range(c * num_neurons, (c + 1) * num_neurons)),
+            monitor_neurons=list(range(0, num_neurons)),
         )
 
         # CAM blocks are responsible for storing the incoming connections of the neurons
