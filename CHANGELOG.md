@@ -4,7 +4,7 @@ All notable changes between Rockpool releases will be documented in this file.
 
 ## Unreleased
 
-* Exodus now supports training time constants and biases
+* LIFExodus now supports training time constants, and multiple time constants
 * Implemented ``ExpSynExodus`` for accelerated training of exponential synapse modules
 
 ## [v2.5] -- 2022-11-29
