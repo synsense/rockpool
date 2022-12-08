@@ -149,7 +149,7 @@ def dynapsim_net_from_spec(
         Itau_ahp=Itau_ahp_unc,
         Itau_mem=Itau_mem_unc,
         Itau_syn=Itau_syn_unc,
-        has_rec=True if weights_rec else False,
+        has_rec=True if weights_rec is not None else False,
         w_rec=weights_rec,
         percent_mismatch=percent_mismatch,
         Iscale=Iscale,
