@@ -7,7 +7,7 @@ E-mail : ugurcan.cakal@gmail.com
 
 02/12/2022
 """
-from typing import Optional
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 
@@ -15,18 +15,22 @@ from rockpool.nn.modules.module import ModuleBase
 from rockpool.nn.modules import LinearJax
 from rockpool.nn.combinators import Sequential
 
-from rockpool.devices.dynapse.samna_alias import Dynapse2Configuration
+from rockpool.devices.dynapse.samna_alias import (
+    Dynapse2Configuration,
+    Dynapse2Destination,
+)
 from rockpool.devices.dynapse.parameters import DynapSimCore
 from rockpool.devices.dynapse.lookup import default_weights
 from rockpool.devices.dynapse.simulation import DynapSim
 
 from .parameter import ParameterHandler
 
-__all__ = ["dynapsim_from_config"]
+__all__ = ["dynapsim_net_from_config"]
 
 
-def dynapsim_from_config(
+def dynapsim_net_from_config(
     config: Dynapse2Configuration,
+    input_channel_map: Optional[Dict[int, Dynapse2Destination]],
     Iscale: float = default_weights["Iscale"],
     percent_mismatch: Optional[float] = None,
     dt: float = 1e-3,
@@ -34,10 +38,12 @@ def dynapsim_from_config(
     **kwargs,
 ) -> ModuleBase:
     """
-    dynapsim_from_config constructs a DynapSim simulation network by processing a samna configuration object
+    dynapsim_net_from_config constructs a DynapSim simulation network by processing a samna configuration object
 
     :param config: a samna configuration object used to configure all the system level properties
     :type config: Dynapse2Configuration
+    :param input_channel_map: the mapping between input timeseries channels and the destinations
+    :type input_channel_map: Dict[int, Dynapse2Destination]
     :param Iscale: network weight scaling current, defaults to default_weights["Iscale"]
     :type Iscale: float, optional
     :param percent_mismatch: Gaussian parameter mismatch percentage (check ``transforms.mismatch_generator`` implementation), defaults to None
@@ -95,6 +101,10 @@ def dynapsim_from_config(
 
     # Input layer (external world -> hardware)
     if w_in_scaled.any():
+        if input_channel_map is not None:
+            shape = (len(input_channel_map), w_in_scaled.shape[1])
+            w_in_scaled = __restore_zero_rows(shape, input_channel_map, w_in_scaled)
+
         in_layer = LinearJax(w_in_scaled.shape, w_in_scaled, has_bias=False)
     else:
         in_layer = None
@@ -129,3 +139,14 @@ def dynapsim_from_config(
         mod = dynapsim_layer
 
     return mod
+
+
+### --- Private Section --- ###
+def __restore_zero_rows(
+    shape: Tuple[int],
+    channel_map: Dict[int, Dynapse2Destination],
+    trimmed_weights: np.ndarray,
+) -> np.ndarray:
+    non_zero_idx = [key for key, val in channel_map.items() if val]
+    weights = np.zeros(shape)
+    weights[non_zero_idx, :] = trimmed_weights
