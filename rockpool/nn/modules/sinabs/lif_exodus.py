@@ -72,16 +72,8 @@ class LIFExodus(LIFBaseTorch):
         """
 
         assert isinstance(
-            tau_mem, float
-        ), "Exodus-backed LIF module must have a single membrane time constant"
-
-        assert isinstance(
             threshold, float
         ), "Exodus-backed LIF module must have a single threshold"
-
-        # - Check unused parameters
-        if bias != 0.0:
-            raise ValueError("`LIFExodus` does not support non-zero biases.")
 
         if has_rec:
             raise ValueError("`LIFExodus` does not support recurrent weights.")
@@ -92,10 +84,10 @@ class LIFExodus(LIFBaseTorch):
         # - Initialise superclass
         super().__init__(
             shape=shape,
-            tau_syn=Constant(tau_syn),
-            tau_mem=Constant(tau_mem),
+            tau_syn=tau_syn,
+            tau_mem=tau_mem,
             threshold=Constant(threshold),
-            bias=Constant(0.0),
+            bias=Constant(bias),
             has_rec=False,
             noise_std=0.0,
             learning_window=learning_window,
@@ -144,6 +136,7 @@ class LIFExodus(LIFBaseTorch):
             self.calc_alpha().expand((n_batches, self.n_neurons)).flatten().contiguous()
         )
         membrane_subtract = self.threshold.expand((n_batches, self.n_neurons)).flatten()
+
         # Threshold must be float
         threshold = float(self.threshold)
 
@@ -160,6 +153,10 @@ class LIFExodus(LIFBaseTorch):
             beta.contiguous(),  # beta
             isyn.flatten().contiguous(),  # initial state
         ).reshape(-1, self.n_synapses, time_steps)
+
+        # - For bias, add simply to isyn_exodus
+        # bias = torch.tensor(self.bias).expand((n_batches, time_steps, self.n_neurons, self.n_synapses)).flatten().contiguous()
+        # isyn_exodus += self.bias
 
         # Membrane dynamics: Calculate v_mem
         spikes, vmem_exodus = IntegrateAndFire.apply(
@@ -210,6 +207,7 @@ class LIFMembraneExodus(LIFBaseTorch):
         shape: tuple,
         tau_syn: P_float = 0.05,
         tau_mem: P_float = 0.02,
+        bias: P_float = 0.,
         *args,
         **kwargs,
     ):
@@ -221,11 +219,7 @@ class LIFMembraneExodus(LIFBaseTorch):
         The output of evolving this module is the neuron membrane potentials; synaptic currents are available using the ``record = True`` argument to :py:meth:`~.LIFExodus.evolve`.
 
         Warnings:
-            Exodus does not currently support training time constants or biases.
-
-            Exodus currently only supports a single membrane time constant.
-
-            Exodus does not support neuron biases.
+            Exodus does not currently support training biases or thresholds.
 
             Exodus does not support noise injection.
 
@@ -245,13 +239,8 @@ class LIFMembraneExodus(LIFBaseTorch):
             dt (float): Time-step of this module in seconds. Default: 1 ms.
         """
 
-        # - Check input arguments
-        assert isinstance(
-            tau_mem, float
-        ), "Exodus-backed LIF module must have a single membrane time constant"
-
         # - Remove unused parameters
-        unused_arguments = ["threshold", "bias", "has_rec", "noise_std"]
+        unused_arguments = ["threshold", "has_rec", "noise_std"]
         test_args = [arg in kwargs for arg in unused_arguments]
         if any(test_args):
             error_args = [arg for (arg, t) in zip(unused_arguments, test_args) if t]
@@ -262,9 +251,9 @@ class LIFMembraneExodus(LIFBaseTorch):
         # - Initialise superclass
         super().__init__(
             shape=shape,
-            tau_mem=Constant(tau_mem),
-            tau_syn=Constant(tau_syn),
-            bias=Constant(0.0),
+            tau_mem=tau_mem,
+            tau_syn=tau_syn,
+            bias=bias,
             has_rec=False,
             noise_std=0.0,
             *args,
