@@ -8,19 +8,25 @@ E-mail : ugurcan.cakal@gmail.com
 """
 
 from typing import Any, Dict
-from jax.tree_util import PyTreeDef
-
-from rockpool.nn.modules.jax.linear_jax import LinearJax
-from rockpool.nn.modules.jax import JaxModule
-from rockpool.nn.combinators import JaxSequential
-from rockpool.transform.mismatch import module_registery
-
 from jax.tree_util import tree_flatten, tree_unflatten
 
-__all__ = ["static_mismatch_prototype", "dynamic_mismatch_prototype"]
+from rockpool.nn.modules.jax import JaxModule
+from rockpool.transform.mismatch import module_registery
 
-# static_mismatch_prototype
-def static_mismatch_prototype(mod: JaxModule) -> PyTreeDef:
+__all__ = ["frozen_mismatch_prototype", "dynamic_mismatch_prototype"]
+
+
+def frozen_mismatch_prototype(mod: JaxModule) -> Dict[str, bool]:
+    """
+    frozen_mismatch_prototype process the module parameter tree and returns a frozen mismatch prototype which indicates the values to be deviated.
+    Frozen means that the parameters indicated here should be deviated at compile time. Prior to simulating the circuitry.
+    One can use this mismatch prototype in trainining pipeliene as well, but the parameter deviations might result going off the operational limits.
+
+    :param mod: DynapSim network module which subject to mismatch deviations
+    :type mod: JaxModule
+    :return: the prototype tree leading the mismatch generation process
+    :rtype: Dict[str, bool]
+    """
 
     ref_tree = module_registery(mod)
     set_tree = mod.simulation_parameters()
@@ -32,7 +38,16 @@ def static_mismatch_prototype(mod: JaxModule) -> PyTreeDef:
     return prototype
 
 
-def dynamic_mismatch_prototype(mod: JaxModule) -> PyTreeDef:
+def dynamic_mismatch_prototype(mod: JaxModule) -> Dict[str, bool]:
+    """
+    dynamic_mismatch_prototype process the module parameter tree and returns a dynamical mismatch prototype which indicates the values to be deviated at run-time.
+    The resulting prototype can be used during training pipeline. The method targets only the trainables.
+
+    :param mod: DynapSim network module which subject to mismatch deviations
+    :type mod: JaxModule
+    :return: the prototype tree leading the mismatch generation process
+    :rtype: Dict[str, bool]
+    """
 
     ref_tree = module_registery(mod)
     set_tree = mod.parameters()
@@ -45,6 +60,16 @@ def dynamic_mismatch_prototype(mod: JaxModule) -> PyTreeDef:
 
 
 def __set_leaves_bool(tree: Dict[str, Any], val: bool) -> Dict[str, bool]:
+    """
+    __set_leaves_bool flattens a parameter tree and creates a conditional prototype tree setting all the leaves to a boolean value
+
+    :param tree: the target parameter tree
+    :type tree: Dict[str, Any]
+    :param val: the boolean value that all the leaves will be set
+    :type val: bool
+    :return: a prototype tree leading a condititonal process
+    :rtype: Dict[str, bool]
+    """
     tree_flat, treedef = tree_flatten(tree)
     leaves = [val for _ in tree_flat]
     prototype = tree_unflatten(treedef, leaves)
@@ -54,7 +79,17 @@ def __set_leaves_bool(tree: Dict[str, Any], val: bool) -> Dict[str, bool]:
 def __update_nested_leaves(
     params_ref: Dict[str, Any], params_set: Dict[str, Any]
 ) -> Dict[str, Any]:
-    for key, val in params_ref.items():
+    """
+    __update_nested_leaves is a merging utility which takes a bigger nested tree as a reference and updates its leaves by a secondary sub-set tree
+
+    :param params_ref: the bigger reference tree whose leaves are subject to update
+    :type params_ref: Dict[str, Any]
+    :param params_set: the tree which updates the leaves of the reference tree
+    :type params_set: Dict[str, Any]
+    :return: an updated version of the reference tree
+    :rtype: Dict[str, Any]
+    """
+    for key in params_ref:
         if not isinstance(params_ref[key], dict):
             if key in params_set:
                 params_ref[key] = params_set[key]
@@ -62,4 +97,3 @@ def __update_nested_leaves(
             __update_nested_leaves(params_ref[key], params_set[key])
 
     return params_ref
-
