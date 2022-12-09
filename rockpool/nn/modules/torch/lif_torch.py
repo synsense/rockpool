@@ -162,7 +162,7 @@ class LIFBaseTorch(TorchModule):
             noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: ``0.0`` (no noise)
             spike_generation_fn (Callable): Function to call for spike production. Usually simple threshold crossing. Implements the surrogate gradient function in the backward call. (StepPWL or PeriodicExponential).
             learning_window (float): Cutoff value for the surrogate gradient.
-            max_spikes_per_dt (int): The maximum number of events that will be produced in a single time-step. Default: ``np.inf``; do not clamp spiking.
+            max_spikes_per_dt (float): The maximum number of events that will be produced in a single time-step. Default: ``2**16``.
             weight_init_func (Optional[Callable[[Tuple], torch.tensor]): The initialisation function to use when generating recurrent weights. Default: ``None`` (Kaiming initialisation)
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
         """
@@ -352,10 +352,10 @@ class LIFBaseTorch(TorchModule):
         )
         """ (Callable) Spike generation function with surrograte gradient """
 
-        self.max_spikes_per_dt: P_int = rp.SimulationParameter(
+        self.max_spikes_per_dt: P_float = rp.SimulationParameter(
             max_spikes_per_dt, cast_fn=to_float_tensor
         )
-        """ (int) Maximum number of events that can be produced in each time-step """
+        """ (float) Maximum number of events that can be produced in each time-step """
 
         # - Placeholders for state recordings
         self._record_dict = {}
