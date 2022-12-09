@@ -65,6 +65,7 @@ from rockpool.graph import GraphHolder, LinearWeights, as_GraphHolder
 from rockpool.transform.mismatch import mismatch_generator
 
 from .surrogate import step_pwl
+from .mismatch_prototype import frozen_mismatch_prototype
 
 __all__ = ["DynapSim"]
 
@@ -395,10 +396,11 @@ class DynapSim(JaxModule):
 
         if percent_mismatch is not None:
             rng_key, _ = rand.split(rng_key)
-            regenerate_mismatch = mismatch_generator(percent_deviation=percent_mismatch)
-            new_params = regenerate_mismatch(
-                self.simulation_parameters(), rng_key=rng_key
+            prototype = frozen_mismatch_prototype(self)
+            regenerate_mismatch = mismatch_generator(
+                prototype=prototype, percent_deviation=percent_mismatch
             )
+            new_params = regenerate_mismatch(self, rng_key=rng_key)
             for key in new_params:
                 self.__setattr__(key, new_params[key])
 
