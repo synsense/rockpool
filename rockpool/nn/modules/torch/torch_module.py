@@ -44,7 +44,7 @@ class TorchModuleParameters(dict):
         # - Yield leaves over self
         yield from yield_leaves(self)
 
-    
+
 class TorchModule(Module, nn.Module):
     """
     Base class for modules that are compatible with both Torch and Rockpool
