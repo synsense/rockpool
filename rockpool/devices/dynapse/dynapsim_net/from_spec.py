@@ -14,7 +14,7 @@ import numpy as np
 
 from rockpool.nn.modules.module import ModuleBase
 from rockpool.nn.modules import LinearJax
-from rockpool.nn.combinators import Sequential
+from rockpool.nn.combinators import JaxSequential
 
 from rockpool.devices.dynapse.simulation.dynapsim import DynapSim
 from rockpool.devices.dynapse.lookup import default_weights
@@ -163,6 +163,6 @@ def dynapsim_net_from_spec(
     if in_layer is None:
         mod = dynapsim_layer
     else:
-        mod = Sequential(in_layer, dynapsim_layer)
+        mod = JaxSequential(in_layer, dynapsim_layer)
 
     return mod

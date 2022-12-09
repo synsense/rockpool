@@ -13,7 +13,7 @@ import numpy as np
 
 from rockpool.nn.modules.module import ModuleBase
 from rockpool.nn.modules import LinearJax
-from rockpool.nn.combinators import Sequential
+from rockpool.nn.combinators import JaxSequential
 
 from rockpool.devices.dynapse.samna_alias import (
     Dynapse2Configuration,
@@ -134,7 +134,7 @@ def dynapsim_net_from_config(
 
     # The resulting sequential module ! :tada:
     if in_layer is not None:
-        mod = Sequential(in_layer, dynapsim_layer)
+        mod = JaxSequential(in_layer, dynapsim_layer)
     else:
         mod = dynapsim_layer
 
