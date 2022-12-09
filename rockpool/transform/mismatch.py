@@ -7,17 +7,18 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 11/01/2022
 """
-from typing import Callable, Dict, Tuple
+from typing import Any, Callable, Dict, Tuple
+from rockpool.nn.modules.jax import JaxModule
 
 from jax import random as rand
 from jax import numpy as jnp
-from rockpool.utilities.jax_tree_utils import tree_map_with_rng
+from rockpool.utilities.jax_tree_utils import tree_map_select_with_rng
 
 __all__ = ["mismatch_generator"]
 
 
 def mismatch_generator(
-    percent_deviation: float = 0.30, sigma_rule: float = 3.0
+    prototype: Dict[str, bool], percent_deviation: float = 0.30, sigma_rule: float = 3.0
 ) -> Callable[
     [Tuple[Dict[str, jnp.DeviceArray], jnp.DeviceArray]], Dict[str, jnp.DeviceArray]
 ]:
@@ -54,7 +55,7 @@ def mismatch_generator(
     sigma_eff = jnp.array(percent_deviation / sigma_rule)
 
     def regenerate_mismatch(
-        params: Dict[str, jnp.DeviceArray], rng_key: jnp.DeviceArray
+        mod: JaxModule, rng_key: jnp.DeviceArray
     ) -> Dict[str, jnp.DeviceArray]:
         """
         regenerate_mismatch takes a parameter dictionary, flattens the tree and applies parameter mismatch to every leaf of the tree.
@@ -83,8 +84,38 @@ def mismatch_generator(
             deviation = sigma_eff * rand.normal(rng_key, array.shape)
             return array + deviation * array
 
-        new_params = tree_map_with_rng(params, __map_fun, rng_key)
+        params = module_registery(mod)
+        new_params = tree_map_select_with_rng(params, prototype, __map_fun, rng_key)
 
         return new_params
 
     return regenerate_mismatch
+
+
+def module_registery(module: JaxModule) -> Dict[str, Any]:
+    """
+    module_registery traces all the nested module and registered parameters of the JaxModule base given and returns a tree,
+    whose leaves includes only the `SimulationParameters` and `Parameters`
+
+    [] TODO : embed this into JaxModule base as a class method
+
+    :param module: a self-standing simulation module or a combinator object
+    :type module: JaxModule
+    :return: a nested parameter tree
+    :rtype: Dict[str, Any]
+    """
+    __attrs, __modules = module._get_attribute_registry()
+    __dict = {
+        k: getattr(module, k)
+        for k, v in __attrs.items()
+        if (v[1] == "SimulationParameter") or (v[1] == "Parameter")
+    }
+
+    # - Append sub-module attributes as nested dictionaries
+    __sub_attrs = {}
+    for (k, m) in __modules.items():
+        # [0] -> module , [1] -> name
+        __sub_attrs[k] = module_registery(m[0])
+
+    __dict.update(__sub_attrs)
+    return __dict
