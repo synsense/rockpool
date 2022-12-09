@@ -45,7 +45,7 @@ def spike_subtract_threshold(
     x: FloatVector,
     threshold: FloatVector,
     window: FloatVector = 0.5,
-    max_spikes_per_dt: float = np.float(2**16),
+    max_spikes_per_dt: float = 2.0**16,
 ) -> FloatVector:
     """
     Spike production function
@@ -103,7 +103,7 @@ class LIF(Module):
         weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = kaiming,
         threshold: Optional[FloatVector] = None,
         noise_std: float = 0.0,
-        max_spikes_per_dt: P_int = np.float(2**16),
+        max_spikes_per_dt: P_int = 2.0**16,
         dt: float = 1e-3,
         spiking_input: bool = False,
         spiking_output: bool = True,

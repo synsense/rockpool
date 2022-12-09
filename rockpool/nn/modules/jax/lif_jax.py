@@ -44,7 +44,7 @@ def step_pwl(
     x: FloatVector,
     threshold: FloatVector,
     window: FloatVector = 0.5,
-    max_spikes_per_dt: float = np.float(2**16),
+    max_spikes_per_dt: float = 2.0**16,
 ) -> FloatVector:
     """
     Heaviside step function with piece-wise linear derivative to use as spike-generation surrogate
@@ -111,7 +111,7 @@ class LIFJax(JaxModule):
         weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = kaiming,
         threshold: Optional[FloatVector] = None,
         noise_std: float = 0.0,
-        max_spikes_per_dt: P_float = np.float(2**16),
+        max_spikes_per_dt: P_float = 2.0**16,
         dt: float = 1e-3,
         rng_key: Optional[JaxRNGKey] = None,
         spiking_input: bool = False,
