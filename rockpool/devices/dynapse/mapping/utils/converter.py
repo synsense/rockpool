@@ -51,7 +51,7 @@ def lifnet_to_dynapsim(graph: GraphModule) -> Tuple[np.ndarray]:
     modules, rec_modules = find_recurrent_modules(graph)
 
     # - Compose a grid
-    gl = get_grid_lines(modules)
+    gl = __get_grid_lines(modules)
     ffwd_grid = [NPGrid(row, col) for row, col in zip(gl, gl[1:])]
     rec_grid = [NPGrid(row, col) for row, col in zip(gl, gl)]
 
@@ -180,9 +180,10 @@ def lifnet_to_dynapsim(graph: GraphModule) -> Tuple[np.ndarray]:
     )
 
 
-def get_grid_lines(modules: List[GraphModule]) -> List[Tuple[int]]:
+### --- Private Section --- ###
+def __get_grid_lines(modules: List[GraphModule]) -> List[Tuple[int]]:
     """
-    get_grid_lines investigates the list of modules given and finds the grid lines to be used in weight installation
+    __get_grid_lines investigates the list of modules given and finds the grid lines to be used in weight installation
 
     :param modules: the list of module to investigate
     :type modules: List[GraphModule]
