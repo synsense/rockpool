@@ -34,7 +34,7 @@ def test_FF_equality_exodus():
         threshold=threshold,
     ).to("cuda")
 
-    # - init LIFSlayer
+    # - init LIFExodus
     from rockpool.nn.modules.sinabs.lif_exodus import LIFExodus
 
     lif_sinabs = LIFExodus(
@@ -53,7 +53,7 @@ def test_FF_equality_exodus():
         * 0.01
     )
 
-    # - run LIFTorch and LIFSlayer
+    # - run LIFTorch and LIFExodus
     out_torch, ns_torch, rd_torch = lif_torch(input_data, record=True)
     out_sinabs, ns_sinabs, rd_sinabs = lif_sinabs(input_data, record=True)
 
@@ -110,7 +110,7 @@ def test_FF_multisyn_equality_exodus():
         threshold=threshold,
     ).to("cuda")
 
-    # - init LIFSlayer
+    # - init LIFExodus
     from rockpool.nn.modules.sinabs.lif_exodus import LIFExodus
 
     lif_sinabs = LIFExodus(
@@ -173,7 +173,7 @@ def test_exodus_membrane():
     if not torch.cuda.is_available():
         pytest.skip("CUDA is required for Exodus tests")
 
-    # - init LIFSlayer
+    # - init LIFExodus
     from rockpool.nn.modules import LIFMembraneExodus
 
     # - parameter
@@ -203,32 +203,3 @@ def test_exodus_membrane():
     lm_exodus.tau_mem.grad
     lm_exodus.tau_syn.grad
 
-
-def test_ExpSynExodus():
-    import torch
-
-    if not torch.cuda.is_available():
-        pytest.skip("CUDA is required for Exodus tests")
-
-    # - init LIFSlayer
-    from rockpool.nn.modules import ExpSynExodus
-
-    # - parameter
-    n_synapses = 2
-    n_batches = 3
-    T = 100
-    tau_syn = 0.05
-
-    # - init LIFTorch
-    lm_exodus = ExpSynExodus(
-        shape=n_synapses,
-        tau_syn=tau_syn,
-        dt=1e-3,
-    ).to("cuda")
-
-    # - Generate some data
-    input_data = torch.rand(n_batches, T, n_synapses, requires_grad=True).cuda() * 0.01
-
-    out_sinabs, ns_sinabs, rd_sinabs = lm_exodus(input_data)
-    out_sinabs.sum().backward()
-    lm_exodus.tau_syn.grad
