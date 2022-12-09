@@ -149,13 +149,14 @@ class DynapseNeurons(GenericNeurons):
         elif isinstance(mod, LIFNeuronWithSynsRealValue):
 
             # Some lambda functions for clean computation
-            shape = cls.get_equal_shape(mod.threshold, mod.bias, mod.tau_mem)
-            zero_param = lambda: cls.zero_param(shape)
-            nonzero_param = lambda val: cls.nonzero_param(val, shape)
+            shape = cls.__get_equal_shape(mod.threshold, mod.bias, mod.tau_mem)
+            zero_param = lambda: np.zeros(shape, dtype=float).tolist()
+
+            nonzero_param = lambda val: np.full(shape, val, dtype=float).tolist()
 
             # Tau currents has to be re-usable
-            Itau_mem = cls.leakage_current(mod.tau_mem, C_mem)
-            Itau_syn = cls.leakage_current(mod.tau_syn, C_syn)
+            Itau_mem = cls.__leakage_current(mod.tau_mem, C_mem)
+            Itau_syn = cls.__leakage_current(mod.tau_syn, C_syn)
 
             # - Build a new neurons module to insert into the graph
             neurons = cls._factory(
@@ -163,18 +164,18 @@ class DynapseNeurons(GenericNeurons):
                 size_out=len(mod.output_nodes),
                 name=mod.name,
                 computational_module=mod.computational_module,
-                Ispkthr=cls.to_list_scale(mod.threshold, Iscale),
-                Idc=cls.to_list_scale(mod.bias, Iscale),
+                Ispkthr=cls.__scale(mod.threshold, Iscale),
+                Idc=cls.__scale(mod.bias, Iscale),
                 Itau_mem=Itau_mem,
                 Itau_syn=Itau_syn,
                 Itau_ahp=zero_param(),
                 If_nmda=zero_param(),
                 Igain_ahp=zero_param(),
-                Igain_mem=cls.gain_current(r_gain_mem, Itau_mem),
-                Igain_syn=cls.gain_current(r_gain_syn, Itau_syn),
+                Igain_mem=cls.__gain_current(r_gain_mem, Itau_mem),
+                Igain_syn=cls.__gain_current(r_gain_syn, Itau_syn),
                 Ipulse_ahp=zero_param(),
-                Ipulse=nonzero_param(cls.pulse_current(t_pulse, C_pulse)),
-                Iref=nonzero_param(cls.pulse_current(t_ref, C_ref)),
+                Ipulse=nonzero_param(cls.__pulse_current(t_pulse, C_pulse)),
+                Iref=nonzero_param(cls.__pulse_current(t_ref, C_ref)),
                 Iw_ahp=zero_param(),
                 Iscale=Iscale,
                 dt=mod.dt,
@@ -286,9 +287,24 @@ class DynapseNeurons(GenericNeurons):
 
         return {attr: __extend__(attr) for attr in self.current_attrs()}
 
-    ### --- Utility Functions --- ###
     @staticmethod
-    def get_equal_shape(*args) -> Tuple[int]:
+    def current_attrs() -> List[str]:
+        """
+        current_attrs lists all current paramters stored inside DynapseNeurons computational graph
+
+        :return: a list of parametric curents
+        :rtype: List[str]
+        """
+        return list(
+            DynapseNeurons.__dataclass_fields__.keys()
+            - GenericNeurons.__dataclass_fields__.keys()
+            - {"Iscale", "dt"}
+        )
+
+    ### --- Private Section --- ###
+
+    @staticmethod
+    def __get_equal_shape(*args) -> Tuple[int]:
         """
         get_equal_shape makes sure that the all arguments have the same shape
 
@@ -309,47 +325,9 @@ class DynapseNeurons(GenericNeurons):
         return shape
 
     @staticmethod
-    def zero_param(shape: Tuple[int]) -> List[float]:
+    def __scale(v: FloatVector, scale: float) -> List[float]:
         """
-        zero_param creates full zero parameters
-
-        :param shape: the desired shape
-        :type shape: Tuple[int]
-        :return: a zero array
-        :rtype: List[float]
-        """
-        return np.zeros(shape, dtype=float).tolist()
-
-    @staticmethod
-    def nonzero_param(val: float, shape: Tuple[int]) -> List[float]:
-        """
-        nonzero_param creates a non-zero array filled with the same value
-
-        :param val: the non-zero value
-        :type val: float
-        :param shape: the desired shape
-        :type shape: Tuple[int]
-        :return: a non-zero uniform array
-        :rtype: List[float]
-        """
-        return np.full(shape, val, dtype=float).tolist()
-
-    @staticmethod
-    def to_list(v: FloatVector) -> List[float]:
-        """
-        to_list converts any FloatVector to a list
-
-        :param v: the float vector of interest
-        :type v: FloatVector
-        :return: a float list
-        :rtype: List[float]
-        """
-        return np.array(v, dtype=float).tolist()
-
-    @staticmethod
-    def to_list_scale(v: FloatVector, scale: float) -> List[float]:
-        """
-        to_list_scale converts any FloatVector to list and scale
+        __scale converts any FloatVector to list and scales
 
         :param v: the float vector of interest
         :type v: FloatVector
@@ -361,9 +339,9 @@ class DynapseNeurons(GenericNeurons):
         return (np.array(v, dtype=float).flatten() * scale).tolist()
 
     @staticmethod
-    def leakage_current(tc: FloatVector, C: float) -> FloatVector:
+    def __leakage_current(tc: FloatVector, C: float) -> FloatVector:
         """
-        tau_current uses default layout configuration and converts a time constant to a leakage current using the conversion method defined in ``DynapSimTime`` module
+        __leakage_current uses default layout configuration and converts a time constant to a leakage current using the conversion method defined in ``DynapSimTime`` module
 
         :param tc: the time constant in seconds
         :type tc: FloatVector
@@ -376,12 +354,13 @@ class DynapseNeurons(GenericNeurons):
         Itau = DynapSimTime.tau_converter(
             np.array(tc).flatten(), default_layout["Ut"], kappa, C
         )
-        return DynapseNeurons.to_list(Itau)
+        Itau = np.array(Itau, dtype=float).tolist()
+        return Itau
 
     @staticmethod
-    def gain_current(r: float, Itau: FloatVector) -> FloatVector:
+    def __gain_current(r: float, Itau: FloatVector) -> FloatVector:
         """
-        gain_current converts a gain ratio to a amplifier gain current using the leakage current provided
+        __gain_current converts a gain ratio to a amplifier gain current using the leakage current provided
 
         :param r: the desired amplifier gain ratio
         :type r: float
@@ -393,12 +372,14 @@ class DynapseNeurons(GenericNeurons):
         Igain = DynapSimGain.gain_current(
             Igain=None, r_gain=r, Itau=np.array(Itau).flatten()
         )
-        return DynapseNeurons.to_list(Igain)
+        Igain = np.array(Igain, dtype=float).tolist()
+
+        return Igain
 
     @staticmethod
-    def pulse_current(t_pw: FloatVector, C: float) -> FloatVector:
+    def __pulse_current(t_pw: FloatVector, C: float) -> FloatVector:
         """
-        pulse_current uses default layout configuration and converts a pulse width to a pulse current using the conversion method defined in ``DynapSimTime`` module
+        __pulse_current uses default layout configuration and converts a pulse width to a pulse current using the conversion method defined in ``DynapSimTime`` module
 
         :param t_pw: the pulse width in seconds
         :type t_pw: FloatVector
@@ -408,18 +389,5 @@ class DynapseNeurons(GenericNeurons):
         :rtype: FloatVector
         """
         Ipw = DynapSimTime.pw_converter(np.array(t_pw), default_layout["Vth"], C)
-        return DynapseNeurons.to_list(Ipw)
-
-    @staticmethod
-    def current_attrs() -> List[str]:
-        """
-        current_attrs lists all current paramters stored inside DynapseNeurons computational graph
-
-        :return: a list of parametric curents
-        :rtype: List[str]
-        """
-        return list(
-            DynapseNeurons.__dataclass_fields__.keys()
-            - GenericNeurons.__dataclass_fields__.keys()
-            - {"Iscale", "dt"}
-        )
+        Ipw = np.array(Ipw, dtype=float).tolist()
+        return Ipw
