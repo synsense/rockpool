@@ -7,6 +7,7 @@ E-mail : ugurcan.cakal@gmail.com
 
 15/09/2022
 """
+from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import matplotlib
@@ -14,6 +15,7 @@ import matplotlib
 import numpy as np
 import matplotlib.pyplot as plt
 
+from rockpool.nn.modules.jax import JaxModule
 from rockpool.timeseries import TSEvent, TSContinuous
 from rockpool.devices.dynapse.typehints import NeuronKey
 from rockpool.devices.dynapse.samna_alias import Dynapse2Destination
@@ -24,6 +26,7 @@ __all__ = [
     "split_yaxis",
     "visualize_device_sim",
     "FrozenNoiseDataset",
+    "plot_model_response",
 ]
 
 
@@ -246,6 +249,42 @@ def visualize_device_sim(
     __set_ticks(rec["channel_map"])
     plt.ylabel("Dynap-SE2")
     plt.tight_layout()
+
+
+def plot_model_response(
+    model: JaxModule,
+    dataset: FrozenNoiseDataset,
+    dt: float,
+    slice: Optional[List[int]] = None,
+) -> None:
+    """
+    plot_model_response is a utility function which simulates the given model with the samples of the dataset choosen.
+
+    :param model: the jax model to be simulated
+    :type model: JaxModule
+    :param dataset: a frozen noise dataset instance
+    :type dataset: FrozenNoiseDataset
+    :param dt: the simulation time step
+    :type dt: float
+    :param slice: the indices of the dataset chosen, defaults to None
+    :type slice: Optional[List[int]], optional
+    """
+
+    if slice is None:
+        slice = range(len(dataset))
+
+    for i in slice:
+        plt.figure()
+        # Get sample
+        sample, _ = dataset[i]
+
+        # Run simulation
+        model.reset_state()
+        out, _, _ = model(sample)
+
+        # Plot the spiking output
+        TSEvent.from_raster(out[0], dt=dt, name=f"Response to Sample {i}").plot()
+        plt.tight_layout()
 
 
 class FrozenNoiseDataset:
