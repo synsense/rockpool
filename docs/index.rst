@@ -76,10 +76,8 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    devices/DynapSE/dynapse-overview.ipynb
    devices/DynapSE/neuron-model.ipynb
    devices/DynapSE/quick-start.ipynb
-   devices/DynapSE/dc-excitation.ipynb
    devices/DynapSE/jax-training.ipynb
    devices/DynapSE/post-training.ipynb
-   devices/DynapSE/model-conversion.ipynb
 
 .. toctree::
    :maxdepth: 1
