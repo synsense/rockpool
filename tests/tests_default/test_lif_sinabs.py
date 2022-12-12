@@ -72,6 +72,8 @@ def test_FF_equality_exodus():
     tau_mem = 0.01
     tau_syn = 0.05
     threshold = 1.0
+    bias = 2
+
     # - init LIFTorch
     from rockpool.nn.modules.torch.lif_torch import LIFTorch
     from rockpool.parameters import Constant
@@ -84,6 +86,7 @@ def test_FF_equality_exodus():
         dt=1e-3,
         noise_std=0.0,
         threshold=threshold,
+        bias=bias,
     ).to("cuda")
 
     # - init LIFSlayer
@@ -97,17 +100,22 @@ def test_FF_equality_exodus():
         dt=1e-3,
         noise_std=0.0,
         threshold=threshold,
+        bias=bias,
     ).to("cuda")
 
     # - Generate some data
-    input_data = (
+    input_data_torch = (
         torch.rand(n_batches, T, n_synapses * n_neurons, requires_grad=True).cuda()
         * 0.01
     )
+    # Separate (but equal) input tensor for exodus, to compare gradients
+    input_data_sinabs = input_data_torch.clone().detach()
+    input_data_torch.requires_grad_(True)
+    input_data_sinabs.requires_grad_(True)
 
-    # - run LIFTorch and LIFSlayer
-    out_torch, ns_torch, rd_torch = lif_torch(input_data, record=True)
-    out_sinabs, ns_sinabs, rd_sinabs = lif_sinabs(input_data, record=True)
+    # - run LIFTorch and LIFExodus
+    out_torch, ns_torch, rd_torch = lif_torch(input_data_torch, record=True)
+    out_sinabs, ns_sinabs, rd_sinabs = lif_sinabs(input_data_sinabs, record=True)
 
     assert np.allclose(out_torch.detach().cpu(), out_sinabs.detach().cpu())
 
@@ -128,6 +136,13 @@ def test_FF_equality_exodus():
                 atol=1e-5,
                 rtol=1e-5,
             )
+
+    # - Backward pass
+    out_torch.sum().backward()
+    out_sinabs.sum().backward()
+
+    assert torch.allclose(lif_torch.bias.grad, lif_sinabs.bias.grad)
+    assert torch.allclose(input_data_torch.grad, input_data_sinabs.grad)
 
 
 def test_FF_multisyn_equality_exodus():
@@ -225,7 +240,6 @@ def test_exodus_membrane():
     if not torch.cuda.is_available():
         pytest.skip("CUDA is required for Exodus tests")
 
-    # - init LIFSlayer
     from rockpool.nn.modules import LIFMembraneExodus
 
     # - parameter
@@ -236,7 +250,7 @@ def test_exodus_membrane():
     tau_mem = 0.01
     tau_syn = 0.05
 
-    # - init LIFTorch
+    # - init LIFExodus
     lm_exodus = LIFMembraneExodus(
         shape=(n_synapses * n_neurons, n_neurons),
         tau_mem=tau_mem,
