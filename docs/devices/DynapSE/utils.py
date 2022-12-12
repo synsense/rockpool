@@ -7,7 +7,7 @@ E-mail : ugurcan.cakal@gmail.com
 
 15/09/2022
 """
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import matplotlib
 
@@ -16,8 +16,15 @@ import matplotlib.pyplot as plt
 
 from rockpool.timeseries import TSEvent, TSContinuous
 from rockpool.devices.dynapse.typehints import NeuronKey
+from rockpool.devices.dynapse.samna_alias import Dynapse2Destination
 
-__all__ = ["poisson_spike_train", "plot_Ix", "split_yaxis", "FrozenNoiseDataset"]
+__all__ = [
+    "poisson_spike_train",
+    "plot_Ix",
+    "split_yaxis",
+    "visualize_device_sim",
+    "FrozenNoiseDataset",
+]
 
 
 def poisson_spike_train(
@@ -174,6 +181,71 @@ def split_yaxis(
 
     arrange_ylim(top_ax, 1, f_top)
     arrange_ylim(bottom_ax, 0, f_bottom)
+
+
+def visualize_device_sim(
+    spikes_in: np.ndarray,
+    spikes_out: np.ndarray,
+    rec: Dict[str, Any],
+    input_channel_map: dict,
+    dt: float,
+) -> None:
+    """
+    visualize_device_sim is a utility function to help visualization of the device output with respect to given input raster
+
+    :param spikes_in: the input spike raster
+    :type spikes_in: np.ndarray
+    :param spikes_out: output spike raster
+    :type spikes_out: np.ndarray
+    :param rec: the record dictionary optained from `DynapSamna` evolution
+    :type rec: Dict[str, Any]
+    :param input_channel_map: the input channel map that is used in the `DynapSamna` configuration
+    :type input_channel_map: dict
+    :param dt: the simulation timestep (fetch from `DynapSamna` object)
+    :type dt: float
+    """
+
+    def __set_ticks(channel_map: dict) -> None:
+        """
+        __set_ticks obtain tags from the channel map and set the tick labels accordingly
+
+        :param channel_map: the input or output channel map
+        :type channel_map: dict
+        """
+        ticks = list(channel_map.keys())
+        labels = [__get_tag(dest) for dest in channel_map.values()]
+        plt.yticks(ticks, labels)
+
+    def __get_tag(dest: Union[List[Dynapse2Destination], Dynapse2Destination]) -> int:
+        """__get_tag fetches the tag from the channel map values. It can be list of destination objects or bare destination object"""
+        return __get_tag(dest[0]) if isinstance(dest, list) else dest.tag
+
+    # Prepare Figure
+    plt.figure()
+    fig, axes = plt.subplots(2, 1)
+
+    # Plot input spike train
+    plt.sca(axes[0])
+    TSEvent.from_raster(
+        spikes_in, t_start=rec["start_time"], t_stop=rec["stop_time"] + dt, dt=dt
+    ).plot()
+    plt.xlabel("")
+
+    ## -- Formatting
+    __set_ticks(input_channel_map)
+    plt.ylabel("Input")
+    plt.tight_layout()
+
+    # Plot output spike train
+    plt.sca(axes[1])
+    TSEvent.from_raster(
+        spikes_out, t_start=rec["start_time"], t_stop=rec["stop_time"] + dt, dt=dt
+    ).plot(color="firebrick")
+
+    ## - Formatting
+    __set_ticks(rec["channel_map"])
+    plt.ylabel("Dynap-SE2")
+    plt.tight_layout()
 
 
 class FrozenNoiseDataset:
