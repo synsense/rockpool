@@ -7,7 +7,6 @@ for more accurate simulation of DynapSE-2 bias generator
 from .parameter_name import *
 from .paramgen import *
 from .scaling import *
-from .transistor import *
 from .defaults import *
 
 ## Get FPGA configuration file

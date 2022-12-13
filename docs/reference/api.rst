@@ -249,6 +249,26 @@ Xylo hardware support and simulation
     devices.xylo.syns61201.XyloHiddenNeurons
     devices.xylo.syns61201.XyloOutputNeurons
 
+Dynap-SE2 hardware support and simulation
+------------------------------------
+
+.. autosummary::
+    :toctree: _autosummary
+
+    devices.dynapse.config_from_specification
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    devices.dynapse.DynapSim
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: module.rst
+
+    devices.dynapse
+
 
 Graph tracing and mapping
 -------------------------

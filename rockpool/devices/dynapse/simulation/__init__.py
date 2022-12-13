@@ -1,3 +1,3 @@
 from .dynapsim import *
-from .mismatch import *
 from .surrogate import *
+from .mismatch_prototype import *

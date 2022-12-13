@@ -22,12 +22,11 @@ from dataclasses import dataclass
 from rockpool.typehints import FloatVector
 
 from rockpool.graph import GraphHolder
-from rockpool.graph.utils import bag_graph
+from rockpool.graph.utils import find_recurrent_modules
 from rockpool.graph.graph_modules import LinearWeights
-from rockpool.devices.dynapse.typehints import DRCError
+from rockpool.typehints import DRCError
 
 from .graph import DynapseNeurons
-from .utils import recurrent_modules
 
 __all__ = ["DynapseGraphContainer"]
 
@@ -69,8 +68,7 @@ class DynapseGraphContainer:
         :return: a structured container which holds simulator, input and recurrent graphs seperately
         :rtype: DynapseGraphContainer
         """
-        nodes, modules = bag_graph(graph)
-        rec_mod = recurrent_modules(modules)
+        modules, rec_mod = find_recurrent_modules(graph)
 
         if len(modules) > 3:
             raise DRCError(

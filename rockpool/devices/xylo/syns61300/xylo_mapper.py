@@ -111,7 +111,7 @@ def all_neurons_have_same_dt(graph: GraphModuleBase) -> None:
 
 
 def output_neurons_cannot_be_recurrent(graph: GraphModuleBase) -> None:
-    recurrent_modules = find_recurrent_modules(graph)
+    _, recurrent_modules = find_recurrent_modules(graph)
 
     output_neurons = SetList()
     for n in graph.output_nodes:

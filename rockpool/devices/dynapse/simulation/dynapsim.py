@@ -3,10 +3,6 @@ Low level DynapSE simulator.
 Solves the characteristic equations to simulate the circuits.
 Trainable parameters
 
-renamed: dynapse1_neuron_synapse_jax.py -> adexplif_jax.py @ 211206
-renamed: adexplif_jax.py -> dynapsim.py @ 220502
-simplified : dynapsim -> dynapsim_simple @ 220907
-
 References
 
 [1] E. Chicca, F. Stefanini, C. Bartolozzi and G. Indiveri,
@@ -38,11 +34,6 @@ Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 13/07/2021
-
-[] TODO : Optional mismatch
-[] TODO : Check LIFjax for core.Tracer and all the other things
-[] TODO : max spikes per dt
-[] TODO : time and gain maybe as histogram
 """
 
 from __future__ import annotations
@@ -71,9 +62,10 @@ from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.nn.modules.native.linear import kaiming
 from rockpool.parameters import Parameter, State, SimulationParameter
 from rockpool.graph import GraphHolder, LinearWeights, as_GraphHolder
+from rockpool.transform.mismatch import mismatch_generator
 
 from .surrogate import step_pwl
-from .mismatch import dynapse_mismatch_generator
+from .mismatch_prototype import frozen_mismatch_prototype
 
 __all__ = ["DynapSim"]
 
@@ -193,7 +185,7 @@ class DynapSim(JaxModule):
     :type weight_init_func: Optional[Callable[[Tuple], np.ndarray]], optional
     :param dt: The time step for the forward-Euler ODE solver, defaults to 1e-3
     :type dt: float, optional
-    :param percent_mismatch: Gaussian parameter mismatch percentage (check ``dynapse_mismatch_generator`` implementation), defaults to None
+    :param percent_mismatch: Gaussian parameter mismatch percentage (check ``transforms.mismatch_generator`` implementation), defaults to None
     :type percent_mismatch: Optional[float], optional
     :param rng_key: The Jax RNG seed to use on initialisation. By default, a new seed is generated, defaults to None
     :type rng_key: Optional[jnp.DeviceArray], optional
@@ -404,12 +396,11 @@ class DynapSim(JaxModule):
 
         if percent_mismatch is not None:
             rng_key, _ = rand.split(rng_key)
-            regenerate_mismatch = dynapse_mismatch_generator(
-                percent_deviation=percent_mismatch
+            prototype = frozen_mismatch_prototype(self)
+            regenerate_mismatch = mismatch_generator(
+                prototype=prototype, percent_deviation=percent_mismatch
             )
-            new_params = regenerate_mismatch(
-                self.simulation_parameters(), rng_key=rng_key
-            )
+            new_params = regenerate_mismatch(self, rng_key=rng_key)
             for key in new_params:
                 self.__setattr__(key, new_params[key])
 

@@ -1,5 +1,5 @@
 """
-Dynap-SE1 common type hinting definitions
+Dynap-SE2 common type hinting definitions
 
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
@@ -9,6 +9,8 @@ E-mail : ugurcan.cakal@gmail.com
 
 from typing import Tuple
 import numpy as np
+
+__all__ = ["NeuronKey", "CoreKey", "DynapSimRecord", "DynapSimState"]
 
 NeuronKey = Tuple[np.uint8, np.uint8, np.uint16]
 CoreKey = Tuple[np.uint8, np.uint8]
@@ -37,11 +39,3 @@ DynapSimState = Tuple[
     np.ndarray,  # timer_ref
     np.ndarray,  # vmem
 ]
-
-
-class DRCError(ValueError):
-    pass
-
-
-class DRCWarning(Warning, DRCError):
-    pass

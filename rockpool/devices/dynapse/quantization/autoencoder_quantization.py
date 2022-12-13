@@ -73,7 +73,7 @@ def autoencoder_quantization(
         __temp = learn_weights(
             w_in,
             w_rec,
-            Iscale[n],
+            Iscale,
             n_bits,
             fixed_epoch,
             num_epoch,

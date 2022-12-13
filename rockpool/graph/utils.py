@@ -17,7 +17,7 @@ from rockpool.graph.graph_base import (
 
 import copy
 
-from typing import Any, Optional, Union, Iterable
+from typing import Any, Optional, Tuple, Iterable
 
 __all__ = [
     "connect_modules",
@@ -131,7 +131,7 @@ def bag_graph(
     graph: GraphModuleBase,
     nodes_bag: Optional[SetList[GraphNode]] = None,
     modules_bag: Optional[SetList[GraphModule]] = None,
-) -> (SetList[GraphNode], SetList[GraphModule]):
+) -> Tuple[SetList[GraphNode]]:
     """
     Convert a graph into a collection of connection nodes and modules, by traversal
 
@@ -143,7 +143,7 @@ def bag_graph(
         modules_bag (SetList): The initial modules bag. Used in recursive calls. Default: ``None``
 
     Returns:
-        (SetList[GraphNode], SetList[GraphModule]): nodes, modules. `nodes` will be a :py:class:`SetList` containing all the reachable :py:class:`GraphNode` s in `graph`. `modules` will be a :py:class:`SetList` containing all the reachable :py:class:`GraphModule` s in `graph`.
+        Tuple[SetList[GraphNode]]: nodes, modules. `nodes` will be a :py:class:`SetList` containing all the reachable :py:class:`GraphNode` s in `graph`. `modules` will be a :py:class:`SetList` containing all the reachable :py:class:`GraphModule` s in `graph`.
     """
     nodes_bag = SetList() if nodes_bag is None else nodes_bag
     modules_bag = SetList() if modules_bag is None else modules_bag
@@ -234,7 +234,7 @@ def replace_module(target_module: GraphModule, replacement_module: GraphModule) 
     replacement_module.output_nodes = target_module.output_nodes
 
 
-def find_recurrent_modules(graph: GraphModuleBase) -> SetList[GraphModule]:
+def find_recurrent_modules(graph: GraphModuleBase) -> Tuple[SetList[GraphModule]]:
     """
     Search for graph modules that are connected in a one-module loop
 
@@ -245,6 +245,7 @@ def find_recurrent_modules(graph: GraphModuleBase) -> SetList[GraphModule]:
 
     Returns:
         SetList[GraphModule]: A collection containing all identified recurrent modules in the graph
+        Tuple[SetList[GraphNode]] : modules, recurrent_modules. `modules` will be a :py:class:`SetList` containing all the reachable :py:class:`GraphModule` s in `graph`. `recurrent_modules` is a collection containing all identified recurrent modules in the graph
     """
     _, modules = bag_graph(graph)
 
@@ -262,4 +263,4 @@ def find_recurrent_modules(graph: GraphModuleBase) -> SetList[GraphModule]:
         if len(set(source_modules).intersection(dest_modules)) > 0:
             recurrent_modules.add(m)
 
-    return recurrent_modules
+    return modules, recurrent_modules

@@ -1,5 +1,5 @@
 """
-Dynap-SE1/SE2 default simulation parameters
+Dynap-SE2 default simulation parameters
 
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
