@@ -14,6 +14,7 @@ import matplotlib
 
 import numpy as np
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 from rockpool.nn.modules.jax import JaxModule
 from rockpool.timeseries import TSEvent, TSContinuous
@@ -27,6 +28,7 @@ __all__ = [
     "visualize_device_sim",
     "FrozenNoiseDataset",
     "plot_model_response",
+    "plot_model_response_histogram",
 ]
 
 
@@ -221,7 +223,10 @@ def visualize_device_sim(
 
     def __get_tag(dest: Union[List[Dynapse2Destination], Dynapse2Destination]) -> int:
         """__get_tag fetches the tag from the channel map values. It can be list of destination objects or bare destination object"""
-        return __get_tag(dest[0]) if isinstance(dest, list) else dest.tag
+        if isinstance(dest, list):
+            return __get_tag(dest[0]) if dest else -1
+        else:
+            return dest.tag
 
     # Prepare Figure
     plt.figure()
@@ -281,15 +286,68 @@ def plot_model_response(
         # Run simulation
         model.reset_state()
         out, _, _ = model(sample)
-
+        frr_flat = np.sum(out, axis=1).flatten()
+        frr = max(frr_flat) / min(frr_flat)
         # Plot the spiking output
-        TSEvent.from_raster(out[0], dt=dt, name=f"Response to Sample {i}").plot()
+        TSEvent.from_raster(
+            out[0],
+            dt=dt,
+            name=f"Response to Sample {i} (FRR = {max(frr_flat):.2f}/{min(frr_flat):.2f} = {frr:.2f})",
+        ).plot()
         plt.tight_layout()
+
+
+def plot_model_response_histogram(
+    model: JaxModule,
+    dataset: FrozenNoiseDataset,
+    slice: Optional[List[int]] = None,
+    bins: int = 10,
+) -> None:
+    """
+    plot_model_response_histogram is a utility function which simulates the given model with the samples of the dataset choosen, and collects the firing rates in an histogram.
+
+    :param model: the jax model to be simulated
+    :type model: JaxModule
+    :param dataset: a frozen noise dataset instance
+    :type dataset: FrozenNoiseDataset
+    :param slice: the indices of the dataset chosen, defaults to None
+    :type slice: Optional[List[int]], optional
+    :param bins: number of bins in the histogram, defaults to 10
+    :type bins: int, optional
+    
+    """
+
+
+    if slice is None:
+        slice = range(len(dataset))
+
+    iteration = tqdm(slice, desc="Histogram", unit=" iteration", total=max(list(slice)))
+
+    rec = []
+
+    for i in iteration:
+
+        # Get sample and the target
+        sample, target = dataset[i]
+
+        # Run simulation
+        model.reset_state()
+        out, _, _ = model(sample)
+
+        # Get FRR
+        frr_flat = np.sum(out, axis=1).flatten()
+        frr = max(frr_flat) / min(frr_flat)
+        rec.append(float(frr))
+
+    plt.hist(rec, bins=bins)
+    plt.ylabel("Count")
+    plt.xlabel("Firing Rate Ratio")
+    plt.tight_layout()
 
 
 class FrozenNoiseDataset:
     """
-    FrozenNoise is a synthetic dataset implementation for testing DynapSim training pipeline.
+    FrozenNoise is a synthetic dataset implementation for testing DynapSE-2 simulation pipeline.
     It generates possion spike train rasters
 
     :param n_samples: number of samples included in the dataset
@@ -338,6 +396,10 @@ class FrozenNoiseDataset:
         :rtype: Tuple[np.ndarray]
         """
         return self.input_raster[index], self.labels[index]
+
+    @property
+    def full_batch(self) -> Tuple[np.ndarray]:
+        return self[:, :, :]
 
     def __len__(self) -> int:
         """__len__ returns the number of samples stored"""
