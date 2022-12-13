@@ -238,10 +238,8 @@ class MemorySE2:
         unique_rec_loc = set(recurrent_locations)
 
         # n_rec equals to the maximum of unique input locations and unique recurrent locations
-        if len(unique_input_loc) > len(unique_rec_loc):
-            post_idx_map = dict(zip(unique_input_loc, range(len(unique_input_loc))))
-        else:
-            post_idx_map = dict(zip(unique_rec_loc, range(len(unique_rec_loc))))
+        post_idx_map = dict(zip(unique_input_loc, range(len(unique_input_loc))))
+        post_idx_map.update(dict(zip(unique_rec_loc, range(len(unique_rec_loc)))))
 
         return post_idx_map
 
