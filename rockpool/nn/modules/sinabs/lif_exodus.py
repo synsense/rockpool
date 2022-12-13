@@ -162,11 +162,11 @@ class LIFExodus(LIFBaseTorch):
             .flatten(0, 1)
             .contiguous()
         )
-        isyn_exodus = isyn_exodus + bias
+        isyn_with_bias = isyn_exodus + bias
 
         # Membrane dynamics: Calculate v_mem
         spikes, vmem_exodus = IntegrateAndFire.apply(
-            isyn_exodus.sum(1).contiguous(),  # input
+            isyn_with_bias.sum(1).contiguous(),  # input
             alpha.contiguous(),  # alpha
             vmem.flatten().contiguous(),  # init state
             threshold,  # threshold

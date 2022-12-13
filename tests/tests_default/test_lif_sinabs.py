@@ -72,7 +72,7 @@ def test_FF_equality_exodus():
     tau_mem = 0.01
     tau_syn = 0.05
     threshold = 1.0
-    bias = 2
+    bias = 0.3
 
     # - init LIFTorch
     from rockpool.nn.modules.torch.lif_torch import LIFTorch
