@@ -315,6 +315,7 @@ class WaveSenseNet(TorchModule):
         base_tau_syn: float = Constant(20e-3),
         tau_lp: float = Constant(20e-3),
         threshold: float = Constant(1.0),
+        threshold_out: float = Constant(1.0),
         neuron_model: TorchModule = LIFTorch,
         neuron_model_out: TorchModule = None,
         dt: float = 1e-3,
@@ -432,7 +433,7 @@ class WaveSenseNet(TorchModule):
                 tau_mem=Constant(tau_lp),
                 tau_syn=Constant(tau_lp),
                 bias=bias,
-                threshold=Constant(threshold),
+                threshold=Constant(threshold_out),
                 has_rec=False,
                 w_rec=None,
                 noise_std=0,
@@ -476,6 +477,7 @@ class WaveSenseNet(TorchModule):
         # Pass through each wave block in turn
         skip = 0
         for wave_index, wave_block in enumerate(self.wave_blocks):
+
             (out, skip_new), _, self._record_dict[f"wave{wave_index}"] = wave_block(
                 out, record=self._record
             )
