@@ -349,6 +349,7 @@ class WaveSenseNet(TorchModule):
             shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs
         )
 
+        self.n_classes = n_classes
         self.n_channels_res = n_channels_res
         self.n_channels_skip = n_channels_skip
 
@@ -385,6 +386,7 @@ class WaveSenseNet(TorchModule):
 
         # - WaveBlock layers
         self._num_dilations = len(dilations)
+        self.wave_blocks = []
         for i, dilation in enumerate(dilations):
             wave = WaveSenseBlock(
                 n_channels_res,
@@ -399,6 +401,7 @@ class WaveSenseNet(TorchModule):
                 dt=dt,
             )
             self.__setattr__(f"wave{i}", wave)
+            self.wave_blocks.append(wave)
 
         # Dense readout layers
         self.hidden = LinearTorch(shape=(n_channels_skip, n_hidden), has_bias=False)
@@ -472,8 +475,7 @@ class WaveSenseNet(TorchModule):
 
         # Pass through each wave block in turn
         skip = 0
-        for wave_index in range(self._num_dilations):
-            wave_block = self.modules()[f"wave{wave_index}"]
+        for wave_index, wave_block in enumerate(self.wave_blocks):
             (out, skip_new), _, self._record_dict[f"wave{wave_index}"] = wave_block(
                 out, record=self._record
             )
