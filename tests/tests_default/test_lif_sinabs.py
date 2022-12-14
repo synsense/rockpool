@@ -202,4 +202,3 @@ def test_exodus_membrane():
     out_sinabs.sum().backward()
     lm_exodus.tau_mem.grad
     lm_exodus.tau_syn.grad
-

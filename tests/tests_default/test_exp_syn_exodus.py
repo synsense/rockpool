@@ -26,7 +26,7 @@ def test_ExpSynExodus():
     # - init ExpSynExodus
     lm_exodus = ExpSynExodus(
         shape=n_synapses,
-        tau_syn=tau_syn,
+        tau=tau_syn,
         dt=1e-3,
     ).to("cuda")
 
@@ -37,3 +37,4 @@ def test_ExpSynExodus():
     out_sinabs.sum().backward()
     lm_exodus.tau_syn.grad
 
+    assert out_sinabs.shape == (n_batches, T, n_synapses)

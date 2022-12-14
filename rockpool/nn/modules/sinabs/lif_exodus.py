@@ -218,8 +218,9 @@ class ExpSynExodus(LIFBaseTorch):
     def __init__(
         self,
         shape: tuple,
-        tau_syn: P_float = 0.05,
+        tau: P_float = 0.05,
         noise_std: P_float = 0.0,
+        dt: float = 1e-3,
         *args,
         **kwargs,
     ):
@@ -268,9 +269,10 @@ class ExpSynExodus(LIFBaseTorch):
         # - Initialise superclass
         super().__init__(
             shape=shape,
-            tau_syn=tau_syn,
+            tau_syn=tau,
             has_rec=False,
             noise_std=0.0,
+            dt=dt,
             *args,
             **kwargs,
         )
@@ -304,7 +306,7 @@ class ExpSynExodus(LIFBaseTorch):
         Returns
         -------
         out: Tensor
-            Out of spikes with the shape (batch, time_steps, n_neurons)
+            Out of spikes with the shape (batch, time_steps, n_synapses)
 
         """
         # - Ensure input data is on GPU
@@ -347,7 +349,9 @@ class ExpSynExodus(LIFBaseTorch):
         )
 
         # Save synaptic currents and return
-        self._record_dict["isyn"] = isyn_exodus
+        self._record_dict["isyn"] = isyn_exodus.reshape(
+            n_batches, time_steps, self.size_out
+        )
         self.isyn = isyn_exodus[0, -1].detach()
         return self._record_dict["isyn"]
 
