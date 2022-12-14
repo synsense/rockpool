@@ -1,0 +1,116 @@
+"""
+A module implementing random dropout of neurons
+"""
+
+from rockpool.nn.modules.torch import TorchModule
+from rockpool.parameters import Parameter, SimulationParameter, State
+
+from typing import Tuple
+
+import torch
+
+__all__ = ["NeuronDropout", "TimeStepDropout"]
+
+
+class NeuronDropout(TorchModule):
+    """
+    For each gradient update neurons are dropped with a given probability. Neurons are muted for the entire sample in
+    the forward and the backward pass.
+
+    TODO: should we use torch scaling 1/(1-p)
+    """
+
+    def __init__(
+        self,
+        shape: Tuple[int],
+        p: float = 0.5,
+        training: bool = True,
+        *args,
+        **kwargs,
+    ):
+        """
+        Initialise a dropout module
+
+        Args:
+            shape (Tuple): The shape of this module
+            p (float): Probability that neuron is silenced. Default: 0.5 (same as in pytorch)
+            training (bool): Inidcates training or evaluation mode. Dropout is disabled for validation/testing.
+        """
+        # - Initialise superclass
+        super().__init__(
+            shape=shape, spiking_input=False, spiking_output=False, *args, **kwargs
+        )
+
+        if self.size_in != self.size_out:
+            raise ValueError("`size_in` must be equal to `size_out` for Dropout.")
+
+        if p > 1.0 or p < 0.0:
+            raise ValueError("dropout probability must be between zero and one")
+
+        self.p = SimulationParameter(p)
+        self.training = training
+
+
+    def forward(self, data: torch.Tensor):
+        (num_batches, num_timesteps, num_neurons) = data.shape
+
+        if self.training:
+            # - mask input
+            mask = torch.ones((num_batches, num_neurons, num_timesteps), device=data.device)
+            probs = torch.rand((num_batches, num_neurons))
+            mask[probs < self.p] = 0
+            mask = torch.swapaxes(mask, 1, 2)
+            return data * mask
+        else:
+            return data
+
+
+class TimeStepDropout(TorchModule):
+    """
+    For each gradient update time steps are dropped with a given probability.
+
+    TODO: should we use torch scaling 1/(1-p)
+    """
+
+    def __init__(
+        self,
+        shape: Tuple[int],
+        p: float = 0.5,
+        training: bool = True,
+        *args,
+        **kwargs,
+    ):
+        """
+        Initialise a dropout module
+
+        Args:
+            shape (Tuple): The shape of this module
+            p (float): Probability that neuron is silenced. Default: 0.5 (same as in pytorch)
+            training (bool): Indicates training or evaluation mode. Dropout is disabled for validation/testing.
+        """
+        # - Initialise superclass
+        super().__init__(
+            shape=shape, spiking_input=False, spiking_output=False, *args, **kwargs
+        )
+
+        if self.size_in != self.size_out:
+            raise ValueError("`size_in` must be equal to `size_out` for Dropout.")
+
+        if p > 1.0 or p < 0.0:
+            raise ValueError("dropout probability must be between zero and one")
+
+        self.p = SimulationParameter(p)
+        self.training = training
+
+
+    def forward(self, data: torch.Tensor):
+        (num_batches, num_timesteps, num_neurons) = data.shape
+
+        if self.training:
+            # - mask input
+            mask = torch.ones((num_batches, num_timesteps, num_neurons), device=data.device)
+            probs = torch.rand((num_batches, num_timesteps, num_neurons))
+            mask[probs < self.p] = 0
+            return data * mask
+        else:
+            return data

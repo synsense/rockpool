@@ -16,6 +16,7 @@ try:
     from .updown_torch import *
     from .linear_torch import *
     from .bool_state import *
+    from .dropout import *
 except:
     from rockpool.utilities.backend_management import (
         backend_available,
