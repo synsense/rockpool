@@ -20,7 +20,7 @@ from sinabs.exodus.leaky import LeakyIntegrator
 
 from sinabs.activation import Heaviside, SingleExponential
 
-__all__ = ["LIFExodus", "LIFMembraneExodus", "LIFSlayer"]
+__all__ = ["LIFExodus", "LIFMembraneExodus", "LIFSlayer", "ExpSynExodus"]
 
 
 class LIFExodus(LIFBaseTorch):
