@@ -476,7 +476,6 @@ class WaveSenseNet(TorchModule):
         # Pass through each wave block in turn
         skip = 0
         for wave_index, wave_block in enumerate(self.wave_blocks):
-
             (out, skip_new), _, self._record_dict[f"wave{wave_index}"] = wave_block(
                 out, record=self._record
             )
