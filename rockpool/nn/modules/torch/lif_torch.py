@@ -123,6 +123,7 @@ class LIFBaseTorch(TorchModule):
     def __init__(
         self,
         shape: tuple,
+        train_mode: str = 'taus', 
         tau_mem: Optional[Union[FloatVector, P_float]] = None,
         tau_syn: Optional[Union[FloatVector, P_float]] = None,
         alpha: Optional[Union[FloatVector, P_float]] = None,
@@ -131,8 +132,6 @@ class LIFBaseTorch(TorchModule):
         dash_syn: Optional[Union[IntVector, P_int]] = None,
         bias: Optional[FloatVector] = None,
         threshold: Optional[FloatVector] = None,
-        decay_training: P_bool = False,
-        BitShift_training: P_bool = False,
         has_rec: P_bool = False,
         w_rec: torch.Tensor = None,
         noise_std: P_float = 0.0,
@@ -151,8 +150,24 @@ class LIFBaseTorch(TorchModule):
 
         Args:
             shape (tuple): Either a single dimension ``(Nout,)``, which defines a feed-forward layer of LIF modules with equal amounts of synapses and neurons, or two dimensions ``(Nin, Nout)``, which defines a layer of ``Nin`` synapses and ``Nout`` LIF neurons.
+            train_mode (str): sets the training mode of time constants:    Default: 'taus'
+
+            if 'taus' tau_mem and tau_syn are set to trainable parameters
+            if 'decays' alpha and beta are set to trainable parameters (alpha and beta are:  \exp(-dt / \tau_{mem}) and  \exp(-dt / \tau_{syn}) respectively)
+            if 'bitshifts' dash_mem and dash_syn are set to traianble parameters. dash_mem and dash_syn are bitshift equivalent of decays alpha = 1-(1/(2**dash_mem))
+
+            Note:
+            if time constants (taus) are not passed as Constant in the instantiation of module they will be set to traianble parameters (default train_mode). The user can choose to train time constants in different parameter spaces as well (decays and bitshifts)
+
             tau_mem (Optional[FloatVector]): An optional array with concrete initialisation data for the membrane time constants. If not provided, 20ms will be used by default.
             tau_syn (Optional[FloatVector]): An optional array with concrete initialisation data for the synaptic time constants. If not provided, 20ms will be used by default.
+
+            alpha (Optional[FloatVector]): An optional array with concrete initialisation data for the membrane decays. If not provided, 0.5 will be used by default.
+            beta (Optional[FloatVector]): An optional array with concrete initialisation data for the synaptic decays. If not provided, 0.5 will be used by default.
+
+            dash_mem (Optional[FloatVector]): An optional array with concrete initialisation data for the membrane bitshifts. If not provided, 1 will be used by default.
+            dash_syn (Optional[FloatVector]): An optional array with concrete initialisation data for the synaptic bitshifts. If not provided, 1 will be used by default.
+
             bias (Optional[FloatVector]): An optional array with concrete initialisation data for the neuron bias currents. If not provided, ``0.0`` will be used by default.
             threshold (FloatVector): An optional array specifying the firing threshold of each neuron. If not provided, ``1.`` will be used by default.
             has_rec (bool): When ``True`` the module provides a trainable recurrent weight matrix. Default ``False``, module is feed-forward.
@@ -163,7 +178,14 @@ class LIFBaseTorch(TorchModule):
             max_spikes_per_dt (int): The maximum number of events that will be produced in a single time-step. Default: ``np.inf``; do not clamp spiking.
             weight_init_func (Optional[Callable[[Tuple], torch.tensor]): The initialisation function to use when generating recurrent weights. Default: ``None`` (Kaiming initialisation)
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
+
         """
+        
+
+        # - Check training mode
+
+        assert train_mode in ['taus','decays','bitshifts'], "In case of training time constants training of LIFTorch neurons can be done only in one of the following modes: taus, decays, bitshifts"
+
         # - Check shape argument
         if np.size(shape) == 1:
             shape = (np.array(shape).item(), np.array(shape).item())
@@ -210,10 +232,12 @@ class LIFBaseTorch(TorchModule):
         self.noise_std: P_float = rp.SimulationParameter(noise_std)
         """ (float) Noise std.dev. injected onto the membrane of each neuron during evolution """
 
-        self.decay_training = decay_training
-        self.BitShift_training = BitShift_training
+        # self.decay_training = decay_training
+        # self.BitShift_training = BitShift_training
 
-        if not (self.decay_training or self.BitShift_training):
+        self.train_mode = train_mode
+        if not (self.train_mode == 'decays' or  self.train_mode == 'bitshifts'):
+        # if not (self.decay_training or self.BitShift_training):
             self.tau_mem: P_tensor = rp.Parameter(
                 tau_mem,
                 family="taus",
@@ -242,7 +266,9 @@ class LIFBaseTorch(TorchModule):
             )
             """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
 
-        if self.decay_training:
+        # if self.decay_training:
+
+        if self.train_mode == 'decays':  
 
             self.alpha: P_tensor = rp.Parameter(
                 alpha,
@@ -272,7 +298,8 @@ class LIFBaseTorch(TorchModule):
             )
         """ (Tensor) Synaptic decay factor `(Nin,)` or `()` """
 
-        if self.BitShift_training:
+        # if self.BitShift_training:
+        if self.train_mode == 'bitshifts':    
 
             self.dash_mem: P_tensor = rp.Parameter(
                 dash_mem,
@@ -283,7 +310,9 @@ class LIFBaseTorch(TorchModule):
             )
         """ (Tensor) Membrane bitshift in xylo `(Nout,)` or `()` """
 
-        if self.BitShift_training:
+        # if self.BitShift_training:
+        if self.train_mode == 'bitshifts':    
+    
 
             self.dash_syn: P_tensor = rp.Parameter(
                 dash_syn,
@@ -378,11 +407,13 @@ class LIFBaseTorch(TorchModule):
 
     def as_graph(self) -> GraphModuleBase:
         # - Get neuron parameters for export
-        if self.decay_training:
+        if self.train_mode == 'decays':
+        # if self.decay_training:
             self.tau_mem, self.tau_syn = -(self.dt / torch.log(self.alpha)), -(
                 self.dt / torch.log(self.beta)
             )
-        elif self.BitShift_training:
+        elif self.train_mode == 'bitshifts':
+        # elif self.BitShift_training:
             self.tau_mem, self.tau_syn = -(
                 self.dt / torch.log(1 - 1 / (2**self.dash_mem))
             ), -(self.dt / torch.log(1 - 1 / (2**self.dash_syn)))
@@ -517,10 +548,12 @@ class LIFTorch(LIFBaseTorch):
         self._record_dict["spikes"] = torch.zeros(
             n_batches, n_timesteps, self.size_out, device=input_data.device
         )
-
-        if self.decay_training:
+        if self.train_mode == 'decays':
+        # if self.decay_training:
             alpha, beta = self.alpha, self.beta
-        elif self.BitShift_training:
+
+        elif self.train_mode == 'bitshifts':
+        # elif self.BitShift_training:
             alpha, beta = 1 - 1 / (2**self.dash_mem), 1 - 1 / (2**self.dash_syn)
         else:
             alpha, beta = self.calc_alpha(), self.calc_beta()
