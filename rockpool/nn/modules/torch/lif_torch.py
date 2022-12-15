@@ -184,7 +184,7 @@ class LIFBaseTorch(TorchModule):
 
         # - Check training mode
 
-        assert train_mode in ['taus','decays','bitshifts'], "In case of training time constants training of LIFTorch neurons can be done only in one of the following modes: taus, decays, bitshifts"
+        assert train_mode in ['taus','decays','bitshifts'], "Training of time constants in LIFTorch neurons can be done only in one of the following modes: taus, decays, bitshifts"
 
         # - Check shape argument
         if np.size(shape) == 1:
