@@ -1,6 +1,8 @@
 import pytest
 
 pytest.importorskip("torch")
+pytest.importorskip("sinabs")
+pytest.importorskip("sinabs.exodus")
 
 
 def test_import_ExpSynExodus():
