@@ -50,6 +50,8 @@ def test_ahp_LIFTorch_bias():
     from rockpool.nn.modules.torch.ahp_lif_torch import aLIFTorch
     import torch
 
+    torch.seed(1)
+
     n_synapses = 1
     n_neurons = 1
     n_batches = 1
