@@ -142,4 +142,3 @@ def test_exodus_membrane():
     assert lm_exodus.tau_mem.grad is not None
     assert lm_exodus.tau_syn.grad is not None
     assert lm_exodus.bias.grad is not None
-
