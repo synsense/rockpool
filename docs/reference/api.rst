@@ -117,6 +117,7 @@ Time series classes
 
     nn.modules.LIFExodus
     nn.modules.LIFMembraneExodus
+    nn.modules.ExpSynExodus
 
 
 :py:class:`Layer` subclasses from Rockpool v1
