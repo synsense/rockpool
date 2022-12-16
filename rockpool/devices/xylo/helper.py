@@ -2,9 +2,12 @@
 Helper function used to check board version and import matching packages.
 """
 
-from rockpool.utilities.backend_management import backend_available, missing_backend_shim
+from rockpool.utilities.backend_management import (
+    backend_available,
+    missing_backend_shim,
+)
 
-if backend_available('samna'):
+if backend_available("samna"):
     import samna
 
     def find_xylo_hdks():
@@ -34,7 +37,8 @@ if backend_available('samna'):
                 xylo_versions.append("syns61201")
 
             elif (
-                d.device_type_name == "XyloDevKit" or d.device_type_name == "XyloTestBoard"
+                d.device_type_name == "XyloDevKit"
+                or d.device_type_name == "XyloTestBoard"
             ):
                 print(
                     "The connected Xylo HDK contains a Xylo SNN core (SYNS61300). Importing `rockpool.devices.xylo.syns61300`"
@@ -49,4 +53,4 @@ if backend_available('samna'):
         return xylo_hdks, xylo_support_modules, xylo_versions
 
 else:
-    find_xylo_hdks = missing_backend_shim('find_xylo_hdks', 'samna')
+    find_xylo_hdks = missing_backend_shim("find_xylo_hdks", "samna")
