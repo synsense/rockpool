@@ -120,6 +120,7 @@ def test_exodus_membrane():
     T = 100
     tau_mem = 0.01
     tau_syn = 0.05
+    bias = 0.1
 
     # - init LIFExodus
     lm_exodus = LIFMembraneExodus(
@@ -127,6 +128,7 @@ def test_exodus_membrane():
         tau_mem=tau_mem,
         tau_syn=tau_syn,
         dt=1e-3,
+        bias=bias,
     ).to("cuda")
 
     # - Generate some data
@@ -137,5 +139,7 @@ def test_exodus_membrane():
 
     out_sinabs, ns_sinabs, rd_sinabs = lm_exodus(input_data)
     out_sinabs.sum().backward()
-    lm_exodus.tau_mem.grad
-    lm_exodus.tau_syn.grad
+    assert lm_exodus.tau_mem.grad is not None
+    assert lm_exodus.tau_syn.grad is not None
+    assert lm_exodus.bias.grad is not None
+
