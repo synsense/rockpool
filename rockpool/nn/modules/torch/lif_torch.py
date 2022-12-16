@@ -123,7 +123,7 @@ class LIFBaseTorch(TorchModule):
     def __init__(
         self,
         shape: tuple,
-        train_mode: str = 'taus', 
+        train_mode: str = "taus",
         tau_mem: Optional[Union[FloatVector, P_float]] = None,
         tau_syn: Optional[Union[FloatVector, P_float]] = None,
         alpha: Optional[Union[FloatVector, P_float]] = None,
@@ -180,11 +180,15 @@ class LIFBaseTorch(TorchModule):
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
 
         """
-        
 
         # - Check training mode
+        assert train_mode in [
+            "taus",
+            "decays",
+            "bitshifts",
+        ], "Training of time constants in LIFTorch neurons can be done only in one of the following modes: taus, decays, bitshifts"
 
-        assert train_mode in ['taus','decays','bitshifts'], "Training of time constants in LIFTorch neurons can be done only in one of the following modes: taus, decays, bitshifts"
+        self.train_mode = train_mode
 
         # - Check shape argument
         if np.size(shape) == 1:
@@ -232,13 +236,8 @@ class LIFBaseTorch(TorchModule):
         self.noise_std: P_float = rp.SimulationParameter(noise_std)
         """ (float) Noise std.dev. injected onto the membrane of each neuron during evolution """
 
-        # self.decay_training = decay_training
-        # self.BitShift_training = BitShift_training
-
-        self.train_mode = train_mode
-        if not (self.train_mode == 'decays' or  self.train_mode == 'bitshifts'):
-        # if not (self.decay_training or self.BitShift_training):
-            self.tau_mem: P_tensor = rp.Parameter(
+        if self.train_mode == "taus":
+            self._tau_mem: P_tensor = rp.Parameter(
                 tau_mem,
                 family="taus",
                 shape=[(self.size_out,), ()],
@@ -247,7 +246,7 @@ class LIFBaseTorch(TorchModule):
             )
             """ (Tensor) Membrane time constants `(Nout,)` or `()` """
 
-            self.tau_syn: P_tensor = rp.Parameter(
+            self._tau_syn: P_tensor = rp.Parameter(
                 tau_syn,
                 family="taus",
                 shape=[
@@ -266,11 +265,8 @@ class LIFBaseTorch(TorchModule):
             )
             """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
 
-        # if self.decay_training:
-
-        if self.train_mode == 'decays':  
-
-            self.alpha: P_tensor = rp.Parameter(
+        elif self.train_mode == "decays":
+            self._alpha: P_tensor = rp.Parameter(
                 alpha,
                 family="decays",
                 shape=[(self.size_out,), ()],
@@ -279,7 +275,7 @@ class LIFBaseTorch(TorchModule):
             )
             """ (Tensor) Membrane decay factor `(Nout,)` or `()` """
 
-            self.beta: P_tensor = rp.Parameter(
+            self._beta: P_tensor = rp.Parameter(
                 beta,
                 family="decays",
                 shape=[
@@ -296,25 +292,19 @@ class LIFBaseTorch(TorchModule):
                 init_func=lambda s: torch.ones(s) * 0.5,
                 cast_fn=to_float_tensor,
             )
-        """ (Tensor) Synaptic decay factor `(Nin,)` or `()` """
+            """ (Tensor) Synaptic decay factor `(Nin,)` or `()` """
 
-        # if self.BitShift_training:
-        if self.train_mode == 'bitshifts':    
-
-            self.dash_mem: P_tensor = rp.Parameter(
+        elif self.train_mode == "bitshifts":
+            self._dash_mem: P_tensor = rp.Parameter(
                 dash_mem,
                 family="bitshifts",
                 shape=[(self.size_out,), ()],
                 init_func=lambda s: torch.ones(s),
                 cast_fn=to_float_tensor,
             )
-        """ (Tensor) Membrane bitshift in xylo `(Nout,)` or `()` """
+            """ (Tensor) membrane bitshift in xylo `(Nout,)` or `()` """
 
-        # if self.BitShift_training:
-        if self.train_mode == 'bitshifts':    
-    
-
-            self.dash_syn: P_tensor = rp.Parameter(
+            self._dash_syn: P_tensor = rp.Parameter(
                 dash_syn,
                 family="bitshifts",
                 shape=[
@@ -331,7 +321,7 @@ class LIFBaseTorch(TorchModule):
                 init_func=lambda s: torch.ones(s),
                 cast_fn=to_float_tensor,
             )
-        """ (Tensor) synaptic bitshift in xylo `(Nout,)` or `()` """
+            """ (Tensor) synaptic bitshift in xylo `(Nout,)` or `()` """
 
         self.bias: P_tensor = rp.Parameter(
             bias,
@@ -407,16 +397,6 @@ class LIFBaseTorch(TorchModule):
 
     def as_graph(self) -> GraphModuleBase:
         # - Get neuron parameters for export
-        if self.train_mode == 'decays':
-        # if self.decay_training:
-            self.tau_mem, self.tau_syn = -(self.dt / torch.log(self.alpha)), -(
-                self.dt / torch.log(self.beta)
-            )
-        elif self.train_mode == 'bitshifts':
-        # elif self.BitShift_training:
-            self.tau_mem, self.tau_syn = -(
-                self.dt / torch.log(1 - 1 / (2**self.dash_mem))
-            ), -(self.dt / torch.log(1 - 1 / (2**self.dash_syn)))
 
         tau_mem = self.tau_mem.expand((self.size_out,)).flatten().detach().cpu().numpy()
         tau_syn = (
@@ -469,6 +449,107 @@ class LIFBaseTorch(TorchModule):
         Decay factor for synaptic time constants :py:attr:`.LIFTorch.tau_syn`
         """
         return torch.exp(-self.dt / self.tau_syn).to(self.tau_syn.device)
+
+    @property
+    def alpha(self) -> torch.Tensor:
+        if self.train_mode == "taus":
+            alpha = torch.exp(-self.dt / self._tau_mem).to(self._tau_mem.device)
+
+        elif self.train_mode == "decays":
+            alpha = self._alpha
+
+        elif self.train_mode == "bitshifts":
+            alpha = 1 - 1 / (2**self._dash_mem)
+
+        return alpha
+
+    @property
+    def beta(self) -> torch.Tensor:
+        if self.train_mode == "taus":
+            beta = torch.exp(-self.dt / self._tau_syn).to(self._tau_syn.device)
+
+        elif self.train_mode == "decays":
+            beta = self._beta
+
+        elif self.train_mode == "bitshifts":
+            beta = 1 - 1 / (2**self._dash_syn)
+
+        return beta
+
+    @property
+    def tau_mem(self) -> torch.Tensor:
+        if self.train_mode == "taus":
+            tau_mem = self._tau_mem
+
+        elif self.train_mode == "decays":
+            tau_mem = -(self.dt / torch.log(self._alpha))
+
+        elif self.train_mode == "bitshifts":
+            tau_mem = self.dt / torch.log(1 - 1 / (2**self._dash_mem))
+
+        return tau_mem
+
+    @property
+    def tau_syn(self) -> torch.Tensor:
+        if self.train_mode == "taus":
+            tau_syn = self._tau_syn
+
+        elif self.train_mode == "decays":
+            tau_syn = -(self.dt / torch.log(self._beta))
+
+        elif self.train_mode == "bitshifts":
+            tau_syn = self.dt / torch.log(1 - 1 / (2**self._dash_syn))
+
+        return tau_syn
+
+    @property
+    def dash_mem(self) -> torch.Tensor:
+        if self.train_mode == "taus":
+            dash_mem = -torch.log2(
+                1 - torch.exp(-self.dt / self._tau_mem).to(self._tau_mem.device)
+            )
+
+        elif self.train_mode == "decays":
+            dash_mem = -torch.log2(1 - self._alpha)
+
+        elif self.train_mode == "bitshifts":
+            dash_mem = self._dash_mem
+
+        return dash_mem
+
+    @property
+    def dash_syn(self) -> torch.Tensor:
+        if self.train_mode == "taus":
+            dash_syn = -torch.log2(
+                1 - torch.exp(-self.dt / self._tau_syn).to(self._tau_syn.device)
+            )
+
+        elif self.train_mode == "decays":
+            dash_syn = -torch.log2(1 - self._alpha)
+
+        elif self.train_mode == "bitshifts":
+            dash_syn = self._dash_syn
+
+        return dash_syn
+
+
+#  if self.train_mode == 'decays':
+#             self.tau_mem, self.tau_syn = -(self.dt / torch.log(self.alpha)), -(
+#                 self.dt / torch.log(self.beta)
+#             )
+#         elif self.train_mode == 'bitshifts':
+#             self.tau_mem, self.tau_syn = -(
+#                 self.dt / torch.log(1 - 1 / (2**self.dash_mem))
+#             ), -(self.dt / torch.log(1 - 1 / (2**self.dash_syn)))
+
+
+# if self.train_mode == 'decays':
+#     alpha, beta = self.alpha, self.beta
+
+# elif self.train_mode == 'bitshifts':
+#     alpha, beta = 1 - 1 / (2**self.dash_mem), 1 - 1 / (2**self.dash_syn)
+# else:
+#     alpha, beta = self.calc_alpha(), self.calc_beta()
 
 
 class LIFTorch(LIFBaseTorch):
@@ -548,15 +629,18 @@ class LIFTorch(LIFBaseTorch):
         self._record_dict["spikes"] = torch.zeros(
             n_batches, n_timesteps, self.size_out, device=input_data.device
         )
-        if self.train_mode == 'decays':
-        # if self.decay_training:
-            alpha, beta = self.alpha, self.beta
+        # if self.train_mode == 'decays':
+        #     alpha, beta = self.alpha, self.beta
 
-        elif self.train_mode == 'bitshifts':
-        # elif self.BitShift_training:
-            alpha, beta = 1 - 1 / (2**self.dash_mem), 1 - 1 / (2**self.dash_syn)
-        else:
-            alpha, beta = self.calc_alpha(), self.calc_beta()
+        # elif self.train_mode == 'bitshifts':
+        #     alpha, beta = 1 - 1 / (2**self.dash_mem), 1 - 1 / (2**self.dash_syn)
+        # else:
+        #     alpha, beta = self.calc_alpha(), self.calc_beta()
+
+        # alpha, beta = _()
+        # dash_mem, dash_syn = _()
+
+        # tau_mem, tau_syn = -()
 
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
 
@@ -578,8 +662,8 @@ class LIFTorch(LIFBaseTorch):
                 isyn = isyn + irec
 
             # Decay synaptic and membrane state
-            vmem *= alpha.to(vmem.device)
-            isyn *= beta.to(isyn.device)
+            vmem *= self.alpha.to(vmem.device)
+            isyn *= self.beta.to(isyn.device)
 
             # Integrate membrane state and apply noise
             vmem = vmem + isyn.sum(2) + noise_ts[:, t, :] + self.bias
