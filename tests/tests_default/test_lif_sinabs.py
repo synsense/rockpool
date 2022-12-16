@@ -56,6 +56,7 @@ pytest.importorskip("torch")
 pytest.importorskip("sinabs")
 pytest.importorskip("sinabs.exodus")
 
+
 @pytest.mark.parametrize("n_synapses", (1, 2))
 def test_FF_equality_exodus(n_synapses):
     import torch
@@ -104,10 +105,7 @@ def test_FF_equality_exodus(n_synapses):
     ).to("cuda")
 
     # - Generate some data
-    input_data = (
-        torch.rand(n_batches, T, n_synapses * n_neurons).cuda()
-        * 0.01
-    )
+    input_data = torch.rand(n_batches, T, n_synapses * n_neurons).cuda() * 0.01
     # Separate (but equal) input tensor for exodus, to compare gradients
     input_data_torch = input_data.clone()
     input_data_sinabs = input_data.clone()
