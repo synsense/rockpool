@@ -169,11 +169,11 @@ class LIFExodus(LIFBaseTorch):
             .flatten(0, 1)
             .contiguous()
         )
-        isyn_exodus = isyn_exodus + bias
+        isyn_with_bias = isyn_exodus + bias
 
         # Membrane dynamics: Calculate v_mem
         spikes, vmem_exodus = IntegrateAndFire.apply(
-            isyn_exodus.sum(1).contiguous(),  # input
+            isyn_with_bias.sum(1).contiguous(),  # input
             alpha.contiguous(),  # alpha
             vmem.flatten().contiguous(),  # init state
             threshold,  # threshold
@@ -374,8 +374,6 @@ class LIFMembraneExodus(LIFBaseTorch):
         The output of evolving this module is the neuron membrane potentials; synaptic currents are available using the ``record = True`` argument to :py:meth:`~.LIFExodus.evolve`.
 
         Warnings:
-            Exodus does not currently support training biases or thresholds.
-
             Exodus does not support noise injection.
 
         Examples:
@@ -417,7 +415,6 @@ class LIFMembraneExodus(LIFBaseTorch):
 
         # - Remove LIFBaseTorch attributes that do not apply
         delattr(self, "threshold")
-        delattr(self, "bias")
         delattr(self, "learning_window")
         delattr(self, "spikes")
         delattr(self, "spike_generation_fn")
@@ -480,6 +477,16 @@ class LIFMembraneExodus(LIFBaseTorch):
             isyn.flatten().contiguous(),  # initial state
         ).reshape(-1, self.n_synapses, time_steps)
 
+        # Add bias to isyn_exodus, to be added onto the membrane
+        bias = self.bias.reshape((1, -1, 1, 1))
+        bias = (
+            bias.expand((n_batches, self.n_neurons, self.n_synapses, time_steps))
+            .flatten(0, 1)
+            .contiguous()
+        )
+        isyn_exodus = isyn_exodus + bias
+
+        # Inteagrate onto a membrane
         vmem_exodus = LeakyIntegrator.apply(
             isyn_exodus.sum(1).contiguous(),  # input
             alpha.contiguous(),  # alpha
