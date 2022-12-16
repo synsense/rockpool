@@ -34,7 +34,7 @@ class NeuronDropout(TorchModule):
         Args:
             shape (Tuple): The shape of this module
             p (float): Probability that neuron is silenced. Default: 0.5 (same as in pytorch)
-            training (bool): Inidcates training or evaluation mode. Dropout is disabled for validation/testing.
+            training (bool): Indicates training or evaluation mode. Dropout is disabled for validation/testing.
         """
         # - Initialise superclass
         super().__init__(
@@ -55,12 +55,12 @@ class NeuronDropout(TorchModule):
         (num_batches, num_timesteps, num_neurons) = data.shape
 
         if self.training:
-            # - mask input
+            # mask input
             mask = torch.ones((num_batches, num_neurons, num_timesteps), device=data.device)
             probs = torch.rand((num_batches, num_neurons))
             mask[probs < self.p] = 0
             mask = torch.swapaxes(mask, 1, 2)
-            return data * mask
+            return data * mask# * 1/(1-self.p)
         else:
             return data
 
@@ -68,8 +68,9 @@ class NeuronDropout(TorchModule):
 class TimeStepDropout(TorchModule):
     """
     For each gradient update time steps are dropped with a given probability.
-
-    TODO: should we use torch scaling 1/(1-p)
+    Dropout in Pytorch scales the output of the remaining time steps with 1/(1-self.p),
+    some brief experiments with a model on the google speech command dataset showed that this is noy beneficial here,
+    so the output is not scaled
     """
 
     def __init__(
@@ -107,7 +108,7 @@ class TimeStepDropout(TorchModule):
         (num_batches, num_timesteps, num_neurons) = data.shape
 
         if self.training:
-            # - mask input
+            # mask input
             mask = torch.ones((num_batches, num_timesteps, num_neurons), device=data.device)
             probs = torch.rand((num_batches, num_timesteps, num_neurons))
             mask[probs < self.p] = 0
