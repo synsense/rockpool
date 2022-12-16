@@ -89,6 +89,8 @@ def test_FF_equality_exodus(n_synapses):
     out_sinabs.sum().backward()
 
     assert torch.allclose(lif_torch.bias.grad, lif_sinabs.bias.grad)
+    assert torch.allclose(lif_torch.tau_mem.grad, lif_sinabs.tau_mem.grad)
+    assert torch.allclose(lif_torch.tau_syn.grad, lif_sinabs.tau_syn.grad)
     assert torch.allclose(input_data_torch.grad, input_data_sinabs.grad)
 
 
