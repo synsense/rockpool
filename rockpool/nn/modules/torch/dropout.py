@@ -3,7 +3,7 @@ A module implementing random dropout of neurons
 """
 
 from rockpool.nn.modules.torch import TorchModule
-from rockpool.parameters import Parameter, SimulationParameter, State
+from rockpool.parameters import SimulationParameter
 
 from typing import Tuple
 
@@ -14,11 +14,11 @@ __all__ = ["NeuronDropout", "TimeStepDropout"]
 
 class NeuronDropout(TorchModule):
     """
-    For each gradient update neurons are dropped with a given probability. Neurons are muted for the entire sample in
-    the forward and the backward pass.
-
-    TODO: should we use torch scaling 1/(1-p)
-    """
+        For each gradient update neurons are dropped with a given probability.
+        Dropout in Pytorch scales the output of the remaining time steps with 1/(1-self.p),
+        some brief experiments with a model on the google speech command dataset showed that this is also beneficial here,
+        so the output is scaled
+        """
 
     def __init__(
         self,
@@ -60,7 +60,7 @@ class NeuronDropout(TorchModule):
             probs = torch.rand((num_batches, num_neurons))
             mask[probs < self.p] = 0
             mask = torch.swapaxes(mask, 1, 2)
-            return data * mask# * 1/(1-self.p)
+            return data * mask * 1/(1-self.p)
         else:
             return data
 
