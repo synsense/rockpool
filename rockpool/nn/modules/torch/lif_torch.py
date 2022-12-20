@@ -466,7 +466,7 @@ class LIFBaseTorch(TorchModule):
             dash_mem, dash_syn = -torch.log2(1 - self._alpha), -torch.log2(1 - self._beta)
 
         elif self.leak_mode == "bitshifts":
-            tau_mem, tau_syn = self.dt / torch.log(1 - 1 / (2**self._dash_mem)), self.dt / torch.log(1 - 1 / (2**self._dash_syn))
+            tau_mem, tau_syn = -self.dt / torch.log(1 - 1 / (2**self._dash_mem)), -self.dt / torch.log(1 - 1 / (2**self._dash_syn))
             alpha, beta = 1 - 1 / (2**self._dash_mem), 1 - 1 / (2**self._dash_syn)
             dash_mem, dash_syn = self._dash_mem, self._dash_syn
 
@@ -474,37 +474,37 @@ class LIFBaseTorch(TorchModule):
 
     @property
     def tau_mem(self) -> torch.Tensor:
-        tau_mem,*_ = self.get_all_TCs()
+        tau_mem,*_ = self.get_all_params
         return tau_mem
 
     @property
     def tau_syn(self) -> torch.Tensor:
-        _, tau_syn,*_ = self.get_all_TCs()
+        _, tau_syn,*_ = self.get_all_params
         return tau_syn  
 
     @property
     def alpha(self) -> torch.Tensor:
-        _,_, alpha, *_ = self.get_all_TCs()
+        _,_, alpha, *_ = self.get_all_params
         return alpha     
 
     @property
     def beta(self) -> torch.Tensor:
-        _,_, _, beta, *_ = self.get_all_TCs()
+        _,_, _, beta, *_ = self.get_all_params
         return beta 
 
     @property
     def dash_mem(self) -> torch.Tensor:
-        *_, dash_mem,_ = self.get_all_TCs()
+        *_, dash_mem,_ = self.get_all_params
         return dash_mem
 
     @property
     def dash_syn(self) -> torch.Tensor:
-        *_, dash_syn = self.get_all_TCs()
+        *_, dash_syn = self.get_all_params
         return dash_syn  
 
     @property
     def beta(self) -> torch.Tensor:
-        _,_, _, beta, *_ = self._get_all_TCs()
+        _,_, _, beta, *_ = self.get_all_params
         return beta 
 
     # @property
