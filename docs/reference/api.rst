@@ -32,6 +32,7 @@ Attribute types
     :toctree: _autosummary
     :template: class.rst
 
+    parameters.ParameterBase
     parameters.Parameter
     parameters.State
     parameters.SimulationParameter

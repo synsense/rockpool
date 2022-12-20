@@ -55,10 +55,10 @@ If any boxes are not ticked, there should be a good reason why not.
 - [ ] `.as_graph()` implemented, if at all possible, for any new modules
 - [ ] Does every `__init__.py` have an initial docstring block, describing what the package / sub-package does and contains?
 - [ ] Are there tests implemented?
-    [ ] unit tests?
-    [ ] integration tests?
-    [ ] interface tests?
-    [ ] performance tests?
-    [ ] code coverage measured?
+    - [ ] unit tests?
+    - [ ] integration tests?
+    - [ ] interface tests?
+    - [ ] performance tests?
+    - [ ] code coverage measured?
 - [ ] Is `CHANGELOG.md` updated?
 - [ ] Is the implementation minimal? i.e. the simplest possible way of implementing the functionality
