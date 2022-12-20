@@ -226,4 +226,4 @@ def config_from_specification(
         ## Returns
         input_channel_map = allocator.input_channel_map()
 
-    return new_config, input_channel_map
+    return {"config": new_config, "input_channel_map": input_channel_map}
