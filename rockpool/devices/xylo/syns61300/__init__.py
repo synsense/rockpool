@@ -24,7 +24,7 @@ from .xylo_graph_modules import *
 
 try:
     from .xylo_sim import *
-except (ImportError, ModuleNotFoundError) as err:
+except:
     if not backend_available("xylosim", "samna"):
         XyloSim = missing_backend_shim("XyloSim", "xylosim, samna")
     else:
@@ -32,7 +32,7 @@ except (ImportError, ModuleNotFoundError) as err:
 
 try:
     from .xylo_mapper import *
-except (ImportError, ModuleNotFoundError) as err:
+except:
     if not backend_available("xylosim", "samna"):
         XyloSim = missing_backend_shim("mapper", "xylosim, samna")
     else:
@@ -41,7 +41,7 @@ except (ImportError, ModuleNotFoundError) as err:
 try:
     from .xylo_samna import *
     from .xylo_devkit_utils import *
-except (ImportError, ModuleNotFoundError) as err:
+except:
     if not backend_available("samna"):
         XyloSamna = missing_backend_shim("XyloSamna", "samna")
         config_from_specification = missing_backend_shim(
