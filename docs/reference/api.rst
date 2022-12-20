@@ -32,6 +32,7 @@ Attribute types
     :toctree: _autosummary
     :template: class.rst
 
+    parameters.ParameterBase
     parameters.Parameter
     parameters.State
     parameters.SimulationParameter
@@ -288,7 +289,6 @@ Computational graph modules
 
     graph.utils
 
-
 General Utilities
 -----------------
 
@@ -296,5 +296,7 @@ General Utilities
     :toctree: _autosummary
     :template: module.rst
 
+    utilities.backend_management
     utilities.jax_tree_utils
-    utilities.tree_utils
+    utilities.type_handling
+
