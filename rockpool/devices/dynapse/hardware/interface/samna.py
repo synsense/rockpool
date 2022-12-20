@@ -61,8 +61,8 @@ class DynapseSamna(Module):
     :type device: DeviceInfo
     :param config: a Dynan-SE2 ``samna`` configuration object
     :type config: Dynapse2Configuration
-    :param channel_map: the mapping between input timeseries channels and the destinations
-    :type channel_map: Dict[int, List[Dynapse2Destination]]
+    :param input_channel_map: the mapping between input timeseries channels and the destinations
+    :type input_channel_map: Dict[int, List[Dynapse2Destination]]
     :param dt: the simulation timestep resolution, defaults to 1e-3
     :type dt: float, optional
     :param dt_fpga: the FPGA timestep resolution, defaults to 1e-6
@@ -77,7 +77,7 @@ class DynapseSamna(Module):
         self,
         device: DeviceInfo,
         config: Dynapse2Configuration,
-        channel_map: Dict[int, List[Dynapse2Destination]],
+        input_channel_map: Dict[int, List[Dynapse2Destination]],
         dt: float = 1e-3,
         dt_fpga: float = 1e-6,
         control_tag: int = 2047,
@@ -88,7 +88,7 @@ class DynapseSamna(Module):
             raise ValueError("`device` must be a valid Dynap-SE2 HDK device.")
 
         # Obtain the shape
-        __in = len(channel_map)
+        __in = len(input_channel_map)
         __rec = len(MemorySE2().spec_from_config(config)["core_map"])
 
         # - Initialise the superclass
@@ -98,7 +98,7 @@ class DynapseSamna(Module):
         self.dt_fpga = dt_fpga
         self.control_tag = control_tag
         self.control_hop = control_hop
-        self.input_channel_map = channel_map
+        self.input_channel_map = input_channel_map
 
         # Configure the FPGA, now only Stack board is available
         self.board: Dynapse2Interface = self.__configure_dynapse2_fpga(device)
