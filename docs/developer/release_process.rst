@@ -30,3 +30,35 @@ Headings for ``CHANGELOG.md``
     ### Deprecated
     ### Removed
     ### Security
+
+
+Questions to resolve for each merge request
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+During code review for each merge request, make sure all of the following questions are addresssed.
+If any boxes are not ticked, there should be a good reason why not.
+
+- [ ] Are there user-facing tutorials?
+    - what does the feature do? how to use it?
+    - what are the limitations of the feature? what it doesn't do?
+    - troubleshooting guide: what to do in case of issues/bugs/problems?
+    - FAQ: what are the most common mistakes or confusions?
+- [ ] Is each tutorial minimal and relatively self-contained?
+- [ ] Is each tutorial didactic?
+- [ ] Is the developer documentation updated with any new modules or changes?
+- [ ] Are the packages / tutorials integrated into the documentation TOC?
+- [ ] Are all class / method / function / file links in the tutorials working correctly?
+- [ ] Do all user-facing class attributes have docstrings in `__init__()`?
+- [ ] Do all non-user-facing class attributes have a leading underscore? (e.g. `._attr`)
+- [ ] Are all user-facing class attributes either `Parameter`, `State` or `SimulationParameter` objects in `__init__()`?
+- [ ] Do Rockpool modules obey the standard Rockpool API for `.evolve()`?
+- [ ] `.as_graph()` implemented, if at all possible, for any new modules
+- [ ] Does every `__init__.py` have an initial docstring block, describing what the package / sub-package does and contains?
+- [ ] Are there tests implemented?
+    [ ] unit tests?
+    [ ] integration tests?
+    [ ] interface tests?
+    [ ] performance tests?
+    [ ] code coverage measured?
+- [ ] Is `CHANGELOG.md` updated?
+- [ ] Is the implementation minimal? i.e. the simplest possible way of implementing the functionality

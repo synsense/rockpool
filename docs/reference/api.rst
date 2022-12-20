@@ -288,24 +288,14 @@ Computational graph modules
 
     graph.utils
 
-<<<<<<< HEAD
-General utilities
-=======
-
 General Utilities
 -----------------
->>>>>>> develop
 
 .. autosummary::
     :toctree: _autosummary
     :template: module.rst
 
-<<<<<<< HEAD
     utilities.backend_management
     utilities.jax_tree_utils
     utilities.type_handling
 
-=======
-    utilities.jax_tree_utils
-    utilities.tree_utils
->>>>>>> develop
