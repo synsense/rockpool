@@ -107,6 +107,7 @@ def test_lif_defaults():
         mod = Mod_class((Nin, N))
         params = mod.parameters()
         simparams = mod.simulation_parameters()
+        simparams.pop("leak_mode", None)
         simparams.pop("learning_window", None)
         simparams.pop("spike_generation_fn", None)
 
