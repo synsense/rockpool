@@ -208,8 +208,8 @@ class aLIFTorch(LIFBaseTorch):
         )
 
         # - Calculate and cache updated values for decay factors
-        alpha = self.calc_alpha()
-        beta = self.calc_beta()
+        alpha = self.alpha
+        beta = self.beta
         gamma = self.gamma
 
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
