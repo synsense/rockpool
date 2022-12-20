@@ -119,6 +119,24 @@ def sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
     return torch.tanh(x + 1 - threshold) / 2 + 0.5
 
 
+def decay_to_tau(dt, *decays):
+    return tuple([-(dt / torch.log(decay).to(decay.device)) for decay in decays])
+
+def tau_to_decay(dt, *taus):
+    return tuple([torch.exp(-dt / tau).to(tau.device) for tau in taus])
+
+def tau_to_bitshift(dt, *taus):
+    return tuple([-torch.log2(1 - torch.exp(-dt / tau)).to(tau.device) for tau in taus])
+
+def bitshift_to_tau(dt, *dashes):
+    return tuple([-dt / torch.log(1 - 1 / (2**dash)).to(dash.device) for dash in dashes])
+
+def decay_to_bitshift(*decays):
+    return tuple([-torch.log2(1 - decay).to(decay.device) for decay in decays])
+
+def bitshift_to_decay(*dashes):
+    return tuple([(1 - 1 / (2**dash)).to(dash.device) for dash in dashes])
+
 class LIFBaseTorch(TorchModule):
     def __init__(
         self,
@@ -128,8 +146,8 @@ class LIFBaseTorch(TorchModule):
         tau_syn: Optional[Union[FloatVector, P_float]] = None,
         alpha: Optional[Union[FloatVector, P_float]] = None,
         beta: Optional[Union[FloatVector, P_float]] = None,
-        dash_mem: Optional[Union[IntVector, P_int]] = None,
-        dash_syn: Optional[Union[IntVector, P_int]] = None,
+        dash_mem: Optional[Union[IntVector, P_float]] = None,
+        dash_syn: Optional[Union[IntVector, P_float]] = None,
         bias: Optional[FloatVector] = None,
         threshold: Optional[FloatVector] = None,
         has_rec: P_bool = False,
@@ -148,26 +166,26 @@ class LIFBaseTorch(TorchModule):
         """
         Instantiate an LIF module
 
+        Note:
+            On instantiation, the user can specify how the decay parameters of the module are defined; either as time constant values (:py:attr:`.tau_mem` and :py:attr:`.tau_syn`), as decay factors (:py:attr:`.alpha` and :py:attr:`.beta`) or as bitshift values (:py:attr:`.dash_mem` and `.dash_syn`).
+            This is specifed using the ``leak_mode`` argument on initialisation.
+            By default, this is set to ``'taus'``, in which the time constants are direct parameters, which are trainable by default.
+
+            if ``'taus'``,  :py:attr:`.tau_mem` and :py:attr:`.tau_syn` are used as model parameters
+            if ``'decays'``,  :py:attr:`.alpha` and :py:attr:`.beta` are used as model parameters (:py:attr:`.alpha` and :py:attr:`.beta` are:  :math:`\exp(-dt / \tau_{mem}`) and  :math:`\exp(-dt / \tau_{syn}`) respectively)
+            if ``'bitshifts'``, :py:attr:`.dash_mem` and `.dash_syn` are used as model parameters. :py:attr:`.dash_mem` and :py:attr:`.dash_syn` are the bitshift equivalent of decays, such that :math:`.alpha = 1-(1/(2**dash_mem))`
+
+            If decay parameters are passed as :py:func:`.Constant` in the instantiation of module they will be set to non-traianble parameters.
+
         Args:
             shape (tuple): Either a single dimension ``(Nout,)``, which defines a feed-forward layer of LIF modules with equal amounts of synapses and neurons, or two dimensions ``(Nin, Nout)``, which defines a layer of ``Nin`` synapses and ``Nout`` LIF neurons.
-            leak_mode (str): sets the training mode of time constants:    Default: 'taus'
-
-            if 'taus' tau_mem and tau_syn are set to trainable parameters
-            if 'decays' alpha and beta are set to trainable parameters (alpha and beta are:  \exp(-dt / \tau_{mem}) and  \exp(-dt / \tau_{syn}) respectively)
-            if 'bitshifts' dash_mem and dash_syn are set to traianble parameters. dash_mem and dash_syn are bitshift equivalent of decays alpha = 1-(1/(2**dash_mem))
-
-            Note:
-            if time constants (taus) are not passed as Constant in the instantiation of module they will be set to traianble parameters (default leak_mode). The user can choose to train time constants in different parameter spaces as well (decays and bitshifts)
-
+            leak_mode (str): sets the training mode of time constants:    Default: ``'taus'``. Must be one of ``{'taus', 'decays', 'bitshifts'}``
             tau_mem (Optional[FloatVector]): An optional array with concrete initialisation data for the membrane time constants. If not provided, 20ms will be used by default.
             tau_syn (Optional[FloatVector]): An optional array with concrete initialisation data for the synaptic time constants. If not provided, 20ms will be used by default.
-
             alpha (Optional[FloatVector]): An optional array with concrete initialisation data for the membrane decays. If not provided, 0.5 will be used by default.
             beta (Optional[FloatVector]): An optional array with concrete initialisation data for the synaptic decays. If not provided, 0.5 will be used by default.
-
             dash_mem (Optional[FloatVector]): An optional array with concrete initialisation data for the membrane bitshifts. If not provided, 1 will be used by default.
             dash_syn (Optional[FloatVector]): An optional array with concrete initialisation data for the synaptic bitshifts. If not provided, 1 will be used by default.
-
             bias (Optional[FloatVector]): An optional array with concrete initialisation data for the neuron bias currents. If not provided, ``0.0`` will be used by default.
             threshold (FloatVector): An optional array specifying the firing threshold of each neuron. If not provided, ``1.`` will be used by default.
             has_rec (bool): When ``True`` the module provides a trainable recurrent weight matrix. Default ``False``, module is feed-forward.
@@ -181,14 +199,21 @@ class LIFBaseTorch(TorchModule):
 
         """
 
+        # - Initialise dummy parameters list
+        self._dummy_params = ()
+
         # - Check training mode
-        assert leak_mode in [
+        if leak_mode not in [
             "taus",
             "decays",
             "bitshifts",
-        ], "Training of time constants in LIFTorch neurons can be done only in one of the following modes: taus, decays, bitshifts"
+        ]:
+            raise ValueError(
+                "Training of time constants in `LIFTorch` neurons can be done only in one of the following modes: 'taus', 'decays', 'bitshifts'. `leak_mode` must be one of these values."
+            )
 
-        self.leak_mode = leak_mode
+        self.leak_mode = rp.SimulationParameter(leak_mode)
+        """ (str) The mode by which leaks are determined for this module. """
 
         # - Check shape argument
         if np.size(shape) == 1:
@@ -237,7 +262,7 @@ class LIFBaseTorch(TorchModule):
         """ (float) Noise std.dev. injected onto the membrane of each neuron during evolution """
 
         if self.leak_mode == "taus":
-            self._tau_mem: P_tensor = rp.Parameter(
+            self.tau_mem: P_tensor = rp.Parameter(
                 tau_mem,
                 family="taus",
                 shape=[(self.size_out,), ()],
@@ -246,7 +271,7 @@ class LIFBaseTorch(TorchModule):
             )
             """ (Tensor) Membrane time constants `(Nout,)` or `()` """
 
-            self._tau_syn: P_tensor = rp.Parameter(
+            self.tau_syn: P_tensor = rp.Parameter(
                 tau_syn,
                 family="taus",
                 shape=[
@@ -265,8 +290,10 @@ class LIFBaseTorch(TorchModule):
             )
             """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
 
+            self._dummy_params = ("alpha", "beta", "dash_syn", "dash_mem")
+
         elif self.leak_mode == "decays":
-            self._alpha: P_tensor = rp.Parameter(
+            self.alpha: P_tensor = rp.Parameter(
                 alpha,
                 family="decays",
                 shape=[(self.size_out,), ()],
@@ -275,7 +302,7 @@ class LIFBaseTorch(TorchModule):
             )
             """ (Tensor) Membrane decay factor `(Nout,)` or `()` """
 
-            self._beta: P_tensor = rp.Parameter(
+            self.beta: P_tensor = rp.Parameter(
                 beta,
                 family="decays",
                 shape=[
@@ -294,8 +321,10 @@ class LIFBaseTorch(TorchModule):
             )
             """ (Tensor) Synaptic decay factor `(Nin,)` or `()` """
 
+            self._dummy_params = ("tau_syn", "tau_mem", "dash_syn", "dash_mem")
+
         elif self.leak_mode == "bitshifts":
-            self._dash_mem: P_tensor = rp.Parameter(
+            self.dash_mem: P_tensor = rp.Parameter(
                 dash_mem,
                 family="bitshifts",
                 shape=[(self.size_out,), ()],
@@ -304,7 +333,7 @@ class LIFBaseTorch(TorchModule):
             )
             """ (Tensor) membrane bitshift in xylo `(Nout,)` or `()` """
 
-            self._dash_syn: P_tensor = rp.Parameter(
+            self.dash_syn: P_tensor = rp.Parameter(
                 dash_syn,
                 family="bitshifts",
                 shape=[
@@ -322,6 +351,8 @@ class LIFBaseTorch(TorchModule):
                 cast_fn=to_float_tensor,
             )
             """ (Tensor) synaptic bitshift in xylo `(Nout,)` or `()` """
+
+            self._dummy_params = ("alpha", "beta", "tau_syn", "tau_mem")
 
         self.bias: P_tensor = rp.Parameter(
             bias,
@@ -377,6 +408,16 @@ class LIFBaseTorch(TorchModule):
         # - Placeholders for state recordings
         self._record_dict = {}
         self._record = False
+
+    def __getattr__(self, name: str) -> Union[torch.Tensor, TorchModule]:
+        """
+        Overridden __getattr__ to manage access to decay parameters
+        """
+        if name in object.__getattribute__(self, "_dummy_params"):
+            all_TCs = self._get_all_leak_params()
+            return all_TCs[name]
+
+        return super().__getattr__(name)
 
     def evolve(
         self, input_data: torch.Tensor, record: bool = False
@@ -438,91 +479,81 @@ class LIFBaseTorch(TorchModule):
         # - Return a graph containing neurons and optional weights
         return as_GraphHolder(neurons)
 
-    def calc_alpha(self) -> torch.Tensor:
+    def _get_all_leak_params(self):
         """
-        Decay factor for membrane time constants :py:attr:`.LIFTorch.tau_mem`
+        Calculate and return all decay parameters, depending on leak mode
         """
-        return torch.exp(-self.dt / self.tau_mem).to(self.tau_mem.device)
-
-    def calc_beta(self) -> torch.Tensor:
-        """
-        Decay factor for synaptic time constants :py:attr:`.LIFTorch.tau_syn`
-        """
-        return torch.exp(-self.dt / self.tau_syn).to(self.tau_syn.device)
-
-    @property
-    def get_all_params(self):
-
         if self.leak_mode == "taus":
-            tau_mem, tau_syn = self._tau_mem, self._tau_syn
-            alpha, beta = torch.exp(-self.dt / self._tau_mem).to(
-                self._tau_mem.device
-            ), torch.exp(-self.dt / self._tau_syn).to(self._tau_syn.device)
-            dash_mem = -torch.log2(
-                1 - torch.exp(-self.dt / self._tau_mem).to(self._tau_mem.device)
-            )
-            dash_syn = -torch.log2(
-                1 - torch.exp(-self.dt / self._tau_syn).to(self._tau_syn.device)
-            )
+            # - Compute decay parameters based on taus
+            tau_mem, tau_syn = self.tau_mem, self.tau_syn
+            alpha, beta = tau_to_decay(self.dt, self.tau_mem, self.tau_syn)
+            dash_mem, dash_syn = tau_to_bitshift(self.dt, self.tau_mem, self.tau_syn)
 
         elif self.leak_mode == "decays":
-
-            tau_mem, tau_syn = -(self.dt / torch.log(self._alpha)), -(
-                self.dt / torch.log(self._beta)
-            )
-            alpha, beta = self._alpha, self._beta
-            dash_mem, dash_syn = -torch.log2(1 - self._alpha), -torch.log2(
-                1 - self._beta
-            )
+            # - Compute decay parameters based on decay constants
+            tau_mem, tau_syn = decay_to_tau(self.dt, self.alpha, self.beta)
+            alpha, beta = self.alpha, self.beta
+            dash_mem, dash_syn = decay_to_bitshift(self.alpha, self.beta)
 
         elif self.leak_mode == "bitshifts":
-            tau_mem, tau_syn = -self.dt / torch.log(
-                1 - 1 / (2**self._dash_mem)
-            ), -self.dt / torch.log(1 - 1 / (2**self._dash_syn))
-            alpha, beta = 1 - 1 / (2**self._dash_mem), 1 - 1 / (2**self._dash_syn)
-            dash_mem, dash_syn = self._dash_mem, self._dash_syn
+            # - Compute decay parameters based on bitshift values
+            tau_mem, tau_syn = bitshift_to_tau(self.dt, self.dash_mem, self.dash_syn)
+            alpha, beta = bitshift_to_decay(self.dash_mem, self.dash_syn)
+            dash_mem, dash_syn = self.dash_mem, self.dash_syn
 
-        return tau_mem, tau_syn, alpha, beta, dash_mem, dash_syn
+        # - Return all parameters
+        return {
+            "tau_mem": tau_mem,
+            "tau_syn": tau_syn,
+            "alpha": alpha,
+            "beta": beta,
+            "dash_mem": dash_mem,
+            "dash_syn": dash_syn,
+        }
 
-    @property
-    def tau_mem(self) -> torch.Tensor:
-        tau_mem, *_ = self.get_all_params
-        return tau_mem
+    def __setattr__(self, key, value: Any):
+        """
+        Overridden __setattr__ to manage access to decay parameters
+        """
+        if hasattr(self, '_dummy_params') and key in self._dummy_params:
+            self._set_leak_param(key, value)
+        return super().__setattr__(key, value)
 
-    @property
-    def tau_syn(self) -> torch.Tensor:
-        _, tau_syn, *_ = self.get_all_params
-        return tau_syn
+    def _set_leak_param(self, name, value):
+        """
+        Set the value of a named decay parameter, depending on leak mode
+        """
+        if self.leak_mode == "taus":
+            # - Compute tau from `name`
+            if name == 'alpha':
+                return setattr(self, 'tau_mem', tau_to_decay(self.dt, value)[0])
+            elif name == 'beta':
+                return setattr(self, 'tau_syn', tau_to_decay(self.dt, value)[0])
+            elif name == 'dash_mem':
+                return setattr(self, 'tau_mem', tau_to_bitshift(self.dt, value)[0])
+            elif name == 'dash_syn':
+                return setattr(self, 'tau_syn', tau_to_bitshift(self.dt, value)[0])
 
-    @property
-    def alpha(self) -> torch.Tensor:
-        _, _, alpha, *_ = self.get_all_params
-        return alpha
+        elif self.leak_mode == "decays":
+            if name == 'tau_mem':
+                return setattr(self, 'alpha', decay_to_tau(self.dt, value)[0])
+            elif name == 'tau_syn':
+                return setattr(self, 'beta', decay_to_tau(self.dt, value)[0])
+            elif name == 'dash_mem':
+                return setattr(self, 'alpha', decay_to_bitshift(value)[0])
+            elif name == 'dash_syn':
+                return setattr(self, 'beta', decay_to_bitshift(value)[0])
 
-    @property
-    def beta(self) -> torch.Tensor:
-        _, _, _, beta, *_ = self.get_all_params
-        return beta
+        elif self.leak_mode == 'bitshifts':
+            if name == 'tau_mem':
+                return setattr(self, 'dash_mem', tau_to_bitshift(self.dt, value)[0])
+            elif name == 'tau_syn':
+                return setattr(self, 'dash_syn', tau_to_bitshift(self.dt, value)[0])
+            elif name == 'alpha':
+                return setattr(self, 'dash_mem', decay_to_bitshift(value)[0])
+            elif name == 'beta':
+                return setattr(self, 'dash_syn', decay_to_bitshift(value)[0])
 
-    @property
-    def dash_mem(self) -> torch.Tensor:
-        *_, dash_mem, _ = self.get_all_params
-        return dash_mem
-
-    @property
-    def dash_syn(self) -> torch.Tensor:
-        *_, dash_syn = self.get_all_params
-        return dash_syn
-
-    @property
-    def beta(self) -> torch.Tensor:
-        _, _, _, beta, *_ = self.get_all_params
-        return beta
-
-    # @property
-    # def beta(self) -> torch.Tensor:
-    #     alpha, *_ = self._get_all_TCs()
-    #     self._set_all_TCs(beta = new_value)
 
 
 class LIFTorch(LIFBaseTorch):

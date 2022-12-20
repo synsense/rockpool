@@ -152,7 +152,18 @@ def missing_backend_shim(class_name: str, backend_name: str):
     return MissingBackendShim
 
 
-def missing_backend_error(class_name, backend_name):
+def missing_backend_error(class_name: str, backend_name: str):
+    """
+    Raise a ``ModuleNotFoundError`` exception, with information about a missing backend
+
+    Args:
+        class_name (str): Name of a class which is unavailable
+        backend_name (str): "User-facing" of the backend which is unavailable
+
+    Raises:
+        ModuleNotFoundError: Describe the missing backend
+    """
+
     def __init__(self, *args, **kwargs):
         raise ModuleNotFoundError(
             f"Missing the `{backend_name}` backend. `{class_name}` objects, and others relying on `{backend_name}` are not available."
