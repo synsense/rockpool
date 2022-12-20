@@ -119,6 +119,24 @@ def sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
     return torch.tanh(x + 1 - threshold) / 2 + 0.5
 
 
+def decay_to_tau(dt, *decays):
+    return tuple([-(dt / torch.log(decay).to(decay.device)) for decay in decays])
+
+def tau_to_decay(dt, *taus):
+    return tuple([torch.exp(-dt / tau).to(tau.device) for tau in taus])
+
+def tau_to_bitshift(dt, *taus):
+    return tuple([-torch.log2(1 - torch.exp(-dt / tau)).to(tau.device) for tau in taus])
+
+def bitshift_to_tau(dt, *dashes):
+    return tuple([-dt / torch.log(1 - 1 / (2**dash)).to(dash.device) for dash in dashes])
+
+def decay_to_bitshift(*decays):
+    return tuple([-torch.log2(1 - decay).to(decay.device) for decay in decays])
+
+def bitshift_to_decay(*dashes):
+    return tuple([(1 - 1 / (2**dash)).to(dash.device) for dash in dashes])
+
 class LIFBaseTorch(TorchModule):
     def __init__(
         self,
@@ -396,7 +414,7 @@ class LIFBaseTorch(TorchModule):
         Overridden __getattr__ to manage access to decay parameters
         """
         if name in object.__getattribute__(self, "_dummy_params"):
-            all_TCs = self._get_all_params()
+            all_TCs = self._get_all_leak_params()
             return all_TCs[name]
 
         return super().__getattr__(name)
@@ -461,37 +479,26 @@ class LIFBaseTorch(TorchModule):
         # - Return a graph containing neurons and optional weights
         return as_GraphHolder(neurons)
 
-    def _get_all_params(self):
+    def _get_all_leak_params(self):
         """
         Calculate and return all decay parameters, depending on leak mode
         """
         if self.leak_mode == "taus":
             # - Compute decay parameters based on taus
             tau_mem, tau_syn = self.tau_mem, self.tau_syn
-            alpha, beta = torch.exp(-self.dt / self.tau_mem).to(
-                self.tau_mem.device
-            ), torch.exp(-self.dt / self.tau_syn).to(self.tau_syn.device)
-            dash_mem = -torch.log2(
-                1 - torch.exp(-self.dt / self.tau_mem).to(self.tau_mem.device)
-            )
-            dash_syn = -torch.log2(
-                1 - torch.exp(-self.dt / self.tau_syn).to(self.tau_syn.device)
-            )
+            alpha, beta = tau_to_decay(self.dt, self.tau_mem, self.tau_syn)
+            dash_mem, dash_syn = tau_to_bitshift(self.dt, self.tau_mem, self.tau_syn)
 
         elif self.leak_mode == "decays":
             # - Compute decay parameters based on decay constants
-            tau_mem, tau_syn = -(self.dt / torch.log(self.alpha)), -(
-                self.dt / torch.log(self.beta)
-            )
+            tau_mem, tau_syn = decay_to_tau(self.dt, self.alpha, self.beta)
             alpha, beta = self.alpha, self.beta
-            dash_mem, dash_syn = -torch.log2(1 - self.alpha), -torch.log2(1 - self.beta)
+            dash_mem, dash_syn = decay_to_bitshift(self.alpha, self.beta)
 
         elif self.leak_mode == "bitshifts":
             # - Compute decay parameters based on bitshift values
-            tau_mem, tau_syn = -self.dt / torch.log(
-                1 - 1 / (2**self.dash_mem)
-            ), -self.dt / torch.log(1 - 1 / (2**self.dash_syn))
-            alpha, beta = 1 - 1 / (2**self.dash_mem), 1 - 1 / (2**self.dash_syn)
+            tau_mem, tau_syn = bitshift_to_tau(self.dt, self.dash_mem, self.dash_syn)
+            alpha, beta = bitshift_to_decay(self.dash_mem, self.dash_syn)
             dash_mem, dash_syn = self.dash_mem, self.dash_syn
 
         # - Return all parameters
@@ -503,6 +510,50 @@ class LIFBaseTorch(TorchModule):
             "dash_mem": dash_mem,
             "dash_syn": dash_syn,
         }
+
+    def __setattr__(self, key, value: Any):
+        """
+        Overridden __setattr__ to manage access to decay parameters
+        """
+        if hasattr(self, '_dummy_params') and key in self._dummy_params:
+            self._set_leak_param(key, value)
+        return super().__setattr__(key, value)
+
+    def _set_leak_param(self, name, value):
+        """
+        Set the value of a named decay parameter, depending on leak mode
+        """
+        if self.leak_mode == "taus":
+            # - Compute tau from `name`
+            if name == 'alpha':
+                return setattr(self, 'tau_mem', tau_to_decay(self.dt, value)[0])
+            elif name == 'beta':
+                return setattr(self, 'tau_syn', tau_to_decay(self.dt, value)[0])
+            elif name == 'dash_mem':
+                return setattr(self, 'tau_mem', tau_to_bitshift(self.dt, value)[0])
+            elif name == 'dash_syn':
+                return setattr(self, 'tau_syn', tau_to_bitshift(self.dt, value)[0])
+
+        elif self.leak_mode == "decays":
+            if name == 'tau_mem':
+                return setattr(self, 'alpha', decay_to_tau(self.dt, value)[0])
+            elif name == 'tau_syn':
+                return setattr(self, 'beta', decay_to_tau(self.dt, value)[0])
+            elif name == 'dash_mem':
+                return setattr(self, 'alpha', decay_to_bitshift(value)[0])
+            elif name == 'dash_syn':
+                return setattr(self, 'beta', decay_to_bitshift(value)[0])
+
+        elif self.leak_mode == 'bitshifts':
+            if name == 'tau_mem':
+                return setattr(self, 'dash_mem', tau_to_bitshift(self.dt, value)[0])
+            elif name == 'tau_syn':
+                return setattr(self, 'dash_syn', tau_to_bitshift(self.dt, value)[0])
+            elif name == 'alpha':
+                return setattr(self, 'dash_mem', decay_to_bitshift(value)[0])
+            elif name == 'beta':
+                return setattr(self, 'dash_syn', decay_to_bitshift(value)[0])
+
 
 
 class LIFTorch(LIFBaseTorch):
