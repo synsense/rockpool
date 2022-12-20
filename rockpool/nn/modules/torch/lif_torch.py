@@ -122,20 +122,28 @@ def sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
 def decay_to_tau(dt, *decays):
     return tuple([-(dt / torch.log(decay).to(decay.device)) for decay in decays])
 
+
 def tau_to_decay(dt, *taus):
     return tuple([torch.exp(-dt / tau).to(tau.device) for tau in taus])
+
 
 def tau_to_bitshift(dt, *taus):
     return tuple([-torch.log2(1 - torch.exp(-dt / tau)).to(tau.device) for tau in taus])
 
+
 def bitshift_to_tau(dt, *dashes):
-    return tuple([-dt / torch.log(1 - 1 / (2**dash)).to(dash.device) for dash in dashes])
+    return tuple(
+        [-dt / torch.log(1 - 1 / (2**dash)).to(dash.device) for dash in dashes]
+    )
+
 
 def decay_to_bitshift(*decays):
     return tuple([-torch.log2(1 - decay).to(decay.device) for decay in decays])
 
+
 def bitshift_to_decay(*dashes):
     return tuple([(1 - 1 / (2**dash)).to(dash.device) for dash in dashes])
+
 
 class LIFBaseTorch(TorchModule):
     def __init__(
@@ -515,7 +523,7 @@ class LIFBaseTorch(TorchModule):
         """
         Overridden __setattr__ to manage access to decay parameters
         """
-        if hasattr(self, '_dummy_params') and key in self._dummy_params:
+        if hasattr(self, "_dummy_params") and key in self._dummy_params:
             self._set_leak_param(key, value)
         return super().__setattr__(key, value)
 
@@ -525,35 +533,34 @@ class LIFBaseTorch(TorchModule):
         """
         if self.leak_mode == "taus":
             # - Compute tau from `name`
-            if name == 'alpha':
-                return setattr(self, 'tau_mem', tau_to_decay(self.dt, value)[0])
-            elif name == 'beta':
-                return setattr(self, 'tau_syn', tau_to_decay(self.dt, value)[0])
-            elif name == 'dash_mem':
-                return setattr(self, 'tau_mem', tau_to_bitshift(self.dt, value)[0])
-            elif name == 'dash_syn':
-                return setattr(self, 'tau_syn', tau_to_bitshift(self.dt, value)[0])
+            if name == "alpha":
+                return setattr(self, "tau_mem", tau_to_decay(self.dt, value)[0])
+            elif name == "beta":
+                return setattr(self, "tau_syn", tau_to_decay(self.dt, value)[0])
+            elif name == "dash_mem":
+                return setattr(self, "tau_mem", tau_to_bitshift(self.dt, value)[0])
+            elif name == "dash_syn":
+                return setattr(self, "tau_syn", tau_to_bitshift(self.dt, value)[0])
 
         elif self.leak_mode == "decays":
-            if name == 'tau_mem':
-                return setattr(self, 'alpha', decay_to_tau(self.dt, value)[0])
-            elif name == 'tau_syn':
-                return setattr(self, 'beta', decay_to_tau(self.dt, value)[0])
-            elif name == 'dash_mem':
-                return setattr(self, 'alpha', decay_to_bitshift(value)[0])
-            elif name == 'dash_syn':
-                return setattr(self, 'beta', decay_to_bitshift(value)[0])
+            if name == "tau_mem":
+                return setattr(self, "alpha", decay_to_tau(self.dt, value)[0])
+            elif name == "tau_syn":
+                return setattr(self, "beta", decay_to_tau(self.dt, value)[0])
+            elif name == "dash_mem":
+                return setattr(self, "alpha", decay_to_bitshift(value)[0])
+            elif name == "dash_syn":
+                return setattr(self, "beta", decay_to_bitshift(value)[0])
 
-        elif self.leak_mode == 'bitshifts':
-            if name == 'tau_mem':
-                return setattr(self, 'dash_mem', tau_to_bitshift(self.dt, value)[0])
-            elif name == 'tau_syn':
-                return setattr(self, 'dash_syn', tau_to_bitshift(self.dt, value)[0])
-            elif name == 'alpha':
-                return setattr(self, 'dash_mem', decay_to_bitshift(value)[0])
-            elif name == 'beta':
-                return setattr(self, 'dash_syn', decay_to_bitshift(value)[0])
-
+        elif self.leak_mode == "bitshifts":
+            if name == "tau_mem":
+                return setattr(self, "dash_mem", tau_to_bitshift(self.dt, value)[0])
+            elif name == "tau_syn":
+                return setattr(self, "dash_syn", tau_to_bitshift(self.dt, value)[0])
+            elif name == "alpha":
+                return setattr(self, "dash_mem", decay_to_bitshift(value)[0])
+            elif name == "beta":
+                return setattr(self, "dash_syn", decay_to_bitshift(value)[0])
 
 
 class LIFTorch(LIFBaseTorch):
