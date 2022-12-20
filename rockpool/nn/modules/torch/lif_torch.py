@@ -449,24 +449,36 @@ class LIFBaseTorch(TorchModule):
         Decay factor for synaptic time constants :py:attr:`.LIFTorch.tau_syn`
         """
         return torch.exp(-self.dt / self.tau_syn).to(self.tau_syn.device)
-        
+
     @property
     def get_all_params(self):
 
         if self.leak_mode == "taus":
             tau_mem, tau_syn = self._tau_mem, self._tau_syn
-            alpha, beta = torch.exp(-self.dt / self._tau_mem).to(self._tau_mem.device), torch.exp(-self.dt / self._tau_syn).to(self._tau_syn.device)
-            dash_mem =  -torch.log2(1 - torch.exp(-self.dt / self._tau_mem).to(self._tau_mem.device))
-            dash_syn =  -torch.log2(1 - torch.exp(-self.dt / self._tau_syn).to(self._tau_syn.device))
+            alpha, beta = torch.exp(-self.dt / self._tau_mem).to(
+                self._tau_mem.device
+            ), torch.exp(-self.dt / self._tau_syn).to(self._tau_syn.device)
+            dash_mem = -torch.log2(
+                1 - torch.exp(-self.dt / self._tau_mem).to(self._tau_mem.device)
+            )
+            dash_syn = -torch.log2(
+                1 - torch.exp(-self.dt / self._tau_syn).to(self._tau_syn.device)
+            )
 
         elif self.leak_mode == "decays":
 
-            tau_mem, tau_syn = -(self.dt / torch.log(self._alpha)) , -(self.dt / torch.log(self._beta))
+            tau_mem, tau_syn = -(self.dt / torch.log(self._alpha)), -(
+                self.dt / torch.log(self._beta)
+            )
             alpha, beta = self._alpha, self._beta
-            dash_mem, dash_syn = -torch.log2(1 - self._alpha), -torch.log2(1 - self._beta)
+            dash_mem, dash_syn = -torch.log2(1 - self._alpha), -torch.log2(
+                1 - self._beta
+            )
 
         elif self.leak_mode == "bitshifts":
-            tau_mem, tau_syn = -self.dt / torch.log(1 - 1 / (2**self._dash_mem)), -self.dt / torch.log(1 - 1 / (2**self._dash_syn))
+            tau_mem, tau_syn = -self.dt / torch.log(
+                1 - 1 / (2**self._dash_mem)
+            ), -self.dt / torch.log(1 - 1 / (2**self._dash_syn))
             alpha, beta = 1 - 1 / (2**self._dash_mem), 1 - 1 / (2**self._dash_syn)
             dash_mem, dash_syn = self._dash_mem, self._dash_syn
 
@@ -474,38 +486,38 @@ class LIFBaseTorch(TorchModule):
 
     @property
     def tau_mem(self) -> torch.Tensor:
-        tau_mem,*_ = self.get_all_params
+        tau_mem, *_ = self.get_all_params
         return tau_mem
 
     @property
     def tau_syn(self) -> torch.Tensor:
-        _, tau_syn,*_ = self.get_all_params
-        return tau_syn  
+        _, tau_syn, *_ = self.get_all_params
+        return tau_syn
 
     @property
     def alpha(self) -> torch.Tensor:
-        _,_, alpha, *_ = self.get_all_params
-        return alpha     
+        _, _, alpha, *_ = self.get_all_params
+        return alpha
 
     @property
     def beta(self) -> torch.Tensor:
-        _,_, _, beta, *_ = self.get_all_params
-        return beta 
+        _, _, _, beta, *_ = self.get_all_params
+        return beta
 
     @property
     def dash_mem(self) -> torch.Tensor:
-        *_, dash_mem,_ = self.get_all_params
+        *_, dash_mem, _ = self.get_all_params
         return dash_mem
 
     @property
     def dash_syn(self) -> torch.Tensor:
         *_, dash_syn = self.get_all_params
-        return dash_syn  
+        return dash_syn
 
     @property
     def beta(self) -> torch.Tensor:
-        _,_, _, beta, *_ = self.get_all_params
-        return beta 
+        _, _, _, beta, *_ = self.get_all_params
+        return beta
 
     # @property
     # def beta(self) -> torch.Tensor:
