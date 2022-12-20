@@ -692,7 +692,7 @@ class DynapSim(JaxModule):
             size_out=self.size_out,
             name=f"{type(self).__name__}_{self.name}_{id(self)}",
             computational_module=self,
-            Iscale=self.Iscale,
+            Iscale=float(np.array(self.Iscale).mean()),
             dt=self.dt,
             **kwargs,
         )
