@@ -350,7 +350,6 @@ class WaveSenseNet(TorchModule):
             shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs
         )
 
-        self.n_classes = n_classes
         self.n_channels_res = n_channels_res
         self.n_channels_skip = n_channels_skip
 
