@@ -329,7 +329,7 @@ def test_t_decay_net():
 
     net = Sequential(
         LinearTorch((2, 2)),
-        LIFTorch(2, decay_training=True, alpha=init_alpha, beta=init_beta),
+        LIFTorch(2, leak_mode='decays', alpha=init_alpha, beta=init_beta),
     )
     tconfig = make_param_T_config(net, lambda p: t_decay(p), "decays")
     t_net = make_param_T_network(net, tconfig)
