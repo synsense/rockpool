@@ -17,6 +17,15 @@ class AbortImport(Exception):
     pass
 
 
+def check_torch_cuda_available() -> bool:
+    try:
+        import torch.cuda.is_available
+
+        return is_available()
+    except:
+        return False
+
+
 # - Maintain a cache of checked backends
 __checked_backends: Dict[str, bool] = {}
 
@@ -28,8 +37,9 @@ __backend_specs: Dict[str, tuple] = {
     "jax": (["jax", "jaxlib"],),
     "torch": (),
     "sinabs": (),
-    "sinabs-exodus": (["sinabs", "sinabs.exodus"],),
-    "brian": (["brian2"]),
+    "sinabs-exodus": (["sinabs", "sinabs.exodus"], check_torch_cuda_available()),
+    "brian": (["brian2"],),
+    "cuda": (["torch"], check_torch_cuda_available()),
 }
 
 
