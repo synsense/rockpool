@@ -299,6 +299,14 @@ Dynap-SE2 hardware support and simulation
     devices.dynapse.dynapsim_net_from_spec
     devices.dynapse.dynapsim_net_from_config
 
+**More**
+
+.. autosummary::
+    :toctree: _autosummary
+
+    devices.dynapse.DynapseNeurons
+    devices.dynapse.DynapSimCore
+
 Graph tracing and mapping
 -------------------------
 
