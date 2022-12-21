@@ -1,10 +1,6 @@
 """
 DynapSE convenience method to analyse a network and return a parameter subtree on which it makese sense to apply mismatch
-
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-09/12/2022
+    See also :ref:`/transform/mismatch`
 """
 
 from typing import Any, Dict, List
