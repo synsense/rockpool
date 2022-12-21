@@ -1,10 +1,5 @@
 """
-Dynap-SE2 common type hinting definitions
-
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-22/12/2021
+Dynap-SE2 common typehint definitions
 """
 
 from typing import Tuple
