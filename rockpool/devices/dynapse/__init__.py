@@ -43,8 +43,8 @@ See Also:
     See the tutorials
 
     * :ref:`/devices/DynapSE/dynapse-overview.ipynb`
-    * :ref:`/devices/DynapSE/jax-training.ipynb`
     * :ref:`/devices/DynapSE/neuron-model.ipynb`
+    * :ref:`/devices/DynapSE/jax-training.ipynb`
     * :ref:`/devices/DynapSE/post-training.ipynb`
 """
 
