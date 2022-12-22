@@ -1,10 +1,7 @@
 """
-Dynap-SE2 from_config parameter composition helper
+Dynap-SE2 from_config parameter composition helper, serves as a developer tool
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-04/12/2022
+* Non User Facing *
 """
 from __future__ import annotations
 
