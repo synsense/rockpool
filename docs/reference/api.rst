@@ -303,9 +303,10 @@ Dynap-SE2 hardware support and simulation
 
 .. autosummary::
     :toctree: _autosummary
-
+    
     devices.dynapse.DynapseNeurons
     devices.dynapse.DynapSimCore
+    transform.mismatch_generator
 
 Graph tracing and mapping
 -------------------------
