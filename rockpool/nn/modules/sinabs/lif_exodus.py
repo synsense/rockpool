@@ -135,14 +135,8 @@ class LIFExodus(LIFBaseTorch):
         (n_batches, time_steps, n_connections) = data.shape
 
         # - Broadcast parameters to full size for this module
-        beta = (
-            self.calc_beta()
-            .expand((n_batches, self.n_neurons, self.n_synapses))
-            .flatten()
-        )
-        alpha = (
-            self.calc_alpha().expand((n_batches, self.n_neurons)).flatten().contiguous()
-        )
+        beta = self.beta.expand((n_batches, self.n_neurons, self.n_synapses)).flatten()
+        alpha = self.alpha.expand((n_batches, self.n_neurons)).flatten().contiguous()
         membrane_subtract = self.threshold.expand((n_batches, self.n_neurons)).flatten()
 
         # Threshold must be float
@@ -321,11 +315,7 @@ class ExpSynExodus(LIFBaseTorch):
         (n_batches, time_steps, n_connections) = data.shape
 
         # - Broadcast parameters to full size for this module
-        beta = (
-            self.calc_beta()
-            .expand((n_batches, self.n_neurons, self.n_synapses))
-            .flatten()
-        )
+        beta = self.beta.expand((n_batches, self.n_neurons, self.n_synapses)).flatten()
 
         # Bring data into format expected by exodus: (batches*neurons*synapses, timesteps)
         data = data.movedim(1, -1).flatten(0, -2)
@@ -454,14 +444,8 @@ class LIFMembraneExodus(LIFBaseTorch):
         (n_batches, time_steps, n_connections) = data.shape
 
         # - Broadcast parameters to full size for this module
-        beta = (
-            self.calc_beta()
-            .expand((n_batches, self.n_neurons, self.n_synapses))
-            .flatten()
-        )
-        alpha = (
-            self.calc_alpha().expand((n_batches, self.n_neurons)).flatten().contiguous()
-        )
+        beta = self.beta.expand((n_batches, self.n_neurons, self.n_synapses)).flatten()
+        alpha = self.alpha.expand((n_batches, self.n_neurons)).flatten().contiguous()
 
         # Bring data into format expected by exodus: (batches*neurons*synapses, timesteps)
         data = data.movedim(1, -1).flatten(0, -2)
