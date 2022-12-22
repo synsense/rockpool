@@ -136,12 +136,12 @@ class LIFExodus(LIFBaseTorch):
 
         # - Broadcast parameters to full size for this module
         beta = (
-            self.calc_beta()
+            self.beta
             .expand((n_batches, self.n_neurons, self.n_synapses))
             .flatten()
         )
         alpha = (
-            self.calc_alpha().expand((n_batches, self.n_neurons)).flatten().contiguous()
+            self.alpha.expand((n_batches, self.n_neurons)).flatten().contiguous()
         )
         membrane_subtract = self.threshold.expand((n_batches, self.n_neurons)).flatten()
 
@@ -322,7 +322,7 @@ class ExpSynExodus(LIFBaseTorch):
 
         # - Broadcast parameters to full size for this module
         beta = (
-            self.calc_beta()
+            self.beta
             .expand((n_batches, self.n_neurons, self.n_synapses))
             .flatten()
         )
@@ -455,12 +455,12 @@ class LIFMembraneExodus(LIFBaseTorch):
 
         # - Broadcast parameters to full size for this module
         beta = (
-            self.calc_beta()
+            self.beta
             .expand((n_batches, self.n_neurons, self.n_synapses))
             .flatten()
         )
         alpha = (
-            self.calc_alpha().expand((n_batches, self.n_neurons)).flatten().contiguous()
+            self.alpha.expand((n_batches, self.n_neurons)).flatten().contiguous()
         )
 
         # Bring data into format expected by exodus: (batches*neurons*synapses, timesteps)
