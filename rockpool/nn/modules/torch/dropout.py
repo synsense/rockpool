@@ -1,5 +1,5 @@
 """
-A module implementing random dropout of neurons
+A module implementing random dropout of neurons and time steps
 """
 
 from rockpool.nn.modules.torch import TorchModule
@@ -9,12 +9,13 @@ from typing import Tuple
 
 import torch
 
-__all__ = ["NeuronDropout", "TimeStepDropout"]
+__all__ = ["UnitDropout", "TimeStepDropout"]
 
 
-class NeuronDropout(TorchModule):
+class UnitDropout(TorchModule):
     """
-        For each gradient update neurons are dropped with a given probability.
+        For each gradient update units are dropped with a given probability.
+        The module can be connected to continuos or spiking modules such as LinearTorch or LIFTorch.
         Dropout in Pytorch scales the output of the remaining time steps with 1/(1-self.p),
         some brief experiments with a model on the google speech command dataset showed that this is also beneficial here,
         so the output is scaled
@@ -44,7 +45,7 @@ class NeuronDropout(TorchModule):
         if self.size_in != self.size_out:
             raise ValueError("`size_in` must be equal to `size_out` for Dropout.")
 
-        if p > 1.0 or p < 0.0:
+        if p >= 1.0 or p < 0.0:
             raise ValueError("dropout probability must be between zero and one")
 
         self.p = SimulationParameter(p)
@@ -68,6 +69,7 @@ class NeuronDropout(TorchModule):
 class TimeStepDropout(TorchModule):
     """
     For each gradient update time steps are dropped with a given probability.
+    The module can be connected to continuos or spiking modules such as LinearTorch or LIFTorch.
     Dropout in Pytorch scales the output of the remaining time steps with 1/(1-self.p),
     some brief experiments with a model on the google speech command dataset showed that this is noy beneficial here,
     so the output is not scaled

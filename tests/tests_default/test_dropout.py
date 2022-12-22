@@ -2,6 +2,7 @@ import pytest
 
 pytest.importorskip("torch")
 
+
 def test_Dropout_shapes():
     from rockpool.nn.modules.torch.dropout import UnitDropout, TimeStepDropout
     import torch
@@ -21,8 +22,8 @@ def test_Dropout_shapes():
     assert out.shape == (n_batches, T, n_neurons)
     out, ns, rd = mod2(input_data)
     assert out.shape == (n_batches, T, n_neurons)
-    
-    
+
+
 def test_Dropout_all():
     from rockpool.nn.modules.torch.dropout import TimeStepDropout
     import torch
@@ -39,8 +40,8 @@ def test_Dropout_all():
     # - Test Rockpool interface
     out, ns, rd = mod(input_data)
     assert torch.sum(out) == 0.0
-    
-    
+
+
 def test_UnitDropout():
     from rockpool.nn.modules.torch.dropout import UnitDropout
     import torch
@@ -58,10 +59,12 @@ def test_UnitDropout():
     for b in range(n_batches):
         for n in range(n_neurons):
             output_dropped = torch.sum(out[b, :, n]) == 0
-            output_not_dropped = torch.allclose(out[b, :, n], input_data[b, :, n] * 1/(1-p))
+            output_not_dropped = torch.allclose(
+                out[b, :, n], input_data[b, :, n] * 1 / (1 - p)
+            )
             assert output_dropped or output_not_dropped
-            
-            
+
+
 def test_TimeStepDropout():
     from rockpool.nn.modules.torch.dropout import TimeStepDropout
     import torch
@@ -77,4 +80,3 @@ def test_TimeStepDropout():
     # the output of time steps that are not dropped are the same as the input
     out, ns, rd = mod(input_data)
     assert torch.allclose(out[out != 0], input_data[out != 0])
-    
