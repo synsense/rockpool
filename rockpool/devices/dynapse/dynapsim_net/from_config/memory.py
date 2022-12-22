@@ -1,10 +1,7 @@
 """
-Dynap-SE2 distributed memory reading
+Dynap-SE2 distributed memory reading, serves as a backend tool
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-09/05/2021
+* Non User Facing * 
 """
 
 from typing import Dict, List, Tuple
