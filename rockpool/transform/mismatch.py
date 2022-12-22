@@ -1,11 +1,5 @@
 """
-Analog device mismatch transformation(jax) implementation
-
-Dynap-SE2 API support project
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-11/01/2022
+Analog device mismatch transformation (jax) implementation
 """
 from typing import Any, Callable, Dict, Tuple
 from rockpool.nn.modules.jax import JaxModule
@@ -22,8 +16,7 @@ def mismatch_generator(
 ) -> Callable[
     [Tuple[Dict[str, jnp.DeviceArray], jnp.DeviceArray]], Dict[str, jnp.DeviceArray]
 ]:
-    """
-    mismatch_generator returns a function which simulates the analog device mismatch effect.
+    """ returns a function which simulates the analog device mismatch effect.
     The function deviates the parameter values provided in statistical means.
     The calculation parameters should be based on statistical knowledge obtained from emprical observations.
     That is, if one observes up-to-30% mismatch between the expected current and the measured
@@ -57,8 +50,7 @@ def mismatch_generator(
     def regenerate_mismatch(
         mod: JaxModule, rng_key: jnp.DeviceArray
     ) -> Dict[str, jnp.DeviceArray]:
-        """
-        regenerate_mismatch takes a parameter dictionary, flattens the tree and applies parameter mismatch to every leaf of the tree.
+        """ takes a parameter dictionary, flattens the tree and applies parameter mismatch to every leaf of the tree.
 
         :param params: parameter dictionary that is subject to mismatch effect
         :type params: Dict[str, jnp.DeviceArray]
@@ -71,8 +63,7 @@ def mismatch_generator(
         def __map_fun(
             array: jnp.DeviceArray, rng_key: jnp.DeviceArray
         ) -> jnp.DeviceArray:
-            """
-            __map_fun is the mapping functions that applies the deviation to all leaves of the tree
+            """ is the mapping functions that applies the deviation to all leaves of the tree
 
             :param array: single parameter to deviate
             :type array: jnp.DeviceArray
@@ -93,8 +84,7 @@ def mismatch_generator(
 
 
 def module_registery(module: JaxModule) -> Dict[str, Any]:
-    """
-    module_registery traces all the nested module and registered parameters of the JaxModule base given and returns a tree,
+    """ traces all the nested module and registered parameters of the JaxModule base given and returns a tree,
     whose leaves includes only the `SimulationParameters` and `Parameters`
 
     [] TODO : embed this into JaxModule base as a class method
