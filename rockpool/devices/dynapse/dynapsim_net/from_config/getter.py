@@ -31,7 +31,8 @@ def dynapsim_net_from_config(
     *args,
     **kwargs,
 ) -> JaxModule:
-    """constructs a `DynapSim` network by processing a samna configuration object
+    """
+    dynapsim_net_from_config constructs a `DynapSim` network by processing a samna configuration object
 
     :param config: a samna configuration object used to configure all the system level properties
     :type config: Dynapse2Configuration
@@ -139,7 +140,8 @@ def __restore_zero_rows(
     trimmed_weights: np.ndarray,
     channel_map: Dict[int, Dynapse2Destination],
 ) -> np.ndarray:
-    """restores the zero rows that occur in the simulation weights but lost in config object
+    """
+    __restore_zero_rows restores the zero rows that occur in the simulation weights but lost in config object
     Configuration object does not store a connection information if all weights from one input channel to all neurons are zero
     However, input channel map stores. This function exploits the input channel map and restores the zero rows
 
