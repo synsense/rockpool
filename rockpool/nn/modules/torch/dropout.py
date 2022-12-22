@@ -14,12 +14,12 @@ __all__ = ["UnitDropout", "TimeStepDropout"]
 
 class UnitDropout(TorchModule):
     """
-        For each gradient update units are dropped with a given probability.
-        The module can be connected to continuos or spiking modules such as LinearTorch or LIFTorch.
-        Dropout in Pytorch scales the output of the remaining time steps with 1/(1-self.p),
-        some brief experiments with a model on the google speech command dataset showed that this is also beneficial here,
-        so the output is scaled
-        """
+    For each gradient update units are dropped with a given probability.
+    The module can be connected to continuos or spiking modules such as LinearTorch or LIFTorch.
+    Dropout in Pytorch scales the output of the remaining time steps with 1/(1-self.p),
+    some brief experiments with a model on the google speech command dataset showed that this is also beneficial here,
+    so the output is scaled
+    """
 
     def __init__(
         self,
@@ -51,17 +51,18 @@ class UnitDropout(TorchModule):
         self.p = SimulationParameter(p)
         self.training = training
 
-
     def forward(self, data: torch.Tensor):
         (num_batches, num_timesteps, num_neurons) = data.shape
 
         if self.training:
             # mask input
-            mask = torch.ones((num_batches, num_neurons, num_timesteps), device=data.device)
+            mask = torch.ones(
+                (num_batches, num_neurons, num_timesteps), device=data.device
+            )
             probs = torch.rand((num_batches, num_neurons))
             mask[probs < self.p] = 0
             mask = torch.swapaxes(mask, 1, 2)
-            return data * mask * 1/(1-self.p)
+            return data * mask * 1 / (1 - self.p)
         else:
             return data
 
@@ -105,13 +106,14 @@ class TimeStepDropout(TorchModule):
         self.p = SimulationParameter(p)
         self.training = training
 
-
     def forward(self, data: torch.Tensor):
         (num_batches, num_timesteps, num_neurons) = data.shape
 
         if self.training:
             # mask input
-            mask = torch.ones((num_batches, num_timesteps, num_neurons), device=data.device)
+            mask = torch.ones(
+                (num_batches, num_timesteps, num_neurons), device=data.device
+            )
             probs = torch.rand((num_batches, num_timesteps, num_neurons))
             mask[probs < self.p] = 0
             return data * mask
