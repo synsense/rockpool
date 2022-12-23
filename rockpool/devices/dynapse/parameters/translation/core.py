@@ -115,7 +115,7 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
         :type t_pulse: FloatVector, optional
         :param t_ref: refractory period of the neurons in seconds
         :type t_ref: FloatVector, optional
-        :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes
+        :param Ispkthr: spiking threshold current, neuron spikes if :math:`I_{mem} > I_{spkthr}` in Amperes
         :type Ispkthr: FloatVector, optional
         :param tau_ahp: Spike frequency leakage time constant in seconds
         :type tau_ahp: FloatVector, optional
