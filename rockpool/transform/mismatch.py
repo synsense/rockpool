@@ -16,11 +16,12 @@ def mismatch_generator(
 ) -> Callable[
     [Tuple[Dict[str, jnp.DeviceArray], jnp.DeviceArray]], Dict[str, jnp.DeviceArray]
 ]:
-    """ returns a function which simulates the analog device mismatch effect.
+    """ 
+    mismatch_generator returns a function which simulates the analog device mismatch effect.
     The function deviates the parameter values provided in statistical means.
     The calculation parameters should be based on statistical knowledge obtained from emprical observations.
     That is, if one observes up-to-30% mismatch between the expected current and the measured
-    current actually flowing through the transistors: `percent` should be 0.30. Therefore, let's say
+    current actually flowing through the transistors: ``percent`` should be 0.30. Therefore, let's say
 
         mismatched current / actual current < %30 for 95 percent of the cases
 
@@ -30,16 +31,19 @@ def mismatch_generator(
     68%, 95%, and 99.7% of the values lie within one, two, and three standard deviations of the mean, respectively.
 
     .. math ::
-        Pr(\\mu -1\\sigma \\leq X\\leq \\mu +1\\sigma ) \\approx 68.27\\%
-        Pr(\\mu -2\\sigma \\leq X\\leq \\mu +2\\sigma ) \\approx 95.45\\%
-        Pr(\\mu -3\\sigma \\leq X\\leq \\mu +3\\sigma ) \\approx 99.73\\%
+        Pr(\\mu -1\\sigma \\leq X\\leq \\mu +1\\sigma ) \\approx 68.27\\\\
+        Pr(\\mu -2\\sigma \\leq X\\leq \\mu +2\\sigma ) \\approx 95.45\\\\
+        Pr(\\mu -3\\sigma \\leq X\\leq \\mu +3\\sigma ) \\approx 99.73\\\\
 
     So, to obtain 'mismatched current / actual current < %30 for 95 percent of the cases',
     the sigma should be half of the maximum deviation desired. That is the 30% percent of the theoretical current value.
 
+
+    :param prototype: the mismatch prototype. See :py:func:`devices.dynapse.frozen_mismatch_prototype`, and :py:func:`devices.dynapse.dynamic_mismatch_prototype`
+    :type prototype: Dict[str, bool]
     :param percent_deviation: the maximum deviation percentage from the theoretical value, defaults to 0.30
     :type percent_deviation: float, optional
-    :param sigma_rule: The sigma rule to use. if 1.0, then 68.27% of the values will deviate less then `percent`, if 2.0, then 95.45% of the values will deviate less then `percent` etc., defaults to 3.0
+    :param sigma_rule: The sigma rule to use. if 1.0, then 68.27% of the values will deviate less then ``percent``, if 2.0, then 95.45% of the values will deviate less then ``percent`` etc., defaults to 3.0
     :type sigma_rule: float, optional
     :return: a function which takes a pytree and computes the mismatch amount accordingly
     :rtype: Callable[ [Tuple[Dict[str, jnp.DeviceArray], jnp.DeviceArray]], Dict[str, jnp.DeviceArray] ]
@@ -50,7 +54,8 @@ def mismatch_generator(
     def regenerate_mismatch(
         mod: JaxModule, rng_key: jnp.DeviceArray
     ) -> Dict[str, jnp.DeviceArray]:
-        """ takes a parameter dictionary, flattens the tree and applies parameter mismatch to every leaf of the tree.
+        """
+        regenerate_mismatch takes a parameter dictionary, flattens the tree and applies parameter mismatch to every leaf of the tree.
 
         :param params: parameter dictionary that is subject to mismatch effect
         :type params: Dict[str, jnp.DeviceArray]
@@ -63,7 +68,8 @@ def mismatch_generator(
         def __map_fun(
             array: jnp.DeviceArray, rng_key: jnp.DeviceArray
         ) -> jnp.DeviceArray:
-            """ is the mapping functions that applies the deviation to all leaves of the tree
+            """
+            __map_fun is the mapping functions that applies the deviation to all leaves of the tree
 
             :param array: single parameter to deviate
             :type array: jnp.DeviceArray
@@ -84,8 +90,9 @@ def mismatch_generator(
 
 
 def module_registery(module: JaxModule) -> Dict[str, Any]:
-    """ traces all the nested module and registered parameters of the JaxModule base given and returns a tree,
-    whose leaves includes only the `SimulationParameters` and `Parameters`
+    """
+    module_registery traces all the nested module and registered parameters of the JaxModule base given and returns a tree,
+    whose leaves includes only the `parameters.SimulationParameters` and `parameters.Parameters`
 
     [] TODO : embed this into JaxModule base as a class method
 
