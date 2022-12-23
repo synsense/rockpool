@@ -254,12 +254,6 @@ Xylo hardware support and simulation
 Dynap-SE2 hardware support and simulation
 -----------------------------------------
 
-.. autosummary::
-    :toctree: _autosummary
-    :template: module.rst
-
-    devices.dynapse
-    
 .. seealso::
     Tutorials:
 
@@ -268,15 +262,30 @@ Dynap-SE2 hardware support and simulation
     * :ref:`/devices/DynapSE/jax-training.ipynb`
     * :ref:`/devices/DynapSE/post-training.ipynb`
 
+.. autosummary::
+    :toctree: _autosummary
+    :template: module.rst
+
+    devices.dynapse
 
 **Simulation**
 
 .. autosummary::
     :toctree: _autosummary
+    
     :template: module.rst
-
     devices.dynapse.simulation
+
+    :template: class.rst
     devices.dynapse.DynapSim
+
+
+**Mismatch**
+
+.. autosummary::
+    :toctree: _autosummary
+
+    transform.mismatch_generator
     devices.dynapse.frozen_mismatch_prototype
     devices.dynapse.dynamic_mismatch_prototype
 
@@ -288,7 +297,15 @@ Dynap-SE2 hardware support and simulation
     devices.dynapse.mapper
     devices.dynapse.autoencoder_quantization
     devices.dynapse.config_from_specification
+
+**Computer Interface**
+
+.. autosummary::
+    :toctree: _autosummary
+
     devices.dynapse.find_dynapse_boards
+
+    :template: class.rst
     devices.dynapse.DynapseSamna
 
 **Simulation to Device**
@@ -306,7 +323,6 @@ Dynap-SE2 hardware support and simulation
     
     devices.dynapse.DynapseNeurons
     devices.dynapse.DynapSimCore
-    transform.mismatch_generator
 
 Graph tracing and mapping
 -------------------------
