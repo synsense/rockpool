@@ -1,16 +1,9 @@
 """
-Dynap-SE samna config helper functions
-Handles the low-level hardware configuration under the hood and provide easy-to-use access to the user
+Dynap-SE2 weight matrix allocator implementation
+The functionality provided here is to process the weight matrices and to allocate required hardware resources
 
-Note : Existing modules are reconstructed considering consistency with Xylo support.
-
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-
-15/09/2022
-
-[] TODO : available tag list
+* Non User Facing *
+[] TODO : Provide available tag list to use best performing tags
 """
 from __future__ import annotations
 import logging
