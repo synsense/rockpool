@@ -1,13 +1,5 @@
 """
 Dynap-SE graph modules implementing conversion and translation methods
-
-Note : Existing modules are reconstructed considering consistency with Xylo support.
-
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-
-15/09/2022
 """
 
 from __future__ import annotations
@@ -58,19 +50,19 @@ class DynapseNeurons(GenericNeurons):
     :type Igain_mem: FloatVector
     :param Igain_syn: gain bias current of synaptic gates (AMPA, GABA, NMDA, SHUNT) combined in Amperes
     :type Igain_syn: FloatVector, optinoal
-    :param Ipulse_ahp: bias current setting the pulse width for spike frequency adaptation block `t_pulse_ahp` in Amperes
+    :param Ipulse_ahp: bias current setting the pulse width for spike frequency adaptation block ``t_pulse_ahp`` in Amperes
     :type Ipulse_ahp: FloatVector
-    :param Ipulse: bias current setting the pulse width for neuron membrane `t_pulse` in Amperes
+    :param Ipulse: bias current setting the pulse width for neuron membrane ``t_pulse`` in Amperes
     :type Ipulse: FloatVector
-    :param Iref: bias current setting the refractory period `t_ref` in Amperes
+    :param Iref: bias current setting the refractory period ``t_ref`` in Amperes
     :type Iref: FloatVector
-    :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes
+    :param Ispkthr: spiking threshold current, neuron spikes if :math:`I_{mem} > I_{spkthr}` in Amperes
     :type Ispkthr: FloatVector
-    :param Itau_ahp: Spike frequency adaptation leakage current setting the time constant `tau_ahp` in Amperes
+    :param Itau_ahp: Spike frequency adaptation leakage current setting the time constant ``tau_ahp`` in Amperes
     :type Itau_ahp: FloatVector
-    :param Itau_mem: Neuron membrane leakage current setting the time constant `tau_mem` in Amperes
+    :param Itau_mem: Neuron membrane leakage current setting the time constant ``tau_mem`` in Amperes
     :type Itau_mem: FloatVector
-    :param Itau_syn: (AMPA, GABA, NMDA, SHUNT) synapses combined leakage current setting the time constant `tau_syn` in Amperes
+    :param Itau_syn: (AMPA, GABA, NMDA, SHUNT) synapses combined leakage current setting the time constant ``tau_syn`` in Amperes
     :type Itau_syn: FloatVector
     :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes
     :type Iw_ahp: FloatVector
