@@ -40,12 +40,21 @@ __all__ = ["DynapseSamna"]
 
 class DynapseSamna(Module):
     """
-    DynapseSamna solves dynamical chip equations for the DPI neuron and synapse models.
-    Receives configuration as bias currents and solves membrane and synapse dynamics using ``jax`` backend.
+    DynapseSamna bridges the gap between the chip and the computer.
+    Provides a simulation-like interface for users, but executes all the operations on the hardware under the hood.
+    Use `devices.dynapse.find_dynapse_boards` to find the HDK.
+    Use `devices.dynapse.config_from_specification` to obtain a configuration object.
 
-    .. note::
-        * With the current samna support, it's impossible to reset the FPGA time-stamp counter without re-configuring the FPGA.
-        * Since underlying hardware is analog, state resetting is done by forcing the capacitors to discarge with a dummy configuration object having maxed leak currents for both the membrane and the synapses
+    ..  code-block:: python
+        :caption: Example usage
+
+        # Connect
+        se2_devices = find_dynapse_boards()
+        se2 = DynapseSamna(se2_devices[0], **config)
+        out, state, rec = se2(raster, record=True)
+
+    .. seealso::
+        :ref:`/devices/DynapSE/post-training.ipynb`
 
     :param shape: Two dimensions ``(Nin, Nout)``, which defines a input and output conections of Dynap-SE2 neurons.
     :type shape: Tuple[int]
