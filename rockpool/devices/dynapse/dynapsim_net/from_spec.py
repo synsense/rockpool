@@ -1,11 +1,6 @@
 """
 Obtain a DynapSim network from the spec output of the mapper
-
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-
-15/09/2022
+See also `rockpool.devices.dynapse.mapper`
 """
 from __future__ import annotations
 from typing import List, Optional
@@ -71,30 +66,30 @@ def dynapsim_net_from_spec(
     :type Igain_mem: List[FloatVector]
     :param Igain_syn: a list of gain bias current of synaptic gates (AMPA, GABA, NMDA, SHUNT) combined in Amperes
     :type Igain_syn: List[FloatVector]
-    :param Ipulse_ahp: a list of bias current setting the pulse width for spike frequency adaptation block `t_pulse_ahp` in Amperes
+    :param Ipulse_ahp: a list of bias current setting the pulse width for spike frequency adaptation block ```t_pulse_ahp``` in Amperes
     :type Ipulse_ahp: List[FloatVector]
-    :param Ipulse: a list of bias current setting the pulse width for neuron membrane `t_pulse` in Amperes
+    :param Ipulse: a list of bias current setting the pulse width for neuron membrane ```t_pulse``` in Amperes
     :type Ipulse: List[FloatVector]
-    :param Iref: a list of bias current setting the refractory period `t_ref` in Amperes
+    :param Iref: a list of bias current setting the refractory period ```t_ref``` in Amperes
     :type Iref: List[FloatVector]
-    :param Ispkthr: a list of spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes
+    :param Ispkthr: a list of spiking threshold current, neuron spikes if :math:`I_{mem} > I_{spkthr}` in Amperes
     :type Ispkthr: List[FloatVector]
-    :param Itau_ahp: a list of Spike frequency adaptation leakage current setting the time constant `tau_ahp` in Amperes
+    :param Itau_ahp: a list of Spike frequency adaptation leakage current setting the time constant ```tau_ahp``` in Amperes
     :type Itau_ahp: List[FloatVector]
-    :param Itau_mem: a list of Neuron membrane leakage current setting the time constant `tau_mem` in Amperes
+    :param Itau_mem: a list of Neuron membrane leakage current setting the time constant ```tau_mem``` in Amperes
     :type Itau_mem: List[FloatVector]
-    :param Itau_syn: a list of (AMPA, GABA, NMDA, SHUNT) synapses combined leakage current setting the time constant `tau_syn` in Amperes
+    :param Itau_syn: a list of (AMPA, GABA, NMDA, SHUNT) synapses combined leakage current setting the time constant ```tau_syn``` in Amperes
     :type Itau_syn: List[FloatVector]
     :param Iw_ahp: a list of spike frequency adaptation weight current of the neurons of the core in Amperes
     :type Iw_ahp: List[FloatVector]
     :param Iscale: network weight scaling current, defaults to default_weights["Iscale"]
     :type Iscale: float, optional
-    :param percent_mismatch: Gaussian parameter mismatch percentage (check ``transforms.mismatch_generator`` implementation), defaults to None
+    :param percent_mismatch: Gaussian parameter mismatch percentage (check `transform.mismatch_generator` implementation), defaults to None
     :type percent_mismatch: Optional[float], optional
     :param dt: The time step for the forward-Euler ODE solver, defaults to 1e-3
     :type dt: float, optional
-    :return: a modified samna ``Dynapse2Configuration`` object
-    :rtype: Dynapse2Configuration
+    :return: a `nn.combinators.Sequential` combinator possibly encapsulating a `nn.modules.LinearJax` layer and a `DynapSim` layer, or just a `DynapSim` layer in the case that no input weights defined
+    :rtype: `nn.modules.JaxModule`
     """
     Idc_unc = np.zeros_like(core_map, dtype=float)
     If_nmda_unc = np.zeros_like(core_map, dtype=float)
