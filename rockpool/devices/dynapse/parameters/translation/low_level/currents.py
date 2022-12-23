@@ -38,25 +38,25 @@ class DynapSimCurrents(DynapSimProperty):
     :type Igain_shunt: FloatVector
     :param Igain_mem: gain bias current for neuron membrane in Amperes
     :type Igain_mem: FloatVector
-    :param Ipulse_ahp: bias current setting the pulse width for spike frequency adaptation block `t_pulse_ahp` in Amperes
+    :param Ipulse_ahp: bias current setting the pulse width for spike frequency adaptation block ``t_pulse_ahp`` in Amperes
     :type Ipulse_ahp: FloatVector
-    :param Ipulse: bias current setting the pulse width for neuron membrane `t_pulse` in Amperes
+    :param Ipulse: bias current setting the pulse width for neuron membrane ``t_pulse`` in Amperes
     :type Ipulse: FloatVector
-    :param Iref: bias current setting the refractory period `t_ref` in Amperes
+    :param Iref: bias current setting the refractory period ``t_ref`` in Amperes
     :type Iref: FloatVector
-    :param Ispkthr: spiking threshold current, neuron spikes if :math:`Imem > Ispkthr` in Amperes
+    :param Ispkthr: spiking threshold current, neuron spikes if :math:`I_{mem} > I_{spkthr}` in Amperes
     :type Ispkthr: FloatVector
-    :param Itau_ahp: Spike frequency adaptation leakage current setting the time constant `tau_ahp` in Amperes
+    :param Itau_ahp: Spike frequency adaptation leakage current setting the time constant ``tau_ahp`` in Amperes
     :type Itau_ahp: FloatVector
-    :param Itau_ampa: AMPA synapse leakage current setting the time constant `tau_ampa` in Amperes
+    :param Itau_ampa: AMPA synapse leakage current setting the time constant ``tau_ampa`` in Amperes
     :type Itau_ampa: FloatVector
-    :param Itau_gaba: GABA synapse leakage current setting the time constant `tau_gaba` in Amperes
+    :param Itau_gaba: GABA synapse leakage current setting the time constant ``tau_gaba`` in Amperes
     :type Itau_gaba: FloatVector
-    :param Itau_nmda: NMDA synapse leakage current setting the time constant `tau_nmda` in Amperes
+    :param Itau_nmda: NMDA synapse leakage current setting the time constant ``tau_nmda`` in Amperes
     :type Itau_nmda: FloatVector
-    :param Itau_shunt: SHUNT synapse leakage current setting the time constant `tau_shunt` in Amperes
+    :param Itau_shunt: SHUNT synapse leakage current setting the time constant ``tau_shunt`` in Amperes
     :type Itau_shunt: FloatVector
-    :param Itau_mem: Neuron membrane leakage current setting the time constant `tau_mem` in Amperes
+    :param Itau_mem: Neuron membrane leakage current setting the time constant ``tau_mem`` in Amperes
     :type Itau_mem: FloatVector
     :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes
     :type Iw_ahp: FloatVector
