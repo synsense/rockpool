@@ -131,7 +131,7 @@ class AFESim(Module):
         self,
         shape: Union[tuple, int] = (1, 16),
         Q: int = 4,  # 3-5
-        fc1: float = 100.0,
+        fc1: float = 40.0,
         f_factor: float = 1.41,
         thr_up: float = 0.5,
         leakage: float = 1.0,  # 0.5-20 nA
