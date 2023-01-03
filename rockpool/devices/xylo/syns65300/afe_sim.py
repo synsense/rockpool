@@ -267,7 +267,7 @@ class AFESim(Module):
         self.F_KNEE_FWR: P_float = Parameter(158)
         self.F_ALPHA_FWR: P_float = Parameter(1)
 
-        self.F_CORNER_HIGHPASS: P_float = Parameter(100)
+        self.F_CORNER_HIGHPASS: P_float = Parameter(20)
         """ float: High pass corner frequency due to AC Coupling from BPF to FWR in Hz. (Default 100Hz)"""
 
         # LNA
