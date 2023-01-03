@@ -56,7 +56,7 @@ try:
         def forward(cdc, data_t):
             lk = leakage * cdc * 1e-9
             dq_lk = lk * dt
-            dv = (dt * data_t - dq_lk) / c_iaf
+            dv = (dt * data_t - dq_lk) / (c_iaf)
 
             # - Accumulate membrane voltage, clip to zero
             cdc += dv
@@ -130,7 +130,7 @@ class AFESim(Module):
     def __init__(
         self,
         shape: Union[tuple, int] = (1, 16),
-        Q: int = 5,  # 3-5
+        Q: int = 4,  # 3-5
         fc1: float = 100.0,
         f_factor: float = 1.325,
         thr_up: float = 0.5,
