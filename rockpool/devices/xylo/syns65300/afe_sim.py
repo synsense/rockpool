@@ -132,7 +132,7 @@ class AFESim(Module):
         shape: Union[tuple, int] = (1, 16),
         Q: int = 4,  # 3-5
         fc1: float = 100.0,
-        f_factor: float = 1.325,
+        f_factor: float = 1.41,
         thr_up: float = 0.5,
         leakage: float = 1.0,  # 0.5-20 nA
         digital_counter: int = 1,  # keep 1 spike every xxx spikes
