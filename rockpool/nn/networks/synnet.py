@@ -19,7 +19,6 @@ __all__ = ["SynNet"]
 
 
 class SynNet(TorchModule):
-
     def __init__(
         self,
         n_classes: int,
@@ -61,26 +60,38 @@ class SynNet(TorchModule):
         """
 
         super().__init__(
-            shape=(n_channels, n_classes), spiking_input=True,
-            spiking_output=True, *args, **kwargs
+            shape=(n_channels, n_classes),
+            spiking_input=True,
+            spiking_output=True,
+            *args,
+            **kwargs,
         )
 
         if len(size_hidden_layers) != len(time_constants_per_layer):
-            raise ValueError('lists for hidden layer sizes and number of time constants per layer need to have the same length')
+            raise ValueError(
+                "lists for hidden layer sizes and number of time constants per layer need to have the same length"
+            )
 
         self.dt = 1e-3
 
         tau_repititions = []
-        for i, (n_hidden, n_tau) in enumerate(zip(size_hidden_layers, time_constants_per_layer)):
+        for i, (n_hidden, n_tau) in enumerate(
+            zip(size_hidden_layers, time_constants_per_layer)
+        ):
             tau_repititions.append(int(n_hidden / n_tau) + min(1, n_hidden % n_tau))
 
         self.lins = []
         self.spks = []
         self.dropouts = []
         n_channels_in = n_channels
-        for i, (n_hidden, n_tau) in enumerate(zip(size_hidden_layers, time_constants_per_layer)):
+        for i, (n_hidden, n_tau) in enumerate(
+            zip(size_hidden_layers, time_constants_per_layer)
+        ):
 
-            taus = [torch.tensor([tau_syn_base ** j * self.dt for j in range(1, n_tau + 1)]) for _ in range(tau_repititions[i])]
+            taus = [
+                torch.tensor([tau_syn_base**j * self.dt for j in range(1, n_tau + 1)])
+                for _ in range(tau_repititions[i])
+            ]
             tau_syn_hidden = torch.hstack(taus)
             # if size of layer is not a multiple of the time constants connections of different time constants are
             # removed starting from the largest one
@@ -90,20 +101,28 @@ class SynNet(TorchModule):
             else:
                 thresholds = [threshold for _ in range(n_hidden)]
 
-            self.lins.append(LinearTorch(shape=(n_channels_in, n_hidden), has_bias=False))
+            self.lins.append(
+                LinearTorch(shape=(n_channels_in, n_hidden), has_bias=False)
+            )
             n_channels_in = n_hidden
             with torch.no_grad():
-                self.lins[-1].weight.data = self.lins[-1].weight.data * self.dt / tau_syn_hidden
-            setattr(self, 'lin' + str(i), self.lins[-1])
-            self.spks.append(neuron_model(shape=(n_hidden, n_hidden),
-                                     tau_mem=Constant(tau_mem*self.dt),
-                                     tau_syn=Constant(tau_syn_hidden),
-                                     bias=Constant(0.0),
-                                     threshold=thresholds,
-                                     spike_generation_fn=PeriodicExponential,
-                                     dt=self.dt,
-                                     max_spikes_per_dt=max_spikes_per_dt))
-            setattr(self, 'spk' + str(i), self.spks[-1])
+                self.lins[-1].weight.data = (
+                    self.lins[-1].weight.data * self.dt / tau_syn_hidden
+                )
+            setattr(self, "lin" + str(i), self.lins[-1])
+            self.spks.append(
+                neuron_model(
+                    shape=(n_hidden, n_hidden),
+                    tau_mem=Constant(tau_mem * self.dt),
+                    tau_syn=Constant(tau_syn_hidden),
+                    bias=Constant(0.0),
+                    threshold=thresholds,
+                    spike_generation_fn=PeriodicExponential,
+                    dt=self.dt,
+                    max_spikes_per_dt=max_spikes_per_dt,
+                )
+            )
+            setattr(self, "spk" + str(i), self.spks[-1])
 
             self.dropouts.append(TimeStepDropout(shape=(n_hidden), p=p_dropout))
 
@@ -113,8 +132,8 @@ class SynNet(TorchModule):
 
         self.spk_out = neuron_model(
             shape=(n_classes, n_classes),
-            tau_mem=Constant(tau_mem*self.dt),
-            tau_syn=Constant(tau_syn_out*self.dt),
+            tau_mem=Constant(tau_mem * self.dt),
+            tau_syn=Constant(tau_syn_out * self.dt),
             bias=Constant(0.0),
             threshold=Constant([threshold_out for i in range(n_classes)]),
             spike_generation_fn=PeriodicExponential,
@@ -129,7 +148,9 @@ class SynNet(TorchModule):
     def forward(self, data: torch.Tensor):
 
         out = data
-        for i, (lin, spk, dropout) in enumerate(zip(self.lins, self.spks, self.dropouts)):
+        for i, (lin, spk, dropout) in enumerate(
+            zip(self.lins, self.spks, self.dropouts)
+        ):
             out, _, self._record_dict["lin" + str(i)] = lin(out, record=self._record)
             out, _, self._record_dict["spk" + str(i)] = spk(out, record=self._record)
             out, _, _ = dropout(out)
@@ -160,10 +181,12 @@ class SynNet(TorchModule):
         # connect modules
         for i, (lin, spk) in enumerate(zip(self.lins, self.spks)):
             connect_modules(mod_graphs["lin" + str(i)], mod_graphs["spk" + str(i)])
-            if i == len(self.lins)-1:
+            if i == len(self.lins) - 1:
                 connect_modules(mod_graphs["spk" + str(i)], mod_graphs["lin_out"])
             else:
-                connect_modules(mod_graphs["spk" + str(i)], mod_graphs["lin" + str(i+1)])
+                connect_modules(
+                    mod_graphs["spk" + str(i)], mod_graphs["lin" + str(i + 1)]
+                )
         connect_modules(mod_graphs["lin_out"], mod_graphs["spk_out"])
 
         return GraphHolder(

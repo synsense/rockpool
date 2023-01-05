@@ -26,7 +26,7 @@ def test_synnet_init():
         neuron_model=LIFTorch,
         max_spikes_per_dt=13,
         max_spikes_per_dt_out=2,
-        p_dropout=0.2
+        p_dropout=0.2,
     )
 
 
@@ -48,7 +48,7 @@ def test_synnet_forward():
         threshold_out=100,
         max_spikes_per_dt=15,
         max_spikes_per_dt_out=12,
-        p_dropout=0.1
+        p_dropout=0.1,
     )
 
     # input params
@@ -82,7 +82,7 @@ def test_synnet_record():
         threshold_out=100,
         max_spikes_per_dt=15,
         max_spikes_per_dt_out=12,
-        p_dropout=0.1
+        p_dropout=0.1,
     )
 
     # input params
@@ -109,7 +109,7 @@ def test_synnet_record():
         threshold_out=100,
         max_spikes_per_dt=15,
         max_spikes_per_dt_out=12,
-        p_dropout=0.0
+        p_dropout=0.0,
     )
 
     # forward
@@ -142,7 +142,7 @@ def test_synnet_backward():
         train_threshold=True,
         max_spikes_per_dt=15,
         max_spikes_per_dt_out=12,
-        p_dropout=0.1
+        p_dropout=0.1,
     )
 
     # input params
@@ -190,7 +190,7 @@ def test_synnet_trainables():
         threshold_out=1.0,
         max_spikes_per_dt=15,
         max_spikes_per_dt_out=12,
-        p_dropout=0.1
+        p_dropout=0.1,
     )
 
     assert model.lin0.weight.requires_grad is True
@@ -240,7 +240,7 @@ def test_synnet_reset():
         train_threshold=True,
         max_spikes_per_dt=15,
         max_spikes_per_dt_out=12,
-        p_dropout=0.1
+        p_dropout=0.1,
     )
 
     # input params
@@ -288,7 +288,7 @@ def test_wavesense_graph():
         train_threshold=True,
         max_spikes_per_dt=15,
         max_spikes_per_dt_out=12,
-        p_dropout=0.1
+        p_dropout=0.1,
     )
 
     model.as_graph()
