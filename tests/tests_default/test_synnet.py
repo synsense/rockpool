@@ -61,7 +61,7 @@ def test_synnet_forward():
     # forward
     out, state, rec = model(inp, record=True)
 
-    assert torch.allclose(out, rec['spk_out']['spikes'])
+    assert torch.allclose(out, rec["spk_out"]["spikes"])
 
 
 def test_synnet_record():
