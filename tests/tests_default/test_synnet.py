@@ -45,23 +45,23 @@ def test_synnet_forward():
         tau_mem=1.5,
         tau_syn_out=2.6,
         threshold=1.0,
-        threshold_out=100,
+        threshold_out=0.001,
         max_spikes_per_dt=15,
         max_spikes_per_dt_out=12,
         p_dropout=0.1,
     )
 
     # input params
-    n_batches = 2
+    n_batches = 3
     T = 20
 
     # input
     inp = torch.ones(n_batches, T, n_neurons_input) * 100
 
     # forward
-    out, state, rec = model(inp)
+    out, state, rec = model(inp, record=True)
 
-    assert len(rec) == 0
+    assert torch.allclose(out, rec['spk_out']['spikes'])
 
 
 def test_synnet_record():
@@ -266,7 +266,7 @@ def test_synnet_reset():
     assert torch.all(state["spk0"]["vmem"] == 0)
 
 
-def test_wavesense_graph():
+def test_synnet_graph():
     from rockpool.nn.networks import SynNet
     import torch
 
