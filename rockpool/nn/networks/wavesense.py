@@ -350,6 +350,7 @@ class WaveSenseNet(TorchModule):
             shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs
         )
 
+        self.n_classes = n_classes
         self.n_channels_res = n_channels_res
         self.n_channels_skip = n_channels_skip
 
@@ -476,7 +477,6 @@ class WaveSenseNet(TorchModule):
         # Pass through each wave block in turn
         skip = 0
         for wave_index, wave_block in enumerate(self.wave_blocks):
-
             (out, skip_new), _, self._record_dict[f"wave{wave_index}"] = wave_block(
                 out, record=self._record
             )
