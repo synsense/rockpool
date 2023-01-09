@@ -26,19 +26,16 @@ class DynapseGraphContainer:
     """
     DynapseGraphContainer is a helper for mapping pipeline. It checks if the given `devices.dynapse.DynapSim` graph is properly constructed.
     Stores the simulator, input weight and recurrent weight graph in a structured way
-
-    :Parameters:
-    :param simulator: the core simulator graph which contains the parameter currents
-    :type simulator: DynapseNeurons
-    :param input: the linear input layer graph which contains input weight matrix, does not need to be defined, can be None
-    :type input: Optional[LinearWeights]
-    :param recurrent: the recurrent weight graph which contatins recurrent weight matrix, does not need to be defined, can be None
-    :type recurrent: Optional[LinearWeights]
     """
 
     simulator: DynapseNeurons
+    """the core simulator graph which contains the parameter currents"""
+
     input: Optional[LinearWeights]
+    """the linear input layer graph which contains input weight matrix, does not need to be defined, can be None"""
+
     recurrent: Optional[LinearWeights]
+    """the recurrent weight graph which contatins recurrent weight matrix, does not need to be defined, can be None"""
 
     @classmethod
     def from_graph_holder(cls, graph: GraphHolder) -> DynapseGraphContainer:
