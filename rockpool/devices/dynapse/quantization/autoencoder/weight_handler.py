@@ -3,14 +3,7 @@ Dynap-SE weight quantization weight handler implementation
 The handler stores the non-zero indexes, flattens the recurrent and input weights and help reconstructing
 Includes utility methods to restore/reshape weight matrices from compartments
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-
-first implemented inside weights/WeightParameters @220121
-split from WeightParameters @220922
-
-20/09/2022
+* Non User Facing *
 """
 from typing import Any, Optional, Tuple, Union
 
@@ -28,15 +21,6 @@ class WeightHandler:
     WeightHandler encapsulates the simulator weights and provides utilities to use the weight matrices in quantization pipeline.
     Also provides some utilities to restore a weight matrix from the weight parameters and CAM content.
 
-    :Parameters:
-
-    :param weights_in: input layer weights used in Dynap-SE2 simulation
-    :type weights_in: Optional[np.ndarray]
-    :param weights_rec: recurrent layer (in-device neurons) weights used in Dynap-SE2 simulation
-    :type weights_rec: Optional[np.ndarray]
-    :param weights_global: global weights (input + rec) weights refered by simulation, used in quantization, if weights_in, weighs_rec provided, do not provide this!
-    :type weights_global: Optional[np.ndarray]
-
     Examples:
         Instantitate a WeightHandler module with input and recurrent weights matrix
 
@@ -44,8 +28,13 @@ class WeightHandler:
     """
 
     weights_in: Optional[np.ndarray] = None
+    """input layer weights used in Dynap-SE2 simulation"""
+
     weights_rec: Optional[np.ndarray] = None
+    """recurrent layer (in-device neurons) weights used in Dynap-SE2 simulation"""
+
     weights_global: Optional[np.ndarray] = None
+    """global weights (input + rec) weights refered by simulation, used in quantization, if weights_in, weighs_rec provided, do not provide this!"""
 
     def __post_init__(self):
         """
