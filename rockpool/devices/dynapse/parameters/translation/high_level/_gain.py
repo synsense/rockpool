@@ -1,10 +1,7 @@
 """
-Dynap-/SE2 full board configuration classes and methods
+Dynap-SE2 gain ratio conversion and computation utilities
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-03/05/2022
+* Non User Facing *
 """
 
 from __future__ import annotations
@@ -25,27 +22,25 @@ __all__ = ["DynapSimGain"]
 class DynapSimGain(DynapSimCoreHigh):
     """
     DynapSimGain stores the ratio between gain and tau current values
-
-    :param r_gain_ahp: spike frequency adaptation block gain ratio :math:`Igain_ahp/Itau_ahp`
-    :type r_gain_ahp: FloatVector, optional
-    :param r_gain_ampa: excitatory AMPA synpse gain ratio :math:`Igain_ampa/Itau_ampa`
-    :type r_gain_ampa: FloatVector, optional
-    :param r_gain_gaba: inhibitory GABA synpse gain ratio :math:`Igain_gaba/Itau_gaba `
-    :type r_gain_gaba: FloatVector, optional
-    :param r_gain_nmda: excitatory NMDA synpse gain ratio :math:`Igain_nmda/Itau_nmda`
-    :type r_gain_nmda: FloatVector, optional
-    :param r_gain_shunt: inhibitory SHUNT synpse gain ratio :math:`Igain_shunt/Itau_shunt`
-    :type r_gain_shunt: FloatVector, optional
-    :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`
-    :type r_gain_mem: FloatVector, optional
     """
 
     r_gain_ahp: FloatVector = default_gain_ratios["r_gain_ahp"]
+    """spike frequency adaptation block gain ratio :math:`Igain_ahp/Itau_ahp`"""
+
     r_gain_ampa: FloatVector = default_gain_ratios["r_gain_ampa"]
+    """excitatory AMPA synpse gain ratio :math:`Igain_ampa/Itau_ampa`"""
+
     r_gain_gaba: FloatVector = default_gain_ratios["r_gain_gaba"]
+    """inhibitory GABA synpse gain ratio :math:`Igain_gaba/Itau_gaba `"""
+
     r_gain_nmda: FloatVector = default_gain_ratios["r_gain_nmda"]
+    """excitatory NMDA synpse gain ratio :math:`Igain_nmda/Itau_nmda`"""
+
     r_gain_shunt: FloatVector = default_gain_ratios["r_gain_shunt"]
+    """inhibitory SHUNT synpse gain ratio :math:`Igain_shunt/Itau_shunt`"""
+
     r_gain_mem: FloatVector = default_gain_ratios["r_gain_mem"]
+    """neuron membrane gain ratio :math:`Igain_mem/Itau_mem`"""
 
     @classmethod
     def from_DynapSimCore(cls, core: DynapSimCore) -> DynapSimGain:
