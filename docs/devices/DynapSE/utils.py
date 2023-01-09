@@ -1,11 +1,7 @@
 """
 Dynap-SE tuturials common utility functions 
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-
-15/09/2022
+* Non User facing *
 """
 from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple, Union

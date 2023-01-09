@@ -14,12 +14,6 @@ Notes:
     * ``test_full_config`` failure is less crucial then test_event_conversion
         * ``test_full_config`` fails : one cannot save and reload samna configuration objects reliably
         * ``test_event`` or ``test_destination_key`` fails : DynapSamna interfacing, especially AER package delivery does not work
-
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-
-02/12/2022
 """
 
 import pytest
