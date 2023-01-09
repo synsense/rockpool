@@ -1,10 +1,7 @@
 """
-Dynap-SE2 full board configuration classes and methods
+Dynap-SE2 base simulated property class
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-03/05/2022
+* Non User Facing *
 """
 
 from typing import Dict
