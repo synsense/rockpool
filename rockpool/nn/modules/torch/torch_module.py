@@ -526,11 +526,7 @@ class TorchModule(Module, nn.Module):
                 else:
                     my_params.update(self.simulation_parameters())
 
-                if isinstance(my_params[k], list):
-                    my_params[k] = param
-                elif isinstance(my_params[k], int):
-                    my_params[k] = param
-                elif isinstance(my_params[k], float):
+                if isinstance(my_params[k], (list, int, float, str)):
                     my_params[k] = param
                 elif callable(my_params[k]):
                     pass
@@ -544,7 +540,7 @@ class TorchModule(Module, nn.Module):
                     my_params[k] = param
                 else:
                     raise NotImplementedError(
-                        f"{type(my_params[k])} not implemented to load. Please implement."
+                        f"{type(my_params[k])} for parameter {k} with value {params} not implemented to load. Please implement."
                     )
 
     def param_to_json(self, param):
@@ -564,6 +560,8 @@ class TorchModule(Module, nn.Module):
             for k, p in param.items():
                 return_dict[k] = self.param_to_json(p)
             return return_dict
+        elif isinstance(param, str):
+            return json.dumps(param)
         else:
             raise NotImplementedError(
                 f"{type(param)} not implemented to save. Please implement."
