@@ -25,7 +25,7 @@ from jax.lax import scan
 from jax.example_libraries import optimizers
 
 # Rockpool
-from .loss import QuantizationLoss
+from .loss import loss_reconstruction
 from .digital import DigitalAutoEncoder
 from .weight_handler import WeightHandler
 
@@ -122,11 +122,7 @@ def learn_weights(
 
     ## - Get the jit compiled update and value-and-gradient functions
     loss_vgf = jit(
-        value_and_grad(
-            lambda params: QuantizationLoss.loss_reconstruction(
-                __encoder, params, w_flat
-            )
-        )
+        value_and_grad(lambda params: loss_reconstruction(__encoder, params, w_flat))
     )
     update_fun = jit(update_fun)
     run_for = jit(
