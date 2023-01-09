@@ -1,11 +1,5 @@
 """
-Dynap-SE2 samna connection utilities
-
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-
-31/05/2022
+Dynap-SE2 samna connection utilities.
 """
 from typing import Any, List
 import logging
@@ -26,7 +20,12 @@ __all__ = ["find_dynapse_boards"]
 
 def find_dynapse_boards(name: str = "DYNAP-SE2") -> List[DeviceInfo]:
     """
-    find_dynapse_boards identifies the Dynap-SE2 boards plugged in to the system
+    find_dynapse_boards identifies the Dynap-SE2 boards plugged in to the system.
+
+    It is required to identify the USB hub that the HDK is connected and provide the device information to `devices.dynapse.DynapseSamna`
+
+    See Also:
+        The tutorials in :ref:`/devices/DynapSE/post-training.ipynb`
 
     :param name: the name of the devices, defaults to "DYNAP-SE2"
     :type name: str, optional
