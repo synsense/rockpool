@@ -1,11 +1,7 @@
 """
-Dynap-SE graph transformer package memory grid implementation
+Dynap-SE graph conversion package memory grid implementation
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-
-09/11/2022
+* Non User Facing *
 """
 from typing import List, Tuple
 
@@ -22,17 +18,13 @@ class NPGrid:
     """
     Addresses a subset of the numpy array that is to be used for reading or writing
     Implements error checking methods
-
-    :Parameters:
-
-    :param row: a two dimensional row slice
-    :type row: Tuple[int]
-    :param col: a two dimensional column slice
-    :type col: Tuple[int]
     """
 
     row: Tuple[int]
+    """a two dimensional row slice"""
+
     col: Tuple[int]
+    """a two dimensional column slice"""
 
     def __post_init__(self):
         """
