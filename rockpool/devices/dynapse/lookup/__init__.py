@@ -1,7 +1,11 @@
 """
-Lookup tables obtained from 
+Lookup tables with hard-coded floating point values obtained from
 https://hardware.basket.office.synsense.ai/documentation/dynapse2docs/Sections/input_interface_config.html
-for more accurate simulation of DynapSE-2 bias generator
+especially for more accurate simulation of Dynap-SE2 bias generator.
+
+Additionally, encapsulates the FPGA configuration file
+
+* Non User Facing *
 """
 
 from .parameter_name import *
