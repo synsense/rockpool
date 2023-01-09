@@ -6,10 +6,7 @@ All modules listed copy the data segments of the samna classes and provide type 
 The package is not aimed to be maintained long-term. 
 To be removed at some point when the missing functionality is shipped to samna.
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-08/04/2022
+* Non User Facing *
 """
 
 from __future__ import annotations
@@ -64,32 +61,28 @@ class Dynapse2Parameter(SamnaAlias):
     """
     Dynapse2Parameter mimics the parameter object for Dynap-SE2.
     Converting to samna.dynapse2.Dynapse2Parameter is not recommended!
-
-    :Parameters:
-
-    :param coarse_value: integer coarse base value :math:`C \\in [0,5]`
-    :type coarse_value: np.uint8
-    :param fine_value: integer fine value to scale the coarse current :math:`f \\in [0,255]`
-    :type fine_value: np.uint8
-    :param type: the type of the parameter : N or P
-    :type type: ParameterType
-    :param _address: stores PG number and branch shifted appropriately for the hardware, defaults to 0
-    :type _address: np.uint64, optional
-    :param _cookie: a cookie(number) assigned to parameter with regards to the address, defaults to 0
-    :type _cookie: np.uint64, optional
-    :param _initial_type: the initial type of the transistor, defaults to None
-    :type _initial_type: ParameterType, optional
-    :param _switchable_type: set true for type changeable "..._V" parameters, defaults to False
-    :type _switchable_type: bool, optional
     """
 
     type: str
+    """integer coarse base value :math:`C \\in [0,5]`"""
+
     coarse_value: np.uint8
+    """integer fine value to scale the coarse current :math:`f \\in [0,255]`"""
+
     fine_value: np.uint8
+    """the type of the parameter : N or P"""
+
     _address: np.uint64 = 0
+    """stores PG number and branch shifted appropriately for the hardware, defaults to 0"""
+
     _cookie: np.uint64 = 0
+    """a cookie(number) assigned to parameter with regards to the address, defaults to 0"""
+
     _initial_type: ParameterType = None
+    """the initial type of the transistor, defaults to None"""
+
     _switchable_type: bool = False
+    """set true for type changeable "..._V" parameters, defaults to False"""
 
     def __post_init__(self) -> None:
         """
@@ -142,25 +135,19 @@ class Dynapse2Parameter(SamnaAlias):
 class Dynapse2Destination(SamnaAlias):
     """
     Dynapse2Destination mimics the address part of the samna AER package for DynapSE2
-
-    :Parameters:
-
-    :param core: the core mask used while sending the events
-            [1,1,1,1] means all 4 cores are on the target
-            [0,0,1,0] means the event will arrive at core 2 only
-    :type core: List[bool]
-    :param x_hop: number of chip hops on x axis
-    :type x_hop: int
-    :param y_hop: number of chip hops on y axis
-    :type y_hop: int
-    :param tag: globally multiplexed locally unique event tag which is used to identify the connection between two neurons.
-    :type tag: int
     """
 
     core: List[bool]
+    """the core mask used while sending the events"""
+
     x_hop: int
+    """number of chip hops on x axis"""
+
     y_hop: int
+    """number of chip hops on y axis"""
+
     tag: int
+    """globally multiplexed locally unique event tag which is used to identify the connection between two neurons."""
 
     def __post_init__(self) -> None:
         """
@@ -233,17 +220,13 @@ class Dynapse2Destination(SamnaAlias):
 class NormalGridEvent(SamnaAlias):
     """
     NormalGridEvent mimics the samna AER package for DynapSE2
-
-    :Parameters:
-
-    :param event: the destination of the package including routing information
-    :type event: Dynapse2Destination
-    :param timestamp: the timestamp of the event in microseconds (1e-6)
-    :type timestamp: np.uint32
     """
 
     event: Dynapse2Destination
+    """the destination of the package including routing information"""
+
     timestamp: np.uint32
+    """the timestamp of the event in microseconds (1e-6)"""
 
     @classmethod
     def from_samna(cls, obj: Any) -> NormalGridEvent:
@@ -304,14 +287,10 @@ class Dynapse2Configuration(SamnaAlias):
     """
     Dynapse2Configuration mimics the big `samna.dynapse2.Dynapse2Configuration` object which is used to configure the device
     It's the main object used to configure chip/core paramaters, weights, memory and so on.
-
-    :Parameters:
-
-    :param chips: a list of `Dynapse2Chip` objects
-    :type chips: List[Dynapse2Chip]
     """
 
     chips: List[Dynapse2Chip]
+    """a list of `Dynapse2Chip` objects"""
 
     @classmethod
     def from_samna(cls, obj: Any) -> Dynapse2Configuration:
@@ -347,50 +326,46 @@ class Dynapse2Configuration(SamnaAlias):
 class Dynapse2Chip(SamnaAlias):
     """
     Dynapse2Chip copies the data segment of a `samna.dynapse2.Dynapse2Chip` object
-
-    :Parameters:
-
-    :param cores: list of `Dynapse2Core` objects
-    :type cores: List[Dynapse2Core]
-    :param global_parameters: param settings of R2R monitoring output buffers: R2R_BUFFER_CCB and R2R_BUFFER_AMPB
-    :type global_parameters: ParamMap
-    :param shared_parameters01: some calibration parameters shared between core 0 and 1
-    :type shared_parameters01: ParamMap
-    :param shared_parameters23: some calibration parameters shared between core 2 and 3
-    :type shared_parameters23: ParamMap
-    :param sadc_group_parameters01: current-based spiking analog to digital converters (sADC) ensure easy monitoring of all relevant neural signals. This group paarameters set some calibration parameters shared between core 0 and 1
-    :type sadc_group_parameters01: List[ParamMap]
-    :param sadc_group_parameters23: current-based spiking analog to digital converters (sADC) ensure easy monitoring of all relevant neural signals. This group paarameters set some calibration parameters shared between core 2 and 3
-    :type sadc_group_parameters23: List[ParamMap]
-    :param sadc_enables: boolean switches to set for current-based spiking analog to digital converters (sADC)
-    :type sadc_enables: Dynapse2Chip_ConfigSadcEnables
-    :param dvs_if: DVS sensor interface object
-    :type dvs_if: Dynapse2DvsInterface
-    :param bioamps: Bio amplifiers setting
-    :type bioamps: Dynapse2Bioamps
-    :param enable_pg0_reference_monitor: parameter generator 0 ref monitoring (do not know what it means)
-    :type enable_pg0_reference_monitor: bool
-    :param enable_pg1_reference_monitor: parameter generator 1 ref monitoring (do not know what it means)
-    :type enable_pg1_reference_monitor: bool
-    :param param_gen0_powerdown: parameter generator 0 power down (do not know what it means)
-    :type param_gen0_powerdown: bool
-    :param param_gen1_powerdown: parameter generator 1 power down (do not know what it means)
-    :type param_gen1_powerdown: bool
     """
 
     cores: List[Dynapse2Core]
+    """list of `Dynapse2Core` objects"""
+
     global_parameters: ParamMap
+    """param settings of R2R monitoring output buffers: R2R_BUFFER_CCB and R2R_BUFFER_AMPB"""
+
     shared_parameters01: ParamMap
+    """some calibration parameters shared between core 0 and 1"""
+
     shared_parameters23: ParamMap
+    """some calibration parameters shared between core 2 and 3"""
+
     sadc_group_parameters01: List[ParamMap]
+    """current-based spiking analog to digital converters (sADC) ensure easy monitoring of all relevant neural signals. This group paarameters set some calibration parameters shared between core 0 and 1"""
+
     sadc_group_parameters23: List[ParamMap]
+    """current-based spiking analog to digital converters (sADC) ensure easy monitoring of all relevant neural signals. This group paarameters set some calibration parameters shared between core 2 and 3"""
+
     sadc_enables: Dynapse2Chip_ConfigSadcEnables
+    """boolean switches to set for current-based spiking analog to digital converters (sADC)"""
+
     dvs_if: Dynapse2DvsInterface
+    """DVS sensor interface object"""
+
     bioamps: Dynapse2Bioamps
+    """Bio amplifiers setting"""
+
     enable_pg0_reference_monitor: bool
+    """parameter generator 0 ref monitoring (do not know what it means)"""
+
     enable_pg1_reference_monitor: bool
+    """parameter generator 1 ref monitoring (do not know what it means)"""
+
     param_gen0_powerdown: bool
+    """parameter generator 0 power down (do not know what it means)"""
+
     param_gen1_powerdown: bool
+    """parameter generator 1 power down (do not know what it means)"""
 
     @classmethod
     def from_samna(cls, obj: Any) -> Dynapse2Chip:
