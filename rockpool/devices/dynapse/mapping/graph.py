@@ -1,5 +1,5 @@
 """
-Dynap-SE graph modules implementing conversion and translation methods
+Dynap-SE2 graph implementation
 """
 
 from __future__ import annotations
@@ -38,51 +38,53 @@ __all__ = ["DynapseNeurons"]
 @dataclass(eq=False, repr=False)
 class DynapseNeurons(GenericNeurons):
     """
-    DynapseNeurons stores the core computational properties of the Dynap-SE network
-
-    :param Idc: Constant DC current injected to membrane in Amperes
-    :type Idc: FloatVector
-    :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes
-    :type If_nmda: FloatVector
-    :param Igain_ahp: gain bias current of the spike frequency adaptation block in Amperes
-    :type Igain_ahp: FloatVector
-    :param Igain_mem: gain bias current for neuron membrane in Amperes
-    :type Igain_mem: FloatVector
-    :param Igain_syn: gain bias current of synaptic gates (AMPA, GABA, NMDA, SHUNT) combined in Amperes
-    :type Igain_syn: FloatVector, optinoal
-    :param Ipulse_ahp: bias current setting the pulse width for spike frequency adaptation block ``t_pulse_ahp`` in Amperes
-    :type Ipulse_ahp: FloatVector
-    :param Ipulse: bias current setting the pulse width for neuron membrane ``t_pulse`` in Amperes
-    :type Ipulse: FloatVector
-    :param Iref: bias current setting the refractory period ``t_ref`` in Amperes
-    :type Iref: FloatVector
-    :param Ispkthr: spiking threshold current, neuron spikes if :math:`I_{mem} > I_{spkthr}` in Amperes
-    :type Ispkthr: FloatVector
-    :param Itau_ahp: Spike frequency adaptation leakage current setting the time constant ``tau_ahp`` in Amperes
-    :type Itau_ahp: FloatVector
-    :param Itau_mem: Neuron membrane leakage current setting the time constant ``tau_mem`` in Amperes
-    :type Itau_mem: FloatVector
-    :param Itau_syn: (AMPA, GABA, NMDA, SHUNT) synapses combined leakage current setting the time constant ``tau_syn`` in Amperes
-    :type Itau_syn: FloatVector
-    :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes
-    :type Iw_ahp: FloatVector
+    DynapseNeurons stores the core computational properties of a Dynap-SE network
     """
 
     Idc: Union[IntVector, FloatVector] = field(default_factory=list)
+    """Constant DC current injected to membrane in Amperes"""
+
     If_nmda: Union[IntVector, FloatVector] = field(default_factory=list)
+    """NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes"""
+
     Igain_ahp: Union[IntVector, FloatVector] = field(default_factory=list)
+    """gain bias current of the spike frequency adaptation block in Amperes"""
+
     Igain_mem: Union[IntVector, FloatVector] = field(default_factory=list)
+    """gain bias current for neuron membrane in Amperes"""
+
     Igain_syn: Union[IntVector, FloatVector] = field(default_factory=list)
+    """gain bias current of synaptic gates (AMPA, GABA, NMDA, SHUNT) combined in Amperes"""
+
     Ipulse_ahp: Union[IntVector, FloatVector] = field(default_factory=list)
+    """bias current setting the pulse width for spike frequency adaptation block ``t_pulse_ahp`` in Amperes"""
+
     Ipulse: Union[IntVector, FloatVector] = field(default_factory=list)
+    """bias current setting the pulse width for neuron membrane ``t_pulse`` in Amperes"""
+
     Iref: Union[IntVector, FloatVector] = field(default_factory=list)
+    """bias current setting the refractory period ``t_ref`` in Amperes"""
+
     Ispkthr: Union[IntVector, FloatVector] = field(default_factory=list)
+    """spiking threshold current, neuron spikes if :math:`I_{mem} > I_{spkthr}` in Amperes"""
+
     Itau_ahp: Union[IntVector, FloatVector] = field(default_factory=list)
+    """Spike frequency adaptation leakage current setting the time constant ``tau_ahp`` in Amperes"""
+
     Itau_mem: Union[IntVector, FloatVector] = field(default_factory=list)
+    """Neuron membrane leakage current setting the time constant ``tau_mem`` in Amperes"""
+
     Itau_syn: Union[IntVector, FloatVector] = field(default_factory=list)
+    """AMPA, GABA, NMDA, SHUNT) synapses combined leakage current setting the time constant ``tau_syn`` in Amperes"""
+
     Iw_ahp: Union[IntVector, FloatVector] = field(default_factory=list)
+    """spike frequency adaptation weight current of the neurons of the core in Amperes"""
+
     Iscale: Optional[float] = None
+    """the scaling current"""
+
     dt: Optional[float] = None
+    """the time step for the forward-Euler ODE solver"""
 
     @classmethod
     def _convert_from(
