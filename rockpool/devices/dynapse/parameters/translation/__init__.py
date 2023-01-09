@@ -1,5 +1,5 @@
 """
-Dynap-SE2 parameter conversion low level utilities
+Dynap-SE2 parameter conversion utilities
 
 * Non User Facing *
 """
