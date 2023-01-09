@@ -1,10 +1,7 @@
 """
-Dynap-SE2 full board configuration classes and methods
+Dynap-SE2 time constant computation and and conversion utils
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-03/05/2022
+* Non User Facing * 
 """
 
 from __future__ import annotations
@@ -25,36 +22,34 @@ __all__ = ["DynapSimTime"]
 class DynapSimTime(DynapSimCoreHigh):
     """
     DynapSimTime stores the high-level projections of the currents setting time consant values
-
-    :param t_pulse_ahp: the spike pulse width for spike frequency adaptation circuit in seconds
-    :type t_pulse_ahp: FloatVector, optional
-    :param t_pulse: the spike pulse width for neuron membrane in seconds
-    :type t_pulse: FloatVector, optional
-    :param t_ref: refractory period of the neurons in seconds
-    :type t_ref: FloatVector, optional
-    :param tau_ahp: Spike frequency leakage time constant in seconds
-    :type tau_ahp: FloatVector, optional
-    :param tau_ampa: AMPA synapse leakage time constant in seconds
-    :type tau_ampa: FloatVector, optional
-    :param tau_gaba: GABA synapse leakage time constant in seconds
-    :type tau_gaba: FloatVector, optional
-    :param tau_nmda: NMDA synapse leakage time constant in seconds
-    :type tau_nmda: FloatVector, optional
-    :param tau_shunt:SHUNT synapse leakage time constant in seconds
-    :type tau_shunt: FloatVector, optional
-    :param tau_mem: Neuron membrane leakage time constant in seconds
-    :type tau_mem: FloatVector, optional
     """
 
     t_pulse_ahp: FloatVector = default_time_constants["t_pulse_ahp"]
+    """the spike pulse width for spike frequency adaptation circuit in seconds"""
+
     t_pulse: FloatVector = default_time_constants["t_pulse"]
+    """the spike pulse width for neuron membrane in seconds"""
+
     t_ref: FloatVector = default_time_constants["t_ref"]
+    """refractory period of the neurons in seconds"""
+
     tau_ahp: FloatVector = default_time_constants["tau_ahp"]
+    """Spike frequency leakage time constant in seconds"""
+
     tau_ampa: FloatVector = default_time_constants["tau_ampa"]
+    """AMPA synapse leakage time constant in seconds"""
+
     tau_gaba: FloatVector = default_time_constants["tau_gaba"]
+    """GABA synapse leakage time constant in seconds"""
+
     tau_nmda: FloatVector = default_time_constants["tau_nmda"]
+    """NMDA synapse leakage time constant in seconds"""
+
     tau_shunt: FloatVector = default_time_constants["tau_shunt"]
+    """synapse leakage time constant in seconds"""
+
     tau_mem: FloatVector = default_time_constants["tau_mem"]
+    """Neuron membrane leakage time constant in seconds"""
 
     @classmethod
     def from_DynapSimCore(cls, core: DynapSimCore) -> DynapSimTime:
