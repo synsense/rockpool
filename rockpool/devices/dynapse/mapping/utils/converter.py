@@ -1,14 +1,10 @@
 """
-Dynap-SE graph transformer package
+Dynap-SE graph conversion package
 
 The utility functions and class definitions introduced here can be used to transform any LIF network (with certain constrains)
 to a Dynapse computational graph
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-
-09/11/2022
+* Non User Facing *
 """
 from __future__ import annotations
 from typing import List, Tuple, Union
