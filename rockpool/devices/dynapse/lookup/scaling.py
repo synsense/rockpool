@@ -1,16 +1,17 @@
 """
 Both Dynap-SE2 scalig factor tables
 
-Dynap-SE2 circuit bias generator transistor current response scaling factors
-Multiply the theoretical value obtained with the table values considering the parameter name
+Dynap-SE2 circuit bias generator transistor current response scaling factors.
+
+Multiply the theoretical value obtained with the table values considering the parameter name.
+
+:math:`I_{scaled} = I * \\text{scale_factor}`
+
 Obtained from 
 https://hardware.basket.office.synsense.ai/documentation/dynapse2docs/Sections/input_interface_config.html
 for more accurate simulation of DynapSE-2 bias generator
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-14/01/2022
+* Non User Facing *
 """
 
 __all__ = ["scale_factor_se2"]
