@@ -1,10 +1,7 @@
 """
 Bias Generator module for Dynap-SE2 coarse and fine value to bias current conversion utilities.
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-02/09/2021
+* Non User Facing *
 """
 
 from typing import Optional, Tuple
