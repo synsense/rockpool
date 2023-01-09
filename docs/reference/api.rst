@@ -321,7 +321,10 @@ Dynap-SE2 hardware support and simulation
 .. autosummary::
     :toctree: _autosummary
     
+    :template: class.rst
     devices.dynapse.DynapseNeurons
+
+    :template: class.rst
     devices.dynapse.DynapSimCore
 
 Graph tracing and mapping
