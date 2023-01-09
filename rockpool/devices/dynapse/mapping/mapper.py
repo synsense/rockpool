@@ -1,17 +1,5 @@
 """
-Dynap-SE graph graph mapper package
-
-- Create a graph using the :py:meth:`~.graph.GraphModule.as_graph` API
-- Call :py:func:`.mapper`
-
-Note : Existing modules are reconstructed considering consistency with Xylo support.
-
-
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-
-15/09/2022
+Dynap-SE2 graph mapper package
 """
 from __future__ import annotations
 from typing import Dict, List, Optional, Tuple
@@ -42,15 +30,18 @@ def mapper(
     mapper maps a computational graph onto Dynap-SE2 architecture.
     Each neural core shares a parameter group in Dynap-SE2.
     Therefore neurons inside the same core operates with the same current setting.
-    mapper function cluster parameters in groups and allocates an hardware posititon for neurons
+    `mapper` function cluster parameters in groups and allocates an hardware posititon for neurons.
 
-    :param graph: Any graph(constraint) aimed to be deployed to Dynap-SE2
+    See Also:
+        The tutorials in :ref:`/devices/DynapSE/post-training.ipynb`
+
+    :param graph: Any graph (constraints apply) aimed to be deployed to Dynap-SE2
     :type graph: GraphModule
-    :param clustering_method: the clustering approach. "random" or "greedy", defaults to "greedy"
+    :param clustering_method: the clustering approach. ``"random"`` or ``"greedy"``, defaults to ``"greedy"``
     :type clustering_method: str, optional
     :param n_cluster: number of clusters. minimum number of clusters possible if None, defaults to None
     :type n_cluster: int, optional
-    :param max_neuron_per_cluster: maximum number of neurons allowed per cluster, defaults to NUM_NEURONS
+    :param max_neuron_per_cluster: maximum number of neurons allowed per cluster, defaults to ``NUM_NEURONS``
     :type max_neuron_per_cluster: int, optional
 
     :return: a specification object which can be used to create a config object
