@@ -1,10 +1,8 @@
 """
-Dynap-SE2 full board configuration classes and methods
+Dynap-SE2 simulation core implementation.
+Use this module converting a hardware configuration to a simulation setting
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-03/05/2022
+* Non User facing *
 """
 
 from __future__ import annotations
@@ -43,10 +41,19 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
     """
     DynapSimCore stores the simulation currents and manages the conversion from configuration objects
     It also provides easy update mechanisms using coarse&fine values, high-level parameter representations and etc.
+
+    i.e
+    ..  code-block:: python
+        :caption: Device -> Simulation current (pseudo-code)
+
+        simcore = DynapSimCore.from_Dynapse2Core(config.chips[0].cores[0])
+        Itau_ampa = simcore.Itau_ampa
+
     """
 
     __doc__ += "\nDynapSimCurrents" + DynapSimCurrents.__doc__
     __doc__ += "\nDynapSimLayout" + DynapSimLayout.__doc__
+    __doc__ += "\nDynapSimLayout" + DynapSimWeightBits.__doc__
 
     @classmethod
     def from_specification(
