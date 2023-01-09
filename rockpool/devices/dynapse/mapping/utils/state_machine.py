@@ -1,11 +1,7 @@
 """
 Dynap-SE graph transformer package state machine implementation
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-
-09/11/2022
+* Non User Facing *
 """
 from __future__ import annotations
 
@@ -19,20 +15,16 @@ __all__ = ["DFA_Placement"]
 class DFA_Placement:
     """
     DFA_Placement defines an algorithmic state machine and keeps track of weight installation process
-
-    :Parameters:
-
-    :param lif: the bit that identifies lif layer can be processed at that step, defaults to False (linear state)
-    :type lif: bool
-    :param rec: the bit that identifies recurrent layer can be processed at that step, defaults to False (linear state)
-    :type rec: bool
-    :param linear: the bit that identifies linear layer can be processed at that step, defaults to True (linear state)
-    :type linear: bool
     """
 
     lif: bool = False
+    """the bit that identifies lif layer can be processed at that step, defaults to False (linear state)"""
+
     rec: bool = False
+    """the bit that identifies recurrent layer can be processed at that step, defaults to False (linear state)"""
+
     linear: bool = True
+    """the bit that identifies linear layer can be processed at that step, defaults to True (linear state)"""
 
     def __eq__(self, __o: DFA_Placement) -> bool:
         """
