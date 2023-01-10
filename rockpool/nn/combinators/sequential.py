@@ -103,6 +103,9 @@ class SequentialMixin(ABC):
             # - Get this submodule
             mod = getattr(self, submod_name)
 
+            if hasattr(mod, '_mod'):
+                mod = mod._mod
+
             # - Push data through submodule
             x, substate, subrec = mod(x, record=record)
             new_state_dict.update({submod_name: substate})
