@@ -26,12 +26,10 @@ class MemorySE2:
     """
     MemorySE2 traces the connections between neurons indicated by the SRAM and CAM content
     It also provide a abstract base class for device specific implementations
-
-    :param chip_pos: global chip position dictionary (chip_id : (xpos,ypos)), defaults to CHIP_POS
-    :type chip_pos: Dict[int, Tuple[int]], optional
     """
 
     chip_pos: Dict[int, Tuple[int]] = field(default_factory=lambda: CHIP_POS)
+    """global chip position dictionary (chip_id : (xpos,ypos)), defaults to CHIP_POS"""
 
     def spec_from_config(self, config: Dynapse2Configuration) -> Dict[str, list]:
         """
