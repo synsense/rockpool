@@ -49,35 +49,31 @@ __all__ = ["WeightAllocator"]
 class WeightAllocator:
     """
     WeightAllocator helps allocating memory (SRAM&CAM) reflecting the connectivity content in weight matrices
-
-    :Parameters:
-
-    :param weights_in: quantized input weight matrix
-    :type weights_in: Optional[IntVector]
-    :param weights_rec: quantized recurrent weight matrix
-    :type weights_rec: Optional[IntVector]
-    :param sign_in: input weight directions (+1 : excitatory, -1 : inhibitory)
-    :type sign_in: Optional[IntVector]
-    :param sign_rec: recurrent weight directions (+1 : excitatory, -1 : inhibitory)
-    :type sign_rec: Optional[IntVector]
-    :param core_map: core map (neuron_id : core_id) for in-device neurons, defaults to CORE_MAP
-    :type core_map: List[int] , optional
-    :param chip_map: chip map (core_id : chip_id) for all cores, defaults to CHIP_MAP
-    :type chip_map: Dict[int, int], optional
-    :param chip_pos: global chip position dictionary (chip_id : (xpos,ypos)), defaults to CHIP_POS
-    :type chip_pos: Dict[int, Tuple[int]], optional
-    :param tag_list: neuron-tag mapping (neuron_id : tag) which maps the neurons to their virtual addresses, defaults to None
-    :type tag_list: Optional[IntVector], optional
     """
 
     weights_in: Optional[IntVector]
+    """quantized input weight matrix"""
+
     weights_rec: Optional[IntVector]
+    """quantized recurrent weight matrix"""
+
     sign_in: Optional[IntVector]
+    """input weight directions (+1 : excitatory, -1 : inhibitory)"""
+
     sign_rec: Optional[IntVector]
+    """recurrent weight directions (+1 : excitatory, -1 : inhibitory)"""
+
     core_map: List[int] = field(default_factory=lambda: CORE_MAP)
+    """core map (neuron_id : core_id) for in-device neurons, defaults to CORE_MAP"""
+
     chip_map: Dict[int, int] = field(default_factory=lambda: CHIP_MAP)
+    """chip map (core_id : chip_id) for all cores, defaults to CHIP_MAP"""
+
     chip_pos: Dict[int, Tuple[int]] = field(default_factory=lambda: CHIP_POS)
+    """global chip position dictionary (chip_id : (xpos,ypos)), defaults to CHIP_POS"""
+
     tag_list: Optional[IntVector] = None
+    """neuron-tag mapping (neuron_id : tag) which maps the neurons to their virtual addresses, defaults to None"""
 
     def __post_init__(self) -> None:
         """__post_init__ runs after object construction, control&organize the data structure of the object"""
