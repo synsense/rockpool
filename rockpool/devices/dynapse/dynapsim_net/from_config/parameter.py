@@ -22,11 +22,21 @@ from .memory import MemorySE2
 
 @dataclass
 class ParameterHandler:
+
     weights_in: np.ndarray
+    """input (virtual -> hardware) weight matrix (integer masks)"""
+
     dendrites_in: np.ndarray
+    """input (virtual -> hardware) connection gates (AMPA, GABA, NMDA, SHUNT)"""
+
     weights_rec: np.ndarray
+    """recurrent (hardware -> hardware) weight matrix"""
+
     dendrites_rec: np.ndarray
+    """recurrent (hardware -> hardware) connection gates"""
+
     core_map: FloatVector
+    """the mapping between neuron index to respective core ID (chip, core)"""
 
     def __post_init__(self) -> None:
         """
