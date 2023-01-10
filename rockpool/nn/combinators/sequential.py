@@ -103,7 +103,7 @@ class SequentialMixin(ABC):
             # - Get this submodule
             mod = getattr(self, submod_name)
 
-            if hasattr(mod, '_mod'):
+            if hasattr(mod, "_mod"):
                 mod = mod._mod
 
             # - Push data through submodule
