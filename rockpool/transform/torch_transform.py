@@ -440,12 +440,17 @@ class TWrapper(TorchModule):
         # - Get transformed attributes
         transformed_attrs = self._T()
 
+        if self._record and not self._has_torch_api:
+            kwargs['record'] = self._record
+
         # - Call module with torch functional API
         out = torch.nn.utils.stateless.functional_call(
-            self._mod, transformed_attrs, *args, **kwargs
+            self._mod, transformed_attrs, args, kwargs
         )
 
-        if hasattr(self._mod, "_record_dict"):
+        if not self._has_torch_api:
+            self._record_dict = out[2]
+        elif hasattr(self._mod, "_record_dict"):
             self._record_dict = self._mod._record_dict
 
         if not self._has_torch_api:
