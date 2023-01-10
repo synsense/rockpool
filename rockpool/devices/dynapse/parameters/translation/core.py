@@ -42,7 +42,6 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
     DynapSimCore stores the simulation currents and manages the conversion from configuration objects
     It also provides easy update mechanisms using coarse&fine values, high-level parameter representations and etc.
 
-    i.e
     ..  code-block:: python
         :caption: Device -> Simulation current (pseudo-code)
 
