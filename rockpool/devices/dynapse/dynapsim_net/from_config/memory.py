@@ -141,6 +141,8 @@ class MemorySE2:
             :return: -1 if it does not exist in the list, else the index if of the tag
             :rtype: int
             """
+            if not dest_tag_list:
+                return -1
             idx = bisect.bisect_left(dest_tag_list, tag)
             return idx if dest_tag_list[idx] == tag else -1
 
