@@ -23,12 +23,8 @@ P_float = Union[float, ParameterBase]
 P_array = Union[np.array, ParameterBase]
 
 
-
 # Define exports
-__all__ = ["AFESimEmpirical"]
-
-
-
+__all__ = ["AFESimEmprirical"]
 
 
 ###############################################################################################
@@ -45,7 +41,26 @@ The filterbank center frequencies obtained mepirically by the hardware and syste
 We use the table provided by the system-integration team that contains sinusoid spike sweeping (not chirp sweeping) and calibrating
 the filters to spike around 60 times in each 100 ms, thus, a spike rate of 600 spikes-per-sec.
 """
-EMPIRICAL_CENTER_FREQS = np.asarray([40, 54, 77, 137, 203, 290, 428, 674, 1177, 1700, 2226, 3418, 5154, 7884, 11630, 16940])
+EMPIRICAL_CENTER_FREQS = np.asarray(
+    [
+        40,
+        54,
+        77,
+        137,
+        203,
+        290,
+        428,
+        674,
+        1177,
+        1700,
+        2226,
+        3418,
+        5154,
+        7884,
+        11630,
+        16940,
+    ]
+)
 EMPIRICAL_Q = 4
 
 # V2I module gain
@@ -54,22 +69,22 @@ V2I_GIAN = 0.333e-6
 
 # the current leakage of the integrator used for spike generation
 # this leakage is modeled as a conductance in parallel with interator capacitor
-INTEGRATOR_LEAKAGE = 1e-9 # in units of mho (inverse of ohm)
+INTEGRATOR_LEAKAGE = 1e-9  # in units of mho (inverse of ohm)
 
 # the capacitor value in IAF spike generator
-C_IAF = 5e-12   # 5 pF
+C_IAF = 5e-12  # 5 pF
 
 # the threshold value used at the output of integrator to produce spikes
-SPIKE_GENRATION_THRESHOLD = 0.5 # in volts
+SPIKE_GENRATION_THRESHOLD = 0.5  # in volts
 
 # digital counter used after spike generation to keep 1 out of xxx spikes to reduce the spike rate.
 DIGITAL_COUNTER = 4
 
 # possible gains in LNA: it is possible to adjust LNA by to have an amplification of order 2 or 4
 class LNA_GAIN(enum.Enum):
-    G0dB = 0.0      # in dB
-    G6dB = 6.0      # in dB
-    G12dB = 12.0    # in dB
+    G0dB = 0.0  # in dB
+    G6dB = 6.0  # in dB
+    G12dB = 12.0  # in dB
 
 
 # maximum bipolar amplitude that can be supported by the the chip without being clipped
@@ -77,13 +92,8 @@ class LNA_GAIN(enum.Enum):
 # shifted to the middle value of 0.55 volts.
 # So, in terms of signal processing, we can always assume that the input signal is a bipolar one in the range [-0.55, 0.55] with clipping
 # if the amplitude goes beyond this range
-VCC = 1.1 # in volts
-MAX_AMPLITUDE = VCC/2.0 # in volts
-
-
-
-
-
+VCC = 1.1  # in volts
+MAX_AMPLITUDE = VCC / 2.0  # in volts
 
 
 # - Try to use Jax as speedup
@@ -93,7 +103,7 @@ try:
 
     enable_jax = True
 
-    #raise NotImplementedError("just not use jax!")
+    # raise NotImplementedError("just not use jax!")
 
     @jax.jit
     def _encode_spikes(
@@ -111,7 +121,7 @@ try:
 
         Args:
             inital_state (np.ndarray): Initial state of the LIF neurons.
-            dt (float): Time-step in seconds. 
+            dt (float): Time-step in seconds.
             data (np.ndarray): Array ``(T,N)`` containing data to convert to events.
             v2i_gain (float): the gain by which the voltage at the output of rectifier is converted to a current for integration followed by spike generation.
             c_iaf (float): Membrane capacitance.
@@ -140,10 +150,10 @@ try:
             # - Accumulate membrane voltage, clip to the range [0, VCC]
             cdc += dv
 
-            # truncate the values to the range [0, max_output] 
+            # truncate the values to the range [0, max_output]
             cdc = jnp.where(cdc < 0.0, 0.0, cdc)
             cdc = jnp.where(cdc > max_output, max_output, cdc)
-            
+
             spikes = cdc > thr_up
             return cdc * (1 - spikes), spikes
 
@@ -169,7 +179,7 @@ except:
 
         Args:
             inital_state (np.ndarray): Initial state of the LIF neurons.
-            dt (float): Time-step in seconds. 
+            dt (float): Time-step in seconds.
             data (np.ndarray): Array ``(T,N)`` containing data to convert to events.
             v2i_gain (float): the gain by which the voltage at the output of rectifier is converted to a current for integration followed by spike generation.
             c_iaf (float): Membrane capacitance.
@@ -205,27 +215,24 @@ except:
             cdc[cdc < 0.0] = 0.0
             cdc[cdc > max_output] = max_output
 
-            spikes = (cdc > thr_up)
+            spikes = cdc > thr_up
 
             spike_list.append(spikes)
 
             cdc = cdc * (1 - spikes)
             vmem_list.append(cdc)
-        
+
         spike_list = np.asarray(spike_list)
         vmem_list = np.asarray(vmem_list)
 
-
         return spike_list, cdc
-
-
 
 
 class AFESimEmprirical(Module):
     """
     A :py:class:`.Module` that simulates analog hardware for preprocessing audio and converting into spike features.
 
-    This module simulates the Xylo audio front-end stage. This is a signal-to-event core that consists of a number of band-pass filters, followed by rectifying event production 
+    This module simulates the Xylo audio front-end stage. This is a signal-to-event core that consists of a number of band-pass filters, followed by rectifying event production
     simulating a spiking LIF neuron. The event rate in each channel is roughly correlated to the energy in each filter band.
 
     Notes:
@@ -239,12 +246,12 @@ class AFESimEmprirical(Module):
 
     def __init__(
         self,
-        fs: int = 16_000,    # this should be the same as the sampling rate of the audio fed to AFESim. Otherwise, the frequencies are proportionally shifted.
-        raster_period: float= 0.01,           # this is the period to which the generated spikes are rastered
-        max_spike_per_period: int = 15,       # maximum number of spikes to be forwarded to SNN in Xylo in a period
+        fs: int = 16_000,  # this should be the same as the sampling rate of the audio fed to AFESim. Otherwise, the frequencies are proportionally shifted.
+        raster_period: float = 0.01,  # this is the period to which the generated spikes are rastered
+        max_spike_per_period: int = 15,  # maximum number of spikes to be forwarded to SNN in Xylo in a period
         add_noise: bool = True,
         add_offset: bool = True,
-        add_mismatch : bool = True,
+        add_mismatch: bool = True,
         seed: int = np.random.randint(2**32 - 1),
         num_workers: int = 1,
         one_shot_nonideality: bool = True,
@@ -256,8 +263,8 @@ class AFESimEmprirical(Module):
         Parameters
         ----------
         fs: int
-            Sampling frequency of the input data, in Hz. Default: 16kHz. 
-            NOTE: 
+            Sampling frequency of the input data, in Hz. Default: 16kHz.
+            NOTE:
                 (i)     AFE contains frequency tripling in LNA and also in microphone. So the maximum representable frequency is ``fs/6``.
                 (ii)    If this frequency is different than the sampling frequency of the audio, the frequencies are proportionally shifted and extracted spikes features will be wrong.
         raster_period (float): this is the period to which the spikes are rastered and counted. Default 10ms.
@@ -270,9 +277,8 @@ class AFESimEmprirical(Module):
             Number of cpu units used to speed up filter computation. Default: 1.
         """
 
-
         ###### Check shape argument and Initialize the superclass ######
-        shape = (1,16)
+        shape = (1, 16)
         super().__init__(shape=shape, spiking_output=True, *args, **kwargs)
 
         ## Provide pRNG seed
@@ -280,11 +286,9 @@ class AFESimEmprirical(Module):
         if self.seed is not None:
             np.random.seed(self.seed)
 
-        
         ##### Set the rastering parameters for the produced spike #####
         self.raster_period = raster_period
         self.max_spike_per_period = max_spike_per_period
-
 
         ###### Power supply features and maximum voltage of the chip ######
         # Maximum bipolar amplitude that can be supported by the the chip without being clipped
@@ -292,11 +296,9 @@ class AFESimEmprirical(Module):
         # shifted to the middle value of 0.55 volts.
         # So, in terms of signal processing, we can always assume that the input signal is a bipolar one in the range [-0.55, 0.55] with clipping
         # if the amplitude goes beyond this range
-        self.VCC: P_float = Parameter(1.1) # in volts
-        self.INPUT_MAX_AMPLITUDE: P_float = Parameter(VCC/2.0)# in volts
+        self.VCC: P_float = Parameter(1.1)  # in volts
+        self.INPUT_MAX_AMPLITUDE: P_float = Parameter(VCC / 2.0)  # in volts
 
-
-        
         ###### microphone fetaures ######
         # NOTE: microphone has severe THD for sound level above 120 dBL SPL, which is 20 Pa pressure.
         # Microphone has a sensitivity of around -40 dB in units of Volt/Pa which will be 10 mV/Pa.
@@ -304,7 +306,6 @@ class AFESimEmprirical(Module):
         self.MIC_DISTORTION: P_float = Parameter(0.01)
         self.INPUT_MIC_MAX_AMPLITUDE: P_float = Parameter(200e-3)  # 200mV
         """ float: Maximum amplitude of sound that can be produced with microphone without having sever THD (above 1%)"""
-
 
         ###### from microphone to LNA ######
         self.MAX_INPUT_OFFSET: P_float = Parameter(0.0)  # from microphone
@@ -314,31 +315,29 @@ class AFESimEmprirical(Module):
         self.F_CORNER_HIGHPASS: P_float = Parameter(20)
         """ float: High pass corner frequency due to AC Coupling from BPF to FWR in Hz. (Default 20 Hz)"""
 
-
-
         ###### LNA features ######
         # the linear regime of LNA with a given nonlinearity threshold
         # NOTE: in Xylo-A2 the microphone has a very low sensitivity and the maximum voltage it can produce is 200 mV where beyond that
         # THD is very large.
         # For this reson, the LNA distortion would be almost negiligible compared with that of the microphone.
-        self.LNA_DISTORTION: P_float = Parameter(0.01) 
-        self.INPUT_LNA_MAX_AMPLITUDE: P_float = Parameter(self.INPUT_MAX_AMPLITUDE * 0.8)
+        self.LNA_DISTORTION: P_float = Parameter(0.01)
+        self.INPUT_LNA_MAX_AMPLITUDE: P_float = Parameter(
+            self.INPUT_MAX_AMPLITUDE * 0.8
+        )
         """ float: LNA Distortion parameter when the amplitude goes beyond its linear regime. Default 0.01 """
 
         # LNA gain
         # possible gains in LNA: it is possible to adjust LNA by to have an amplification of order 2 or 4
         class LNA_GAIN(enum.Enum):
-            G0dB = 0.0      # in dB
-            G6dB = 6.0      # in dB
-            G12dB = 12.0    # in dB
-        
+            G0dB = 0.0  # in dB
+            G6dB = 6.0  # in dB
+            G12dB = 12.0  # in dB
+
         self.lna_gain_db: P_float = Parameter(LNA_GAIN.G0dB.value)  # in dB
         """ float: Low-noise amplifer gain in dB (Default 0.) """
 
         self.MAX_LNA_OFFSET: P_float = Parameter(5.0e-3)  # +/-5mV random
         """ float: Maxmimum low-noise amplifier offset in mV (Default 5mV) """
-
-
 
         ###### filterbank features ######
         # - Parameters for BPF
@@ -350,8 +349,27 @@ class AFESimEmprirical(Module):
         """ float: Sample frequency of input data """
 
         # - nominal/design values of the filters center frequencies and bandwidths
-        self.design_fcs : P_array = Parameter(
-            np.asarray([40, 54, 77, 137, 203, 290, 428, 674, 1177, 1700, 2226, 3418, 5154, 7884, 11630, 16940])
+        self.design_fcs: P_array = Parameter(
+            np.asarray(
+                [
+                    40,
+                    54,
+                    77,
+                    137,
+                    203,
+                    290,
+                    428,
+                    674,
+                    1177,
+                    1700,
+                    2226,
+                    3418,
+                    5154,
+                    7884,
+                    11630,
+                    16940,
+                ]
+            )
         )
         """ np.ndarray: Centre frequency of each band-pass filter in Hz """
 
@@ -365,15 +383,12 @@ class AFESimEmprirical(Module):
             )
 
         # - nominal/design Bandwidths of the filters
-        self.design_bws: P_array = Parameter(
-            self.design_fcs/self.Q
-        )
+        self.design_bws: P_array = Parameter(self.design_fcs / self.Q)
         """ np.ndarray: Bandwidths of each filter in Hz """
 
         # - order of the Butterworth BPF used in the filterbank
         self.ORDER_BPF: P_int = Parameter(2)
         """ int: Band-pass filter order (Default 2)"""
-
 
         self.MAX_BPF_OFFSET: P_float = Parameter(5.0e-3)  # +/-5mV random
         """ float: Maxmum band-pass filter offset in mV (Default 5mV)"""
@@ -389,7 +404,6 @@ class AFESimEmprirical(Module):
         self.FC_MIS_MATCH: P_float = Parameter(5e-2)  # +/-5% random
         """ float: Mismatch in centre freq. in % (Default 5%)"""
 
-
         ###### spike generation features  ######
         # capacitor in LIF circuit used for integration and spike generation
         self.C_IAF: P_float = Parameter(5e-12)  # 5 pF
@@ -402,24 +416,20 @@ class AFESimEmprirical(Module):
         self.LEAKAGE: P_float = Parameter(1e-9)
         """ float: Leakage conductance for LIF neuron producing the spikes. Default: 1.0e-9 : 1.0 nA for a cpacitor at volatage 1.0V """
 
-
         self.DIGITAL_COUNTER: P_int = Parameter(4)
         """ int: Digital counter factor to reduce output spikes by. Default 4 (by a factor 4) """
 
         # Threshold for spike generation using IAF (essentially LIF) neuron
-        self.THR_UP: P_float = Parameter(0.5)  # 0.1-0.9 V to be in the linear regime of system.
+        self.THR_UP: P_float = Parameter(
+            0.5
+        )  # 0.1-0.9 V to be in the linear regime of system.
         """ float: Threshold for delta modulation in V (0.1--0.9) (Default 0.5V)"""
 
-
         ##### Other settings for simulation #####
-        self.add_noise: Union[bool, ParameterBase] = SimulationParameter(
-            add_noise
-        )
+        self.add_noise: Union[bool, ParameterBase] = SimulationParameter(add_noise)
         """ bool: Flag indicating that noise should be simulated during operation. Default `True` """
 
-        self.add_offset: Union[bool, ParameterBase] = SimulationParameter(
-            add_offset
-        )
+        self.add_offset: Union[bool, ParameterBase] = SimulationParameter(add_offset)
         """ bool: Flag indicating that offset should be simulated during operation. Default `True` """
 
         self.add_mismatch: Union[bool, ParameterBase] = SimulationParameter(
@@ -427,14 +437,13 @@ class AFESimEmprirical(Module):
         )
         """ bool: Flag indicating that mismatch in the parameters should be simulated during operation. Default `True` """
 
-        self.num_workers : P_int = Parameter(num_workers)
+        self.num_workers: P_int = Parameter(num_workers)
         """ int: number of independent CPU units used for simulating the filters in the filterbank. Default 1"""
 
-        self.one_shot_nonideality : Union[bool, ParameterBase] = SimulationParameter(
+        self.one_shot_nonideality: Union[bool, ParameterBase] = SimulationParameter(
             one_shot_nonideality
         )
         """ bool: Flag indicating whether the chip non-idealities are sampled only once (fixed in time) or once for each input (time-varying). Default `True`: only once! """
-        
 
         ### Macro definitions related to noise ###
         self.VRMS_SQHZ_LNA: P_float = Parameter(70e-9)
@@ -449,49 +458,76 @@ class AFESimEmprirical(Module):
         self.F_KNEE_FWR: P_float = Parameter(158)
         self.F_ALPHA_FWR: P_float = Parameter(1)
 
-
-
         # initialize chip parameters
         self._initialize_afesim()
 
-
-
     def _initialize_afesim(self):
         """
-        This function initializes the parameters of AFESim based on non-idealities. 
+        This function initializes the parameters of AFESim based on non-idealities.
         It may be called:
             (i)     once for all inputs simulated if we are interested in a single chip for all simulations.
             (ii)    once for each input if we would like some sort of augmentation w.r.t. chip non-idealities.
         """
-        self.input_offset: P_float = Parameter(self.MAX_INPUT_OFFSET * (2 * np.random.rand(1).item() - 1.0)) if self.add_offset else Parameter(0.0)
+        self.input_offset: P_float = (
+            Parameter(self.MAX_INPUT_OFFSET * (2 * np.random.rand(1).item() - 1.0))
+            if self.add_offset
+            else Parameter(0.0)
+        )
         """ float: Mismatch offset in the signal comming from microphone -- typically 0 due to AC coupling """
-        
-        self.lna_offset: P_float = Parameter(self.MAX_LNA_OFFSET * (2 * np.random.rand(1).item() - 1.0)) if self.add_offset else Parameter(0.0)
+
+        self.lna_offset: P_float = (
+            Parameter(self.MAX_LNA_OFFSET * (2 * np.random.rand(1).item() - 1.0))
+            if self.add_offset
+            else Parameter(0.0)
+        )
         """ float: Mismatch offset in low-noise amplifier """
 
-        self.bpf_offset: P_array = Parameter(self.MAX_BPF_OFFSET * (2 * np.random.rand(self.size_out) - 1.0)) if self.add_offset else Parameter(np.zeros(self.size_out))
+        self.bpf_offset: P_array = (
+            Parameter(self.MAX_BPF_OFFSET * (2 * np.random.rand(self.size_out) - 1.0))
+            if self.add_offset
+            else Parameter(np.zeros(self.size_out))
+        )
         """ float: Mismatch offset in band-pass filters """
 
-        self.Q_mismatch: P_array = Parameter(self.Q_MIS_MATCH * (2 * np.random.rand(self.size_out) - 1.0)) if self.add_mismatch else Parameter(np.zeros(self.size_out))
+        self.Q_mismatch: P_array = (
+            Parameter(self.Q_MIS_MATCH * (2 * np.random.rand(self.size_out) - 1.0))
+            if self.add_mismatch
+            else Parameter(np.zeros(self.size_out))
+        )
         """ float: Mismatch in Q over band-pass filters """
 
-        self.fc_mismatch: P_array = Parameter(self.FC_MIS_MATCH * (2 * np.random.rand(self.size_out) - 1.0)) if self.add_mismatch else Parameter(np.zeros(self.size_out))
+        self.fc_mismatch: P_array = (
+            Parameter(self.FC_MIS_MATCH * (2 * np.random.rand(self.size_out) - 1.0))
+            if self.add_mismatch
+            else Parameter(np.zeros(self.size_out))
+        )
         """ float: Mismatch in centre frequency for band-pass filters """
 
-        self.bpf_fc_shift : P_array = Parameter(self.BPF_FC_SHIFT * (2 * np.random.rand(1).item() - 1.0)) if self.add_mismatch else Parameter(np.zeros(self.size_out))
+        self.bpf_fc_shift: P_array = (
+            Parameter(self.BPF_FC_SHIFT * (2 * np.random.rand(1).item() - 1.0))
+            if self.add_mismatch
+            else Parameter(np.zeros(self.size_out))
+        )
         """ float: Common shift in center frequencies due to temperature, etc. """
 
         # produce ceter frequencies and bandwidths based on mismatch parameters
-        self.fcs = np.asarray([freq * (1.0 + mismatch) for (freq, mismatch) in zip(self.design_fcs, self.fc_mismatch)])
+        self.fcs = np.asarray(
+            [
+                freq * (1.0 + mismatch)
+                for (freq, mismatch) in zip(self.design_fcs, self.fc_mismatch)
+            ]
+        )
 
         # shift the center frequencies together by mismatch factor
-        self.fcs = np.asarray([freq * (1.0 + self.bpf_fc_shift) for freq in self.fcs]) 
+        self.fcs = np.asarray([freq * (1.0 + self.bpf_fc_shift) for freq in self.fcs])
 
         # produce Q for the filters
-        self.Qs = np.asarray([self.Q * (1.0 + mismatch) for mismatch in self.Q_mismatch])
+        self.Qs = np.asarray(
+            [self.Q * (1.0 + mismatch) for mismatch in self.Q_mismatch]
+        )
 
         # produce bandwidths
-        self.bws = np.asarray([freq/Q for (freq, Q) in zip(self.fcs, self.Qs)])
+        self.bws = np.asarray([freq / Q for (freq, Q) in zip(self.fcs, self.Qs)])
 
         # - Generate the filterbank module
         self.butter_filterbank = ButterFilter(
@@ -510,7 +546,6 @@ class AFESimEmprirical(Module):
         # - Internal neuron state
         self.lif_state: Union[np.ndarray, State] = State(np.zeros(self.size_out))
         """ (np.ndarray) Internal state of the LIF neurons used to generate events """
-
 
     ##### Utility functions: filters #####
     def _butter_bandpass(
@@ -590,8 +625,6 @@ class AFESimEmprirical(Module):
         y = signal.filtfilt(b, a, data)
         return y
 
-
-
     #### Utility functions: noise ####
     def _generateNoise(
         self,
@@ -631,7 +664,6 @@ class AFESimEmprirical(Module):
 
         return x_t
 
-
     #### Utility functions: spike generation #####
     def _sampling_spikes(self, spikes: np.ndarray, count: int) -> np.ndarray:
         """
@@ -646,9 +678,10 @@ class AFESimEmprirical(Module):
 
         return (np.cumsum(spikes, axis=0) % count * spikes) == (count - 1)
 
-
     #### Utility functions: modelling the distortion #####
-    def _MIC_evolve(self, sig_in: np.ndarray, v_corner:float, THD_level, max_output:float):
+    def _MIC_evolve(
+        self, sig_in: np.ndarray, v_corner: float, THD_level, max_output: float
+    ):
         """this function incorporates the effect of third-order distortion in the input audio signal.
 
         Args:
@@ -658,17 +691,26 @@ class AFESimEmprirical(Module):
             max_output (float): maximum signal amplitude in the whole chip.
         """
         # we use the simple formula sin(3 th) = 3 sin(th) - 4 sin^3(th) for simulating THD
-        distortion = THD_level * v_corner * (3 * sig_in/v_corner - 4 * (sig_in/v_corner)**3)
+        distortion = (
+            THD_level
+            * v_corner
+            * (3 * sig_in / v_corner - 4 * (sig_in / v_corner) ** 3)
+        )
 
         sig_out = sig_in + distortion
 
-        sig_out[sig_out>max_output] = max_output
-        sig_out[sig_out<-max_output] = -max_output
+        sig_out[sig_out > max_output] = max_output
+        sig_out[sig_out < -max_output] = -max_output
 
         return sig_out
 
-    
-    def _LNA_evolve(self, sig_in: np.ndarray, v_corner: float, lna_distortion_level: float, max_output:float):
+    def _LNA_evolve(
+        self,
+        sig_in: np.ndarray,
+        v_corner: float,
+        lna_distortion_level: float,
+        max_output: float,
+    ):
         """this function takes the nonlinearity due to LNA into account.
 
         Args:
@@ -679,18 +721,19 @@ class AFESimEmprirical(Module):
         """
 
         # input signal is amplified by LNA
-        lna_gain = 2**(self.lna_gain_db/6.0)
+        lna_gain = 2 ** (self.lna_gain_db / 6.0)
         sig_out = lna_gain * (sig_in + self.lna_offset)
 
         # for a symmetric LNA, the main contribution of distortion is due to 3rd order nonlinearity
-        lna_out = v_corner * ( sig_out/v_corner - lna_distortion_level * (sig_out/v_corner)**3 )
+        lna_out = v_corner * (
+            sig_out / v_corner - lna_distortion_level * (sig_out / v_corner) ** 3
+        )
 
         # truncate the amplitude when the LNA goes into the saturation regime
-        lna_out[lna_out >  max_output] =  max_output
+        lna_out[lna_out > max_output] = max_output
         lna_out[lna_out < -max_output] = -max_output
 
         return lna_out
-
 
     #### Utility functions: state representation #####
     @property
@@ -702,7 +745,6 @@ class AFESimEmprirical(Module):
             float: Simulation time-step
         """
         return 1 / self.Fs
-
 
     def _wrap_recorded_state(self, state_dict: dict, t_start: float = 0.0) -> dict:
         args = {"dt": self.dt, "t_start": t_start}
@@ -721,7 +763,6 @@ class AFESimEmprirical(Module):
             ),
         }
 
-
     def evolve(
         self,
         input: np.ndarray = None,
@@ -733,18 +774,16 @@ class AFESimEmprirical(Module):
         if np.ndim(input) > 1:
             raise ValueError("the input signal should be 1-dim.")
 
-
         #### Microphone model ####
         mic_out = self._MIC_evolve(
             sig_in=input,
             v_corner=self.INPUT_MIC_MAX_AMPLITUDE,
             THD_level=self.MIC_DISTORTION,
-            max_output=self.INPUT_MAX_AMPLITUDE
+            max_output=self.INPUT_MAX_AMPLITUDE,
         )
 
         if self.add_offset:
             mic_out += self.input_offset
-
 
         ####   LNA - Gain  ####
         lna_out = self._LNA_evolve(
@@ -768,18 +807,15 @@ class AFESimEmprirical(Module):
             )
             lna_out += noise
 
-
         #### filterbank processing ####
         # - Expand lna_output dimensions and add offset
         filter_in = np.tile(np.atleast_2d(lna_out).T, (1, self.size_out))
-        
+
         if self.add_offset:
             filter_in += self.bpf_offset
 
-
         # - Perform the filtering
         filtered, _, _ = self.butter_filterbank(filter_in)
-
 
         # add noise
         if self.add_noise:
@@ -824,7 +860,6 @@ class AFESimEmprirical(Module):
         # - Keep a record of the LIF neuron states
         self.lif_state = new_state
 
-
         if self.DIGITAL_COUNTER > 1:
             spikes = self._sampling_spikes(spikes, self.DIGITAL_COUNTER)
 
@@ -841,10 +876,9 @@ class AFESimEmprirical(Module):
         # resample the system parameters if each input is going to run with an independent version
         if not self.one_shot_nonideality:
             self._initialize_afesim()
-            
+
         return spikes, self.state(), recording
 
-    
     def raster(self, spikes: np.ndarray):
         """this function rasters the peroduced spikes within the rastering period.
 
@@ -855,16 +889,15 @@ class AFESimEmprirical(Module):
         spikes = np.asarray(spikes)
 
         # number of clocks within a rastering period
-        num_clk_per_period = int(self.raster_period/self.dt)
-
+        num_clk_per_period = int(self.raster_period / self.dt)
 
         # faster method
         if num_clk_per_period == int(num_clk_per_period):
             # sum of spikes during several clocks
-            spike_sum = np.cumsum(spikes, axis=0)[::num_clk_per_period,:]
+            spike_sum = np.cumsum(spikes, axis=0)[::num_clk_per_period, :]
 
             # number of spikes colected in rastering periods
-            spike_sum[1:,:] -= spike_sum[:-1,:]
+            spike_sum[1:, :] -= spike_sum[:-1, :]
 
             # truncate the number of spikes
             spike_sum[spike_sum > self.max_spike_per_period] = self.max_spike_per_period
@@ -872,15 +905,9 @@ class AFESimEmprirical(Module):
             return spike_sum
 
         # use rockpool rastering: slower
-        spike_sum = TSEvent.from_raster(spikes, dt=self.dt).raster(dt=self.raster_period, add_events=True)
+        spike_sum = TSEvent.from_raster(spikes, dt=self.dt).raster(
+            dt=self.raster_period, add_events=True
+        )
         spike_sum[spike_sum > self.max_spike_per_period] = self.max_spike_per_period
 
         return spike_sum
-
-
-
-
-
-
-
-    

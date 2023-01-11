@@ -9,3 +9,4 @@ This package is aliased to :py:mod:`.rockpool.devices.xylo.vA1`
 from ..syns61300 import *
 
 from .afe_sim import *
+from .afe_sim_empirical import *
