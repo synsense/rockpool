@@ -80,13 +80,19 @@ class SynNet(TorchModule):
                 "lists for hidden layer sizes and number of time constants per layer need to have the same length"
             )
         if tau_syn_base <= dt:
-            raise ValueError("the base synaptic time constant tau_syn_base needs to be larger than the time step dt")
+            raise ValueError(
+                "the base synaptic time constant tau_syn_base needs to be larger than the time step dt"
+            )
 
         # round time constants to the values they will take when deploying to Xylo
         if quantize_time_constants:
-            tau_mem_bitshift = torch.round(tau_to_bitshift(dt, torch.tensor(tau_mem))[0]).int()
+            tau_mem_bitshift = torch.round(
+                tau_to_bitshift(dt, torch.tensor(tau_mem))[0]
+            ).int()
             tau_mem = bitshift_to_tau(dt, tau_mem_bitshift)[0].item()
-            tau_syn_out_bitshift = torch.round(tau_to_bitshift(dt, torch.tensor(tau_syn_out))[0]).int()
+            tau_syn_out_bitshift = torch.round(
+                tau_to_bitshift(dt, torch.tensor(tau_syn_out))[0]
+            ).int()
             tau_syn_out = bitshift_to_tau(dt, tau_syn_out_bitshift)[0].item()
 
         # calculate how often time constants are repeated within a layer
@@ -105,7 +111,9 @@ class SynNet(TorchModule):
         ):
 
             taus = [
-                torch.tensor([(tau_syn_base/dt)**j*dt for j in range(1, n_tau + 1)])
+                torch.tensor(
+                    [(tau_syn_base / dt) ** j * dt for j in range(1, n_tau + 1)]
+                )
                 for _ in range(tau_repititions[i])
             ]
             tau_syn_hidden = torch.hstack(taus)
@@ -114,9 +122,16 @@ class SynNet(TorchModule):
             tau_syn_hidden = tau_syn_hidden[:n_hidden]
             # orund time constants to the values they will take when deploying to Xylo
             if quantize_time_constants:
-                tau_syn_hidden_bitshift = [torch.round(tau_to_bitshift(dt, tau_syn)[0]).int() for tau_syn in tau_syn_hidden]
+                tau_syn_hidden_bitshift = [
+                    torch.round(tau_to_bitshift(dt, tau_syn)[0]).int()
+                    for tau_syn in tau_syn_hidden
+                ]
                 tau_syn_hidden = torch.tensor(
-                    [bitshift_to_tau(dt, dash_syn)[0].item() for dash_syn in tau_syn_hidden_bitshift])
+                    [
+                        bitshift_to_tau(dt, dash_syn)[0].item()
+                        for dash_syn in tau_syn_hidden_bitshift
+                    ]
+                )
 
             if not train_threshold:
                 thresholds = Constant([threshold for _ in range(n_hidden)])
@@ -128,9 +143,7 @@ class SynNet(TorchModule):
             )
             n_channels_in = n_hidden
             with torch.no_grad():
-                self.lins[-1].weight.data = (
-                    self.lins[-1].weight.data / tau_syn_hidden
-                )
+                self.lins[-1].weight.data = self.lins[-1].weight.data / tau_syn_hidden
             setattr(self, "lin" + str(i), self.lins[-1])
             self.spks.append(
                 neuron_model(
