@@ -14,7 +14,7 @@ import logging
 import numpy as np
 
 
-from rockpool.devices.dynapse.parameters import param_to_analog, analog_to_digital
+from rockpool.devices.dynapse.parameters import param_to_analog, analog_to_param
 
 from rockpool.devices.dynapse.lookup import (
     sim2device_se2,
@@ -254,7 +254,7 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
         :return: a dictionary of mapping between parameter names and respective coarse-fine values
         :rtype: Dict[str, Tuple[np.uint8, np.uint8]]
         """
-        converter = lambda sim, param: analog_to_digital(
+        converter = lambda sim, param: analog_to_param(
             param, self.__getattribute__(sim)
         )
         param_dict = {
