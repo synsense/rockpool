@@ -376,7 +376,7 @@ class AFESimEmprirical(Module):
         # - Check the filters w.r.t the sampling frequency
         if self.Fs < (6 * np.max(self.design_fcs)):
             raise ValueError(
-                f"""Sampling frequency must be at least 6 times the highest BPF centre freq. (>{6 * np.max(self.fcs)} Hz)
+                f"""Sampling frequency must be at least 6 times the highest BPF centre freq. (>{6 * np.max(self.Fs)} Hz)
                 The main reason is that the microphone produces THD (third-order distortion) which may fallback into the wrong frequency
                 if the sampling frequency is not large enough.
                 """
