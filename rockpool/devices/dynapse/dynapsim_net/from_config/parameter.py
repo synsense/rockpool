@@ -241,7 +241,7 @@ class ParameterHandler:
         :rtype: np.ndarray
         """
         if not dendrites.any():
-            return np.array([])
+            return np.empty_like(dendrites)
 
         sign = np.zeros_like(dendrites)
         sign[dendrites == Dendrite.ampa] = 1
