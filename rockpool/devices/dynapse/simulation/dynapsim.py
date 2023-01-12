@@ -267,11 +267,13 @@ class DynapSim(JaxModule):
             init_func=init_func,
             shape=(self.size_out,),
             permit_reshape=False,
-            cast_fn=jnp.array,
+            cast_fn=lambda _o: jnp.array(_o, dtype=jnp.float32),
         )
 
-        __Io_state = lambda _: __state(lambda s: jnp.full(tuple(reversed(s)), Io).T)
-        __zero_state = lambda _: __state(jnp.zeros)
+        __Io_state = lambda _: __state(
+            lambda s: jnp.full(tuple(reversed(s)), Io, jnp.float32).T
+        )
+        __zero_state = lambda _: __state(lambda s: jnp.zeros(s, dtype=jnp.float32))
 
         ## Data
         self.iahp = __Io_state(None)
@@ -307,11 +309,11 @@ class DynapSim(JaxModule):
             if isinstance(
                 _param, (np.ndarray, jnp.ndarray, jnp.DeviceArray, jax.core.Tracer)
             )
-            else jnp.full((self.size_out,), _param),
+            else jnp.full((self.size_out,), _param, dtype=jnp.float32),
             family="bias",
             shape=(self.size_out,),
             permit_reshape=False,
-            cast_fn=jnp.array,
+            cast_fn=lambda _o: jnp.array(_o, dtype=jnp.float32),
         )
 
         # Special handler for wrec
@@ -322,12 +324,13 @@ class DynapSim(JaxModule):
                 init_func=weight_init_func,
                 shape=(self.size_out, self.size_in),
                 permit_reshape=False,
-                cast_fn=jnp.array,
+                cast_fn=lambda _o: jnp.array(_o, dtype=jnp.float32),
             )
         else:
             # Do not let it break the pipeline
             self.w_rec = SimulationParameter(
-                data=jnp.zeros((self.size_out, self.size_in)), family="weights"
+                data=jnp.zeros((self.size_out, self.size_in), dtype=jnp.float32),
+                family="weights",
             )
 
         # --- Simulation Parameters --- #
@@ -339,7 +342,7 @@ class DynapSim(JaxModule):
             else jnp.full((self.size_out,), _param),
             shape=(self.size_out,),
             permit_reshape=False,
-            cast_fn=jnp.array,
+            cast_fn=lambda _o: jnp.array(_o, dtype=jnp.float32),
         )
 
         # -- #
@@ -419,10 +422,10 @@ class DynapSim(JaxModule):
 
         # -- #
 
-        self.Iscale = SimulationParameter(np.array(Iscale), shape=(1,))
+        self.Iscale = SimulationParameter(np.array(Iscale, dtype=np.float32), shape=(1,))
         """weight scaling current of the neurons of the core in Amperes"""
 
-        self.dt = SimulationParameter(np.array(dt), shape=(1,))
+        self.dt = SimulationParameter(np.array(dt, dtype=np.float32), shape=(1,))
         """The time step for the forward-Euler ODE solver"""
 
         self.rng_key = State(rng_key, init_func=lambda _: rng_key)
