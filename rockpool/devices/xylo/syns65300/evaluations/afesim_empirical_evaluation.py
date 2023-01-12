@@ -9,15 +9,16 @@
 # email: saeid.haghighatshoar@synsense.ai
 #
 #
-# last update: 09.01.2023
+# last update: 12.01.2023
 # -----------------------------------------------------------
 from afe_audio.afe_sinusoid_probing import SinWaveGen
-from rockpool.devices.xylo.syns65300.afe_sim_empirical import AFESimEmprirical
+from rockpool.devices.xylo.syns65300.afe_sim_empirical_cpp import AFESimEmpirical
 
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.signal import sosfreqz
 from tqdm import tqdm
+import time
 
 
 
@@ -26,7 +27,7 @@ class AFESimEmpirical_Evaluation:
         # sampling frequency needed for simulation
         self.fs = 110_000
         self.raster_period = 10e-3
-        self.max_spike_per_period = 15
+        self.max_spike_per_raster_period = 15
         
 
         # parameters of the filterbank as designed currently
@@ -35,15 +36,15 @@ class AFESimEmpirical_Evaluation:
             "add_offset" : True,
             "add_mismatch" : True,
             "one_shot_nonideality" : True,
-            "num_workers" : 4,
+            "num_workers" : 8,
             "fs" : self.fs,
             "raster_period": self.raster_period,
-            "max_spike_per_period": self.max_spike_per_period,
+            "max_spike_per_raster_period": self.max_spike_per_raster_period,
         }
 
 
         # create a afe module
-        self.afe = AFESimEmprirical(**self.params)
+        self.afe = AFESimEmpirical(**self.params)
 
 
         # sin wave generator
@@ -62,10 +63,10 @@ class AFESimEmpirical_Evaluation:
         duration = 5.0
 
         # frequency range of the sinusoid signal
-        fmin=100
+        fmin=1000
         fmax=8000
 
-        num_freq = 500
+        num_freq = 50
 
         scale_ratio = (fmax/fmin)**(1/(num_freq-1))
         freq_vec = fmin * (scale_ratio ** np.arange(num_freq))
@@ -83,11 +84,17 @@ class AFESimEmpirical_Evaluation:
             sig_in = voltage_amplitude * sig_in/np.max(np.abs(sig_in))
 
             # compute output spike
+            start = time.time()
             spike_out, *_ = self.afe.evolve(input=sig_in)
 
             # raster the spikes to the given period: this can also be used to compute the rate
             spike_rastered = self.afe.raster(spike_out)
 
+            afesim_duration = time.time() - start
+
+            print(f"AFESim evaluation for a signal of length {len(sig_in)} took {afesim_duration} sec.")
+
+        
             # compute the rate in each channel
             spike_rate = spike_out.mean(axis=0) * self.fs
 
@@ -106,7 +113,7 @@ class AFESimEmpirical_Evaluation:
         
         # plot the spike rate as well
         spike_rate_vec = np.asarray(spike_rate_vec)
-        spike_rate_vec = (spike_rate_vec + 1)/spike_rate_vec.max()
+        spike_rate_vec = spike_rate_vec/(1+ np.max(np.abs(spike_rate_vec)))
 
 
         plt.figure(figsize=(16,10))

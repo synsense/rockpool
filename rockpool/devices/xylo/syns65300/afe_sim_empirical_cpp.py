@@ -1,21 +1,15 @@
-# -----------------------------------------------------------
-# This module simulates filterbank and spike generation dynamics in Xylo-A2
-# based on the parameters obtained from Hardware and Sys-Integration group.
-#
-#
-#
-# (C) Mina Khoei, Saeid Haghighatshoar
-# email: mina.khoei@synsense.ai, saeid.haghighatshoar@synsense.ai
-#
-#
-# last update: 12.01.2023
-# -----------------------------------------------------------
+"""
+Simulation of an analog audio filtering front-end
+"""
 
 # - Rockpool imports
+import os
 from rockpool.nn.modules.module import Module
 from rockpool.nn.modules.native.filter_bank import ButterFilter
 from rockpool.timeseries import TSEvent, TSContinuous
 from rockpool.parameters import Parameter, State, SimulationParameter, ParameterBase
+
+import matplotlib.pyplot as plt
 
 # - Other imports
 import numpy as np
@@ -37,83 +31,67 @@ __all__ = ["AFESimEmpirical"]
 
 
 
-# - Try to use Jax as speedup if possible
-__DEBUG_MODE__ = True
-
+# - Try to use C++ version for speedup
 try:
-    import jax
-    import jax.numpy as jnp
-
-    if __DEBUG_MODE__:
-        enable_jax = False
-        raise NotImplementedError("just not use jax!")
-    else:
-        enable_jax = True
-
-    print("Jax was detected! Spike generation will be done by the JIT compiled version!")
-
+    # check if the C++ library is available
+    from xylo_a2_spike_generation import _encode_spikes as cpp_encode_spikes
     
-    @jax.jit
-    def _encode_spikes(
-        initial_state: np.ndarray,
-        dt: float,
-        data: np.ndarray,
-        v2i_gain: float,
-        c_iaf: float,
-        leakage: float,
-        thr_up: float,
-        vcc: float,
-    ) -> Tuple[jnp.ndarray, jnp.ndarray]:
-        """
-        Encode a signal as events using an LIF neuron membrane with negligible leakage (very close to IAF neuron).
+    # register C++ version
+    __CPP_VERSION__ = True
 
-        Args:
-            initial_state (np.ndarray): Initial state of the LIF neurons.
-            dt (float): Time-step in seconds. 
-            data (np.ndarray): Array ``(T,N)`` containing data to convert to events.
-            v2i_gain (float): the gain by which the voltage at the output of rectifier is converted to a current for integration followed by spike generation.
-            c_iaf (float): Membrane capacitance.
-            leakage (float): Leakage factor per time step modelled as a conductance in parallel with capacitor.
-            thr_up (float): Firing threshold voltage.
-            vcc (float): voltage supply on the chip (this is the maximum value of the integrator voltage).
+except ModuleNotFoundError as e:
+    # try to install C++ module
+    try:
+        print(f"C++ based spike generation module is not installed: {e}")
+        print("Trying to install this module ...")
 
-        Returns: 
-            np.ndarray: Raster of output events ``(T,N)``, where ``True`` indicates a spike
-        """
-        # convert the output of the rectifier to a current to be integrated by the capacitor.
-        data = jnp.copy(data * v2i_gain)
+        # find the library in the path
+        from pathlib import Path
+        import os
+        import subprocess
 
-        def forward(cdc, data_rec):
-            # leakage current when the cpacitor has a voltage of cdc
-            lk = leakage * cdc
+        current_dir = Path(__file__).parent.resolve()
+        cpp_library_name = "LIF spike generation"
 
-            # how much charge is depleted from the capacitor during `dt`
-            dq_lk = lk * dt
+        if cpp_library_name not in os.listdir(current_dir):
+            raise ModuleNotFoundError(f"C++ librray: {cpp_library_name} was not found in the current directory!")
+        
+        # folder containing the C++ code
+        cpp_library_dir = os.path.join(current_dir, cpp_library_name, "src-cpp")
 
-            # how much charge is added to the capacitor because of input data in `dt`
-            dq_data = dt * data_rec
+        # install it using command line
+        command = f"pip install -e \"{cpp_library_dir}\""
+        output = subprocess.run(command, shell=True, capture_output=True, text=True)
 
-            # variation in capacitor voltage dur to data + leakage
-            dv = (dq_data - dq_lk) / (c_iaf)
+        if output.returncode != 0:
+            # command did not run: pip installation did not work
+            print(f"pip installation was not successful!\n{output.stdout}")
+            raise ModuleNotFoundError(output.stderr)
+        
+        # module was installed so import it again
+        from xylo_a2_spike_generation import  _encode_spikes as cpp_encode_spikes
 
-            # - Accumulate membrane voltage, clip to the range [0, VCC]
-            cdc += dv
 
-            # truncate the values to the range [0, max_output] 
-            cdc = jnp.where(cdc < 0.0, 0.0, cdc)
-            cdc = jnp.where(cdc > vcc, vcc, cdc)
-            
-            spikes = cdc >= thr_up
-            return cdc * (1 - spikes), spikes
+        # register C++ version
+        __CPP_VERSION__ = True
 
-        # - Evolve over the data array
-        final_state, data_up = jax.lax.scan(forward, initial_state, data)
+    except ModuleNotFoundError  as e:
+        
+        print(f"C++ spike generation library was not successful: {e}")
+        print("Falling back on Python version for spike generation!")
 
-        return jnp.array(data_up), final_state
+        __CPP_VERSION__ = False
+    
 
-except:
+# in debug mode deactivate C++ version
+__DEBUG_MODE__ = False
 
-    print("No Jax was detected! Falling back on Python version for spike generation!")
+if __DEBUG_MODE__:
+    __CPP_VERSION__ = False
+
+if __CPP_VERSION__:
+    # C++ version is active: apply simple embedding in Python
+    print(f"__CPP_VERSION: {__CPP_VERSION__}: Embedding C++ version in Python.")
 
     def _encode_spikes(
         initial_state: np.ndarray,
@@ -126,6 +104,55 @@ except:
         vcc: float,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
+        C++ version:
+        Encode a signal as events using an LIF neuron membrane with negligible leakage (very close to IAF neuron).
+
+        Args:
+            initial_state (np.ndarray): Initial state of the LIF neurons.
+            dt (float): Time-step in seconds. 
+            data (np.ndarray): Array ``(T,N)`` containing data to convert to events.
+            v2i_gain (float): the gain by which the voltage at the output of rectifier is converted to a current for integration followed by spike generation.
+            c_iaf (float): Membrane capacitance.
+            leakage (float): Leakage factor per time step modelled as a conductance in parallel with capacitor.
+            thr_up (float): Firing threshold voltage.
+            vcc (float): voltage supply on the chip (this is the maximum value of the integrator voltage).
+
+        Returns: 
+            np.ndarray: Raster of output events ``(T,N)``, where ``True`` indicates a spike
+        """
+        # embed the list results in numpy array: this is needed because:
+        # (i)   data is passed as a list to C++ and we would like each row to correspond to one channel
+        # (ii)  result returned from C++ is of the format N xT and we need to convert it into T x N format for compatibility.
+
+        spikes, final_state = cpp_encode_spikes(
+            initial_state=initial_state,
+            dt=dt,
+            data=data.T,
+            v2i_gain=v2i_gain,
+            c_iaf=c_iaf,
+            leakage=leakage,
+            thr_up=thr_up,
+            vcc=vcc,
+        )
+
+        return np.asarray(spikes).T, np.asarray(final_state)
+
+else:
+    # use the Python version
+    print(f"__CPP_VERSION: {__CPP_VERSION__}: No C++ version: Using only the Python version.")
+
+    def _encode_spikes(
+        initial_state: np.ndarray,
+        dt: float,
+        data: np.ndarray,
+        v2i_gain: float,
+        c_iaf: float,
+        leakage: float,
+        thr_up: float,
+        vcc: float,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Python version:
         Encode a signal as events using an LIF neuron membrane with negligible leakage (very close to IAF neuron).
 
         Args:
@@ -142,11 +169,10 @@ except:
             np.ndarray: Raster of output events ``(T,N)``, where ``True`` indicates a spike
         """
         # convert the output of the rectifier to a current to be integrated by the capacitor.
-        data = np.copy(data * v2i_gain)
+        data = np.copy(data) * v2i_gain
 
         cdc = initial_state
         spike_list = []
-        vmem_list = []
 
         for i in range(len(data)):
             # leakage current when the cpacitor has a voltage of cdc
@@ -172,14 +198,10 @@ except:
             spike_list.append(spikes)
 
             cdc = cdc * (1 - spikes)
-            vmem_list.append(cdc)
         
         spike_list = np.asarray(spike_list)
-        vmem_list = np.asarray(vmem_list)
-
 
         return spike_list, cdc
-
 
 
 
@@ -203,7 +225,7 @@ class AFESimEmpirical(Module):
         self,
         fs: int = 16_000,    # this should be the same as the sampling rate of the audio fed to AFESim. Otherwise, the frequencies are proportionally shifted.
         raster_period: float= 0.01,           # this is the period to which the generated spikes are rastered
-        max_spike_per_raster_period: int = 15,       # maximum number of spikes to be forwarded to SNN in Xylo in a period
+        max_spike_per_raster_period: int = 15,       # maximum number of spikes to be forwarded to SNN in Xylo within a raster period
         add_noise: bool = True,
         add_offset: bool = True,
         add_mismatch : bool = True,
@@ -686,11 +708,25 @@ class AFESimEmpirical(Module):
 
     def evolve(
         self,
-        input: np.ndarray = None,
+        input: np.ndarray,
         record: bool = False,
         *args,
         **kwargs,
     ):
+        """this functions runs AFESim and records the generated spikes.
+
+        Args:
+            input (np.ndarray, optional): input audio signal.
+            raster_spikes (bool, optional): if True, the spikes are rastered to the raster period. Defaults to True.
+            record (bool, optional): _description_. Defaults to False.
+
+        Raises:
+            ValueError: _description_
+
+        Returns:
+            _type_: _description_
+        """
+
         # - Make sure input is 1D
         if np.ndim(input) > 1:
             raise ValueError("the input signal should be 1-dim.")
@@ -779,7 +815,7 @@ class AFESimEmpirical(Module):
             c_iaf=self.C_IAF,
             leakage=self.LEAKAGE,
             thr_up=self.THR_UP,
-            vcc=self.VCC,
+            vcc=self.VCC
         )
 
         # - Keep a record of the LIF neuron states
@@ -816,13 +852,13 @@ class AFESimEmpirical(Module):
         spikes = np.asarray(spikes)
 
         # number of clocks within a rastering period
-        num_clk_per_period = int(self.raster_period/self.dt)
+        num_clk_per_period = self.raster_period/self.dt
 
 
         # faster method
         if num_clk_per_period == int(num_clk_per_period):
             # sum of spikes during several clocks
-            spike_sum = np.cumsum(spikes, axis=0)[::num_clk_per_period,:]
+            spike_sum = np.cumsum(spikes, axis=0)[::int(num_clk_per_period),:]
 
             # number of spikes colected in rastering periods
             spike_sum[1:,:] -= spike_sum[:-1,:]
@@ -837,11 +873,3 @@ class AFESimEmpirical(Module):
         spike_sum[spike_sum > self.max_spike_per_raster_period] = self.max_spike_per_raster_period
 
         return spike_sum
-
-
-
-
-
-
-
-    
