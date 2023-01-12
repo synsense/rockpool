@@ -422,7 +422,9 @@ class DynapSim(JaxModule):
 
         # -- #
 
-        self.Iscale = SimulationParameter(np.array(Iscale, dtype=np.float32), shape=(1,))
+        self.Iscale = SimulationParameter(
+            np.array(Iscale, dtype=np.float32), shape=(1,)
+        )
         """weight scaling current of the neurons of the core in Amperes"""
 
         self.dt = SimulationParameter(np.array(dt, dtype=np.float32), shape=(1,))
