@@ -91,7 +91,7 @@ default_weights = {
 }
 
 default_time_constants = {
-    "t_pulse_ahp": 1e-12,
+    "t_pulse_ahp": 1e-6,
     "t_pulse": 10e-6,
     "t_ref": 1e-3,
     "tau_ahp": 50e-3,
@@ -130,5 +130,5 @@ default_currents = {
     "Itau_nmda": Itau_lambda("nmda"),
     "Itau_shunt": Itau_lambda("shunt"),
     "Itau_mem": Itau_lambda("mem"),
-    "Iw_ahp": 0.0,
+    "Iw_ahp": 5e-13,
 }
