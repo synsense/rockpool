@@ -39,12 +39,19 @@ def test():
     duration = 1
 
     time_vec = np.arange(0, duration, step=1/fs)
+
+    #### mixture of two sinusoid
     #sig_in = amplitude * np.sin(2*np.pi*freq*time_vec)
     #sig_in = amplitude * np.random.randn(*time_vec.shape)
-    sig_in1 = amplitude * np.sin(2*np.pi*freq*time_vec) + amplitude * np.random.randn(*time_vec.shape)
-    sig_in2 = amplitude * np.sin(2*np.pi*freq/2*time_vec) + amplitude * np.random.randn(*time_vec.shape)
+    #sig_in1 = amplitude * np.sin(2*np.pi*freq*time_vec) + amplitude * np.random.randn(*time_vec.shape)
+    #sig_in2 = amplitude * np.sin(2*np.pi*freq/2*time_vec) + amplitude * np.random.randn(*time_vec.shape)
     
-    sig_in = np.concatenate([sig_in1[:len(sig_in1)//2], sig_in2[:len(sig_in2)//2]])
+    #sig_in = np.concatenate([sig_in1[:len(sig_in1)//2], sig_in2[:len(sig_in2)//2]])
+
+    ##### chirp signal
+    inst_freq = 200 + 600 * time_vec/time_vec[-1]
+    phase = 2 * np.pi * np.cumsum(inst_freq) /fs
+    sig_in = amplitude * np.sin(phase)  + amplitude * np.random.randn(*time_vec.shape)
 
     spikes_py, *_ = afe_py(sig_in)
     spikes_cpp, *_ = afe_cpp(sig_in)
@@ -70,6 +77,10 @@ def test():
         plt.plot(time_vec, spikes_cpp[:,bad_channels[i]].cumsum())
         plt.grid(True)
         plt.legend(['Python', 'C++'])
+        plt.ylabel("number of spikes")
+        if i==0:
+            plt.title("deviation between python and C++ in 4 worst channels")
+    plt.xlabel("time (sec)")
     plt.show()
     
     assert numerical_error < 0.01, "There is a large difference between C++ and Python version beyond numerical imprecision!"
