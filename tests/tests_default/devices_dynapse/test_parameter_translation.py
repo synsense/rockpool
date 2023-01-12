@@ -4,7 +4,6 @@ Tests included in this file tests if the bias generator implementation is at a h
 
 Note that the translation does not necessarily need to be one-to-one. If the values are close enough, that's also OK.
 """
-import numpy as np
 
 
 def test_imports():
@@ -51,6 +50,7 @@ def test_analog_to_digital():
     test_analog_to_digital finds digital bias generator settings given random analog current values in a logarithmic search space
     Then it expects to find a similar current value doing the inverse operation (digital c&f tuple -> analog current)
     """
+    import numpy as np
     from rockpool.devices.dynapse.parameters.biasgen import (
         digital_to_analog,
         analog_to_digital,
