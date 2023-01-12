@@ -79,7 +79,7 @@ def mismatch_generator(
             :rtype: jnp.DeviceArray
             """
             deviation = sigma_eff * rand.normal(rng_key, array.shape)
-            return array + deviation * array
+            return jnp.array(array + deviation * array, dtype=jnp.float32)
 
         params = module_registery(mod)
         new_params = tree_map_select_with_rng(params, prototype, __map_fun, rng_key)
