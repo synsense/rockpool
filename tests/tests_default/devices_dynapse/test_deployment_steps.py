@@ -8,14 +8,6 @@ Every test sequentially combines a `LinearJax` and a `DynapSim` layer whose weig
 from numpy.testing import assert_equal, assert_allclose, assert_array_equal
 
 
-### --- Preliminary --- ###
-# All tests listed here use a reconstructed network.
-#
-
-
-### --- ###
-
-
 def test_network_building_first_step():
     """
     test_network_building_first_step checks if the weight matrices after the network construction is identically the same
@@ -271,7 +263,3 @@ def test_network_from_config():
         assert_allclose(
             getattr(net[1], key), getattr(net_from_config[1], key), rtol=0.2
         )
-
-
-if __name__ == "__main__":
-    test_network_from_config()
