@@ -143,7 +143,9 @@ class SynNet(TorchModule):
             )
             n_channels_in = n_hidden
             with torch.no_grad():
-                self.lins[-1].weight.data = self.lins[-1].weight.data * dt / tau_syn_hidden
+                self.lins[-1].weight.data = (
+                    self.lins[-1].weight.data * dt / tau_syn_hidden
+                )
             setattr(self, "lin" + str(i), self.lins[-1])
             self.spks.append(
                 neuron_model(
