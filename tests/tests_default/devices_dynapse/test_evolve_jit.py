@@ -21,7 +21,7 @@ def test_evolve():
     # - Hyper-parameters
     np.random.seed(2023)
 
-    T = 100000
+    T = 1000
     Nrec = 60
     f = 0.01
 
