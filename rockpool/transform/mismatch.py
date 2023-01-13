@@ -103,7 +103,7 @@ def module_registery(module: JaxModule) -> Dict[str, Any]:
     """
     __attrs, __modules = module._get_attribute_registry()
     __dict = {
-        k: getattr(module, k)
+        k: jnp.array(getattr(module, k), dtype=jnp.float32)
         for k, v in __attrs.items()
         if (v[1] == "SimulationParameter") or (v[1] == "Parameter")
     }
