@@ -18,25 +18,21 @@ def test_evolve():
     from jax import numpy as jnp
     from numpy.testing import assert_array_equal, assert_array_almost_equal
 
-    # - Path building
-    __dirname__ = os.path.dirname(os.path.abspath(__file__))
-    __datapath = os.path.join(__dirname__, "data")
-
     # - Hyper-parameters
+    np.random.seed(2023)
+
     T = 100000
     Nrec = 60
     f = 0.01
-    np.random.seed(2023)
 
     # - Build the network
     net = DynapSim(Nrec, has_rec=True)
 
     # - Random input data
     spike_train = np.random.rand(T, Nrec) < f
-    spike_train = spike_train.astype(np.float32).reshape(1, T, Nrec)
-    spike_train = jnp.array(spike_train, dtype=jnp.float32)
+    spike_train = spike_train.reshape(1, T, Nrec)
 
-    net.reset_state()
+    # - Compile
     net_jit = jit(net)
 
     # - Regular
