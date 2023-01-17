@@ -50,7 +50,7 @@ from rockpool.devices.dynapse.lookup import (
 from rockpool.devices.dynapse.typehints import DynapSimRecord, DynapSimState
 from rockpool.devices.dynapse.mapping import DynapseNeurons
 
-
+from rockpool.typehints import FloatVector
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.nn.modules.native.linear import kaiming
 from rockpool.parameters import Parameter, State, SimulationParameter
@@ -125,37 +125,37 @@ class DynapSim(JaxModule):
     def __init__(
         self,
         shape: Union[Tuple[int], int],
-        Idc: Optional[np.ndarray] = default_currents["Idc"],
-        If_nmda: Optional[np.ndarray] = default_currents["If_nmda"],
-        Igain_ahp: Optional[np.ndarray] = default_currents["Igain_ahp"],
-        Igain_mem: Optional[np.ndarray] = default_currents["Igain_mem"],
-        Igain_syn: Optional[np.ndarray] = default_currents["Igain_ampa"],
-        Ipulse_ahp: Optional[np.ndarray] = default_currents["Ipulse_ahp"],
-        Ipulse: Optional[np.ndarray] = default_currents["Ipulse"],
-        Iref: Optional[np.ndarray] = default_currents["Iref"],
-        Ispkthr: Optional[np.ndarray] = default_currents["Ispkthr"],
-        Itau_ahp: Optional[np.ndarray] = default_currents["Itau_ahp"],
-        Itau_mem: Optional[np.ndarray] = default_currents["Itau_mem"],
-        Itau_syn: Optional[np.ndarray] = default_currents["Itau_ampa"],
-        Iw_ahp: Optional[np.ndarray] = default_currents["Iw_ahp"],
-        C_ahp: Optional[np.ndarray] = default_layout["C_ahp"],
-        C_syn: Optional[np.ndarray] = default_layout["C_ampa"],
-        C_pulse_ahp: Optional[np.ndarray] = default_layout["C_pulse_ahp"],
-        C_pulse: Optional[np.ndarray] = default_layout["C_pulse"],
-        C_ref: Optional[np.ndarray] = default_layout["C_ref"],
-        C_mem: Optional[np.ndarray] = default_layout["C_mem"],
-        Io: Optional[np.ndarray] = default_layout["Io"],
-        kappa_n: Optional[np.ndarray] = default_layout["kappa_n"],
-        kappa_p: Optional[np.ndarray] = default_layout["kappa_p"],
-        Ut: Optional[np.ndarray] = default_layout["Ut"],
-        Vth: Optional[np.ndarray] = default_layout["Vth"],
-        Iscale: Optional[np.ndarray] = default_weights["Iscale"],
-        w_rec: Optional[jnp.DeviceArray] = None,
+        Idc: FloatVector = default_currents["Idc"],
+        If_nmda: FloatVector = default_currents["If_nmda"],
+        Igain_ahp: FloatVector = default_currents["Igain_ahp"],
+        Igain_mem: FloatVector = default_currents["Igain_mem"],
+        Igain_syn: FloatVector = default_currents["Igain_ampa"],
+        Ipulse_ahp: FloatVector = default_currents["Ipulse_ahp"],
+        Ipulse: FloatVector = default_currents["Ipulse"],
+        Iref: FloatVector = default_currents["Iref"],
+        Ispkthr: FloatVector = default_currents["Ispkthr"],
+        Itau_ahp: FloatVector = default_currents["Itau_ahp"],
+        Itau_mem: FloatVector = default_currents["Itau_mem"],
+        Itau_syn: FloatVector = default_currents["Itau_ampa"],
+        Iw_ahp: FloatVector = default_currents["Iw_ahp"],
+        C_ahp: FloatVector = default_layout["C_ahp"],
+        C_syn: FloatVector = default_layout["C_ampa"],
+        C_pulse_ahp: FloatVector = default_layout["C_pulse_ahp"],
+        C_pulse: FloatVector = default_layout["C_pulse"],
+        C_ref: FloatVector = default_layout["C_ref"],
+        C_mem: FloatVector = default_layout["C_mem"],
+        Io: FloatVector = default_layout["Io"],
+        kappa_n: FloatVector = default_layout["kappa_n"],
+        kappa_p: FloatVector = default_layout["kappa_p"],
+        Ut: FloatVector = default_layout["Ut"],
+        Vth: FloatVector = default_layout["Vth"],
+        Iscale: FloatVector = default_weights["Iscale"],
+        w_rec: Optional[FloatVector] = None,
         has_rec: bool = False,
-        weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = kaiming,
+        weight_init_func: Optional[Callable[[Tuple], FloatVector]] = kaiming,
         dt: float = 1e-3,
         percent_mismatch: Optional[float] = None,
-        rng_key: Optional[jnp.DeviceArray] = None,
+        rng_key: Optional[FloatVector] = None,
         spiking_input: bool = False,
         spiking_output: bool = True,
         *args,
@@ -167,67 +167,67 @@ class DynapSim(JaxModule):
         :param shape: Either a single dimension ``N``, which defines a feed-forward layer of DynapSE AdExpIF neurons, or two dimensions ``(N, N)``, which defines a recurrent layer of DynapSE AdExpIF neurons.
         :type shape: Tuple[int]
         :param Idc: Constant DC current injected to membrane in Amperes with shape
-        :type Idc: Optional[np.ndarray], optinoal
+        :type Idc: FloatVector, optinoal
         :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes with shape (Nrec,)
-        :type If_nmda: Optional[np.ndarray], optinoal
+        :type If_nmda: FloatVector, optinoal
         :param Igain_ahp: gain bias current of the spike frequency adaptation block in Amperes with shape (Nrec,)
-        :type Igain_ahp: Optional[np.ndarray], optinoal
+        :type Igain_ahp: FloatVector, optinoal
         :param Igain_mem: gain bias current for neuron membrane in Amperes with shape (Nrec,)
-        :type Igain_mem: Optional[np.ndarray], optinoal
+        :type Igain_mem: FloatVector, optinoal
         :param Igain_syn: gain bias current of synaptic gates (AMPA, GABA, NMDA, SHUNT) combined in Amperes with shape (Nrec,)
-        :type Igain_syn: Optional[np.ndarray], optinoal
+        :type Igain_syn: FloatVector, optinoal
         :param Ipulse_ahp: bias current setting the pulse width for spike frequency adaptation block ``t_pulse_ahp`` in Amperes with shape (Nrec,)
-        :type Ipulse_ahp: Optional[np.ndarray], optinoal
+        :type Ipulse_ahp: FloatVector, optinoal
         :param Ipulse: bias current setting the pulse width for neuron membrane ``t_pulse`` in Amperes with shape (Nrec,)
-        :type Ipulse: Optional[np.ndarray], optinoal
+        :type Ipulse: FloatVector, optinoal
         :param Iref: bias current setting the refractory period ``t_ref`` in Amperes with shape (Nrec,)
-        :type Iref: Optional[np.ndarray], optinoal
+        :type Iref: FloatVector, optinoal
         :param Ispkthr: spiking threshold current, neuron spikes if :math:`I_{mem} > I_{spkthr}` in Amperes with shape (Nrec,)
-        :type Ispkthr: Optional[np.ndarray], optinoal
+        :type Ispkthr: FloatVector, optinoal
         :param Itau_ahp: Spike frequency adaptation leakage current setting the time constant ``tau_ahp`` in Amperes with shape (Nrec,)
-        :type Itau_ahp: Optional[np.ndarray], optinoal
+        :type Itau_ahp: FloatVector, optinoal
         :param Itau_mem: Neuron membrane leakage current setting the time constant ``tau_mem`` in Amperes with shape (Nrec,)
-        :type Itau_mem: Optional[np.ndarray], optinoal
+        :type Itau_mem: FloatVector, optinoal
         :param Itau_syn: (AMPA, GABA, NMDA, SHUNT) synapses combined leakage current setting the time constant ``tau_syn`` in Amperes with shape (Nrec,)
-        :type Itau_syn: Optional[np.ndarray], optinoal
+        :type Itau_syn: FloatVector, optinoal
         :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes with shape (Nrec,)
-        :type Iw_ahp: Optional[np.ndarray], optinoal
+        :type Iw_ahp: FloatVector, optinoal
         :param C_ahp: AHP synapse capacitance in Farads with shape (Nrec,)
-        :type C_ahp: float, optional
+        :type C_ahp: FloatVector, optional
         :param C_syn: synaptic capacitance in Farads with shape (Nrec,)
-        :type C_syn: float, optional
+        :type C_syn: FloatVector, optional
         :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads with shape (Nrec,)
-        :type C_pulse_ahp: float, optional
+        :type C_pulse_ahp: FloatVector, optional
         :param C_pulse: pulse-width creation sub-circuit capacitance in Farads with shape (Nrec,)
-        :type C_pulse: float, optional
+        :type C_pulse: FloatVector, optional
         :param C_ref: refractory period sub-circuit capacitance in Farads with shape (Nrec,)
-        :type C_ref: float, optional
+        :type C_ref: FloatVector, optional
         :param C_mem: neuron membrane capacitance in Farads with shape (Nrec,)
-        :type C_mem: float, optional
+        :type C_mem: FloatVector, optional
         :param Io: Dark current in Amperes that flows through the transistors even at the idle state with shape (Nrec,)
-        :type Io: float, optional
+        :type Io: FloatVector, optional
         :param kappa_n: Subthreshold slope factor (n-type transistor) with shape (Nrec,)
-        :type kappa_n: float, optional
+        :type kappa_n: FloatVector, optional
         :param kappa_p: Subthreshold slope factor (p-type transistor) with shape (Nrec,)
-        :type kappa_p: float, optional
+        :type kappa_p: FloatVector, optional
         :param Ut: Thermal voltage in Volts with shape (Nrec,)
-        :type Ut: float, optional
+        :type Ut: FloatVector, optional
         :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific) with shape (Nrec,)
-        :type Vth: float, optional
+        :type Vth: FloatVector, optional
         :param Iscale: weight scaling current of the neurons of the core in Amperes
-        :type Iscale: Optional[np.ndarray], optinoal
+        :type Iscale: FloatVector, optinoal
         :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(Nrec, Nrec, 4)``. The last 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``, defaults tp None
-        :type w_rec: Optional[np.ndarray], optional
+        :type w_rec: Optional[FloatVector], optional
         :param has_rec: When ``True`` the module provides a trainable recurrent weight matrix. ``False``, module is feed-forward, defaults to True
         :type has_rec: bool, optional
         :param weight_init_func: The initialisation function to use when generating weights, gets the shape and returns the initial weights, defatuls to kaiming
-        :type weight_init_func: Optional[Callable[[Tuple], np.ndarray]], optional
+        :type weight_init_func: Optional[Callable[[Tuple], FloatVector]], optional
         :param dt: The time step for the forward-Euler ODE solver, defaults to 1e-3
         :type dt: float, optional
         :param percent_mismatch: Gaussian parameter mismatch percentage (check `transform.mismatch_generator` implementation), defaults to None
         :type percent_mismatch: Optional[float], optional
         :param rng_key: The Jax RNG seed to use on initialisation. By default, a new seed is generated, defaults to None
-        :type rng_key: Optional[jnp.DeviceArray], optional
+        :type rng_key: Optional[FloatVector], optional
         :param spiking_input: Whether this module receives spiking input, defaults to True
         :type spiking_input: bool, optional
         :param spiking_output: Whether this module produces spiking output, defaults to True
@@ -488,14 +488,14 @@ class DynapSim(JaxModule):
         )
 
     def evolve(
-        self, input_data: jnp.DeviceArray, record: bool = True
+        self, input_data: FloatVector, record: bool = True
     ) -> Tuple[jnp.DeviceArray, Dict[str, jnp.DeviceArray], Dict[str, jnp.DeviceArray]]:
         """
         evolve implements raw rockpool JAX evolution function for a DynapSim module.
         The function solves the dynamical equations introduced at the ``DynapSim`` module definition
 
         :param input_data: Input array of shape ``(T, Nrec, 4)`` to evolve over. Represents number of spikes at that timebin for different synaptic gates
-        :type input_data: jnp.DeviceArray
+        :type input_data: FloatVector
         :param record: record the each timestep of evolution or not, defaults to True
         :type record: bool, optional
         :return: spikes_ts, states, record_dict
