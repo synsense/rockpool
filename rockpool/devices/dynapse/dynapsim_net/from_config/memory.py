@@ -25,7 +25,6 @@ from rockpool.devices.dynapse.hardware.config.allocator import WeightAllocator
 class MemorySE2:
     """
     MemorySE2 traces the connections between neurons indicated by the SRAM and CAM content
-    It also provide a abstract base class for device specific implementations
     """
 
     chip_pos: Dict[int, Tuple[int]] = field(default_factory=lambda: CHIP_POS)
