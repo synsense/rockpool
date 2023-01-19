@@ -22,6 +22,9 @@ from .memory import MemorySE2
 
 @dataclass
 class ParameterHandler:
+    """
+    ParameterHandler leads the simulated network configuration by holding and processing the connectivity scheme 
+    """
 
     weights_in: np.ndarray
     """input (virtual -> hardware) weight matrix (integer masks)"""
