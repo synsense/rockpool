@@ -26,7 +26,7 @@ from rockpool.graph import AliasConnection, GraphHolder, connect_modules
 
 import torch
 
-from typing import List, Tuple, Union, Callable, Optional
+from typing import List, Tuple, Union, Callable, Optional, Type
 from rockpool.typehints import P_tensor
 
 __all__ = ["WaveBlock", "WaveSenseNet"]
@@ -80,7 +80,7 @@ class WaveSenseBlock(TorchModule):
         tau_mem: float = Constant(10e-3),
         base_tau_syn: float = Constant(10e-3),
         threshold: float = Constant(1.0),
-        neuron_model: TorchModule = LIFTorch,
+        neuron_model: Type = LIFTorch,
         dt: float = 1e-3,
         *args,
         **kwargs,
@@ -97,7 +97,7 @@ class WaveSenseBlock(TorchModule):
             :param float tau_mem:           Membrane potential time constant of all neurons in WaveSense. Default: 10ms
             :param float base_tau_syn:      Base synaptic time constant. Each synapse has this time constant, except the second synapse in the dilation layer which caclulates the time constant as $dilations * base_tau_syn$. Default: 10ms
             :param float threshold:         Threshold of all spiking neurons. Default: `0.`
-            :param TorchModule neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFExodus` for speedup
+            :param Type neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFExodus` for speedup
             :param float dt:                Temporal resolution of the simulation. Default: 1ms
         """
         # - Initialise superclass
@@ -316,8 +316,8 @@ class WaveSenseNet(TorchModule):
         tau_lp: float = Constant(20e-3),
         threshold: float = Constant(1.0),
         threshold_out: float = Constant(1.0),
-        neuron_model: TorchModule = LIFTorch,
-        neuron_model_out: TorchModule = None,
+        neuron_model: Type = LIFTorch,
+        neuron_model_out: Type = None,
         dt: float = 1e-3,
         *args,
         **kwargs,
@@ -339,7 +339,7 @@ class WaveSenseNet(TorchModule):
             :param float base_tau_syn:      Base synaptic time constant. Each synapse has this time constant, except the second synapse in the dilation layer which caclulates the time constant as $dilations * base_tau_syn$. Default: 20ms
             :param float tau_lp:            Time constant of the smooth output. Default: 20ms
             :param float threshold:         Threshold of all neurons in WaveSense. Default: `1.0`
-            :param TorchModule neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFExodus` for speedup. Default: :py:class:`.LIFTorch`
+            :param Type neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFExodus` for speedup. Default: :py:class:`.LIFTorch`
             :param float dt:                Temporal resolution of the simulation. Default: 1ms
         """
 
