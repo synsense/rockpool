@@ -6,6 +6,7 @@ NOTE : The tests here requires a Dynap-SE2 HDK connected to the computer.
 
 import pytest
 
+
 def test_time_stamp():
     """
     test_time_stamp tries to connect to the HDK and read the time stamp reported by the FPGA.
@@ -19,7 +20,7 @@ def test_time_stamp():
     # - Connect to device
     try:
         se2_devices = find_dynapse_boards()
-    
+
     except ConnectionError:
         pytest.skip("This test requires a connected Dynap-SE2 Stack Board HDK.")
 
