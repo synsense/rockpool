@@ -14,7 +14,7 @@ from rockpool.graph import GraphHolder, connect_modules
 
 import torch
 
-from typing import List
+from typing import List, Type
 
 __all__ = ["SynNet"]
 
@@ -33,7 +33,7 @@ class SynNet(TorchModule):
         threshold: float = 1.0,
         threshold_out: float = 100.0,
         train_threshold: bool = False,
-        neuron_model: TorchModule = LIFTorch,
+        neuron_model: Type = LIFTorch,
         max_spikes_per_dt: int = 31,
         max_spikes_per_dt_out: int = 1,
         p_dropout: float = 0.0,
