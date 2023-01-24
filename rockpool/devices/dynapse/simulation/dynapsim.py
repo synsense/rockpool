@@ -120,8 +120,6 @@ class DynapSim(JaxModule):
 
     """
 
-    __doc__ += "\nJaxModule" + JaxModule.__doc__
-
     def __init__(
         self,
         shape: Union[Tuple[int], int],
