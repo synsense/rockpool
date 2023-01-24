@@ -36,4 +36,5 @@ class DynapSimWeightBits(DynapSimProperty):
 
     @property
     def Iw(self) -> np.ndarray:
+        """Weight bits stacked together"""
         return np.stack([self.Iw_0, self.Iw_1, self.Iw_2, self.Iw_3]).T
