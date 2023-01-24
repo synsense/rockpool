@@ -4,6 +4,7 @@ Optional interfacing tests making sure that Dynap-SE2 HDK and computer connectio
 NOTE : The tests here requires a Dynap-SE2 HDK connected to the computer.
 """
 
+import pytest
 
 def test_time_stamp():
     """
@@ -16,10 +17,16 @@ def test_time_stamp():
     import time
 
     # - Connect to device
-    se2_devices = find_dynapse_boards()
+    try:
+        se2_devices = find_dynapse_boards()
+    
+    except ConnectionError:
+        pytest.skip("This test requires a connected Dynap-SE2 Stack Board HDK.")
 
+    # - Let's say some samna devices are connected like DynapCNN, but no SE2.
     if not len(se2_devices) > 0:
-        raise IOError("This test requires a connected Dynap-SE2 Stack Board HDK.")
+        pytest.skip("This test requires a connected Dynap-SE2 Stack Board HDK.")
+
     else:
         se2 = DynapseSamna(se2_devices[0], samna.dynapse2.Dynapse2Configuration(), {})
 
