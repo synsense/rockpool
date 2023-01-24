@@ -13,7 +13,7 @@ from rockpool.devices.dynapse.lookup import default_gain_ratios
 import numpy as np
 
 from rockpool.typehints import FloatVector
-from .base import DynapSimCoreHigh, DynapSimCore
+from .high import DynapSimCoreHigh, DynapSimCore
 
 __all__ = ["DynapSimGain"]
 

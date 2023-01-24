@@ -12,7 +12,7 @@ from rockpool.devices.dynapse.lookup import default_time_constants
 import numpy as np
 
 from rockpool.typehints import FloatVector
-from .base import DynapSimCoreHigh, DynapSimCore
+from .high import DynapSimCoreHigh, DynapSimCore
 
 
 __all__ = ["DynapSimTime"]
