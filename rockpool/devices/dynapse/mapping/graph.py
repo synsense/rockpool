@@ -103,36 +103,36 @@ class DynapseNeurons(GenericNeurons):
         """
         _convert_from converts a graph module to DynapseNeuron structure. Uses default parameter
 
-        NOTE
+        NOTE:
 
         LIF does not have equivalent computation for
-        * AHP (After-Hyper-Polarization)
-        * NMDA Voltage Depended Gating
+            * AHP (After-Hyper-Polarization)
+            * NMDA Voltage Depended Gating
 
         Therefore : Itau_ahp, If_nmda, Igain_ahp, Ipulse_ahp, and, Iw_ahp currents are zero.
 
         :param mod: the reference graph module
         :type mod: GraphModule
-        :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`
+        :param r_gain_mem: neuron membrane gain ratio, defaults to default_gain_ratios["r_gain_mem"]
         :type r_gain_mem: FloatVector, optional
-        :param r_gain_syn: _description_, defaults to dgain["r_gain_ampa"]
-        :type r_gain_syn: float, optional
-        :param t_pulse: the spike pulse width for neuron membrane in seconds
+        :param r_gain_syn: synapse gain ratio, defaults to default_gain_ratios["r_gain_ampa"]
+        :type r_gain_syn: FloatVector, optional
+        :param t_pulse: the spike pulse width for neuron membrane in seconds, defaults to default_time_constants["t_pulse"]
         :type t_pulse: FloatVector, optional
-        :param t_ref: refractory period of the neurons in seconds
+        :param t_ref: refractory period of the neurons in seconds, defaults to default_time_constants["t_ref"]
         :type t_ref: FloatVector, optional
-        :param C_pulse: pulse-width creation sub-circuit capacitance in Farads, defaults to dlayout["C_pulse"]
+        :param C_pulse: pulse-width creation sub-circuit capacitance in Farads, defaults to default_layout["C_pulse"]
         :type C_pulse: FloatVector, optional
-        :param C_ref: refractory period sub-circuit capacitance in Farads, defaults to dlayout["C_ref"]
+        :param C_ref: refractory period sub-circuit capacitance in Farads, defaults to default_layout["C_ref"]
         :type C_ref: FloatVector, optional
-        :param C_mem: neuron membrane capacitance in Farads, defaults to dlayout["C_mem"]
+        :param C_mem: neuron membrane capacitance in Farads, defaults to default_layout["C_mem"]
         :type C_mem: FloatVector, optional
-        :param C_syn: synaptic capacitance in Farads, defaults to dlayout["C_syn"]
+        :param C_syn: synaptic capacitance in Farads, defaults to default_layout["C_syn"]
         :type C_syn: FloatVector, optional
-        :param Iscale: the scaling current, defaults to dweight["Iscale"]
+        :param Iscale: the scaling current, defaults to default_weights["Iscale"]
         :type Iscale: float, optional
-        :raises ValueError: _description_
-        :return: _description_
+        :raises ValueError: graph module cannot be converted
+        :return: DynapseNeurons object instance
         :rtype: DynapseNeurons
         """
 
@@ -379,7 +379,7 @@ class DynapseNeurons(GenericNeurons):
         :type t_pw: FloatVector
         :param C: the capacitance value in Farads
         :type C: float
-        :return: _description_
+        :return: a pulse current
         :rtype: FloatVector
         """
         Ipw = DynapSimTime.pw_converter(np.array(t_pw), default_layout["Vth"], C)
