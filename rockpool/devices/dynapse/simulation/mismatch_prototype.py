@@ -1,6 +1,5 @@
 """
 DynapSE convenience method to analyse a network and return a parameter subtree on which it makese sense to apply mismatch
-    See also :ref:`/transform/mismatch`
 """
 
 from typing import Any, Dict, List
