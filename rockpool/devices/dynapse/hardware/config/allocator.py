@@ -3,7 +3,9 @@ Dynap-SE2 weight matrix allocator implementation
 The functionality provided here is to process the weight matrices and to allocate required hardware resources
 
 * Non User Facing *
+
 [] TODO : Provide available tag list to use best performing tags
+
 """
 from __future__ import annotations
 import logging
