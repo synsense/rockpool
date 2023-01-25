@@ -31,7 +31,7 @@ from rockpool.typehints import FloatVector
 
 from .low_level import DynapSimCurrents, DynapSimLayout, DynapSimWeightBits
 from .high_level import DynapSimTime, DynapSimGain
-from .high_level.base import DynapSimCoreHigh
+from .high_level.high import DynapSimCoreHigh
 
 __all__ = ["DynapSimCore"]
 
@@ -39,7 +39,7 @@ __all__ = ["DynapSimCore"]
 @dataclass
 class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
     """
-    DynapSimCore stores the simulation currents and manages the conversion from configuration objects
+    DynapSimCore stores the simulation currents and manages the conversion from configuration objects.
     It also provides easy update mechanisms using coarse&fine values, high-level parameter representations and etc.
 
     ..  code-block:: python
@@ -49,10 +49,6 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
         Itau_ampa = simcore.Itau_ampa
 
     """
-
-    __doc__ += "\nDynapSimCurrents" + DynapSimCurrents.__doc__
-    __doc__ += "\nDynapSimLayout" + DynapSimLayout.__doc__
-    __doc__ += "\nDynapSimLayout" + DynapSimWeightBits.__doc__
 
     @classmethod
     def from_specification(
@@ -99,81 +95,81 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
         from_specification is a class factory method helping DynapSimCore object construction
         using higher level representaitons of the currents like gain ratio or time constant whenever applicable.
 
-        :param Idc: Constant DC current injected to membrane in Amperes
+        :param Idc: Constant DC current injected to membrane in Amperes, defaults to default_currents["Idc"]
         :type Idc: FloatVector, optional
-        :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes
+        :param If_nmda: NMDA gate soft cut-off current setting the NMDA gating voltage in Amperes, defaults to default_currents["If_nmda"]
         :type If_nmda: FloatVector, optional
-        :param r_gain_ahp: spike frequency adaptation block gain ratio :math:`Igain_ahp/Itau_ahp`
+        :param r_gain_ahp: spike frequency adaptation block gain ratio, defaults to default_gain_ratios["r_gain_ahp"]
         :type r_gain_ahp: FloatVector, optional
-        :param r_gain_ampa: excitatory AMPA synpse gain ratio :math:`Igain_ampa/Itau_ampa`
+        :param r_gain_ampa: xcitatory AMPA synpse gain ratio, defaults to default_gain_ratios["r_gain_ampa"]
         :type r_gain_ampa: FloatVector, optional
-        :param r_gain_gaba: inhibitory GABA synpse gain ratio :math:`Igain_gaba/Itau_gaba `
+        :param r_gain_gaba: inhibitory GABA synpse gain ratio, defaults to default_gain_ratios["r_gain_gaba"]
         :type r_gain_gaba: FloatVector, optional
-        :param r_gain_nmda: excitatory NMDA synpse gain ratio :math:`Igain_nmda/Itau_nmda`
+        :param r_gain_nmda: excitatory NMDA synpse gain ratio, defaults to default_gain_ratios["r_gain_nmda"]
         :type r_gain_nmda: FloatVector, optional
-        :param r_gain_shunt: inhibitory SHUNT synpse gain ratio :math:`Igain_shunt/Itau_shunt`
+        :param r_gain_shunt: inhibitory SHUNT synpse gain ratio, defaults to default_gain_ratios["r_gain_shunt"]
         :type r_gain_shunt: FloatVector, optional
-        :param r_gain_mem: neuron membrane gain ratio :math:`Igain_mem/Itau_mem`
+        :param r_gain_mem: neuron membrane gain ratio, defaults to default_gain_ratios["r_gain_mem"]
         :type r_gain_mem: FloatVector, optional
-        :param t_pulse_ahp: the spike pulse width for spike frequency adaptation circuit in seconds
+        :param t_pulse_ahp: the spike pulse width for spike frequency adaptation circuit in seconds, defaults to default_time_constants["t_pulse_ahp"]
         :type t_pulse_ahp: FloatVector, optional
-        :param t_pulse: the spike pulse width for neuron membrane in seconds
+        :param t_pulse: the spike pulse width for neuron membrane in seconds, defaults to default_time_constants["t_pulse"]
         :type t_pulse: FloatVector, optional
-        :param t_ref: refractory period of the neurons in seconds
+        :param t_ref: refractory period of the neurons in seconds, defaults to default_time_constants["t_ref"]
         :type t_ref: FloatVector, optional
-        :param Ispkthr: spiking threshold current, neuron spikes if :math:`I_{mem} > I_{spkthr}` in Amperes
+        :param Ispkthr: spiking threshold current, neuron spikes if :math:`I_{mem} > I_{spkthr}` in Amperes, defaults to default_currents["Ispkthr"]
         :type Ispkthr: FloatVector, optional
-        :param tau_ahp: Spike frequency leakage time constant in seconds
+        :param tau_ahp: Spike frequency leakage time constant in seconds, defaults to default_time_constants["tau_ahp"]
         :type tau_ahp: FloatVector, optional
-        :param tau_ampa: AMPA synapse leakage time constant in seconds
+        :param tau_ampa: AMPA synapse leakage time constant in seconds, defaults to default_time_constants["tau_ampa"]
         :type tau_ampa: FloatVector, optional
-        :param tau_gaba: GABA synapse leakage time constant in seconds
+        :param tau_gaba: GABA synapse leakage time constant in seconds, defaults to default_time_constants["tau_gaba"]
         :type tau_gaba: FloatVector, optional
-        :param tau_nmda: NMDA synapse leakage time constant in seconds
+        :param tau_nmda: NMDA synapse leakage time constant in seconds, defaults to default_time_constants["tau_nmda"]
         :type tau_nmda: FloatVector, optional
-        :param tau_shunt:SHUNT synapse leakage time constant in seconds
+        :param tau_shunt: SHUNT synapse leakage time constant in seconds, defaults to default_time_constants["tau_shunt"]
         :type tau_shunt: FloatVector, optional
-        :param tau_mem: Neuron membrane leakage time constant in seconds
+        :param tau_mem: Neuron membrane leakage time constant in seconds, defaults to default_time_constants["tau_mem"]
         :type tau_mem: FloatVector, optional
-        :param Iw_0: weight bit 0 current of the neurons of the core in Amperes
-        :type Iw_0: FloatVector
-        :param Iw_1: weight bit 1 current of the neurons of the core in Amperes
-        :type Iw_1: FloatVector
-        :param Iw_2: weight bit 2 current of the neurons of the core in Amperes
-        :type Iw_2: FloatVector
-        :param Iw_3: weight bit 3 current of the neurons of the core in Amperes
-        :type Iw_3: FloatVector
-        :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes
-        :type Iw_ahp: FloatVector
-        :param C_ahp: AHP synapse capacitance in Farads
+        :param Iw_0: weight bit 0 current of the neurons of the core in Amperes, defaults to default_weights["Iw_0"]
+        :type Iw_0: FloatVector, optional
+        :param Iw_1: weight bit 1 current of the neurons of the core in Amperes, defaults to default_weights["Iw_1"]
+        :type Iw_1: FloatVector, optional
+        :param Iw_2: weight bit 2 current of the neurons of the core in Amperes, defaults to default_weights["Iw_2"]
+        :type Iw_2: FloatVector, optional
+        :param Iw_3: weight bit 3 current of the neurons of the core in Amperes, defaults to default_weights["Iw_3"]
+        :type Iw_3: FloatVector, optional
+        :param Iw_ahp: spike frequency adaptation weight current of the neurons of the core in Amperes, defaults to default_currents["Iw_ahp"]
+        :type Iw_ahp: FloatVector, optional
+        :param C_ahp: AHP synapse capacitance in Farads, defaults to default_layout["C_ahp"]
         :type C_ahp: FloatVector, optional
-        :param C_ampa: AMPA synapse capacitance in Farads
+        :param C_ampa: AMPA synapse capacitance in Farads, defaults to default_layout["C_ampa"]
         :type C_ampa: FloatVector, optional
-        :param C_gaba: GABA synapse capacitance in Farads
+        :param C_gaba: GABA synapse capacitance in Farads, defaults to default_layout["C_gaba"]
         :type C_gaba: FloatVector, optional
-        :param C_nmda: NMDA synapse capacitance in Farads
+        :param C_nmda: NMDA synapse capacitance in Farads, defaults to default_layout["C_nmda"]
         :type C_nmda: FloatVector, optional
-        :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads
+        :param C_pulse_ahp: spike frequency adaptation circuit pulse-width creation sub-circuit capacitance in Farads, defaults to default_layout["C_pulse_ahp"]
         :type C_pulse_ahp: FloatVector, optional
-        :param C_pulse: pulse-width creation sub-circuit capacitance in Farads
+        :param C_pulse: pulse-width creation sub-circuit capacitance in Farads, defaults to default_layout["C_pulse"]
         :type C_pulse: FloatVector, optional
-        :param C_ref: refractory period sub-circuit capacitance in Farads
+        :param C_ref: refractory period sub-circuit capacitance in Farads, defaults to default_layout["C_ref"]
         :type C_ref: FloatVector, optional
-        :param C_shunt: SHUNT synapse capacitance in Farads
+        :param C_shunt: SHUNT synapse capacitance in Farads, defaults to default_layout["C_shunt"]
         :type C_shunt: FloatVector, optional
-        :param C_mem: neuron membrane capacitance in Farads
+        :param C_mem: neuron membrane capacitance in Farads, defaults to default_layout["C_mem"]
         :type C_mem: FloatVector, optional
-        :param Io: Dark current in Amperes that flows through the transistors even at the idle state
+        :param Io: Dark current in Amperes that flows through the transistors even at the idle state, defaults to default_layout["Io"]
         :type Io: FloatVector, optional
-        :param kappa_n: Subthreshold slope factor (n-type transistor)
+        :param kappa_n: Subthreshold slope factor (n-type transistor), defaults to default_layout["kappa_n"]
         :type kappa_n: FloatVector, optional
-        :param kappa_p: Subthreshold slope factor (p-type transistor)
+        :param kappa_p: Subthreshold slope factor (p-type transistor), defaults to default_layout["kappa_p"]
         :type kappa_p: FloatVector, optional
-        :param Ut: Thermal voltage in Volts
+        :param Ut: Thermal voltage in Volts, defaults to default_layout["Ut"]
         :type Ut: FloatVector, optional
-        :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific)
+        :param Vth: The cut-off Vgs potential of the transistors in Volts (not type specific), defaults to default_layout["Vth"]
         :type Vth: FloatVector, optional
-        :return: DynapSimCore object
+        :return: DynapSimCore object instance
         :rtype: DynapSimCore
         """
 
@@ -314,7 +310,7 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
 
     def update_time_constant(self, attr: str, value: Any) -> DynapSimCore:
         """
-        update_time_constant updates currents setting time constant attributes that have a representation in `DynapSimTime()` class instances
+        update_time_constant updates currents setting time constant attributes
 
         :param attr: any attribute that belongs to any DynapSimTime object
         :type attr: str
@@ -332,7 +328,7 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
 
     def update_gain_ratio(self, attr: str, value: Any) -> DynapSimCore:
         """
-        update_gain_ratio updates currents setting gain ratio (Igain/Itau) attributes that have a representation in `DynapSimGain()` class instances
+        update_gain_ratio updates currents setting gain ratio (Igain/Itau) attributes
 
         :param attr: any attribute that belongs to any DynapSimGain object
         :type attr: str
@@ -373,9 +369,7 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
 
     @property
     def layout(self) -> DynapSimLayout:
-        """
-        layout returns a subset of object which belongs to DynapSimLayout
-        """
+        """layout returns a subset of object which belongs to DynapSimLayout"""
         __dict = dict.fromkeys(DynapSimLayout.__annotations__.keys())
         for key in __dict:
             __dict[key] = self.__getattribute__(key)
@@ -383,9 +377,7 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
 
     @property
     def currents(self) -> DynapSimCurrents:
-        """
-        currents returns a subset of object which belongs to DynapSimCurrents
-        """
+        """currents returns a subset of object which belongs to DynapSimCurrents"""
         __dict = dict.fromkeys(DynapSimCurrents.__annotations__.keys())
         for key in __dict:
             __dict[key] = self.__getattribute__(key)
@@ -393,9 +385,7 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
 
     @property
     def weight_bits(self) -> DynapSimWeightBits:
-        """
-        weight_bits returns a subset of object which belongs to DynapSimWeightBits
-        """
+        """weight_bits returns a subset of object which belongs to DynapSimWeightBits"""
         __dict = dict.fromkeys(DynapSimWeightBits.__annotations__.keys())
         for key in __dict:
             __dict[key] = self.__getattribute__(key)
@@ -403,16 +393,10 @@ class DynapSimCore(DynapSimCurrents, DynapSimLayout, DynapSimWeightBits):
 
     @property
     def time(self) -> DynapSimTime:
-        """
-        time creates the high level time constants set by currents
-        Ipulse_ahp, Ipulse, Iref, Itau_ahp, Itau_ampa, Itau_gaba, Itau_nmda, Itau_shunt, Itau_mem
-        """
+        """time creates the high level time constants set by currents Ipulse_ahp, Ipulse, Iref, Itau_ahp, Itau_ampa, Itau_gaba, Itau_nmda, Itau_shunt, Itau_mem"""
         return DynapSimTime.from_DynapSimCore(self)
 
     @property
     def gain(self) -> DynapSimGain:
-        """
-        gain creates the high level gain ratios set by currents
-        Igain_ahp, Igain_ampa, Igain_gaba, Igain_nmda, Igain_shunt, Igain_mem
-        """
+        """gain creates the high level gain ratios set by currents : Igain_ahp, Igain_ampa, Igain_gaba, Igain_nmda, Igain_shunt, Igain_mem"""
         return DynapSimGain.from_DynapSimCore(self)
