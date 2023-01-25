@@ -4,12 +4,7 @@ A module implementing random dropout of neurons and time steps
 
 from rockpool.nn.modules.torch import TorchModule
 from rockpool.parameters import SimulationParameter
-from rockpool.graph import (
-    GraphModuleBase,
-    SetList,
-    GraphModule,
-    GraphNode
-)
+from rockpool.graph import GraphModuleBase, SetList, GraphModule, GraphNode
 
 
 from typing import Tuple, Any
@@ -75,7 +70,7 @@ class UnitDropout(TorchModule):
 
     def as_graph(self) -> GraphModuleBase:
         n = SetList([GraphNode() for _ in range(self.size_in)])
-        return GraphModule(n, n, '', Any)
+        return GraphModule(n, n, "", Any)
 
 
 class TimeStepDropout(TorchModule):
@@ -133,5 +128,4 @@ class TimeStepDropout(TorchModule):
 
     def as_graph(self) -> GraphModuleBase:
         n = SetList([GraphNode() for _ in range(self.size_in)])
-        return GraphModule(n, n, '', Any)
-
+        return GraphModule(n, n, "", Any)
