@@ -799,7 +799,7 @@ class TimedModuleWrapper(TimedModule):
 
         If you need to convert a Rockpool v1 :py:class:`~rockpool.nn.layers.Layer` subclass, use either the :py:class:`.LayerToTimedModule` or the `.astimedmodule` decorator.
 
-        For more information, see :ref:`in-depth/api-high-level.ipynb`.
+        For more information, see :ref:`/in-depth/api-high-level.ipynb`.
     """
 
     def __init__(
@@ -939,7 +939,7 @@ class LayerToTimedModule(TimedModule):
     See Also:
         If you want to convert a :py:class:`.Module` object implementing the low-level v2 API to the high-level :py:class:`.TimedModule` v2 API, use the :py:class:`.TimedModuleWrapper` class.
 
-        For more information, see :ref:`in-depth/api-high-level.ipynb`.
+        For more information, see :ref:`/in-depth/api-high-level.ipynb`.
     """
 
     def __init__(
@@ -1125,7 +1125,7 @@ def astimedmodule(
                     ...
 
     See Also
-        For more information, see :ref:`in-depth/api-high-level.ipynb`.
+        For more information, see :ref:`/in-depth/api-high-level.ipynb`.
 
     Args:
         v1_cls (type): A v1 :py:class:`.Layer` subclass to wrap
