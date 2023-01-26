@@ -29,8 +29,6 @@ class Layer(ABC):
     Base class for Layers in rockpool
 
     This abstract class acts as a base class from which to derive subclasses that represent layers of neurons. As an abstract class, :py:class:`Layer` cannot be instantiated.
-
-    .. seealso:: See :ref:`layerssummary` for examples of instantiating and using :py:class:`Layer` subclasses. See "Writing a new Layer subclass" for how to design and implement a new :py:class:`Layer` subclass.
     """
 
     def __init__(
