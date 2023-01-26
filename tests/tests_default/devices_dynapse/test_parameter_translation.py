@@ -1,6 +1,6 @@
 """ 
-The main purpose of the bias generator is converting current values in amperes to a coarse and fine value setting and CF settting to current values.
-Tests included in this file tests if the bias generator implementation is at a healthy state.
+The main purpose of the bias generator is converting current values in amperes to a coarse and fine value setting and CF (coarse and fine) settting to current values.
+Tests included in this file test if the bias generator implementation is at a healthy state.
 
 Note that the translation does not necessarily need to be one-to-one. If the values are close enough, that's also OK.
 """

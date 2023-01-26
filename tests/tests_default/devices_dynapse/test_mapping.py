@@ -1,13 +1,13 @@
 """ 
 Dynap-SE2 API supports converting multi-layer `LIFJax` and `DynapSim` networks to a 2 layer Sequential `LinearJax`, `DynapSim` combination by preserving the connectivity.
 The tests listed here explore the limits of the conversion and make sure that the weight placement is healthy.
-The tests here uses a the functions that `devices.dynapse.mapper` uses under the hood to be able to address the problems easily.
+The tests here use the functions that `devices.dynapse.mapper` uses under the hood to be able to address the problems easily.
 
 :Future reference:
     Now only from `LIFJax` to `DynapSim` conversion support exists; however, when more graph conversion support is added, add more tests here as well!
 
 In case of a failure, first check
-    * `devices.dynapse.mapper` and its dependents
+    * `devices.dynapse.mapper` and its dependencies
         * `rockpool.devices.dynapse.mapping.container.DynapseGraphContainer`
         * `rockpool.devices.dynapse.mapping.utils.converter.lifnet_to_dynapsim`
     * DynapSE-2 graph implementation `devices.dynapse.DynapseNeurons`
@@ -39,7 +39,7 @@ def test_zero():
 
 def test_single_dynapsim():
     """
-    test_single_dynapsim creates a standalone `DynapSim` layer and maps
+    test_single_dynapsim creates a standalone `DynapSim` layer and maps it
     """
     from rockpool.devices.dynapse import mapper, DynapSim
 
@@ -68,7 +68,7 @@ def test_single_dynapsim():
 
 def test_dynapsim_net_minimal():
     """
-    test_dynapsim_net_minimal creates a minimal sequential `LinearJax` + `DynapSim` network and maps
+    test_dynapsim_net_minimal creates a minimal sequential `LinearJax` + `DynapSim` network and maps it
     """
     from rockpool.nn.modules import LinearJax
     from rockpool.nn.combinators import Sequential
@@ -99,7 +99,7 @@ def test_dynapsim_net_minimal():
 
 def test_lif_net_minimal():
     """
-    test_lif_net_minimal creates a minimal sequential `LinearJax` + `LIFJax` network and maps
+    test_lif_net_minimal creates a minimal sequential `LinearJax` + `LIFJax` network and maps it
     It includes an extra step of conversion from `LIFJax` layer to `DynapSim` layer
     """
     from rockpool.nn.modules import LIFJax, LinearJax
@@ -135,7 +135,7 @@ def test_lif_net_minimal():
 
 def test_dynapsim_net_multi():
     """
-    test_dynapsim_net_multi creates a multi-layer sequential `LinearJax` + `DynapSim` network and maps
+    test_dynapsim_net_multi creates a multi-layer sequential `LinearJax` + `DynapSim` network and maps it
     It includes an extra step of concatanating the layers together in one layer
     """
     from rockpool.nn.modules import LinearJax

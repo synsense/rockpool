@@ -1,5 +1,5 @@
 """
-Tests here makes sure that both the frozen mismatch generation works as it should work.
+Tests here make sure that the frozen mismatch generation works as it should work.
 The mismatch generator should deviate the parameters differently at each shot
 """
 import pytest
@@ -7,10 +7,10 @@ import pytest
 
 def test_mismatch_distribution():
     """
-    test_mismatch_distribution checks if the mismatch deviations applied to the parameters correctly.
+    test_mismatch_distribution checks if the mismatch deviations are applied to the parameters correctly.
     Each parameter should have a different deviation.
 
-    :raises AttributeError: Mismatch generation is identical across different attributes! Randomization is wrong! Each identitiy should use a different random number seed!
+    :raises AttributeError: Mismatch generation is identical across different attributes! Randomization is wrong! Each identity should use a different random number seed!
     """
 
     from rockpool.devices.dynapse import DynapSim, frozen_mismatch_prototype
@@ -20,7 +20,7 @@ def test_mismatch_distribution():
     from jax import numpy as jnp
     from numpy.testing import assert_array_almost_equal, assert_allclose
 
-    # - Construct DynapSim a network
+    # - Construct DynapSim network
     Nin = 64
     Nrec = 256
 
@@ -57,7 +57,7 @@ def test_mismatch_distribution():
                 with pytest.raises(AssertionError):
                     assert_allclose(__attr, new_params[layer_name][attr_name])
             else:
-                # - Due to type casting, the parameters might not cannot be exactly equal in every bit
+                # - Due to type casting, the parameters might not be exactly equal in every bit
                 assert_array_almost_equal(__attr, new_params[layer_name][attr_name])
 
             # - Record the direction of change
@@ -75,7 +75,7 @@ def test_mismatch_distribution():
             # - If the pattern is the same, the randomization is erronous
             if counter > 3:
                 raise AttributeError(
-                    "Mismatch generation is identical across different attributes! Randomization is wrong! Each identitiy should use a different random number seed!"
+                    "Mismatch generation is identical across different attributes! Randomization is wrong! Each identity should use a different random number seed!"
                 )
 
 
@@ -92,7 +92,7 @@ def test_mismatch_statistics():
     from jax import numpy as jnp
     from numpy.testing import assert_almost_equal
 
-    # - Construct DynapSim a network
+    # - Construct DynapSim network
     Nin = 64
     Nrec = 256
 

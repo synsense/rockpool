@@ -26,7 +26,7 @@ def test_full_config():
 
     The most probable reasons for failure are
     * updates in samna
-        * snake_cakse to camelCase and camelCase to snake_case conversion fixes
+        * snake_case to camelCase and camelCase to snake_case conversion fixes
             * now buggy 221202
         * field renaming
     """

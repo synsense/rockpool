@@ -203,7 +203,7 @@ def test_quantization():
 
 def test_network_from_config():
     """
-    test_network_from_config goes through all steps of the deployment and reconstrcuts a network from the configuration object
+    test_network_from_config goes through all steps of the deployment and reconstructs a network from the configuration object
     It checks if the weight matrices and the parameters are close enough
     The weight parameters are deviated a lot because of quantization
     The network parameters will be deviated less due to bias parameter selection
@@ -237,7 +237,7 @@ def test_network_from_config():
     ### --- ###
 
     # - Test starts here - #
-    # - Go through all eloyment steps
+    # - Go through all deployment steps
     # .. seealso ::
     #   :ref:`/devices/DynapSE/post-training.ipynb`
 
