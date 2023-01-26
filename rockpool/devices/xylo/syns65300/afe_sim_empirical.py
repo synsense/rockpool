@@ -200,6 +200,8 @@ class AFESimEmpirical(Module):
         fs: int = 16_000,    # this should be the same as the sampling rate of the audio fed to AFESim. Otherwise, the frequencies are proportionally shifted.
         raster_period: float= 0.01,           # this is the period to which the generated spikes are rastered
         max_spike_per_raster_period: int = 15,       # maximum number of spikes to be forwarded to SNN in Xylo in a period
+        counter: int = 4,
+        raster_counter: int = 1,
         add_noise: bool = True,
         add_offset: bool = True,
         add_mismatch: bool = True,
@@ -240,6 +242,8 @@ class AFESimEmpirical(Module):
         ##### Set the rastering parameters for the produced spike #####
         self.raster_period = raster_period
         self.max_spike_per_raster_period = max_spike_per_raster_period
+        self.counter = counter
+        self.raster_counter = raster_counter
 
         ###### Power supply features and maximum voltage of the chip ######
         # Maximum bipolar amplitude that can be supported by the the chip without being clipped
@@ -367,7 +371,7 @@ class AFESimEmpirical(Module):
         self.LEAKAGE: P_float = Parameter(1e-9)
         """ float: Leakage conductance for LIF neuron producing the spikes. Default: 1.0e-9 : 1.0 nA for a cpacitor at volatage 1.0V """
 
-        self.DIGITAL_COUNTER: P_int = Parameter(4)
+        self.DIGITAL_COUNTER: P_int = Parameter(self.counter)
         """ int: Digital counter factor to reduce output spikes by. Default 4 (by a factor 4) """
 
         # Threshold for spike generation using IAF (essentially LIF) neuron
@@ -806,7 +810,6 @@ class AFESimEmpirical(Module):
 
         # - Keep a record of the LIF neuron states
         self.lif_state = new_state
-
         if self.DIGITAL_COUNTER > 1:
             spikes = self._sampling_spikes(spikes, self.DIGITAL_COUNTER)
 
@@ -843,8 +846,13 @@ class AFESimEmpirical(Module):
             # sum of spikes during several clocks
             spike_sum = np.cumsum(spikes, axis=0)[::num_clk_per_period, :]
 
+            spike_sum = np.floor_divide(spike_sum, self.raster_counter)
+
+
             # number of spikes colected in rastering periods
             spike_sum[1:, :] -= spike_sum[:-1, :]
+
+
 
             # truncate the number of spikes
             spike_sum[spike_sum > self.max_spike_per_raster_period] = self.max_spike_per_raster_period
