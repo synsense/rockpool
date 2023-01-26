@@ -1,17 +1,7 @@
 """
-Dynap-SE graph graph mapper package
+Dynap-SE2 graph container implementation helping the operation of `devices.dynapse.mapper` function
 
-- Create a graph using the :py:meth:`~.graph.GraphModule.as_graph` API
-- Call :py:func:`.mapper`
-
-Note : Existing modules are reconstructed considering consistency with Xylo support.
-
-
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-
-15/09/2022
+* Non User Facing *
 """
 from __future__ import annotations
 from typing import Dict, Optional
@@ -34,26 +24,23 @@ __all__ = ["DynapseGraphContainer"]
 @dataclass
 class DynapseGraphContainer:
     """
-    DynapseGraphContainer is a helper for mapping pipeline. It checks if the given DynapSim graph is properly constructed.
+    DynapseGraphContainer is a helper for mapping pipeline. It checks if the given `devices.dynapse.DynapSim` graph is properly constructed.
     Stores the simulator, input weight and recurrent weight graph in a structured way
-
-    :Parameters:
-    :param simulator: the core simulator graph which contains the parameter currents
-    :type simulator: DynapseNeurons
-    :param input: the linear input layer graph which contains input weight matrix, does not need to be defined, can be None
-    :type input: Optional[LinearWeights]
-    :param recurrent: the recurrent weight graph which contatins recurrent weight matrix, does not need to be defined, can be None
-    :type recurrent: Optional[LinearWeights]
     """
 
     simulator: DynapseNeurons
+    """the core simulator graph which contains the parameter currents"""
+
     input: Optional[LinearWeights]
+    """the linear input layer graph which contains input weight matrix, does not need to be defined, can be None"""
+
     recurrent: Optional[LinearWeights]
+    """the recurrent weight graph which contatins recurrent weight matrix, does not need to be defined, can be None"""
 
     @classmethod
     def from_graph_holder(cls, graph: GraphHolder) -> DynapseGraphContainer:
         """
-        from_graph_holder constructs a ``DynapseGraphContainer`` object from a ``GraphHolder`` object which holds a proper DynapSim graph
+        from_graph_holder constructs a `DynapseGraphContainer` object from a `GraphHolder` object which holds a proper DynapSim graph
 
         :param graph: a proper computational DynapSim graph object
         :type graph: GraphHolder

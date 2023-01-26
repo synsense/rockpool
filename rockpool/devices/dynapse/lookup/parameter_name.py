@@ -1,10 +1,7 @@
 """
 Dynap-SE2 simulator parameter names and their reciprocals in SE2 device configurations
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-18/01/2022
+* Non User Facing *
 """
 
 __all__ = ["sim2device_se2", "device2sim_se2"]

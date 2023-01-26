@@ -1,17 +1,6 @@
 """
 Dynap-SE samna backend bridge
 Handles the low-level hardware configuration under the hood and provide easy-to-use access to the user
-
-* With the current samna support, it's impossible to reset the FPGA time-stamp counter without re-configuring the FPGA.
-* Since underlying hardware is analog, state resetting is done by forcing the capacitors to discarge.
-    * Uploding a configuration object with max leak currents (both the membrane and the synapses)
-* 
-
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-
-15/09/2022
 """
 
 from __future__ import annotations
@@ -51,18 +40,30 @@ __all__ = ["DynapseSamna"]
 
 class DynapseSamna(Module):
     """
-    DynapSim solves dynamical chip equations for the DPI neuron and synapse models.
-    Receives configuration as bias currents and solves membrane and synapse dynamics using ``jax`` backend.
+    DynapseSamna bridges the gap between the chip and the computer.
+    Provides a simulation-like interface for users, but executes all the operations on the hardware under the hood.
+    Use `devices.dynapse.find_dynapse_boards` to find the HDK.
+    Use `devices.dynapse.config_from_specification` to obtain a configuration object.
 
-    :Parameters:
-    :param shape: Two dimensions ``(Nin, Nout)``, which defines a input and output conections of DynapSE neurons.
+    ..  code-block:: python
+        :caption: Example usage
+
+        # Connect
+        se2_devices = find_dynapse_boards()
+        se2 = DynapseSamna(se2_devices[0], **config)
+        out, state, rec = se2(raster, record=True)
+
+    .. seealso::
+        :ref:`/devices/DynapSE/post-training.ipynb`
+
+    :param shape: Two dimensions ``(Nin, Nout)``, which defines a input and output conections of Dynap-SE2 neurons.
     :type shape: Tuple[int]
     :param device: the Dynan-SE2 the device object to open and configure
     :type device: DeviceInfo
     :param config: a Dynan-SE2 ``samna`` configuration object
     :type config: Dynapse2Configuration
-    :param channel_map: the mapping between input timeseries channels and the destinations
-    :type channel_map: Dict[int, List[Dynapse2Destination]]
+    :param input_channel_map: the mapping between input timeseries channels and the destinations
+    :type input_channel_map: Dict[int, List[Dynapse2Destination]]
     :param dt: the simulation timestep resolution, defaults to 1e-3
     :type dt: float, optional
     :param dt_fpga: the FPGA timestep resolution, defaults to 1e-6
@@ -77,35 +78,59 @@ class DynapseSamna(Module):
         self,
         device: DeviceInfo,
         config: Dynapse2Configuration,
-        channel_map: Dict[int, List[Dynapse2Destination]],
+        input_channel_map: Dict[int, List[Dynapse2Destination]],
         dt: float = 1e-3,
         dt_fpga: float = 1e-6,
         control_tag: int = 2047,
         control_hop: int = -7,
-    ):
+        *args,
+        **kwargs,
+    ) -> None:
+        """
+        __init__ initializes `DynapseSamna` module. Parameters are explained in the class docstring.
+        """
 
         if device is None:
             raise ValueError("`device` must be a valid Dynap-SE2 HDK device.")
 
         # Obtain the shape
-        __in = len(channel_map)
+        __in = len(input_channel_map)
         __rec = len(MemorySE2().spec_from_config(config)["core_map"])
 
         # - Initialise the superclass
-        super().__init__(shape=(__in, __rec), spiking_input=True, spiking_output=True)
+        super().__init__(
+            shape=(__in, __rec),
+            spiking_input=True,
+            spiking_output=True,
+            *args,
+            **kwargs,
+        )
 
         self.dt = dt
+        """the simulation timestep resolution"""
+
         self.dt_fpga = dt_fpga
+        """the FPGA timestep resolution"""
+
         self.control_tag = control_tag
+        """a tag used in special occacions such as current time reading. Do not capture events with this tag and control_hop"""
+
         self.control_hop = control_hop
-        self.input_channel_map = channel_map
+        """a chip position (-7 means x_hop=-7, y_hop=-7) which does not really exist, works in cooperation with control_tag. Do not capture events coming from this hop and control tag"""
+
+        self.input_channel_map = input_channel_map
+        """the mapping between input timeseries channels and the destinations"""
 
         # Configure the FPGA, now only Stack board is available
         self.board: Dynapse2Interface = self.__configure_dynapse2_fpga(device)
+        """a configured samna Dynan-SE2 interface node `Dynapse2Interface`"""
 
         # Make reset and set state configurations ready
         self.app_config = config
+        """the samna configuration object deployed to the chip"""
+
         self.leaky_config = self.__get_leaky_config()
+        """a dummy object to discharge all the capacitors on chip"""
 
         # Discharge the capacitors by default
         self.discharge_capacitors()
@@ -115,17 +140,17 @@ class DynapseSamna(Module):
 
     @property
     def model(self) -> Dynapse2Model:
-        """Returns the HDK model object that can be used to configure the device"""
+        """the HDK model object that can be used to configure the device"""
         return self.board.get_model()
 
     @property
     def config(self) -> Dynapse2Configuration:
-        """Returns the configuration object stored on the Dynap-SE2 board"""
+        """the configuration object stored on the Dynap-SE2 board"""
         return self.model.get_configuration()
 
     @config.setter
     def config(self, new_config: Dynapse2Configuration) -> bool:
-        # - Write the configuration to the device
+        """Write the configuration to the device"""
         return self.model.apply_configuration(new_config)
 
     def evolve(
@@ -310,7 +335,7 @@ class DynapseSamna(Module):
         tag: np.uint = 2047,
     ) -> NormalGridEvent:
         """
-        __event_generator a Dynap-SE2 event generator utility function, can be used to generate dummy events
+        __event_generator can be used to generate dummy events
 
         :param event_time: the time that the event happened in seconds
         :type event_time: float

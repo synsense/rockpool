@@ -1,10 +1,7 @@
 """
-Low level DynapSE simulator surrogate gradient implementation
+Low level DynapSE-2 simulator surrogate gradient implementation
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-13/07/2021
+* Non User Facing *
 
 [] TODO : max spikes per dt
 """

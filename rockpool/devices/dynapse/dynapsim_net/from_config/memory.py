@@ -1,10 +1,7 @@
 """
-Dynap-SE2 distributed memory reading
+Dynap-SE2 distributed memory reading, serves as a backend tool
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-09/05/2021
+* Non User Facing * 
 """
 
 from typing import Dict, List, Tuple
@@ -28,13 +25,10 @@ from rockpool.devices.dynapse.hardware.config.allocator import WeightAllocator
 class MemorySE2:
     """
     MemorySE2 traces the connections between neurons indicated by the SRAM and CAM content
-    It also provide a abstract base class for device specific implementations
-
-    :param chip_pos: global chip position dictionary (chip_id : (xpos,ypos)), defaults to CHIP_POS
-    :type chip_pos: Dict[int, Tuple[int]], optional
     """
 
     chip_pos: Dict[int, Tuple[int]] = field(default_factory=lambda: CHIP_POS)
+    """global chip position dictionary (chip_id : (xpos,ypos)), defaults to CHIP_POS"""
 
     def spec_from_config(self, config: Dynapse2Configuration) -> Dict[str, list]:
         """
@@ -146,6 +140,8 @@ class MemorySE2:
             :return: -1 if it does not exist in the list, else the index if of the tag
             :rtype: int
             """
+            if not dest_tag_list:
+                return -1
             idx = bisect.bisect_left(dest_tag_list, tag)
             return idx if dest_tag_list[idx] == tag else -1
 
@@ -238,10 +234,8 @@ class MemorySE2:
         unique_rec_loc = set(recurrent_locations)
 
         # n_rec equals to the maximum of unique input locations and unique recurrent locations
-        if len(unique_input_loc) > len(unique_rec_loc):
-            post_idx_map = dict(zip(unique_input_loc, range(len(unique_input_loc))))
-        else:
-            post_idx_map = dict(zip(unique_rec_loc, range(len(unique_rec_loc))))
+        post_idx_map = dict(zip(unique_input_loc, range(len(unique_input_loc))))
+        post_idx_map.update(dict(zip(unique_rec_loc, range(len(unique_rec_loc)))))
 
         return post_idx_map
 

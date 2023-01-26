@@ -1,11 +1,7 @@
 """
 Dynap-SE2 default simulation parameters
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-06/07/2022
-
+* Non User Facing *
 """
 
 __all__ = [
@@ -26,12 +22,16 @@ __all__ = [
 ]
 
 ## -- Constants -- ##
+
 NUM_CHIPS = 4
 NUM_CORES = 4
 NUM_NEURONS = 256
 NUM_SYNAPSES = 64
 NUM_DEST = 4
 NUM_TAGS = 2048
+CORE_MAP = [i // NUM_NEURONS for i in range(NUM_NEURONS * NUM_CORES * NUM_CHIPS)]
+CHIP_MAP = {i: i // NUM_CORES for i in range(-NUM_CORES, NUM_CORES * NUM_CHIPS)}
+CHIP_POS = {-1: (0, 0), 0: (1, 0), 1: (2, 0), 2: (3, 0), 3: (4, 0)}
 
 ## -- Maps -- ##
 
@@ -91,7 +91,7 @@ default_weights = {
 }
 
 default_time_constants = {
-    "t_pulse_ahp": 1e-12,
+    "t_pulse_ahp": 1e-6,
     "t_pulse": 10e-6,
     "t_ref": 1e-3,
     "tau_ahp": 50e-3,
@@ -130,16 +130,5 @@ default_currents = {
     "Itau_nmda": Itau_lambda("nmda"),
     "Itau_shunt": Itau_lambda("shunt"),
     "Itau_mem": Itau_lambda("mem"),
-    "Iw_ahp": 0.0,
+    "Iw_ahp": 5e-13,
 }
-
-
-NUM_CHIPS = 4
-NUM_CORES = 4
-NUM_NEURONS = 256
-NUM_SYNAPSES = 64
-NUM_DEST = 4
-NUM_TAGS = 2048
-CORE_MAP = [i // NUM_NEURONS for i in range(NUM_NEURONS * NUM_CORES * NUM_CHIPS)]
-CHIP_MAP = {i: i // NUM_CORES for i in range(-NUM_CORES, NUM_CORES * NUM_CHIPS)}
-CHIP_POS = {-1: (0, 0), 0: (1, 0), 1: (2, 0), 2: (3, 0), 3: (4, 0)}

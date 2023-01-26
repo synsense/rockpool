@@ -1,14 +1,7 @@
 """
-Dynap-SE autoencoder based quantization package provides easy to use support
+Dynap-SE autoencoder based quantization unsupervised weight configuration learning utilities
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-
-Previous : config/autoencoder.py @ 220127
-
-15/09/2022
-
+* Non User Facing *
 """
 
 from __future__ import annotations
@@ -25,7 +18,7 @@ from jax.lax import scan
 from jax.example_libraries import optimizers
 
 # Rockpool
-from .loss import QuantizationLoss
+from .loss import loss_reconstruction
 from .digital import DigitalAutoEncoder
 from .weight_handler import WeightHandler
 
@@ -122,11 +115,7 @@ def learn_weights(
 
     ## - Get the jit compiled update and value-and-gradient functions
     loss_vgf = jit(
-        value_and_grad(
-            lambda params: QuantizationLoss.loss_reconstruction(
-                __encoder, params, w_flat
-            )
-        )
+        value_and_grad(lambda params: loss_reconstruction(__encoder, params, w_flat))
     )
     update_fun = jit(update_fun)
     run_for = jit(

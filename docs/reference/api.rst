@@ -252,18 +252,15 @@ Xylo hardware support and simulation
     devices.xylo.syns61201.XyloOutputNeurons
 
 Dynap-SE2 hardware support and simulation
-------------------------------------
+-----------------------------------------
 
-.. autosummary::
-    :toctree: _autosummary
+.. seealso::
+    Tutorials:
 
-    devices.dynapse.config_from_specification
-
-.. autosummary::
-    :toctree: _autosummary
-    :template: class.rst
-
-    devices.dynapse.DynapSim
+    * :ref:`/devices/DynapSE/dynapse-overview.ipynb`
+    * :ref:`/devices/DynapSE/neuron-model.ipynb`
+    * :ref:`/devices/DynapSE/jax-training.ipynb`
+    * :ref:`/devices/DynapSE/post-training.ipynb`
 
 .. autosummary::
     :toctree: _autosummary
@@ -271,6 +268,64 @@ Dynap-SE2 hardware support and simulation
 
     devices.dynapse
 
+**Simulation**
+
+.. autosummary::
+    :toctree: _autosummary
+    
+    :template: module.rst
+    devices.dynapse.simulation
+
+    :template: class.rst
+    devices.dynapse.DynapSim
+
+
+**Mismatch**
+
+.. autosummary::
+    :toctree: _autosummary
+
+    transform.mismatch_generator
+    devices.dynapse.frozen_mismatch_prototype
+    devices.dynapse.dynamic_mismatch_prototype
+
+**Device to Simulation**
+
+.. autosummary::
+    :toctree: _autosummary
+
+    devices.dynapse.mapper
+    devices.dynapse.autoencoder_quantization
+    devices.dynapse.config_from_specification
+
+**Computer Interface**
+
+.. autosummary::
+    :toctree: _autosummary
+
+    devices.dynapse.find_dynapse_boards
+
+    :template: class.rst
+    devices.dynapse.DynapseSamna
+
+**Simulation to Device**
+
+.. autosummary::
+    :toctree: _autosummary
+
+    devices.dynapse.dynapsim_net_from_spec
+    devices.dynapse.dynapsim_net_from_config
+
+**More**
+
+.. autosummary::
+    :toctree: _autosummary
+    
+    :template: class.rst
+    devices.dynapse.DynapseNeurons
+
+    :template: class.rst
+    devices.dynapse.DynapSimCore
 
 Graph tracing and mapping
 -------------------------

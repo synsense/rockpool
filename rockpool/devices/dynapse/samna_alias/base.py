@@ -6,11 +6,7 @@ It provides from_samna to rockpool and from rockpool to samna conversion utiliti
 ``SamnaAlias`` methodology heavily depends on serializations of the objects from both sides
 The workflow is samna.to_json -> alias.from_json -> play and manipulate inside rockpool -> alias.to_json -> samna.from_json
 
-
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-08/04/2022
+* Non User Facing *
 """
 
 from __future__ import annotations

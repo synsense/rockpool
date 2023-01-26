@@ -1,17 +1,52 @@
 """
-DynapSE-family device simulations, deployment and HDK support
+Dynap-SE2 Application Programming Interface (API)
 
-JAX-backend Dynap-SE2 simulator support which allows people to 
+This package provides an abstract Dynap-SE2 machine that operates in the same parameter space as Dynap-SE2 processors. 
+More, all the required tools to convert a simulation setting to an hardware configuration and a hardware configuration to a simulation setting.
 
-    * Configure their own networks either custom configuration or importing from existing device configuration 
-    * Run a simulation with any spiking input
-    * Observe the current changes through time
-    * Optimize the circuit level bias parameters using standard gradient-based optimization techniques
-    * Export the simulation configuration in the form of a device configuraiton for deployment
+It's possible to go from simulation to deployment:
 
+* Define a rockpool network 
+* Map this network to a hardware specification
+* Quantize the parameters
+* Obtain a samna configuration
+* Connect and configure a Dynap-SE2 chip 
+* Run a real-time, hardware simulation
+
+..  code-block:: python
+    :caption: Simulation -> Device (pseudo-code)
+
+    # Define
+    net = Sequential(LinearJax((Nin, Nrec)), DynapSim((Nrec, Nrec)))
+
+    # Map
+    spec = mapper(net.as_graph())
+    spec.update(autoencoder_quantization(**spec))
+    config = config_from_specification(**spec)
+
+    # Connect 
+    se2_devices = find_dynapse_boards()
+    se2 = DynapseSamna(se2_devices[0], **config)
+    out, state, rec = se2(raster, record=True)
+
+
+It's also possible to go from hardware configuration to simulation:
+
+..  code-block:: python
+    :caption: Device -> Simulation (pseudo-code)
+
+    net = dynapsim_net_from_config(**config)
+    out, state, rec = net(raster, record=True)
+
+
+See Also:
+    See the tutorials
+
+    * :ref:`/devices/DynapSE/dynapse-overview.ipynb`
+    * :ref:`/devices/DynapSE/neuron-model.ipynb`
+    * :ref:`/devices/DynapSE/jax-training.ipynb`
+    * :ref:`/devices/DynapSE/post-training.ipynb`
 """
-
-from . import samna_alias as sa
 
 from .simulation import DynapSim, frozen_mismatch_prototype, dynamic_mismatch_prototype
 from .mapping import DynapseNeurons, mapper

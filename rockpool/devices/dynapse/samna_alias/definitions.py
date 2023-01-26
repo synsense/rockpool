@@ -1,10 +1,7 @@
 """
 Dynap-SE2 samna alias definitions. Ensures consistency over samna and rockpool
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-08/04/2022
+* Non User Facing *
 """
 
 from enum import Enum

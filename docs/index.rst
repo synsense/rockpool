@@ -94,6 +94,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
 
    developer/UML-diagrams.ipynb
    developer/backend-management.ipynb
+   devices/DynapSE/developer.ipynb
    developer/release_process.rst
 
 * :ref:`genindex`

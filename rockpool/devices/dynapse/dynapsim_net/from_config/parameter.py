@@ -1,10 +1,7 @@
 """
-Dynap-SE2 from_config parameter composition helper
+Dynap-SE2 from_config parameter composition helper, serves as a developer tool
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-04/12/2022
+* Non User Facing *
 """
 from __future__ import annotations
 
@@ -25,11 +22,24 @@ from .memory import MemorySE2
 
 @dataclass
 class ParameterHandler:
+    """
+    ParameterHandler leads the simulated network configuration by holding and processing the connectivity scheme
+    """
+
     weights_in: np.ndarray
+    """input (virtual -> hardware) weight matrix (integer masks)"""
+
     dendrites_in: np.ndarray
+    """input (virtual -> hardware) connection gates (AMPA, GABA, NMDA, SHUNT)"""
+
     weights_rec: np.ndarray
+    """recurrent (hardware -> hardware) weight matrix"""
+
     dendrites_rec: np.ndarray
+    """recurrent (hardware -> hardware) connection gates"""
+
     core_map: FloatVector
+    """the mapping between neuron index to respective core ID (chip, core)"""
 
     def __post_init__(self) -> None:
         """
@@ -234,7 +244,7 @@ class ParameterHandler:
         :rtype: np.ndarray
         """
         if not dendrites.any():
-            return np.array([])
+            return np.empty_like(dendrites)
 
         sign = np.zeros_like(dendrites)
         sign[dendrites == Dendrite.ampa] = 1

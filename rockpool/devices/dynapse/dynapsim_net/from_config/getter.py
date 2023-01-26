@@ -1,17 +1,11 @@
 """
 Dynap-SE simulator generator from the samna config object
-
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-
-02/12/2022
 """
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 
 import numpy as np
 
-from rockpool.nn.modules.module import ModuleBase
+from rockpool.nn.modules import JaxModule
 from rockpool.nn.modules import LinearJax
 from rockpool.nn.combinators import JaxSequential
 
@@ -36,9 +30,9 @@ def dynapsim_net_from_config(
     dt: float = 1e-3,
     *args,
     **kwargs,
-) -> ModuleBase:
+) -> JaxModule:
     """
-    dynapsim_net_from_config constructs a DynapSim simulation network by processing a samna configuration object
+    dynapsim_net_from_config constructs a `DynapSim` network by processing a samna configuration object
 
     :param config: a samna configuration object used to configure all the system level properties
     :type config: Dynapse2Configuration
@@ -46,12 +40,12 @@ def dynapsim_net_from_config(
     :type input_channel_map: Dict[int, Dynapse2Destination]
     :param Iscale: network weight scaling current, defaults to default_weights["Iscale"]
     :type Iscale: float, optional
-    :param percent_mismatch: Gaussian parameter mismatch percentage (check ``transforms.mismatch_generator`` implementation), defaults to None
+    :param percent_mismatch: Gaussian parameter mismatch percentage (check `transforms.mismatch_generator` implementation), defaults to None
     :type percent_mismatch: Optional[float], optional
     :param dt: The time step for the forward-Euler ODE solver, defaults to 1e-3
     :type dt: float, optional
-    :return: a sequential combinator possibly encapsulating a ``LinearJax`` layer and a ``DynapSim`` layer, or just a ``DynapSim`` layer in the case that no input weights defined
-    :rtype: ModuleBase
+    :return: a `nn.combinators.Sequential` combinator possibly encapsulating a `nn.modules.LinearJax` layer and a `DynapSim` layer, or just a `DynapSim` layer in the case that no input weights defined
+    :rtype: `nn.modules.JaxModule`
     """
 
     # Empty parameter lists

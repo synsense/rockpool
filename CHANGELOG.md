@@ -2,17 +2,15 @@
 
 All notable changes between Rockpool releases will be documented in this file.
 
-## -- 2022-12-13
+## Unreleased -- 2022-12-13
 
-### Added
+### Added 
 
 * Dynap-SE2 Application Software Support (jax-backend)
   * Simulation
   * Optimization
   * Deployment
   
-## Unreleased
-
 * `LIFExodus` now supports training time constants, and multiple time constants
 * Improved API for `LIFTorch`
    - Hotfix: Regression in `LIFExodus`

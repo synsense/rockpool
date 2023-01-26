@@ -1,10 +1,7 @@
 """
 Bias Generator module for Dynap-SE2 coarse and fine value to bias current conversion utilities.
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-02/09/2021
+* Non User Facing *
 """
 
 from typing import Optional, Tuple
@@ -14,7 +11,12 @@ import numpy as np
 from rockpool.devices.dynapse.lookup import paramgen_se2, scale_factor_se2
 from rockpool.devices.dynapse.samna_alias import Dynapse2Parameter
 
-__all__ = ["digital_to_analog", "param_to_analog", "analog_to_digital"]
+__all__ = [
+    "digital_to_analog",
+    "analog_to_digital",
+    "param_to_analog",
+    "analog_to_param",
+]
 
 
 def digital_to_analog(
@@ -57,9 +59,9 @@ def param_to_analog(param_name: str, param: Dynapse2Parameter) -> float:
     return bias
 
 
-def analog_to_digital(name: str, current_value: float) -> Tuple[np.uint8, np.uint8]:
+def analog_to_param(name: str, current_value: float) -> Tuple[np.uint8, np.uint8]:
     """
-    analog_to_digital converts a current value to a coarse and fine tuple representation using the `.__coarse_fine()` method.
+    analog_to_param converts a current value to a coarse and fine tuple representation using the `.analog_to_digital()` method.
     The scaling factor and the transistor type are found using the name of the parameter
 
     :param name: the name of the parameter
@@ -69,17 +71,16 @@ def analog_to_digital(name: str, current_value: float) -> Tuple[np.uint8, np.uin
     :return: the best matching coarse and fine value tuple
     :rtype: Tuple[np.uint8, np.uint8]
     """
-    return __coarse_fine(current_value, scale_factor_se2[name], name[-1])
+    return analog_to_digital(current_value, scale_factor_se2[name], name[-1])
 
 
-### --- Private Section --- ###
-def __coarse_fine(
+def analog_to_digital(
     current_value: float,
     scaling_factor: Optional[float] = 1.0,
     type: Optional[str] = "N",
 ) -> Tuple[np.uint8, np.uint8]:
     """
-    __coarse_fine converts a current value to a coarse and fine tuple given a scale factor and transistor type
+    analog_to_digital converts a current value to a coarse and fine tuple given a scale factor and transistor type
 
     :param current_value: the bias current value
     :type current_value: float

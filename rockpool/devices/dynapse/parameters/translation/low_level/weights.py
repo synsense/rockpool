@@ -1,10 +1,7 @@
 """
-Dynap-SE2 full board configuration classes and methods
+Dynap-SE2 weight bit current parameters
 
-Project Owner : Dylan Muir, SynSense AG
-Author : Ugurcan Cakal
-E-mail : ugurcan.cakal@gmail.com
-03/05/2022
+* Non User Facing *
 """
 
 from dataclasses import dataclass
@@ -23,22 +20,21 @@ __all__ = ["DynapSimWeightBits"]
 class DynapSimWeightBits(DynapSimProperty):
     """
     DynapSimWeightBits encapsulates weight bit current parameters of Dynap-SE chips
-
-    :param Iw_0: weight bit 0 current of the neurons of the core in Amperes
-    :type Iw_0: FloatVector
-    :param Iw_1: weight bit 1 current of the neurons of the core in Amperes
-    :type Iw_1: FloatVector
-    :param Iw_2: weight bit 2 current of the neurons of the core in Amperes
-    :type Iw_2: FloatVector
-    :param Iw_3: weight bit 3 current of the neurons of the core in Amperes
-    :type Iw_3: FloatVector
     """
 
     Iw_0: FloatVector = default_weights["Iw_0"]
+    """weight bit 0 current of the neurons of the core in Amperes"""
+
     Iw_1: FloatVector = default_weights["Iw_1"]
+    """weight bit 1 current of the neurons of the core in Amperes"""
+
     Iw_2: FloatVector = default_weights["Iw_2"]
+    """weight bit 2 current of the neurons of the core in Amperes"""
+
     Iw_3: FloatVector = default_weights["Iw_3"]
+    """weight bit 3 current of the neurons of the core in Amperes"""
 
     @property
     def Iw(self) -> np.ndarray:
+        """Weight bits stacked together"""
         return np.stack([self.Iw_0, self.Iw_1, self.Iw_2, self.Iw_3]).T

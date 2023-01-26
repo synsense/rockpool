@@ -1,5 +1,5 @@
 """
-DynapSE-family hardware configuration package
+Dynap-SE2 hardware configuration package
 
 Supporting operations:
 
