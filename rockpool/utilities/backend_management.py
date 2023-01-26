@@ -26,6 +26,30 @@ def check_torch_cuda_available() -> bool:
         return False
 
 
+def check_samna_available() -> bool:
+    """
+    check_samna_available controls if samna package is "installed" and "usable"
+    The default `backend_available()` operation cannot correctly identifies the samna availability.
+    In the case that one installed samna and then uninstalled via pip
+    * `pip install samna` then `pip uninstall samna`
+    samna leaves a trace and `import samna` does not raise an error even though the package is not usable.
+
+    :return: true if samna package available
+    :rtype: bool
+    """
+    try:
+        import samna
+
+        try:
+            samna.__version__
+        except:
+            return False
+    except:
+        return False
+
+    return True
+
+
 # - Maintain a cache of checked backends
 __checked_backends: Dict[str, bool] = {}
 
@@ -40,6 +64,7 @@ __backend_specs: Dict[str, tuple] = {
     "sinabs-exodus": (["sinabs", "sinabs.exodus"], check_torch_cuda_available()),
     "brian": (["brian2"],),
     "cuda": (["torch"], check_torch_cuda_available()),
+    "samna": (["samna"], check_samna_available()),
 }
 
 
