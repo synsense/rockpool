@@ -137,7 +137,6 @@ These classes are deprecated, but are still usable via the high-level API, until
     nn.layers.RecIAFBrian
     nn.layers.RecIAFSpkInBrian
     nn.layers.FFExpSynBrian
-    nn.layers.RecDIAF
 
     nn.layers.FFIAFNest
     nn.layers.RecIAFSpkInNest
