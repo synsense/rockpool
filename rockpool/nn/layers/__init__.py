@@ -28,7 +28,7 @@ except:
 
 # - NEST modules
 try:
-    from iaf_nest import *
-    from aeif_nest import *
+    from .iaf_nest import *
+    from .aeif_nest import *
 except:
     pass
