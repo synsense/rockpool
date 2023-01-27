@@ -247,8 +247,15 @@ Xylo hardware support and simulation
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.syns61201.XyloHiddenNeurons
-    devices.xylo.syns61201.XyloOutputNeurons
+    devices.xylo.syns61300.Xylo1HiddenNeurons
+    devices.xylo.syns61300.Xylo1OutputNeurons
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    devices.xylo.syns61201.Xylo2HiddenNeurons
+    devices.xylo.syns61201.Xylo2OutputNeurons
 
 
 Graph tracing and mapping
