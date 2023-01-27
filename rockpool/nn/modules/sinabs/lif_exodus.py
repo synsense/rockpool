@@ -111,6 +111,7 @@ class LIFExodus(LIFBaseTorch):
         Forward method for processing data through this layer
         Adds synaptic inputs to the synaptic states and mimics the Leaky Integrate and Fire dynamics
 
+        Parameters
         ----------
         data: Tensor
             Data takes the shape of (batch, time_steps, n_synapses)
@@ -293,6 +294,7 @@ class ExpSynExodus(LIFBaseTorch):
         Forward method for processing data through this layer
         Adds inputs to the synaptic states
 
+        Parameters
         ----------
         data: Tensor
             Data takes the shape of (batch, time_steps, n_synapses)
@@ -422,6 +424,7 @@ class LIFMembraneExodus(LIFBaseTorch):
         Forward method for processing data through this layer
         Adds synaptic inputs to the synaptic states and mimics the Leaky Integrate and Fire dynamics
 
+        Parameters
         ----------
         data: Tensor
             Data takes the shape of (batch, time_steps, n_synapses)

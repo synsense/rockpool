@@ -145,6 +145,7 @@ class UpDownTorch(TorchModule):
         Forward method for processing data through this layer
         Convert each analog input channel to an up and down spike channel.
 
+        Parameters
         ----------
         data: Tensor
             Data takes the shape of `(batch, time_steps, n_channels)`

@@ -147,6 +147,7 @@ class aLIFTorch(LIFBaseTorch):
         Forward method for processing data through this layer
         Adds synaptic inputs to the synaptic states and mimics the Leaky Integrate and Fire dynamics
 
+        Parameters
         ----------
         data: Tensor
             Data takes the shape of (batch, time_steps, n_synapses)
