@@ -57,6 +57,14 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "_templates"]
 
+# Models that need to be ported to the v2 API
+exclude_patterns += [
+    "nn/networks/net_ads.py",
+    "nn/networks/net_deneve.py",
+    "training/rr_trained_layer.py",
+    "training/train_rr.py",
+]
+
 # - Set the default role to construct python references by default
 default_role = "py:obj"
 
