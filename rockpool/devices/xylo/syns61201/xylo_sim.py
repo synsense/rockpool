@@ -3,7 +3,6 @@ XyloSim-backed module compatible with Xylo core v2. Requires XyloSim package.
 """
 
 # - Rockpool imports
-from __future__ import annotations
 from rockpool import TSContinuous, TSEvent
 
 from rockpool.devices.xylo.syns61300.xylo_sim import XyloSim as XyloSimV1
@@ -37,18 +36,17 @@ class XyloSim(XyloSimV1):
     @classmethod
     def from_config(
         cls, config: XyloConfiguration, dt: float = 1e-3, output_mode: str = "Spike"
-    ) -> XyloSim:
+    ) -> "XyloSim":
         """
         Create a XyloSim based layer to simulate the Xylo hardware, from a configuration
 
-        :param config: ``samna.xylo.XyloConfiguration`` object to specify all parameters. See samna documentation for details.
-        :type config: XyloConfiguration
-        :param dt: Timestep for simulation, defaults to 1e-3
-        :type dt: float, optional
-        :param output_mode: readout mode. one of ["Isyn", "Vmem", "Spike"], defaults to "Spike"
-        :type output_mode: str, optional
-        :return: XyloSim object instance
-        :rtype: XyloSim
+        Args:
+            config (XyloConfiguration): ``samna.xylo.XyloConfiguration`` object to specify all parameters. See samna documentation for details.
+            dt (float, optional): Timestep for simulation. Defaults to 1e-3.
+            output_mode (str, optional): readout mode. one of ["Isyn", "Vmem", "Spike"]. Defaults to "Spike".
+
+        Returns:
+            XyloSim: XyloSim object instance
         """
 
         # raise NotImplementedError(
