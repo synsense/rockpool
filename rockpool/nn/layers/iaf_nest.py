@@ -44,6 +44,8 @@ COMMAND_RESET = 2
 COMMAND_EVOLVE = 3
 COMMAND_EXEC = 4
 
+__all__ = ["FFIAFNestV1", "RecIAFSpkInNestV1", "FFIAFNest", "RecIAFSpkInNest"]
+
 
 class _BaseNestProcess(multiprocessing.Process):
     """Base Class for running NEST in its own process"""
