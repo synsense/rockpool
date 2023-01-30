@@ -10,8 +10,6 @@
    :inherited-members:
    :show-inheritance:
 
-   .. automethod:: __init__
-
    {% block attributes %}
    {% if attributes %}
    .. rubric:: Attributes overview
