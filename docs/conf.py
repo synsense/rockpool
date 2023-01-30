@@ -60,6 +60,10 @@ exclude_patterns = [
     "Thumbs.db",
     ".DS_Store",
     "_templates",
+]
+
+# Tutorials which need to be updated
+exclude_patterns += [
     "advanced/QuantTorch.ipynb",
     "devices/RecDynapSE.ipynb",
     "tutorials/WaveSense Training a spiking neural network with temporal convolutions.ipynb",
