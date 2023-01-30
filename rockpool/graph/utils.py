@@ -17,7 +17,7 @@ from rockpool.graph.graph_base import (
 
 import copy
 
-from typing import Any, Optional, Union, Iterable
+from typing import Any, Optional, Iterable, Tuple
 
 __all__ = [
     "connect_modules",
