@@ -51,7 +51,7 @@ class UnitDropout(TorchModule):
             raise ValueError("dropout probability must be between zero and one")
 
         self.p = SimulationParameter(p)
-        self.training = training
+        self.training = SimulationParameter(training)
 
     def forward(self, data: torch.Tensor):
         (num_batches, num_timesteps, num_neurons) = data.shape
@@ -70,7 +70,7 @@ class UnitDropout(TorchModule):
 
     def as_graph(self) -> GraphModuleBase:
         n = SetList([GraphNode() for _ in range(self.size_in)])
-        return GraphModule(n, n, "", Any)
+        return GraphModule(n, n, '', Any)
 
 
 class TimeStepDropout(TorchModule):
@@ -110,7 +110,7 @@ class TimeStepDropout(TorchModule):
             raise ValueError("dropout probability must be between zero and one")
 
         self.p = SimulationParameter(p)
-        self.training = training
+        self.training = SimulationParameter(training)
 
     def forward(self, data: torch.Tensor):
         (num_batches, num_timesteps, num_neurons) = data.shape
@@ -128,4 +128,5 @@ class TimeStepDropout(TorchModule):
 
     def as_graph(self) -> GraphModuleBase:
         n = SetList([GraphNode() for _ in range(self.size_in)])
-        return GraphModule(n, n, "", Any)
+        return GraphModule(n, n, '', Any)
+
