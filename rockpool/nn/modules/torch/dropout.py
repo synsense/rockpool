@@ -4,8 +4,10 @@ A module implementing random dropout of neurons and time steps
 
 from rockpool.nn.modules.torch import TorchModule
 from rockpool.parameters import SimulationParameter
+from rockpool.graph import GraphModuleBase, SetList, GraphModule, GraphNode, GraphHolder
 
-from typing import Tuple
+
+from typing import Tuple, Any
 
 import torch
 
@@ -49,10 +51,11 @@ class UnitDropout(TorchModule):
             raise ValueError("dropout probability must be between zero and one")
 
         self.p = SimulationParameter(p)
-        self.training = training
+        self.training = SimulationParameter(training)
 
     def forward(self, data: torch.Tensor):
-        (num_batches, num_timesteps, num_neurons) = data.shape
+        data, _ = self._auto_batch(data)
+        num_batches, num_timesteps, num_neurons = data.shape
 
         if self.training:
             # mask input
@@ -65,6 +68,10 @@ class UnitDropout(TorchModule):
             return data * mask * 1 / (1 - self.p)
         else:
             return data
+
+    def as_graph(self) -> GraphModuleBase:
+        n = SetList([GraphNode() for _ in range(self.size_in)])
+        return GraphHolder(n, n, f"Dropout_'{self.name}'_{id(self)}", self)
 
 
 class TimeStepDropout(TorchModule):
@@ -104,10 +111,11 @@ class TimeStepDropout(TorchModule):
             raise ValueError("dropout probability must be between zero and one")
 
         self.p = SimulationParameter(p)
-        self.training = training
+        self.training = SimulationParameter(training)
 
     def forward(self, data: torch.Tensor):
-        (num_batches, num_timesteps, num_neurons) = data.shape
+        data, _ = self._auto_batch(data)
+        num_batches, num_timesteps, num_neurons = data.shape
 
         if self.training:
             # mask input
@@ -119,3 +127,7 @@ class TimeStepDropout(TorchModule):
             return data * mask
         else:
             return data
+
+    def as_graph(self) -> GraphModuleBase:
+        n = SetList([GraphNode() for _ in range(self.size_in)])
+        return GraphHolder(n, n, f"Dropout_'{self.name}'_{id(self)}", self)

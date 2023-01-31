@@ -17,7 +17,7 @@ from rockpool.graph.graph_base import (
 
 import copy
 
-from typing import Any, Optional, Tuple, Iterable
+from typing import Any, Optional, Iterable, Tuple
 
 __all__ = [
     "connect_modules",
@@ -126,12 +126,17 @@ def connect_modules(
             this_dest_node_index = dest.input_nodes.index(d_i_node)
             dest.input_nodes[this_dest_node_index] = s_o_node
 
+        # - Catch "pass through" modules as destination module, replace output nodes as well
+        if d_i_node in dest.output_nodes:
+            this_dest_node_index = dest.output_nodes.index(d_i_node)
+            dest.output_nodes[this_dest_node_index] = s_o_node
+
 
 def bag_graph(
     graph: GraphModuleBase,
     nodes_bag: Optional[SetList[GraphNode]] = None,
     modules_bag: Optional[SetList[GraphModule]] = None,
-) -> Tuple[SetList[GraphNode]]:
+) -> Tuple[SetList[GraphNode], SetList[GraphModule]]:
     """
     Convert a graph into a collection of connection nodes and modules, by traversal
 

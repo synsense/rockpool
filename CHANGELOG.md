@@ -262,7 +262,7 @@ Improved handling of weights when using `XyloSim.from_specification`
  - The `Network.load()` method is now a class method
  - Test suite now uses multiple cores for faster testing
  - Changed company branding from aiCTX -> SynSense
- - Documentation is now hosted at [https://rockpool.ai]()
+ - Documentation is now hosted at <https://rockpool.ai>
  
 ### Fixed
  - Fixed bugs in precise spike-timing layer `RecSpikeBT`
