@@ -43,9 +43,9 @@ See Also:
     See the tutorials
 
     * :ref:`/devices/DynapSE/dynapse-overview.ipynb`
+    * :ref:`/devices/DynapSE/post-training.ipynb`
     * :ref:`/devices/DynapSE/neuron-model.ipynb`
     * :ref:`/devices/DynapSE/jax-training.ipynb`
-    * :ref:`/devices/DynapSE/post-training.ipynb`
 """
 
 from .simulation import DynapSim, frozen_mismatch_prototype, dynamic_mismatch_prototype
