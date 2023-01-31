@@ -74,9 +74,9 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    :caption: Training and deploying to SE2
 
    devices/DynapSE/dynapse-overview.ipynb
+   devices/DynapSE/post-training.ipynb
    devices/DynapSE/neuron-model.ipynb
    devices/DynapSE/jax-training.ipynb
-   devices/DynapSE/post-training.ipynb
 
 .. toctree::
    :maxdepth: 1
