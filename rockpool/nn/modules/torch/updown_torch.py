@@ -142,20 +142,19 @@ class UpDownTorch(TorchModule):
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
-        Forward method for processing data through this layer
+        forward method for processing data through this layer
         Convert each analog input channel to an up and down spike channel.
 
-        Parameters
-        ----------
-        data: Tensor
-            Data takes the shape of `(batch, time_steps, n_channels)`
+        Args:
+            data (torch.Tensor): Data takes the shape of `(batch, time_steps, n_channels)`
 
-        Returns
-        -------
-        out: Tensor
-            Output of spikes with the shape `(batch, time_steps, 2*n_channels)`, where the `2*n`-th output channel the up channel and the `(2*n + 1)`-th output channel the down channel of the `n`-th input channel are.
+        Raises:
+            ValueError: Input has wrong input channel dimension.
 
+        Returns:
+            torch.Tensor: Output of spikes with the shape `(batch, time_steps, 2*n_channels)`, where the `2*n`-th output channel the up channel and the `(2*n + 1)`-th output channel the down channel of the `n`-th input channel are.
         """
+
         n_batches, time_steps, n_channels = data.shape
 
         if n_channels != self.size_in:

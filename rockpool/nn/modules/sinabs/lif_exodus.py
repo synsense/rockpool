@@ -108,20 +108,16 @@ class LIFExodus(LIFBaseTorch):
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
-        Forward method for processing data through this layer
+        forward method for processing data through this layer
         Adds synaptic inputs to the synaptic states and mimics the Leaky Integrate and Fire dynamics
 
-        Parameters
-        ----------
-        data: Tensor
-            Data takes the shape of (batch, time_steps, n_synapses)
+        Args:
+            data (torch.Tensor): Data takes the shape of (batch, time_steps, n_synapses)
 
-        Returns
-        -------
-        out: Tensor
-            Out of spikes with the shape (batch, time_steps, n_neurons)
-
+        Returns:
+            torch.Tensor: Out of spikes with the shape (batch, time_steps, n_neurons)
         """
+
         # - Ensure input data is on GPU
         if not data.is_cuda:
             warnings.warn("Input data was not on a CUDA device. Moving it there now.")
@@ -291,20 +287,16 @@ class ExpSynExodus(LIFBaseTorch):
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
-        Forward method for processing data through this layer
+        forward method for processing data through this layer
         Adds inputs to the synaptic states
 
-        Parameters
-        ----------
-        data: Tensor
-            Data takes the shape of (batch, time_steps, n_synapses)
+        Args:
+            data (torch.Tensor): Data takes the shape of (batch, time_steps, n_synapses)
 
-        Returns
-        -------
-        out: Tensor
-            Out of spikes with the shape (batch, time_steps, n_synapses)
-
+        Returns:
+            torch.Tensor: Out of spikes with the shape (batch, time_steps, n_synapses)
         """
+
         # - Ensure input data is on GPU
         if not data.is_cuda:
             warnings.warn("Input data was not on a CUDA device. Moving it there now.")
@@ -421,19 +413,14 @@ class LIFMembraneExodus(LIFBaseTorch):
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
-        Forward method for processing data through this layer
+        forward method for processing data through this layer
         Adds synaptic inputs to the synaptic states and mimics the Leaky Integrate and Fire dynamics
 
-        Parameters
-        ----------
-        data: Tensor
-            Data takes the shape of (batch, time_steps, n_synapses)
+        Args:
+            data (torch.Tensor): Data takes the shape of (batch, time_steps, n_synapses)
 
-        Returns
-        -------
-        out: Tensor
-            Out of spikes with the shape (batch, time_steps, n_neurons)
-
+        Returns:
+            torch.Tensor: Out of spikes with the shape (batch, time_steps, n_neurons)
         """
 
         # - Ensure input data is on GPU
