@@ -4,7 +4,7 @@ A module implementing random dropout of neurons and time steps
 
 from rockpool.nn.modules.torch import TorchModule
 from rockpool.parameters import SimulationParameter
-from rockpool.graph import GraphModuleBase, SetList, GraphModule, GraphNode
+from rockpool.graph import GraphModuleBase, SetList, GraphModule, GraphNode, GraphHolder
 
 
 from typing import Tuple, Any
@@ -54,7 +54,8 @@ class UnitDropout(TorchModule):
         self.training = SimulationParameter(training)
 
     def forward(self, data: torch.Tensor):
-        (num_batches, num_timesteps, num_neurons) = data.shape
+        data, _ = self._auto_batch(data)
+        num_batches, num_timesteps, num_neurons = data.shape
 
         if self.training:
             # mask input
@@ -70,7 +71,7 @@ class UnitDropout(TorchModule):
 
     def as_graph(self) -> GraphModuleBase:
         n = SetList([GraphNode() for _ in range(self.size_in)])
-        return GraphModule(n, n, "", Any)
+        return GraphHolder(n, n, f"Dropout_'{self.name}'_{id(self)}", self)
 
 
 class TimeStepDropout(TorchModule):
@@ -113,7 +114,8 @@ class TimeStepDropout(TorchModule):
         self.training = SimulationParameter(training)
 
     def forward(self, data: torch.Tensor):
-        (num_batches, num_timesteps, num_neurons) = data.shape
+        data, _ = self._auto_batch(data)
+        num_batches, num_timesteps, num_neurons = data.shape
 
         if self.training:
             # mask input
@@ -128,4 +130,4 @@ class TimeStepDropout(TorchModule):
 
     def as_graph(self) -> GraphModuleBase:
         n = SetList([GraphNode() for _ in range(self.size_in)])
-        return GraphModule(n, n, "", Any)
+        return GraphHolder(n, n, f"Dropout_'{self.name}'_{id(self)}", self)
