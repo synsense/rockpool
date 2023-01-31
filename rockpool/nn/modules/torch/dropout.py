@@ -70,7 +70,7 @@ class UnitDropout(TorchModule):
 
     def as_graph(self) -> GraphModuleBase:
         n = SetList([GraphNode() for _ in range(self.size_in)])
-        return GraphModule(n, n, '', Any)
+        return GraphModule(n, n, "", Any)
 
 
 class TimeStepDropout(TorchModule):
@@ -128,5 +128,4 @@ class TimeStepDropout(TorchModule):
 
     def as_graph(self) -> GraphModuleBase:
         n = SetList([GraphNode() for _ in range(self.size_in)])
-        return GraphModule(n, n, '', Any)
-
+        return GraphModule(n, n, "", Any)
