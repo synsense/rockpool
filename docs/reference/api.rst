@@ -258,9 +258,9 @@ Dynap-SE2 hardware support and simulation
     Tutorials:
 
     * :ref:`/devices/DynapSE/dynapse-overview.ipynb`
+    * :ref:`/devices/DynapSE/post-training.ipynb`
     * :ref:`/devices/DynapSE/neuron-model.ipynb`
     * :ref:`/devices/DynapSE/jax-training.ipynb`
-    * :ref:`/devices/DynapSE/post-training.ipynb`
 
 .. autosummary::
     :toctree: _autosummary
