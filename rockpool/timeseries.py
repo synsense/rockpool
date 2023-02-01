@@ -71,6 +71,7 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 _TOLERANCE_ABSOLUTE = 1e-9
 _TOLERANCE_RELATIVE = 1e-6
 
+
 # - Global plotting backend
 def set_global_ts_plotting_backend(backend: Union[str, None], verbose=True):
     """
@@ -1428,7 +1429,6 @@ class TSContinuous(TimeSeries):
             self.interp = lambda t: None
 
         elif np.size(self.times) == 1:
-
             # - Handle sample for single time step (`interp1d` would cause error)
             def single_sample(t):
                 times = np.array(t).flatten()
@@ -1488,7 +1488,6 @@ class TSContinuous(TimeSeries):
 
         # - Correct time points that are slightly out of range
         if self.approx_limit_times:
-
             tol = min(_TOLERANCE_ABSOLUTE, _TOLERANCE_RELATIVE * self.duration)
             # Find values in `times` that are slightly before first or slightly after
             # last sample
@@ -3049,7 +3048,6 @@ class TSEvent(TimeSeries):
 
     @channels.setter
     def channels(self, new_channels: np.ndarray):
-
         new_channels = np.asarray(new_channels)
 
         # - Check size of new data

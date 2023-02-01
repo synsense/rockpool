@@ -235,7 +235,6 @@ class RecFSSpikeADS(Layer):
         discretize: int,
         discretize_dynapse: bool,
     ):
-
         super().__init__(
             weights=np.zeros(
                 (np.asarray(weights_fast).shape[0], np.asarray(weights_fast).shape[1])
@@ -603,7 +602,6 @@ class RecFSSpikeADS(Layer):
 
         # - Euler integrator loop
         while t_time < final_time:
-
             ### --- END of compiled inner function
             (
                 t_time,
@@ -1133,6 +1131,7 @@ class RecFSSpikeADS(Layer):
 
 
 ###### Convenience functions
+
 
 # - Convenience method to return a nan array
 def full_nan(shape: Union[tuple, int]):
