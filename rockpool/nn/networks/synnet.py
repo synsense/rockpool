@@ -37,7 +37,7 @@ class SynNet(TorchModule):
         max_spikes_per_dt_out: int = 1,
         p_dropout: float = 0.0,
         dt: float = 1e-3,
-        output: str = 'spikes',
+        output: str = "spikes",
         *args,
         **kwargs,
     ):
@@ -84,10 +84,10 @@ class SynNet(TorchModule):
                 "the base synaptic time constant tau_syn_base needs to be larger than the time step dt"
             )
 
-        if output not in ['spikes', 'vmem']:
+        if output not in ["spikes", "vmem"]:
             raise ValueError("output variable ", output, " not defined")
-        if output == 'vmem':
-            threshold_out = 100.
+        if output == "vmem":
+            threshold_out = 100.0
         else:
             threshold_out = threshold
         self.output = output
@@ -144,14 +144,10 @@ class SynNet(TorchModule):
             else:
                 thresholds = [threshold for _ in range(n_hidden)]
 
-            layers.append(
-                LinearTorch(shape=(n_channels_in, n_hidden), has_bias=False)
-            )
+            layers.append(LinearTorch(shape=(n_channels_in, n_hidden), has_bias=False))
             n_channels_in = n_hidden
             with torch.no_grad():
-                layers[-1].weight.data = (
-                    layers[-1].weight.data * dt / tau_syn_hidden
-                )
+                layers[-1].weight.data = layers[-1].weight.data * dt / tau_syn_hidden
             layers.append(
                 neuron_model(
                     shape=(n_hidden, n_hidden),
@@ -171,20 +167,22 @@ class SynNet(TorchModule):
         with torch.no_grad():
             layers[-1].weight.data = layers[-1].weight.data * dt**2 / tau_syn_out
 
-        layers.append(neuron_model(
-            shape=(n_classes, n_classes),
-            tau_mem=Constant(tau_mem),
-            tau_syn=Constant(tau_syn_out),
-            bias=Constant(0.0),
-            threshold=Constant([threshold_out for _ in range(n_classes)]),
-            spike_generation_fn=PeriodicExponential,
-            max_spikes_per_dt=max_spikes_per_dt_out,
-            dt=dt,
-        ))
+        layers.append(
+            neuron_model(
+                shape=(n_classes, n_classes),
+                tau_mem=Constant(tau_mem),
+                tau_syn=Constant(tau_syn_out),
+                bias=Constant(0.0),
+                threshold=Constant([threshold_out for _ in range(n_classes)]),
+                spike_generation_fn=PeriodicExponential,
+                max_spikes_per_dt=max_spikes_per_dt_out,
+                dt=dt,
+            )
+        )
 
         self.seq = Sequential(*layers)
-        layer_names = [s.name.strip("\'") for s in self.seq]
-        LIF_names = [label for label in layer_names if 'LIFTorch' in label]
+        layer_names = [s.name.strip("'") for s in self.seq]
+        LIF_names = [label for label in layer_names if "LIFTorch" in label]
         # pick last LIFTorch layer as readout layer
         self.label_last_LIF = sorted(LIF_names)[-1]
 
@@ -195,10 +193,10 @@ class SynNet(TorchModule):
     def forward(self, data: torch.Tensor):
 
         out, _, self._record_dict = self.seq(data, record=self._record)
-        if self.output != 'spikes' and self.output == 'vmem':
-            out = self._record_dict[self.label_last_LIF]['vmem']
+        if self.output != "spikes" and self.output == "vmem":
+            out = self._record_dict[self.label_last_LIF]["vmem"]
         for key in self._record_dict.keys():
-            if 'output' in key:
+            if "output" in key:
                 self._record_dict[key] = out if self._record else []
         return out
 
@@ -217,4 +215,3 @@ class SynNet(TorchModule):
 
     def as_graph(self):
         return self.seq.as_graph()
-
