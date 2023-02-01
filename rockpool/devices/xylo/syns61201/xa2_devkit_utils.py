@@ -908,7 +908,6 @@ def read_neuron_synapse_state(
     Vmem, Isyn, Isyn2, Spikes = None, None, None, None
 
     if record:
-
         # - Read synaptic currents
         Isyn = read_memory(
             read_buffer,
@@ -937,7 +936,6 @@ def read_neuron_synapse_state(
             read_buffer, write_buffer, memory_table["rspkram"], Nhidden
         )
     else:
-
         if readout_mode == "Isyn":
             Isyn = read_memory(
                 read_buffer,
