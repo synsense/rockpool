@@ -310,9 +310,8 @@ def plot_model_response_histogram(
     :type slice: Optional[List[int]], optional
     :param bins: number of bins in the histogram, defaults to 10
     :type bins: int, optional
-    
-    """
 
+    """
 
     if slice is None:
         slice = range(len(dataset))
