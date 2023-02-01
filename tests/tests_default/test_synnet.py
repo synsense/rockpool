@@ -60,13 +60,19 @@ def test_synnet_forward():
 
     # forward
     out, state, rec = model(inp, record=True)
-    layer_LIF = [label for label in rec.keys() if 'LIFTorch' in label and 'output' not in label]
+    layer_LIF = [
+        label for label in rec.keys() if "LIFTorch" in label and "output" not in label
+    ]
     # pick last LIFTorch layer as readout layer
     label_last_LIF = sorted(layer_LIF)[-1]
 
     assert torch.allclose(out, rec[label_last_LIF]["spikes"])
-    assert torch.allclose(state['seq'][label_last_LIF]["spikes"], rec[label_last_LIF]["spikes"][0, -1])
-    assert torch.allclose(state['seq'][label_last_LIF]["vmem"], rec[label_last_LIF]["vmem"][0, -1])
+    assert torch.allclose(
+        state["seq"][label_last_LIF]["spikes"], rec[label_last_LIF]["spikes"][0, -1]
+    )
+    assert torch.allclose(
+        state["seq"][label_last_LIF]["vmem"], rec[label_last_LIF]["vmem"][0, -1]
+    )
 
 
 def test_synnet_record():
@@ -263,7 +269,11 @@ def test_synnet_reset():
     out, state, rec = model(inp)
 
     # assert that first spk layers state is not reset
-    layer_LIF = [label for label in state["seq"].keys() if 'LIFTorch' in label and 'output' not in label]
+    layer_LIF = [
+        label
+        for label in state["seq"].keys()
+        if "LIFTorch" in label and "output" not in label
+    ]
     # pick last LIFTorch layer as readout layer
     label_first_LIF = sorted(layer_LIF)[0]
     assert not torch.all(state["seq"][label_first_LIF]["vmem"] == 0)
@@ -472,7 +482,7 @@ def test_synnet_output():
         max_spikes_per_dt_out=2,
         p_dropout=0.0,
         dt=dt,
-        output='vmem'
+        output="vmem",
     )
 
     for th in model_spikes.seq[-1].threshold:
@@ -493,10 +503,19 @@ def test_synnet_output():
     out_spikes, _, rec_spikes = model_spikes(inp, record=True)
     out_vmem, _, rec_vmem = model_vmem(inp, record=True)
 
-    layer_LIF = [label for label in rec_spikes.keys() if 'LIFTorch' in label and 'output' not in label]
+    layer_LIF = [
+        label
+        for label in rec_spikes.keys()
+        if "LIFTorch" in label and "output" not in label
+    ]
     # pick last LIFTorch layer as readout layer
     label_last_LIF = sorted(layer_LIF)[-1]
 
-    assert torch.allclose(out_vmem, rec_spikes[label_last_LIF]['vmem'])
-    assert torch.allclose(rec_vmem[label_last_LIF]['vmem'], rec_spikes[label_last_LIF]['vmem'])
-    assert torch.allclose(rec_spikes[label_last_LIF]['spikes'], torch.zeros_like(rec_spikes[label_last_LIF]['spikes']))
+    assert torch.allclose(out_vmem, rec_spikes[label_last_LIF]["vmem"])
+    assert torch.allclose(
+        rec_vmem[label_last_LIF]["vmem"], rec_spikes[label_last_LIF]["vmem"]
+    )
+    assert torch.allclose(
+        rec_spikes[label_last_LIF]["spikes"],
+        torch.zeros_like(rec_spikes[label_last_LIF]["spikes"]),
+    )
