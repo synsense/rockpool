@@ -52,7 +52,6 @@ def test_mismatch_distribution():
         for attr_name in prototype[layer_name]:
             __attr = __layer.__getattribute__(attr_name)
             if prototype[layer_name][attr_name]:
-
                 # - If the parameter is subject to mismatch, then the parameter values should not be close to the original parameter values
                 with pytest.raises(AssertionError):
                     assert_allclose(__attr, new_params[layer_name][attr_name])
@@ -118,7 +117,6 @@ def test_mismatch_statistics():
             __attr = __layer.__getattribute__(attr_name)
 
             if prototype[layer_name][attr_name]:
-
                 # - Even if the parameter is subject to mismatch, the mean value should be fixed
                 assert_almost_equal(
                     jnp.mean(new_params[layer_name][attr_name]),

@@ -34,7 +34,6 @@ def autoencoder_quantization(
     *args,
     **kwargs,
 ) -> Dict[str, Union[np.ndarray, float]]:
-
     """
     autoencoder_quantization executes the unsupervised weight configuration learning approach
     `rockpool.devices.dynapse.quantization.autoencoder.learn.learn_weights` for each cluster seperately.

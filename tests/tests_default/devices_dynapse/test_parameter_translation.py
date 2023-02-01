@@ -39,7 +39,6 @@ def test_digital_to_analog():
     # Go over all possible values
     for coarse in range(6):
         for fine in range(256):
-
             # convert back and forth
             I_val = digital_to_analog(coarse, fine)
             assert (coarse, fine) == analog_to_digital(I_val)

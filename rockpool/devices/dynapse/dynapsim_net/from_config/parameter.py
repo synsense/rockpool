@@ -175,7 +175,6 @@ class ParameterHandler:
         gross_score = 0
 
         for dendrite, score in dscore.items():
-
             if dendrite == Dendrite.ampa:
                 gross_sum += score * Iampa
             elif dendrite == Dendrite.gaba:

@@ -110,7 +110,7 @@ def module_registery(module: JaxModule) -> Dict[str, Any]:
 
     # - Append sub-module attributes as nested dictionaries
     __sub_attrs = {}
-    for (k, m) in __modules.items():
+    for k, m in __modules.items():
         # [0] -> module , [1] -> name
         __sub_attrs[k] = module_registery(m[0])
 

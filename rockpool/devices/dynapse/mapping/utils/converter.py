@@ -75,11 +75,9 @@ def lifnet_to_dynapsim(graph: GraphModule) -> Tuple[np.ndarray]:
     ### --- Stateful BFS --- ###
 
     while queue:
-
         # Dequeue a vertex and process
         node = queue.pop(0)
         for sink in node.sink_modules:
-
             # Enqueue only output nodes
             if sink not in visited:
                 visited.append(sink)
@@ -87,7 +85,6 @@ def lifnet_to_dynapsim(graph: GraphModule) -> Tuple[np.ndarray]:
 
                 # LIF layer found
                 if isinstance(sink, (LIFNeuronWithSynsRealValue, DynapseNeurons)):
-
                     # Check state
                     if not state.lif:
                         raise ValueError(
@@ -108,7 +105,6 @@ def lifnet_to_dynapsim(graph: GraphModule) -> Tuple[np.ndarray]:
 
                     # Recurrent weights
                     if sink in rec_modules:
-
                         if not state.rec:
                             raise ValueError(
                                 "LIF Recurrent weights are at unexpected position! Reshape your network!"

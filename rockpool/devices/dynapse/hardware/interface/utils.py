@@ -42,7 +42,6 @@ def find_dynapse_boards(name: str = "DYNAP-SE2") -> List[DeviceInfo]:
 
     # Search the dynapse boards with the right name
     for d in devices:
-
         if name.upper() in d.device_type_name.upper():
             dynapse_list.append(d)
 

@@ -126,7 +126,6 @@ def learn_weights(
 
     ## - Check the loss decrease and decide to stop training before it reaches to num_epochs
     if not fixed_epoch:
-
         count = 0
         rec_loss = []
         mean_loss = jnp.inf

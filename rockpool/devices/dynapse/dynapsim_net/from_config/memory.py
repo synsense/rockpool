@@ -67,7 +67,6 @@ class MemorySE2:
         for h, chip in enumerate(config.chips):  # 1-4
             for c, core in enumerate(chip.cores):  # 4
                 for n, neuron in enumerate(core.neurons):  # 256
-
                     # FAN-IN (up-to 64) CAM
                     for syn in neuron.synapses:
                         if sum(syn.weight) > 0 or syn.tag > 0:
@@ -294,7 +293,6 @@ class MemorySE2:
 
         # Place synaptic weights and dendrites on dense weight matrices
         for loc, syn in zip(locations, synapses):
-
             weights[__pre(syn)][__post(loc)] = int(
                 WeightHandler.bit2int_mask(4, np.array(syn.weight))
             )

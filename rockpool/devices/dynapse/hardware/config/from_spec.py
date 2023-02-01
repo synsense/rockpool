@@ -140,7 +140,6 @@ def config_from_specification(
 
     ## -- Get cores one by one -- ##
     for c in range(n_cluster):
-
         # Get the right chip and the indicated core config
         ch = chip_map[c]
         core_config = new_config.chips[ch].cores[c % num_cores]

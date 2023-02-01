@@ -114,7 +114,7 @@ def __set_tree(
 
     # - Append sub-module attributes as nested dictionaries
     __sub_attrs = {}
-    for (k, m) in __modules.items():
+    for k, m in __modules.items():
         # [0] -> module , [1] -> name
         __sub_attrs[k] = __set_tree(m[0], target_mod_name, *args)
 

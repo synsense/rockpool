@@ -141,7 +141,6 @@ class DynapseNeurons(GenericNeurons):
             return mod
 
         elif isinstance(mod, LIFNeuronWithSynsRealValue):
-
             # Some lambda functions for clean computation
             shape = cls.__get_equal_shape(mod.threshold, mod.bias, mod.tau_mem)
             zero_param = lambda: np.zeros(shape, dtype=float).tolist()
@@ -214,7 +213,6 @@ class DynapseNeurons(GenericNeurons):
         dt = graph_list[0].dt
 
         for g in graph_list:
-
             # Increment the length
             n_in += len(g.input_nodes)
             n_out += len(g.output_nodes)
@@ -261,7 +259,6 @@ class DynapseNeurons(GenericNeurons):
         """
 
         def __extend__(__name: str) -> Union[FloatVector, IntVector]:
-
             temp = self.__getattribute__(__name)
 
             # extend if not FloatVector

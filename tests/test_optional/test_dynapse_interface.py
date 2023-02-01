@@ -32,7 +32,6 @@ def test_time_stamp():
         se2 = DynapseSamna(se2_devices[0], samna.dynapse2.Dynapse2Configuration(), {})
 
     for sleep_interval in [0.02, 0.04, 0.08, 0.16, 0.32, 0.64, 1.28, 2.56, 5.12, 10.24]:
-
         # - Initial time reading from the CPU and HDK connected
         tic = toc = time.time()
         t_0 = se2.current_timestamp()

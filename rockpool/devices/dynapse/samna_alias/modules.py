@@ -897,7 +897,6 @@ class Dynapse2Synapse(SamnaAlias):
 
 @dataclass
 class DeviceInfo:
-
     daughter_board_num: np.uint8
     device_type_name: str
     logic_version: int

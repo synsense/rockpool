@@ -311,7 +311,6 @@ class DynapseSamna(Module):
 
         # Fixed duration Polling
         while (not done) and (toc - tic < duration):
-
             buffer = self.board.read_events()
             if len(buffer) > 0:
                 for data in buffer:
@@ -446,7 +445,6 @@ class DynapseSamna(Module):
 
         # Create the AER list
         for spikes, time in zip(raster, __time_course):
-
             destinations = np.argwhere(spikes).flatten()
             timestamp = int(np.around((time / self.dt_fpga)))
             events = []
