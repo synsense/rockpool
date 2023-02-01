@@ -29,6 +29,7 @@ from rockpool.graph import (
 
 __all__ = ["LIF", "spike_subtract_threshold"]
 
+
 # - Surrogate functions to use in learning
 def sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
     """
