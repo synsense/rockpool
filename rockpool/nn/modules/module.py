@@ -266,12 +266,12 @@ class ModuleBase(ABC):
         __registered_attributes, __modules = self._get_attribute_registry()
 
         # - Set self attributes
-        for (k, v) in __registered_attributes.items():
+        for k, v in __registered_attributes.items():
             if k in new_attributes:
                 self.__setattr__(k, new_attributes[k])
 
         # - Set submodule attributes
-        for (k, m) in __modules.items():
+        for k, m in __modules.items():
             if k in new_attributes:
                 m[0].set_attributes(new_attributes[k])
 
@@ -317,7 +317,7 @@ class ModuleBase(ABC):
 
         # - Append sub-module attributes as nested dictionaries
         submodule_attributes = {}
-        for (k, m) in __modules.items():
+        for k, m in __modules.items():
             mod_attributes = m[0]._get_attribute_family(type_name, family)
 
             if (family and mod_attributes) or (not family):
@@ -358,7 +358,7 @@ class ModuleBase(ABC):
 
         # - Append sub-module attributes as nested dictionaries
         submodule_attributes = {}
-        for (k, m) in __modules.items():
+        for k, m in __modules.items():
             mod_attributes = m[0].attributes_named(name)
 
             if mod_attributes:
@@ -505,12 +505,12 @@ class ModuleBase(ABC):
         states = self.state()
 
         # - Set self attributes
-        for (k, v) in __registered_attributes.items():
+        for k, v in __registered_attributes.items():
             if k in states:
                 self._reset_attribute(k)
 
         # - Reset submodule states
-        for (k, m) in __modules.items():
+        for k, m in __modules.items():
             m[0] = m[0].reset_state()
 
         return self
@@ -529,12 +529,12 @@ class ModuleBase(ABC):
         parameters = self.parameters()
 
         # - Set self attributes
-        for (k, v) in __registered_attributes.items():
+        for k, v in __registered_attributes.items():
             if k in parameters:
                 self._reset_attribute(k)
 
         # - Reset submodule states
-        for (k, m) in __modules.items():
+        for k, m in __modules.items():
             m[0] = m[0].reset_parameters()
 
         return self

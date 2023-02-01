@@ -601,7 +601,6 @@ def remote_function(conn, func):
 
 
 class DynapseControl:
-
     _sram_event_limit = params.SRAM_EVENT_LIMIT
     _fpga_event_limit = params.FPGA_EVENT_LIMIT
     _fpga_isi_limit = params.FPGA_ISI_LIMIT
@@ -1175,7 +1174,6 @@ class DynapseControl:
                 self._cam_connections[type_pre, id_pre, id_post] += 1
 
     def _extract_connections_from_memory(self, sram, cam):
-
         # - Expand SRAM info
         # Expand from cores to number of neurons
         sram_conns = np.repeat(sram, self.num_neur_core, axis=1)
@@ -1188,7 +1186,6 @@ class DynapseControl:
         return cam_conns * sram_conns
 
     def _update_connectivity_array(self, consider_chips: Optional[List] = None):
-
         # - Update sram and cam information for considered chips
         self._update_memory_cells(consider_chips)
 
@@ -2139,7 +2136,6 @@ class DynapseControl:
         triggerevents: List,
         duration: Union[float, None],
     ) -> (np.array, np.array):
-
         # - Post-processing of collected events
         times = np.asarray(timestamps) * 1e-6
         channels = np.asarray(channels)

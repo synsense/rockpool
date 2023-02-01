@@ -439,7 +439,6 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         time_base = self._gen_time_trace(self.t, num_timesteps)
 
         if ts_input is not None:
-
             # - Make sure time series is of correct type
             if not isinstance(ts_input, TSContinuous):
                 raise TypeError(
@@ -496,7 +495,6 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
         # - Extract spike timings and channels
         if ts_input is not None:
-
             # - Make sure time series is of correct type
             if not isinstance(ts_input, TSEvent):
                 raise TypeError(
@@ -764,7 +762,7 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         __registered_attributes, __modules = self._get_attribute_registry()
 
         # - Reset submodule time
-        for (k, m) in __modules.items():
+        for k, m in __modules.items():
             if hasattr(m, "reset_time"):
                 m[0].reset_time()
 

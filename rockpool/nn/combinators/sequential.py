@@ -84,7 +84,7 @@ class SequentialMixin(ABC):
         )
 
         # - Assign modules as submodules
-        for (mod_name, submod) in zip(submod_names, submods):
+        for mod_name, submod in zip(submod_names, submods):
             setattr(
                 self,
                 mod_name,
