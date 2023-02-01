@@ -511,7 +511,6 @@ class TorchModule(Module, nn.Module):
             return
 
         for k, param in jparam.items():
-
             if isinstance(param, str):
                 param = json.loads(param)
 
@@ -544,7 +543,6 @@ class TorchModule(Module, nn.Module):
                     )
 
     def param_to_json(self, param):
-
         if isinstance(param, torch.Tensor):
             return json.dumps(param.detach().cpu().numpy().tolist())
         elif isinstance(param, np.ndarray):
@@ -568,7 +566,6 @@ class TorchModule(Module, nn.Module):
             )
 
     def merge(self, a, b):
-
         ret = {}
         keys_a = a.keys()
         keys_b = b.keys()
@@ -604,7 +601,6 @@ class TorchModule(Module, nn.Module):
             json.dump(self.to_json(), f)
 
     def load(self, fn):
-
         with open(fn, "r") as f:
             params = json.load(f)
 
