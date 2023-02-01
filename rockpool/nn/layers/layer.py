@@ -206,7 +206,6 @@ class Layer(ABC):
         time_base = self._gen_time_trace(self.t, num_timesteps)
 
         if ts_input is not None:
-
             # - Make sure time series is of correct type
             if not isinstance(ts_input, TSContinuous):
                 raise TypeError(
@@ -285,7 +284,6 @@ class Layer(ABC):
 
         # - Extract spike timings and channels
         if ts_input is not None:
-
             # - Make sure time series is of correct type
             if not isinstance(ts_input, TSEvent):
                 raise TypeError(

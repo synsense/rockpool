@@ -103,7 +103,7 @@ black-check:
 
   before_script:
     - pip install --upgrade pip
-    - pip install black
+    - pip install black==23.1.0
 
   script:
     - python -m black --check rockpool tests

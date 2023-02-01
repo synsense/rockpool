@@ -220,7 +220,6 @@ class WaveSenseBlock(TorchModule):
         return res_out, out_skip
 
     def evolve(self, input, record: bool = False):
-
         self._record = record
 
         # - Use super-class evolve
@@ -565,6 +564,7 @@ class WaveSenseNet(TorchModule):
 import torch.nn as nn
 from torch.nn.functional import pad
 
+
 # Define model
 class WaveBlock(nn.Module):
     def __init__(
@@ -622,7 +622,6 @@ class WaveBlock(nn.Module):
         self.relu_skip = nn.ReLU()
 
     def forward(self, data):
-
         tanh = self.tanh1(self.conv1_tanh(pad(data, [self.dilation, 0])))
         sig = self.sig1(self.conv1_sig(pad(data, [self.dilation, 0])))
         out1 = tanh * sig
@@ -646,7 +645,6 @@ class WaveNet(nn.Module):
         dilations=[1, 2, 4, 8, 16, 1, 2, 4, 8, 16],
         kernel_size=2,
     ):
-
         super().__init__()
 
         self.conv1 = nn.Conv1d(n_channels_in, n_channels_res, kernel_size=1, bias=bias)
@@ -674,7 +672,6 @@ class WaveNet(nn.Module):
         TorchModule.from_torch(self)
 
     def forward(self, data):
-
         # move dimensions such that Torch conv layers understand them correctly
         data = data.movedim(1, 2)
 

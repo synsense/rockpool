@@ -95,7 +95,6 @@ class NetworkADS(Network):
         record: bool = True,
         **kwargs,
     ):
-
         """
         Create NetworkADS instance that can be trained to learn the dynamics of a rate based network
 

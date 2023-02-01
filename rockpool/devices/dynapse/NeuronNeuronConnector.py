@@ -121,7 +121,6 @@ class DynapseConnector:
         # check if the post can receive a connection
         post_available = False
         for i in range(len(post_cams)):
-
             # if there is space left on post_cams
             if (
                 post_cams[i].get_pre_neuron_id()
@@ -535,7 +534,6 @@ class DynapseConnector:
 
 
 if __name__ == "__main__":
-
     model = CtxDynapse.model
     neurons = model.get_shadow_state_neurons()
     dynapse_connector = DynapseConnector()

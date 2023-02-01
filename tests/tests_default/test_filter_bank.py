@@ -4,7 +4,6 @@ pytest.importorskip("scipy")
 
 
 def test_butter_mel_filter():
-
     ## IMPORT ##
     from rockpool.nn.modules import ButterMelFilter
     from rockpool.timeseries import TSContinuous
@@ -58,7 +57,6 @@ def test_butter_mel_filter():
 
 
 def test_butter_filter():
-
     ## IMPORT ##
     from rockpool.nn.modules import ButterFilter
     from rockpool.timeseries import TSContinuous
