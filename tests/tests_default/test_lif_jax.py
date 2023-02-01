@@ -124,7 +124,7 @@ def test_ffwd_net():
         def __init__(self, shape, *args, **kwargs):
             super().__init__(shape, *args, **kwargs)
 
-            for (index, (N_in, N_out)) in enumerate(zip(shape[:-1], shape[1:])):
+            for index, (N_in, N_out) in enumerate(zip(shape[:-1], shape[1:])):
                 setattr(
                     self,
                     f"weight_{index}",
