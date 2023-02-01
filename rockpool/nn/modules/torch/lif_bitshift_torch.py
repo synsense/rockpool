@@ -47,7 +47,6 @@ class LIFBitshiftTorch(LIFTorch):
         max_spikes_per_dt: P_int = 31,
         **kwargs,
     ):
-
         # - Initialise superclass
         super().__init__(
             max_spikes_per_dt=max_spikes_per_dt,

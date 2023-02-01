@@ -763,12 +763,10 @@ class class_calc_q_decay:
         return q_alpha
 
     def __call__(self, decay):
-
         return self.calc_bitshift_decay(decay)
 
 
 def t_decay(decay: Tensor, dt: float = 1e-3):
-
     """
     quantizes decay factor (\exp (-dt/tau)) of LIF neurons: alpha and beta respectively for Vmem and Isyn
     the quantization is done based one converting the decay to bitshoft subtraction and reconstructing decay.

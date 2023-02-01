@@ -90,7 +90,6 @@ class ExpSynTorch(TorchModule):
     def evolve(
         self, input_data: torch.Tensor, record: bool = False
     ) -> Tuple[Any, Any, Any]:
-
         # - Evolve the module
         output_data, _, _ = super().evolve(input_data, record)
 

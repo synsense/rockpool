@@ -117,7 +117,6 @@ class RRTrainedLayer(Layer, ABC):
         )
 
         if return_trained_output:
-
             bias = self.trainer.bias if train_biases else self.bias
 
             output_samples = inp @ self.trainer.weights + bias

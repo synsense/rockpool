@@ -219,7 +219,6 @@ class LIFSinabs(TorchModule):
     def evolve(
         self, input_data: torch.Tensor, record: bool = False
     ) -> Tuple[Any, Any, Any]:
-
         self._record = record
 
         # - Evolve with superclass evolution

@@ -203,7 +203,7 @@ def test_astorch():
 
     torch_params = torch.nn.Module.parameters(lyr)
 
-    for (r_param, t_param) in zip(params_astorch, torch_params):
+    for r_param, t_param in zip(params_astorch, torch_params):
         assert r_param is t_param, "Rockpool and torch parameters do not match."
 
 
