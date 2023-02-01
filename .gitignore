@@ -26,3 +26,5 @@ docs/tutorials/mlruns
 tests/tests_default/mlruns
 tests/tests_default/lightning_logs
 tests/tests_default/MNIST
+*.DS_Store
+

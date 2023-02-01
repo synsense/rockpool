@@ -2,8 +2,25 @@
 
 All notable changes between Rockpool releases will be documented in this file.
 
-## Unreleased
+## Unreleased -- 2023-01-27
 
+### Added 
+
+* Dynap-SE2 Application Software Support (jax-backend)
+  * jax backend `DynapSim` neuron model with its own custom surrogate gradient implementation
+  * `DynapSamna` module handling low-level HDK interface under-the-hood
+  * rockpool network <-> hardware configuration bi-directional conversion utilities
+    * Network mapping: `mapper()` and `config_from_specification()`
+    * sequentially combined `LinearJax`+`DynapSim` network getters : `dynapsim_net_from_config()` and `dynapsim_net_from_spec()`
+  * transistor lookup tables to ease high-level parameters <-> currents <-> DAC (coarse, fine values) conversions
+  * Dynap-SE2 specific auto-encoder quantization `autoencoder_quantization()`
+    * Custom `DigitalAutoEncoder` implementation and training pipeline
+  * `samna` alias classes compensating the missing documentation support
+  * unit tests + tutorials + developer docs
+  * `DynapseNeuron` graph module which supports conversion from and to `LIFNeuronWithSynsRealValue` graph
+  * hardcoded frozen and dynamic mismatch prototypes
+
+* mismatch transformation (jax)
 * `LIFExodus` now supports training time constants, and multiple time constants
 * Improved API for `LIFTorch`
    - Hotfix: Regression in `LIFExodus`
