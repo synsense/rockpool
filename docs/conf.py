@@ -62,20 +62,6 @@ exclude_patterns = [
     "_templates",
 ]
 
-# Tutorials which need to be updated
-exclude_patterns += [
-    "advanced/QuantTorch.ipynb",
-    "devices/RecDynapSE.ipynb",
-    "tutorials/WaveSense Training a spiking neural network with temporal convolutions.ipynb",
-    "tutorials/deneve_reservoirs.ipynb",
-    "tutorials/network_ads_tutorial.ipynb",
-    "tutorials/pytorch_lightning_mlflow.ipynb",
-    "tutorials/pytorch_lightning_mlflow_spiking_MNIST.ipynb",
-    "tutorials/quick-xylo/deploy_to_xylo.ipynb",
-    "tutorials/wavesense_temporal_xor.ipynb",
-    "tutorials/wavesense_tutorial_with_comments.ipynb",
-]
-
 # - Set the default role to construct python references by default
 default_role = "py:obj"
 
