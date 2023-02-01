@@ -61,7 +61,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
 
 .. toctree::
    :maxdepth: 1
-   :caption: Training and deploying to HW
+   :caption: Training and deploying to Xylo
 
    devices/xylo-overview.ipynb
    devices/quick-xylo/deploy_to_xylo.ipynb
@@ -69,8 +69,14 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    devices/torch-training-spiking-for-xylo.ipynb
    devices/analog-frontend-example.ipynb
 
-   .. tutorials/DynapseControl.ipynb
-   .. tutorials/RecDynapSE.ipynb
+.. toctree::
+   :maxdepth: 1
+   :caption: Training and deploying to SE2
+
+   devices/DynapSE/dynapse-overview.ipynb
+   devices/DynapSE/post-training.ipynb
+   devices/DynapSE/neuron-model.ipynb
+   devices/DynapSE/jax-training.ipynb
 
 .. toctree::
    :maxdepth: 1
@@ -88,6 +94,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
 
    developer/UML-diagrams.ipynb
    developer/backend-management.ipynb
+   devices/DynapSE/developer.ipynb
    developer/release_process.rst
 
 * :ref:`genindex`
