@@ -20,6 +20,7 @@ DEF_TIMESTEP = 2e-5
 # - Absolute tolerance, e.g. for comparing float values
 ABS_TOLERANCE = 1e-9
 
+
 # -- Define the HW layer class for recurrent networks
 class RecDynapSE(Layer):
     """
