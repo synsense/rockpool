@@ -167,19 +167,19 @@ class LIFNeuronTorch(TorchModule):
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
-        Forward method for processing data through this layer
+        forward method for processing data through this layer
         Adds synaptic inputs to the synaptic states and mimics the Leaky Integrate and Fire dynamics
 
-        ----------
-        data: Tensor
-            Data takes the shape of (batch, time_steps, n_neurons)
+        Args:
+            data (torch.Tensor): Data takes the shape of (batch, time_steps, n_neurons)
 
-        Returns
-        -------
-        out: Tensor
-            Out of spikes with the shape (batch, time_steps, n_neurons)
+        Raises:
+            ValueError: Input has wrong neuron dimensions.
 
+        Returns:
+            torch.Tensor: Out of spikes with the shape (batch, time_steps, n_neurons)
         """
+
         # - Validate data shape
         n_batches, time_steps, n_neurons = data.shape
 
