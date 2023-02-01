@@ -321,7 +321,6 @@ def plot_model_response_histogram(
     rec = []
 
     for i in iteration:
-
         # Get sample and the target
         sample, target = dataset[i]
 

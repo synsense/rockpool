@@ -115,7 +115,6 @@ class SynNet(TorchModule):
         for i, (n_hidden, n_tau) in enumerate(
             zip(size_hidden_layers, time_constants_per_layer)
         ):
-
             taus = [
                 torch.tensor(
                     [(tau_syn_base / dt) ** j * dt for j in range(1, n_tau + 1)]
@@ -191,7 +190,6 @@ class SynNet(TorchModule):
         self._record_dict = {}
 
     def forward(self, data: torch.Tensor):
-
         out, _, self._record_dict = self.seq(data, record=self._record)
         if self.output != "spikes" and self.output == "vmem":
             out = self._record_dict[self.label_last_LIF]["vmem"]
