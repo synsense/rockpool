@@ -183,7 +183,7 @@ class SynNet(TorchModule):
         layer_names = [s.name.strip("'") for s in self.seq]
         LIF_names = [label for label in layer_names if "LIFTorch" in label]
         # pick last LIFTorch layer as readout layer
-        self.label_last_LIF = sorted(LIF_names, key=lambda s: int(s.split('_')[0]))[-1]
+        self.label_last_LIF = sorted(LIF_names, key=lambda s: int(s.split("_")[0]))[-1]
 
         # Dictionary for recording state
         self._record = False
