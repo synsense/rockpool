@@ -180,10 +180,14 @@ class SynNet(TorchModule):
         )
 
         self.seq = Sequential(*layers)
-        layer_names = [s.name.strip("'") for s in self.seq]
-        LIF_names = [label for label in layer_names if "LIFTorch" in label]
+
         # pick last LIFTorch layer as readout layer
-        self.label_last_LIF = sorted(LIF_names)[-1]
+        lif_names = [
+            label
+            for label in self.seq._submodulenames
+            if neuron_model.__name__ in label
+        ]
+        self.label_last_LIF = lif_names[-1]
 
         # Dictionary for recording state
         self._record = False
