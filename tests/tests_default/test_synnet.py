@@ -519,3 +519,168 @@ def test_synnet_output():
         rec_spikes[label_last_LIF]["spikes"],
         torch.zeros_like(rec_spikes[label_last_LIF]["spikes"]),
     )
+
+
+def test_synnet_graph_extraction_spike_readout():
+    """
+    test_synnet_graph_extraction checks if the extracted computational graph and the sequential module collection is the same
+    The test obtains the graph from the model, copies the structure.
+    It checks if the parameters observed in the graph and the parameters given to the model is the same.
+
+    Note :
+    * In the early version, the `deepcopy` operation was raising errors. It is mainly related to saving and returning a non-empty record dictionary.
+    * The dropout is intentionally excluded from the graph.
+    """
+
+    # - Rockpool
+    from rockpool.nn.networks import SynNet
+    from rockpool.nn.modules import LIFTorch
+    from rockpool.nn.modules import LinearTorch
+    from rockpool.nn.modules.torch import TimeStepDropout
+    from rockpool.graph.utils import bag_graph
+
+    # - External
+    import torch
+    import numpy as np
+    from numpy.testing import assert_equal
+    from copy import deepcopy
+
+    # - Implement the paper model
+    n_classes = 4
+    n_channels = 16
+    size_hidden_layers = [24, 24, 24]
+    time_constants_per_layer = [2, 4, 8]
+
+    # - Spike read-out
+    model_spikes = SynNet(
+        n_classes=n_classes,
+        n_channels=n_channels,
+        size_hidden_layers=size_hidden_layers,
+        time_constants_per_layer=time_constants_per_layer,
+        output="spikes",
+        neuron_model=LIFTorch,
+    )
+
+    # - Evolve the network with dummy input making sure that it returns a record dictionary
+    out, state, rec = model_spikes(torch.Tensor(np.ones((250, 1))), record=True)
+    graph_spikes = deepcopy(model_spikes.as_graph())
+    nodes, modules = bag_graph(graph_spikes)
+
+    # - Check if the extracted computational graph and the internal sequential combinator is the same
+    i = 0
+    for module in model_spikes.seq:
+        # - Skip if dropout, trace the extracted modules if not
+        if isinstance(module, TimeStepDropout):
+            continue
+        else:
+            module_from_graph = modules[i].computational_module
+            i += 1
+
+        # - Check the weights if Linear
+        if isinstance(module, LinearTorch):
+            assert_equal(
+                module.weight.detach().numpy(),
+                module_from_graph.weight.detach().numpy(),
+            )
+
+        # - Check the time constants, bias and threshold if LIF
+        elif isinstance(module, LIFTorch):
+            assert_equal(
+                module.tau_syn.detach().numpy(),
+                module_from_graph.tau_syn.detach().numpy(),
+            )
+            assert_equal(
+                module.tau_mem.detach().numpy(),
+                module_from_graph.tau_mem.detach().numpy(),
+            )
+            assert_equal(
+                module.bias.detach().numpy(),
+                module_from_graph.bias.detach().numpy(),
+            )
+            assert_equal(
+                module.threshold.detach().numpy(),
+                module_from_graph.threshold.detach().numpy(),
+            )
+
+        else:
+            raise ValueError("Unintended computational model found!")
+
+
+def test_synnet_graph_extraction_vmem_readout():
+    """
+    The same test with the ``test_synnet_graph_extraction_spike_readout()`` please check the test above for explanations.
+    ONLY the output of the SynNet model is different. `output="vmem"` instead of `output="spikes"`
+    """
+
+    # - Rockpool
+    from rockpool.nn.networks import SynNet
+    from rockpool.nn.modules import LIFTorch
+    from rockpool.nn.modules import LinearTorch
+    from rockpool.nn.modules.torch import TimeStepDropout
+    from rockpool.graph.utils import bag_graph
+
+    # - External
+    import torch
+    import numpy as np
+    from numpy.testing import assert_equal
+    from copy import deepcopy
+
+    # - Implement the paper model
+    n_classes = 4
+    n_channels = 16
+    size_hidden_layers = [24, 24, 24]
+    time_constants_per_layer = [2, 4, 8]
+
+    # - Spike read-out
+    model_spikes = SynNet(
+        n_classes=n_classes,
+        n_channels=n_channels,
+        size_hidden_layers=size_hidden_layers,
+        time_constants_per_layer=time_constants_per_layer,
+        output="vmem",
+        neuron_model=LIFTorch,
+    )
+
+    # - Evolve the network with dummy input making sure that it returns a record dictionary
+    out, state, rec = model_spikes(torch.Tensor(np.ones((250, 1))), record=True)
+    graph_spikes = deepcopy(model_spikes.as_graph())
+    nodes, modules = bag_graph(graph_spikes)
+
+    # - Check if the extracted computational graph and the internal sequential combinator is the same
+    i = 0
+    for module in model_spikes.seq:
+        # - Skip if dropout, trace the extracted modules if not
+        if isinstance(module, TimeStepDropout):
+            continue
+        else:
+            module_from_graph = modules[i].computational_module
+            i += 1
+
+        # - Check the weights if Linear
+        if isinstance(module, LinearTorch):
+            assert_equal(
+                module.weight.detach().numpy(),
+                module_from_graph.weight.detach().numpy(),
+            )
+
+        # - Check the time constants, bias and threshold if LIF
+        elif isinstance(module, LIFTorch):
+            assert_equal(
+                module.tau_syn.detach().numpy(),
+                module_from_graph.tau_syn.detach().numpy(),
+            )
+            assert_equal(
+                module.tau_mem.detach().numpy(),
+                module_from_graph.tau_mem.detach().numpy(),
+            )
+            assert_equal(
+                module.bias.detach().numpy(),
+                module_from_graph.bias.detach().numpy(),
+            )
+            assert_equal(
+                module.threshold.detach().numpy(),
+                module_from_graph.threshold.detach().numpy(),
+            )
+
+        else:
+            raise ValueError("Unintended computational model found!")
