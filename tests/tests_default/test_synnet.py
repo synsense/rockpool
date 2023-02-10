@@ -436,6 +436,7 @@ def test_synnet_output():
     import torch
     from rockpool.nn.networks import SynNet
     from rockpool.nn.modules import LIFTorch
+    from numpy.testing import assert_equal
 
     tau_mem = 0.01
     tau_syn_base = 0.003
@@ -443,7 +444,7 @@ def test_synnet_output():
     dt = 1.3 * 1e-3
     size_hidden_layers = [60, 3]
     time_constants_per_layer = [3, 1]
-    threshold = 1.3
+    threshold = 100
     n_batches = 3
     T = 20
     n_channels = 12
@@ -485,10 +486,10 @@ def test_synnet_output():
         output="vmem",
     )
 
-    for th in model_spikes.seq[-1].threshold:
-        assert th == threshold
-    for th in model_vmem.seq[-1].threshold:
-        assert th == 100.0
+    assert_equal(
+        model_spikes.seq[-1].threshold.detach().numpy(),
+        model_vmem.seq[-1].threshold.detach().numpy(),
+    )
 
     # models need to have the same parameter
     with torch.no_grad():
