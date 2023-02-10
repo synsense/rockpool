@@ -164,7 +164,7 @@ class SynNet(TorchModule):
 
         layers.append(LinearTorch(shape=(n_hidden, n_classes), has_bias=False))
         with torch.no_grad():
-            layers[-1].weight.data = layers[-1].weight.data * dt**2 / tau_syn_out
+            layers[-1].weight.data = layers[-1].weight.data * dt / tau_syn_out
 
         layers.append(
             neuron_model(
