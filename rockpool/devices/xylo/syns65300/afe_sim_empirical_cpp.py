@@ -447,37 +447,68 @@ class AFESimEmpirical(Module):
             (i)     once for all inputs simulated if we are interested in a single chip for all simulations.
             (ii)    once for each input if we would like some sort of augmentation w.r.t. chip non-idealities.
         """
+        if hasattr(self, "input_offset"):
+            del self.input_offset
+            
         self.input_offset: P_float = Parameter(self.MAX_INPUT_OFFSET * (2 * np.random.rand(1).item() - 1.0)) if self.add_offset else Parameter(0.0)
-        """ float: Mismatch offset in the signal comming from microphone -- typically 0 due to AC coupling """
         
+        """ float: Mismatch offset in the signal comming from microphone -- typically 0 due to AC coupling """
+        if hasattr(self, "lna_offset"):
+            del self.lna_offset
+            
         self.lna_offset: P_float = Parameter(self.MAX_LNA_OFFSET * (2 * np.random.rand(1).item() - 1.0)) if self.add_offset else Parameter(0.0)
+        
         """ float: Mismatch offset in low-noise amplifier """
-
+        if hasattr(self, "bpf_offset"):
+            del self.bpf_offset
+            
         self.bpf_offset: P_array = Parameter(self.MAX_BPF_OFFSET * (2 * np.random.rand(self.size_out) - 1.0)) if self.add_offset else Parameter(np.zeros(self.size_out))
+        
         """ float: Mismatch offset in band-pass filters """
-
+        if hasattr(self, "Q_mismatch"):
+            del self.Q_mismatch
+            
         self.Q_mismatch: P_array = Parameter(self.Q_MIS_MATCH * (2 * np.random.rand(self.size_out) - 1.0)) if self.add_mismatch else Parameter(np.zeros(self.size_out))
+        
         """ float: Mismatch in Q over band-pass filters """
-
+        if hasattr(self, "fc_mismatch"):
+            del self.fc_mismatch
+            
         self.fc_mismatch: P_array = Parameter(self.FC_MIS_MATCH * (2 * np.random.rand(self.size_out) - 1.0)) if self.add_mismatch else Parameter(np.zeros(self.size_out))
+        
         """ float: Mismatch in centre frequency for band-pass filters """
-
+        if hasattr(self, "bpf_fc_shift"):
+            del self.bpf_fc_shift
+            
         self.bpf_fc_shift : P_float = Parameter(self.BPF_FC_SHIFT * (2 * np.random.rand(1).item() - 1.0)) if self.add_mismatch else Parameter(0.0)
+        
         """ float: Common shift in center frequencies due to temperature, etc. """
-
+        
         # produce ceter frequencies and bandwidths based on mismatch parameters
+        if hasattr(self, "fcs"):
+            del self.fcs
+            
         self.fcs = np.asarray([freq * (1.0 + mismatch) for (freq, mismatch) in zip(self.design_fcs, self.fc_mismatch)])
 
         # shift the center frequencies together by mismatch factor
         self.fcs = np.asarray([freq * (1.0 + self.bpf_fc_shift) for freq in self.fcs]) 
 
         # produce Q for the filters
+        if hasattr(self, "Qs"):
+            del self.Qs
+            
         self.Qs = np.asarray([self.Q * (1.0 + mismatch) for mismatch in self.Q_mismatch])
 
         # produce bandwidths
+        if hasattr(self, "bws"):
+            del self.bws
+            
         self.bws = np.asarray([freq/Q for (freq, Q) in zip(self.fcs, self.Qs)])
 
         # - Generate the filterbank module
+        if hasattr(self, "butter_filterbank"):
+            del self.butter_filterbank
+            
         self.butter_filterbank = ButterFilter(
             frequency=self.fcs,
             bandwidth=self.bws,
@@ -488,10 +519,16 @@ class AFESimEmpirical(Module):
         )
 
         # - High-pass filter parameters (for AC coupling between microphone and LNA)
+        if hasattr(self, "_HP_filt"):
+            del self._HP_filt
+            
         self._HP_filt = self._butter_highpass(self.F_CORNER_HIGHPASS, self.Fs, order=1)
         """ High-pass filter on input """
 
         # - Internal neuron state
+        if hasattr(self, "lif_state"):
+            del self.lif_state
+            
         self.lif_state: Union[np.ndarray, State] = State(np.zeros(self.size_out))
         """ (np.ndarray) Internal state of the LIF neurons used to generate events """
 
