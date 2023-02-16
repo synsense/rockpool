@@ -131,9 +131,7 @@ def test_submodules():
         def __init__(self, shape, *args, **kwargs):
             super().__init__(shape, *args, **kwargs)
 
-            for (index, (N_in, N_out)) in enumerate(
-                zip(self.shape[:-1], self.shape[1:])
-            ):
+            for index, (N_in, N_out) in enumerate(zip(self.shape[:-1], self.shape[1:])):
                 setattr(
                     self,
                     f"weight_{index}",

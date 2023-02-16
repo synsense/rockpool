@@ -234,7 +234,6 @@ class RecFSSpikeEulerBT(Layer):
 
         # - Euler integrator loop
         while t_time < final_time:
-
             ### --- Numba-compiled inner function for speed
             # @njit
             def _evolve_backstep(
@@ -566,6 +565,7 @@ class RecFSSpikeEulerBT(Layer):
 
 
 ###### Convenience functions
+
 
 # - Convenience method to return a nan array
 def full_nan(shape: Union[tuple, int]):

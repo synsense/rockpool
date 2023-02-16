@@ -2,7 +2,7 @@
 Implements linear weight matrix modules
 """
 
-
+from __future__ import annotations
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import Parameter
 from rockpool.graph import GraphModuleBase, LinearWeights, as_GraphHolder
@@ -140,6 +140,26 @@ class LinearMixin(ABC):
             self,
             self.weight,
             self.bias if self._has_bias else None,
+        )
+
+    @classmethod
+    def from_graph(cls, graph: LinearWeights) -> LinearMixin:
+        """
+        from_graph constructs a LinearMixin object from the comptutational graph
+
+        :param graph: the reference computational graph to restore computational module
+        :type graph: LinearWeights
+        :return: a LinearMixin object
+        :rtype: LinearMixin
+        """
+        if not isinstance(graph, LinearWeights):
+            graph = LinearWeights._convert_from(graph)
+
+        return cls(
+            shape=(len(graph.input_nodes), len(graph.output_nodes)),
+            weight=graph.weights,
+            bias=graph.biases,
+            has_bias=False if graph.biases is None else True,
         )
 
 

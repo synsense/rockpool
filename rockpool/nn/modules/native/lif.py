@@ -29,6 +29,7 @@ from rockpool.graph import (
 
 __all__ = ["LIF", "spike_subtract_threshold"]
 
+
 # - Surrogate functions to use in learning
 def sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
     """
@@ -45,7 +46,7 @@ def spike_subtract_threshold(
     x: FloatVector,
     threshold: FloatVector,
     window: FloatVector = 0.5,
-    max_spikes_per_dt: int = np.inf,
+    max_spikes_per_dt: float = 2.0**16,
 ) -> FloatVector:
     """
     Spike production function
@@ -56,7 +57,7 @@ def spike_subtract_threshold(
         x (float):          Input value
         threshold (float):  Firing threshold
         window (float): Unused
-        max_spikes_per_dt (int): Maximum number of events that may be produced in each time-step. Default: ``np.inf`` (do not impose a maximum)
+        max_spikes_per_dt (float): Maximum number of events that may be produced in each time-step. Default: ``2**16``
 
     Returns:
         float: Number of output events for each input value
@@ -103,7 +104,7 @@ class LIF(Module):
         weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = kaiming,
         threshold: Optional[FloatVector] = None,
         noise_std: float = 0.0,
-        max_spikes_per_dt: P_int = np.inf,
+        max_spikes_per_dt: P_int = 2.0**16,
         dt: float = 1e-3,
         spiking_input: bool = False,
         spiking_output: bool = True,
@@ -123,7 +124,7 @@ class LIF(Module):
             weight_init_func (Optional[Callable[[Tuple], np.ndarray]): The initialisation function to use when generating weights. Default: ``None`` (Kaiming initialisation)
             threshold (FloatVector): An optional array specifying the firing threshold of each neuron. If not provided, ``1.`` will be used by default.
             noise_std (float): The std. dev. after 1s of the noise added to membrane state variables. Default: ``0.0`` (no noise).
-            max_spikes_per_dt (int): The maximum number of events that will be produced in a single time-step. Default: ``np.inf``; do not clamp spiking
+            max_spikes_per_dt (float): The maximum number of events that will be produced in a single time-step. Default: ``2**16``
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
         """
         # - Check shape argument
@@ -224,8 +225,8 @@ class LIF(Module):
         self.vmem: P_ndarray = State(shape=(self.size_out,), init_func=np.zeros)
         """ (np.ndarray) Membrane voltage of each neuron `(Nout,)` """
 
-        self.max_spikes_per_dt: P_int = SimulationParameter(max_spikes_per_dt)
-        """ (int) Maximum number of events that can be produced in each time-step """
+        self.max_spikes_per_dt: P_float = SimulationParameter(max_spikes_per_dt)
+        """ (float) Maximum number of events that can be produced in each time-step """
 
     def evolve(
         self,
@@ -267,7 +268,7 @@ class LIF(Module):
         def forward(
             state: Tuple[np.ndarray, np.ndarray, np.ndarray],
             inputs_t: Tuple[np.ndarray, np.ndarray],
-        ) -> (
+        ) -> Tuple[
             Tuple[np.ndarray, np.ndarray, np.ndarray],
             np.ndarray,
             np.ndarray,
@@ -275,7 +276,7 @@ class LIF(Module):
             np.ndarray,
             np.ndarray,
             np.ndarray,
-        ):
+        ]:
             """
             Single-step LIF dynamics for a recurrent LIF layer
 

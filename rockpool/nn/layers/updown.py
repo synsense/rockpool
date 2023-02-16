@@ -21,6 +21,7 @@ MAX_NUM_TIMESTEPS_DEFAULT = 5000
 
 __all__ = ["FFUpDown"]
 
+
 ## - FFUpDown - Class: Define a spiking feedforward layer to convert analogue inputs to up and down channels
 class FFUpDownV1(Layer):
     """

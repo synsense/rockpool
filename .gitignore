@@ -26,8 +26,6 @@ docs/tutorials/mlruns
 tests/tests_default/mlruns
 tests/tests_default/lightning_logs
 tests/tests_default/MNIST
-rockpool/devices/xylo/syns65300/LIF spike generation/src-cpp/xylo_a2_spike_generation.egg-info/PKG-INFO
-rockpool/devices/xylo/syns65300/LIF spike generation/src-cpp/xylo_a2_spike_generation.egg-info/top_level.txt
-rockpool/devices/xylo/syns65300/LIF spike generation/src-cpp/xylo_a2_spike_generation.egg-info/not-zip-safe
 _fp_q_model_deployments.ipynb
 *.egg-info
+*.DS_Store

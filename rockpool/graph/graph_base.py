@@ -166,15 +166,16 @@ class GraphModuleBase:
 
         Use this factory method to construct a new :py:class:`.GraphModule` from scratch, which needs new input and output :py:class:`.GraphNode` s created automatically. This helper method will be inherited by new :py:class:`.GraphModule` subclasses, and will act as factory methods also for your custom :py:class:`.GraphModule` subclass.
 
-        Args:
-            size_in (int): The number of input :py:class:`.GraphNode` s to create and attach
-            size_out (int):  The number of output :py:class:`.GraphNode` s to create and attach
-            name (str): An arbitrary name to attach to this :py:class:`.GraphModule`
-            computational_module (Module): A rockpool computational module that forms the "generator" of this graph module
-            *args, **kwargs: Any additional arguments to pass to the specific subclass constructor
-
-        Returns:
-            GraphModule: The newly constructed :py:class:`.GraphModule` or :py:class:`.GraphModule` subclass
+        :param size_in:  The number of input :py:class:`.GraphNode` s to create and attach
+        :type size_in: int
+        :param size_out: The number of output :py:class:`.GraphNode` s to create and attach
+        :type size_out: int
+        :param name: An arbitrary name to attach to this :py:class:`.GraphModule`, defaults to None
+        :type name: str, optional
+        :param computational_module: A rockpool computational module that forms the "generator" of this graph module, defaults to None
+        :type computational_module: Optional[Module], optional
+        :return: The newly constructed :py:class:`.GraphModule` or :py:class:`.GraphModule` subclass
+        :rtype: GraphModuleBase
         """
         # - Generate nodes
         input_nodes = SetList([GraphNode() for _ in range(size_in)])
