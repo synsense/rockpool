@@ -27,6 +27,8 @@ All notable changes between Rockpool releases will be documented in this file.
 * Implemented `ExpSynExodus` for accelerated training of exponential synapse modules
 * Added initial developer documentation
 
+* Fixed notebook links to MyBinder.org
+
 ## [v2.5] -- 2022-11-29
 
 ### Added

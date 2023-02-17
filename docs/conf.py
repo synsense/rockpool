@@ -83,7 +83,7 @@ rst_prolog = """
 """
 
 nbsphinx_prolog = r"""
-{% set docname = env.doc2path(env.docname, base='docs') %}
+{% set docname = 'docs/' + env.doc2path(env.docname, base=None) %}
 
 .. only:: html
 
@@ -93,10 +93,10 @@ nbsphinx_prolog = r"""
     .. nbinfo::
         This page was generated from `{{ docname }}`__.
         Interactive online version:
-        :raw-html:`<a href="https://mybinder.org/v2/gl/synsense%2Frockpool/v{{ env.config.release }}?filepath={{ docname }}"><img alt="Binder badge" src="https://mybinder.org/badge_logo.svg" style="vertical-align:text-bottom"></a>`
+        :raw-html:`<a href="https://mybinder.org/v2/gh/synsense/rockpool/v{{ env.config.release|e }}?filepath={{ docname }}"><img alt="Binder badge" src="https://mybinder.org/badge_logo.svg" style="vertical-align:text-bottom"></a>`
         
-    __ https://mybinder.org/v2/gl/synsense%2Frockpool/
-        {{ env.config.release }}/{{ docname }}
+    __ https://mybinder.org/v2/gh/synsense/rockpool/
+        {{ env.config.release|e }}/{{ docname }}
         
 .. raw:: latex
     \nbsphinxstartnotebook{\scriptsize\noindent\strut
