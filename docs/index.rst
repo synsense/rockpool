@@ -51,7 +51,6 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    tutorials/adversarial_training.ipynb
 
    tutorials/rockpool-shd.ipynb
-   tutorials/analog-frontend-example.ipynb
    tutorials/wavesense_training.ipynb
    
    .. tutorials/building_reservoir.ipynb
