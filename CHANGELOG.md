@@ -26,6 +26,7 @@ All notable changes between Rockpool releases will be documented in this file.
    - Hotfix: Regression in `LIFExodus`
 * Implemented `ExpSynExodus` for accelerated training of exponential synapse modules
 * Added initial developer documentation
+* Added MNIST tutorial
 
 ## [v2.5] -- 2022-11-29
 
