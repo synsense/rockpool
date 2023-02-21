@@ -14,17 +14,17 @@ from cgi import test
 import numpy as np
 from xylo_a3_sim.pdm_adc import PDM_ADC
 
+
 def test_pdm_adc():
     # set all default parameters
     pdm_adc = PDM_ADC()
 
     print(pdm_adc)
 
+
 def main():
     test_pdm_adc()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
-
-    

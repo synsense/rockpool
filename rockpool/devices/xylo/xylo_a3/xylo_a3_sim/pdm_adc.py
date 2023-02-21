@@ -1,7 +1,7 @@
 # -----------------------------------------------------------
-# This module contains the PDM-based ADC for sampling the input audion signal. 
+# This module contains the PDM-based ADC for sampling the input audion signal.
 # It consists of two main parts:
-#   (i)     a sigma-delta based PDM microphone that converts the input analog audio into a PDM bit stream where the 
+#   (i)     a sigma-delta based PDM microphone that converts the input analog audio into a PDM bit stream where the
 #           relative frequency of 1-vs-0 depends on the amplitude of the signal
 #   (ii)    a low-pass filter follows by decimation stage that processes the PDM bit stream and recovers the sampled
 #           audio upto a given bit precision.
@@ -22,7 +22,7 @@
 # last update: 18.01.2023
 # -----------------------------------------------------------
 
-# FIXME: 
+# FIXME:
 # (i)   I need to check if the final decimation factor was decided to be 32 or 64?
 # (ii)  If 32, did hardware team decided to reduce PDM clock accordingly?
 # (iii) What was the final decision for the filter length?
@@ -43,6 +43,7 @@ import scipy.signal as sp
 import warnings
 
 from typing import Union, Tuple, List, Dict
+
 P_int = Union[int, ParameterBase]
 P_float = Union[float, ParameterBase]
 P_array = Union[np.array, ParameterBase]
@@ -75,10 +76,10 @@ NUM_BITS_ADC = 14
 
 class PDM_Microphone(Module):
     def __init__(
-        self, 
-        sdm_order: int = SIGMA_DELTA_ORDER, 
-        sdm_OSR: int = PDM_FILTER_DECIMATION_FACTOR, 
-        fs: float = PDM_SAMPLING_RATE
+        self,
+        sdm_order: int = SIGMA_DELTA_ORDER,
+        sdm_OSR: int = PDM_FILTER_DECIMATION_FACTOR,
+        fs: float = PDM_SAMPLING_RATE,
     ):
         """this class simulates the PDM microphone which applies sigma-delta modulation on the input audio signal.
         The input to microphone is an analog audio signal and the output is a PDM bit-stream in which the relative
@@ -87,25 +88,24 @@ class PDM_Microphone(Module):
         Args:
             sdm_order (int): order of the sigma-delta modulator (conventional ones are 2 or 3). Defaults to SIGMA_DELTA_ORDER.
             sdm_OSR (int): oversampling rate in sigma-delta modulator. Defaults to PDM_FILTER_DECIMATION_FACTOR.
-            fs (int): rate of the clock used for deriving the PDM microphone. 
+            fs (int): rate of the clock used for deriving the PDM microphone.
                     NOTE: PDM microphone can be derived by various clock rates. By changing the clock rate and sdm_OSR we can
                     keep the sampling rate of the audio fixed.
         """
 
         # sigma-delta modulator parameters
         self._sdm_order: P_int = Parameter(sdm_order)
-        self._sdm_OSR : P_int = Parameter(sdm_OSR)
-        self._fs : P_float = Parameter(fs)
-        
+        self._sdm_OSR: P_int = Parameter(sdm_OSR)
+        self._fs: P_float = Parameter(fs)
+
         # build the sigmal-delta module
         self._sdm_module = ds.synthesizeNTF(self.sdm_order, self.sdm_OSR, opt=1)
-        
-        
-    def evolve(self, audio:np.ndarray, audio_sampling_rate:float)->np.ndarray:
+
+    def evolve(self, audio: np.ndarray, audio_sampling_rate: float) -> np.ndarray:
         """This function takes the input audio signal and produces the PDM bit-stream.
         NOTE: the audio signal should be normalized to the valid range of sigma-delat modulator [-1.0, 1.0].
               If not in this range, clipoing should be applied manually to limit the signal into this range.
-        
+
 
         Args:
             audio (np.ndarray): input audio signal.
@@ -119,50 +119,57 @@ class PDM_Microphone(Module):
         Returns:
             np.ndarray: array containing PDM bit-stream at the output of the microphone.
         """
-        
+
         if audio.ndim != 1:
-            raise ValueError("only single-channel audio signals can be processed by the sigma-delta modulator in PDM microphone!")
+            raise ValueError(
+                "only single-channel audio signals can be processed by the sigma-delta modulator in PDM microphone!"
+            )
 
         if np.max(np.abs(audio)) > 1.0:
             raise ValueError(
-                "Some of the signal samples have an amplitude larger than 1.0.\n"+\
-                "Sigma-delta modulator is designed to work with signal values normalized in the range [-1.0, 1.0].\n"+\
-                "Normalize the signal or clip it to the range [-1.0, 1.0] manually before applying it to PDM microhpne."
+                "Some of the signal samples have an amplitude larger than 1.0.\n"
+                + "Sigma-delta modulator is designed to work with signal values normalized in the range [-1.0, 1.0].\n"
+                + "Normalize the signal or clip it to the range [-1.0, 1.0] manually before applying it to PDM microhpne."
             )
 
         if audio_sampling_rate < self.fs:
-            warnings.warn("\n\n" + " warnings ".center(120, "+") + "\n" +\
-                f"In practice, the input to the PDM microphone (fed by a clock of rate:{self.fs}) is the analog audio signal.\n"+\
-                "In simulations, however, we have to use sampled audio signal at the input to mimic this analog signal.\n"+\
-                f"Here we resample the input auido (of course artificially) to the higher sample rate of PDM mcirophone ({self.fs}).\n"+\
-                "For a more realistic simulation, it is better to provide an audio signal which is originally sampled with a higher rate.\n"+
-                "+"*120 + "\n\n"
+            warnings.warn(
+                "\n\n"
+                + " warnings ".center(120, "+")
+                + "\n"
+                + f"In practice, the input to the PDM microphone (fed by a clock of rate:{self.fs}) is the analog audio signal.\n"
+                + "In simulations, however, we have to use sampled audio signal at the input to mimic this analog signal.\n"
+                + f"Here we resample the input auido (of course artificially) to the higher sample rate of PDM mcirophone ({self.fs}).\n"
+                + "For a more realistic simulation, it is better to provide an audio signal which is originally sampled with a higher rate.\n"
+                + "+" * 120
+                + "\n\n"
             )
-        
+
         # resample the input audio signal to the sampling rate of the sigma-delta modulator
-        duration = len(audio)/audio_sampling_rate
-        time_resample = np.arange(0, duration, step=1/self.fs)
-        
-        audio_resampled = TSContinuous.from_clocked(samples=audio.ravel(), dt=1/audio_sampling_rate)(time_resample).ravel()
-        
+        duration = len(audio) / audio_sampling_rate
+        time_resample = np.arange(0, duration, step=1 / self.fs)
+
+        audio_resampled = TSContinuous.from_clocked(
+            samples=audio.ravel(), dt=1 / audio_sampling_rate
+        )(time_resample).ravel()
+
         # compute the sigma-delta modulation
         audio_pdm, *_ = ds.simulateDSM(audio_resampled, self._sdm_module)
 
         # use the integer format for the final {-1,+1}-valued binary PDM data
         if audio_pdm.dtype != np.int64:
             audio_pdm = audio_pdm.astype(np.int64)
-            
+
         unique_vals = set(np.unique(audio_pdm))
-        if unique_vals != {-1,1} and unique_vals !={1} and unique_vals!={-1}:
+        if unique_vals != {-1, 1} and unique_vals != {1} and unique_vals != {-1}:
             raise ValueError(
-                "The output of sigma-delta modulator should be a {-1,+1}-valued signal.\n"+\
-                "This problem may arise when the sigma-delta simulator is unstable!\n"
+                "The output of sigma-delta modulator should be a {-1,+1}-valued signal.\n"
+                + "This problem may arise when the sigma-delta simulator is unstable!\n"
             )
-        
+
         return audio_pdm
 
-
-    def __call__(self, *args, **kwargs)->np.ndarray:
+    def __call__(self, *args, **kwargs) -> np.ndarray:
         """This is the same as `evolve` function.
 
         Returns:
@@ -171,30 +178,30 @@ class PDM_Microphone(Module):
         return self.evolve(*args, **kwargs)
 
     def __repr__(self) -> str:
-        string = "This is the module for simulating PDM microphone which uses sigma-delta modulation.\n"+\
-                "The input analog audio signal is mapped to a binary stream of modulated data which is them interpolated to recover a sampled version of the analog input.\n"+\
-                "Parameters:\n"+\
-                f"Sigma-Delta modulation order: {self.sdm_order}\n"+\
-                f"Sigma-Delta oversampling rate (ratio between the rate of PDM clock and target audio sampling rate): {self.sdm_OSR}\n"+\
-                f"Sigma-Delta clock rate: {self.fs}\n"
+        string = (
+            "This is the module for simulating PDM microphone which uses sigma-delta modulation.\n"
+            + "The input analog audio signal is mapped to a binary stream of modulated data which is them interpolated to recover a sampled version of the analog input.\n"
+            + "Parameters:\n"
+            + f"Sigma-Delta modulation order: {self.sdm_order}\n"
+            + f"Sigma-Delta oversampling rate (ratio between the rate of PDM clock and target audio sampling rate): {self.sdm_OSR}\n"
+            + f"Sigma-Delta clock rate: {self.fs}\n"
+        )
         return string
-
 
     # collection of attributes
     @property
     def fs(self):
         return self._fs
-    
+
     @fs.setter
-    def fs(self, fs:float):
+    def fs(self, fs: float):
         self._fs: P_float = Parameter(fs)
         self._sdm_module = ds.synthesizeNTF(self.sdm_order, self.sdm_OSR, opt=1)
-    
+
     @property
     def sdm_order(self):
         return self._sdm_order
-        
-    
+
     @sdm_order.setter
     def sdm_order(self, sdm_order: int):
         self._sdm_order: P_int = Parameter(sdm_order)
@@ -203,13 +210,11 @@ class PDM_Microphone(Module):
     @property
     def sdm_OSR(self):
         return self._sdm_OSR
-    
+
     @sdm_OSR.setter
     def sdm_OSR(self, sdm_OSR):
         self._sdm_OSR: P_int = Parameter(sdm_OSR)
         self._sdm_module = ds.synthesizeNTF(self.sdm_order, self.sdm_OSR, opt=1)
-
-
 
 
 class PolyPhaseFIR_DecimationFilter(Module):
@@ -239,21 +244,21 @@ class PolyPhaseFIR_DecimationFilter(Module):
             cutoff_width (float, optional): the transition width of the filter. Defaults to AUDIO_CUTOFF_FREQUENCY_WIDTH (is set to 20% of the cutoff frequency).
             filt_length (int, optional): length of the designed FIR filter. Defaults to DECIMATION_FILTER_LENGTH.
             num_bits_filter_Q (int, optional): number of bits used for quantzing the filter coefficients. Defaults to NUM_BITS_FILTER_Q bits.
-            num_bits_output (int, optional): number of bits devoted to the final sampled audio obtained after low-pass filtering + decimation. 
+            num_bits_output (int, optional): number of bits devoted to the final sampled audio obtained after low-pass filtering + decimation.
                                             Officially this corresponds to number of quantization bits in a conventional SAR ADC. Defaults to NUM_BITS_ADC bits.
             fs (float, optional): sampling frequency or bit rate of PDM bit-stream. Defaults to PDM_SAMPLING_RATE.
         """
-        
+
         # ratio between the clock rate of PDM microphone and the target sampling rate of the final sampled audio obatined after low-pass filtering + decimation
-        self._decimation_factor : P_float = Parameter(decimation_factor)
+        self._decimation_factor: P_float = Parameter(decimation_factor)
 
         # cutoff frequency of the low-pass filter used for audio recovery
-        self._cutoff : P_float = Parameter(cutoff)
+        self._cutoff: P_float = Parameter(cutoff)
 
         # the transition width of the low-pass filter
-        self._cutoff_width : P_float = Parameter(cutoff_width)
+        self._cutoff_width: P_float = Parameter(cutoff_width)
 
-        # length of the FIR low-pass filter 
+        # length of the FIR low-pass filter
         self._filt_length: P_int = Parameter(filt_length)
 
         # number of bits used for quantizing the FIR filter taps
@@ -265,17 +270,15 @@ class PolyPhaseFIR_DecimationFilter(Module):
         # clock rate of the PDM microphone / clock rate of the binary PDM signal received from the microphone
         self._fs: P_float = Parameter(fs)
 
-
         # filter quantized impulse response and the number of bits at the output before final quantization (bit truncation)
-        # NOTE: 
+        # NOTE:
         # After low-pass filteirng the PDM bit-stream, one obtains the pre-quantization/pre-truncation signal.
         # Enough number of bits are needed to avoid any over and underflow in the filter.
         # Also, some of the LSB's in the pre-truncation output need to be dropped to obtain the final sampled audio with
         # targetted number of bits.
         h, num_bits_output_pre_Q = self._build_filter()
-        self._h : P_array = Parameter(h)
+        self._h: P_array = Parameter(h)
         self._num_bits_output_pre_Q: P_int = Parameter(num_bits_output_pre_Q)
-
 
     def evolve(self, sig_in: np.ndarray) -> np.ndarray:
         """this function processes the {-1,+1}-valued PDM signal and produces the final sampled audio signal.
@@ -287,7 +290,6 @@ class PolyPhaseFIR_DecimationFilter(Module):
             np.ndarray: final sampled audio signal.
         """
         self._verify_pdm_signal(sig_in)
-        
 
         # convert the signal into 0-1 representtaion to have a simpler implementation in hardware with less addition
         # this efficiency is, however, not considered in the simulation implemented here.
@@ -316,7 +318,6 @@ class PolyPhaseFIR_DecimationFilter(Module):
             sig_out = sig_out_pre_Q << (-num_right_bit_shifts)
 
         return sig_out
-    
 
     def __call__(self, *args, **kwargs):
         """
@@ -324,7 +325,6 @@ class PolyPhaseFIR_DecimationFilter(Module):
         """
         return self.evolve(*args, **kwargs)
 
-    
     def print_hardware_specs(self):
         """
         this function prints the details needed for implementing the filter in hardware.
@@ -342,7 +342,6 @@ class PolyPhaseFIR_DecimationFilter(Module):
             if (i + 1) % 16 == 0:
                 print()
 
-
     def __repr__(self) -> str:
         string = (
             "Polyphase FIR filter:\n"
@@ -358,9 +357,8 @@ class PolyPhaseFIR_DecimationFilter(Module):
 
         return string
 
-
     # functions for converting the input PDM signal and filter taps into Polyphase representation
-    def _filter_polyphase_array(self, filt:np.ndarray)->np.ndarray:
+    def _filter_polyphase_array(self, filt: np.ndarray) -> np.ndarray:
         """this function converts the filter into its polyphase array representation.
         For more details, see the documentation in https://spinystellate.office.synsense.ai/saeid.haghighatshoar/pdm-microphone-analysis
 
@@ -373,7 +371,9 @@ class PolyPhaseFIR_DecimationFilter(Module):
         if filt.ndim > 1:
             raise ValueError("the filter should be a 1-dim array!")
 
-        num_zero_samples = (self.decimation_factor - (len(filt) % self.decimation_factor)) % self.decimation_factor
+        num_zero_samples = (
+            self.decimation_factor - (len(filt) % self.decimation_factor)
+        ) % self.decimation_factor
 
         if num_zero_samples > 0:
             # append zeros to the end in order not to lose the 0-phase in polyphase
@@ -384,8 +384,7 @@ class PolyPhaseFIR_DecimationFilter(Module):
 
         return filt
 
-
-    def _signal_polyphase_array(self, sig_in:np.ndarray)->np.ndarray:
+    def _signal_polyphase_array(self, sig_in: np.ndarray) -> np.ndarray:
         """this function converts the input signal into its polyphase array representation.
 
         Args:
@@ -397,17 +396,18 @@ class PolyPhaseFIR_DecimationFilter(Module):
         if sig_in.ndim > 1:
             raise ValueError("input signal should be 1-dim!")
 
-        num_zero_samples = (self._decimation_factor - (len(sig_in) % self._decimation_factor)) % self._decimation_factor
+        num_zero_samples = (
+            self._decimation_factor - (len(sig_in) % self._decimation_factor)
+        ) % self._decimation_factor
 
         if num_zero_samples > 0:
             # append zeros to the end in order not to lose the 0-phase in polyphase
             sig_in = np.concatenate([sig_in.ravel(), [0] * num_zero_samples])
 
         # reshape the signal
-        sig_in = sig_in.reshape(-1,self._decimation_factor).T
+        sig_in = sig_in.reshape(-1, self._decimation_factor).T
 
         return sig_in
-    
 
     # collection of getter and setter for the attributes
     # this is needed since changing one of the parameters requires adjusting the other parameters as well.
@@ -419,9 +419,8 @@ class PolyPhaseFIR_DecimationFilter(Module):
     def decimation_factor(self, decimation_factor: int):
         self._decimation_factor: P_int = Parameter(decimation_factor)
         h, num_bits_output_pre_Q = self._build_filter()
-        self._h : P_array = Parameter(h)
+        self._h: P_array = Parameter(h)
         self._num_bits_output_pre_Q: P_int = Parameter(num_bits_output_pre_Q)
-
 
     @property
     def cutoff(self):
@@ -433,7 +432,7 @@ class PolyPhaseFIR_DecimationFilter(Module):
 
         # filter quantized impulse response and the number of bits at the output before final quantization (bit truncation)
         h, num_bits_output_pre_Q = self._build_filter()
-        self._h : P_array = Parameter(h)
+        self._h: P_array = Parameter(h)
         self._num_bits_output_pre_Q: P_int = Parameter(num_bits_output_pre_Q)
 
     @property
@@ -446,7 +445,7 @@ class PolyPhaseFIR_DecimationFilter(Module):
 
         # filter quantized impulse response and the number of bits at the output before final quantization (bit truncation)
         h, num_bits_output_pre_Q = self._build_filter()
-        self._h : P_array = Parameter(h)
+        self._h: P_array = Parameter(h)
         self._num_bits_output_pre_Q: P_int = Parameter(num_bits_output_pre_Q)
 
     @property
@@ -459,7 +458,7 @@ class PolyPhaseFIR_DecimationFilter(Module):
 
         # filter quantized impulse response and the number of bits at the output before final quantization (bit truncation)
         h, num_bits_output_pre_Q = self._build_filter()
-        self._h : P_array = Parameter(h)
+        self._h: P_array = Parameter(h)
         self._num_bits_output_pre_Q: P_int = Parameter(num_bits_output_pre_Q)
 
     @property
@@ -472,7 +471,7 @@ class PolyPhaseFIR_DecimationFilter(Module):
 
         # filter quantized impulse response and the number of bits at the output before final quantization (bit truncation)
         h, num_bits_output_pre_Q = self._build_filter()
-        self._h : P_array = Parameter(h)
+        self._h: P_array = Parameter(h)
         self._num_bits_output_pre_Q: P_int = Parameter(num_bits_output_pre_Q)
 
     @property
@@ -502,13 +501,12 @@ class PolyPhaseFIR_DecimationFilter(Module):
 
         # filter quantized impulse response and the number of bits at the output before final quantization (bit truncation)
         h, num_bits_output_pre_Q = self._build_filter()
-        self._h : P_array = Parameter(h)
+        self._h: P_array = Parameter(h)
         self._num_bits_output_pre_Q: P_int = Parameter(num_bits_output_pre_Q)
 
     @property
     def h(self):
         return self._h
-
 
     # initialization part
     def _build_filter(self) -> np.ndarray:
@@ -570,7 +568,7 @@ class PolyPhaseFIR_DecimationFilter(Module):
         return h_vec_Q, num_bits_output_pre_Q
 
     def _verify_pdm_signal(self, sig_in: np.ndarray):
-        """ input PDM signal : {-1,+1}-valued """
+        """input PDM signal : {-1,+1}-valued"""
         if sig_in.ndim > 1:
             raise ValueError("input signal should be 1-dim.")
 
@@ -582,15 +580,15 @@ class PolyPhaseFIR_DecimationFilter(Module):
         unique_values = set(np.unique(sig_in))
         if unique_values != {1, -1} and unique_values != {1} and unique_values != {-1}:
             raise ValueError(
-                "Input signal should be binary-valued (PDM signal) in anti-podal format in {-1, +1}!\n"+\
-                "Convert to integer in case needed to make sure that the signal is indeed binary with -1 or +1 values!"
+                "Input signal should be binary-valued (PDM signal) in anti-podal format in {-1, +1}!\n"
+                + "Convert to integer in case needed to make sure that the signal is indeed binary with -1 or +1 values!"
             )
 
     # some utility functions needed for testing and verifiaction
 
     def fullevolve(self, sig_in: np.ndarray) -> np.ndarray:
         """this function returns the output of the filter before decimation.
-        This is not needed in the implementation but is necessary in performance analysis to see what was the 
+        This is not needed in the implementation but is necessary in performance analysis to see what was the
         high-precision signal before applying the decimation to lower-down its sampling rate to that of target audio sampling rate.
 
         Args:
@@ -659,13 +657,12 @@ class PolyPhaseFIR_DecimationFilter(Module):
 
         plt.show()
 
-    
 
 class PDM_ADC(Module):
     def __init__(
         self,
-        sdm_order: int = SIGMA_DELTA_ORDER, 
-        sdm_OSR: int = PDM_FILTER_DECIMATION_FACTOR, 
+        sdm_order: int = SIGMA_DELTA_ORDER,
+        sdm_OSR: int = PDM_FILTER_DECIMATION_FACTOR,
         fs: int = PDM_SAMPLING_RATE,
         cutoff: float = AUDIO_CUTOFF_FREQUENCY,
         cutoff_width: float = AUDIO_CUTOFF_FREQUENCY_WIDTH,
@@ -674,9 +671,9 @@ class PDM_ADC(Module):
         num_bits_output: int = NUM_BITS_ADC,
     ):
         """
-        Analog-to-Digital (ADC) module for Xylo-A3 chip consisting of 
+        Analog-to-Digital (ADC) module for Xylo-A3 chip consisting of
             (i)  PDM microphone converting the input analog audio signal into PDM bit-stream.
-            (ii) low-pass filtering and decimation module converting the binary PDM stream into the target sampled audio signal. 
+            (ii) low-pass filtering and decimation module converting the binary PDM stream into the target sampled audio signal.
 
 
         Args:
@@ -692,7 +689,7 @@ class PDM_ADC(Module):
             This is equivalent to the number of bits in the equivalent ADC. Defaults to NUM_BITS_ADC.
         """
         super().__init__()
-        
+
         # two modules of equivalent ADC
         self.pdm_microphone = PDM_Microphone(
             sdm_order=sdm_order,
@@ -709,27 +706,29 @@ class PDM_ADC(Module):
             num_bits_output=num_bits_output,
             fs=fs,
         )
-        
+
     def parameters(self, family: Union[str, Tuple, List] = None) -> Dict:
-        """ return the parameters as a dictionary. """
+        """return the parameters as a dictionary."""
         return {
-            **super().parameters(family), 
+            **super().parameters(family),
             "pdm_microphone": self.pdm_microphone.parameters(family),
             "low_pass_decimation": self.low_pass_decimation.parameters(family),
         }
-        
+
     def simulation_parameters(self, family: Union[str, Tuple, List] = None) -> Dict:
         return {
-            **super().parameters(family), 
+            **super().parameters(family),
             "pdm_microphone": self.pdm_microphone.simulation_parameters(family),
-            "low_pass_decimation": self.low_pass_decimation.simulation_parameters(family),
+            "low_pass_decimation": self.low_pass_decimation.simulation_parameters(
+                family
+            ),
         }
 
-    def evolve(self, audio:np.ndarray, audio_sampling_rate:float)->np.ndarray:
+    def evolve(self, audio: np.ndarray, audio_sampling_rate: float) -> np.ndarray:
         """This function takes the input audio signal and produces the 1-bit PDM modulation.
         Then it recovers the sampled audio from binary PDM signal with low-pass filtering and decimation.
         NOTE: the audio signal should be normalized to the valid range of sigma-delat modulator (-1.0, 1.0).
-        
+
 
         Args:
             audio (np.ndarray): input audio signal.
@@ -739,18 +738,20 @@ class PDM_ADC(Module):
             ValueError: if the amplitude is not scaled properly to the valid range [-1.0, 1.0].
 
         Returns:
-            np.ndarray: array containing the recovered sampled audio : output of the equivalent ADC 
+            np.ndarray: array containing the recovered sampled audio : output of the equivalent ADC
         """
 
         # obtain the PDM binary signal
-        audio_pdm = self.pdm_microphone(audio=audio, audio_sampling_rate=audio_sampling_rate)
-        
+        audio_pdm = self.pdm_microphone(
+            audio=audio, audio_sampling_rate=audio_sampling_rate
+        )
+
         # recover the sampled audio from the PDM signal
         adc_pdm_output = self.low_pass_decimation.evolve(sig_in=audio_pdm)
 
         return adc_pdm_output
 
-    def __call__(self, *args, **kwargs)->np.ndarray:
+    def __call__(self, *args, **kwargs) -> np.ndarray:
         """this module is the same as `evolve` function.
 
         Returns:
@@ -759,12 +760,16 @@ class PDM_ADC(Module):
         return self.evolve(*args, **kwargs)
 
     def __repr__(self) -> str:
-        string = "".center(120, "+")+"\n"+\
-            "PDM ADC for sampling the audio signal in Xylo-A3 consisting of the following modules:\n\n"+\
-            "-> PDM Microphone:\n"+\
-            self.pdm_microphone.__repr__()+\
-            "\n-> Low-pass filter + decimation:\n"+\
-            self.low_pass_decimation.__repr__() +\
-            "".center(120, "+")+"\n"
-        
+        string = (
+            "".center(120, "+")
+            + "\n"
+            + "PDM ADC for sampling the audio signal in Xylo-A3 consisting of the following modules:\n\n"
+            + "-> PDM Microphone:\n"
+            + self.pdm_microphone.__repr__()
+            + "\n-> Low-pass filter + decimation:\n"
+            + self.low_pass_decimation.__repr__()
+            + "".center(120, "+")
+            + "\n"
+        )
+
         return string
