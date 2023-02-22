@@ -300,7 +300,6 @@ class ExpSynExodus(LIFBaseTorch):
         # - Ensure input data is on GPU
         if not data.is_cuda:
             warnings.warn("Input data was not on a CUDA device. Moving it there now.")
-        data = data.to("cuda")
 
         # - Replicate data and states out by batches
         data, (isyn,) = self._auto_batch(data, (self.isyn,))
