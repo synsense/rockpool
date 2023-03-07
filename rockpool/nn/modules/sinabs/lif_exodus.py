@@ -27,18 +27,12 @@ if backend_available("sinabs"):
         from sinabs.exodus.spike import IntegrateAndFire
         from sinabs.exodus.leaky import LeakyIntegrator
     else:
-        IntegrateAndFire = missing_backend_shim(
-            class_name="IntegrateAndFire", backend_name="sinabs.exodus"
-        )
-        LeakyIntegrator = missing_backend_shim(
-            class_name="LeakyIntegrator", backend_name="sinabs.exodus"
-        )
+        IntegrateAndFire = missing_backend_shim("IntegrateAndFire", "sinabs.exodus")
+        LeakyIntegrator = missing_backend_shim("LeakyIntegrator", "sinabs.exodus")
 
 else:
-    Heaviside = missing_backend_shim(class_name="Heaviside", backend_name="sinabs")
-    SingleExponential = missing_backend_shim(
-        class_name="SingleExponential", backend_name="sinabs"
-    )
+    Heaviside = missing_backend_shim("Heaviside", "sinabs")
+    SingleExponential = missing_backend_shim("SingleExponential", "sinabs")
 
 
 __all__ = ["LIFExodus", "LIFMembraneExodus", "LIFSlayer", "ExpSynExodus"]
