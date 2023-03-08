@@ -24,6 +24,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    basics/installation
    basics/introduction_to_snns.ipynb
    basics/getting_started.ipynb
+   basics/hello_MNIST.ipynb
    basics/time_series.ipynb
    basics/standard_modules.ipynb
    basics/sharp_points.ipynb
@@ -51,7 +52,6 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    tutorials/adversarial_training.ipynb
 
    tutorials/rockpool-shd.ipynb
-   tutorials/analog-frontend-example.ipynb
    tutorials/wavesense_training.ipynb
    
    .. tutorials/building_reservoir.ipynb
