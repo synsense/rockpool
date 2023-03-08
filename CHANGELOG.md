@@ -28,6 +28,8 @@ All notable changes between Rockpool releases will be documented in this file.
 * Added initial developer documentation
 * Added MNIST tutorial
 
+* Fixed notebook links to MyBinder.org
+
 ## [v2.5] -- 2022-11-29
 
 ### Added
