@@ -30,6 +30,11 @@ All notable changes between Rockpool releases will be documented in this file.
 
 * Fixed notebook links to MyBinder.org
 
+### Changed
+
+* Update Samna version requirement to >=0.19.0
+
+
 ## [v2.5] -- 2022-11-29
 
 ### Added
