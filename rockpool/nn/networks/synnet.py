@@ -1,3 +1,5 @@
+
+
 """
 Implements the SynNet architecture for temporal signal processing
 
@@ -14,7 +16,7 @@ from rockpool.nn.combinators.sequential import Sequential
 
 import torch
 
-from typing import List, Type
+from typing import List, Type, Union
 
 __all__ = ["SynNet"]
 
@@ -31,6 +33,7 @@ class SynNet(TorchModule):
         tau_syn_out: float = 0.002,
         quantize_time_constants: bool = True,
         threshold: float = 1.0,
+        threshold_out: Union[float, List[float]] = None,
         train_threshold: bool = False,
         neuron_model: Type = LIFTorch,
         max_spikes_per_dt: int = 31,
@@ -54,6 +57,7 @@ class SynNet(TorchModule):
             :param float tau_mem:                 membrane time constant of all neurons in seconds
             :param bool quantize_time_constants:  determines if time constants are rounded to deployment values
             :param float threshold:               threshold of hidden neurons
+            :param float or list threshold_out:   thresholds of readout neurons, can only be set if output is spikes
             :param bool train_threshold:          determines of threshold is trained
             :param TorchModule neuron_model:      neuron model of all neurons
             :param max_spikes_per_dt:             maximum number of spikes per time step of all neurons apart from
@@ -86,10 +90,20 @@ class SynNet(TorchModule):
 
         if output not in ["spikes", "vmem"]:
             raise ValueError("output variable ", output, " not defined")
+        if output == "vmem" and threshold_out is not None:
+            raise ValueError("threshold of readout neurons is not applied if output is vmem (membrane potential)")
+
         if output == "vmem":
-            threshold_out = 100.0
+            thresholds_out = [100.0 for _ in range(n_classes)]
+        elif threshold_out is None:
+            thresholds_out = [threshold for _ in range(n_classes)]
+        elif isinstance(threshold_out, float):
+            thresholds_out = [threshold_out for _ in range(n_classes)]
         else:
-            threshold_out = threshold
+            if len(threshold_out) != n_classes:
+                raise ValueError("threshold_out has to be float or list of floats with length equal to the number of classes")
+            thresholds_out = threshold_out
+
         self.output = output
 
         # round time constants to the values they will take when deploying to Xylo
@@ -172,7 +186,7 @@ class SynNet(TorchModule):
                 tau_mem=Constant(tau_mem),
                 tau_syn=Constant(tau_syn_out),
                 bias=Constant(0.0),
-                threshold=Constant([threshold_out for _ in range(n_classes)]),
+                threshold=Constant(thresholds_out),
                 spike_generation_fn=PeriodicExponential,
                 max_spikes_per_dt=max_spikes_per_dt_out,
                 dt=dt,
@@ -217,3 +231,5 @@ class SynNet(TorchModule):
 
     def as_graph(self):
         return self.seq.as_graph()
+
+
