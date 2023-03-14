@@ -30,7 +30,7 @@ setup_args = {
             "pandoc",
             "sinabs>=1.0",
             "xylosim",
-            "samna>=0.10.32.0",
+            "samna>=0.19.0.0",
             "bitstruct",
         ]
     },
