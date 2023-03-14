@@ -16,6 +16,8 @@ import torch
 
 from typing import List, Type, Union
 
+THRESHOLD_OUT = 100.0
+
 __all__ = ["SynNet"]
 
 
@@ -94,7 +96,7 @@ class SynNet(TorchModule):
             )
 
         if output == "vmem":
-            thresholds_out = [100.0 for _ in range(n_classes)]
+            thresholds_out = [THRESHOLD_OUT for _ in range(n_classes)]
         elif threshold_out is None:
             thresholds_out = [threshold for _ in range(n_classes)]
         elif isinstance(threshold_out, float):
