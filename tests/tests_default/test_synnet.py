@@ -690,6 +690,7 @@ def test_synnet_graph_extraction_vmem_readout():
 def test_synnet_thresholds_readout():
     from rockpool.nn.networks import SynNet
 
+    # test that threshold of all other neurons is used for readout neurons if nothing else is defined
     size_hidden_layers = [60, 3]
     time_constants_per_layer = [3, 1]
     n_classes = 3
@@ -707,6 +708,7 @@ def test_synnet_thresholds_readout():
     for i in range(n_classes):
         assert model.seq[7].threshold[i] == threshold
 
+    # test that threshold_out is set correctly for all readout neurons if its set equal for all readout neuroms
     threshold = 1.3
     threshold_out = 1.4
     model = SynNet(
@@ -722,6 +724,7 @@ def test_synnet_thresholds_readout():
     for i in range(n_classes):
         assert model.seq[7].threshold[i] == threshold_out
 
+    # test that threshold_out is set correctly for all readout neurons if we choose a separate threshold for each neuron
     threshold = 1.3
     threshold_out = [1.4, 1.5, 1.0]
     model = SynNet(
