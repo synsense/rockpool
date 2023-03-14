@@ -118,11 +118,6 @@ class LIFExodus(LIFBaseTorch):
             torch.Tensor: Out of spikes with the shape (batch, time_steps, n_neurons)
         """
 
-        # - Ensure input data is on GPU
-        if not data.is_cuda:
-            warnings.warn("Input data was not on a CUDA device. Moving it there now.")
-        data = data.to("cuda")
-
         # - Replicate data and states out by batches
         data, (vmem, isyn, spikes) = self._auto_batch(
             data, (self.vmem, self.isyn, self.spikes)
@@ -297,10 +292,6 @@ class ExpSynExodus(LIFBaseTorch):
             torch.Tensor: Out of spikes with the shape (batch, time_steps, n_synapses)
         """
 
-        # - Ensure input data is on GPU
-        if not data.is_cuda:
-            warnings.warn("Input data was not on a CUDA device. Moving it there now.")
-
         # - Replicate data and states out by batches
         data, (isyn,) = self._auto_batch(data, (self.isyn,))
 
@@ -421,10 +412,6 @@ class LIFMembraneExodus(LIFBaseTorch):
         Returns:
             torch.Tensor: Out of spikes with the shape (batch, time_steps, n_neurons)
         """
-
-        # - Ensure input data is on GPU
-        if not data.is_cuda:
-            warnings.warn("Input data was not on a CUDA device. Moving it there now.")
 
         # - Replicate data and states out by batches
         data, (vmem, isyn) = self._auto_batch(data, (self.vmem, self.isyn))
