@@ -740,7 +740,7 @@ def test_synnet_thresholds_readout_list():
     size_hidden_layers = [60, 3]
     time_constants_per_layer = [3, 1]
     n_classes = 3
-    
+
     threshold = 1.3
     threshold_out = [1.4, 1.5, 1.0]
     model = SynNet(
