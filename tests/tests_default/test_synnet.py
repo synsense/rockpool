@@ -712,7 +712,11 @@ def test_synnet_thresholds_readout_default():
 def test_synnet_thresholds_readout_float():
     from rockpool.nn.networks import SynNet
 
-    # test that threshold_out is set correctly for all readout neurons if its set equal for all readout neuroms
+    # test that threshold_out is set correctly for all readout neurons if its set equal for all readout neurons
+    size_hidden_layers = [60, 3]
+    time_constants_per_layer = [3, 1]
+    n_classes = 3
+
     threshold = 1.3
     threshold_out = 1.4
     model = SynNet(
@@ -733,6 +737,10 @@ def test_synnet_thresholds_readout_list():
     from rockpool.nn.networks import SynNet
 
     # test that threshold_out is set correctly for all readout neurons if we choose a separate threshold for each neuron
+    size_hidden_layers = [60, 3]
+    time_constants_per_layer = [3, 1]
+    n_classes = 3
+    
     threshold = 1.3
     threshold_out = [1.4, 1.5, 1.0]
     model = SynNet(
