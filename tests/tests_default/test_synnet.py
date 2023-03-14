@@ -687,7 +687,6 @@ def test_synnet_graph_extraction_vmem_readout():
             raise ValueError("Unintended computational model found!")
 
 
-
 def test_synnet_thresholds_readout():
     from rockpool.nn.networks import SynNet
 
@@ -716,7 +715,7 @@ def test_synnet_thresholds_readout():
         size_hidden_layers=size_hidden_layers,
         time_constants_per_layer=time_constants_per_layer,
         threshold=threshold,
-        threshold_out=threshold_out
+        threshold_out=threshold_out,
     )
 
     assert len(model.seq[7].threshold) == n_classes
@@ -731,10 +730,9 @@ def test_synnet_thresholds_readout():
         size_hidden_layers=size_hidden_layers,
         time_constants_per_layer=time_constants_per_layer,
         threshold=threshold,
-        threshold_out=threshold_out
+        threshold_out=threshold_out,
     )
 
     assert len(model.seq[7].threshold) == n_classes
     for i in range(n_classes):
         assert model.seq[7].threshold[i] == threshold_out[i]
-

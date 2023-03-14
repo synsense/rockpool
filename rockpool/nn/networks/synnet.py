@@ -1,5 +1,3 @@
-
-
 """
 Implements the SynNet architecture for temporal signal processing
 
@@ -91,7 +89,9 @@ class SynNet(TorchModule):
         if output not in ["spikes", "vmem"]:
             raise ValueError("output variable ", output, " not defined")
         if output == "vmem" and threshold_out is not None:
-            raise ValueError("threshold of readout neurons is not applied if output is vmem (membrane potential)")
+            raise ValueError(
+                "threshold of readout neurons is not applied if output is vmem (membrane potential)"
+            )
 
         if output == "vmem":
             thresholds_out = [100.0 for _ in range(n_classes)]
@@ -101,7 +101,9 @@ class SynNet(TorchModule):
             thresholds_out = [threshold_out for _ in range(n_classes)]
         else:
             if len(threshold_out) != n_classes:
-                raise ValueError("threshold_out has to be float or list of floats with length equal to the number of classes")
+                raise ValueError(
+                    "threshold_out has to be float or list of floats with length equal to the number of classes"
+                )
             thresholds_out = threshold_out
 
         self.output = output
@@ -231,5 +233,3 @@ class SynNet(TorchModule):
 
     def as_graph(self):
         return self.seq.as_graph()
-
-
