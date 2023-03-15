@@ -67,7 +67,7 @@ class LIFExodus(LIFBaseTorch):
             >>> data = torch.ones((1, 10, 4))
             >>> device = 'cuda: 1'
             >>> mod.to(device)
-            >>> data.to(device)
+            >>> data = data.to(device)
             >>> output = mod(data)
 
         Args:
@@ -243,7 +243,7 @@ class ExpSynExodus(LIFBaseTorch):
             >>> data = torch.ones((1, 10, 4))
             >>> device = 'cuda: 1'
             >>> mod.to(device)
-            >>> data.to(device)
+            >>> data = data.to(device)
             >>> output = mod(data)
 
 
@@ -374,7 +374,7 @@ class LIFMembraneExodus(LIFBaseTorch):
             >>> data = torch.ones((1, 10, 4))
             >>> device = 'cuda: 1'
             >>> mod.to(device)
-            >>> data.to(device)
+            >>> data = data.to(device)
             >>> output = mod(data)
 
         Args:
