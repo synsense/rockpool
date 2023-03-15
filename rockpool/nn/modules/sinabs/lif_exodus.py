@@ -61,6 +61,14 @@ class LIFExodus(LIFBaseTorch):
             Specify the membrane and synapse time constants, as well as time-step ``dt``.
 
             >>> mod = LIFExodus((4, 2), tau_mem = 30e-3, tau_syn = 10e-3, dt = 10e-3)
+            
+            Pass the model and data to the same cuda device, since it is required to use CUDA on this module.
+            
+            >>> data = torch.ones((4,))
+            >>> device = 'cuda: 1'
+            >>> mod.to(device)
+            >>> data.to(device)
+            >>> output = mod(data)
 
         Args:
             shape (tuple): The shape of this module
@@ -102,9 +110,6 @@ class LIFExodus(LIFBaseTorch):
         # - Check that CUDA is available
         if not torch.cuda.is_available():
             raise EnvironmentError("CUDA is required for exodus-backed modules.")
-
-        # - Move module to CUDA device
-        self.cuda()
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
@@ -232,6 +237,14 @@ class ExpSynExodus(LIFBaseTorch):
             Specify multiple synaptic time constants.
 
             >>> mod = LIFExodus(2, tau_syn = [10e-3, 20e-3])
+            
+            Pass the model and data to the same cuda device, since it is required to use CUDA on this module.
+            
+            >>> data = torch.ones((4,))
+            >>> device = 'cuda: 1'
+            >>> mod.to(device)
+            >>> data.to(device)
+            >>> output = mod(data)
 
 
         Args:
@@ -276,9 +289,6 @@ class ExpSynExodus(LIFBaseTorch):
         # - Check that CUDA is available
         if not torch.cuda.is_available():
             raise EnvironmentError("CUDA is required for exodus-backed modules.")
-
-        # - Move module to CUDA device
-        self.cuda()
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
@@ -358,6 +368,14 @@ class LIFMembraneExodus(LIFBaseTorch):
             Specify the membrane and synapse time constants, as well as time-step ``dt``.
 
             >>> mod = LIFMembraneExodus((4, 2), tau_mem = 30e-3, tau_syn = 10e-3, dt = 10e-3)
+            
+            Pass the model and data to the same cuda device, since it is required to use CUDA on this module.
+            
+            >>> data = torch.ones((4,))
+            >>> device = 'cuda: 1'
+            >>> mod.to(device)
+            >>> data.to(device)
+            >>> output = mod(data)
 
         Args:
             shape (tuple): The shape of this module
@@ -397,9 +415,6 @@ class LIFMembraneExodus(LIFBaseTorch):
         # - Check that CUDA is available
         if not torch.cuda.is_available():
             raise EnvironmentError("CUDA is required for exodus-backed modules.")
-
-        # - Move module to CUDA device
-        self.cuda()
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
