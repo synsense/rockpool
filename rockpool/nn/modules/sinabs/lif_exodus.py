@@ -64,7 +64,7 @@ class LIFExodus(LIFBaseTorch):
             
             Pass the model and data to the same cuda device, since it is required to use CUDA on this module.
             
-            >>> data = torch.ones((4,))
+            >>> data = torch.ones((1, 10, 4))
             >>> device = 'cuda: 1'
             >>> mod.to(device)
             >>> data.to(device)
@@ -240,7 +240,7 @@ class ExpSynExodus(LIFBaseTorch):
             
             Pass the model and data to the same cuda device, since it is required to use CUDA on this module.
             
-            >>> data = torch.ones((4,))
+            >>> data = torch.ones((1, 10, 4))
             >>> device = 'cuda: 1'
             >>> mod.to(device)
             >>> data.to(device)
@@ -371,7 +371,7 @@ class LIFMembraneExodus(LIFBaseTorch):
             
             Pass the model and data to the same cuda device, since it is required to use CUDA on this module.
             
-            >>> data = torch.ones((4,))
+            >>> data = torch.ones((1, 10, 4))
             >>> device = 'cuda: 1'
             >>> mod.to(device)
             >>> data.to(device)
