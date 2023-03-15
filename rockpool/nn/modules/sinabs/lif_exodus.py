@@ -15,10 +15,25 @@ from rockpool.parameters import Constant
 
 from rockpool.graph import GraphModuleBase
 
-from sinabs.exodus.spike import IntegrateAndFire
-from sinabs.exodus.leaky import LeakyIntegrator
+from rockpool.utilities.backend_management import (
+    backend_available,
+    missing_backend_shim,
+)
 
-from sinabs.activation import Heaviside, SingleExponential
+if backend_available("sinabs"):
+    from sinabs.activation import Heaviside, SingleExponential
+
+    if backend_available("sinabs.exodus"):
+        from sinabs.exodus.spike import IntegrateAndFire
+        from sinabs.exodus.leaky import LeakyIntegrator
+    else:
+        IntegrateAndFire = missing_backend_shim("IntegrateAndFire", "sinabs.exodus")
+        LeakyIntegrator = missing_backend_shim("LeakyIntegrator", "sinabs.exodus")
+
+else:
+    Heaviside = missing_backend_shim("Heaviside", "sinabs")
+    SingleExponential = missing_backend_shim("SingleExponential", "sinabs")
+
 
 __all__ = ["LIFExodus", "LIFMembraneExodus", "LIFSlayer", "ExpSynExodus"]
 
