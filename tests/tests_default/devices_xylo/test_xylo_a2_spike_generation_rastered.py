@@ -1,5 +1,5 @@
 import pytest
-pytest.skip('REFACTOR THIS TEST')
+pytest.skip('REFACTOR THIS TEST', allow_module_level = True)
 
 # this function tests the spike generation and divisive normalization module
 from ctypes import c_int
