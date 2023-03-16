@@ -111,7 +111,9 @@ class AFESim(Module):
         # So, in terms of signal processing, we can always assume that the input signal is a bipolar one in the range [-0.55, 0.55] with clipping
         # if the amplitude goes beyond this range
         self.VCC: P_float = SimulationParameter(1.1)  # in volts
-        self.INPUT_MAX_AMPLITUDE: P_float = SimulationParameter(self.VCC / 2.0)  # in volts
+        self.INPUT_MAX_AMPLITUDE: P_float = SimulationParameter(
+            self.VCC / 2.0
+        )  # in volts
 
         ###### microphone fetaures ######
         # NOTE: microphone has severe THD for sound level above 120 dBL SPL, which is 20 Pa pressure.
@@ -255,9 +257,7 @@ class AFESim(Module):
         self.add_offset: P_bool = SimulationParameter(add_offset)
         """ bool: Flag indicating that offset should be simulated during operation. Default `True` """
 
-        self.add_mismatch: P_bool = SimulationParameter(
-            add_mismatch
-        )
+        self.add_mismatch: P_bool = SimulationParameter(add_mismatch)
         """ bool: Flag indicating that mismatch in the parameters should be simulated during operation. Default `True` """
 
         self.num_workers: P_int = SimulationParameter(num_workers)
@@ -277,10 +277,10 @@ class AFESim(Module):
         self.F_ALPHA_FWR: P_float = SimulationParameter(1)
 
         ### Initialise mismatch parameters
-        self.input_offset: P_float = SimulationParameter(0.)
+        self.input_offset: P_float = SimulationParameter(0.0)
         """ float: Mismatch offset in the signal comming from microphone -- typically 0 due to AC coupling """
 
-        self.lna_offset: P_float = SimulationParameter(0.)
+        self.lna_offset: P_float = SimulationParameter(0.0)
         """ float: Mismatch offset in low-noise amplifier """
 
         self.bpf_offset: P_ndarray = SimulationParameter(np.zeros(self.size_out))
@@ -292,7 +292,7 @@ class AFESim(Module):
         self.fc_mismatch: P_ndarray = SimulationParameter(np.zeros(self.size_out))
         """ float: Mismatch in centre frequency for band-pass filters """
 
-        self.bpf_fc_shift: P_float = SimulationParameter(0.)
+        self.bpf_fc_shift: P_float = SimulationParameter(0.0)
         """ float: Common shift in center frequencies due to temperature, etc. """
 
         # - Event generation state
@@ -309,17 +309,41 @@ class AFESim(Module):
             (i)     once for all inputs simulated if we are interested in a single chip for all simulations.
             (ii)    once for each input if we would like some sort of augmentation w.r.t. chip non-idealities.
         """
-        self.input_offset = self.MAX_INPUT_OFFSET * (2 * np.random.rand(1).item() - 1.0) if self.add_offset else 0.0
+        self.input_offset = (
+            self.MAX_INPUT_OFFSET * (2 * np.random.rand(1).item() - 1.0)
+            if self.add_offset
+            else 0.0
+        )
 
-        self.lna_offset = self.MAX_LNA_OFFSET * (2 * np.random.rand(1).item() - 1.0) if self.add_offset else 0.0
+        self.lna_offset = (
+            self.MAX_LNA_OFFSET * (2 * np.random.rand(1).item() - 1.0)
+            if self.add_offset
+            else 0.0
+        )
 
-        self.bpf_offset= self.MAX_BPF_OFFSET * (2 * np.random.rand(self.size_out) - 1.0) if self.add_offset else np.zeros(self.size_out)
-        
-        self.Q_mismatch = self.Q_MIS_MATCH * (2 * np.random.rand(self.size_out) - 1.0) if self.add_mismatch else np.zeros(self.size_out)
+        self.bpf_offset = (
+            self.MAX_BPF_OFFSET * (2 * np.random.rand(self.size_out) - 1.0)
+            if self.add_offset
+            else np.zeros(self.size_out)
+        )
 
-        self.fc_mismatch = self.FC_MIS_MATCH * (2 * np.random.rand(self.size_out) - 1.0) if self.add_mismatch else np.zeros(self.size_out)
+        self.Q_mismatch = (
+            self.Q_MIS_MATCH * (2 * np.random.rand(self.size_out) - 1.0)
+            if self.add_mismatch
+            else np.zeros(self.size_out)
+        )
 
-        self.bpf_fc_shift = self.BPF_FC_SHIFT * (2 * np.random.rand(1).item() - 1.0) if self.add_mismatch else 0.0
+        self.fc_mismatch = (
+            self.FC_MIS_MATCH * (2 * np.random.rand(self.size_out) - 1.0)
+            if self.add_mismatch
+            else np.zeros(self.size_out)
+        )
+
+        self.bpf_fc_shift = (
+            self.BPF_FC_SHIFT * (2 * np.random.rand(1).item() - 1.0)
+            if self.add_mismatch
+            else 0.0
+        )
 
         # Shift center frequencies and bandwidths based on mismatch parameters
         self.fcs = np.asarray(
@@ -582,7 +606,7 @@ class AFESim(Module):
         *args,
         **kwargs,
     ) -> Tuple[np.ndarray, dict, dict]:
-        """ Evolve AFESim and return the generated spikes
+        """Evolve AFESim and return the generated spikes
 
         Args:
             input (np.ndarray, optional): input audio signal.
@@ -690,12 +714,16 @@ class AFESim(Module):
         if self.DIGITAL_COUNTER > 1:
             spikes = self._sampling_spikes(spikes, self.DIGITAL_COUNTER)
 
-        recording = {
-            "LNA_out": lna_out,
-            "BPF": filtered,
-            "rect": rectified,
-            "spks_out": spikes,
-        } if record else {}
+        recording = (
+            {
+                "LNA_out": lna_out,
+                "BPF": filtered,
+                "rect": rectified,
+                "spks_out": spikes,
+            }
+            if record
+            else {}
+        )
 
         return spikes, self.state(), recording
 

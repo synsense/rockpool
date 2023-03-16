@@ -7,23 +7,31 @@ import numpy as np
 from typing import Union, Tuple
 
 from logging import debug, info
+
 info = print
 debug = print
 
-__all__ = ['_encode_spikes', '_encode_spikes_cpp', '_encode_spikes_jax', '_encode_spikes_python']
+__all__ = [
+    "_encode_spikes",
+    "_encode_spikes_cpp",
+    "_encode_spikes_jax",
+    "_encode_spikes_python",
+]
 
 # - Try to use C++ version for speedup
 try:
     # check if the C++ library is available
     from xylo_a2_spike_generation import _encode_spikes as cpp_encode_spikes
-    
+
     # register C++ version
     __CPP_VERSION__ = True
 
 except ModuleNotFoundError as e:
     # try to install C++ module
     try:
-        info(f"C++ based spike generation module is not installed: {e}. Trying to install this module ...")
+        info(
+            f"C++ based spike generation module is not installed: {e}. Trying to install this module ..."
+        )
 
         # find the library in the path
         from pathlib import Path
@@ -34,34 +42,40 @@ except ModuleNotFoundError as e:
         cpp_library_name = "LIF spike generation"
 
         if cpp_library_name not in os.listdir(current_dir):
-            raise ModuleNotFoundError(f"C++ library: {cpp_library_name} was not found in the current directory!")
-        
+            raise ModuleNotFoundError(
+                f"C++ library: {cpp_library_name} was not found in the current directory!"
+            )
+
         # folder containing the C++ code
         cpp_library_dir = os.path.join(current_dir, cpp_library_name, "src-cpp")
 
         # install it using command line
-        command = f"pip install -e \"{cpp_library_dir}\""
+        command = f'pip install -e "{cpp_library_dir}"'
         output = subprocess.run(command, shell=True, capture_output=True, text=True)
 
         if output.returncode != 0:
             # command did not run: pip installation did not work
             info(f"pip installation was not successful: {output.stdout}")
             raise ModuleNotFoundError(output.stderr)
-        
+
         # module was installed so import it again
-        from xylo_a2_spike_generation import  _encode_spikes as cpp_encode_spikes
+        from xylo_a2_spike_generation import _encode_spikes as cpp_encode_spikes
 
         # register C++ version
         __CPP_VERSION__ = True
 
-    except ModuleNotFoundError  as e:
-        
-        info(f"C++ spike generation library was not successful: {e}. Falling back on Jax or Python version for spike generation.")
+    except ModuleNotFoundError as e:
+
+        info(
+            f"C++ spike generation library was not successful: {e}. Falling back on Jax or Python version for spike generation."
+        )
 
         __CPP_VERSION__ = False
+
         def cpp_encode_spikes(*args, **kwargs):
-            raise NotImplementedError('CPP version of spike encoding not available.')
-    
+            raise NotImplementedError("CPP version of spike encoding not available.")
+
+
 def _encode_spikes_cpp(
     initial_state: np.ndarray,
     dt: float,
@@ -77,7 +91,7 @@ def _encode_spikes_cpp(
 
     Args:
         initial_state (np.ndarray): Initial state of the LIF neurons.
-        dt (float): Time-step in seconds. 
+        dt (float): Time-step in seconds.
         data (np.ndarray): Array ``(T,N)`` containing data to convert to events.
         v2i_gain (float): the gain by which the voltage at the output of rectifier is converted to a current for integration followed by spike generation.
         c_iaf (float): Membrane capacitance.
@@ -85,7 +99,7 @@ def _encode_spikes_cpp(
         thr_up (float): Firing threshold voltage.
         vcc (float): voltage supply on the chip (this is the maximum value of the integrator voltage).
 
-    Returns: 
+    Returns:
         np.ndarray: Raster of output events ``(T,N)``, where ``True`` indicates a spike
     """
     # embed the list results in numpy array: this is needed because:
@@ -113,7 +127,9 @@ try:
 
     __JAX_VERSION__ = True
 
-    info("Jax was detected. Spike generation can be performed by the JIT compiled version.")
+    info(
+        "Jax was detected. Spike generation can be performed by the JIT compiled version."
+    )
 
     @jax.jit
     def _encode_spikes_jax(
@@ -131,7 +147,7 @@ try:
 
         Args:
             initial_state (np.ndarray): Initial state of the LIF neurons.
-            dt (float): Time-step in seconds. 
+            dt (float): Time-step in seconds.
             data (np.ndarray): Array ``(T,N)`` containing data to convert to events.
             v2i_gain (float): the gain by which the voltage at the output of rectifier is converted to a current for integration followed by spike generation.
             c_iaf (float): Membrane capacitance.
@@ -139,7 +155,7 @@ try:
             thr_up (float): Firing threshold voltage.
             vcc (float): voltage supply on the chip (this is the maximum value of the integrator voltage).
 
-        Returns: 
+        Returns:
             np.ndarray: Raster of output events ``(T,N)``, where ``True`` indicates a spike
         """
         # convert the output of the rectifier to a current to be integrated by the capacitor.
@@ -164,7 +180,7 @@ try:
             # truncate the values to the range [0, max_output]
             cdc = jnp.where(cdc < 0.0, 0.0, cdc)
             cdc = jnp.where(cdc > vcc, vcc, cdc)
-            
+
             spikes = cdc >= thr_up
 
             return cdc * (1 - spikes), spikes
@@ -177,10 +193,13 @@ try:
 except:
     __JAX_VERSION__ = False
 
-    info(f"Jax not available: {e}. Falling back on C++ or Python version for spike generation.")
+    info(
+        f"Jax not available: {e}. Falling back on C++ or Python version for spike generation."
+    )
 
     def _encode_spikes_jax(*args, **kwargs):
-        raise NotImplementedError('Jax version of spike encoding not available.')
+        raise NotImplementedError("Jax version of spike encoding not available.")
+
 
 def _encode_spikes_python(
     initial_state: np.ndarray,
@@ -197,7 +216,7 @@ def _encode_spikes_python(
 
     Args:
         initial_state (np.ndarray): Initial state of the LIF neurons.
-        dt (float): Time-step in seconds. 
+        dt (float): Time-step in seconds.
         data (np.ndarray): Array ``(T,N)`` containing data to convert to events.
         v2i_gain (float): the gain by which the voltage at the output of rectifier is converted to a current for integration followed by spike generation.
         c_iaf (float): Membrane capacitance.
@@ -205,7 +224,7 @@ def _encode_spikes_python(
         thr_up (float): Firing threshold voltage.
         vcc (float): voltage supply on the chip (this is the maximum value of the integrator voltage).
 
-    Returns: 
+    Returns:
         np.ndarray: Raster of output events ``(T,N)``, where ``True`` indicates a spike
     """
     # convert the output of the rectifier to a current to be integrated by the capacitor.
@@ -233,12 +252,12 @@ def _encode_spikes_python(
         cdc[cdc < 0.0] = 0.0
         cdc[cdc > vcc] = vcc
 
-        spikes = (cdc >= thr_up)
+        spikes = cdc >= thr_up
 
         spike_list.append(spikes)
 
         cdc = cdc * (1 - spikes)
-    
+
     spike_list = np.asarray(spike_list)
 
     return spike_list, cdc
@@ -257,7 +276,9 @@ if __CPP_VERSION__:
     _encode_spikes = _encode_spikes_cpp
 
 elif __JAX_VERSION__:
-    info(f"__JAX_VERSION__: {__JAX_VERSION__}: Using Jax-JIT version of spike encoding.")
+    info(
+        f"__JAX_VERSION__: {__JAX_VERSION__}: Using Jax-JIT version of spike encoding."
+    )
     _encode_spikes = _encode_spikes_jax
 
 else:
