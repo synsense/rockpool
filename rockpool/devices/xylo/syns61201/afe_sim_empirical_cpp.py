@@ -697,10 +697,6 @@ class AFESim(Module):
             "spks_out": spikes,
         } if record else {}
 
-        # resample the system parameters if each input is going to run with an independent version
-        if not self.one_shot_nonideality:
-            self.generate_mismatch()
-
         return spikes, self.state(), recording
 
     def raster(self, spikes: np.ndarray):

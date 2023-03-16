@@ -11,7 +11,7 @@ def test_AFESim():
 
     fs = 110_000
 
-    afe_py = AFESim(fs=fs, add_noise=False, add_mismatch=False, add_offset=False)
+    afe_py = AFESim(fs, add_noise=False, add_mismatch=False, add_offset=False)
 
     # afe_cpp = AFE_cpp(fs=fs, add_noise=False, add_mismatch=False, add_offset=False)
 
