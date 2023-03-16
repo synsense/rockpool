@@ -142,7 +142,6 @@ class ModuleBase(ABC):
                     "You must call `super.__init__()` in your `Module` subclass."
                 )
 
-
             if (
                 hasattr(self, name)
                 and hasattr(self, "_in_Module_init")
@@ -732,7 +731,7 @@ class Module(ModuleBase, ABC, metaclass=PostInitMetaMixin):
         data: np.ndarray,
         states: Tuple = (),
         target_shapes: Tuple = None,
-    ) -> (np.ndarray, Tuple[np.ndarray]):
+    ) -> Tuple[np.ndarray, Tuple[np.ndarray]]:
         """
         Automatically replicate states over batches and verify input dimensions
 
