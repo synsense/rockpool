@@ -65,7 +65,6 @@ except ModuleNotFoundError as e:
         __CPP_VERSION__ = True
 
     except ModuleNotFoundError as e:
-
         info(
             f"C++ spike generation library was not successful: {e}. Falling back on Jax or Python version for spike generation."
         )
