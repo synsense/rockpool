@@ -143,7 +143,7 @@ try:
             np.ndarray: Raster of output events ``(T,N)``, where ``True`` indicates a spike
         """
         # convert the output of the rectifier to a current to be integrated by the capacitor.
-        data = jnp.copy(data * v2i_gain)
+        data = data * v2i_gain
 
         def forward(cdc, data_rec):
             # leakage current when the cpacitor has a voltage of cdc
