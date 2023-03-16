@@ -209,9 +209,6 @@ class LIFBaseTorch(TorchModule):
 
         """
 
-        # - Initialise dummy parameters list
-        self._dummy_params = ()
-
         # - Check training mode
         if leak_mode not in [
             "taus",
@@ -221,9 +218,6 @@ class LIFBaseTorch(TorchModule):
             raise ValueError(
                 "Training of time constants in `LIFTorch` neurons can be done only in one of the following modes: 'taus', 'decays', 'bitshifts'. `leak_mode` must be one of these values."
             )
-
-        self.leak_mode = rp.SimulationParameter(leak_mode)
-        """ (str) The mode by which leaks are determined for this module. """
 
         # - Check shape argument
         if np.size(shape) == 1:
@@ -242,6 +236,12 @@ class LIFBaseTorch(TorchModule):
             *args,
             **kwargs,
         )
+
+        # - Initialise dummy parameters list
+        self._dummy_params = ()
+
+        self.leak_mode = rp.SimulationParameter(leak_mode)
+        """ (str) The mode by which leaks are determined for this module. """
 
         self.n_neurons = self.size_out
         self.n_synapses: P_int = shape[0] // shape[1]
