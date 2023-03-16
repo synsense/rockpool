@@ -1,8 +1,14 @@
 import pytest
 
+
 def test_imports():
     from rockpool.devices.xylo.syns61201 import AFESim
-    from rockpool.devices.xylo.syns61201.afe_spike_generation import _encode_spikes, _encode_spikes_cpp, _encode_spikes_jax, _encode_spikes_python
+    from rockpool.devices.xylo.syns61201.afe_spike_generation import (
+        _encode_spikes,
+        _encode_spikes_cpp,
+        _encode_spikes_jax,
+        _encode_spikes_python,
+    )
 
 
 def test_AFESim():
@@ -34,12 +40,12 @@ def test_AFESim():
     # print("rate_cpp: ", rate_cpp)
 
     # numerical_error = norm(rate_py - rate_cpp) / np.min(
-        # [np.max(rate_py), np.max(rate_cpp)]
+    # [np.max(rate_py), np.max(rate_cpp)]
     # )
     # print("relative error between rates:", numerical_error)
 
     # assert (
-        # numerical_error < 0.01
+    # numerical_error < 0.01
     # ), "There is a large difference between C++ and Python version beyond numerical imprecision!"
 
 
