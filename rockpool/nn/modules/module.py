@@ -135,6 +135,14 @@ class ModuleBase(ABC):
 
         # - Check if this is a new rockpool Parameter
         if isinstance(val, ParameterBase):
+            try:
+                super().__getattribute__("_in_Module_init")
+            except Exception as e:
+                raise NotImplementedError(
+                    "You must call `super.__init__()` in your `Module` subclass."
+                )
+
+
             if (
                 hasattr(self, name)
                 and hasattr(self, "_in_Module_init")
@@ -548,7 +556,11 @@ class ModuleBase(ABC):
     @property
     def name(self) -> str:
         """str: The name of this module, or an empty string if ``None``"""
-        return f"'{self._name}'" if hasattr(self, "_name") and self._name else ""
+        try:
+            name = super().__getattribute__("_name")
+            return f"'{name}'" if name else ""
+        except:
+            return ""
 
     @property
     def full_name(self) -> str:
