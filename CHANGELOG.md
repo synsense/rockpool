@@ -26,6 +26,14 @@ All notable changes between Rockpool releases will be documented in this file.
    - Hotfix: Regression in `LIFExodus`
 * Implemented `ExpSynExodus` for accelerated training of exponential synapse modules
 * Added initial developer documentation
+* Added MNIST tutorial
+
+* Fixed notebook links to MyBinder.org
+
+### Changed
+
+* Update Samna version requirement to >=0.19.0
+
 
 ## [v2.5] -- 2022-11-29
 

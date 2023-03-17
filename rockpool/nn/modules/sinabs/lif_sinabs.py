@@ -17,7 +17,15 @@ from rockpool.graph import (
     LinearWeights,
 )
 
-from sinabs.layers import LIF
+from rockpool.utilities.backend_management import (
+    backend_available,
+    missing_backend_shim,
+)
+
+if backend_available("sinabs"):
+    from sinabs.layers import LIF
+else:
+    LIF = missing_backend_shim("LIF", "sinabs")
 
 __all__ = ["LIFSinabs"]
 

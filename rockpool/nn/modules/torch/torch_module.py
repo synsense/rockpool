@@ -471,6 +471,10 @@ class TorchModule(Module, nn.Module):
                 else:
                     return super().modules(*args, **kwargs)
 
+        # - Set required base-class initialisation attribute
+        obj._in_Module_init = False
+
+        # - Set class name attributes
         obj.__class__ = TorchModulePatch
         obj.__old_class_name = old_class_name
 

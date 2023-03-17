@@ -15,10 +15,25 @@ from rockpool.parameters import Constant
 
 from rockpool.graph import GraphModuleBase
 
-from sinabs.exodus.spike import IntegrateAndFire
-from sinabs.exodus.leaky import LeakyIntegrator
+from rockpool.utilities.backend_management import (
+    backend_available,
+    missing_backend_shim,
+)
 
-from sinabs.activation import Heaviside, SingleExponential
+if backend_available("sinabs"):
+    from sinabs.activation import Heaviside, SingleExponential
+
+    if backend_available("sinabs.exodus"):
+        from sinabs.exodus.spike import IntegrateAndFire
+        from sinabs.exodus.leaky import LeakyIntegrator
+    else:
+        IntegrateAndFire = missing_backend_shim("IntegrateAndFire", "sinabs.exodus")
+        LeakyIntegrator = missing_backend_shim("LeakyIntegrator", "sinabs.exodus")
+
+else:
+    Heaviside = missing_backend_shim("Heaviside", "sinabs")
+    SingleExponential = missing_backend_shim("SingleExponential", "sinabs")
+
 
 __all__ = ["LIFExodus", "LIFMembraneExodus", "LIFSlayer", "ExpSynExodus"]
 
@@ -62,6 +77,14 @@ class LIFExodus(LIFBaseTorch):
 
             >>> mod = LIFExodus((4, 2), tau_mem = 30e-3, tau_syn = 10e-3, dt = 10e-3)
 
+            Pass the model and data to the same cuda device, since it is required to use CUDA on this module.
+
+            >>> data = torch.ones((1, 10, 4))
+            >>> device = 'cuda: 1'
+            >>> mod.to(device)
+            >>> data = data.to(device)
+            >>> output = mod(data)
+
         Args:
             shape (tuple): The shape of this module
             tau_syn (float): An optional array with concrete initialisation data for the synaptic time constants. If not provided, 50ms will be used by default.
@@ -103,9 +126,6 @@ class LIFExodus(LIFBaseTorch):
         if not torch.cuda.is_available():
             raise EnvironmentError("CUDA is required for exodus-backed modules.")
 
-        # - Move module to CUDA device
-        self.cuda()
-
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
         forward method for processing data through this layer
@@ -117,11 +137,6 @@ class LIFExodus(LIFBaseTorch):
         Returns:
             torch.Tensor: Out of spikes with the shape (batch, time_steps, n_neurons)
         """
-
-        # - Ensure input data is on GPU
-        if not data.is_cuda:
-            warnings.warn("Input data was not on a CUDA device. Moving it there now.")
-        data = data.to("cuda")
 
         # - Replicate data and states out by batches
         data, (vmem, isyn, spikes) = self._auto_batch(
@@ -238,6 +253,14 @@ class ExpSynExodus(LIFBaseTorch):
 
             >>> mod = LIFExodus(2, tau_syn = [10e-3, 20e-3])
 
+            Pass the model and data to the same cuda device, since it is required to use CUDA on this module.
+
+            >>> data = torch.ones((1, 10, 4))
+            >>> device = 'cuda: 1'
+            >>> mod.to(device)
+            >>> data = data.to(device)
+            >>> output = mod(data)
+
 
         Args:
             shape (tuple): The shape of this module
@@ -282,9 +305,6 @@ class ExpSynExodus(LIFBaseTorch):
         if not torch.cuda.is_available():
             raise EnvironmentError("CUDA is required for exodus-backed modules.")
 
-        # - Move module to CUDA device
-        self.cuda()
-
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
         forward method for processing data through this layer
@@ -296,11 +316,6 @@ class ExpSynExodus(LIFBaseTorch):
         Returns:
             torch.Tensor: Out of spikes with the shape (batch, time_steps, n_synapses)
         """
-
-        # - Ensure input data is on GPU
-        if not data.is_cuda:
-            warnings.warn("Input data was not on a CUDA device. Moving it there now.")
-        data = data.to("cuda")
 
         # - Replicate data and states out by batches
         data, (isyn,) = self._auto_batch(data, (self.isyn,))
@@ -369,6 +384,14 @@ class LIFMembraneExodus(LIFBaseTorch):
 
             >>> mod = LIFMembraneExodus((4, 2), tau_mem = 30e-3, tau_syn = 10e-3, dt = 10e-3)
 
+            Pass the model and data to the same cuda device, since it is required to use CUDA on this module.
+
+            >>> data = torch.ones((1, 10, 4))
+            >>> device = 'cuda: 1'
+            >>> mod.to(device)
+            >>> data = data.to(device)
+            >>> output = mod(data)
+
         Args:
             shape (tuple): The shape of this module
             tau_syn (float): An optional array with concrete initialisation data for the synapse time constants. If not provided, 50ms will be used by default.
@@ -408,9 +431,6 @@ class LIFMembraneExodus(LIFBaseTorch):
         if not torch.cuda.is_available():
             raise EnvironmentError("CUDA is required for exodus-backed modules.")
 
-        # - Move module to CUDA device
-        self.cuda()
-
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
         forward method for processing data through this layer
@@ -422,10 +442,6 @@ class LIFMembraneExodus(LIFBaseTorch):
         Returns:
             torch.Tensor: Out of spikes with the shape (batch, time_steps, n_neurons)
         """
-
-        # - Ensure input data is on GPU
-        if not data.is_cuda:
-            warnings.warn("Input data was not on a CUDA device. Moving it there now.")
 
         # - Replicate data and states out by batches
         data, (vmem, isyn) = self._auto_batch(data, (self.vmem, self.isyn))

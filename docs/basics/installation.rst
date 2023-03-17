@@ -1,7 +1,7 @@
 .. _installation:
 
-Getting started with |project|
-==============================
+Installing |project| and contributing
+=========================================
 
 Base requirements
 -----------------
