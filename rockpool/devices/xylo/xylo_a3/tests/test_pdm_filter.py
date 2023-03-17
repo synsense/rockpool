@@ -51,7 +51,7 @@ def test_filter():
         audio_rec = decimation_filt(sig_in=audio_pdm)
 
         # for sanity-check we also use the undecimated version
-        audio_rec_undecimated = decimation_filt.fullevolve(sig_in=audio_pdm)
+        audio_rec_undecimated = decimation_filt._evolve_no_decimation(sig_in=audio_pdm)
 
         # scale the recovered audio
         audio_rec_scaled = audio_rec / (2 ** (decimation_filt.num_bits_output - 1) - 1)
