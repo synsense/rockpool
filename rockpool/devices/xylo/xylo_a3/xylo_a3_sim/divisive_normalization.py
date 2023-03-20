@@ -65,7 +65,7 @@ info = print
 debug = print
 
 from typing import Union, Tuple, List, Dict
-from rockpool.typehints import P_int, P_ndarray
+from rockpool.typehints import P_int, P_ndarray, P_float
 
 # exported modules
 __all__ = ["DivisiveNormalization", "jax_spike_gen", "fjax_spike_gen", "py_spike_gen"]
@@ -84,7 +84,7 @@ class DivisiveNormalization(Module):
         low_pass_bitshift: int = 12,
         EPS_vec: Union[int, np.ndarray] = 1,
         fixed_threshold_vec: Union[int, np.ndarray] = 2 ** (14 - 1 + 8 + 6),
-        fs: int = AUDIO_SAMPLING_RATE,
+        fs: float = AUDIO_SAMPLING_RATE,
     ):
         """
         Initialise a divisive normalisation module
@@ -131,9 +131,7 @@ class DivisiveNormalization(Module):
         self.spike_rate_scale_bitshift2 = SimulationParameter(
             np.broadcast_to(spike_rate_scale_bitshift2, self.size_out),
             shape=self.size_out,
-            cast_fn=lambda x: np.broadcast_to(
-                np.array(x, dtype=np.int64), self.size_out
-            ),
+            cast_fn=lambda x: np.array(x, dtype=np.int64),
         )
         """ ndarray[int64]: bitshift 2 per channel ``(N,)`` """
 
@@ -149,9 +147,7 @@ class DivisiveNormalization(Module):
         self.EPS_vec: P_ndarray = SimulationParameter(
             np.broadcast_to(EPS_vec, self.size_out),
             shape=self.size_out,
-            cast_fn=lambda x: np.broadcast_to(
-                np.array(x, dtype=np.int64), self.size_out
-            ),
+            cast_fn=lambda x: np.array(x, dtype=np.int64),
         )
         """ ndarray[int64]: minimum value for spike generation threshold during the DN mode ``(N,)`` """
 
@@ -159,22 +155,18 @@ class DivisiveNormalization(Module):
         self.fixed_threshold_vec: P_ndarray = SimulationParameter(
             np.broadcast_to(fixed_threshold_vec, self.size_out),
             shape=self.size_out,
-            cast_fn=lambda x: np.broadcast_to(
-                np.array(x, dtype=np.int64), self.size_out
-            ),
+            cast_fn=lambda x: np.array(x, dtype=np.int64),
         )
         """ ndarray[int64]: spike generation thresholds when DN mode is inactive ``(N,)`` """
 
         self.low_pass_bitshift: P_ndarray = SimulationParameter(
             np.broadcast_to(low_pass_bitshift, self.size_out),
             shape=self.size_out,
-            cast_fn=lambda x: np.broadcast_to(
-                np.array(x, dtype=np.int64), self.size_out
-            ),
+            cast_fn=lambda x: np.array(x, dtype=np.int64),
         )
         """ ndarray[int64]: number of bit-shifts used in low-pass filtering ``(N,)`` """
 
-        self.fs: P_int = SimulationParameter(fs)
+        self.fs: P_float = SimulationParameter(float(fs))
         """ float: Sampling frequency of the module in Hz """
 
         self.enable_DN_channel = SimulationParameter(
@@ -320,14 +312,14 @@ class DivisiveNormalization(Module):
             + "-" * 41
             + "\n"
             + f"number of channels: {self.size_out}\n"
-            + f"prefixed threshold values for channels for non-DN mode are:\n {self.threshold_vec}\n"
+            + f"prefixed threshold values for channels for non-DN mode are:\n {self.fixed_threshold_vec}\n"
             + f"rate scaling value (parameter p in `p fs E(t) / (M(t) V EPS)`): 1/{2**self.spike_rate_scale_bitshift1 - 2**self.spike_rate_scale_bitshift2}\n"
             + f"NOTE: this means that the spike rate will be around 1/{2**self.spike_rate_scale_bitshift1 - 2**self.spike_rate_scale_bitshift2} x fs spikes/sec\n"
             + f"number of bitshifts used to apply rate scaling: \n{self.spike_rate_scale_bitshift1}\n{self.spike_rate_scale_bitshift2}"
             + f"\nLow-pass averaging filter:\n"
             + f"number of bitshifts used for averaging: {self.low_pass_bitshift}\n"
             + f"number of time samples used for averaging: {2**self.low_pass_bitshift}\n"
-            + f"averaging window duration: {2**self.low_pass_bitshift/self.fs: 0.5f} sec"
+            + f"averaging window duration: {2**self.low_pass_bitshift/self.fs} sec"
         )
 
         return string
@@ -761,7 +753,7 @@ except ModuleNotFoundError as e:
 
 
 # deactivate jax version for the moment [Debug]
-JAX_SPIKE_GEN = False
+# JAX_SPIKE_GEN = False
 
 
 # we always implement the python version

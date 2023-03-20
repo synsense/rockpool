@@ -16,7 +16,7 @@
 
 # - Rockpool imports
 from rockpool.nn.modules.module import Module
-from rockpool.parameters import Parameter, ParameterBase
+from rockpool.parameters import SimulationParameter
 
 # target audio sampling rate
 from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.pdm_adc import AUDIO_SAMPLING_RATE
@@ -24,11 +24,8 @@ from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.pdm_adc import AUDIO_SAMPLING_RAT
 import numpy as np
 
 
-from typing import Union
-
-P_int = Union[int, ParameterBase]
-P_float = Union[float, ParameterBase]
-P_array = Union[np.array, ParameterBase]
+from typing import Union, Tuple
+from rockpool.typehints import P_int, P_float, P_ndarray
 
 
 # list of modules exported
@@ -38,6 +35,7 @@ __all__ = ["Raster"]
 class Raster(Module):
     def __init__(
         self,
+        shape: Union[int, Tuple[int]],
         rate_downsample_factor: int = 2**6,
         max_num_spikes: int = 15,
         fs: float = AUDIO_SAMPLING_RATE,
@@ -51,11 +49,13 @@ class Raster(Module):
             fs (float, optional): clock rate of the input spikes. Defaults to AUDIO_SAMPLING_RATE (around 48K ~ 50K).
 
         """
-        self.rate_downsample_factor: P_int = Parameter(rate_downsample_factor)
-        self.max_num_spikes: P_int = Parameter(max_num_spikes)
-        self.fs: P_float = Parameter(fs)
+        super().__init__(shape=shape)
 
-    def evolve(self, spikes_in: np.ndarray) -> np.ndarray:
+        self.rate_downsample_factor: P_int = SimulationParameter(rate_downsample_factor)
+        self.max_num_spikes: P_int = SimulationParameter(max_num_spikes)
+        self.fs: P_float = SimulationParameter(fs)
+
+    def evolve(self, spikes_in: np.ndarray, record: bool = False) -> np.ndarray:
         """this modules rasters the input spikes into a signal with lower clock rate.
 
         Args:
@@ -101,17 +101,17 @@ class Raster(Module):
         # reshape the spikes in case the signal has single channel
         rastered_spikes = rastered_spikes.squeeze()
 
-        return rastered_spikes
+        return rastered_spikes, self.state(), {}
 
-    def __call__(self, *args, **kwargs) -> np.ndarray:
-        """This is the same as `evolve` function.
+    # def __call__(self, *args, **kwargs) -> np.ndarray:
+    #     """This is the same as `evolve` function.
 
-        Returns:
-            np.ndarray: rastered spikes.
-        """
-        return self.evolve(*args, **kwargs)
+    #     Returns:
+    #         np.ndarray: rastered spikes.
+    #     """
+    #     return self.evolve(*args, **kwargs)
 
-    def __repr__(self) -> str:
+    def _info(self) -> str:
         string = (
             "This module rasters/accumulates the spikes received from spike generation module into a lower clock-rate signal.\n"
             + "parameters:\n"

@@ -137,7 +137,7 @@ def test_filterbank_chirp():
         # find the time at which each channel reaches its maximum amplitude
         # apply LSQ to find the scaling parameter
         T_max = np.argmax(sig_out, axis=0) * dt
-        filter_idx = np.arange(fb.numF)
+        filter_idx = np.arange(fb.size_out)
 
         A = np.asarray([[1] * len(T_max), np.cumsum([1] * len(T_max))]).T
         y = np.log(T_max)

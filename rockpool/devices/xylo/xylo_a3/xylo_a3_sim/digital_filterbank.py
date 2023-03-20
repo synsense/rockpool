@@ -34,9 +34,10 @@ from concurrent.futures import ProcessPoolExecutor
 from functools import wraps
 
 from rockpool.nn.modules.module import Module
-from rockpool.parameters import Parameter, ParameterBase
+from rockpool.parameters import SimulationParameter, ParameterBase
 
 from functools import partial
+from logging import info, debug
 
 from typing import Union, Tuple, List, Dict
 
@@ -133,17 +134,21 @@ class BlockDiagram:
 
 
 class ChipButterworth(Module):
-    def __init__(self):
+    """
+    Implement a simulaiton module for a digital Butterworth filterbank
+    """
+
+    def __init__(self, shape: Union[int, Tuple[int]] = NUM_FILETRS):
         """
         This class builds the block-diagram version of the filters, which is exactly as it is done in FPGA.
-        The propsoed filters are candidates that may be chosen for preprocessing of the IMU data.
+        The propsoed filters are candidates that may be chosen for preprocessing of the audio data.
         """
-        super().__init__()
+        super().__init__(shape=shape)
 
         # number of bits needed for quantization
         # self.numQBF_w = 24 # Is this B_A???
 
-        self.numF: P_int = Parameter(NUM_FILETRS)
+        # self.size_out: P_int = Parameter(NUM_FILETRS)
         self.bd_list = []
 
         # ========================================#
@@ -451,7 +456,7 @@ class ChipButterworth(Module):
         bd_filter_16.scale_out = 0.5337
         self.bd_list.append(bd_filter_16)
 
-        self.bd_list: P_array = Parameter(self.bd_list, shape=(NUM_FILETRS,))
+        self.bd_list: P_array = SimulationParameter(self.bd_list)
 
     @type_check
     def _filter_AR(self, bd: BlockDiagram, sig_in: np.ndarray) -> np.ndarray:
@@ -578,28 +583,30 @@ class ChipButterworth(Module):
     def evolve(
         self,
         sig_in: np.ndarray,
+        record: bool = False,
         num_workers: int = 4,
         scale_out: bool = False,
         python_version: bool = False,
-        record: bool = False,
-    ):
+        *args,
+        **kwargs,
+    ) -> Tuple[np.ndarray, dict, dict]:
         """
         This function computes the output of all filters for an input signal.
 
         Args:
             sig_in (np.ndarray): integer-valued input signal.
-            num_workers (int): number of independent processes (noth threads) used to compute the filte faster. Defaults to 1 (4 workers).
             record (bool, optional): record the state of the filter (AR part). Defaults to False.
+            num_workers (int): number of independent processes (noth threads) used to compute the filte faster. Defaults to 1 (4 workers).
             scale_out (bool, optional): add the surplus scaling due to `b` normalization.
-            python_version (bool, optional): force computing the filters with python version. Defaults to False: use jax if available.
             NOTE: this is due to the fact that after integer-quantization, one may still need to scale
             the filter output by some value in the range [0.5, 1.0] to obtain the final output. Defaults to False.
+            python_version (bool, optional): force computing the filters with python version. Defaults to False: use jax if available.
         """
 
         if scale_out:
             scale_out_list = np.asarray([bd.scale_out for bd in self.bd_list])
         else:
-            scale_out_list = np.ones(self.numF)
+            scale_out_list = np.ones(self.size_out)
 
         # check if jax version is available
         if JAX_Filter and not python_version:
@@ -669,19 +676,19 @@ class ChipButterworth(Module):
             # in the python version state is empty: for performance reasons
             recording = {}
 
-        return sig_out, recording
+        return sig_out, self.state(), recording
 
-    # add the call version for further convenience
-    def __call__(self, *args, **kwargs):
-        """
-        This function simply calls the `evolve()` function and is added for further convenience.
-        """
-        return self.evolve(*args, **kwargs)
+    # # add the call version for further convenience
+    # def __call__(self, *args, **kwargs):
+    #     """
+    #     This function simply calls the `evolve()` function and is added for further convenience.
+    #     """
+    #     return self.evolve(*args, **kwargs)
 
     # utility functions
-    def __repr__(self) -> str:
+    def _info(self) -> str:
         string = "*" * 60
-        for filt_num in range(self.numF):
+        for filt_num in range(self.size_out):
             bd = self.bd_list[filt_num]
             string += (
                 f"filter {filt_num}:\n"
@@ -831,13 +838,11 @@ try:
     # set the  flag for jax version
     JAX_Filter = True
 
-    print(
-        "\n\nJax version was found! Filterbank will be computed using jax speedup!\n\n"
-    )
+    info("Jax version was found. Filterbank will be computed using jax speedup.\n")
 
 except ModuleNotFoundError as e:
-    print(
-        "No jax module was found for filter implementation! Filterbank will use python version (multi-procesing version).\n"
+    info(
+        "No jax module was found for filter implementation. Filterbank will use python version (multi-procesing version).\n"
         + str(e)
     )
 
