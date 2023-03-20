@@ -49,6 +49,15 @@ def test_Sequential_mod():
     )
     print(seq)
 
+    # - Test index access
+    seq[0]
+    seq[1]
+    seq[2]
+    seq[-1]
+
+    # - Test name access
+    seq["1_Linear"]
+
     input_data = np.random.rand(100, 10)
 
     # - Test evolve
@@ -58,6 +67,50 @@ def test_Sequential_mod():
     # - Test parameters
     print(seq.parameters())
     print(seq.state())
+
+
+def test_Sequential_API():
+    from rockpool.nn.combinators import Sequential
+    from rockpool.nn.modules import Linear, LIF
+    from collections import OrderedDict
+
+    # - Test creation from ordered dictionary
+    lin1 = Linear((2, 3))
+    lif1 = LIF(3)
+    od = OrderedDict(
+        [
+            ("lin1", lin1),
+            ("lif1", lif1),
+        ]
+    )
+    seq = Sequential(od)
+
+    # - Test module access
+    assert seq.lin1 is lin1
+    assert seq.lif1 is lif1
+    assert seq[0] is lin1
+    assert seq[1] is lif1
+    assert seq[-1] is lif1
+    assert seq["lin1"] is lin1
+    assert seq["lif1"] is lif1
+
+    # - Test appending
+    lin2 = Linear((3, 4))
+    seq.append(lin2, "lin2")
+    assert seq[-1] is lin2
+
+    # - Test creation from empty list
+    seq = Sequential()
+    seq.append(Linear((1, 2)))
+    assert seq.size_in == 1
+    assert seq.size_out == 2
+
+    seq.append(Linear((2, 4)))
+    assert seq.size_out == 4
+
+    # - Test error
+    with pytest.raises(ValueError):
+        seq.append(Linear((5, 6)))
 
 
 def test_Sequential_jax():

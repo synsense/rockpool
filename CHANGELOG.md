@@ -30,6 +30,8 @@ All notable changes between Rockpool releases will be documented in this file.
 
 * Fixed notebook links to MyBinder.org
 
+* Update to `Sequential` API. `Sequential` now permits instantiation with an `OrderedDict` to specify module names. `Sequential` now supports an `.append()` method, to append new modules, optionally specifying a module name.
+
 ## [v2.5] -- 2022-11-29
 
 ### Added
