@@ -118,175 +118,86 @@ class DivisiveNormalization(Module):
         """
         super().__init__(shape=shape, spiking_output=True)
 
-        # number of channels
-        # self.size_out: P_int = Parameter(num_channels)
-
         # how much spike rate should be reduced compared with the sampling rate of the audio
         # bitshift 1
         self.spike_rate_scale_bitshift1 = SimulationParameter(
-            spike_rate_scale_bitshift1,
+            np.broadcast_to(spike_rate_scale_bitshift1, self.size_out),
             shape=self.size_out,
             cast_fn=lambda x: np.array(x, dtype=np.int64),
         )
         """ ndarray[int64]: bitshift 1 per channel ``(N,)`` """
 
-        # if isinstance(spike_rate_scale_bitshift1, Number):
-        #     if not isinstance(spike_rate_scale_bitshift1, int):
-        #         raise ValueError(
-        #             "number of bit-shifts used for rate scaling should be an integer!"
-        #         )
-
-        #     # the same EPS for all the channels
-        #     self.spike_rate_scale_bitshift1: P_ndarray = SimulationParameter(
-        #         (spike_rate_scale_bitshift1 * np.ones(self.size_out)).astype(np.int64)
-        #     )
-
-        # else:
-        #     if len(spike_rate_scale_bitshift1) != self.size_out:
-        #         raise ValueError(
-        #             "number of elements in rate scale bit-shift vector should be the same as number of channels in input signal!"
-        #         )
-
-        #     self.spike_rate_scale_bitshift1: P_ndarray = SimulationParameter(
-        #         np.asarray(spike_rate_scale_bitshift1, dtype=np.int64)
-        #     )
-
         # bitshift 2
         self.spike_rate_scale_bitshift2 = SimulationParameter(
-            spike_rate_scale_bitshift2,
+            np.broadcast_to(spike_rate_scale_bitshift2, self.size_out),
             shape=self.size_out,
-            cast_fn=lambda x: np.array(x, dtype=np.int64),
+            cast_fn=lambda x: np.broadcast_to(
+                np.array(x, dtype=np.int64), self.size_out
+            ),
         )
         """ ndarray[int64]: bitshift 2 per channel ``(N,)`` """
-
-        # if isinstance(spike_rate_scale_bitshift2, Number):
-        #     if not isinstance(spike_rate_scale_bitshift2, int):
-        #         raise ValueError(
-        #             "number of bit-shifts used for rate scaling should be an integer!"
-        #         )
-
-        #     # the same EPS for all the channels
-        #     self.spike_rate_scale_bitshift2: P_ndarray = SimulationParameter(
-        #         (spike_rate_scale_bitshift2 * np.ones(self.size_out)).astype(np.int64)
-        #     )
-
-        # else:
-        #     if len(spike_rate_scale_bitshift2) != self.size_out:
-        #         raise ValueError(
-        #             "number of elements in rate scale bit-shift vector should be the same as number of channels in input signal!"
-        #         )
-
-        #     self.spike_rate_scale_bitshift2: P_ndarray = SimulationParameter(
-        #         np.asarray(spike_rate_scale_bitshift2, dtype=np.int64)
-        #     )
 
         # make sure that in all the channels b1 is larger than b2
         if np.any(self.spike_rate_scale_bitshift1 <= self.spike_rate_scale_bitshift2):
             raise ValueError(
                 """
-                For smooth spike rate variation, we use `M(t)<<b1 - M(t)<<b2` as the spike generation threshold. 
-                This requires than b1 in all channels is larger than b2 so that the threshold is always positive.
+                For smooth spike rate variation, we use `M(t)<<b1 - M(t)<<b2` as the spike generation threshold. This requires than b1 in all channels is larger than b2 so that the threshold is always positive.
                 """
             )
 
         # minimum value for spike generation threshold during the DN mode
         self.EPS_vec: P_ndarray = SimulationParameter(
-            EPS_vec, shape=self.size_out, cast_fn=lambda x: np.array(x, dtype=np.int64)
+            np.broadcast_to(EPS_vec, self.size_out),
+            shape=self.size_out,
+            cast_fn=lambda x: np.broadcast_to(
+                np.array(x, dtype=np.int64), self.size_out
+            ),
         )
         """ ndarray[int64]: minimum value for spike generation threshold during the DN mode ``(N,)`` """
 
-        # if isinstance(EPS_vec, Number):
-        #     if not isinstance(EPS_vec, int):
-        #         raise ValueError(
-        #             "EPS (lower bound on threshold in DN) should be an integer!"
-        #         )
-
-        #     # the same EPS for all the channels
-        #     self.EPS_vec: P_ndarray = SimulationParameter(
-        #         (EPS_vec * np.ones(self.size_out)).astype(np.int64)
-        #     )
-        # else:
-        #     if len(EPS_vec) != self.size_out:
-        #         raise ValueError(
-        #             "number of EPS should be the same as number of channels in input signal!"
-        #         )
-
-        #     self.EPS_vec: P_ndarray = SimulationParameter(
-        #         np.asarray(EPS_vec, dtype=np.int64)
-        #     )
-
         # spike generation thresholds when DN mode is inactive
         self.fixed_threshold_vec: P_ndarray = SimulationParameter(
-            fixed_threshold_vec,
+            np.broadcast_to(fixed_threshold_vec, self.size_out),
             shape=self.size_out,
-            cast_fn=lambda x: np.array(x, dtype=np.int64),
+            cast_fn=lambda x: np.broadcast_to(
+                np.array(x, dtype=np.int64), self.size_out
+            ),
         )
         """ ndarray[int64]: spike generation thresholds when DN mode is inactive ``(N,)`` """
 
-        # # check if it is a single number
-        # if isinstance(fixed_threshold_vec, Number):
-        #     if not isinstance(fixed_threshold_vec, int):
-        #         raise ValueError(
-        #             "fixed thresholds used for spike generation in non-DN mode should be all integer!"
-        #         )
-
-        #     self.fixed_threshold_vec: P_ndarray = SimulationParameter(
-        #         (fixed_threshold_vec * np.ones(self.size_out)).astype(np.int64)
-        #     )
-        # else:
-        #     if len(fixed_threshold_vec) != self.size_out:
-        #         raise ValueError(
-        #             "The number of thresholds should be the same as the number of channels!"
-        #         )
-
-        #     self.fixed_threshold_vec: P_ndarray = SimulationParameter(
-        #         np.asarray(fixed_threshold_vec, dtype=np.int64).ravel()
-        #     )
-
         self.low_pass_bitshift: P_ndarray = SimulationParameter(
-            low_pass_bitshift,
+            np.broadcast_to(low_pass_bitshift, self.size_out),
             shape=self.size_out,
-            cast_fn=lambda x: np.array(x, dtype=np.int64),
+            cast_fn=lambda x: np.broadcast_to(
+                np.array(x, dtype=np.int64), self.size_out
+            ),
         )
         """ ndarray[int64]: number of bit-shifts used in low-pass filtering ``(N,)`` """
 
-        # if isinstance(low_pass_bitshift, Number):
-        #     if not isinstance(low_pass_bitshift, int):
-        #         raise ValueError(
-        #             "number of bit-shifts used in low-pass filtering should be an integer!"
-        #         )
-
-        #     self.low_pass_bitshift: P_ndarray = SimulationParameter(
-        #         (low_pass_bitshift * np.ones(self.size_out)).astype(np.int64)
-        #     )
-        # else:
-        #     self.low_pass_bitshift: P_ndarray = SimulationParameter(
-        #         np.asarray(low_pass_bitshift, dtype=np.int64)
-        #     )
-
         self.fs: P_int = SimulationParameter(fs)
         """ float: Sampling frequency of the module in Hz """
+
+        self.enable_DN_channel = SimulationParameter(
+            shape=self.size_out,
+            init_func=lambda s: np.broadcast_to(np.array(True, dtype=bool), s),
+        )
+        """ ndarray[bool]: Enable divisive normalisation threshold for each channel ``(N,)`` """
+
+        self.joint_normalization = SimulationParameter(True)
+        """ bool: If ``True``, normalization occurs jointly across all channels. If ``False``, normalization occurs separately for each channel. """
 
     @type_check
     def evolve(
         self,
         sig_in: np.ndarray,
-        mode_vec: Union[int, np.ndarray] = 1,
-        joint_normalization: bool = False,
         record: bool = False,
+        *args,
+        **kwargs,
     ):
         """This module takes the input `T x C` signal `sig_in` and applies divisive normalization across each channel.
 
         Args:
             sig_in (np.ndarray): input signal of dimension `T x num_channels`.
-            mode_vec (Union[int, np.ndarray], optional): C-dim mode vector:
-                mode = 0 -> fixed thresholds are used in spike generations.
-                mode = 1 -> adaptive thresholds computed by divisive normalization are used in spike generation.
-                Defaults to None.
-                Note: one may decide to switch mode from time-to-time if needed by passing a vector
-                of mode of the same dimension of `sig_in`.
-                record (bool): record the states during spike generation. Defaults to False.
-            joint_normalization (bool): if normalization happens separately or jointly across all channels. Defaults to True.
             record (bool): record the state. Defaults to False.
         """
 
@@ -302,21 +213,21 @@ class DivisiveNormalization(Module):
                 + f"from the numbers of channels ({self.size_out} in DN module!"
             )
 
-        if isinstance(mode_vec, Number):
-            if mode_vec not in {0, 1}:
-                raise ValueError(
-                    "mode can have only values {0,1}: 0 => fixed-threshold mode, 1 => divisive normalization mode"
-                )
+        # if isinstance(enable_DN_channel, Number):
+        #     if enable_DN_channel not in {0, 1}:
+        #         raise ValueError(
+        #             "mode can have only values {0,1}: 0 => fixed-threshold mode, 1 => divisive normalization mode"
+        #         )
 
-            mode_vec = (mode_vec * np.ones(num_channels)).astype(np.int64)
+        #     enable_DN_channel = (enable_DN_channel * np.ones(num_channels)).astype(np.int64)
 
-        else:
-            if len(set(np.unique(mode_vec)) - {0, 1}) != 0:
-                raise ValueError(
-                    "mode can have only values {0,1}: 0 => fixed-threshold mode, 1 => divisive normalization mode"
-                )
+        # else:
+        #     if len(set(np.unique(enable_DN_channel)) - {0, 1}) != 0:
+        #         raise ValueError(
+        #             "mode can have only values {0,1}: 0 => fixed-threshold mode, 1 => divisive normalization mode"
+        #         )
 
-            mode_vec = np.asarray(mode_vec, dtype=np.int64)
+        #     enable_DN_channel = np.asarray(enable_DN_channel, dtype=np.int64)
 
         # check if jax is availble
         if JAX_SPIKE_GEN:
@@ -360,26 +271,26 @@ class DivisiveNormalization(Module):
             # convert the parameters to the format of jax
             spikes, recording = jax_spike_gen_func(
                 sig_in=sig_in,
-                mode_vec=mode_vec,
+                mode_vec=self.enable_DN_channel.astype(np.int64),
                 spike_rate_scale_bitshift1=self.spike_rate_scale_bitshift1,
                 spike_rate_scale_bitshift2=self.spike_rate_scale_bitshift2,
                 low_pass_bitshift=self.low_pass_bitshift,
                 EPS_vec=self.EPS_vec,
                 fixed_threshold_vec=self.fixed_threshold_vec,
-                joint_normalization=joint_normalization,
+                joint_normalization=self.joint_normalization,
                 record=record,
             )
         else:
             ## use python version
             spikes, recording = py_spike_gen(
                 sig_in=sig_in,
-                mode_vec=mode_vec,
+                mode_vec=self.enable_DN_channel.astype(np.int64),
                 spike_rate_scale_bitshift1=self.spike_rate_scale_bitshift1,
                 spike_rate_scale_bitshift2=self.spike_rate_scale_bitshift2,
                 low_pass_bitshift=self.low_pass_bitshift,
                 EPS_vec=self.EPS_vec,
                 fixed_threshold_vec=self.fixed_threshold_vec,
-                joint_normalization=joint_normalization,
+                joint_normalization=self.joint_normalization,
                 record=record,
             )
 
@@ -402,12 +313,6 @@ class DivisiveNormalization(Module):
         spike_scale_bitshift = round(np.log2(rate_downscale_val))
 
         return spike_scale_bitshift
-
-    # def __call__(self, *args, **kwargs):
-    #     """
-    #     This is just a utility function and simply calls `evolve`
-    #     """
-    #     self.evolve(*args, **kwargs)
 
     def _info(self):
         string = (
