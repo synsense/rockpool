@@ -7,3 +7,4 @@ Provides the modules :py:class:`.Raster`, :py:class:`.PDM_Microphone`, :py:class
 from .pdm_adc import PDM_ADC, PDM_Microphone, PolyPhaseFIR_DecimationFilter
 from .digital_filterbank import ChipButterworth
 from .raster import Raster
+from .divisive_normalization import DivisiveNormalization

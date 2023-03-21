@@ -61,8 +61,8 @@ import warnings
 
 from logging import debug, info
 
-info = print
-debug = print
+# info = print
+# debug = print
 
 from typing import Union, Tuple, List, Dict
 from rockpool.typehints import P_int, P_ndarray, P_float
@@ -231,7 +231,7 @@ class DivisiveNormalization(Module):
             # check if int32 version is ok
 
             # maximum value of signal in various channels
-            max_sig_in = np.max(np.abs(sig_in), axis=1)
+            max_sig_in = np.max(np.abs(sig_in), axis=0)
 
             # maximum value of low-pass filter in various channels
             max_low_pass_value = np.max(max_sig_in * (2**self.low_pass_bitshift))
@@ -243,21 +243,11 @@ class DivisiveNormalization(Module):
                 jax_spike_gen_func = jax_spike_gen
             else:
                 jax_spike_gen_func = fjax_spike_gen
-                warnings.warn(
-                    f"""
-                    Jax float32 was chosen for spike generation.
-                    
-                    NOTE #1: Since Jax has only 32 bit for integer simulation, it could not simulate the current divisive normalization setting.
-                    More specifically, the amplitude of the low-pass filter can go up to {max_low_pass_value} in channel {max_low_pass_channel}.
-                    This cannot be simulated with 32-bit integer format.
-                    
-                    NOTE #2: Jax float32 should be sufficiently good for Xylo-A3 simulation but it has the issues that the gnerated spikes may have
-                    some jitter compared with the exact integer version obtained from the Xylo-A3 chip.
-                    However, the average rate of spikes even over very small time intervals should be the same as exact integer version.
-                    This jitter simply implies that spikes should not be comapred with MSE distance, for example, because jitter may yield
-                    a very large distance, whereas the spikes are indeed quite similar.
-                    Other metrics such as Wasserstein metric should be good in this case.
-                    """
+                info(
+                    "Jax float32 was chosen for spike generation.\n\n"
+                    + f"NOTE #1: Since Jax has only 32 bit for integer simulation, it could not simulate the current divisive normalization setting. More specifically, the amplitude of the low-pass filter can go up to {max_low_pass_value} in channel {max_low_pass_channel}. This cannot be simulated with 32-bit integer format.\n\n"
+                    + "NOTE #2: Jax float32 should be sufficiently good for Xylo-A3 simulation but it has the issues that the gnerated spikes may have some jitter compared with the exact integer version obtained from the Xylo-A3 chip. However, the average rate of spikes even over very small time intervals should be the same as exact integer version. This jitter simply implies that spikes should not be comapred with MSE distance, for example, because jitter may yield a very large distance, whereas the spikes are indeed quite similar.\n"
+                    + "Other metrics such as Wasserstein metric should be good in this case."
                 )
 
             # convert the parameters to the format of jax

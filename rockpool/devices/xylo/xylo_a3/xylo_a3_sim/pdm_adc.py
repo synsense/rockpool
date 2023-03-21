@@ -435,9 +435,9 @@ class PolyPhaseFIR_DecimationFilter(Module):
         scale = True
         fs = self.fs
 
-        warnings.warn(
-            "filter cutoff-width was unset in the implementation to futher lower-down the tail response!"
-        )
+        # warnings.warn(
+        #     "filter cutoff-width was unset in the implementation to futher lower-down the tail response!"
+        # )
 
         # scipy.signal.firwin(numtaps, cutoff, width=None, window='hamming', pass_zero=True, scale=True, nyq=None, fs=None)
         h_vec = sp.firwin(
@@ -573,6 +573,21 @@ class PolyPhaseFIR_DecimationFilter(Module):
         plt.grid(True)
 
         plt.show()
+
+    def _info(self) -> str:
+        string = (
+            "Polyphase FIR filter:\n"
+            + f"PDM sampling rate: {self.fs}\n"
+            + f"filter length: {self.filt_length}\n"
+            + f"filter cutoff frequency: {self.cutoff}\n"
+            + f"filter transition width: {self.cutoff_width}\n"
+            + f"decimation factor: {self.decimation_factor}\n"
+            + f"number of quantization bits for filter taps: {self.num_bits_filter_Q}\n"
+            + f"number of bits at the output of the filter before final bit-truncation: {self._num_bits_output_pre_Q}\n"
+            + f"number of bits at the final output: {self.num_bits_output}\n"
+        )
+
+        return string
 
 
 def PDM_ADC(
