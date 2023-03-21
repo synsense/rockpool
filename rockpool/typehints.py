@@ -8,7 +8,6 @@ See :ref:`/reference/params_types.ipynb` for more information on the available t
 import numpy as np
 from typing import Union, Any, Callable, Dict
 from collections import abc
-from jax import numpy as jnp
 
 from rockpool.parameters import ParameterBase
 
