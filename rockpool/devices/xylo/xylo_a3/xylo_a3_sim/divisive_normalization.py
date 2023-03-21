@@ -253,7 +253,7 @@ class DivisiveNormalization(Module):
             # convert the parameters to the format of jax
             spikes, recording = jax_spike_gen_func(
                 sig_in=sig_in,
-                mode_vec=self.enable_DN_channel.astype(np.int64),
+                mode_vec=self.enable_DN_channel.astype(jnp.int64),
                 spike_rate_scale_bitshift1=self.spike_rate_scale_bitshift1,
                 spike_rate_scale_bitshift2=self.spike_rate_scale_bitshift2,
                 low_pass_bitshift=self.low_pass_bitshift,
@@ -371,6 +371,13 @@ try:
         mode_vec = jnp.asarray(mode_vec, dtype=jnp.int64)
         EPS_vec = jnp.asarray(EPS_vec, dtype=jnp.int64)
         fixed_threshold_vec = jnp.asarray(fixed_threshold_vec, dtype=jnp.int64)
+        low_pass_bitshift = jnp.asarray(low_pass_bitshift, dtype=jnp.int64)
+        spike_rate_scale_bitshift1 = jnp.asarray(
+            spike_rate_scale_bitshift1, dtype=jnp.int64
+        )
+        spike_rate_scale_bitshift2 = jnp.asarray(
+            spike_rate_scale_bitshift2, dtype=jnp.int64
+        )
 
         # jit compiled function
         # we have two compiled version: (i) when states are not needed, (ii) when states also need to be returned
@@ -809,12 +816,14 @@ def py_spike_gen(
         # the spikes are produced according to Morely (rather than Moore) state machine model.
 
         # low-resolution filter state
-        state_low_res_filter = state_high_res_filter >> low_pass_bitshift
+        state_low_res_filter = state_high_res_filter >> low_pass_bitshift.astype(
+            np.int64
+        )
 
         # update the state of high-res filter for next clock
         state_high_res_filter = (
             state_high_res_filter
-            - (state_high_res_filter >> low_pass_bitshift)
+            - (state_high_res_filter >> low_pass_bitshift.astype(np.int64))
             + sig_rect_sample
         )
 
@@ -824,8 +833,8 @@ def py_spike_gen(
             adaptive_threshold_vec < EPS_vec
         ]
         adaptive_threshold_vec = (
-            adaptive_threshold_vec << spike_rate_scale_bitshift1
-        ) - (adaptive_threshold_vec << spike_rate_scale_bitshift2)
+            adaptive_threshold_vec << spike_rate_scale_bitshift1.astype(np.int64)
+        ) - (adaptive_threshold_vec << spike_rate_scale_bitshift2.astype(np.int64))
 
         # decide on separate (per-channel) or joint spike rate normalization across channels
         if joint_normalization:

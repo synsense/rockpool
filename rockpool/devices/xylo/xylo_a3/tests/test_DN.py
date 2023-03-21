@@ -11,12 +11,8 @@
 import numpy as np
 from numpy.linalg import norm
 
-from xylo_a3_sim.divisive_normalization import (
-    DivisiveNormalization,
-    jax_spike_gen,
-    fjax_spike_gen,
-    py_spike_gen,
-)
+import rockpool.devices.xylo.xylo_a3.xylo_a3_sim.divisive_normalization as xdn
+
 import matplotlib.pyplot as plt
 import time
 
@@ -47,18 +43,16 @@ def test_DN():
         sig_in = sig_in.reshape(-1, 1)
 
     # apply DN
-    dn = DivisiveNormalization(
-        num_channels=num_channels,
+    dn = xdn.DivisiveNormalization(
+        num_channels,
         spike_rate_scale_bitshift1=12,
         spike_rate_scale_bitshift2=0,
         fs=fs,
     )
 
     start = time.time()
-    spikes, recordings = dn.evolve(
-        sig_in=sig_in,
-        mode_in=1,
-        joint_normalization=True,
+    spikes, _, recordings = dn.evolve(
+        sig_in,
         record=True,
     )
     duration_DN = time.time() - start
@@ -155,7 +149,7 @@ def test_jax_vs_python_DN():
     # ===========================================================================
     # first : jit compilation
     start = time.time()
-    spikes_jax, _ = jax_spike_gen(
+    spikes_jax, _ = xdn.jax_spike_gen(
         sig_in=sig_in,
         mode_vec=mode_vec,
         spike_rate_scale_bitshift1=spike_rate_scale_bitshift1,
@@ -169,7 +163,7 @@ def test_jax_vs_python_DN():
 
     # second: run it again to see the real speed
     start = time.time()
-    spikes_jax, recording_jax = jax_spike_gen(
+    spikes_jax, recording_jax = xdn.jax_spike_gen(
         sig_in=sig_in,
         mode_vec=mode_vec,
         spike_rate_scale_bitshift1=spike_rate_scale_bitshift1,
@@ -196,7 +190,7 @@ def test_jax_vs_python_DN():
 
     # first : jit compilation
     start = time.time()
-    spikes_fjax, _ = fjax_spike_gen(
+    spikes_fjax, _ = xdn.fjax_spike_gen(
         sig_in=sig_in,
         mode_vec=mode_vec,
         spike_rate_scale_bitshift1=spike_rate_scale_bitshift1,
@@ -210,7 +204,7 @@ def test_jax_vs_python_DN():
 
     # second: run it again to see the real speed
     start = time.time()
-    spikes_fjax, recording_fjax = fjax_spike_gen(
+    spikes_fjax, recording_fjax = xdn.fjax_spike_gen(
         sig_in=sig_in,
         mode_vec=mode_vec,
         spike_rate_scale_bitshift1=spike_rate_scale_bitshift1,
@@ -237,7 +231,7 @@ def test_jax_vs_python_DN():
 
     start = time.time()
 
-    spikes_py, recording_py = py_spike_gen(
+    spikes_py, recording_py = xdn.py_spike_gen(
         sig_in=sig_in,
         mode_vec=mode_vec,
         spike_rate_scale_bitshift1=spike_rate_scale_bitshift1,
@@ -324,7 +318,7 @@ def test_jax_vs_python_DN():
 
 
 def main():
-    # test_DN()
+    test_DN()
     test_jax_vs_python_DN()
 
 
