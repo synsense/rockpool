@@ -81,8 +81,11 @@ class LIFJax(JaxModule):
     .. math ::
 
         I_{syn} += S_{in}(t) + S_{rec} \\cdot W_{rec}
+
         I_{syn} *= \exp(-dt / \tau_{syn})
+
         V_{mem} *= \exp(-dt / \tau_{mem})
+        
         V_{mem} += I_{syn} + b + \sigma \zeta(t)
 
     where :math:`S_{in}(t)` is a vector containing ``1`` (or a weighed spike) for each input channel that emits a spike at time :math:`t`; :math:`b` is a :math:`N` vector of bias currents for each neuron; :math:`\\sigma\\zeta(t)` is a Wiener noise process with standard deviation :math:`\\sigma` after 1s; and :math:`\\tau_{mem}` and :math:`\\tau_{syn}` are the membrane and synaptic time constants, respectively. :math:`S_{rec}(t)` is a vector containing ``1`` for each neuron that emitted a spike in the last time-step. :math:`W_{rec}` is a recurrent weight matrix, if recurrent weights are used. :math:`b` is an optional bias current per neuron (default 0.).
