@@ -206,6 +206,17 @@ class PDM_Microphone(Module):
         if not self._in_Module_init and name != "_sdm_module":
             self._sdm_module = ds.synthesizeNTF(self.sdm_order, self.sdm_OSR, opt=1)
 
+    def _info(self) -> str:
+        string = (
+            "This is the module for simulating PDM microphone which uses sigma-delta modulation.\n"
+            + "The input analog audio signal is mapped to a binary stream of modulated data which is them interpolated to recover a sampled version of the analog input.\n"
+            + "Parameters:\n"
+            + f"Sigma-Delta modulation order: {self.sdm_order}\n"
+            + f"Sigma-Delta oversampling rate (ratio between the rate of PDM clock and target audio sampling rate): {self.sdm_OSR}\n"
+            + f"Sigma-Delta clock rate: {self.fs}\n"
+        )
+        return string
+
 
 class PolyPhaseFIR_DecimationFilter(Module):
     """
