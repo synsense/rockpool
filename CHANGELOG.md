@@ -2,7 +2,16 @@
 
 All notable changes between Rockpool releases will be documented in this file.
 
-## Unreleased -- 2023-01-27
+## Unreleased -- 2023-03-22
+
+### Added
+### Changed
+### Fixed
+### Deprecated
+### Removed
+### Security
+
+## [v2.6] -- 2023-03-21
 
 ### Added 
 
@@ -33,7 +42,7 @@ All notable changes between Rockpool releases will be documented in this file.
 ### Changed
 
 * Update Samna version requirement to >=0.19.0
-
+* User explicitly defines Cuda device for LIFExodus, ExpDynExodus and LIFMembraneExodus
 
 ## [v2.5] -- 2022-11-29
 
