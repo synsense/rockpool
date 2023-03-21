@@ -28,15 +28,14 @@ All notable changes between Rockpool releases will be documented in this file.
   * unit tests + tutorials + developer docs
   * `DynapseNeuron` graph module which supports conversion from and to `LIFNeuronWithSynsRealValue` graph
   * hardcoded frozen and dynamic mismatch prototypes
+  * mismatch transformation (jax)
 
-* mismatch transformation (jax)
 * `LIFExodus` now supports training time constants, and multiple time constants
 * Improved API for `LIFTorch`
    - Hotfix: Regression in `LIFExodus`
 * Implemented `ExpSynExodus` for accelerated training of exponential synapse modules
 * Added initial developer documentation
 * Added MNIST tutorial
-
 * Fixed notebook links to MyBinder.org
 
 ### Changed
