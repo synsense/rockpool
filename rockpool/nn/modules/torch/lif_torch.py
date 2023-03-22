@@ -495,21 +495,34 @@ class LIFBaseTorch(TorchModule):
         """
         if self.leak_mode == "taus":
             # - Compute decay parameters based on taus
-            tau_mem, tau_syn = self.tau_mem, self.tau_syn
-            alpha, beta = tau_to_decay(self.dt, self.tau_mem, self.tau_syn)
-            dash_mem, dash_syn = tau_to_bitshift(self.dt, self.tau_mem, self.tau_syn)
+            tau_mem = getattr(
+                self, "tau_mem", torch.tensor(torch.nan).repeat(self.size_out)
+            )
+            tau_syn = getattr(
+                self, "tau_syn", torch.tensor(torch.nan).repeat(self.size_out)
+            )
+            alpha, beta = tau_to_decay(self.dt, tau_mem, tau_syn)
+            dash_mem, dash_syn = tau_to_bitshift(self.dt, tau_mem, tau_syn)
 
         elif self.leak_mode == "decays":
             # - Compute decay parameters based on decay constants
-            tau_mem, tau_syn = decay_to_tau(self.dt, self.alpha, self.beta)
-            alpha, beta = self.alpha, self.beta
-            dash_mem, dash_syn = decay_to_bitshift(self.alpha, self.beta)
+            alpha = getattr(
+                self, "alpha", torch.tensor(torch.nan).repeat(self.size_out)
+            )
+            beta = getattr(self, "beta", torch.tensor(torch.nan).repeat(self.size_out))
+            tau_mem, tau_syn = decay_to_tau(self.dt, alpha, beta)
+            dash_mem, dash_syn = decay_to_bitshift(alpha, beta)
 
         elif self.leak_mode == "bitshifts":
             # - Compute decay parameters based on bitshift values
-            tau_mem, tau_syn = bitshift_to_tau(self.dt, self.dash_mem, self.dash_syn)
-            alpha, beta = bitshift_to_decay(self.dash_mem, self.dash_syn)
-            dash_mem, dash_syn = self.dash_mem, self.dash_syn
+            dash_mem = getattr(
+                self, "dash_mem", torch.tensor(torch.nan).repeat(self.size_out)
+            )
+            dash_syn = getattr(
+                self, "dash_syn", torch.tensor(torch.nan).repeat(self.size_out)
+            )
+            tau_mem, tau_syn = bitshift_to_tau(self.dt, dash_mem, dash_syn)
+            alpha, beta = bitshift_to_decay(dash_mem, dash_syn)
 
         # - Return all parameters
         return {
@@ -574,8 +587,11 @@ class LIFTorch(LIFBaseTorch):
     .. math ::
 
         I_{syn} += S_{in}(t) + S_{rec} \\cdot W_{rec}
+
         I_{syn} *= \exp(-dt / \tau_{syn})
+
         V_{mem} *= \exp(-dt / \tau_{mem})
+
         V_{mem} += I_{syn} + b + \sigma \zeta(t)
 
     where :math:`S_{in}(t)` is a vector containing ``1`` (or a weighed spike) for each input channel that emits a spike at time :math:`t`; :math:`b` is a :math:`N` vector of bias currents for each neuron; :math:`\\sigma\\zeta(t)` is a Wiener noise process with standard deviation :math:`\\sigma` after 1s; and :math:`\\tau_{mem}` and :math:`\\tau_{syn}` are the membrane and synaptic time constants, respectively. :math:`S_{rec}(t)` is a vector containing ``1`` for each neuron that emitted a spike in the last time-step. :math:`W_{rec}` is a recurrent weight matrix, if recurrent weights are used. :math:`b` is an optional bias current per neuron (default 0.).
