@@ -495,22 +495,32 @@ class LIFBaseTorch(TorchModule):
         """
         if self.leak_mode == "taus":
             # - Compute decay parameters based on taus
-            tau_mem = getattr(self, 'tau_mem', torch.tensor(torch.nan).repeat(self.size_out))
-            tau_syn = getattr(self, 'tau_syn', torch.tensor(torch.nan).repeat(self.size_out))
+            tau_mem = getattr(
+                self, "tau_mem", torch.tensor(torch.nan).repeat(self.size_out)
+            )
+            tau_syn = getattr(
+                self, "tau_syn", torch.tensor(torch.nan).repeat(self.size_out)
+            )
             alpha, beta = tau_to_decay(self.dt, tau_mem, tau_syn)
             dash_mem, dash_syn = tau_to_bitshift(self.dt, tau_mem, tau_syn)
 
         elif self.leak_mode == "decays":
             # - Compute decay parameters based on decay constants
-            alpha = getattr(self, 'alpha', torch.tensor(torch.nan).repeat(self.size_out))
-            beta = getattr(self, 'beta', torch.tensor(torch.nan).repeat(self.size_out))
+            alpha = getattr(
+                self, "alpha", torch.tensor(torch.nan).repeat(self.size_out)
+            )
+            beta = getattr(self, "beta", torch.tensor(torch.nan).repeat(self.size_out))
             tau_mem, tau_syn = decay_to_tau(self.dt, alpha, beta)
             dash_mem, dash_syn = decay_to_bitshift(alpha, beta)
 
         elif self.leak_mode == "bitshifts":
             # - Compute decay parameters based on bitshift values
-            dash_mem = getattr(self, 'dash_mem', torch.tensor(torch.nan).repeat(self.size_out))
-            dash_syn = getattr(self, 'dash_syn', torch.tensor(torch.nan).repeat(self.size_out))
+            dash_mem = getattr(
+                self, "dash_mem", torch.tensor(torch.nan).repeat(self.size_out)
+            )
+            dash_syn = getattr(
+                self, "dash_syn", torch.tensor(torch.nan).repeat(self.size_out)
+            )
             tau_mem, tau_syn = bitshift_to_tau(self.dt, dash_mem, dash_syn)
             alpha, beta = bitshift_to_decay(dash_mem, dash_syn)
 
