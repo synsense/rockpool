@@ -18,3 +18,8 @@ try:
     from .wavesense import *
 except (ImportError, ModuleNotFoundError) as err:
     warnings.warn(f"{err}")
+
+try:
+    from .synnet import *
+except (ImportError, ModuleNotFoundError) as err:
+    warnings.warn(f"{err}")

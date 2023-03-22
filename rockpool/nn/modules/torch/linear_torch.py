@@ -24,7 +24,7 @@ class LinearTorch(TorchModule):
     """
     Applies a linear transformation to the incoming data: :math:`y = xA + b`
 
-    This module supports :ref:`TensorFloat32<tf32_on_ampere>`.
+    This module supports `TensorFloat32`.
 
     Examples::
         >>> m = LinearTorch((20, 30))

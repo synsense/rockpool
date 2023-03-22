@@ -44,7 +44,7 @@ def step_pwl(
     x: FloatVector,
     threshold: FloatVector,
     window: FloatVector = 0.5,
-    max_spikes_per_dt: int = np.inf,
+    max_spikes_per_dt: float = 2.0**16,
 ) -> FloatVector:
     """
     Heaviside step function with piece-wise linear derivative to use as spike-generation surrogate
@@ -53,8 +53,7 @@ def step_pwl(
         x (float):          Input value
         threshold (float):  Firing threshold
         window (float): Learning window around threshold. Default: 0.5
-        max_spikes_per_dt (int): Maximum number of spikes that may be produced each dt. Default: ``np.inf``, do not clamp spikes
-
+        max_spikes_per_dt (float): Maximum number of spikes that may be produced each dt. Default: ``2**16``
     Returns:
         float: Number of output events for each input value
     """
@@ -82,8 +81,11 @@ class LIFJax(JaxModule):
     .. math ::
 
         I_{syn} += S_{in}(t) + S_{rec} \\cdot W_{rec}
+
         I_{syn} *= \exp(-dt / \tau_{syn})
+
         V_{mem} *= \exp(-dt / \tau_{mem})
+
         V_{mem} += I_{syn} + b + \sigma \zeta(t)
 
     where :math:`S_{in}(t)` is a vector containing ``1`` (or a weighed spike) for each input channel that emits a spike at time :math:`t`; :math:`b` is a :math:`N` vector of bias currents for each neuron; :math:`\\sigma\\zeta(t)` is a Wiener noise process with standard deviation :math:`\\sigma` after 1s; and :math:`\\tau_{mem}` and :math:`\\tau_{syn}` are the membrane and synaptic time constants, respectively. :math:`S_{rec}(t)` is a vector containing ``1`` for each neuron that emitted a spike in the last time-step. :math:`W_{rec}` is a recurrent weight matrix, if recurrent weights are used. :math:`b` is an optional bias current per neuron (default 0.).
@@ -112,7 +114,7 @@ class LIFJax(JaxModule):
         weight_init_func: Optional[Callable[[Tuple], np.ndarray]] = kaiming,
         threshold: Optional[FloatVector] = None,
         noise_std: float = 0.0,
-        max_spikes_per_dt: P_int = np.inf,
+        max_spikes_per_dt: P_float = 2.0**16,
         dt: float = 1e-3,
         rng_key: Optional[JaxRNGKey] = None,
         spiking_input: bool = False,
@@ -133,7 +135,7 @@ class LIFJax(JaxModule):
             weight_init_func (Optional[Callable[[Tuple], np.ndarray]): The initialisation function to use when generating weights. Default: ``None`` (Kaiming initialisation)
             threshold (FloatVector): An optional array specifying the firing threshold of each neuron. If not provided, ``1.`` will be used by default.
             noise_std (float): The std. dev. after 1s of the noise added to membrane state variables. Default: ``0.0`` (no noise).
-            max_spikes_per_dt (int): The maximum number of events that will be produced in a single time-step. Default: ``np.inf``; do not clamp spiking.
+            max_spikes_per_dt (float): The maximum number of events that will be produced in a single time-step. Default: ``2**16``.
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
             rng_key (Optional[Any]): The Jax RNG seed to use on initialisation. By default, a new seed is generated.
         """
@@ -251,8 +253,8 @@ class LIFJax(JaxModule):
         self.vmem: P_ndarray = State(shape=(self.size_out,), init_func=np.zeros)
         """ (np.ndarray) Membrane voltage of each neuron `(Nout,)` """
 
-        self.max_spikes_per_dt: P_int = SimulationParameter(max_spikes_per_dt)
-        """ (int) Maximum number of events that can be produced in each time-step """
+        self.max_spikes_per_dt: P_float = SimulationParameter(max_spikes_per_dt)
+        """ (float) Maximum number of events that can be produced in each time-step """
 
         # - Define additional arguments required during initialisation
         self._init_args = {
@@ -307,7 +309,7 @@ class LIFJax(JaxModule):
         def forward(
             state: Tuple[np.ndarray, np.ndarray, np.ndarray],
             inputs_t: Tuple[np.ndarray, np.ndarray],
-        ) -> (
+        ) -> Tuple[
             Tuple[np.ndarray, np.ndarray, np.ndarray],
             np.ndarray,
             np.ndarray,
@@ -315,7 +317,7 @@ class LIFJax(JaxModule):
             np.ndarray,
             np.ndarray,
             np.ndarray,
-        ):
+        ]:
             """
             Single-step LIF dynamics for a recurrent LIF layer
 

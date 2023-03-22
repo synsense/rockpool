@@ -36,16 +36,17 @@ class XyloSim(XyloSimV1):
     @classmethod
     def from_config(
         cls, config: XyloConfiguration, dt: float = 1e-3, output_mode: str = "Spike"
-    ):
+    ) -> "XyloSim":
         """
-        Creata a XyloSim based layer to simulate the Xylo hardware, from a configuration
+        Create a XyloSim based layer to simulate the Xylo hardware, from a configuration
 
-        Parameters:
-        dt: float
-            Timestep for simulation, in seconds. Default: 1ms
-        config: XyloConfiguration
-            ``samna.xylo.XyloConfiguration`` object to specify all parameters. See samna documentation for details.
+        Args:
+            config (XyloConfiguration): ``samna.xylo.XyloConfiguration`` object to specify all parameters. See samna documentation for details.
+            dt (float, optional): Timestep for simulation. Defaults to 1e-3.
+            output_mode (str, optional): readout mode. one of ["Isyn", "Vmem", "Spike"]. Defaults to "Spike".
 
+        Returns:
+            XyloSim: XyloSim object instance
         """
 
         # raise NotImplementedError(

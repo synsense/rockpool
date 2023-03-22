@@ -61,3 +61,11 @@ JaxRNGKey = Any
 JaxTreeDef = Any
 
 TreeDef = Dict
+
+
+class DRCError(ValueError):
+    pass
+
+
+class DRCWarning(Warning, DRCError):
+    pass

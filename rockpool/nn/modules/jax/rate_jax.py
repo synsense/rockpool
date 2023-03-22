@@ -31,6 +31,7 @@ from rockpool.typehints import FloatVector, P_Callable, P_ndarray, P_float
 
 __all__ = ["RateJax", "H_tanh", "H_ReLU", "H_sigmoid", "H_LReLU"]
 
+
 # -- Define useful neuron transfer functions
 def H_ReLU(x: FloatVector, threshold: FloatVector) -> FloatVector:
     return (x - threshold) * ((x - threshold) > 0)

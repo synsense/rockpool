@@ -333,7 +333,6 @@ def test_LIFTorch_reset():
 
 
 def test_LIFTorch_tc_training():
-
     from rockpool.nn.modules.torch import LIFTorch
     from rockpool.parameters import Constant
 
@@ -346,27 +345,24 @@ def test_LIFTorch_decay_training():
     from rockpool.nn.modules.torch import LIFTorch
     from rockpool.parameters import Constant
 
-    mod = LIFTorch(1, bias=Constant(0), threshold=Constant(1.0), decay_training=True)
+    mod = LIFTorch(1, bias=Constant(0), threshold=Constant(1.0), leak_mode="decays")
     assert "alpha" in mod.parameters().keys()
     assert "beta" in mod.parameters().keys()
 
-    mod = LIFTorch(1, bias=Constant(0), threshold=Constant(1.0), decay_training=False)
+    mod = LIFTorch(1, bias=Constant(0), threshold=Constant(1.0), leak_mode="taus")
     assert "alpha" not in mod.parameters().keys()
     assert "beta" not in mod.parameters().keys()
 
 
 def test_LIFTorch_bitshift_training():
-
     from rockpool.nn.modules.torch import LIFTorch
     from rockpool.parameters import Constant
 
     mod = LIFTorch(
         1,
         bias=Constant(0),
-        tau_mem=Constant(0),
-        tau_syn=Constant(0.02),
         threshold=Constant(1.0),
-        BitShift_training=True,
+        leak_mode="bitshifts",
     )
 
     assert "dash_mem" in mod.parameters().keys()
@@ -375,10 +371,10 @@ def test_LIFTorch_bitshift_training():
     mod = LIFTorch(
         1,
         bias=Constant(0),
-        tau_mem=Constant(0),
-        tau_syn=Constant(0.02),
+        dash_mem=Constant(0),
+        dash_syn=Constant(0.02),
         threshold=Constant(1.0),
-        BitShift_training=False,
+        leak_mode="bitshifts",
     )
 
     assert mod.parameters() == {}

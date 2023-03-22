@@ -32,6 +32,7 @@ Attribute types
     :toctree: _autosummary
     :template: class.rst
 
+    parameters.ParameterBase
     parameters.Parameter
     parameters.State
     parameters.SimulationParameter
@@ -117,6 +118,7 @@ Time series classes
 
     nn.modules.LIFExodus
     nn.modules.LIFMembraneExodus
+    nn.modules.ExpSynExodus
 
 
 :py:class:`Layer` subclasses from Rockpool v1
@@ -249,6 +251,81 @@ Xylo hardware support and simulation
     devices.xylo.syns61201.XyloHiddenNeurons
     devices.xylo.syns61201.XyloOutputNeurons
 
+Dynap-SE2 hardware support and simulation
+-----------------------------------------
+
+.. seealso::
+    Tutorials:
+
+    * :ref:`/devices/DynapSE/dynapse-overview.ipynb`
+    * :ref:`/devices/DynapSE/post-training.ipynb`
+    * :ref:`/devices/DynapSE/neuron-model.ipynb`
+    * :ref:`/devices/DynapSE/jax-training.ipynb`
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: module.rst
+
+    devices.dynapse
+
+**Simulation**
+
+.. autosummary::
+    :toctree: _autosummary
+    
+    :template: module.rst
+    devices.dynapse.simulation
+
+    :template: class.rst
+    devices.dynapse.DynapSim
+
+
+**Mismatch**
+
+.. autosummary::
+    :toctree: _autosummary
+
+    transform.mismatch_generator
+    devices.dynapse.frozen_mismatch_prototype
+    devices.dynapse.dynamic_mismatch_prototype
+
+**Device to Simulation**
+
+.. autosummary::
+    :toctree: _autosummary
+
+    devices.dynapse.mapper
+    devices.dynapse.autoencoder_quantization
+    devices.dynapse.config_from_specification
+
+**Computer Interface**
+
+.. autosummary::
+    :toctree: _autosummary
+
+    devices.dynapse.find_dynapse_boards
+
+    :template: class.rst
+    devices.dynapse.DynapseSamna
+
+**Simulation to Device**
+
+.. autosummary::
+    :toctree: _autosummary
+
+    devices.dynapse.dynapsim_net_from_spec
+    devices.dynapse.dynapsim_net_from_config
+
+**More**
+
+.. autosummary::
+    :toctree: _autosummary
+    
+    :template: class.rst
+    devices.dynapse.DynapseNeurons
+
+    :template: class.rst
+    devices.dynapse.DynapSimCore
 
 Graph tracing and mapping
 -------------------------
@@ -287,7 +364,6 @@ Computational graph modules
 
     graph.utils
 
-
 General Utilities
 -----------------
 
@@ -295,5 +371,7 @@ General Utilities
     :toctree: _autosummary
     :template: module.rst
 
+    utilities.backend_management
     utilities.jax_tree_utils
-    utilities.tree_utils
+    utilities.type_handling
+

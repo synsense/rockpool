@@ -16,6 +16,7 @@ try:
     from .updown_torch import *
     from .linear_torch import *
     from .bool_state import *
+    from .dropout import *
 except:
     from rockpool.utilities.backend_management import (
         backend_available,
@@ -34,3 +35,5 @@ except:
         ExpSynTorch = missing_backend_shim("ExpSynTorch", "torch")
         UpDownTorch = missing_backend_shim("UpDownTorch", "torch")
         LinearTorch = missing_backend_shim("LinearTorch", "torch")
+    else:
+        raise
