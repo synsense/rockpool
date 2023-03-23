@@ -96,17 +96,9 @@ class SynNet(TorchModule):
             )
 
         if output == "vmem":
-            thresholds_out = [THRESHOLD_OUT for _ in range(n_classes)]
+            threshold_out = THRESHOLD_OUT
         elif threshold_out is None:
-            thresholds_out = [threshold for _ in range(n_classes)]
-        elif isinstance(threshold_out, float):
-            thresholds_out = [threshold_out for _ in range(n_classes)]
-        else:
-            if len(threshold_out) != n_classes:
-                raise ValueError(
-                    "threshold_out has to be float or list of floats with length equal to the number of classes"
-                )
-            thresholds_out = threshold_out
+            threshold_out = threshold
 
         self.output = output
 
@@ -156,11 +148,6 @@ class SynNet(TorchModule):
                     ]
                 )
 
-            if not train_threshold:
-                thresholds = Constant([threshold for _ in range(n_hidden)])
-            else:
-                thresholds = [threshold for _ in range(n_hidden)]
-
             layers.append(LinearTorch(shape=(n_channels_in, n_hidden), has_bias=False))
             n_channels_in = n_hidden
             with torch.no_grad():
@@ -171,7 +158,7 @@ class SynNet(TorchModule):
                     tau_mem=Constant(tau_mem),
                     tau_syn=Constant(tau_syn_hidden),
                     bias=Constant(0.0),
-                    threshold=thresholds,
+                    threshold=threshold if train_threshold else Constant(threshold),
                     spike_generation_fn=PeriodicExponential,
                     dt=dt,
                     max_spikes_per_dt=max_spikes_per_dt,
@@ -190,7 +177,7 @@ class SynNet(TorchModule):
                 tau_mem=Constant(tau_mem),
                 tau_syn=Constant(tau_syn_out),
                 bias=Constant(0.0),
-                threshold=Constant(thresholds_out),
+                threshold=Constant(threshold_out),
                 spike_generation_fn=PeriodicExponential,
                 max_spikes_per_dt=max_spikes_per_dt_out,
                 dt=dt,
