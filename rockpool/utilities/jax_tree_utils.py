@@ -44,7 +44,7 @@ def tree_map_reduce_select(
         >>> def reduce_fun(x, y):
         >>>     return np.nanmax(np.array([x, y]))
         >>>
-        >>> tree_map_reduce_select({'a': 1}, {'a': 1}, map_fun, reduce_fun)
+        >>> tree_map_reduce_select({'a': 1}, {'a': True}, map_fun, reduce_fun)
         1
 
         >>> def map_fun(leaf):
@@ -59,7 +59,7 @@ def tree_map_reduce_select(
         >>>
         >>> null = map_fun(np.nan)
         >>>
-        >>> tree_map_reduce_select({'a': 1}, {'a': 1}, map_fun, reduce_fun, null)
+        >>> tree_map_reduce_select({'a': 1}, {'a': True}, map_fun, reduce_fun, null)
         {'mean': 1, 'std': NaN}
 
     Args:
