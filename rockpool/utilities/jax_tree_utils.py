@@ -2,11 +2,7 @@
 Utility functions for working with trees.
 """
 
-from warnings import warn
-
-from typing import Tuple, Generator, Any, Callable, List
-
-import copy
+from typing import Any, Callable
 
 import jax
 import jax.tree_util as tu
@@ -16,134 +12,12 @@ import functools
 # - Set up some useful types
 from rockpool.typehints import Tree, Leaf, Value, JaxRNGKey
 
-
-def branches(tree: Tree, prefix: list = None) -> Generator[Tuple, None, None]:
-    """
-    Generate all branches (paths from root node to any leaf) in a tree
-
-    Args:
-        tree (Tree): A nested dictionary tree structure
-        prefix (list): The current branch prefix. Default: `None` (this is the root)
-
-    Yields:
-        Tuple[str]:
-    """
-    # - Start from the root node
-    if prefix is None:
-        prefix = []
-
-    # - Loop over nodes
-    for k, v in tree.items():
-        # - Is this a nested dict?
-        if isinstance(v, dict):
-            # - Get branches from subtree
-            yield from branches(v, prefix + [k])
-
-        else:
-            # - Yield this branch
-            yield tuple(prefix + [k])
-
-
-def get_nested(tree: Tree, branch: Tuple) -> None:
-    """
-    Get a value from a tree branch, specifying a branch
-
-    Args:
-        tree (Tree): A nested dictionary tree structure
-        branch (Tuple[str]): A branch: a tuple of indices to walk through the tree
-    """
-    # - Start from the root node
-    node = tree
-
-    # - Iterate along the branch
-    for key in branch[:-1]:
-        node = node[key]
-
-    # - Get the leaf value
-    return node[branch[-1]]
-
-
-def set_nested(tree: Tree, branch: Tuple, value: Any) -> None:
-    """
-    Set a value in a tree branch, specifying a branch
-
-    The leaf node must already exist in the tree.
-
-    Args:
-        tree (Tree): A nested dictionary tree structure
-        branch (Tuple[str]): A branch: a tuple of indices to walk through the tree
-        value (Any): The value to set at the tree leaf
-    """
-    # - Start from the root node
-    node = tree
-
-    # - Iterate along the branch
-    for key in branch[:-1]:
-        node = node[key]
-
-    # - Set the leaf value
-    node[branch[-1]] = value
-
-
-def set_matching(full_tree: Tree, target_tree: Tree, value: Any) -> None:
-    """
-    Set the values in a full tree in-place, for branches that match a target tree
-
-    Args:
-        full_tree (Tree): A tree to search over. The values in this tree will be replaced with ``value``
-        target_tree (Tree): A tree that defines the target branches to set in ``full_tree``. Matching branches in ``full_tree`` will have their values replaced with ``value``
-        value (Any): The value to set in ``full_tree``.
-    """
-    for branch in branches(target_tree):
-        set_nested(full_tree, branch, value)
-
-
-def make_prototype_tree(full_tree: Tree, target_tree: Tree) -> Tree:
-    """
-    Construct a tree with boolean leaves, for nodes that match a target tree
-
-    Make a prototype tree, indicating which nodes in a large tree should be selected for analysis or processing. This is done on the basis of a smaller "target" tree, which contains only the leaf nodes of interest.
-
-    Examples:
-        >>> target_tree = {'a': 0, 'b': {'b2': 0}}
-        >>> full_tree = {'a': 1, 'b': {'b1': 2, 'b2': 3}, 'c': 4, 'd': 5}
-        >>> make_prototype_tree(full_tree, target_tree)
-        {'a': True, 'b': {'b1': False, 'b2': True}, 'c': False, 'd': False}
-
-    Args:
-        full_tree (Tree): A large tree to search through.
-        target_tree (Tree): A tree with only few leaf nodes. These nodes will be identifed within the full tree.
-
-    Returns:
-        Tree: A nested tree with the same tree structure as `full_tree`, but with ``bool`` leaf nodes. Leaf nodes will be ``True`` for branches matching those specified in `target_tree`, and ``False`` otherwise.
-    """
-    # - Make a copy of the input tree
-    prototype = copy.deepcopy(full_tree)
-
-    # - Get a list of target and full branches
-    targets = list(branches(target_tree))
-    full_branches = list(branches(full_tree))
-
-    # - Sanity check the trees
-    if len(full_branches) < len(targets):
-        warn(
-            SyntaxWarning(
-                "make_prototype_tree: The `target` tree has more nodes than the `full` tree. Please check the order of arguments."
-            )
-        )
-
-    # - Loop over all leaf branches in full tree
-    for branch in full_branches:
-        # - Is this a target branch?
-        if branch in targets:
-            # - Assign `True` in the prototype tree
-            set_nested(prototype, branch, True)
-        else:
-            # - Assign `False` in the prototype tree
-            set_nested(prototype, branch, False)
-
-    # - Return the prototype tree
-    return prototype
+__all__ = [
+    "tree_map_reduce_select",
+    "tree_map_select",
+    "tree_map_select_with_rng",
+    "tree_map_with_rng",
+]
 
 
 def tree_map_reduce_select(
@@ -324,20 +198,3 @@ def tree_map_with_rng(
 
     # - Map function over the tree and return
     return tu.tree_map(map_fun, tree, subkeys_tree, *rest)
-
-
-def tree_find(tree: Tree) -> List:
-    """
-    Return the tree branches to tree nodes that evaluate to ``True``
-
-    Args:
-        tree (Tree): A tree to examine
-
-    Returns:
-        list: A list of all tree branches, for which the corresponding tree leaf evaluate to ``True``
-    """
-    # - Get a list of all tree branches
-    all_branches = list(branches(tree))
-
-    # - Return a list of branches to leaves that evaluate to `True`
-    return [branch for branch in all_branches if get_nested(tree, branch)]
