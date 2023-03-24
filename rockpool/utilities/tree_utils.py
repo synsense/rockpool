@@ -109,7 +109,7 @@ def set_matching(
     full_tree: Tree, target_tree: Tree, value: Any, inplace: bool = False
 ) -> Tree:
     """
-    Set the values in a full tree in-place, for branches that match a target tree
+    Set the values in a full tree, for branches that match a target tree
 
     Args:
         full_tree (Tree): A tree to search over. The values in this tree will be replaced with ``value``
@@ -124,16 +124,16 @@ def set_matching(
         full_tree = copy.deepcopy(full_tree)
 
     for branch in branches(target_tree):
-        set_nested(full_tree, branch, value)
+        set_nested(full_tree, branch, value, inplace=True)
 
     return full_tree
 
 
 def set_matching_select(
-    full_tree: Tree, target_tree: Tree, value: Any, inplace: bool = True
+    full_tree: Tree, target_tree: Tree, value: Any, inplace: bool = False
 ) -> Tree:
     """
-    Set the values in a full tree in-place, for branches that match a target tree, if the target tree leaf nodes evaluate to ``True``
+    Set the values in a full tree, for branches that match a target tree, if the target tree leaf nodes evaluate to ``True``
 
     Args:
         full_tree (Tree): A tree to search over. The values in this tree will be replaced with ``value``
@@ -149,7 +149,7 @@ def set_matching_select(
 
     for branch in branches(target_tree):
         if get_nested(target_tree, branch):
-            set_nested(full_tree, branch, value)
+            set_nested(full_tree, branch, value, inplace=True)
 
     return full_tree
 
@@ -333,9 +333,9 @@ def tree_update(target: Tree, additional: Tree, inplace: bool = False) -> Tree:
     return target
 
 
-def tree_find(tree: Tree) -> List:
+def tree_find(tree: Tree) -> Generator[Tuple, None, None]:
     """
-    Return the tree branches to tree nodes that evaluate to ``True``
+    Generate the tree branches to tree nodes that evaluate to ``True``
 
     Args:
         tree (Tree): A tree to examine
@@ -343,8 +343,8 @@ def tree_find(tree: Tree) -> List:
     Returns:
         list: A list of all tree branches, for which the corresponding tree leaf evaluate to ``True``
     """
-    # - Get a list of all tree branches
-    all_branches = list(branches(tree))
-
-    # - Return a list of branches to leaves that evaluate to `True`
-    return [branch for branch in all_branches if get_nested(tree, branch)]
+    # - Loop over tree branches
+    for branch in branches(tree):
+        # - Yield branches to leaves that evaluate to `True`
+        if get_nested(tree, branch):
+            yield branch
