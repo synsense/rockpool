@@ -193,10 +193,10 @@ def make_prototype_tree(full_tree: Tree, target_tree: Tree) -> Tree:
         # - Is this a target branch?
         if branch in targets:
             # - Assign `True` in the prototype tree
-            set_nested(prototype, branch, True)
+            set_nested(prototype, branch, True, inplace=True)
         else:
             # - Assign `False` in the prototype tree
-            set_nested(prototype, branch, False)
+            set_nested(prototype, branch, False, inplace=True)
 
     # - Return the prototype tree
     return prototype
@@ -326,11 +326,12 @@ def tree_update(target: Tree, additional: Tree, inplace: bool = False) -> Tree:
 
     for k, v in additional.items():
         if isinstance(v, dict) and k in target:
-            tree_update(target[k], v, inplace = True)
+            tree_update(target[k], v, inplace=True)
         else:
             target.update({k: v})
 
     return target
+
 
 def tree_find(tree: Tree) -> List:
     """

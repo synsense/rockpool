@@ -12,11 +12,24 @@ import functools
 # - Set up some useful types
 from rockpool.typehints import Tree, Leaf, Value, JaxRNGKey
 
+from .tree_utils import *
+
 __all__ = [
     "tree_map_reduce_select",
     "tree_map_select",
     "tree_map_select_with_rng",
     "tree_map_with_rng",
+    "branches",
+    "get_nested",
+    "set_nested",
+    "set_matching",
+    "set_matching_select",
+    "make_prototype_tree",
+    "tree_map",
+    "tree_flatten",
+    "tree_unflatten",
+    "tree_update",
+    "tree_find",
 ]
 
 
