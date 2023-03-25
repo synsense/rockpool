@@ -41,7 +41,7 @@ def compare_value_tree(results: List[Tree], Classes: List[type], atol: float = 1
                 results[class_index],
             )
 
-            mismatch = tree_find(mismatch_params)
+            mismatch = list(tree_find(mismatch_params))
 
             if len(mismatch) > 0:
                 raise MismatchError(
