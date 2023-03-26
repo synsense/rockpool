@@ -2,6 +2,10 @@ import pytest
 
 pytest.importorskip("jax")
 
+from jax.config import config
+
+config.update("jax_debug_nans", False)
+
 
 def test_imports():
     import rockpool.utilities.jax_tree_utils as jtu
