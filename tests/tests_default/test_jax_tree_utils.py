@@ -4,8 +4,6 @@ pytest.importorskip("jax")
 
 from jax.config import config
 
-config.update("jax_debug_nans", False)
-
 
 def test_imports():
     import rockpool.utilities.jax_tree_utils as jtu
@@ -14,6 +12,8 @@ def test_imports():
 def test_tree_map_reduce_select():
     import rockpool.utilities.jax_tree_utils as jtu
     import jax.numpy as jnp
+
+    config.update("jax_debug_nans", False)
 
     test_tree = {
         "a": 1,
