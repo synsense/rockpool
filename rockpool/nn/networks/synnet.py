@@ -5,16 +5,18 @@ The SynNet architecture is described in Bos et al 2022 [https://arxiv.org/abs/22
 
 """
 
-from rockpool.nn.modules import TorchModule, Module
+from rockpool.nn.modules import TorchModule
 from rockpool.nn.modules import LinearTorch, LIFTorch, TimeStepDropout
 from rockpool.parameters import Constant
 from rockpool.nn.modules.torch.lif_torch import tau_to_bitshift, bitshift_to_tau
 from rockpool.nn.modules.torch.lif_torch import PeriodicExponential
-from rockpool.graph import GraphHolder, connect_modules
+from rockpool.nn.combinators.sequential import Sequential
 
 import torch
 
-from typing import List, Type
+from typing import List, Type, Union
+
+THRESHOLD_OUT = 100.0
 
 __all__ = ["SynNet"]
 
@@ -31,13 +33,14 @@ class SynNet(TorchModule):
         tau_syn_out: float = 0.002,
         quantize_time_constants: bool = True,
         threshold: float = 1.0,
-        threshold_out: float = 100.0,
+        threshold_out: Union[float, List[float]] = None,
         train_threshold: bool = False,
         neuron_model: Type = LIFTorch,
         max_spikes_per_dt: int = 31,
         max_spikes_per_dt_out: int = 1,
         p_dropout: float = 0.0,
         dt: float = 1e-3,
+        output: str = "spikes",
         *args,
         **kwargs,
     ):
@@ -54,7 +57,7 @@ class SynNet(TorchModule):
             :param float tau_mem:                 membrane time constant of all neurons in seconds
             :param bool quantize_time_constants:  determines if time constants are rounded to deployment values
             :param float threshold:               threshold of hidden neurons
-            :param float threshold_out:               threshold of readout neurons
+            :param float or list threshold_out:   thresholds of readout neurons, can only be set if output is spikes
             :param bool train_threshold:          determines of threshold is trained
             :param TorchModule neuron_model:      neuron model of all neurons
             :param max_spikes_per_dt:             maximum number of spikes per time step of all neurons apart from
@@ -65,6 +68,7 @@ class SynNet(TorchModule):
                                                   currently the values of the time step and the time constants are not
                                                   independent, thus it should be chosen carefully to allow for
                                                   interpretable time constants
+            :param str output:                    specification of output variable, default 'spikes', other option 'vmem'
         """
 
         super().__init__(
@@ -84,6 +88,28 @@ class SynNet(TorchModule):
                 "the base synaptic time constant tau_syn_base needs to be larger than the time step dt"
             )
 
+        if output not in ["spikes", "vmem"]:
+            raise ValueError("output variable ", output, " not defined")
+        if output == "vmem" and threshold_out is not None:
+            raise ValueError(
+                "threshold of readout neurons is not applied if output is vmem (membrane potential)"
+            )
+
+        if output == "vmem":
+            thresholds_out = [THRESHOLD_OUT for _ in range(n_classes)]
+        elif threshold_out is None:
+            thresholds_out = [threshold for _ in range(n_classes)]
+        elif isinstance(threshold_out, float):
+            thresholds_out = [threshold_out for _ in range(n_classes)]
+        else:
+            if len(threshold_out) != n_classes:
+                raise ValueError(
+                    "threshold_out has to be float or list of floats with length equal to the number of classes"
+                )
+            thresholds_out = threshold_out
+
+        self.output = output
+
         # round time constants to the values they will take when deploying to Xylo
         if quantize_time_constants:
             tau_mem_bitshift = torch.round(
@@ -102,9 +128,7 @@ class SynNet(TorchModule):
         ):
             tau_repititions.append(int(n_hidden / n_tau) + min(1, n_hidden % n_tau))
 
-        self.lins = []
-        self.spks = []
-        self.dropouts = []
+        layers = []
         n_channels_in = n_channels
         for i, (n_hidden, n_tau) in enumerate(
             zip(size_hidden_layers, time_constants_per_layer)
@@ -137,16 +161,11 @@ class SynNet(TorchModule):
             else:
                 thresholds = [threshold for _ in range(n_hidden)]
 
-            self.lins.append(
-                LinearTorch(shape=(n_channels_in, n_hidden), has_bias=False)
-            )
+            layers.append(LinearTorch(shape=(n_channels_in, n_hidden), has_bias=False))
             n_channels_in = n_hidden
             with torch.no_grad():
-                self.lins[-1].weight.data = (
-                    self.lins[-1].weight.data * dt / tau_syn_hidden
-                )
-            setattr(self, "lin" + str(i), self.lins[-1])
-            self.spks.append(
+                layers[-1].weight.data = layers[-1].weight.data * dt / tau_syn_hidden
+            layers.append(
                 neuron_model(
                     shape=(n_hidden, n_hidden),
                     tau_mem=Constant(tau_mem),
@@ -158,44 +177,47 @@ class SynNet(TorchModule):
                     max_spikes_per_dt=max_spikes_per_dt,
                 )
             )
-            setattr(self, "spk" + str(i), self.spks[-1])
 
-            self.dropouts.append(TimeStepDropout(shape=(n_hidden), p=p_dropout))
+            layers.append(TimeStepDropout(shape=(n_hidden), p=p_dropout))
 
-        self.lin_out = LinearTorch(shape=(n_hidden, n_classes), has_bias=False)
+        layers.append(LinearTorch(shape=(n_hidden, n_classes), has_bias=False))
         with torch.no_grad():
-            self.lin_out.weight.data = self.lin_out.weight.data * dt**2 / tau_syn_out
-        setattr(self, "lin_out", self.lin_out)
+            layers[-1].weight.data = layers[-1].weight.data * dt / tau_syn_out
 
-        self.spk_out = neuron_model(
-            shape=(n_classes, n_classes),
-            tau_mem=Constant(tau_mem),
-            tau_syn=Constant(tau_syn_out),
-            bias=Constant(0.0),
-            threshold=Constant([threshold_out for _ in range(n_classes)]),
-            spike_generation_fn=PeriodicExponential,
-            max_spikes_per_dt=max_spikes_per_dt_out,
-            dt=dt,
+        layers.append(
+            neuron_model(
+                shape=(n_classes, n_classes),
+                tau_mem=Constant(tau_mem),
+                tau_syn=Constant(tau_syn_out),
+                bias=Constant(0.0),
+                threshold=Constant(thresholds_out),
+                spike_generation_fn=PeriodicExponential,
+                max_spikes_per_dt=max_spikes_per_dt_out,
+                dt=dt,
+            )
         )
-        setattr(self, "spk_out", self.spk_out)
+
+        self.seq = Sequential(*layers)
+
+        # pick last LIFTorch layer as readout layer
+        lif_names = [
+            label
+            for label in self.seq._submodulenames
+            if neuron_model.__name__ in label
+        ]
+        self.label_last_LIF = lif_names[-1]
 
         # Dictionary for recording state
         self._record = False
         self._record_dict = {}
 
     def forward(self, data: torch.Tensor):
-        out = data
-        for i, (lin, spk, dropout) in enumerate(
-            zip(self.lins, self.spks, self.dropouts)
-        ):
-            out, _, self._record_dict["lin" + str(i)] = lin(out, record=self._record)
-            out, _, self._record_dict["spk" + str(i)] = spk(out, record=self._record)
-            out, _, _ = dropout(out)
-
-        # readout layer
-        out, _, self._record_dict["lin_out"] = self.lin_out(out, record=self._record)
-        out, _, self._record_dict["spk_out"] = self.spk_out(out, record=self._record)
-
+        out, _, self._record_dict = self.seq(data, record=self._record)
+        if self.output != "spikes" and self.output == "vmem":
+            out = self._record_dict[self.label_last_LIF]["vmem"]
+        for key in self._record_dict.keys():
+            if "output" in key:
+                self._record_dict[key] = out if self._record else []
         return out
 
     def evolve(self, input_data, record: bool = False):
@@ -212,23 +234,4 @@ class SynNet(TorchModule):
         return output, new_state, record_dict
 
     def as_graph(self):
-        # convert all modules to graph representation
-        mod_graphs = {k: m.as_graph() for k, m in Module.modules(self).items()}
-
-        # connect modules
-        for i, (lin, spk) in enumerate(zip(self.lins, self.spks)):
-            connect_modules(mod_graphs["lin" + str(i)], mod_graphs["spk" + str(i)])
-            if i == len(self.lins) - 1:
-                connect_modules(mod_graphs["spk" + str(i)], mod_graphs["lin_out"])
-            else:
-                connect_modules(
-                    mod_graphs["spk" + str(i)], mod_graphs["lin" + str(i + 1)]
-                )
-        connect_modules(mod_graphs["lin_out"], mod_graphs["spk_out"])
-
-        return GraphHolder(
-            mod_graphs["lin0"].input_nodes,
-            mod_graphs["spk_out"].output_nodes,
-            f"{type(self).__name__}_{self.name}_{id(self)}",
-            self,
-        )
+        return self.seq.as_graph()

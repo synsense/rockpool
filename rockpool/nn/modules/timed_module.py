@@ -964,16 +964,16 @@ class LayerToTimedModule(TimedModule):
         spiking_input = layer.input_type is TSEvent
         spiking_output = layer.output_type is TSEvent
 
-        # - Record layer as submodule
-        self._module: Layer = layer
-        """ Layer: The wrapped layer object """
-
         super().__init__(
             shape=(layer.size_in, layer.size),
             dt=layer.dt,
             spiking_input=spiking_input,
             spiking_output=spiking_output,
         )
+
+        # - Record layer as submodule
+        self._module: Layer = layer
+        """ Layer: The wrapped layer object """
 
         self._name: str = layer.name
         """ str: The name of the wrapped layer """

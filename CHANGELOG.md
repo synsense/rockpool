@@ -2,7 +2,7 @@
 
 All notable changes between Rockpool releases will be documented in this file.
 
-## Unreleased -- 2023-01-27
+## [v2.6] -- 2023-03-22
 
 ### Added 
 
@@ -19,13 +19,25 @@ All notable changes between Rockpool releases will be documented in this file.
   * unit tests + tutorials + developer docs
   * `DynapseNeuron` graph module which supports conversion from and to `LIFNeuronWithSynsRealValue` graph
   * hardcoded frozen and dynamic mismatch prototypes
+  * mismatch transformation (jax)
 
-* mismatch transformation (jax)
 * `LIFExodus` now supports training time constants, and multiple time constants
 * Improved API for `LIFTorch`
-   - Hotfix: Regression in `LIFExodus`
 * Implemented `ExpSynExodus` for accelerated training of exponential synapse modules
 * Added initial developer documentation
+* Added MNIST tutorial
+* Fixed notebook links to MyBinder.org
+
+### Changed
+
+* Updated Samna version requirement to >=0.19.0
+* User explicitly defines Cuda device for LIFExodus, ExpDynExodus and LIFMembraneExodus
+* Improved error message when a backend is missing
+
+### Fixed
+
+* Weight scaling was too different for output layers and hidden layers.
+* Hotfix: Regression in `LIFExodus`
 
 ## [v2.5] -- 2022-11-29
 

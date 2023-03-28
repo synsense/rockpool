@@ -2,8 +2,6 @@
 Test if a Dynap-SE2 network works the same with jitted and non-jitted version
 """
 
-import matplotlib.pyplot as plt
-
 
 def test_evolve():
     """

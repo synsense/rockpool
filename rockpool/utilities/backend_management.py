@@ -19,7 +19,7 @@ class AbortImport(Exception):
 
 def check_torch_cuda_available() -> bool:
     try:
-        import torch.cuda.is_available
+        from torch.cuda import is_available
 
         return is_available()
     except:
