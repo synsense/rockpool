@@ -22,7 +22,6 @@ dependencies:
   - pandoc
   - pytest>=6.0
   - pytest-xdist
-  - matplotlib
   - pip
   - pip:
       - jax
