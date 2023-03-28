@@ -31,7 +31,7 @@ RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -
     eval "$(/root/miniconda/bin/conda shell.bash hook)" && conda init
 
 # Copy the requirements file for Rockpool
-COPY ./images/test/resources/base.yml ./
+COPY ./resources/base.yml ./
 
 # Update the python environment
 RUN conda update --all && \

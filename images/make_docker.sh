@@ -9,7 +9,7 @@
 
 # - Build and push the test container to gitlab.com
 docker login registry.gitlab.com
-docker build -t registry.gitlab.com/synsense/rockpool/test:latest test
+docker build -t registry.gitlab.com/synsense/rockpool/test:newest test
 docker push registry.gitlab.com/synsense/rockpool/test
 
 # - Build and push the deploy container
