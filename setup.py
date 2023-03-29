@@ -17,7 +17,7 @@ setup_args = {
             "tqdm",
             "brian2",
             "pytest>=6.0",
-            "pytest-xdist",
+            "pytest-xdist>=3.2.1",
             "torch>=1.8",
             "torchvision",
             "jax>=0.2.13",
