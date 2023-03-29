@@ -2,7 +2,6 @@ import pytest
 
 pytest.importorskip("torch")
 pytest.importorskip("xylosim")
-pytest.importorskip("samna")
 
 
 def test_simple_network():
