@@ -11,7 +11,7 @@ config.update("jax_enable_x64", True)
 import torch
 import numpy as np
 import jax
-from rockpool.utilities.jax_tree_utils import tree_find
+from rockpool.utilities.tree_utils import tree_find
 from jax.tree_util import tree_map
 
 from typing import List
@@ -41,7 +41,7 @@ def compare_value_tree(results: List[Tree], Classes: List[type], atol: float = 1
                 results[class_index],
             )
 
-            mismatch = tree_find(mismatch_params)
+            mismatch = list(tree_find(mismatch_params))
 
             if len(mismatch) > 0:
                 raise MismatchError(

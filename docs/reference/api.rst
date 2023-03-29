@@ -372,6 +372,7 @@ General Utilities
     :template: module.rst
 
     utilities.backend_management
+    utilities.tree_utils
     utilities.jax_tree_utils
     utilities.type_handling
 
