@@ -5,7 +5,13 @@ All notable changes between Rockpool releases will be documented in this file.
 ## Unreleased
 
 ### Added
+
+* Add dependency to pytest-random-order v1.1.0
+
 ### Changed
+
+* Update dependency version of pytest-xdist to >=3.2.1.
+
 ### Fixed
 ### Deprecated
 ### Removed
