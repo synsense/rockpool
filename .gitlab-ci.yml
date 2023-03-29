@@ -19,8 +19,8 @@ unit_tests:
     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
 
   script:
-    - pytest -v tests/tests_default -n 4 --forked
-    - pytest -v tests/test_v1layers -n 4
+    - pytest -v tests/tests_default -n auto --forked --dist worksteal --random-order
+    - pytest -v tests/test_v1layers -n auto --dist worksteal --random-order
 
 nest_tests:
   stage: test
@@ -33,7 +33,7 @@ nest_tests:
     - pip install --upgrade .[all] --no-cache-dir
 
   script:
-      - pytest -v tests/test_nest -n 4
+      - pytest -v tests/test_nest/ -n auto --dist worksteal --random-order
 
 optional_tests:
   stage: test
@@ -46,7 +46,7 @@ optional_tests:
     - pip install --upgrade .[all] --no-cache-dir
 
   script:
-      - pytest -v tests/test_optional -n 4
+      - pytest -v tests/test_optional/ -n auto --dist worksteal --random-order
 
 documentation_linting:
   stage: docs
