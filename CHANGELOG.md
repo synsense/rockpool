@@ -5,6 +5,9 @@ All notable changes between Rockpool releases will be documented in this file.
 ## Unreleased
 
 ### Added
+
+* New HowTo tutorial for performing constrained optimisation with torch and jax
+
 ### Changed
 
 * Cleaned up tree manipulation libraries and added to documentation. Implemented unit tests.
