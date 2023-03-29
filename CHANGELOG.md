@@ -6,6 +6,9 @@ All notable changes between Rockpool releases will be documented in this file.
 
 ### Added
 ### Changed
+
+* Cleaned up tree manipulation libraries and added to documentation. Implemented unit tests.
+
 ### Fixed
 ### Deprecated
 ### Removed
