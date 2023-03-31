@@ -249,7 +249,7 @@ def channel_quantize(
                 if not bias is None:
                     bias[i] = np.round(bias[i] * scaling)
                 # if the threshold exceed boundary
-                if np.abs(threshold[i]) > max_th_quan:
+                if np.abs(threshold_quan[i]) > max_th_quan:
                     limited_scaling = max_th_quan / threshold[i]
                     threshold_quan[i] = np.round(threshold[i] * limited_scaling)
                     w_in_quan[:, i, :] = np.round(w_in[:, i, :] * limited_scaling)
