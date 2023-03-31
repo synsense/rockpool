@@ -41,7 +41,7 @@ def test_get_nested():
     assert tu.get_nested(test_tree, ("d", "f")) == 6
 
 
-def test_set_nested():
+def test_set_nested_copy():
     import rockpool.utilities.tree_utils as tu
 
     test_tree = {
@@ -58,11 +58,25 @@ def test_set_nested():
     assert t2["d"]["e"] == 101
     assert test_tree["d"]["e"] == 5
 
+
+def test_set_nested_inplace():
+    import rockpool.utilities.tree_utils as tu
+
+    test_tree = {
+        "a": 1,
+        "b": 2,
+        "c": 3,
+        "d": {
+            "e": 5,
+            "f": 6,
+        },
+    }
+
     tu.set_nested(test_tree, ("d", "f"), 0, inplace=True)
     assert test_tree["d"]["f"] == 0
 
 
-def test_set_matching():
+def test_set_matching_copy():
     import rockpool.utilities.tree_utils as tu
 
     test_tree = {
@@ -85,12 +99,28 @@ def test_set_matching():
     assert modified_tree["d"]["e"] == 0
     assert test_tree["d"]["e"] == 5
 
+
+def test_set_matching_inplace():
+    import rockpool.utilities.tree_utils as tu
+
+    test_tree = {
+        "a": 1,
+        "b": 2,
+        "c": 3,
+        "d": {
+            "e": 5,
+            "f": 6,
+        },
+    }
+
+    sub_tree = {"a": True, "d": {"e": True}}
+
     tu.set_matching(test_tree, sub_tree, 0, inplace=True)
     assert test_tree["a"] == 0
     assert test_tree["d"]["e"] == 0
 
 
-def test_set_matching_select():
+def test_set_matching_select_copy():
     import rockpool.utilities.tree_utils as tu
 
     test_tree = {
@@ -112,6 +142,22 @@ def test_set_matching_select():
     assert modified_tree["d"]["e"] == 0
     assert test_tree["d"]["e"] == 5
     assert modified_tree["d"]["f"] == 6
+
+
+def test_set_matching_select_inplace():
+    import rockpool.utilities.tree_utils as tu
+
+    test_tree = {
+        "a": 1,
+        "b": 2,
+        "c": 3,
+        "d": {
+            "e": 5,
+            "f": 6,
+        },
+    }
+
+    sub_tree = {"a": True, "d": {"e": True, "f": False}}
 
     tu.set_matching_select(test_tree, sub_tree, 0, inplace=True)
     assert test_tree["a"] == 0
@@ -226,7 +272,7 @@ def test_tree_unflatten():
     assert tree["d"]["f"] == 6
 
 
-def test_tree_update():
+def test_tree_update_copy():
     import rockpool.utilities.tree_utils as tu
 
     test_tree = {
@@ -248,6 +294,22 @@ def test_tree_update():
     assert modified_tree["g"]["h"] == 7
     assert modified_tree["g"]["i"] == 8
     assert "g" not in test_tree
+
+
+def test_tree_update_inplace():
+    import rockpool.utilities.tree_utils as tu
+
+    test_tree = {
+        "a": 1,
+        "b": 2,
+        "c": 3,
+        "d": {
+            "e": 5,
+            "f": 6,
+        },
+    }
+
+    additional_tree = {"g": {"h": 7, "i": 8}}
 
     tu.tree_update(test_tree, additional_tree, inplace=True)
     assert "g" in test_tree
