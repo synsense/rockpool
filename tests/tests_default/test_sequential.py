@@ -112,6 +112,11 @@ def test_Sequential_API():
     with pytest.raises(ValueError):
         seq.append(Linear((5, 6)))
 
+    with pytest.raises(ValueError):
+        seq = Sequential()
+        seq.append(lin1, "lin1")
+        seq.append(Linear((3, 2)), "lin1")
+
 
 def test_Sequential_jax():
     pytest.importorskip("jax")

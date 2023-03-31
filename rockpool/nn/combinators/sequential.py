@@ -82,6 +82,11 @@ class SequentialMixin(ABC):
         if name is None:
             name = f"{mod_index}_{mod.class_name}"
 
+        if name in self._submodulenames:
+            raise ValueError(
+                f'Submodule "{name}" already exists in Sequential network. Cannot append a module with the same name.'
+            )
+
         # - Check if the shapes are compatible
         if len(self._submodulenames) == 0:
             self._shape = mod.shape
