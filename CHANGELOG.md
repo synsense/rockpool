@@ -5,9 +5,13 @@ All notable changes between Rockpool releases will be documented in this file.
 ## Unreleased
 
 ### Added
+
+* New HowTo tutorial for performing constrained optimisation with torch and jax
+
 ### Changed
 
 * Update to `Sequential` API. `Sequential` now permits instantiation with an `OrderedDict` to specify module names. `Sequential` now supports an `.append()` method, to append new modules, optionally specifying a module name.
+* Cleaned up tree manipulation libraries and added to documentation. Implemented unit tests.
 
 ### Fixed
 ### Deprecated

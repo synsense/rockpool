@@ -28,3 +28,4 @@ tests/tests_default/lightning_logs
 tests/tests_default/MNIST
 *.DS_Store
 
+docs/basics/MNIST/raw/*
