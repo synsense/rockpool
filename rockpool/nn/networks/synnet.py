@@ -192,6 +192,7 @@ class SynNet(TorchModule):
             for label in self.seq._submodulenames
             if neuron_model.__name__ in label
         ]
+        self.lif_names = lif_names
         self.label_last_LIF = lif_names[-1]
 
         # Dictionary for recording state
