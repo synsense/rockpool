@@ -25,7 +25,14 @@ def test_tree_map_reduce_select():
         },
     }
 
-    proto = jtu.make_prototype_tree(test_tree, test_tree)
+    sub_tree = {
+        "a": None,
+        "d": {
+            "e": None,
+        },
+    }
+
+    proto = jtu.make_prototype_tree(test_tree, sub_tree)
 
     def map_fun(leaf):
         return jnp.nanmax(jnp.array(leaf, float))
@@ -37,7 +44,7 @@ def test_tree_map_reduce_select():
         jtu.tree_map_reduce_select(
             test_tree, proto, map_fun, reduce_fun, jnp.array(jnp.nan)
         )
-        == 6.0
+        == 5.0
     ), "Got the incorrect value for map reduce"
 
 
@@ -55,7 +62,14 @@ def test_tree_map_select():
         },
     }
 
-    proto = jtu.make_prototype_tree(test_tree, test_tree)
+    sub_tree = {
+        "a": None,
+        "d": {
+            "e": None,
+        },
+    }
+
+    proto = jtu.make_prototype_tree(test_tree, sub_tree)
 
     def map_fun(leaf):
         return leaf - 1
@@ -63,10 +77,7 @@ def test_tree_map_select():
     mapped_tree = jtu.tree_map_select(test_tree, proto, map_fun)
 
     assert mapped_tree["a"] == 0
-    assert mapped_tree["b"] == 1
-    assert mapped_tree["c"] == 2
     assert mapped_tree["d"]["e"] == 4
-    assert mapped_tree["d"]["f"] == 5
 
 
 def test_tree_map_select_with_rng():
@@ -84,7 +95,14 @@ def test_tree_map_select_with_rng():
         },
     }
 
-    proto = jtu.make_prototype_tree(test_tree, test_tree)
+    sub_tree = {
+        "a": None,
+        "d": {
+            "e": None,
+        },
+    }
+
+    proto = jtu.make_prototype_tree(test_tree, sub_tree)
 
     def map_fun(leaf, rng):
         return leaf - 1
@@ -94,10 +112,7 @@ def test_tree_map_select_with_rng():
     )
 
     assert mapped_tree["a"] == 0
-    assert mapped_tree["b"] == 1
-    assert mapped_tree["c"] == 2
     assert mapped_tree["d"]["e"] == 4
-    assert mapped_tree["d"]["f"] == 5
 
 
 def test_tree_map_with_rng():

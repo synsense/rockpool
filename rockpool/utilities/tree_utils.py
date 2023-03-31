@@ -309,14 +309,14 @@ def tree_update(target: Tree, additional: Tree, inplace: bool = False) -> Tree:
     """
     Perform a recursive update of a tree to insert or replace nodes from a second tree
 
-    Requires a ``target`` `Tree`, which will be modified in place, and a source `Tree` ``additional``, which will provide the source data to update in ``target``.
+    Requires a ``target`` `Tree` and a source `Tree` ``additional``, which will provide the source data to update in ``target``.
 
     Both ``target`` and ``additional`` will be traversed depth-first simultaneously. `Leaf` nodes that exist in ``target`` but not in ``additional`` will not be modified. `Leaf` nodes that exist in ``additional`` but not in ``target`` will be inserted into ``target`` at the corresponding location. `Leaf` nodes that exist in both trees will have their data updated from ``additional`` to ``target``, using the python :py:func:`update` function.
 
     Args:
-        target (Tree): The tree to update (will be modified in place)
+        target (Tree): The tree to update.
         additional (Tree): The source tree to insert / replace nodes from, into ``target``. Will not be modified.
-        inplace (bool): If ``False`` (default), a copy of the tree will be returned. If ``True``, the operation will be performed in place, and the original tree will be returned
+        inplace (bool): If ``False`` (default), a copy of the tree will be returned. If ``True``, the operation will be performed in place, and the original tree will be returned.
 
     Returns:
         Tree: The modified target tree
