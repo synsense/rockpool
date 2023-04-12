@@ -17,6 +17,39 @@ class AbortImport(Exception):
     pass
 
 
+def check_torch_cuda_available() -> bool:
+    try:
+        from torch.cuda import is_available
+
+        return is_available()
+    except:
+        return False
+
+
+def check_samna_available() -> bool:
+    """
+    check_samna_available controls if samna package is "installed" and "usable"
+    The default `backend_available()` operation cannot correctly identifies the samna availability.
+    In the case that one installed samna and then uninstalled via pip
+    * `pip install samna` then `pip uninstall samna`
+    samna leaves a trace and `import samna` does not raise an error even though the package is not usable.
+
+    :return: true if samna package available
+    :rtype: bool
+    """
+    try:
+        import samna
+
+        try:
+            samna.__version__
+        except:
+            return False
+    except:
+        return False
+
+    return True
+
+
 # - Maintain a cache of checked backends
 __checked_backends: Dict[str, bool] = {}
 
@@ -28,8 +61,10 @@ __backend_specs: Dict[str, tuple] = {
     "jax": (["jax", "jaxlib"],),
     "torch": (),
     "sinabs": (),
-    "sinabs-exodus": (["sinabs", "sinabs.exodus"],),
-    "brian": (["brian2"]),
+    "sinabs-exodus": (["sinabs", "sinabs.exodus"], check_torch_cuda_available()),
+    "brian": (["brian2"],),
+    "cuda": (["torch"], check_torch_cuda_available()),
+    "samna": (["samna"], check_samna_available()),
 }
 
 
@@ -142,7 +177,18 @@ def missing_backend_shim(class_name: str, backend_name: str):
     return MissingBackendShim
 
 
-def missing_backend_error(class_name, backend_name):
+def missing_backend_error(class_name: str, backend_name: str):
+    """
+    Raise a ``ModuleNotFoundError`` exception, with information about a missing backend
+
+    Args:
+        class_name (str): Name of a class which is unavailable
+        backend_name (str): "User-facing" of the backend which is unavailable
+
+    Raises:
+        ModuleNotFoundError: Describe the missing backend
+    """
+
     def __init__(self, *args, **kwargs):
         raise ModuleNotFoundError(
             f"Missing the `{backend_name}` backend. `{class_name}` objects, and others relying on `{backend_name}` are not available."

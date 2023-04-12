@@ -335,7 +335,7 @@ def mapper(
         target_ids = target_neurons.hw_ids
 
         # - Add to the aliases list
-        for (source, target) in zip(source_ids, target_ids):
+        for source, target in zip(source_ids, target_ids):
             list_aliases[source].append(target)
 
     return {

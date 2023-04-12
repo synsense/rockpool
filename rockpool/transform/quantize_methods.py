@@ -126,14 +126,14 @@ def global_quantize(
     if np.abs(np.max(threshold)) > max_th_quan:
         limited_scaling = max_th_quan / np.max(threshold)
         threshold = np.round(threshold * limited_scaling).astype(int)
-        weights_in = np.round(w_in * limited_scaling).astype(int)
-        weights_rec = np.round(w_rec * limited_scaling).astype(int)
+        weights_in = np.round(weights_in * limited_scaling).astype(int)
+        weights_rec = np.round(weights_rec * limited_scaling).astype(int)
 
     if np.abs(np.max(threshold_out)) > max_th_quan:
         limited_scaling = max_th_quan / np.max(threshold_out)
         threshold_out = np.round(threshold_out * limited_scaling).astype(int)
-        weights_out = np.round(w_out * limited_scaling).astype(int)
-        weights_rec = np.round(w_rec * limited_scaling).astype(int)
+        weights_out = np.round(weights_out * limited_scaling).astype(int)
+        weights_rec = np.round(weights_rec * limited_scaling).astype(int)
 
     # round and cast all dashes to integer
     dash_mem = np.round(dash_mem).astype(int)
@@ -249,7 +249,7 @@ def channel_quantize(
                 if not bias is None:
                     bias[i] = np.round(bias[i] * scaling)
                 # if the threshold exceed boundary
-                if np.abs(threshold[i]) > max_th_quan:
+                if np.abs(threshold_quan[i]) > max_th_quan:
                     limited_scaling = max_th_quan / threshold[i]
                     threshold_quan[i] = np.round(threshold[i] * limited_scaling)
                     w_in_quan[:, i, :] = np.round(w_in[:, i, :] * limited_scaling)

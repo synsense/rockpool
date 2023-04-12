@@ -3,7 +3,7 @@ Provide a base class for build Torch-compatible modules
 """
 __all__ = ["TorchModule", "TorchModuleParameters"]
 
-from rockpool.nn.modules.module import Module
+from rockpool.nn.modules.module import Module, ModuleBase
 
 import torch
 from torch import nn
@@ -471,6 +471,10 @@ class TorchModule(Module, nn.Module):
                 else:
                     return super().modules(*args, **kwargs)
 
+        # - Set required base-class initialisation attribute
+        obj._in_Module_init = False
+
+        # - Set class name attributes
         obj.__class__ = TorchModulePatch
         obj.__old_class_name = old_class_name
 
@@ -511,7 +515,6 @@ class TorchModule(Module, nn.Module):
             return
 
         for k, param in jparam.items():
-
             if isinstance(param, str):
                 param = json.loads(param)
 
@@ -526,11 +529,7 @@ class TorchModule(Module, nn.Module):
                 else:
                     my_params.update(self.simulation_parameters())
 
-                if isinstance(my_params[k], list):
-                    my_params[k] = param
-                elif isinstance(my_params[k], int):
-                    my_params[k] = param
-                elif isinstance(my_params[k], float):
+                if isinstance(my_params[k], (list, int, float, str)):
                     my_params[k] = param
                 elif callable(my_params[k]):
                     pass
@@ -544,11 +543,10 @@ class TorchModule(Module, nn.Module):
                     my_params[k] = param
                 else:
                     raise NotImplementedError(
-                        f"{type(my_params[k])} not implemented to load. Please implement."
+                        f"{type(my_params[k])} for parameter {k} with value {params} not implemented to load. Please implement."
                     )
 
     def param_to_json(self, param):
-
         if isinstance(param, torch.Tensor):
             return json.dumps(param.detach().cpu().numpy().tolist())
         elif isinstance(param, np.ndarray):
@@ -564,13 +562,14 @@ class TorchModule(Module, nn.Module):
             for k, p in param.items():
                 return_dict[k] = self.param_to_json(p)
             return return_dict
+        elif isinstance(param, str):
+            return json.dumps(param)
         else:
             raise NotImplementedError(
                 f"{type(param)} not implemented to save. Please implement."
             )
 
     def merge(self, a, b):
-
         ret = {}
         keys_a = a.keys()
         keys_b = b.keys()
@@ -606,7 +605,6 @@ class TorchModule(Module, nn.Module):
             json.dump(self.to_json(), f)
 
     def load(self, fn):
-
         with open(fn, "r") as f:
             params = json.load(f)
 

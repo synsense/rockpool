@@ -26,7 +26,7 @@ from rockpool.graph import AliasConnection, GraphHolder, connect_modules
 
 import torch
 
-from typing import List, Tuple, Union, Callable, Optional
+from typing import List, Tuple, Union, Callable, Optional, Type
 from rockpool.typehints import P_tensor
 
 __all__ = ["WaveBlock", "WaveSenseNet"]
@@ -80,7 +80,7 @@ class WaveSenseBlock(TorchModule):
         tau_mem: float = Constant(10e-3),
         base_tau_syn: float = Constant(10e-3),
         threshold: float = Constant(1.0),
-        neuron_model: TorchModule = LIFTorch,
+        neuron_model: Type = LIFTorch,
         dt: float = 1e-3,
         *args,
         **kwargs,
@@ -97,7 +97,7 @@ class WaveSenseBlock(TorchModule):
             :param float tau_mem:           Membrane potential time constant of all neurons in WaveSense. Default: 10ms
             :param float base_tau_syn:      Base synaptic time constant. Each synapse has this time constant, except the second synapse in the dilation layer which caclulates the time constant as $dilations * base_tau_syn$. Default: 10ms
             :param float threshold:         Threshold of all spiking neurons. Default: `0.`
-            :param TorchModule neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFExodus` for speedup
+            :param Type neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFExodus` for speedup
             :param float dt:                Temporal resolution of the simulation. Default: 1ms
         """
         # - Initialise superclass
@@ -220,7 +220,6 @@ class WaveSenseBlock(TorchModule):
         return res_out, out_skip
 
     def evolve(self, input, record: bool = False):
-
         self._record = record
 
         # - Use super-class evolve
@@ -315,8 +314,9 @@ class WaveSenseNet(TorchModule):
         base_tau_syn: float = Constant(20e-3),
         tau_lp: float = Constant(20e-3),
         threshold: float = Constant(1.0),
-        neuron_model: TorchModule = LIFTorch,
-        neuron_model_out: TorchModule = None,
+        threshold_out: float = Constant(1.0),
+        neuron_model: Type = LIFTorch,
+        neuron_model_out: Type = None,
         dt: float = 1e-3,
         *args,
         **kwargs,
@@ -338,7 +338,7 @@ class WaveSenseNet(TorchModule):
             :param float base_tau_syn:      Base synaptic time constant. Each synapse has this time constant, except the second synapse in the dilation layer which caclulates the time constant as $dilations * base_tau_syn$. Default: 20ms
             :param float tau_lp:            Time constant of the smooth output. Default: 20ms
             :param float threshold:         Threshold of all neurons in WaveSense. Default: `1.0`
-            :param TorchModule neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFExodus` for speedup. Default: :py:class:`.LIFTorch`
+            :param Type neuron_model: Neuron model to use. Either :py:class:`.LIFTorch` as standard LIF implementation, :py:class:`.LIFBitshiftTorch` for hardware compatibility or :py:class:`.LIFExodus` for speedup. Default: :py:class:`.LIFTorch`
             :param float dt:                Temporal resolution of the simulation. Default: 1ms
         """
 
@@ -349,6 +349,7 @@ class WaveSenseNet(TorchModule):
             shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs
         )
 
+        self.n_classes = n_classes
         self.n_channels_res = n_channels_res
         self.n_channels_skip = n_channels_skip
 
@@ -385,6 +386,7 @@ class WaveSenseNet(TorchModule):
 
         # - WaveBlock layers
         self._num_dilations = len(dilations)
+        self.wave_blocks = []
         for i, dilation in enumerate(dilations):
             wave = WaveSenseBlock(
                 n_channels_res,
@@ -399,6 +401,7 @@ class WaveSenseNet(TorchModule):
                 dt=dt,
             )
             self.__setattr__(f"wave{i}", wave)
+            self.wave_blocks.append(wave)
 
         # Dense readout layers
         self.hidden = LinearTorch(shape=(n_channels_skip, n_hidden), has_bias=False)
@@ -429,7 +432,7 @@ class WaveSenseNet(TorchModule):
                 tau_mem=Constant(tau_lp),
                 tau_syn=Constant(tau_lp),
                 bias=bias,
-                threshold=Constant(threshold),
+                threshold=Constant(threshold_out),
                 has_rec=False,
                 w_rec=None,
                 noise_std=0,
@@ -472,8 +475,7 @@ class WaveSenseNet(TorchModule):
 
         # Pass through each wave block in turn
         skip = 0
-        for wave_index in range(self._num_dilations):
-            wave_block = self.modules()[f"wave{wave_index}"]
+        for wave_index, wave_block in enumerate(self.wave_blocks):
             (out, skip_new), _, self._record_dict[f"wave{wave_index}"] = wave_block(
                 out, record=self._record
             )
@@ -562,6 +564,7 @@ class WaveSenseNet(TorchModule):
 import torch.nn as nn
 from torch.nn.functional import pad
 
+
 # Define model
 class WaveBlock(nn.Module):
     def __init__(
@@ -619,7 +622,6 @@ class WaveBlock(nn.Module):
         self.relu_skip = nn.ReLU()
 
     def forward(self, data):
-
         tanh = self.tanh1(self.conv1_tanh(pad(data, [self.dilation, 0])))
         sig = self.sig1(self.conv1_sig(pad(data, [self.dilation, 0])))
         out1 = tanh * sig
@@ -643,7 +645,6 @@ class WaveNet(nn.Module):
         dilations=[1, 2, 4, 8, 16, 1, 2, 4, 8, 16],
         kernel_size=2,
     ):
-
         super().__init__()
 
         self.conv1 = nn.Conv1d(n_channels_in, n_channels_res, kernel_size=1, bias=bias)
@@ -671,7 +672,6 @@ class WaveNet(nn.Module):
         TorchModule.from_torch(self)
 
     def forward(self, data):
-
         # move dimensions such that Torch conv layers understand them correctly
         data = data.movedim(1, 2)
 

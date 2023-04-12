@@ -300,7 +300,6 @@ class XyloSim(Module):
         *args,
         **kwargs,
     ):
-
         # - Evolve using the xylo layer
         spikes_out = np.array(self._xylo_layer.evolve(input_raster))
         if self.output_mode == "Spike":

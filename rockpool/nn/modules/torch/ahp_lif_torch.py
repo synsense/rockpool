@@ -144,19 +144,16 @@ class aLIFTorch(LIFBaseTorch):
 
     def forward(self, input_data: torch.Tensor) -> torch.Tensor:
         """
-        Forward method for processing data through this layer
+        forward method for processing data through this layer
         Adds synaptic inputs to the synaptic states and mimics the Leaky Integrate and Fire dynamics
 
-        ----------
-        data: Tensor
-            Data takes the shape of (batch, time_steps, n_synapses)
+        Args:
+            input_data (torch.Tensor): Data takes the shape of (batch, time_steps, n_synapses)
 
-        Returns
-        -------
-        out: Tensor
-            Out of spikes with the shape (batch, time_steps, Nout)
-
+        Returns:
+            torch.Tensor: Out of spikes with the shape (batch, time_steps, Nout)
         """
+
         # - Auto-batch over input data
         input_data, (vmem, spikes, isyn, iahp) = self._auto_batch(
             input_data,
@@ -208,8 +205,8 @@ class aLIFTorch(LIFBaseTorch):
         )
 
         # - Calculate and cache updated values for decay factors
-        alpha = self.calc_alpha()
-        beta = self.calc_beta()
+        alpha = self.alpha
+        beta = self.beta
         gamma = self.gamma
 
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
