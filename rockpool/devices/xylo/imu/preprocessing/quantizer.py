@@ -1,6 +1,10 @@
+from typing import Dict, Optional, Tuple, Union
+
 import numpy as np
-from typing import Optional, Union, Tuple, Dict
+
 from rockpool.nn.modules.module import Module
+
+__all__ = ["Quantizer"]
 
 
 class Quantizer(Module):
