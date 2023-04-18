@@ -1,20 +1,11 @@
-# -----------------------------------------------------------
-# This module implements the quantizer that converts the input signal into
-# python-object which can handle/simulate arbitrary register size in hardware implementation.
-#
-#
-# (C) Saeid Haghighatshoar
-# email: saeid.haghighatshoar@synsense.ai
-#
-#
-# last update: 27.08.2022
-# -----------------------------------------------------------
-
 import numpy as np
+from typing import Optional, Union, Tuple, Dict
+from rockpool.nn.modules.module import Module
 
 
-class Quantizer:
+class Quantizer(Module):
     """
+    The quantizer that converts the input signal into python-object which can handle/simulate arbitrary register size in hardware implementation.
     This module quanizes the input signals into an integer with python-object precision, which has infinite bit length.
     This makes the simulation slower but has the advantage that it avoid any numerical imprecision during the python simulation
     when the register sizes are chosen to be larger than numpy.int64 bit length.
@@ -24,34 +15,50 @@ class Quantizer:
         such that the outcome does not become larger than 64 bits.
         - this works very well in general but may have issues if we use larger register length in hardware.
         - the compatibility between the hardware and software (independent of register length) is quarrenteed using this quantizer.
+
+    Parameters:
+        shape (Optional[Union[Tuple, int]], optional): Network shape. Defaults to None.
+        scale (float, optional): scale applied before quantization. Defaults to 1.0.
+        num_bits (int, optional): the number of bits in the fractional part of the quantized signal. Defaults to 16.
     """
 
-    def quantize(self, sig_in: np.ndarray, scale: float, num_bits):
-        """this function quantizes the input signal after suitable scaling.
+    def __init__(
+        self,
+        shape: Optional[Union[Tuple, int]] = None,
+        scale: float = 1.0,
+        num_bits: int = 16,
+    ) -> None:
+        super().__init__(shape, spiking_input=False, spiking_output=False)
+        self.scale = scale
+        self.num_bits = num_bits
+
+    def evolve(
+        self, input_data: np.ndarray, record: bool = False
+    ) -> Tuple[np.ndarray, Dict, Dict]:
+        """Quantize the input signal after suitable scaling. The quantization is done using python-object precision, which has infinite bit length.
 
         Args:
-            sig_in (np.ndarray): input signal (single- or multi-channel)
-            scale (float): scale applied before quantization.
-            num_bits (int): the number of bits in the fractional part of the quantized signal.
-            Typically `scale x sig_in` should have max amplitude less than 1.
+            input_data (np.ndarray): input signal (single- or multi-channel). Typically `scale x sig_in` should have max amplitude less than 1.
+            record (bool, optional): record flag to match with the other rockpool modules. Practically useless. Defaults to False.
 
         Returns:
-            np.ndarray(dtype=object): the python-object quantized version of the input signal.
+            Tuple[np.ndarray, Dict, Dict]:
+                data: the python-object quantized version of the input signal.
+                state_dict: empty dictionary.
+                record_dict: empty dictionary.
         """
-        # save the shape of the input signal
-        sig_in_shape = sig_in.shape
 
-        # quantized version of the signal
-        sig_in_q = np.array(
-            [int(scale * el * 2 ** (num_bits - 1)) for el in sig_in.ravel()],
-            dtype=object,
-        ).reshape(*sig_in_shape)
+        def __forward(__data: float) -> int:
+            """The atomic function that quantizes the input signal.
 
-        return sig_in_q
+            Args:
+                __data (float): float number to be quantized.
 
-    # add the call version for further convenience
-    def __call__(self, *args, **kwargs):
-        """
-        This function simply calls the `quantize()` function and is added for further convenience.
-        """
-        self.quantize(*args, **kwargs)
+            Returns:
+                int: quantized and scaled version of the input signal.
+            """
+            return int(self.scale * __data * (2 ** (self.num_bits - 1)))
+
+        out = np.vectorize(__forward, otypes=[object])(input_data)
+
+        return out, {}, {}
