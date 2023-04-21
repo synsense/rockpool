@@ -125,6 +125,113 @@ def new_xylo_state_monitor_buffer(
     # - Return the buffer
     return buffer
 
+def initialise_xylo_hdk(write_buffer: XyloIMUWriteBuffer) -> None:
+    """
+    Initialise the Xylo HDK
+
+    Args:
+        write_buffer (XyloIMUWriteBuffer): A write buffer connected to a Xylo HDK to initialise
+    """
+    # - Always need to advance one time-step to initialise
+    advance_time_step(write_buffer)
+
+
+def advance_time_step(write_buffer: XyloIMUWriteBuffer) -> None:
+    """
+    Take a single manual time-step on a Xylo HDK
+
+    Args:
+        write_buffer (XyloIMUWriteBuffer): A write buffer connected to the Xylo HDK
+    """
+    e = samna.xyloImu.event.TriggerProcessing()
+    write_buffer.write([e])
+
+def verify_xylo_version(
+    read_buffer: XyloIMUReadBuffer,
+    write_buffer: XyloIMUWriteBuffer,
+    timeout: float = 1.0,
+) -> bool:
+    """
+    Verify that the provided daughterbaord returns the correct version ID for Xylo
+
+    Args:
+        read_buffer (XyloIMUReadBuffer): A read buffer connected to the Xylo HDK
+        write_buffer (XyloIMUWriteBuffer): A write buffer connected to the Xylo HDK
+        timeout (float): Timeout for checking in seconds
+
+    Returns:
+        bool: ``True`` iff the version ID is correct for Xylo V2
+    """
+    # - Clear the read buffer
+    read_buffer.get_events()
+
+    # - Read the version register
+    write_buffer.write([samna.xyloImu.event.ReadVersion()])
+
+    # - Read events until timeout
+    filtered_events = []
+    t_end = time.time() + timeout
+    while len(filtered_events) == 0:
+        events = read_buffer.get_events()
+        filtered_events = [
+            e for e in events if isinstance(e, samna.xyloImu.event.Version)
+        ]
+
+        # - Check timeout
+        if time.time() > t_end:
+            raise TimeoutError(f"Checking version timed out after {timeout}s.")
+
+    return (
+        (len(filtered_events) > 0)
+        and (filtered_events[0].major == 1)
+        and (filtered_events[0].minor == 1)
+    )
+
+def set_power_measure(
+    hdk: XyloIMUHDK,
+    frequency: Optional[float] = 5.0,
+) -> Tuple[
+    samna.BasicSinkNode_unifirm_modules_events_measurement,
+    samna.boards.common.power.PowerMonitor,
+]:
+    """
+    Initialize power consumption measure on a hdk
+
+    Args:
+        hdk (XyloHDK): The Xylo HDK to be measured
+        frequency (float): The frequency of power measurement. Default: 5.0
+
+    Returns:
+        power_buf: Event buffer to read power monitoring events from
+        power_monitor: The power monitoring object
+    """
+    power_monitor = hdk.get_power_monitor()
+    power_buf = samna.BasicSinkNode_unifirm_modules_events_measurement()
+    graph = samna.graph.EventFilterGraph()
+    graph.sequential([power_monitor.get_source_node(), power_buf])
+    power_monitor.start_auto_power_measurement(frequency)
+    return power_buf, power_monitor
+
+def reset_neuron_synapse_state(
+    hdk: XyloIMUHDK,
+    read_buffer: XyloIMUReadBuffer,
+    write_buffer: XyloIMUWriteBuffer,
+) -> None:
+    """
+    Reset the neuron and synapse state on a Xylo HDK
+
+    Args:
+        hdk (XyloIMUHDK): The Xylo HDK hdk to reset
+        read_buffer (XyloIMUReadBuffer): A read buffer connected to the Xylo HDK to reset
+        write_buffer (XyloIMUWriteBuffer): A write buffer connected to the Xylo HDK to reset
+    """
+    # - Get the current configuration
+    config = hdk.get_xylo_model().get_configuration()
+
+    # - Reset via configuration
+    config.clear_network_state = True
+    apply_configuration(hdk, config, read_buffer, write_buffer)
+
 
 def apply_configuration(
     hdk: XyloIMUHDK,
@@ -141,6 +248,72 @@ def apply_configuration(
     """
     # - Ideal -- just write the configuration using samna
     hdk.get_model().apply_configuration(config)
+
+def configure_accel_time_mode(
+    config: XyloConfiguration,
+    state_monitor_buffer: XyloIMUNeuronStateBuffer,
+    monitor_Nhidden: Optional[int] = 0,
+    monitor_Noutput: Optional[int] = 0,
+    readout="Spike",
+    record=False,
+) -> Tuple[XyloConfiguration, XyloIMUNeuronStateBuffer]:
+    """
+    Switch on accelerated-time mode on a Xylo hdk, and configure network monitoring
+
+    Notes:
+        Use :py:func:`new_xylo_state_monitor_buffer` to generate a buffer to monitor neuron and synapse state.
+
+    Args:
+        config (XyloConfiguration): The desired Xylo configuration to use
+        state_monitor_buffer (XyloIMUNeuronStateBuffer): A connected neuron state monitor buffer
+        monitor_Nhidden (Optional[int]): The number of hidden neurons for which to monitor state during evolution. Default: ``0``, don't monitor any hidden neurons.
+        monitor_Noutput (Optional[int]): The number of output neurons for which to monitor state during evolution. Default: ``0``, don't monitor any output neurons.
+        readout: The readout out mode for which to output neuron states. Default: ``Spike''. Must be one of ``['Vmem', 'Spike']``.
+        record (bool): Iff ``True``, record state during evolution. Default: ``False``, do not record state.
+
+    Returns:
+        (XyloConfiguration, XyloIMUNeuronStateBuffer): `config` and `monitor_buffer`
+    """
+    assert readout in ["Vmem", "Spike"], f"{readout} is not supported."
+
+    # - Select accelerated time mode
+    config.operation_mode = samna.xyloImu.OperationMode.AcceleratedTime
+
+    config.debug.monitor_neuron_spike = None
+    config.debug.monitor_neuron_v_mem = None
+
+    if record:
+        config.debug.monitor_neuron_spike = samna.xyloImu.configuration.NeuronRange(
+            0, monitor_Nhidden
+        )
+        config.debug.monitor_neuron_v_mem = samna.xyloImu.configuration.NeuronRange(
+            0, monitor_Nhidden + monitor_Noutput
+        )
+
+    else:
+        config.debug.monitor_neuron_v_mem = (
+            samna.xyloImu.configuration.NeuronRange(
+                monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+            )
+        )
+
+    # - Configure the monitor buffer
+    state_monitor_buffer.set_configuration(config)
+
+    # - Return the configuration and buffer
+    return config, state_monitor_buffer
+
+def config_hibernation_mode(
+    config: XyloConfiguration, hibernation_mode: bool
+) -> XyloConfiguration:
+    """
+    Switch on hibernaton mode on a Xylo hdk
+
+    Args:
+        config (XyloConfiguration): The desired Xylo configuration to use
+    """
+    config.enable_hibernation_mode = hibernation_mode
+    return config
 
 
 def config_auto_mode(
