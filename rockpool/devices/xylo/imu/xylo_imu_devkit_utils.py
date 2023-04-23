@@ -36,16 +36,23 @@ XyloIMUHDK = Any
 
 def find_xylo_imu_boards() -> List[XyloIMUHDK]:
     """
-    Search for and return a list of Xylo AFE V2 HDKs
+    Search for and return a list of Xylo IMU HDKs
 
-    Iterate over devices and search for Xylo AFE V2 HDK nodes. Return a list of available AFE HDKs, or an empty list if none are found.
+    Iterate over devices and search for Xylo IMU HDK nodes. Return a list of available IMU HDKs, or an empty list if none are found.
 
     Returns:
-        List[AFEHDK]: A (possibly empty) list of AFE HDK nodes.
+        List[XyloIMUHDK]: A (possibly empty) list of Xylo IMU HDK nodes.
     """
 
+    # - Get a list of devices
+    device_list = samna.device.get_all_devices()
+
     # - Search for a xylo dev kit
-    afev2_hdk_list = [samna.device.open_device("XyloImuTestBoard:0")]
+    afev2_hdk_list = [
+        samna.device.open_device(d)
+        for d in device_list
+        if d.device_type_name == "XyloImuTestBoard:0"
+    ]
 
     return afev2_hdk_list
 
@@ -127,6 +134,9 @@ def new_xylo_state_monitor_buffer(
 
 
 def new_xylo_source(hdk: XyloIMUHDK,):
+    """
+    Create a new source for writing events
+    """
     source = samna.graph.source_to(hdk.get_model_sink_node())
     return source
 
@@ -151,48 +161,6 @@ def advance_time_step(write_buffer: XyloIMUWriteBuffer) -> None:
     """
     e = samna.xyloImu.event.TriggerProcessing()
     write_buffer.write([e])
-
-
-def verify_xylo_version(
-    read_buffer: XyloIMUReadBuffer,
-    write_buffer: XyloIMUWriteBuffer,
-    timeout: float = 1.0,
-) -> bool:
-    """
-    Verify that the provided daughterbaord returns the correct version ID for Xylo
-
-    Args:
-        read_buffer (XyloIMUReadBuffer): A read buffer connected to the Xylo HDK
-        write_buffer (XyloIMUWriteBuffer): A write buffer connected to the Xylo HDK
-        timeout (float): Timeout for checking in seconds
-
-    Returns:
-        bool: ``True`` iff the version ID is correct for Xylo V2
-    """
-    # - Clear the read buffer
-    read_buffer.get_events()
-
-    # - Read the version register
-    write_buffer.write([samna.xyloImu.event.ReadVersion()])
-
-    # - Read events until timeout
-    filtered_events = []
-    t_end = time.time() + timeout
-    while len(filtered_events) == 0:
-        events = read_buffer.get_events()
-        filtered_events = [
-            e for e in events if isinstance(e, samna.xyloImu.event.Version)
-        ]
-
-        # - Check timeout
-        if time.time() > t_end:
-            raise TimeoutError(f"Checking version timed out after {timeout}s.")
-
-    return (
-        (len(filtered_events) > 0)
-        and (filtered_events[0].major == 1)
-        and (filtered_events[0].minor == 1)
-    )
 
 
 def set_power_measure(
@@ -332,10 +300,13 @@ def config_auto_mode(
     io,
 ) -> XyloConfiguration:
     """
-    Set the Xylo HDK to manual mode before configure to real-time mode
+    Set the Xylo HDK to real-time mode
 
     Args:
-        config (XyloConfiguration): A configuration for Xylo
+        config (XyloConfiguration): A configuration for Xylo IMU
+        dt (float): The simulation time-step to use for this Module
+        main_clk_rate(int): The main clock rate of Xylo
+        io: The io module of Xylo
 
     Return:
         updated Xylo configuration
@@ -355,10 +326,10 @@ def config_auto_mode(
 
 def config_if_module(
     config: XyloConfiguration,
-    num_avg_bitshift=6,
-    select_iaf_output=False,
-    sampling_period=256,
-    filter_a1_list=[
+    num_avg_bitshift: int=6,
+    select_iaf_output: bool=False,
+    sampling_period: int=256,
+    filter_a1_list: list=[
         -64700,
         -64458,
         -64330,
@@ -375,16 +346,36 @@ def config_if_module(
         -58805,
         -57941,
     ],
-    filter_a2_list=[0x00007CBF] + [0x00007C0A] * 14,
-    scale_values=[8] * 15,
-    Bb_list=[6] * 15,
-    B_wf_list=[8] * 15,
-    B_af_list=[9] * 15,
-    iaf_threshold_values=[0x000007D0] * 15,
+    filter_a2_list: list=[0x00007CBF] + [0x00007C0A] * 14,
+    scale_values: list=[8] * 15,
+    Bb_list: list=[6] * 15,
+    B_wf_list: list=[8] * 15,
+    B_af_list: list=[9] * 15,
+    iaf_threshold_values: list=[0x000007D0] * 15,
     *args,
     **kwargs,
-):
-    # Preprocessing hyperparameters
+) -> XyloConfiguration:
+    """
+    Configure the imu interface module
+
+    Args:
+        config (XyloConfiguration): a configuration for Xylo IMU
+        num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation
+        select_iaf_output (bool): if True, select the IAF neuron spike encoder; else, select the scale spike encoder
+        sampling_period (int): sampling period
+        filter_a1_list (list): list of a1 tap values
+        filter_a2_list (list): list of a2 tap values
+        scale_values (list): list of number of right-bit-shifts needed for down-scaling the input signal
+        Bb_list (list): list of bits needed for scaling b0
+        B_wf_list (list): list of bits needed for fractional part of the filter output
+        B_af_list (list): list of bits needed for encoding the fractional parts of taps
+        iaf_threshold_values (list): list of threshold values of IAF neurons
+
+    Return:
+        updated Xylo configuration
+    """
+
+    # IMU interface hyperparameters
     config.input_interface.enable = True
     config.input_interface.estimator_k_setting = num_avg_bitshift  # num_avg_bitshift
     config.input_interface.select_iaf_output = (

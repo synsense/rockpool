@@ -1,5 +1,5 @@
 """
-Samna-backed bridge to Xylo dev kit for SYNS61201 Xylo core v2
+Samna-backed bridge to Xylo dev kit for Xylo IMU
 """
 
 # - Samna imports
@@ -53,6 +53,14 @@ class XyloIMUMonitor(Module):
     ):
         """
         Instantiate a Module with Xylo dev-kit backend
+
+        Args:
+            device (XyloIMUHDK): An opened `samna` device to a Xylo dev kit
+            config (XyloConfiguraration): A Xylo configuration from `samna`
+            dt (float): The simulation time-step to use for this Module
+            output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Vmem"]``. Default: "Spike", return events from the output layer.
+            main_clk_rate(int): The main clock rate of Xylo
+            interface_params(dict): The dictionary of Xylo interface parameters used for the `hdkutils.config_if_module` function, the keys of which must be one of "num_avg_bitshif", "select_iaf_output", "sampling_period", "filter_a1_list", "filter_a2_list", "scale_values", "Bb_list", "B_wf_list", "B_af_list", "iaf_threshold_values".
         """
 
         # - Check input arguments
@@ -130,16 +138,23 @@ class XyloIMUMonitor(Module):
             raise ValueError(f"Invalid configuration for the Xylo HDK: {msg}")
 
         # - Write the configuration to the device
-        hdkutils.apply_configuration(
-            self._device, new_config
-        )
+        hdkutils.apply_configuration(self._device, new_config)
 
         # - Store the configuration locally
         self._config = new_config
 
     def auto_config(self, interface_params: dict):
+        """
+        Configure the Xylo HDK to use real-time mode
+
+        Args:
+            interface_params (dict): specify the interface parameters
+        """
+
         # - Config the streaming mode
-        config = hdkutils.config_auto_mode(self._config, self.dt, self._main_clk_rate, self._io)
+        config = hdkutils.config_auto_mode(
+            self._config, self.dt, self._main_clk_rate, self._io
+        )
         # - Config the IMU interface and apply current configuration
         self.config = hdkutils.config_if_module(config, **interface_params)
         # - Set configuration and reset state buffer
@@ -203,8 +218,8 @@ def config_from_specification(
         For detailed information about the networks supported on Xylo, see :ref:`/devices/xylo-overview.ipynb`
 
     Args:
-        weights_in (np.ndarray): A quantised 8-bit input weight matrix ``(Nin, Nin_res, 2)``. The third dimension specifies connections onto the second input synapse for each neuron. ``Nin_res`` indicates the number of hidden-layer neurons that receive input from the input channels.
-        weights_rec (np.ndarray): A quantised 8-bit recurrent weight matrix ``(Nhidden, Nhidden, 2)``. The third dimension specified connections onto the second input synapse for each neuron. Default: ``0``
+        weights_in (np.ndarray): A quantised 8-bit input weight matrix ``(Nin, Nin_res, 1)``. The third dimension specifies connections onto the second input synapse for each neuron. ``Nin_res`` indicates the number of hidden-layer neurons that receive input from the input channels.
+        weights_rec (np.ndarray): A quantised 8-bit recurrent weight matrix ``(Nhidden, Nhidden, 1)``. The third dimension specified connections onto the second input synapse for each neuron. Default: ``0``
         weights_out (np.ndarray): A quantised 8-bit output weight matrix ``(Nhidden, Nout)``.
         dash_mem (np.ndarray): A vector or list ``(Nhidden,)`` specifing decay bitshift for neuron state for each hidden layer neuron. Default: ``1``
         dash_mem_out (np.ndarray): A vector or list ``(Nout,)`` specifing decay bitshift for neuron state for each output neuron. Default: ``1``
