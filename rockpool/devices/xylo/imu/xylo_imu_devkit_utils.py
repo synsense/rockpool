@@ -133,7 +133,9 @@ def new_xylo_state_monitor_buffer(
     return buffer
 
 
-def new_xylo_source(hdk: XyloIMUHDK,):
+def new_xylo_source(
+    hdk: XyloIMUHDK,
+):
     """
     Create a new source for writing events
     """
@@ -326,10 +328,10 @@ def config_auto_mode(
 
 def config_if_module(
     config: XyloConfiguration,
-    num_avg_bitshift: int=6,
-    select_iaf_output: bool=False,
-    sampling_period: int=256,
-    filter_a1_list: list=[
+    num_avg_bitshift: int = 6,
+    select_iaf_output: bool = False,
+    sampling_period: int = 256,
+    filter_a1_list: list = [
         -64700,
         -64458,
         -64330,
@@ -346,12 +348,12 @@ def config_if_module(
         -58805,
         -57941,
     ],
-    filter_a2_list: list=[0x00007CBF] + [0x00007C0A] * 14,
-    scale_values: list=[8] * 15,
-    Bb_list: list=[6] * 15,
-    B_wf_list: list=[8] * 15,
-    B_af_list: list=[9] * 15,
-    iaf_threshold_values: list=[0x000007D0] * 15,
+    filter_a2_list: list = [0x00007CBF] + [0x00007C0A] * 14,
+    scale_values: list = [8] * 15,
+    Bb_list: list = [6] * 15,
+    B_wf_list: list = [8] * 15,
+    B_af_list: list = [9] * 15,
+    iaf_threshold_values: list = [0x000007D0] * 15,
     *args,
     **kwargs,
 ) -> XyloConfiguration:

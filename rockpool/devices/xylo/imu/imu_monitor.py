@@ -295,10 +295,7 @@ def config_from_specification(
     if bias_out is not None:
         bias_out = np.round(np.array(bias_out)).astype("int")
 
-    if (
-        np.size(dash_mem) != Nhidden
-        or np.size(dash_syn) != Nhidden
-    ):
+    if np.size(dash_mem) != Nhidden or np.size(dash_syn) != Nhidden:
         raise ValueError(
             f"`dash_mem`, `dash_syn` need `Nhidden` entries (`Nhidden` = {Nhidden})"
             + f" found {np.size(dash_mem)}, {np.size(dash_syn)}"
