@@ -125,6 +125,12 @@ def new_xylo_state_monitor_buffer(
     # - Return the buffer
     return buffer
 
+
+def new_xylo_source(hdk: XyloIMUHDK,):
+    source = samna.graph.source_to(hdk.get_model_sink_node())
+    return source
+
+
 def initialise_xylo_hdk(write_buffer: XyloIMUWriteBuffer) -> None:
     """
     Initialise the Xylo HDK
@@ -145,6 +151,7 @@ def advance_time_step(write_buffer: XyloIMUWriteBuffer) -> None:
     """
     e = samna.xyloImu.event.TriggerProcessing()
     write_buffer.write([e])
+
 
 def verify_xylo_version(
     read_buffer: XyloIMUReadBuffer,
@@ -187,6 +194,7 @@ def verify_xylo_version(
         and (filtered_events[0].minor == 1)
     )
 
+
 def set_power_measure(
     hdk: XyloIMUHDK,
     frequency: Optional[float] = 5.0,
@@ -212,6 +220,7 @@ def set_power_measure(
     power_monitor.start_auto_power_measurement(frequency)
     return power_buf, power_monitor
 
+
 def reset_neuron_synapse_state(
     hdk: XyloIMUHDK,
     read_buffer: XyloIMUReadBuffer,
@@ -226,7 +235,7 @@ def reset_neuron_synapse_state(
         write_buffer (XyloIMUWriteBuffer): A write buffer connected to the Xylo HDK to reset
     """
     # - Get the current configuration
-    config = hdk.get_xylo_model().get_configuration()
+    config = hdk.get_model().get_configuration()
 
     # - Reset via configuration
     config.clear_network_state = True
@@ -248,6 +257,7 @@ def apply_configuration(
     """
     # - Ideal -- just write the configuration using samna
     hdk.get_model().apply_configuration(config)
+
 
 def configure_accel_time_mode(
     config: XyloConfiguration,
@@ -291,10 +301,8 @@ def configure_accel_time_mode(
         )
 
     else:
-        config.debug.monitor_neuron_v_mem = (
-            samna.xyloImu.configuration.NeuronRange(
-                monitor_Nhidden, monitor_Nhidden + monitor_Noutput
-            )
+        config.debug.monitor_neuron_v_mem = samna.xyloImu.configuration.NeuronRange(
+            monitor_Nhidden, monitor_Nhidden + monitor_Noutput
         )
 
     # - Configure the monitor buffer
@@ -302,6 +310,7 @@ def configure_accel_time_mode(
 
     # - Return the configuration and buffer
     return config, state_monitor_buffer
+
 
 def config_hibernation_mode(
     config: XyloConfiguration, hibernation_mode: bool
@@ -320,6 +329,7 @@ def config_auto_mode(
     config: XyloConfiguration,
     dt: float,
     main_clk_rate: int,
+    io,
 ) -> XyloConfiguration:
     """
     Set the Xylo HDK to manual mode before configure to real-time mode
@@ -330,9 +340,10 @@ def config_auto_mode(
     Return:
         updated Xylo configuration
     """
+    io.write_config(0x11, 0)
     config.operation_mode = samna.xyloImu.OperationMode.RealTime
     config.bias_enable = True
-    config.reservoir.aliasing = True
+    config.hidden.aliasing = True
     config.debug.always_update_omp_stat = True
     config.imu_if_input_enable = True
     config.debug.imu_if_clk_enable = True

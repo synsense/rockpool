@@ -78,6 +78,7 @@ class XyloIMUMonitor(Module):
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
         self._state_buffer = hdkutils.new_xylo_state_monitor_buffer(device)
+        self._source = hdkutils.new_xylo_source(device)
 
         # - Initialise the superclass
         super().__init__(
@@ -104,6 +105,7 @@ class XyloIMUMonitor(Module):
 
         # - Store the io module
         self._io = self._device.get_io_module()
+        self._io.spi_slave_enable(True)
 
         # - Set main clock rate
         if self._main_clk_rate != Default_Main_Clock_Rate:
@@ -111,6 +113,9 @@ class XyloIMUMonitor(Module):
 
         # - Configure to auto mode
         self.auto_config(interface_params)
+
+        # - Send first trigger to start to run full auto mode
+        self._source.write([samna.xyloImu.event.TriggerProcessing()])
 
     @property
     def config(self):
@@ -134,7 +139,7 @@ class XyloIMUMonitor(Module):
 
     def auto_config(self, interface_params: dict):
         # - Config the streaming mode
-        config = hdkutils.config_auto_mode(self._config, self.dt, self._main_clk_rate)
+        config = hdkutils.config_auto_mode(self._config, self.dt, self._main_clk_rate, self._io)
         # - Config the IMU interface and apply current configuration
         self.config = hdkutils.config_if_module(config, **interface_params)
         # - Set configuration and reset state buffer
@@ -357,27 +362,23 @@ def config_from_specification(
     if bias_hidden is not None or bias_out is not None:
         config.bias_enable = True
 
-    config.reservoir.aliasing = aliases is not None
+    config.hidden.aliasing = aliases is not None
     config.input.weight_bit_shift = weight_shift_in
-    config.reservoir.weight_bit_shift = weight_shift_rec
+    config.hidden.weight_bit_shift = weight_shift_rec
     config.readout.weight_bit_shift = weight_shift_out
     if weights_in.shape[1] > 128:
         config.input.weights = weights_in[:, :128, 0]
     else:
         config.input.weights = weights_in[:, :, 0]
-    config.reservoir.weights = weights_rec[:, :, 0]
+    config.hidden.weights = weights_rec[:, :, 0]
     if weights_out.shape[1] > 128:
         config.readout.weights = weights_out[-128:, :]
     else:
         config.readout.weights = weights_out
 
-    if enable_isyn2:
-        config.input.syn2_weights = weights_in[:, :, 1]
-        config.reservoir.syn2_weights = weights_rec[:, :, 1]
-
-    reservoir_neurons = []
+    hidden_neurons = []
     for i in range(len(weights_rec)):
-        neuron = samna.xyloImu.configuration.ReservoirNeuron()
+        neuron = samna.xyloImu.configuration.HiddenNeuron()
         if aliases is not None and len(aliases[i]) > 0:
             neuron.alias_target = aliases[i][0]
 
@@ -386,9 +387,9 @@ def config_from_specification(
         neuron.threshold = threshold[i]
         if bias_hidden is not None:
             neuron.v_mem_bias = bias_hidden[i]
-        reservoir_neurons.append(neuron)
+        hidden_neurons.append(neuron)
 
-    config.reservoir.neurons = reservoir_neurons
+    config.hidden.neurons = hidden_neurons
 
     readout_neurons = []
     for i in range(np.shape(weights_out)[1]):
