@@ -51,7 +51,7 @@ def find_xylo_imu_boards() -> List[XyloIMUHDK]:
     afev2_hdk_list = [
         samna.device.open_device(d)
         for d in device_list
-        if d.device_type_name == "XyloImuTestBoard:0"
+        if d.device_type_name == "XyloImuTestBoard"
     ]
 
     return afev2_hdk_list
