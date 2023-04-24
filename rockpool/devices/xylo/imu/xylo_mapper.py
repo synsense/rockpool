@@ -244,11 +244,11 @@ def mapper(
             )
 
     # - If we are not using synapse 2, we need to trim the weights
-    if num_hidden_synapses == 1:
-        w_in = np.reshape(w_in, (len(input_channels), len(allocated_hidden_neurons)))
-        w_rec = np.reshape(
-            w_rec, (len(allocated_hidden_neurons), len(allocated_hidden_neurons))
-        )
+    # if num_hidden_synapses == 1:
+    #     w_in = np.reshape(w_in, (len(input_channels), len(allocated_hidden_neurons)))
+    #     w_rec = np.reshape(
+    #         w_rec, (len(allocated_hidden_neurons), len(allocated_hidden_neurons))
+    #     )
 
     # --- Extract parameters from nodes ---
 
