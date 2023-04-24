@@ -126,7 +126,7 @@ class XyloIMUMonitor(Module):
         self.auto_config(interface_params)
 
         # - Send first trigger to start to run full auto mode
-        self._write_buffer.write([samna.xyloImu.event.TriggerProcessing()])
+        hdkutils.advance_time_step(self._write_buffer)
 
     @property
     def config(self):
