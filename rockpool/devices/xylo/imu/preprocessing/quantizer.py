@@ -10,7 +10,7 @@ __all__ = ["Quantizer"]
 class Quantizer(Module):
     """
     The quantizer that converts the input signal into python-object which can handle/simulate arbitrary register size in hardware implementation.
-    This module quanizes the input signals into an integer with python-object precision, which has infinite bit length.
+    This module quantizes the input signals into an integer with python-object precision, which has infinite bit length.
     This makes the simulation slower but has the advantage that it avoid any numerical imprecision during the python simulation
     when the register sizes are chosen to be larger than numpy.int64 bit length.
 
