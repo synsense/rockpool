@@ -246,11 +246,6 @@ def config_from_specification(
             f"Input weights must be at least 2 dimensional `(Nin, Nin_res, [2])`. Found {weights_in.shape}"
         )
 
-    enable_isyn2 = True
-    if weights_in.ndim == 2:
-        enable_isyn2 = False
-        weights_in = np.reshape(weights_in, [*weights_in.shape, 1])
-
     # - Check output weights
     if weights_out.ndim != 2:
         raise ValueError("Output weights must be 2 dimensional `(Nhidden, Nout)`")
@@ -265,16 +260,10 @@ def config_from_specification(
 
     # - Provide default `weights_rec`
     weights_rec = (
-        np.zeros((Nhidden, Nhidden, 1 + enable_isyn2), "int")
-        if weights_rec is None
-        else weights_rec
+        np.zeros((Nhidden, Nhidden, 1), "int") if weights_rec is None else weights_rec
     )
 
     # - Check `weights_rec`
-    if weights_rec.ndim == 2:
-        enable_isyn2 = False
-        weights_rec = np.reshape(weights_rec, [*weights_rec.shape, 1])
-
     if weights_rec.ndim != 3 or weights_rec.shape[0] != weights_rec.shape[1]:
         raise ValueError("Recurrent weights must be of shape `(Nhidden, Nhidden, [2])`")
 
