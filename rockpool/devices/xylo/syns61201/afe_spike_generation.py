@@ -269,16 +269,20 @@ if __DEBUG_MODE__:
     __CPP_VERSION__ = False
     __JAX_VERSION__ = False
 
-if __CPP_VERSION__:
-    # C++ version is active: apply simple embedding in Python
-    info(f"__CPP_VERSION__: {__CPP_VERSION__}: Using C++ version of spike encoding.")
-    _encode_spikes = _encode_spikes_cpp
 
-elif __JAX_VERSION__:
+if __JAX_VERSION__:
+    # Jax version is active: use jax since it is slightly faster than CPP if all dependencies are ok!
+    # apply simple embedding in Python
     info(
         f"__JAX_VERSION__: {__JAX_VERSION__}: Using Jax-JIT version of spike encoding."
     )
     _encode_spikes = _encode_spikes_jax
+
+elif __CPP_VERSION__:
+    # C++ version is active: apply simple embedding in Python
+    info(f"__CPP_VERSION__: {__CPP_VERSION__}: Using C++ version of spike encoding.")
+    _encode_spikes = _encode_spikes_cpp
+
 
 else:
     # use the Python version
