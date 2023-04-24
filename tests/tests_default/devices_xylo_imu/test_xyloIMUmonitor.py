@@ -65,20 +65,22 @@ def test_config_from_specification():
     net = Sequential(
         LinearTorch((Nin, Nhidden), has_bias=False),
         LIFTorch(Nhidden, dt=dt),
-
         Residual(
             LinearTorch((Nhidden, Nhidden), has_bias=False),
-            LIFTorch(Nhidden, has_rec=True, threshold=1., dt=dt),
+            LIFTorch(Nhidden, has_rec=True, threshold=1.0, dt=dt),
         ),
-
         LinearTorch((Nhidden, Nout), has_bias=False),
         LIFTorch(Nout, dt=dt),
     )
 
-    spec = mapper(net.as_graph(), weight_dtype='float', threshold_dtype='float', dash_dtype='float')
+    spec = mapper(
+        net.as_graph(),
+        weight_dtype="float",
+        threshold_dtype="float",
+        dash_dtype="float",
+    )
     spec.update(q.global_quantize(**spec))
 
     config, is_valid, msg = config_from_specification(**spec)
     if not is_valid:
         print(msg)
-
