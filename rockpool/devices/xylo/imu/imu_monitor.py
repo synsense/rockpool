@@ -47,6 +47,7 @@ class XyloIMUMonitor(Module):
         dt: float = 1e-3,
         output_mode: str = "Spike",
         main_clk_rate: Optional[int] = Default_Main_Clock_Rate,
+        hibernation_mode: bool = False,
         interface_params: Optional[dict] = dict(),
         *args,
         **kwargs,
@@ -60,6 +61,7 @@ class XyloIMUMonitor(Module):
             dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Vmem"]``. Default: "Spike", return events from the output layer.
             main_clk_rate(int): The main clock rate of Xylo
+            hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
             interface_params(dict): The dictionary of Xylo interface parameters used for the `hdkutils.config_if_module` function, the keys of which must be one of "num_avg_bitshif", "select_iaf_output", "sampling_period", "filter_a1_list", "filter_a2_list", "scale_values", "Bb_list", "B_wf_list", "B_af_list", "iaf_threshold_values".
         """
 
@@ -102,6 +104,8 @@ class XyloIMUMonitor(Module):
             XyloConfiguration, SimulationParameter
         ] = SimulationParameter(shape=(), init_func=lambda _: config)
         self._config = config
+        if hibernation_mode:
+            self._config.enable_hibernation_mode = True
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Store the timestep

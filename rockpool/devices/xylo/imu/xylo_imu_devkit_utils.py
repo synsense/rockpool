@@ -396,3 +396,67 @@ def config_if_module(
     config.input_interface.iaf_threshold_values = iaf_threshold_values
 
     return config
+
+
+def read_imu_register(
+    read_buffer: XyloIMUReadBuffer,
+    write_buffer: XyloIMUWriteBuffer,
+    address: int,
+    timeout: float = 2.0,
+) -> List[int]:
+    """
+    Read the contents of a register
+
+    Args:
+        read_buffer (XyloIMUReadBuffer): A connected read buffer to the XYlo HDK
+        write_buffer (XyloIMUWriteBuffer): A connected write buffer to the Xylo HDK
+        address (int): The register address to read
+        timeout (float): A timeout in seconds
+
+    Returns:
+        List[int]: A list of events returned from the read
+    """
+    # - Set up a register read
+    rrv_ev = samna.xyloImu.event.ReadRegisterValue()
+    rrv_ev.address = address
+
+    # - Request read
+    write_buffer.write([rrv_ev])
+
+    # - Wait for data and read it
+    start_t = time.time()
+    continue_read = True
+    while continue_read:
+        # - Read from the buffer
+        events = read_buffer.get_events()
+
+        # - Filter returned events for the desired address
+        ev_filt = [e for e in events if hasattr(e, "address") and e.address == address]
+
+        # - Should we continue the read?
+        continue_read &= len(ev_filt) == 0
+        continue_read &= (time.time() - start_t) < timeout
+
+    # - If we didn't get the required register read, raise an error
+    if len(ev_filt) == 0:
+        raise TimeoutError(f"Timeout after {timeout}s when reading register {address}.")
+
+    # - Return data
+    return [e.data for e in ev_filt]
+
+
+def write_afe2_register(
+    write_buffer: XyloIMUWriteBuffer, register: int, data: int = 0
+) -> None:
+    """
+    Write data to a register on a Xylo IMU HDK
+
+    Args:
+        write_buffer (XyloIMUWriteBuffer): A connected write buffer to the destination Xylo IMU HDK
+        register (int): The address of the register to write to
+        data (int): The data to write. Default: 0x0
+    """
+    wwv_ev = samna.xyloImu.event.WriteRegisterValue()
+    wwv_ev.address = register
+    wwv_ev.data = data
+    write_buffer.write([wwv_ev])
