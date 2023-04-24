@@ -133,16 +133,6 @@ def new_xylo_state_monitor_buffer(
     return buffer
 
 
-def new_xylo_source(
-    hdk: XyloIMUHDK,
-):
-    """
-    Create a new source for writing events
-    """
-    source = samna.graph.source_to(hdk.get_model_sink_node())
-    return source
-
-
 def initialise_xylo_hdk(write_buffer: XyloIMUWriteBuffer) -> None:
     """
     Initialise the Xylo HDK

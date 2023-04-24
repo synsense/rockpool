@@ -88,7 +88,6 @@ class XyloIMUMonitor(Module):
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
         self._state_buffer = hdkutils.new_xylo_state_monitor_buffer(device)
-        self._source = hdkutils.new_xylo_source(device)
 
         # - Initialise the superclass
         super().__init__(
@@ -127,7 +126,7 @@ class XyloIMUMonitor(Module):
         self.auto_config(interface_params)
 
         # - Send first trigger to start to run full auto mode
-        self._source.write([samna.xyloImu.event.TriggerProcessing()])
+        self._write_buffer.write([samna.xyloImu.event.TriggerProcessing()])
 
     @property
     def config(self):
