@@ -29,3 +29,5 @@ tests/tests_default/MNIST
 _fp_q_model_deployments.ipynb
 *.egg-info
 *.DS_Store
+
+docs/basics/MNIST/raw/*

@@ -685,3 +685,167 @@ def test_synnet_graph_extraction_vmem_readout():
 
         else:
             raise ValueError("Unintended computational model found!")
+
+
+def test_synnet_thresholds_readout_list():
+    from rockpool.nn.networks import SynNet
+
+    # test that threshold_out is set correctly for all readout neurons if we choose a separate threshold for each neuron
+    size_hidden_layers = [60, 3]
+    time_constants_per_layer = [3, 1]
+    n_classes = 3
+
+    threshold = 1.3
+    threshold_out = [1.4, 1.5, 1.0]
+    model = SynNet(
+        n_classes=n_classes,
+        n_channels=12,
+        size_hidden_layers=size_hidden_layers,
+        time_constants_per_layer=time_constants_per_layer,
+        threshold=threshold,
+        threshold_out=threshold_out,
+    )
+
+    assert len(model.seq[7].threshold) == n_classes
+    for i in range(n_classes):
+        assert model.seq[7].threshold[i] == threshold_out[i]
+
+
+def test_synnet_constant_threshold_list():
+    from rockpool.nn.networks import SynNet
+    from rockpool.nn.modules import LIFTorch
+
+    # test that threshold_out is set correctly for all readout neurons if we choose a separate threshold for each neuron
+    size_hidden_layers = [60, 3]
+    time_constants_per_layer = [3, 1]
+    n_classes = 3
+
+    threshold = 1.3
+    threshold_out = [1.4, 1.5, 1.0]
+    model = SynNet(
+        n_classes=n_classes,
+        n_channels=12,
+        size_hidden_layers=size_hidden_layers,
+        time_constants_per_layer=time_constants_per_layer,
+        threshold=threshold,
+        threshold_out=threshold_out,
+        train_threshold=True,
+    )
+
+    for submod in model.seq:
+        if isinstance(submod, LIFTorch):
+            if submod._name != model.label_last_LIF:
+                assert "threshold" in list(submod.parameters().keys())
+            else:
+                assert "threshold" not in list(submod.parameters().keys())
+
+
+def test_synnet_trainable_threshold_float():
+    """Test if we can construct a SynNet with a trainable float threshold"""
+    from rockpool.nn.networks import SynNet
+    from rockpool.nn.modules import LIFTorch
+
+    size_hidden_layers = [60, 3]
+    time_constants_per_layer = [3, 1]
+    n_classes = 3
+
+    threshold = 1.3
+    threshold_out = 1.0
+    model = SynNet(
+        n_classes=n_classes,
+        n_channels=12,
+        size_hidden_layers=size_hidden_layers,
+        time_constants_per_layer=time_constants_per_layer,
+        threshold=threshold,
+        threshold_out=threshold_out,
+        train_threshold=True,
+    )
+
+    for submod in model.seq:
+        if isinstance(submod, LIFTorch):
+            if submod._name != model.label_last_LIF:
+                assert "threshold" in list(submod.parameters().keys())
+            else:
+                assert "threshold" not in list(submod.parameters().keys())
+
+
+def test_synnet_trainable_threshold_list():
+    """Test if we can construct a SynNet with a trainable list threshold"""
+    from rockpool.nn.networks import SynNet
+    from rockpool.nn.modules import LIFTorch
+
+    size_hidden_layers = [60, 3]
+    time_constants_per_layer = [3, 1]
+    n_classes = 3
+
+    threshold = 1.3
+    threshold_out = [1.4, 1.5, 1.0]
+    model = SynNet(
+        n_classes=n_classes,
+        n_channels=12,
+        size_hidden_layers=size_hidden_layers,
+        time_constants_per_layer=time_constants_per_layer,
+        threshold=threshold,
+        threshold_out=threshold_out,
+        train_threshold=True,
+    )
+
+    for submod in model.seq:
+        if isinstance(submod, LIFTorch):
+            if submod._name != model.label_last_LIF:
+                assert "threshold" in list(submod.parameters().keys())
+            else:
+                assert "threshold" not in list(submod.parameters().keys())
+
+
+def test_synnet_constant_threshold_float():
+    """Test if we can construct a SynNet with a constant float threshold"""
+    from rockpool.nn.networks import SynNet
+    from rockpool.nn.modules import LIFTorch
+
+    size_hidden_layers = [60, 3]
+    time_constants_per_layer = [3, 1]
+    n_classes = 3
+
+    threshold = 1.3
+    threshold_out = 1.0
+    model = SynNet(
+        n_classes=n_classes,
+        n_channels=12,
+        size_hidden_layers=size_hidden_layers,
+        time_constants_per_layer=time_constants_per_layer,
+        threshold=threshold,
+        threshold_out=threshold_out,
+        train_threshold=False,
+    )
+
+    for submod in model.seq:
+        if isinstance(submod, LIFTorch):
+            assert "threshold" not in list(submod.parameters().keys())
+
+
+def test_synnet_constant_threshold_list():
+    """Test if we can construct a SynNet with a constant list threshold"""
+    from rockpool.nn.networks import SynNet
+    from rockpool.nn.modules import LIFTorch
+
+    # test that threshold_out is set correctly for all readout neurons if we choose a separate threshold for each neuron
+    size_hidden_layers = [60, 3]
+    time_constants_per_layer = [3, 1]
+    n_classes = 3
+
+    threshold = 1.3
+    threshold_out = [1.4, 1.5, 1.0]
+    model = SynNet(
+        n_classes=n_classes,
+        n_channels=12,
+        size_hidden_layers=size_hidden_layers,
+        time_constants_per_layer=time_constants_per_layer,
+        threshold=threshold,
+        threshold_out=threshold_out,
+        train_threshold=False,
+    )
+
+    for submod in model.seq:
+        if isinstance(submod, LIFTorch):
+            assert "threshold" not in list(submod.parameters().keys())
