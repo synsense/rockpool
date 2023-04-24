@@ -445,7 +445,7 @@ def read_imu_register(
     return [e.data for e in ev_filt]
 
 
-def write_afe2_register(
+def write_imu_register(
     write_buffer: XyloIMUWriteBuffer, register: int, data: int = 0
 ) -> None:
     """
