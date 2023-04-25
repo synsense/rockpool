@@ -181,25 +181,6 @@ def set_power_measure(
     return power_buf, power_monitor
 
 
-def reset_neuron_synapse_state(
-    hdk: XyloIMUHDK,
-) -> None:
-    """
-    Reset the neuron and synapse state on a Xylo HDK
-
-    Args:
-        hdk (XyloIMUHDK): The Xylo HDK hdk to reset
-        read_buffer (XyloIMUReadBuffer): A read buffer connected to the Xylo HDK to reset
-        write_buffer (XyloIMUWriteBuffer): A write buffer connected to the Xylo HDK to reset
-    """
-    # - Get the current configuration
-    config = hdk.get_model().get_configuration()
-
-    # - Reset via configuration
-    config.clear_network_state = True
-    apply_configuration(hdk, config)
-
-
 def apply_configuration(
     hdk: XyloIMUHDK,
     config: XyloConfiguration,
