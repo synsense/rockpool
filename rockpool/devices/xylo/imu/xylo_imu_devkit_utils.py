@@ -132,6 +132,18 @@ def new_xylo_state_monitor_buffer(
     # - Return the buffer
     return buffer
 
+def gen_clear_input_registers_events() -> List:
+    """
+    Create events to clear the input event registers
+    """
+    events = []
+    for addr in [0x11, 0x12, 0x13, 0x14]:
+        event = samna.xyloImu.event.WriteRegisterValue()
+        event.address = addr
+        events.append(event)
+
+    return events
+
 
 def initialise_xylo_hdk(write_buffer: XyloIMUWriteBuffer) -> None:
     """
@@ -179,6 +191,70 @@ def set_power_measure(
     graph.sequential([power_monitor.get_source_node(), power_buf])
     power_monitor.start_auto_power_measurement(frequency)
     return power_buf, power_monitor
+
+def blocking_read(
+    read_buffer: XyloIMUNeuronStateBuffer,
+    target_timestamp: Optional[int] = None,
+    count: Optional[int] = None,
+    timeout: Optional[float] = None,
+) -> Tuple[List, bool]:
+    """
+    Perform a blocking read on a buffer, optionally waiting for a certain count, a target timestamp, or imposing a timeout
+
+    You should not provide `count` and `target_timestamp` together.
+
+    Args:
+        read_buffer (XyloReadBuffer): A buffer to read from
+        target_timestamp (Optional[int]): The desired final timestamp. Read until this timestamp is returned in an event. Default: ``None``, don't wait until a particular timestamp is read.
+        count (Optional[int]): The count of required events. Default: ``None``, just wait for any data.
+        timeout (Optional[float]): The time in seconds to wait for a result. Default: ``None``, no timeout: block until a read is made.
+
+    Returns:
+        (List, bool): `event_list`, `is_timeout`
+        `event_list` is a list of events read from the HDK. `is_timeout` is a boolean flag indicating that the read resulted in a timeout
+    """
+    all_events = []
+
+    # - Read at least a certain number of events
+    continue_read = True
+    is_timeout = False
+    start_time = time.time()
+    while continue_read:
+        # - Perform a read and save events
+        time.sleep(0.1)
+        events = read_buffer.get_events()
+        all_events.extend(events)
+
+        # - Check if we reached the desired timestamp
+        if target_timestamp:
+            timestamps = [
+                e.timestamp
+                for e in events
+                if hasattr(e, "timestamp") and e.timestamp is not None
+            ]
+
+            if timestamps:
+                reached_timestamp = timestamps[-1] >= target_timestamp
+                continue_read &= ~reached_timestamp
+
+        # - Check timeout
+        if timeout:
+            is_timeout = (time.time() - start_time) > timeout
+            continue_read &= not is_timeout
+
+        # - Check number of events read
+        if count:
+            continue_read &= len(all_events) < count
+
+        # - Continue reading if no events have been read
+        if not target_timestamp and not count:
+            continue_read &= len(all_events) == 0
+
+    # - Perform one final read for good measure
+    all_events.extend(read_buffer.get_events())
+
+    # - Return read events
+    return all_events, is_timeout
 
 
 def apply_configuration(
@@ -262,6 +338,52 @@ def config_hibernation_mode(
     """
     config.enable_hibernation_mode = hibernation_mode
     return config
+
+def get_current_timestamp(
+    read_buffer: XyloIMUReadBuffer,
+    write_buffer: XyloIMUWriteBuffer,
+    timeout: float = 3.0,
+) -> int:
+    """
+    Retrieve the current timestamp on a Xylo HDK
+
+    Args:
+        read_buffer (XyloReadBuffer): A connected read buffer for the xylo HDK
+        write_buffer (XyloWriteBuffer): A connected write buffer for the Xylo HDK
+        timeout (float): A timeout for reading
+
+    Returns:
+        int: The current timestamp on the Xylo HDK
+    """
+
+    # - Clear read buffer
+    read_buffer.get_events()
+
+    # - Trigger a readout event on Xylo
+    e = samna.xyloImu.event.TriggerReadout()
+    write_buffer.write([e])
+
+    # - Wait for the readout event to be sent back, and extract the timestamp
+    timestamp = None
+    continue_read = True
+    start_t = time.time()
+    while continue_read:
+        readout_events = read_buffer.get_events()
+        ev_filt = [
+            e for e in readout_events if isinstance(e, samna.xyloImu.event.Readout)
+        ]
+        if ev_filt:
+            timestamp = ev_filt[0].timestamp
+            continue_read = False
+        else:
+            # - Check timeout
+            continue_read &= (time.time() - start_t) < timeout
+
+    if timestamp is None:
+        raise TimeoutError(f"Timeout after {timeout}s when reading current timestamp.")
+
+    # - Return the timestamp
+    return timestamp
 
 
 def config_auto_mode(
