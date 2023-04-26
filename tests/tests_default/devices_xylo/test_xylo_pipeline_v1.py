@@ -108,7 +108,7 @@ def test_rec_rockpool():
         from rockpool.devices.xylo.syns61300 import config_from_specification
         from rockpool.devices.xylo.syns61300 import XyloSim
     except:
-        return
+        pytest.skip("Xylo SYNS61300 package is not installed!")
 
     import numpy as np
     import torch
