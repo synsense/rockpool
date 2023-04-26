@@ -96,7 +96,9 @@ class XyloIMUSamna(Module):
         self._io = device.get_io_module()
         print("Initialize io module")
 
-        self.dt = dt
+        # - Store the timestep
+        self.dt: Union[float, SimulationParameter] = dt
+        """ float: Simulation time-step of the module, in seconds """
         print("set time duration")
 
         self.timestep = 0.0
@@ -149,12 +151,14 @@ class XyloIMUSamna(Module):
         is_valid, msg = samna.xyloImu.validate_configuration(new_config)
         if not is_valid:
             raise ValueError(f"Invalid configuration for the Xylo HDK: {msg}")
+        else:
+            print("Config valid")
 
         # - Write the configuration to the device
         hdkutils.apply_configuration(
             self._device, new_config
         )
-
+        self._state_buffer.set_configuration(new_config)
         self._config = new_config
 
 
@@ -196,7 +200,6 @@ class XyloIMUSamna(Module):
                 for i in range(event):
                     ev = samna.xyloImu.event.Spike()
                     ev.neuron_id = n
-                    # ev.timestamp = timestep
                     events.append(ev)
         self._write_buffer.write(events)
 
@@ -234,6 +237,11 @@ class XyloIMUSamna(Module):
         # - Get the network size
         Nin, Nhidden, Nout = self.shape[:]
         print(f"Nhidden:{Nhidden}")
+
+        # - Configure the recording mode
+        self._configure_accel_time_mode(Nhidden, Nout, record)
+
+
         vmem_result = []
         spk_result = []
 
@@ -248,10 +256,12 @@ class XyloIMUSamna(Module):
             nmp = self._state_buffer.get_output_v_mem()
             spk = self._state_buffer.get_output_spike()
 
+
+
             vmem_result.append(nmp)
             spk_result.append(spk)
 
-            print(f"vmem:{vmem_result}, spike: {spk_result}")
+            print(f"vmem:{nmp}, spike: {spk}")
 
         
 

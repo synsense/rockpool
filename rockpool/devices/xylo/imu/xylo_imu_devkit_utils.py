@@ -34,6 +34,8 @@ XyloIMUNeuronStateBuffer = samna.xyloImu.NeuronStateSinkNode
 XyloIMUHDK = Any
 
 
+
+
 def find_xylo_imu_boards() -> List[XyloIMUHDK]:
     """
     Search for and return a list of Xylo IMU HDKs
@@ -301,8 +303,23 @@ def configure_accel_time_mode(
     """
     assert readout in ["Vmem", "Spike"], f"{readout} is not supported."
 
+ 
+ 
+
     # - Select accelerated time mode
     config.operation_mode = samna.xyloImu.OperationMode.AcceleratedTime
+    config.imu_if_input_enable = False
+    config.debug.always_update_omp_stat = True
+
+
+
+    config.debug.isyn_clock_enable = True
+    config.debug.ra_clock_enable = True
+    config.debug.bias_clock_enable = True
+    config.debug.hm_clock_enable = True
+    config.debug.ram_power_enable = True
+
+
 
     config.debug.monitor_neuron_spike = None
     config.debug.monitor_neuron_v_mem = None
@@ -325,6 +342,8 @@ def configure_accel_time_mode(
 
     # - Return the configuration and buffer
     return config, state_monitor_buffer
+
+
 
 
 def config_hibernation_mode(
