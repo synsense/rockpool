@@ -16,6 +16,7 @@ from rockpool.parameters import SimulationParameter
 
 from .xylo_imu_devkit_utils import XyloIMUHDK
 from . import xylo_imu_devkit_utils as hdkutils
+import time
 
 
 
@@ -55,6 +56,7 @@ class XyloIMUSamna(Module):
         # - Check input arguments
         if device is None:
             raise ValueError("`device` must be a valid, opened Xylo HDK device.")
+        print("Check device down")
 
         # - Check output mode specification
         if output_mode not in ["Spike", "Vmem"]:
@@ -62,10 +64,12 @@ class XyloIMUSamna(Module):
                 f'{output_mode} is not supported. Must be one of `["Spike", "Vmem"]`.'
             )
         self._output_mode = output_mode
+        print("Check ouput mode down")
 
         # - Get a default configuration
         if config is None:
             config = samna.xyloImu.configuration.XyloConfiguration()
+        print("Initialize configuration")
 
          # - Get the network shape
         Nin, Nhidden = np.shape(config.input.weights)
@@ -75,19 +79,28 @@ class XyloIMUSamna(Module):
         super().__init__(
             shape=(Nin, Nhidden, Nout), spiking_input=True, spiking_output=True
         )
+        print("Initialize network")
 
         # - Store the device
         self._device: XyloIMUHDK = device
         """ `.XyloHDK`: The Xylo HDK used by this module """
 
-
+        print("Store device")
         # - Register buffers to read and write events, monitor state
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
         self._state_buffer = hdkutils.new_xylo_state_monitor_buffer(device)
+        print("Initialize buffer")
 
         # - Store the io module
         self._io = device.get_io_module()
+        print("Initialize io module")
+
+        self.dt = dt
+        print("set time duration")
+
+        self.timestep = 0.0
+        print("Initial time step")
 
 
         # # - Check that we can access the device node, and that it's a Xylo HDK
@@ -105,10 +118,10 @@ class XyloIMUSamna(Module):
             XyloConfiguration, SimulationParameter
         ] = SimulationParameter(shape=(), init_func=lambda _: config)
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
-
+        print("Store configuration")
 
         
-
+        
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
         self._last_record_mode: Optional[bool] = None
@@ -176,6 +189,17 @@ class XyloIMUSamna(Module):
         """
         self.config = hdkutils.config_hibernation_mode(self._config, True)
 
+    def send_spikes(self, data):
+        events = []
+        for n, event in enumerate(data):
+            if event:
+                for i in range(event):
+                    ev = samna.xyloImu.event.Spike()
+                    ev.neuron_id = n
+                    # ev.timestamp = timestep
+                    events.append(ev)
+        self._write_buffer.write(events)
+
     
     def evolve(
         self,
@@ -206,71 +230,28 @@ class XyloIMUSamna(Module):
         Raises:
             `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
         """
-
+        print("1")
         # - Get the network size
         Nin, Nhidden, Nout = self.shape[:]
+        print(f"Nhidden:{Nhidden}")
+        vmem_result = []
+        spk_result = []
 
-        # # - Configure the recording mode
-        # self._configure_accel_time_mode(Nhidden, Nout, record)
+        for row in input:
 
-        # # - Switch on or off RAM clocks depending on state access mode
-        # if record or self._output_mode != "Spike":
-        #     hdkutils.set_ram_access(True, self._read_buffer, self._write_buffer)
-        # else:
-        #     hdkutils.set_ram_access(False, self._read_buffer, self._write_buffer)
-
-        # - Get current timestamp
-        start_timestep = hdkutils.get_current_timestamp(
-            self._read_buffer, self._write_buffer
-        )
-        final_timestamp = start_timestep + len(input) - 1
-
-        # -- Encode input events
-        input_events_list = []
-
-        # - Locate input events
-        spikes = np.argwhere(input)
-        counts = input[np.nonzero(input)]
+            self._write_buffer.write([samna.xyloImu.event.TriggerProcessing()])
+            time.sleep(0.01)
+            self.send_spikes(row)
 
 
+            # - Read output events from Xylo HDK
+            nmp = self._state_buffer.get_output_v_mem()
+            spk = self._state_buffer.get_output_spike()
 
+            vmem_result.append(nmp)
+            spk_result.append(spk)
 
-
-        # - Generate input events
-        for timestep, channel, count in zip(spikes[:, 0], spikes[:, 1], counts):
-            for _ in range(count):
-                event = samna.xyloImu.event.Spike()
-                event.neuron_id = channel
-                event.timestamp = start_timestep + timestep
-                input_events_list.append(event)
-
-        # - Add an extra event to ensure readout for entire input extent
-        event = samna.xyloImu.event.Spike()
-        event.timestamp = final_timestamp + 1
-        input_events_list.append(event)
-
-        # - Clear the input registers to ensure the dummy event has no effect
-        input_events_list.extend(hdkutils.gen_clear_input_registers_events())
-
-        # - Clear the read and state buffers
-        self._state_buffer.reset()
-        self._read_buffer.get_events()
-
-        # if record_power:
-        #     self._power_buf.get_events()
-
-        # - Write the events and trigger the simulation
-        self._write_buffer.write(input_events_list)
-
-        # - Determine a reasonable read timeout
-        if read_timeout is None:
-            read_timeout = len(input) * self.dt * Nhidden / 100.0
-            read_timeout = read_timeout * 100.0 if record else read_timeout
-
-        # - Read output events from Xylo HDK
-        nsc = self._state_buffer.get_reservoir_i_syn()
-        nmp = self._state_buffer.get_reservoir_v_mem()
-        spk = self._state_buffer.get_reservoir_spike()
+            print(f"vmem:{vmem_result}, spike: {spk_result}")
 
         
 
@@ -281,6 +262,6 @@ class XyloIMUSamna(Module):
 
         # - Return spike output, new state and record dictionary
         if self._output_mode == "Spike":
-            return spk, new_state, rec_dict
+            return vmem_result, new_state, rec_dict
         elif self._output_mode == "Vmem":
-            return nmp, new_state, rec_dict
+            return spk_result, new_state, rec_dict
