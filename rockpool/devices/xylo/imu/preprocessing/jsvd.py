@@ -6,12 +6,11 @@ computes the 3 x 3 rotation matrix and 3 x 3 diagonal matrix.
     (ii)    Apply infinite-bit approximation, which is valid when number of angles in lookup table is large enough.
     (iii)   This yields a higher precision in implementation of JSVD.
 """
-from typing import Tuple, List
-import numpy as np
 import warnings
+from typing import List, Tuple
 
+import numpy as np
 from imu_preprocessing.util.type_decorator import type_check
-
 from rockpool.devices.xylo.imu.preprocessing import RotationLookUpTable
 from rockpool.nn.modules.module import Module
 
