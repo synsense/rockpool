@@ -193,13 +193,14 @@ class XyloIMUSamna(Module):
         """
         self.config = hdkutils.config_hibernation_mode(self._config, True)
 
-    def send_spikes(self, data):
+    def send_spikes(self, data, timestep):
         events = []
         for n, event in enumerate(data):
             if event:
                 for i in range(event):
                     ev = samna.xyloImu.event.Spike()
                     ev.neuron_id = n
+                    ev.timestamp = timestep
                     events.append(ev)
         self._write_buffer.write(events)
 
@@ -242,14 +243,31 @@ class XyloIMUSamna(Module):
         self._configure_accel_time_mode(Nhidden, Nout, record)
 
 
+        # -- Encode input events
+        input_events_list = []
+
+        # - Locate input events
+        spikes = np.argwhere(input)
+        counts = input[np.nonzero(input)]
+
+        print("Spike locate over")
+
+        # - Get current timestamp
+        start_timestep = hdkutils.get_current_timestamp(
+            self._read_buffer, self._write_buffer
+        )
+        print(f"stat_timestep : {start_timestep}")
+
+        timestep = 0
         vmem_result = []
         spk_result = []
 
         for row in input:
 
             self._write_buffer.write([samna.xyloImu.event.TriggerProcessing()])
-            time.sleep(0.01)
-            self.send_spikes(row)
+            time.sleep(self.dt)
+            timestep += 10000
+            self.send_spikes(row, timestep)
 
 
             # - Read output events from Xylo HDK
