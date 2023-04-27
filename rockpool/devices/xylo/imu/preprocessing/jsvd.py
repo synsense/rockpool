@@ -1,41 +1,28 @@
-# -----------------------------------------------------------
-# This module takes the 3 x 3 covariance matrix from the IMU subspace estimation module and
-# computes the 3 x 3 rotation matrix and 3 x 3 diagonal matrix.
-#
-# Version 2:
-#       (i)     We implement the idea proposed by @Huaqiu Zhang to compute
-#       R.T @ C @ R in one-shot rather than doing it in two steps
-#       with 2 matrix multiplication.
-#       (ii)    We apply infinite-bit approximation, which is valid when number of angles in lookup table is large enough.
-#       (iii)   This yields a higher precision in implementation of JSVD.
-#
-#
-#
-# (C) Saeid Haghighatshoar
-# email: saeid.haghighatshoar@synsense.ai
-#
-#
-# last update: 12.09.2022
-# -----------------------------------------------------------
+"""
+This module takes the 3 x 3 covariance matrix from the IMU subspace estimation module and
+computes the 3 x 3 rotation matrix and 3 x 3 diagonal matrix.
 
-# required packages
-from asyncio import selector_events
-from multiprocessing.sharedctypes import Value
+    (i)     Compute R.T @ C @ R in one-shot rather than doing it in two steps with 2 matrix multiplication.
+    (ii)    Apply infinite-bit approximation, which is valid when number of angles in lookup table is large enough.
+    (iii)   This yields a higher precision in implementation of JSVD.
+"""
+from typing import Tuple, List
 import numpy as np
 import warnings
-from imu_preprocessing.util.bucket_decorator import bucket_decorator
 
 from imu_preprocessing.util.type_decorator import type_check
 
+from rockpool.devices.xylo.imu.preprocessing import RotationLookUpTable
 
-class JSVD2:
+
+class JSVD:
     def __init__(
         self,
-        lookuptable: RotationLookUpTable2,
-        num_bits_covariance,
-        num_bits_rotation,
-        nround=4,
-    ):
+        lookuptable: RotationLookUpTable,
+        num_bits_covariance: int,
+        num_bits_rotation: int,
+        nround: int = 4,
+    ) -> None:
         """this module runs Jaccobu SVD algorithm in FPGA precision.
         this is the 2nd version of the algorithm and used joint matrix multiplication in order to reduce the
         number of multiplication operations.
@@ -53,11 +40,28 @@ class JSVD2:
         self.nround = nround
 
     @type_check
-    def evolve(self, C_in):
-        """this module runs Jaccobi-SVD and returns all the intermediate states.
+    def evolve(
+        self, C_in: np.ndarray
+    ) -> Tuple[List[np.ndarray], List[np.ndarray], np.ndarray, np.ndarray]:
+        """Run Jaccobi-SVD and return all the intermediate states.
 
         Args:
-            C_in (np.ndarray): input 3 x 3 covariance matrix.
+            C_in (np.ndarray): 3 x 3 covariance matrix.
+
+        Raises:
+            ValueError: The input covariance matrix should be 3 x 3.
+            ValueError: The input covariance matrix does not seem to be PSD! This may cause numerical issues in computation!
+            ValueError: The input covariance matrix does not seem to be symmetric! This may cause numerical issues in computation!
+            ValueError: The input covariance matrix does not fit the number of bits specified for the computation!
+            ValueError: Over- or under-flow happened in updating the almost-diagonal matrix D!
+            ValueError: Negative value in the diagonal matrix D!
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+                R_list (List[np.ndarray]): list of rotation matrices.
+                C_list (List[np.ndarray]): list of covariance matrices.
+                R_last_sorted (np.ndaray): the last rotation matrix after sorting.
+                C_last_sorted (np.ndarray): the last covariance matrix after sorting.
         """
         # check the dimensions and apply other sanity checks
         row, col = C_in.shape
@@ -75,12 +79,12 @@ class JSVD2:
             > 0.000001
         ):
             raise ValueError(
-                "the input covariance matrix does not seem to be symmetric! This may cause issues in computation!"
+                "The input covariance matrix does not seem to be symmetric! This may cause issues in computation!"
             )
 
         if np.max(np.abs(C_in)) >= 2 ** (self.num_bits_covariance - 1):
             raise ValueError(
-                f"the input covariance matrix does not fit in the {self.num_bits_covariance} bits assigned to it! If needed, apply quantization to the covariance to truncate it!"
+                f"The input covariance matrix does not fit in the {self.num_bits_covariance} bits assigned to it! If needed, apply quantization to the covariance to truncate it!"
             )
 
         # --- initialization and history of computation
@@ -416,14 +420,16 @@ class JSVD2:
         return R_list, C_list, R_last_sorted, C_last_sorted
 
     # add the call version for further convenience
-    def __call__(self, *args, **kwargs):
+    def __call__(
+        self, *args, **kwargs
+    ) -> Tuple[List[np.ndarray], List[np.ndarray], np.ndarray, np.ndarray]:
         """
         This function simply calls the `evolve()` function and is added for further convenience.
         """
         return self.evolve(*args, **kwargs)
 
     # utility functions
-    def selection_matrix(self, dim: int):
+    def selection_matrix(self, dim: int) -> np.ndarray:
         """this function returns a 3 x 3 0-1 valued matrix corresponding to the elements that need to be selected.
 
         Args:
@@ -460,7 +466,9 @@ class JSVD2:
         return selection
 
     @type_check
-    def sort_singular_values(self, R_last, C_last):
+    def sort_singular_values(
+        self, R_last: np.ndarray, C_last: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """this module takes the almost-diagonal covariance matrix and ist corresponding rotation and sorts it according to diagonal elements.
 
         Args:
@@ -487,12 +495,15 @@ class JSVD2:
 
     # functions for evaluating the performance of JSVD
     @type_check
-    def distance_subspace_metric(self, C_list):
+    def distance_subspace_metric(self, C_list: List[np.ndarray]) -> np.ndarray:
         """This module computes how the input covariance matrices close to diagonal.
         We use the subspace metric.
 
         Args:
             C_list (List[np.ndarray]): a list containing the PSD 3 x 3 matrices
+
+        Returns:
+            np.ndarray: the subspace metric for each matrix in the list.
         """
 
         subspace_metric = []
@@ -518,12 +529,15 @@ class JSVD2:
         return subspace_metric
 
     @type_check
-    def distance_offdiagonal_metric(self, C_list):
+    def distance_offdiagonal_metric(self, C_list: List[np.ndarray]) -> np.ndarray:
         """This module computes how the input covariance matrices close to diagonal.
         We use the norm of the off-diagonal elements as a distance metric.
 
         Args:
             C_list (List[np.ndarray]): a list containing the PSD 3 x 3 matrices
+
+        Returns:
+            np.ndarray: the off-diagonal metric for each matrix in the list.
         """
 
         subspace_metric = []
@@ -536,7 +550,7 @@ class JSVD2:
 
         return subspace_metric
 
-    def __str__(self):
+    def __str__(self) -> str:
         string = (
             "JSVD module for comuting the rotation in IMU dataset:"
             + f"number of bits used for covariance computation: {self.num_bits_covariance}\n"
@@ -544,3 +558,36 @@ class JSVD2:
             + f"rotation lookuptable used for angle estimation:\n{self.lookuptable}"
         )
         return string
+
+
+if __name__ == "__main__":
+    from quantizer import Quantizer
+
+    num_angles = 64
+    num_bits = 16
+    lut = RotationLookUpTable(num_angles=num_angles, num_bits=num_bits)
+
+    # create the JSVD module
+    jsvd = JSVD(
+        lookuptable=lut,
+        num_bits_covariance=num_bits + 10,
+        num_bits_rotation=num_bits + 10,
+    )
+
+    # create the covariance matrix
+    C = np.random.rand(3, 3)
+    C = C @ C.T
+
+    # create a quantizer module
+    quantizer = Quantizer(None, scale=0.999 / np.max(np.abs(C)), num_bits=num_bits)
+    C, _, _ = quantizer(C)
+
+    # run the JSVD module
+    R_list, C_list, R_last, C_last = jsvd.evolve(C)
+
+    # print the results
+    print(f"the input covariance matrix:\n{C}\n")
+    print(f"the final covariance matrix:\n{C_last}\n")
+    print(f"the final rotation matrix:\n{R_last}\n")
+    print(f"the list of covariance matrices:\n{C_list}\n")
+    print(f"the list of rotation matrices:\n{R_list}\n")
