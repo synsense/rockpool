@@ -1,36 +1,18 @@
-# -----------------------------------------------------------
-# This module takes the 3 x 3 covariance matrix from the IMU subspace estimation module and
-# computes the 3 x 3 rotation matrix and 3 x 3 diagonal matrix.
-#
-# Version 2:
-#       (i)     We implement the idea proposed by @Huaqiu Zhang to compute
-#       R.T @ C @ R in one-shot rather than doing it in two steps
-#       with 2 matrix multiplication.
-#       (ii)    We apply infinite-bit approximation, which is valid when number of angles in lookup table is large enough.
-#       (iii)   This yields a higher precision in implementation of JSVD.
-#
-#
-#
-# (C) Saeid Haghighatshoar
-# email: saeid.haghighatshoar@synsense.ai
-#
-#
-# last update: 12.09.2022
-# -----------------------------------------------------------
+"""
+This module takes the 3 x 3 covariance matrix from the IMU subspace estimation module and
+computes the 3 x 3 rotation matrix and 3 x 3 diagonal matrix.
 
-# required packages
-from asyncio import selector_events
-from multiprocessing.sharedctypes import Value
+    (i)     Compute R.T @ C @ R in one-shot rather than doing it in two steps with 2 matrix multiplication.
+    (ii)    Apply infinite-bit approximation, which is valid when number of angles in lookup table is large enough.
+    (iii)   This yields a higher precision in implementation of JSVD.
+"""
 import numpy as np
-import warnings
 from imu_preprocessing.util.bucket_decorator import bucket_decorator
 
-from imu_preprocessing.util.type_decorator import type_check
 
-
-class RotationLookUpTable2:
-    def __init__(self, num_angles, num_bits):
-        """this module builds a lookup table for JSVD algorithm.
+class RotationLookUpTable:
+    def __init__(self, num_angles: int, num_bits: int) -> None:
+        """A lookup table for JSVD algorithm.
         The range of angles for lookup tables are [0, 45] and they are quantized into `num_angles` angle bins.
         The data for each angle is quantized/trancated into `num_bits` bits.
 
@@ -43,9 +25,8 @@ class RotationLookUpTable2:
 
         self._compute_lookup_table()
 
-    def _compute_lookup_table(self):
+    def _compute_lookup_table(self) -> None:
         """
-        this module biulds the lookup table.
         To make sure that the lookup table has a good precision we do the following:
             (i)     we always work with angles in the range [0, 45] degrees.
             (ii)    since the tan(2 theta) ranges in [0, infty] to avoid loss of precision,
@@ -60,7 +41,6 @@ class RotationLookUpTable2:
             (iv)       the row of the lookup table used depends on how abs(2b) comparse with abs(a-c) in the 2D submatrix
                        |a  b|
                        |b  c|
-
         """
 
         # in the new method, we are able to explore the whole range of angles in [0, 45]
@@ -99,6 +79,7 @@ class RotationLookUpTable2:
         #   (i)     switch to python-version with inifinite number of bits
         #   (ii)    add EPS to make sure that all the values are smaller than 1 and can fit in num_bits after quantization
         # NOTE: all the values are positive in the lookup table
+
         self.tan2_vals_quantized = np.asarray(
             [
                 int(el / (1 + EPS)) if not np.isnan(el) else np.nan
@@ -144,7 +125,7 @@ class RotationLookUpTable2:
         )
 
     @bucket_decorator
-    def find_angle(self, a, b, c):
+    def find_angle(self, a: int, b: int, c: int) -> tuple:
         """this module computes the best angle in lookup table that matches the given `a`, `b`, `c` parametets.
         For further details see the paper-dropbox document:
         https://paper.dropbox.com/doc/Hardware-implementation-of-3-x-3-SVD-for-IMU-preprocessing--Bnj3EbtGBF9Th1GUqYAFXn_3Ag-g16myO9A46nqYVLmFkNgQ
@@ -235,13 +216,18 @@ class RotationLookUpTable2:
             self.cot2_vals_quantized[row_index],
         )
 
-    def print_table(self, format: str = "dec", report=True):
-        """this module prints the lookup table in a given format
+    def print_table(self, format: str = "dec", report: bool = True) -> str:
+        """Print the lookup table in a given format
 
         Args:
-            format (str): 'bin' or 'hex'
-            report (bool): print the table.
+            format (str, optional): 'bin' or 'hex'. Defaults to "dec".
+            report (bool, optional): print the table or not. Defaults to True.
 
+        Raises:
+            ValueError: When the format is not supported.
+
+        Returns:
+            str: The lookup table as a string in the given format.
         """
         format = format.lower()
 
@@ -297,7 +283,7 @@ class RotationLookUpTable2:
 
         return string
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         return the decimal format of the lookuptable.
         """
@@ -305,3 +291,10 @@ class RotationLookUpTable2:
             format="dec",
             report=False,
         )
+
+
+if __name__ == "__main__":
+    num_angles = 64
+    num_bits = 16
+    lut = RotationLookUpTable(num_angles=num_angles, num_bits=num_bits)
+    lut.print_table(format="dec")
