@@ -11,10 +11,6 @@ def test_lookup_table():
 
     lut = RotationLookUpTable(num_angles=num_angles, num_bits=num_bits)
 
-    lut.print_table("bin")
-    lut.print_table("hex")
-    lut.print_table("dec")
-
     # find a set of parameters
     a = 2
     c = 1
@@ -46,7 +42,7 @@ def test_lookup_table():
 
     # Compare values against true angle
     true_angle = 0.5 * np.arctan(2 * b / (a - c)) if a != c else np.pi / 4
-    
+
     assert np.round(angle_deg) == np.round(true_angle * 180 / np.pi)
     assert_almost_equal(angle_rad, true_angle, decimal=1)
     assert_almost_equal(sin_val, np.sin(true_angle), decimal=1)
