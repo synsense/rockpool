@@ -34,8 +34,6 @@ XyloIMUNeuronStateBuffer = samna.xyloImu.NeuronStateSinkNode
 XyloIMUHDK = Any
 
 
-
-
 def find_xylo_imu_boards() -> List[XyloIMUHDK]:
     """
     Search for and return a list of Xylo IMU HDKs
@@ -134,6 +132,7 @@ def new_xylo_state_monitor_buffer(
     # - Return the buffer
     return buffer
 
+
 def gen_clear_input_registers_events() -> List:
     """
     Create events to clear the input event registers
@@ -193,6 +192,7 @@ def set_power_measure(
     graph.sequential([power_monitor.get_source_node(), power_buf])
     power_monitor.start_auto_power_measurement(frequency)
     return power_buf, power_monitor
+
 
 def blocking_read(
     read_buffer: XyloIMUNeuronStateBuffer,
@@ -276,6 +276,39 @@ def apply_configuration(
     hdk.get_model().apply_configuration(config)
 
 
+class XyloState(NamedTuple):
+    """
+    `.NamedTuple` that encapsulates a recorded Xylo HDK state
+    """
+
+    Nin: int
+    """ int: The number of input-layer neurons """
+
+    Nhidden: int
+    """ int: The number of hidden-layer neurons """
+
+    Nout: int
+    """ int: The number of output layer neurons """
+
+    V_mem_hid: np.ndarray
+    """ np.ndarray: Membrane potential of hidden neurons ``(Nhidden,)``"""
+
+    I_syn_hid: np.ndarray
+    """ np.ndarray: Synaptic current 1 of hidden neurons ``(Nhidden,)``"""
+
+    V_mem_out: np.ndarray
+    """ np.ndarray: Membrane potential of output neurons ``(Nhidden,)``"""
+
+    I_syn_out: np.ndarray
+    """ np.ndarray: Synaptic current of output neurons ``(Nout,)``"""
+
+    Spikes_hid: np.ndarray
+    """ np.ndarray: Spikes from hidden layer neurons ``(Nhidden,)``"""
+
+    Spikes_out: np.ndarray
+    """ np.ndarray: Spikes from output layer neurons ``(Nout,)``"""
+
+
 def configure_accel_time_mode(
     config: XyloConfiguration,
     state_monitor_buffer: XyloIMUNeuronStateBuffer,
@@ -303,23 +336,16 @@ def configure_accel_time_mode(
     """
     assert readout in ["Vmem", "Spike"], f"{readout} is not supported."
 
- 
- 
-
     # - Select accelerated time mode
     config.operation_mode = samna.xyloImu.OperationMode.AcceleratedTime
     config.imu_if_input_enable = False
     config.debug.always_update_omp_stat = True
-
-
 
     config.debug.isyn_clock_enable = True
     config.debug.ra_clock_enable = True
     config.debug.bias_clock_enable = True
     config.debug.hm_clock_enable = True
     config.debug.ram_power_enable = True
-
-
 
     config.debug.monitor_neuron_spike = None
     config.debug.monitor_neuron_v_mem = None
@@ -344,6 +370,50 @@ def configure_accel_time_mode(
     return config, state_monitor_buffer
 
 
+def read_accel_mode_data(
+    monitor_buffer: XyloIMUNeuronStateBuffer,
+    Nin: int,
+    Nhidden: int,
+    Nout: int,
+) -> XyloState:
+    """
+    Read accelerated simulation mode data from a Xylo HDK
+
+    Args:
+        monitor_buffer (XyloNeuronStateBuffer): A connected `XyloNeuronStateBuffer` to read from
+        Nin (int): Number of input neurons to read. Default: ``16`` (all neurons).
+        Nhidden (int): The number of hidden neurons to monitor
+        Nout (int): The number of output neurons to monitor
+        synapse2_enable (bool): Synapse 2 is used and should be monitored. Default: ``False``, don't monitor synapse 2
+
+    Returns:
+        XyloState: The encapsulated state read from the Xylo device
+    """
+    # - Read data from neuron state buffer
+    time.sleep(0.1)
+    vmem_ts = np.array(monitor_buffer.get_reservoir_v_mem(), "int16").T
+    isyn_ts = np.array(monitor_buffer.get_reservoir_i_syn(), "int16").T
+    spikes_ts = np.array(monitor_buffer.get_reservoir_spike(), "int8").T
+    spikes_out_ts = np.array(monitor_buffer.get_output_spike(), "int8").T
+
+    # - Separate hidden and output neurons
+    isyn_out_ts = isyn_ts[:, -Nout:] if len(isyn_ts) > 0 else None
+    isyn_ts = isyn_ts[:, :Nhidden] if len(isyn_ts) > 0 else None
+    vmem_out_ts = vmem_ts[:, -Nout:] if len(vmem_ts) > 0 else None
+    vmem_ts = vmem_ts[:, :Nhidden] if len(vmem_ts) > 0 else None
+
+    # - Return as a XyloState object
+    return XyloState(
+        Nin=Nin,
+        Nhidden=Nhidden,
+        Nout=Nout,
+        V_mem_hid=vmem_ts,
+        I_syn_hid=isyn_ts,
+        V_mem_out=vmem_out_ts,
+        I_syn_out=isyn_out_ts,
+        Spikes_hid=spikes_ts,
+        Spikes_out=spikes_out_ts,
+    )
 
 
 def config_hibernation_mode(
@@ -357,6 +427,7 @@ def config_hibernation_mode(
     """
     config.enable_hibernation_mode = hibernation_mode
     return config
+
 
 def get_current_timestamp(
     read_buffer: XyloIMUReadBuffer,

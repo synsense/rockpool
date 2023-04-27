@@ -1,5 +1,3 @@
-
-
 import numpy as np
 
 import samna
@@ -9,7 +7,6 @@ from samna.xyloImu.configuration import XyloConfiguration
 from typing import Optional, Union, Callable, List, Tuple
 
 
-
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 
@@ -17,8 +14,6 @@ from rockpool.parameters import SimulationParameter
 from .xylo_imu_devkit_utils import XyloIMUHDK
 from . import xylo_imu_devkit_utils as hdkutils
 import time
-
-
 
 
 class XyloIMUSamna(Module):
@@ -32,6 +27,7 @@ class XyloIMUSamna(Module):
         See the tutorials :ref:`/devices/xylo-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-xylo.ipynb` for a high-level overview of building and deploying networks for Xylo.
 
     """
+
     def __init__(
         self,
         device: XyloIMUHDK,
@@ -59,9 +55,9 @@ class XyloIMUSamna(Module):
         print("Check device down")
 
         # - Check output mode specification
-        if output_mode not in ["Spike", "Vmem"]:
+        if output_mode not in ["Spike", "Vmem", "Isyn"]:
             raise ValueError(
-                f'{output_mode} is not supported. Must be one of `["Spike", "Vmem"]`.'
+                f'{output_mode} is not supported. Must be one of `["Spike", "Vmem", "Isyn"]`.'
             )
         self._output_mode = output_mode
         print("Check ouput mode down")
@@ -71,7 +67,7 @@ class XyloIMUSamna(Module):
             config = samna.xyloImu.configuration.XyloConfiguration()
         print("Initialize configuration")
 
-         # - Get the network shape
+        # - Get the network shape
         Nin, Nhidden = np.shape(config.input.weights)
         _, Nout = np.shape(config.readout.weights)
 
@@ -104,7 +100,6 @@ class XyloIMUSamna(Module):
         self.timestep = 0.0
         print("Initial time step")
 
-
         # # - Check that we can access the device node, and that it's a Xylo HDK
         # if not hdkutils.verify_xylo_version(
         #     self._read_buffer, self._write_buffer, timeout=10.0
@@ -112,8 +107,6 @@ class XyloIMUSamna(Module):
         #     raise ValueError(
         #         "Cannot verify HDK version. `device` must be an opened Xylo HDK."
         #     )
-        
-        
 
         # - Store the configuration (and apply it)
         self.config: Union[
@@ -122,9 +115,6 @@ class XyloIMUSamna(Module):
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
         print("Store configuration")
 
-        
-        
-
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
         self._last_record_mode: Optional[bool] = None
         """ bool: The most recent (and assumed still valid) recording mode """
@@ -132,8 +122,6 @@ class XyloIMUSamna(Module):
         # - Store the timestep
         self.dt: Union[float, SimulationParameter] = dt
         """ float: Simulation time-step of the module, in seconds """
-
-       
 
         # # - Set power measurement module
         # self._power_buf, self.power = hdkutils.set_power_measure(
@@ -155,13 +143,9 @@ class XyloIMUSamna(Module):
             print("Config valid")
 
         # - Write the configuration to the device
-        hdkutils.apply_configuration(
-            self._device, new_config
-        )
+        hdkutils.apply_configuration(self._device, new_config)
         self._state_buffer.set_configuration(new_config)
         self._config = new_config
-
-
 
     def _configure_accel_time_mode(
         self, Nhidden: int, Nout: int, record: bool = False
@@ -193,22 +177,10 @@ class XyloIMUSamna(Module):
         """
         self.config = hdkutils.config_hibernation_mode(self._config, True)
 
-    def send_spikes(self, data):
-        events = []
-        for n, event in enumerate(data):
-            if event:
-                for i in range(event):
-                    ev = samna.xyloImu.event.Spike()
-                    ev.neuron_id = n
-                    events.append(ev)
-        self._write_buffer.write(events)
-
-    
     def evolve(
         self,
         input: np.ndarray,
         record: bool = False,
-        read_timeout: float = None,
         record_power: bool = False,
         *args,
         **kwargs,
@@ -221,7 +193,6 @@ class XyloIMUSamna(Module):
         Args:
             input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
             record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
-            read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
             record_power (bool): Iff ``True``, record the power consumption during each evolve.
 
         Returns:
@@ -241,37 +212,59 @@ class XyloIMUSamna(Module):
         # - Configure the recording mode
         self._configure_accel_time_mode(Nhidden, Nout, record)
 
+        start_timestep = hdkutils.get_current_timestamp(
+            self._read_buffer, self._write_buffer
+        )
+        final_timestamp = start_timestep + len(input) - 1
 
-        vmem_result = []
-        spk_result = []
+        # -- Encode input events
+        input_events_list = []
 
-        for row in input:
+        # - Locate input events
+        spikes = np.argwhere(input)
+        counts = input[np.nonzero(input)]
 
-            self._write_buffer.write([samna.xyloImu.event.TriggerProcessing()])
-            time.sleep(0.01)
-            self.send_spikes(row)
+        # - Generate input events
+        for timestep, channel, count in zip(spikes[:, 0], spikes[:, 1], counts):
+            for _ in range(count):
+                event = samna.xyloImu.event.Spike()
+                event.neuron_id = channel
+                event.timestamp = start_timestep + timestep
+                input_events_list.append(event)
 
+        # - Clear the read and state buffers
+        self._state_buffer.reset()
 
-            # - Read output events from Xylo HDK
-            nmp = self._state_buffer.get_output_v_mem()
-            spk = self._state_buffer.get_output_spike()
+        # - Write the events and trigger the simulation
+        self._write_buffer.write(input_events_list)
 
+        # - Read the simulation output data
+        xylo_data = hdkutils.read_accel_mode_data(
+            self._state_buffer,
+            Nin,
+            Nhidden,
+            Nout,
+        )
 
+        if record:
+            rec_dict = {
+                "Vmem": np.array(xylo_data.V_mem_hid),
+                "Isyn": np.array(xylo_data.I_syn_hid),
+                "Spikes": np.array(xylo_data.Spikes_hid),
+                "Vmem_out": np.array(xylo_data.V_mem_out),
+                "Isyn_out": np.array(xylo_data.I_syn_out),
+                "times": np.arange(start_timestep, final_timestamp + 1),
+            }
+        else:
+            rec_dict = {}
 
-            vmem_result.append(nmp)
-            spk_result.append(spk)
-
-            print(f"vmem:{nmp}, spike: {spk}")
-
-        
-
-
-        rec_dict = {}
         # - This module holds no state
         new_state = {}
 
         # - Return spike output, new state and record dictionary
         if self._output_mode == "Spike":
-            return vmem_result, new_state, rec_dict
+            return xylo_data.Spikes_out, new_state, rec_dict
+        elif self._output_mode == "Isyn":
+            return xylo_data.I_syn_out, new_state, rec_dict
         elif self._output_mode == "Vmem":
-            return spk_result, new_state, rec_dict
+            return xylo_data.V_mem_out, new_state, rec_dict
