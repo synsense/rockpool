@@ -9,6 +9,8 @@ computes the 3 x 3 rotation matrix and 3 x 3 diagonal matrix.
 import numpy as np
 from imu_preprocessing.util.bucket_decorator import bucket_decorator
 
+__all__ = ["RotationLookUpTable"]
+
 
 class RotationLookUpTable:
     def __init__(self, num_angles: int, num_bits: int) -> None:
