@@ -239,11 +239,7 @@ class XyloIMUSamna(Module):
 
         # - Read the simulation output data
         xylo_data = hdkutils.read_accel_mode_data(
-            self._state_buffer,
-            Nin,
-            Nhidden,
-            Nout,
-            len(input)
+            self._state_buffer, Nin, Nhidden, Nout, len(input)
         )
 
         if record:
