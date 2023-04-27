@@ -204,10 +204,9 @@ class XyloIMUSamna(Module):
         Raises:
             `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
         """
-        print("1")
+
         # - Get the network size
         Nin, Nhidden, Nout = self.shape[:]
-        print(f"Nhidden:{Nhidden}")
 
         # - Configure the recording mode
         self._configure_accel_time_mode(Nhidden, Nout, record)
@@ -244,6 +243,7 @@ class XyloIMUSamna(Module):
             Nin,
             Nhidden,
             Nout,
+            len(input)
         )
 
         if record:

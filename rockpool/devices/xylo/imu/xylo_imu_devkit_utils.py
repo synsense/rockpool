@@ -375,6 +375,7 @@ def read_accel_mode_data(
     Nin: int,
     Nhidden: int,
     Nout: int,
+    Nt: int,
 ) -> XyloState:
     """
     Read accelerated simulation mode data from a Xylo HDK
@@ -389,8 +390,9 @@ def read_accel_mode_data(
     Returns:
         XyloState: The encapsulated state read from the Xylo device
     """
+    # - Leave time for auto-triggering
+    time.sleep(0.1 * Nt)
     # - Read data from neuron state buffer
-    time.sleep(0.1)
     vmem_ts = np.array(monitor_buffer.get_reservoir_v_mem(), "int16").T
     isyn_ts = np.array(monitor_buffer.get_reservoir_i_syn(), "int16").T
     spikes_ts = np.array(monitor_buffer.get_reservoir_spike(), "int8").T
