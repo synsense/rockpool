@@ -274,6 +274,7 @@ def apply_configuration(
     """
     # - Ideal -- just write the configuration using samna
     hdk.get_model().apply_configuration(config)
+    hdk.set_imu_sensor_enable(True)
 
 
 class XyloState(NamedTuple):
