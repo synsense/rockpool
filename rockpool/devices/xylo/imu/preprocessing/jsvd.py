@@ -13,9 +13,12 @@ import warnings
 from imu_preprocessing.util.type_decorator import type_check
 
 from rockpool.devices.xylo.imu.preprocessing import RotationLookUpTable
+from rockpool.nn.modules.module import Module
+
+__all__ = ["JSVD"]
 
 
-class JSVD:
+class JSVD(Module):
     def __init__(
         self,
         lookuptable: RotationLookUpTable,
@@ -41,7 +44,7 @@ class JSVD:
 
     @type_check
     def evolve(
-        self, C_in: np.ndarray
+        self, C_in: np.ndarray, record: bool = False
     ) -> Tuple[List[np.ndarray], List[np.ndarray], np.ndarray, np.ndarray]:
         """Run Jaccobi-SVD and return all the intermediate states.
 
@@ -417,16 +420,16 @@ class JSVD:
         )
 
         # return the computed matrices and the final sorted ones
-        return R_list, C_list, R_last_sorted, C_last_sorted
 
-    # add the call version for further convenience
-    def __call__(
-        self, *args, **kwargs
-    ) -> Tuple[List[np.ndarray], List[np.ndarray], np.ndarray, np.ndarray]:
-        """
-        This function simply calls the `evolve()` function and is added for further convenience.
-        """
-        return self.evolve(*args, **kwargs)
+        if record == True:
+            record_dict = {"covariance": C_list, "rotation": R_list}
+        else:
+            record_dict = {}
+
+        state_dict = {}
+        out = (R_last_sorted, C_last_sorted)
+
+        return out, state_dict, record_dict
 
     # utility functions
     def selection_matrix(self, dim: int) -> np.ndarray:
