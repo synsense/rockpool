@@ -48,13 +48,13 @@ def find_xylo_imu_boards() -> List[XyloIMUHDK]:
     device_list = samna.device.get_all_devices()
 
     # - Search for a xylo dev kit
-    afev2_hdk_list = [
+    imu_hdk_list = [
         samna.device.open_device(d)
         for d in device_list
         if d.device_type_name == "XyloImuTestBoard"
     ]
 
-    return afev2_hdk_list
+    return imu_hdk_list
 
 
 def new_xylo_read_buffer(

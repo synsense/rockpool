@@ -52,7 +52,6 @@ class XyloIMUSamna(Module):
         # - Check input arguments
         if device is None:
             raise ValueError("`device` must be a valid, opened Xylo HDK device.")
-        print("Check device down")
 
         # - Check output mode specification
         if output_mode not in ["Spike", "Vmem", "Isyn"]:
@@ -60,12 +59,10 @@ class XyloIMUSamna(Module):
                 f'{output_mode} is not supported. Must be one of `["Spike", "Vmem", "Isyn"]`.'
             )
         self._output_mode = output_mode
-        print("Check ouput mode down")
 
         # - Get a default configuration
         if config is None:
             config = samna.xyloImu.configuration.XyloConfiguration()
-        print("Initialize configuration")
 
         # - Get the network shape
         Nin, Nhidden = np.shape(config.input.weights)
@@ -75,7 +72,6 @@ class XyloIMUSamna(Module):
         super().__init__(
             shape=(Nin, Nhidden, Nout), spiking_input=True, spiking_output=True
         )
-        print("Initialize network")
 
         # - Store the device
         self._device: XyloIMUHDK = device
@@ -86,19 +82,14 @@ class XyloIMUSamna(Module):
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
         self._state_buffer = hdkutils.new_xylo_state_monitor_buffer(device)
-        print("Initialize buffer")
 
         # - Store the io module
         self._io = device.get_io_module()
-        print("Initialize io module")
 
         # - Store the timestep
         self.dt: Union[float, SimulationParameter] = dt
         """ float: Simulation time-step of the module, in seconds """
-        print("set time duration")
 
-        self.timestep = 0.0
-        print("Initial time step")
 
         # # - Check that we can access the device node, and that it's a Xylo HDK
         # if not hdkutils.verify_xylo_version(
@@ -113,7 +104,6 @@ class XyloIMUSamna(Module):
             XyloConfiguration, SimulationParameter
         ] = SimulationParameter(shape=(), init_func=lambda _: config)
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
-        print("Store configuration")
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
         self._last_record_mode: Optional[bool] = None
