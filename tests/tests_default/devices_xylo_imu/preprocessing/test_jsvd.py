@@ -75,21 +75,19 @@ def test_JSVD_correct_angle():
 
         # quantize C
         num_bits_covariance = 32
-        Q = Quantizer()
-
-        C_q = Q.quantize(
-            sig_in=C,
+        quantizer = Quantizer(
+            shape=None,
             scale=0.999 / np.max(np.abs(C)),
             num_bits=num_bits_covariance,
         )
+
+        C_q, _, _ = quantizer(C)
 
         # compute the covariance matrix via SVD
         U, _, _ = np.linalg.svd(C_q.astype(np.float64))
 
         # compute the covariance matrix using JSVD2
-        R_list, C_list, R_last, C_last = jsvd.evolve(
-            C_in=C_q,
-        )
+        (R_last, C_last), _, _ = jsvd.evolve(C_q)
 
         # compute the correlation
         corr = R_last.T @ U
