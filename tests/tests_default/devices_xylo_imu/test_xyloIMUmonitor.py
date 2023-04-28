@@ -28,7 +28,6 @@ def test_XyloMonitor():
         dash_mem=2 * np.ones(Nhidden),
         dash_mem_out=3 * np.ones(Nout),
         dash_syn=4 * np.ones(Nhidden),
-        dash_syn_2=2 * np.ones(Nhidden),
         dash_syn_out=3 * np.ones(Nout),
         threshold=128 * np.ones(Nhidden),
         threshold_out=256 * np.ones(Nout),
