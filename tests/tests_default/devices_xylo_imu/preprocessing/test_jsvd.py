@@ -31,7 +31,7 @@ def test_JSVD_correct_angle():
     num_tests = 10
     max_deviation = 0.05
 
-    num_pass = 10
+    num_pass = 0
     deviation_list = []
     for test in range(num_tests):
         print(
@@ -84,31 +84,41 @@ def test_JSVD_correct_angle():
         C_q, _, _ = quantizer(C)
 
         # compute the covariance matrix via SVD
-        U, _, _ = np.linalg.svd(C_q.astype(np.float64))
+        U, Lambda, _ = np.linalg.svd(C_q.astype(np.float64))
 
         # compute the covariance matrix using JSVD2
         (R_last, C_last), _, _ = jsvd.evolve(C_q)
 
-        # compute the correlation
-        corr = R_last.T @ U
-        corr = corr / np.max(np.abs(corr))
-
-        max_index = np.argmax(np.abs(corr), axis=1)
-        permutation = np.zeros((3, 3))
-        for i in range(3):
-            permutation[i, max_index[i]] = 1
-
-        # compute the correlation after permutation removal
-        corr_ordered = corr @ permutation.T
-
-        # correct the signs as well
-        corr_ordered_signcorrected = corr_ordered @ np.diag(
-            np.sign(np.diag(corr_ordered))
+        R_last_norm = R_last @ np.diag(
+            1 / np.sqrt(np.sum(R_last**2, axis=0).astype(np.float64))
         )
 
-        deviation = np.linalg.norm(
-            corr_ordered_signcorrected - np.eye(3)
-        ) / np.linalg.norm(np.eye(3))
+        # this is the weighted ovariance version used as a metric
+        # U_orig, Lambda_orig, _ = np.linalg.svd(C)
+        C_est = R_last_norm @ np.diag(Lambda) @ R_last_norm.T
+
+        deviation = np.linalg.norm(C_est - C_q) / np.linalg.norm(C_q)
+
+        # # compute the correlation
+        # corr = R_last.T @ U
+        # corr = corr / np.max(np.abs(corr))
+
+        # max_index = np.argmax(np.abs(corr), axis=1)
+        # permutation = np.zeros((3, 3))
+        # for i in range(3):
+        #     permutation[i, max_index[i]] = 1
+
+        # # compute the correlation after permutation removal
+        # corr_ordered = corr @ permutation.T
+
+        # # correct the signs as well
+        # corr_ordered_signcorrected = corr_ordered @ np.diag(
+        #     np.sign(np.diag(corr_ordered))
+        # )
+
+        # deviation = np.linalg.norm(
+        #     corr_ordered_signcorrected - np.eye(3)
+        # ) / np.linalg.norm(np.eye(3))
 
         deviation_list.append(deviation)
 
@@ -275,5 +285,5 @@ def test_JSVD_gravity_rotated():
 
 
 if __name__ == "__main__":
-    test_JSVD_gravity_rotated()
+    test_JSVD_correct_angle()
     print("end of test for JSVD mdoule!")
