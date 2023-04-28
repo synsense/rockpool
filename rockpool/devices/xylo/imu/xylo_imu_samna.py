@@ -90,7 +90,6 @@ class XyloIMUSamna(Module):
         self.dt: Union[float, SimulationParameter] = dt
         """ float: Simulation time-step of the module, in seconds """
 
-
         # # - Check that we can access the device node, and that it's a Xylo HDK
         # if not hdkutils.verify_xylo_version(
         #     self._read_buffer, self._write_buffer, timeout=10.0
