@@ -1,13 +1,36 @@
 """Test JSVD computation module"""
 
 
+def test_type_check():
+    import numpy as np
+    import pytest
+    from numpy.testing import assert_array_equal
+
+    from rockpool.devices.xylo.imu.preprocessing.jsvd import type_check
+
+    # define a class
+    @type_check
+    def myfun(var_in):
+        return var_in
+
+    # two input arrays
+    arr_pass = np.array([1, 2, 3], dtype=object)
+    arr_fail = np.array([1.2, 3.4, 5.6, 10], dtype=np.float64)
+
+    with pytest.raises(ValueError):
+        myfun(arr_fail)
+
+    assert_array_equal(myfun(arr_pass), arr_pass)
+
+
 def test_JSVD_low_rank_gravity():
+    import numpy as np
+
     from rockpool.devices.xylo.imu.preprocessing import (
-        RotationLookUpTable,
         JSVD,
         Quantizer,
+        RotationLookUpTable,
     )
-    import numpy as np
 
     # - Init JSVD module
     jsvd = JSVD(
