@@ -11,7 +11,7 @@ from typing import List, Tuple, Dict, Any
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.preprocessing import RotationLookUpTable
+from rockpool.devices.xylo.imu.preprocessing.lookup import RotationLookUpTable
 from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 from rockpool.nn.modules.module import Module
 
