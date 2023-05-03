@@ -1,39 +1,10 @@
-"""Rotation lookup table for JSVD algorithm.
-"""
-from functools import wraps
-from typing import Callable
+"""Rotation lookup table for JSVD algorithm"""
 
 import numpy as np
 
+from rockpool.devices.xylo.imu.preprocessing.utils import bucket_decorator
+
 __all__ = ["RotationLookUpTable"]
-
-
-def bucket_decorator(func: Callable) -> Callable:
-    """Allows the user to keep track of the values returned by the function.
-
-    Args:
-        func (Callable): function to be decorated.
-
-    Returns:
-        Callable: decorated function.
-    """
-    bucket = []
-
-    @wraps(func)
-    def inner_func(*args, **kwargs):
-        nonlocal bucket
-        nonlocal func
-        # do the computation according to the given function
-        return_val = func(*args, **kwargs)
-
-        # save it inside the bucket
-        bucket.append(return_val)
-
-        return return_val
-
-    inner_func.bucket = bucket
-
-    return inner_func
 
 
 class RotationLookUpTable:
