@@ -6,10 +6,40 @@ computes the 3 x 3 rotation matrix and 3 x 3 diagonal matrix.
     (ii)    Apply infinite-bit approximation, which is valid when number of angles in lookup table is large enough.
     (iii)   This yields a higher precision in implementation of JSVD.
 """
+from functools import wraps
+from typing import Callable
+
 import numpy as np
-from imu_preprocessing.util.bucket_decorator import bucket_decorator
 
 __all__ = ["RotationLookUpTable"]
+
+
+def bucket_decorator(func: Callable) -> Callable:
+    """Allows the user to keep track of the values returned by the function.
+
+    Args:
+        func (Callable): function to be decorated.
+
+    Returns:
+        Callable: decorated function.
+    """
+    bucket = []
+
+    @wraps(func)
+    def inner_func(*args, **kwargs):
+        nonlocal bucket
+        nonlocal func
+        # do the computation according to the given function
+        return_val = func(*args, **kwargs)
+
+        # save it inside the bucket
+        bucket.append(return_val)
+
+        return return_val
+
+    inner_func.bucket = bucket
+
+    return inner_func
 
 
 class RotationLookUpTable:
