@@ -1,10 +1,4 @@
-"""
-This module takes the 3 x 3 covariance matrix from the IMU subspace estimation module and
-computes the 3 x 3 rotation matrix and 3 x 3 diagonal matrix.
-
-    (i)     Compute R.T @ C @ R in one-shot rather than doing it in two steps with 2 matrix multiplication.
-    (ii)    Apply infinite-bit approximation, which is valid when number of angles in lookup table is large enough.
-    (iii)   This yields a higher precision in implementation of JSVD.
+"""Rotation lookup table for JSVD algorithm.
 """
 from functools import wraps
 from typing import Callable
