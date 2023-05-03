@@ -8,6 +8,8 @@ import numpy as np
 from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 from rockpool.nn.modules.module import Module
 
+__all__ = ["SubSpace"]
+
 
 class SubSpace(Module):
     def __init__(
