@@ -7,7 +7,7 @@ computes the 3 x 3 rotation matrix and 3 x 3 diagonal matrix.
     (iii)   This yields a higher precision in implementation of JSVD.
 """
 import warnings
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any
 
 import numpy as np
 
@@ -45,11 +45,12 @@ class JSVD(Module):
     @type_check
     def evolve(
         self, C_in: np.ndarray, record: bool = False
-    ) -> Tuple[List[np.ndarray], List[np.ndarray], np.ndarray, np.ndarray]:
+    ) -> Tuple[Tuple[np.ndarray, np.ndarray], Dict[str, Any], Dict[str, Any]]:
         """Run Jaccobi-SVD and return all the intermediate states.
 
         Args:
             C_in (np.ndarray): 3 x 3 covariance matrix.
+            record (bool, optional): whether to record the intermediate states or not. Defaults to False.
 
         Raises:
             ValueError: The input covariance matrix should be 3 x 3.
@@ -60,11 +61,12 @@ class JSVD(Module):
             ValueError: Negative value in the diagonal matrix D!
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+            Tuple[Tuple[np.ndarray, np.ndarray], Dict[str, Any], Dict[str, Any]]:
                 R_list (List[np.ndarray]): list of rotation matrices.
                 C_list (List[np.ndarray]): list of covariance matrices.
-                R_last_sorted (np.ndaray): the last rotation matrix after sorting.
-                C_last_sorted (np.ndarray): the last covariance matrix after sorting.
+                    record (Dict[str, Any]): dictionary of intermediate states.
+                    stats (Dict[str, Any]): dictionary of statistics.
+
         """
         # check the dimensions and apply other sanity checks
         row, col = C_in.shape
