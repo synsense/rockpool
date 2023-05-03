@@ -7,7 +7,7 @@ computes the 3 x 3 rotation matrix and 3 x 3 diagonal matrix.
     (iii)   This yields a higher precision in implementation of JSVD.
 """
 import warnings
-from typing import List, Tuple, Dict, Any
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -25,6 +25,7 @@ class JSVD(Module):
         num_bits_covariance: int,
         num_bits_rotation: int,
         nround: int = 4,
+        shape: Optional[Union[Tuple, int]] = None,
     ) -> None:
         """this module runs Jaccobu SVD algorithm in FPGA precision.
         this is the 2nd version of the algorithm and used joint matrix multiplication in order to reduce the
@@ -36,7 +37,7 @@ class JSVD(Module):
             num_bits_rotation (int): number of bits devoted for implementing rotation matrix.
             nround (int): number of round rotation computtaion and update is done over all 3 axes/dims.
         """
-
+        super().__init__(shape, spiking_input=False, spiking_output=False)
         self.lookuptable = lookuptable
         self.num_bits_covariance = num_bits_covariance
         self.num_bits_rotation = num_bits_rotation
