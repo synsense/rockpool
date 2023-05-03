@@ -26,14 +26,13 @@ def type_check(func):
         func (Callable): the function to be decorated.
     """
 
-    def verify(input):
+    def verify(input: List[np.ndarray]) -> None:
         if isinstance(input, list):
-            if len(input) == 0:
-                return
-            for el in input:
-                type_check(el)
+            if len(input) != 0:
+                for el in input:
+                    type_check(el)
 
-        if isinstance(input, np.ndarray):
+        elif isinstance(input, np.ndarray):
             if input.dtype != object or type(input.ravel()[0]) != int:
                 raise ValueError(
                     f"The elements of the following variable are not of type `python.object` integer. This may cause mismatch between hardware and python implementation."
@@ -41,21 +40,16 @@ def type_check(func):
                     + f"To solve the problem make sure that all the arrays have `dtype=object`. You can use `Quantizer` class in `quantizer.py` module."
                 )
 
-        return
-
     @wraps(func)
     def inner_func(*args, **kwargs):
-        # verification phase
         for arg in args:
             verify(arg)
 
         for key in kwargs:
             verify(kwargs[key])
 
-        # main functionality
         return func(*args, **kwargs)
 
-    # return an instance of the inner function
     return inner_func
 
 
