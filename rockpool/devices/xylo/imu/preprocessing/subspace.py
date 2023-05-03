@@ -39,7 +39,11 @@ class SubSpace(Module):
         """Processes the input signal sample-by-sample and estimate the subspace.
 
         Args:
-            sig_in (np.ndarray): 3 x 1 input data received from IMU sensor. It should be in integer format.
+            sig_in (np.ndarray): 3 x T input data received from IMU sensor. It should be in integer format.
+            record (bool, optional): If True, the intermediate results are recorded and returned. Defaults to False.
+
+        Returns:
+            Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]: the covariance matrix of the input data, empty dictionary, empty dictionary
         """
 
         # check the validity of the data
@@ -62,8 +66,8 @@ class SubSpace(Module):
 
         # check that the values are indeed integers
         if np.linalg.norm(np.floor(sig_in) - sig_in) > 0:
-            raise ValueError(
-                "all the components of the input signal should be integers! Make sure that the data is quantized properly!"
+            raise TypeError(
+                "All the components of the input signal should be integers! Make sure that the data is quantized properly!"
             )
 
         # -- bit size calculation
@@ -93,7 +97,9 @@ class SubSpace(Module):
             # note that due to the specific shape of the low-pass filter used for averaging the input signal,
             # the output of the low-pass filter will be always less than the input max value
             if np.max(np.abs(C_highprec)) >= 2 ** (self.num_bits_highprec_filter - 1):
-                raise ValueError("Overflow or underflow in the high-precision filter!")
+                raise OverflowError(
+                    "Overflow or underflow in the high-precision filter!"
+                )
 
             # apply right-bit-shift to go to the output
             C_regular = C_highprec >> self.num_avg_bitshift
