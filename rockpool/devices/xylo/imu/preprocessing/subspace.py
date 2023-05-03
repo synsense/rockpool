@@ -35,7 +35,7 @@ class SubSpace(Module):
     @type_check
     def evolve(
         self, sig_in: np.ndarray, record: bool = False
-    ) -> Tuple[Tuple[np.ndarray, np.ndarray], Dict[str, Any], Dict[str, Any]]:
+    ) -> Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
         """Processes the input signal sample-by-sample and estimate the subspace.
 
         Args:
@@ -74,11 +74,8 @@ class SubSpace(Module):
         mult_right_bit_shift = max_bits_mult_output - self.num_bits_multiplier
 
         # initialize the covariance matrix and covariance matrix with larger precision
-        C = np.zeros((3, 3), dtype=np.int64).astype(object)
         C_highprec = np.zeros((3, 3), dtype=np.int64).astype(object)
-
         C_list = []
-        C_highprec_list = []
 
         for sig_val in sig_in.T:
             # compute the multiplication [x(t) x(t)^T]_ij
@@ -99,17 +96,15 @@ class SubSpace(Module):
                 raise ValueError("Overflow or underflow in the high-precision filter!")
 
             # apply right-bit-shift to go to the output
-            C = C_highprec >> self.num_avg_bitshift
+            C_regular = C_highprec >> self.num_avg_bitshift
 
             # add the values of the list
-            C_list.append(np.copy(C))
-            C_highprec_list.append(np.copy(C_highprec))
+            C_list.append(np.copy(C_regular))
 
         # convert into numpy arrays: T x 3 x 3
         C_list = np.array(C_list, dtype=object)
-        C_highprec_list = np.array(C_highprec_list, dtype=object)
 
-        return (C_list, C_highprec_list), {}, {}
+        return C_list, {}, {}
 
     def __str__(self):
         string = (
