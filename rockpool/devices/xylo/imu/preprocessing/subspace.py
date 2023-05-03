@@ -2,9 +2,10 @@
 Take the input data from IMU sensor and compute the covariance matrix that is then fed into JSVD module.
 """
 
-from typing import Tuple, Dict, Any
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
+
 from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 from rockpool.nn.modules.module import Module
 
@@ -18,6 +19,7 @@ class SubSpace(Module):
         num_bits_highprec_filter: int,
         num_bits_multiplier: int,
         num_avg_bitshift: int,
+        shape: Optional[Union[Tuple, int]] = None,
     ) -> None:
         """Data averaging and covariance estimation for the input data.
 
@@ -28,7 +30,7 @@ class SubSpace(Module):
             num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation.
                 The effective window length of the low-pass filter will be `2**num_avg_bitshift`
         """
-
+        super().__init__(shape, spiking_input=False, spiking_output=False)
         self.num_bits_in = num_bits_in
         self.num_bits_highprec_filter = num_bits_highprec_filter
         self.num_bits_multiplier = num_bits_multiplier
