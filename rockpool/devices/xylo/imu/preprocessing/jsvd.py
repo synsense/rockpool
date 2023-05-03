@@ -301,12 +301,13 @@ class JSVD(Module):
                         "over- or under-flow happened in updating the diagonl matrix D!"
                     )
 
-                # double-check the result with the direct matrix multiplication
-                U, _, _ = np.linalg.svd(sub_matrix_D.astype(np.float64))
-                rotation = np.eye(3)
-                rotation[selection == 1] = U.ravel()
+                ## - Uncomment in debug mode - ##
+                # Double-check the result with the direct matrix multiplication
 
-                D_rotated = (rotation.T @ D @ rotation).astype(np.int64)
+                # U, _, _ = np.linalg.svd(sub_matrix_D.astype(np.float64))
+                # rotation = np.eye(3)
+                # rotation[selection == 1] = U.ravel()
+                # D_rotated = (rotation.T @ D @ rotation).astype(np.int64)
 
                 # copy the updated values in the C matrix
                 # 2 x 2 sub-matrix
@@ -421,7 +422,7 @@ class JSVD(Module):
         # return the computed matrices and the final sorted ones
 
         if record == True:
-            record_dict = {"covariance": C_list, "rotation": R_list}
+            record_dict = {"C_list": C_list, "R_list": R_list}
         else:
             record_dict = {}
 
