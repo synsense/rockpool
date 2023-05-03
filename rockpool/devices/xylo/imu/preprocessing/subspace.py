@@ -1,30 +1,23 @@
-# -----------------------------------------------------------
-# This module takes the input data from IMU sensor and compute the covariance matrix
-# that is then fed into JSVD module.
-#
-#
-#
-# (C) Saeid Haghighatshoar
-# email: saeid.haghighatshoar@synsense.ai
-#
-#
-# last update: 27.08.2022
-# -----------------------------------------------------------
+"""
+Take the input data from IMU sensor and compute the covariance matrix that is then fed into JSVD module.
+"""
 
-# required packages
+from typing import Tuple, Dict, Any
+
 import numpy as np
-from imu_preprocessing.util.type_decorator import type_check
+from rockpool.devices.xylo.imu.preprocessing.utils import type_check
+from rockpool.nn.modules.module import Module
 
 
-class SubSpace:
+class SubSpace(Module):
     def __init__(
         self,
-        num_bits_in,
-        num_bits_highprec_filter,
-        num_bits_multiplier,
-        num_avg_bitshift,
-    ):
-        """this module does data averaging and covariance estimation for the input data.
+        num_bits_in: int,
+        num_bits_highprec_filter: int,
+        num_bits_multiplier: int,
+        num_avg_bitshift: int,
+    ) -> None:
+        """Data averaging and covariance estimation for the input data.
 
         Args:
             num_bits_in (int): number of bits in the input data. We assume a sign magnitude format.
@@ -40,8 +33,10 @@ class SubSpace:
         self.num_avg_bitshift = num_avg_bitshift
 
     @type_check
-    def evolve(self, sig_in: np.ndarray):
-        """this function processes the input signal sample-by-sample and returns the output.
+    def evolve(
+        self, sig_in: np.ndarray, record: bool = False
+    ) -> Tuple[Tuple[np.ndarray, np.ndarray], Dict[str, Any], Dict[str, Any]]:
+        """Processes the input signal sample-by-sample and estimate the subspace.
 
         Args:
             sig_in (np.ndarray): 3 x 1 input data received from IMU sensor. It should be in integer format.
@@ -114,14 +109,7 @@ class SubSpace:
         C_list = np.array(C_list, dtype=object)
         C_highprec_list = np.array(C_highprec_list, dtype=object)
 
-        return C_list, C_highprec_list
-
-    # add the call version for further convenience
-    def __call__(self, *args, **kwargs):
-        """
-        This function simply calls the `evolve()` function and is added for further convenience.
-        """
-        return self.evolve(*args, **kwargs)
+        return (C_list, C_highprec_list), {}, {}
 
     def __str__(self):
         string = (
