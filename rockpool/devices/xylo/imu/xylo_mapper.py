@@ -127,9 +127,6 @@ def mapper(
         graph, XyloIMUHiddenNeurons
     )
     num_hidden_synapses = 1
-    for hn in hidden_neurons:
-        if len(hn.input_nodes) > len(hn.output_nodes):
-            num_hidden_synapses = 2
 
     # --- Map weights and build Xylo weight matrices ---
 
@@ -138,9 +135,7 @@ def mapper(
     target_neurons: XyloIMUNeurons = input_weight_mod.output_nodes[0].sink_modules[0]
     # - Since DRC passed, we know this is valid
 
-    weight_num_synapses = (
-        2 if len(target_neurons.input_nodes) > len(target_neurons.output_nodes) else 1
-    )
+    weight_num_synapses = 1
 
     target_ids = target_neurons.hw_ids
     these_dest_indices = [allocated_hidden_neurons.index(id) for id in target_ids]
@@ -193,11 +188,7 @@ def mapper(
         target_neurons: XyloIMUNeurons = sm[0]
 
         # - How many target synapses per neuron?
-        num_target_syns = (
-            2
-            if len(target_neurons.input_nodes) > len(target_neurons.output_nodes)
-            else 1
-        )
+        num_target_syns = 1
 
         # - Find the source neurons
         sm = SetList(
@@ -243,13 +234,6 @@ def mapper(
                 f"Unexpected target of weight graph module {w}. Expected XyloHiddenNeurons or XyloOutputNeurons."
             )
 
-    # - If we are not using synapse 2, we need to trim the weights
-    # if num_hidden_synapses == 1:
-    #     w_in = np.reshape(w_in, (len(input_channels), len(allocated_hidden_neurons)))
-    #     w_rec = np.reshape(
-    #         w_rec, (len(allocated_hidden_neurons), len(allocated_hidden_neurons))
-    #     )
-
     # --- Extract parameters from nodes ---
 
     hidden_neurons: SetList[XyloIMUHiddenNeurons] = find_modules_of_subclass(
@@ -275,14 +259,8 @@ def mapper(
         these_indices = n.hw_ids
         dash_mem[these_indices] = n.dash_mem
 
-        if len(n.input_nodes) > len(n.output_nodes):
-            dash_syn_reshape = np.array(n.dash_syn).reshape((-1, 2))
-            for i, index in enumerate(these_indices):
-                dash_syn[index] = dash_syn_reshape[i][0]
-                dash_syn_2[index] = dash_syn_reshape[i][1]
-        else:
-            for i, index in enumerate(these_indices):
-                dash_syn[index] = n.dash_syn[i]
+        for i, index in enumerate(these_indices):
+            dash_syn[index] = n.dash_syn[i]
 
         threshold[these_indices] = n.threshold
         bias[these_indices] = n.bias
