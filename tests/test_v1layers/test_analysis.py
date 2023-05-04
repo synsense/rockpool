@@ -2,12 +2,10 @@
 Test analysis methods
 """
 
-import numpy as np
-from rockpool import TSEvent
-from rockpool.analysis import lv, fano_factor
-
-
 def test_lv_FF():
+    import numpy as np
+    from rockpool import TSEvent
+    from rockpool.analysis import lv, fano_factor
     # generate Poisson spike train
 
     numNeurons = 100
@@ -36,8 +34,9 @@ def test_lv_FF():
 
 
 def test_entropy():
-    from rockpool import TSEvent
     import numpy as np
+    from rockpool import TSEvent
+    from rockpool.analysis import lv, fano_factor
 
     # generate Poisson spike train
 
