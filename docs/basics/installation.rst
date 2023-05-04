@@ -44,7 +44,6 @@ Dependencies
 
 * scipy_ for scipy_-backed modules
 * numba_ for numba_-backed modules
-* NEST_ for NEST_-backed modules
 * Jax_ and Jaxlib_ for Jax_-backed modules
 * PyTorch_ for Torch_-backed modules
 * Brian2_ for Brian_-backed modules
@@ -66,7 +65,7 @@ or
 
     $ pip install rockpool\[all\]
 
-if using zsh. Some dependencies, such as pandoc_ and NEST_, must be installed manually.
+if using zsh. Some dependencies, such as pandoc_, must be installed manually.
 
 To check which computational back-ends are available to |project|, use the :func:`.list_backends` function:
 
