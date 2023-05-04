@@ -2,19 +2,11 @@ import pytest
 
 pytest.importorskip("torch")
 
-from rockpool.utilities.backend_management import torch_version_satisfied
 
-check_torch_ver = pytest.mark.skipif(
-    not torch_version_satisfied(1, 12, 1), reason="This test requires torch == 1.12.1."
-)
-
-
-@check_torch_ver
 def test_imports():
     from rockpool.transform import torch_transform
 
 
-@check_torch_ver
 def test_dropout():
     from rockpool.transform.torch_transform import dropout
     import torch
@@ -27,7 +19,6 @@ def test_dropout():
     assert not torch.all(t.grad == 0), "Gradients are all zero"
 
 
-@check_torch_ver
 def test_transform_mod():
     import torch
     import rockpool.transform.torch_transform as tt
@@ -66,7 +57,6 @@ def test_transform_mod():
     tmod = tmod.apply_T()
 
 
-@check_torch_ver
 def test_transform_net():
     import torch
     import rockpool.transform.torch_transform as tt
@@ -107,7 +97,6 @@ def test_transform_net():
     undo_tnet = tt.remove_T_net(tnet)
 
 
-@check_torch_ver
 def test_act_transform_net():
     import torch
     import rockpool.transform.torch_transform as tt
@@ -141,7 +130,6 @@ def test_act_transform_net():
         assert not torch.all(p.grad == 0), f"Gradients are all zero for {p}"
 
 
-@check_torch_ver
 def test_stochastic_rounding():
     import torch
     from rockpool.transform.torch_transform import stochastic_rounding
@@ -174,7 +162,6 @@ def test_stochastic_rounding():
     assert rounded_levels.min() == value.min()
 
 
-@check_torch_ver
 def test_stochastic_cahnnel_rounding():
     import torch
     from rockpool.transform.torch_transform import stochastic_channel_rounding
@@ -204,7 +191,6 @@ def test_stochastic_cahnnel_rounding():
     assert rounded_levels.min() == value.min()
 
 
-@check_torch_ver
 def test_deterministic_rounding():
     import torch
     from rockpool.transform.torch_transform import deterministic_rounding
@@ -237,7 +223,6 @@ def test_deterministic_rounding():
     assert rounded_levels.min() == value.min()
 
 
-@check_torch_ver
 def test_int_quant():
     import torch
     from rockpool.transform.torch_transform import int_quant
@@ -274,7 +259,6 @@ def test_int_quant():
     assert rounded_levels.max() == max_range
 
 
-@check_torch_ver
 def net_test_int_quant():
     import torch
     from rockpool.transform.torch_transform import (
@@ -301,7 +285,6 @@ def net_test_int_quant():
     )
 
 
-@check_torch_ver
 def test_t_decay():
     import torch
     from rockpool.transform.torch_transform import t_decay
@@ -313,7 +296,6 @@ def test_t_decay():
     assert all(decay in allowed_decays for decay in q_decay)
 
 
-@check_torch_ver
 def test_t_decay_net():
     import torch
     from rockpool.nn.modules import LinearTorch, LIFTorch
