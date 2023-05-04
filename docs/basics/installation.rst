@@ -166,7 +166,6 @@ To run all the unit tests for |project|, use ``pytest``:
 .. _Jaxlib: https://github.com/google/jax
 .. _PyTorch: https://pytorch.org/
 .. _Torch: https://pytorch.org/
-.. _NEST: https://www.nest-simulator.org
 .. _Brian: https://github.com/brian-team/brian2
 .. _Brian2: https://github.com/brian-team/brian2
 .. _Sinabs: https://pypi.org/project/sinabs/
