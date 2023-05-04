@@ -6,14 +6,6 @@ import pytest
 
 pytest.importorskip("nest")
 
-
-import numpy as np
-
-from rockpool.timeseries import set_global_ts_plotting_backend
-
-set_global_ts_plotting_backend("plt")
-
-
 def test_import():
     from rockpool.nn.layers.iaf_nest import FFIAFNest
     from rockpool.nn.layers.iaf_nest import RecIAFSpkInNest
