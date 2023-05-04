@@ -4,6 +4,8 @@ The tests here makes sure that intermediate steps works as expected.
 To test the pipeline, two weight matrices (w_in and w_rec) are loaded
 Every test sequentially combines a `LinearJax` and a `DynapSim` layer whose weight matrices are loaded externally.
 """
+import pytest
+pytest.importorskip("samna")
 
 from numpy.testing import assert_equal, assert_allclose, assert_array_equal
 
