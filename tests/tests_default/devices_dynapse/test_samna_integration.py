@@ -19,7 +19,7 @@ Notes:
 import pytest
 pytest.importorskip("samna")
 
-
+ 
 def test_full_config():
     """
     test_full_config looks small but it checks the full samna SE2 alias conversion pipeline in one shot

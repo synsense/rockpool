@@ -5,7 +5,7 @@ Tests included in this file test if the bias generator implementation is at a he
 Note that the translation does not necessarily need to be one-to-one. If the values are close enough, that's also OK.
 """
 import pytest
-pytest.importorskip("samna")
+pytest.importorskip("samna") 
 
 def test_imports():
     """
