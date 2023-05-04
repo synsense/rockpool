@@ -25,3 +25,10 @@ try:
     from .spike_ads import *
 except:
     pass
+
+# - NEST modules
+try:
+    from iaf_nest import *
+    from aeif_nest import *
+except:
+    pass

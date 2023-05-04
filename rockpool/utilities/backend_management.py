@@ -57,6 +57,7 @@ __checked_backends: Dict[str, bool] = {}
 __backend_specs: Dict[str, tuple] = {
     "numpy": (),
     "numba": (),
+    "nest": (),
     "jax": (["jax", "jaxlib"],),
     "torch": (),
     "sinabs": (),

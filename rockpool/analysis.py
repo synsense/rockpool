@@ -31,7 +31,7 @@ def lv(tsevents: TSEvent) -> np.ndarray:
 
 def fano_factor(tsevents: TSEvent, dt: float = 0.001) -> float:
     """
-    FanoFactor() - put as input a spike train and return mean FanoFactor of the network
+    FanoFactor() - put as input a spike detector nest object and return mean FanoFactor of the network
 
     :param dt: float raster timestep in sec
     :return: float FanoFactor
