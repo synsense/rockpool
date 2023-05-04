@@ -14,11 +14,11 @@ def test_imports():
     from rockpool.devices.dynapse.parameters.biasgen import (
         digital_to_analog,
         analog_to_digital,
-    )
+    ) 
 
     from rockpool.devices.dynapse import (
         dynapsim_net_from_config,
-        mapper,
+        mapper, 
         config_from_specification,
         autoencoder_quantization,
         DynapSimCore,
