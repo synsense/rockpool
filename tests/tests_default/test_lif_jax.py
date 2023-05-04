@@ -2,24 +2,23 @@ import pytest
 
 pytest.importorskip("jax")
 
-import jax
-from jax.config import config
-
-config.update("jax_enable_x64", True)
-config.update("jax_log_compiles", True)
-config.update("jax_debug_nans", True)
-
 
 def test_imports():
     from rockpool.nn.modules.jax.lif_jax import LIFJax
+    import jax
+    from jax.config import config
 
 
 def test_lif_jax():
     from rockpool.nn.modules.jax.lif_jax import LIFJax
-
     from jax import jit
-
     import numpy as np
+    import jax
+    from jax.config import config
+
+    config.update("jax_enable_x64", True)
+    config.update("jax_log_compiles", True)
+    config.update("jax_debug_nans", True)
 
     Nin = 4
     Nout = 2
@@ -120,6 +119,13 @@ def test_ffwd_net():
     import numpy as np
     import jax.numpy as jnp
 
+    from jax.config import config
+
+    config.update("jax_enable_x64", True)
+    config.update("jax_log_compiles", True)
+    config.update("jax_debug_nans", True)
+    
+
     class my_ffwd_net(JaxModule):
         def __init__(self, shape, *args, **kwargs):
             super().__init__(shape, *args, **kwargs)
@@ -190,14 +196,17 @@ def test_ffwd_net():
 def test_sgd():
     from rockpool.nn.modules import LIFJax, LinearJax
     from rockpool.nn.combinators import Sequential
-    from rockpool.parameters import Parameter
     from rockpool.training.jax_loss import mse, l0_norm_approx
 
-    import jax
     from jax import jit
-
+    import jax
+    from jax.config import config
     import numpy as np
-    import jax.numpy as jnp
+
+    config.update("jax_enable_x64", True)
+    config.update("jax_log_compiles", True)
+    config.update("jax_debug_nans", True)
+
 
     print("Instantiating sequential net")
     net = Sequential(LinearJax((2, 3)), LIFJax(3), LinearJax((3, 1)), LIFJax(1))
@@ -252,9 +261,7 @@ def test_sgd():
 
 def test_lif_jax_batches():
     from rockpool.nn.modules.jax.lif_jax import LIFJax
-
     from jax import jit
-
     import numpy as np
 
     batches = 5
@@ -323,7 +330,6 @@ def test_linear_lif():
     )
 
     import rockpool.training.jax_loss as l
-    import jax.numpy as jnp
 
     # - Define a loss function
     def loss_mse(params, net, input, target):
