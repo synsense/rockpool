@@ -6,12 +6,6 @@ import pytest
 
 pytest.importorskip("jax")
 
-# - Ensure that NaNs in compiled functions are errors
-from jax.config import config
-
-config.update("jax_debug_nans", True)
-
-
 def test_imports():
     from rockpool.training.jax_loss import (
         mse,
@@ -23,6 +17,8 @@ def test_imports():
         softmax,
         logsoftmax,
     )
+    # - Ensure that NaNs in compiled functions are errors
+    from jax.config import config
 
 
 def test_mse():
@@ -34,6 +30,11 @@ def test_mse():
     import numpy as np
 
     from rockpool.training.jax_loss import mse
+
+    # - Ensure that NaNs in compiled functions are errors
+    from jax.config import config
+
+    config.update("jax_debug_nans", True)
 
     mod = RateJax(2)
     params0 = mod.parameters()
@@ -80,6 +81,11 @@ def test_bounds_cost():
     from jax import jit, numpy as jnp
     import numpy as np
 
+    # - Ensure that NaNs in compiled functions are errors
+    from jax.config import config
+
+    config.update("jax_debug_nans", True)
+
     mod = RateEulerJax((2, 2))
     params0 = mod.parameters()
 
@@ -118,6 +124,11 @@ def test_l2sqr_norm():
     from rockpool.nn.modules.jax.rate_jax import RateJax
     from rockpool.training.jax_loss import l2sqr_norm
 
+    # - Ensure that NaNs in compiled functions are errors
+    from jax.config import config
+
+    config.update("jax_debug_nans", True)
+
     mod = RateJax(2, has_rec=True)
 
     c = l2sqr_norm(mod.parameters("weights"))
@@ -153,6 +164,11 @@ def test_softmax():
     import numpy as np
     import jax
 
+    # - Ensure that NaNs in compiled functions are errors
+    from jax.config import config
+
+    config.update("jax_debug_nans", True)
+
     N = 3
     temp = 0.01
     softmax(np.random.rand(N))
@@ -166,6 +182,11 @@ def test_logsoftmax():
     from rockpool.training.jax_loss import logsoftmax
     import numpy as np
     import jax
+
+    # - Ensure that NaNs in compiled functions are errors
+    from jax.config import config
+
+    config.update("jax_debug_nans", True)
 
     N = 3
     temp = 0.01
