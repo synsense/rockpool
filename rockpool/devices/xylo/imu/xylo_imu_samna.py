@@ -220,6 +220,14 @@ class XyloIMUSamna(Module):
                 event.timestamp = start_timestep + timestep
                 input_events_list.append(event)
 
+        # - Add an extra event to ensure readout for entire input extent
+        event = samna.xyloImu.event.Spike()
+        event.timestamp = final_timestamp + 1
+        input_events_list.append(event)
+
+        # - Clear the input registers to ensure the dummy event has no effect
+        input_events_list.extend(hdkutils.gen_clear_input_registers_events())
+
         # - Clear the read and state buffers
         self._state_buffer.reset()
 

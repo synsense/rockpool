@@ -293,11 +293,23 @@ def configure_accel_time_mode(
         config.debug.monitor_neuron_v_mem = samna.xyloImu.configuration.NeuronRange(
             0, monitor_Nhidden + monitor_Noutput
         )
+        config.debug.monitor_neuron_i_syn = samna.xyloImu.configuration.NeuronRange(
+            0, monitor_Nhidden + monitor_Noutput
+        )
 
     else:
-        config.debug.monitor_neuron_v_mem = samna.xyloImu.configuration.NeuronRange(
-            monitor_Nhidden, monitor_Nhidden + monitor_Noutput
-        )
+        if readout == "Isyn":
+            config.debug.monitor_neuron_i_syn = (
+                samna.xyloImu.configuration.NeuronRange(
+                    monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+                )
+            )
+        elif readout == "Vmem":
+            config.debug.monitor_neuron_v_mem = (
+                samna.xyloImu.configuration.NeuronRange(
+                    monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+                )
+            )
 
     # - Configure the monitor buffer
     state_monitor_buffer.set_configuration(config)
@@ -352,6 +364,19 @@ def read_accel_mode_data(
         Spikes_hid=spikes_ts,
         Spikes_out=spikes_out_ts,
     )
+
+
+def gen_clear_input_registers_events() -> List:
+    """
+    Create events to clear the input event registers
+    """
+    events = []
+    for addr in [0x47, 0x48, 0x49, 0x4A]:
+        event = samna.xyloImu.event.WriteRegisterValue()
+        event.address = addr
+        events.append(event)
+
+    return events
 
 
 def config_hibernation_mode(
