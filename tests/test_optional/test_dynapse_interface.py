@@ -5,7 +5,7 @@ NOTE : The tests here requires a Dynap-SE2 HDK connected to the computer.
 """
 
 import pytest
-
+pytest.importorskip("samna")
 
 def test_time_stamp():
     """
