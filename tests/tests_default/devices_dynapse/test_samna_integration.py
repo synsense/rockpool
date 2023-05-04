@@ -17,6 +17,7 @@ Notes:
 """
 
 import pytest
+pytest.importorskip("samna")
 
 
 def test_full_config():
