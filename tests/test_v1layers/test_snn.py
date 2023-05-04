@@ -1,19 +1,20 @@
 """
 Test weigh access and indexing for CNNWeight class
 """
-import numpy as np
 
 
 def test_import():
     """
     Test import of the class
     """
+    import numpy as np
 
 
 def test_pt_events():
     """Test PassThroughEvents layer"""
     from rockpool.nn.layers import PassThroughEvents
     from rockpool import TSEvent
+    import numpy as np
 
     # - Input signal
     time_trace = [0.1, 0.2, 0.7, 0.8, 0.9]
@@ -51,6 +52,8 @@ def poisson_generator(rate, t_start=0.0, t_stop=1000.0, refractory=0):
         t_start - the beginning of the SpikeTrain (in ms)
         t_stop  - the end of the SpikeTrain (in ms)
     """
+    import numpy as np
+    
     n = (t_stop - t_start) / 1000.0 * rate
     number = int(np.ceil(n + 3 * np.sqrt(n)))
     if number < 100:
