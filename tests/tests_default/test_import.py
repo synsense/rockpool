@@ -24,8 +24,5 @@ def test_submodule_import():
 
 def test_base_attributes():
     import rockpool
-
-    print("Rockpool version", rockpool.__version__)
-
-    pytest.skip("FIXME: Crashes worker for no good reason")
-    rockpool.list_backends()
+    assert rockpool.__version__ == rockpool.__version__
+    assert rockpool.list_backends() == rockpool.list_backends()
