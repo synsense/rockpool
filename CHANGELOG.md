@@ -17,6 +17,9 @@ All notable changes between Rockpool releases will be documented in this file.
 ### Fixed
 ### Deprecated
 ### Removed
+
+* NEST backend completely removed
+
 ### Security
 
 ## [v2.6] -- 2023-03-22
