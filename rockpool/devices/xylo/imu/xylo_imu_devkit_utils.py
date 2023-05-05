@@ -179,7 +179,7 @@ def set_power_measure(
     Initialize power consumption measure on a hdk
 
     Args:
-        hdk (XyloHDK): The Xylo HDK to be measured
+        hdk (XyloIMUHDK): The Xylo HDK to be measured
         frequency (float): The frequency of power measurement. Default: 5.0
 
     Returns:
@@ -204,11 +204,13 @@ def apply_configuration(
     Apply a configuration to the Xylo HDK
 
     Args:
-        hdk (XyloHDK): The Xylo HDK to write the configuration to
+        hdk (XyloIMUHDK): The Xylo HDK to write the configuration to
         config (XyloConfiguration): A configuration for Xylo
     """
     # - Ideal -- just write the configuration using samna
     hdk.get_model().apply_configuration(config)
+
+    # Set imu sensor enable to open the port for geting spikes from imu sensor
     hdk.set_imu_sensor_enable(True)
 
 
@@ -264,7 +266,7 @@ def configure_accel_time_mode(
         state_monitor_buffer (XyloIMUNeuronStateBuffer): A connected neuron state monitor buffer
         monitor_Nhidden (Optional[int]): The number of hidden neurons for which to monitor state during evolution. Default: ``0``, don't monitor any hidden neurons.
         monitor_Noutput (Optional[int]): The number of output neurons for which to monitor state during evolution. Default: ``0``, don't monitor any output neurons.
-        readout: The readout out mode for which to output neuron states. Default: ``Spike''. Must be one of ``['Vmem', 'Spike']``.
+        readout: The readout out mode for which to output neuron states. Default: ``Spike''. Must be one of ``['Vmem', 'Spike', 'Isyn']``.
         record (bool): Iff ``True``, record state during evolution. Default: ``False``, do not record state.
 
     Returns:
@@ -272,11 +274,12 @@ def configure_accel_time_mode(
     """
     assert readout in ["Vmem", "Spike", "Isyn"], f"{readout} is not supported."
 
-    # - Select accelerated time mode
+    # - Select accelerated time mode, and general configuration
     config.operation_mode = samna.xyloImu.OperationMode.AcceleratedTime
     config.imu_if_input_enable = False
     config.debug.always_update_omp_stat = True
 
+    # Configurations set for state memory reading
     config.debug.isyn_clock_enable = True
     config.debug.ra_clock_enable = True
     config.debug.bias_clock_enable = True
@@ -299,16 +302,12 @@ def configure_accel_time_mode(
 
     else:
         if readout == "Isyn":
-            config.debug.monitor_neuron_i_syn = (
-                samna.xyloImu.configuration.NeuronRange(
-                    monitor_Nhidden, monitor_Nhidden + monitor_Noutput
-                )
+            config.debug.monitor_neuron_i_syn = samna.xyloImu.configuration.NeuronRange(
+                monitor_Nhidden, monitor_Nhidden + monitor_Noutput
             )
         elif readout == "Vmem":
-            config.debug.monitor_neuron_v_mem = (
-                samna.xyloImu.configuration.NeuronRange(
-                    monitor_Nhidden, monitor_Nhidden + monitor_Noutput
-                )
+            config.debug.monitor_neuron_v_mem = samna.xyloImu.configuration.NeuronRange(
+                monitor_Nhidden, monitor_Nhidden + monitor_Noutput
             )
 
     # - Configure the monitor buffer
@@ -329,11 +328,10 @@ def read_accel_mode_data(
     Read accelerated simulation mode data from a Xylo HDK
 
     Args:
-        monitor_buffer (XyloNeuronStateBuffer): A connected `XyloNeuronStateBuffer` to read from
+        monitor_buffer (XyloIMUNeuronStateBuffer): A connected `XyloIMUNeuronStateBuffer` to read from
         Nin (int): Number of input neurons to read. Default: ``16`` (all neurons).
         Nhidden (int): The number of hidden neurons to monitor
         Nout (int): The number of output neurons to monitor
-        synapse2_enable (bool): Synapse 2 is used and should be monitored. Default: ``False``, don't monitor synapse 2
 
     Returns:
         XyloState: The encapsulated state read from the Xylo device
@@ -401,8 +399,8 @@ def get_current_timestamp(
     Retrieve the current timestamp on a Xylo HDK
 
     Args:
-        read_buffer (XyloReadBuffer): A connected read buffer for the xylo HDK
-        write_buffer (XyloWriteBuffer): A connected write buffer for the Xylo HDK
+        read_buffer (XyloIMUReadBuffer): A connected read buffer for the xylo HDK
+        write_buffer (XyloIMUWriteBuffer): A connected write buffer for the Xylo HDK
         timeout (float): A timeout for reading
 
     Returns:
