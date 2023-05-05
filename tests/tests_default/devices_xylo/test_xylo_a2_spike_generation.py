@@ -5,7 +5,7 @@ def test_imports():
     from rockpool.devices.xylo.syns61201 import AFESim
     from rockpool.devices.xylo.syns61201.afe_spike_generation import (
         _encode_spikes,
-        _encode_spikes_cpp,
+        # _encode_spikes_cpp,
         _encode_spikes_jax,
         _encode_spikes_python,
     )
@@ -54,7 +54,7 @@ def test_spike_generation():
     from rockpool.devices.xylo.syns61201 import AFESim
     from rockpool.devices.xylo.syns61201.afe_spike_generation import (
         _encode_spikes,
-        _encode_spikes_cpp,
+        # _encode_spikes_cpp,
         _encode_spikes_jax,
         _encode_spikes_python,
     )
@@ -113,13 +113,13 @@ def test_spike_generation():
     # ===========================================================================
     #                            C++ version
     # ===========================================================================
-    start = time.time()
-    spikes_cpp, final_state_cpp = _encode_spikes_cpp(**params)
+    # start = time.time()
+    # spikes_cpp, final_state_cpp = _encode_spikes_cpp(**params)
 
-    spikes_raster_cpp = np.asarray(spikes_cpp).T
-    final_state_cpp = np.asarray(final_state_cpp)
+    # spikes_raster_cpp = np.asarray(spikes_cpp).T
+    # final_state_cpp = np.asarray(final_state_cpp)
 
-    duration_cpp = time.time() - start
+    # duration_cpp = time.time() - start
 
     # ===========================================================================
     #                           Python version
@@ -137,14 +137,14 @@ def test_spike_generation():
     # ===========================================================================
     print("jax version first run-time: ", duration_jax_first)
     print("jax version second run-time: ", duration_jax)
-    print("C++ version second run-time: ", duration_cpp)
+    # print("C++ version second run-time: ", duration_cpp)
     print("python version run-time: ", duration_py)
 
     # ===========================================================================
     #                            Validate spike rates
     # ===========================================================================
     spike_rate_jax = spikes_jax.mean(0) / dt
-    spike_rate_cpp = spikes_cpp.mean(0) / dt
+    # spike_rate_cpp = spikes_cpp.mean(0) / dt
     spike_rate_py = spikes_py.mean(0) / dt
 
     EPS = 0.001
@@ -155,10 +155,10 @@ def test_spike_generation():
     )
     assert rel_error_jax < REL_ERR_MAX
 
-    rel_error_cpp = norm(spike_rate_cpp - spike_rate_py) / (
-        np.sqrt(norm(spike_rate_py) * norm(spike_rate_cpp)) + EPS
-    )
-    assert rel_error_cpp < REL_ERR_MAX
+    # rel_error_cpp = norm(spike_rate_cpp - spike_rate_py) / (
+    #     np.sqrt(norm(spike_rate_py) * norm(spike_rate_cpp)) + EPS
+    # )
+    # assert rel_error_cpp < REL_ERR_MAX
 
     # ===========================================================================
     #               Validate local difference between the spikes
@@ -168,8 +168,8 @@ def test_spike_generation():
     assert rel_error_levy_local(spikes_py, spikes_jax) < REL_ERR_MAX
     assert rel_error_levy_global(spikes_py, spikes_jax) < REL_ERR_MAX
 
-    assert rel_error_levy_local(spikes_py, spikes_cpp) < REL_ERR_MAX
-    assert rel_error_levy_global(spikes_py, spikes_cpp) < REL_ERR_MAX
+    # assert rel_error_levy_local(spikes_py, spikes_cpp) < REL_ERR_MAX
+    # assert rel_error_levy_global(spikes_py, spikes_cpp) < REL_ERR_MAX
 
 
 def test_afesim2():
@@ -218,7 +218,3 @@ def test_afesim2():
         np.sqrt(norm(spike_rate_avg_rastered) * norm(spike_rate_avg_original)) + EPS
     )
     assert rel_distance <= REL_ERR_MAX
-
-
-# if __name__ == "__main__":
-#     test_afesim2()

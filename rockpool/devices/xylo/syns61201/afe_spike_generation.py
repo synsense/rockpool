@@ -13,110 +13,110 @@ debug = print
 
 __all__ = [
     "_encode_spikes",
-    "_encode_spikes_cpp",
+    # "_encode_spikes_cpp",
     "_encode_spikes_jax",
     "_encode_spikes_python",
 ]
 
 # - Try to use C++ version for speedup
-try:
-    # check if the C++ library is available
-    from xylo_a2_spike_generation import _encode_spikes as cpp_encode_spikes
+# try:
+#     # check if the C++ library is available
+#     from xylo_a2_spike_generation import _encode_spikes as cpp_encode_spikes
 
-    # register C++ version
-    __CPP_VERSION__ = True
+#     # register C++ version
+#     __CPP_VERSION__ = True
 
-except ModuleNotFoundError as e:
-    # try to install C++ module
-    try:
-        info(
-            f"C++ based spike generation module is not installed: {e}. Trying to install this module ..."
-        )
+# except ModuleNotFoundError as e:
+#     # try to install C++ module
+#     try:
+#         info(
+#             f"C++ based spike generation module is not installed: {e}. Trying to install this module ..."
+#         )
 
-        # find the library in the path
-        from pathlib import Path
-        import os
-        import subprocess
+#         # find the library in the path
+#         from pathlib import Path
+#         import os
+#         import subprocess
 
-        current_dir = Path(__file__).parent.resolve()
-        cpp_library_name = "cpp_xylo_a2_spike_generation"
+#         current_dir = Path(__file__).parent.resolve()
+#         cpp_library_name = "cpp_xylo_a2_spike_generation"
 
-        if cpp_library_name not in os.listdir(current_dir):
-            raise ModuleNotFoundError(
-                f"C++ library: {cpp_library_name} was not found in the current directory!"
-            )
+#         if cpp_library_name not in os.listdir(current_dir):
+#             raise ModuleNotFoundError(
+#                 f"C++ library: {cpp_library_name} was not found in the current directory!"
+#             )
 
-        # folder containing the C++ code
-        cpp_library_dir = os.path.join(current_dir, cpp_library_name, "src-cpp")
+#         # folder containing the C++ code
+#         cpp_library_dir = os.path.join(current_dir, cpp_library_name, "src-cpp")
 
-        # install it using command line
-        command = f'pip install -e "{cpp_library_dir}"'
-        output = subprocess.run(command, shell=True, capture_output=True, text=True)
+#         # install it using command line
+#         command = f'pip install -e "{cpp_library_dir}"'
+#         output = subprocess.run(command, shell=True, capture_output=True, text=True)
 
-        if output.returncode != 0:
-            # command did not run: pip installation did not work
-            info(f"pip installation was not successful: {output.stdout}")
-            raise ModuleNotFoundError(output.stderr)
+#         if output.returncode != 0:
+#             # command did not run: pip installation did not work
+#             info(f"pip installation was not successful: {output.stdout}")
+#             raise ModuleNotFoundError(output.stderr)
 
-        # module was installed so import it again
-        from xylo_a2_spike_generation import _encode_spikes as cpp_encode_spikes
+#         # module was installed so import it again
+#         from xylo_a2_spike_generation import _encode_spikes as cpp_encode_spikes
 
-        # register C++ version
-        __CPP_VERSION__ = True
+#         # register C++ version
+#         __CPP_VERSION__ = True
 
-    except ModuleNotFoundError as e:
-        info(
-            f"C++ spike generation library was not successful: {e}. Falling back on Jax or Python version for spike generation."
-        )
+#     except ModuleNotFoundError as e:
+#         info(
+#             f"C++ spike generation library was not successful: {e}. Falling back on Jax or Python version for spike generation."
+#         )
 
-        __CPP_VERSION__ = False
+#         __CPP_VERSION__ = False
 
-        def cpp_encode_spikes(*args, **kwargs):
-            raise NotImplementedError("CPP version of spike encoding not available.")
+#         def cpp_encode_spikes(*args, **kwargs):
+#             raise NotImplementedError("CPP version of spike encoding not available.")
 
 
-def _encode_spikes_cpp(
-    initial_state: np.ndarray,
-    dt: float,
-    data: np.ndarray,
-    v2i_gain: float,
-    c_iaf: float,
-    leakage: float,
-    thr_up: float,
-    vcc: float,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    C++ version: Encode a signal as events using an LIF neuron membrane with negligible leakage (very close to IAF neuron).
+# def _encode_spikes_cpp(
+#     initial_state: np.ndarray,
+#     dt: float,
+#     data: np.ndarray,
+#     v2i_gain: float,
+#     c_iaf: float,
+#     leakage: float,
+#     thr_up: float,
+#     vcc: float,
+# ) -> Tuple[np.ndarray, np.ndarray]:
+#     """
+#     C++ version: Encode a signal as events using an LIF neuron membrane with negligible leakage (very close to IAF neuron).
 
-    Args:
-        initial_state (np.ndarray): Initial state of the LIF neurons.
-        dt (float): Time-step in seconds.
-        data (np.ndarray): Array ``(T,N)`` containing data to convert to events.
-        v2i_gain (float): the gain by which the voltage at the output of rectifier is converted to a current for integration followed by spike generation.
-        c_iaf (float): Membrane capacitance.
-        leakage (float): Leakage factor per time step modelled as a conductance in parallel with capacitor.
-        thr_up (float): Firing threshold voltage.
-        vcc (float): voltage supply on the chip (this is the maximum value of the integrator voltage).
+#     Args:
+#         initial_state (np.ndarray): Initial state of the LIF neurons.
+#         dt (float): Time-step in seconds.
+#         data (np.ndarray): Array ``(T,N)`` containing data to convert to events.
+#         v2i_gain (float): the gain by which the voltage at the output of rectifier is converted to a current for integration followed by spike generation.
+#         c_iaf (float): Membrane capacitance.
+#         leakage (float): Leakage factor per time step modelled as a conductance in parallel with capacitor.
+#         thr_up (float): Firing threshold voltage.
+#         vcc (float): voltage supply on the chip (this is the maximum value of the integrator voltage).
 
-    Returns:
-        np.ndarray: Raster of output events ``(T,N)``, where ``True`` indicates a spike
-    """
-    # embed the list results in numpy array: this is needed because:
-    # (i)   data is passed as a list to C++ and we would like each row to correspond to one channel
-    # (ii)  result returned from C++ is of the format N xT and we need to convert it into T x N format for compatibility.
+#     Returns:
+#         np.ndarray: Raster of output events ``(T,N)``, where ``True`` indicates a spike
+#     """
+#     # embed the list results in numpy array: this is needed because:
+#     # (i)   data is passed as a list to C++ and we would like each row to correspond to one channel
+#     # (ii)  result returned from C++ is of the format N xT and we need to convert it into T x N format for compatibility.
 
-    spikes, final_state = cpp_encode_spikes(
-        initial_state=initial_state,
-        dt=dt,
-        data=data.T,
-        v2i_gain=v2i_gain,
-        c_iaf=c_iaf,
-        leakage=leakage,
-        thr_up=thr_up,
-        vcc=vcc,
-    )
+#     spikes, final_state = cpp_encode_spikes(
+#         initial_state=initial_state,
+#         dt=dt,
+#         data=data.T,
+#         v2i_gain=v2i_gain,
+#         c_iaf=c_iaf,
+#         leakage=leakage,
+#         thr_up=thr_up,
+#         vcc=vcc,
+#     )
 
-    return np.asarray(spikes).T, np.asarray(final_state)
+#     return np.asarray(spikes).T, np.asarray(final_state)
 
 
 # - Try to define a Jax-accelerated version
@@ -278,10 +278,10 @@ if __JAX_VERSION__:
     )
     _encode_spikes = _encode_spikes_jax
 
-elif __CPP_VERSION__:
-    # C++ version is active: apply simple embedding in Python
-    info(f"__CPP_VERSION__: {__CPP_VERSION__}: Using C++ version of spike encoding.")
-    _encode_spikes = _encode_spikes_cpp
+# elif __CPP_VERSION__:
+#     # C++ version is active: apply simple embedding in Python
+#     info(f"__CPP_VERSION__: {__CPP_VERSION__}: Using C++ version of spike encoding.")
+#     _encode_spikes = _encode_spikes_cpp
 
 
 else:
