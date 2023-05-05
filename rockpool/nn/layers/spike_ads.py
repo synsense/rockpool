@@ -10,6 +10,7 @@ from rockpool.timeseries import (
     TimeSeries,
     get_global_ts_plotting_backend,
 )
+from rockpool.utilities.backend_management import backend_available
 import numpy as np
 from typing import Union, Any, Tuple, Optional
 import copy
@@ -20,9 +21,9 @@ from warnings import warn
 FloatVector = Union[float, np.ndarray]
 
 # - Try to import holoviews
-try:
+if backend_available("holoviews"):
     import holoviews as hv
-except Exception:
+else:
     pass
 
 __all__ = ["RecFSSpikeADS"]
