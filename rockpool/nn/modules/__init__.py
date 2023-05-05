@@ -22,6 +22,3 @@ from .sinabs import *
 
 # - Jax modules
 from .jax import *
-
-# - NEST modules
-from .nest import *
