@@ -64,10 +64,10 @@ def new_xylo_read_buffer(
     Create and connect a new buffer to read from a Xylo HDK
 
     Args:
-        hdk (XyloDaughterBoard):
+        hdk (XyloIMUHDK): A Xylo HDK to create a new buffer for
 
     Returns:
-        samna.BasicSinkNode_xylo_event_output_event: Output buffer receiving events from Xylo HDK
+        XyloIMUReadBuffer: A connected event read buffer
     """
     # - Register a buffer to read events from Xylo
     buffer = XyloIMUReadBuffer()
@@ -91,10 +91,10 @@ def new_xylo_write_buffer(hdk: XyloIMUHDK) -> XyloIMUWriteBuffer:
     Create a new buffer for writing events to a Xylo HDK
 
     Args:
-        hdk (XyloDaughterBoard): A Xylo HDK to create a new buffer for
+        hdk (XyloIMUHDK): A Xylo HDK to create a new buffer for
 
     Returns:
-        XyloWriteBuffer: A connected event write buffer
+        XyloIMUWriteBuffer: A connected event write buffer
     """
     buffer = XyloIMUWriteBuffer()
     sink = hdk.get_model().get_sink_node()
@@ -111,7 +111,7 @@ def new_xylo_state_monitor_buffer(
     Create a new buffer for monitoring neuron and synapse state and connect it
 
     Args:
-        hdk (XyloDaughterBoard): A Xylo HDK to configure
+        hdk (XyloIMUHDK): A Xylo HDK to configure
 
     Returns:
         XyloNeuronStateBuffer: A connected neuron / synapse state monitor buffer

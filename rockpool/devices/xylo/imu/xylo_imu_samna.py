@@ -77,7 +77,6 @@ class XyloIMUSamna(Module):
         self._device: XyloIMUHDK = device
         """ `.XyloHDK`: The Xylo HDK used by this module """
 
-        print("Store device")
         # - Register buffers to read and write events, monitor state
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
@@ -128,8 +127,6 @@ class XyloIMUSamna(Module):
         is_valid, msg = samna.xyloImu.validate_configuration(new_config)
         if not is_valid:
             raise ValueError(f"Invalid configuration for the Xylo HDK: {msg}")
-        else:
-            print("Config valid")
 
         # - Write the configuration to the device
         hdkutils.apply_configuration(self._device, new_config)
@@ -189,9 +186,6 @@ class XyloIMUSamna(Module):
             ``output`` is a raster ``(T, Nout)``, containing events for each channel in each time bin. Time bins in ``output`` correspond to the time bins in ``input``.
             ``new_state`` is an empty dictiionary. The Xylo HDK does not permit querying or setting state.
             ``record_dict`` is a dictionary containing recorded internal state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
-
-        Raises:
-            `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
         """
 
         # - Get the network size
