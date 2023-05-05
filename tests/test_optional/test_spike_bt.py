@@ -5,10 +5,6 @@ Test back-step spiking layer used for Deneve networks, as well as network implem
 import numpy as np
 
 
-def test_imports():
-    pass
-
-
 def test_RecFSSpikeEulerBT():
     """Test RecFSSpikeEulerBT"""
     from rockpool import timeseries as ts
