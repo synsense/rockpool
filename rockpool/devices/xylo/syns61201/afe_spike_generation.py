@@ -39,7 +39,7 @@ except ModuleNotFoundError as e:
         import subprocess
 
         current_dir = Path(__file__).parent.resolve()
-        cpp_library_name = "LIF spike generation"
+        cpp_library_name = "cpp_xylo_a2_spike_generation"
 
         if cpp_library_name not in os.listdir(current_dir):
             raise ModuleNotFoundError(
