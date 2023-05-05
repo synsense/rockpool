@@ -1,19 +1,14 @@
-import numpy as np
+# - Typing
+from typing import Optional, Union, Tuple
 
+import numpy as np
 import samna
 from samna.xyloImu.configuration import XyloConfiguration
 
-# - Typing
-from typing import Optional, Union, Callable, List, Tuple
-
-
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
-
-
-from .xylo_imu_devkit_utils import XyloIMUHDK
 from . import xylo_imu_devkit_utils as hdkutils
-import time
+from .xylo_imu_devkit_utils import XyloIMUHDK
 
 
 class XyloIMUSamna(Module):

@@ -1,9 +1,7 @@
 """
-Low-level device kit utilities for the SYNS61201 Xylo-A2 HDK
+Low-level device kit utilities for the Xylo-IMU HDK
 """
 
-import enum
-from ipaddress import IPv4Network
 from rockpool.utilities.backend_management import backend_available
 
 if not backend_available("samna"):
@@ -15,17 +13,11 @@ import samna
 from samna.xyloImu.configuration import XyloConfiguration
 
 # - Other imports
-from warnings import warn
 import time
 import numpy as np
-from pathlib import Path
-from os import makedirs
-import json
-from bitstruct import pack_dict, unpack_dict
-
 
 # - Typing and useful proxy types
-from typing import Any, List, Iterable, Optional, NamedTuple, Union, Tuple
+from typing import Any, List, Optional, NamedTuple, Tuple
 
 XyloIMUReadBuffer = samna.BasicSinkNode_xylo_imu_event_output_event
 XyloIMUWriteBuffer = samna.BasicSourceNode_xylo_imu_event_input_event
