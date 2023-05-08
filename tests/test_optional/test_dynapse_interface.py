@@ -3,7 +3,7 @@ Optional interfacing tests making sure that Dynap-SE2 HDK and computer connectio
 
 NOTE : The tests here requires a Dynap-SE2 HDK connected to the computer.
 """
-
+ 
 import pytest
 pytest.importorskip("samna")
 

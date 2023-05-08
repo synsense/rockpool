@@ -8,7 +8,7 @@ import pytest
 pytest.importorskip("samna") 
  
 from numpy.testing import assert_equal, assert_allclose, assert_array_equal
-
+ 
 
 def test_network_building_first_step():
     """

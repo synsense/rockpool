@@ -15,7 +15,7 @@ Notes:
         * ``test_full_config`` fails : one cannot save and reload samna configuration objects reliably
         * ``test_event`` or ``test_destination_key`` fails : DynapSamna interfacing, especially AER package delivery does not work
 """
-
+ 
 import pytest
 pytest.importorskip("samna")
 
