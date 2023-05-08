@@ -7,7 +7,6 @@ dependencies:
   - cudatoolkit
   - matplotlib
   - openblas
-  - nest-simulator=2
   - numba
   - numpy
   - pandas
