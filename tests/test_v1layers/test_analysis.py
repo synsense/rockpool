@@ -2,10 +2,12 @@
 Test analysis methods
 """
 
+
 def test_lv_FF():
     import numpy as np
     from rockpool import TSEvent
     from rockpool.analysis import lv, fano_factor
+
     # generate Poisson spike train
 
     numNeurons = 100

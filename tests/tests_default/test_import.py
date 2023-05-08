@@ -24,7 +24,9 @@ def test_submodule_import():
 
 def test_base_attributes():
     import rockpool
+
     print("Rockpool version", rockpool.__version__)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     test_base_attributes()

@@ -1,5 +1,6 @@
 import pytest
 
+
 def test_imports():
     from rockpool.nn.modules import Instant, InstantJax
 

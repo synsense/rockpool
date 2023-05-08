@@ -124,7 +124,6 @@ def test_ffwd_net():
     config.update("jax_enable_x64", True)
     config.update("jax_log_compiles", True)
     config.update("jax_debug_nans", True)
-    
 
     class my_ffwd_net(JaxModule):
         def __init__(self, shape, *args, **kwargs):
@@ -206,7 +205,6 @@ def test_sgd():
     config.update("jax_enable_x64", True)
     config.update("jax_log_compiles", True)
     config.update("jax_debug_nans", True)
-
 
     print("Instantiating sequential net")
     net = Sequential(LinearJax((2, 3)), LIFJax(3), LinearJax((3, 1)), LIFJax(1))

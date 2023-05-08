@@ -6,6 +6,7 @@ import pytest
 
 pytest.importorskip("jax")
 
+
 def test_imports():
     from rockpool.training.jax_loss import (
         mse,
@@ -17,6 +18,7 @@ def test_imports():
         softmax,
         logsoftmax,
     )
+
     # - Ensure that NaNs in compiled functions are errors
     from jax.config import config
 
