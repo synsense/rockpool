@@ -221,9 +221,18 @@ def torch_version_satisfied(
     if len(patch_vers) > 1:
         lib_patch, *lib_cuda = patch_vers
 
-    if int(lib_major) >= req_major:
-        if int(lib_minor) >= req_minor:
+    if int(lib_major) > req_major:
+        return True
+    elif int(lib_major) == req_major:
+        if int(lib_minor) > req_minor:
+            return True
+        elif int(lib_minor) == req_minor:
             if int(lib_patch) >= req_patch:
                 return True
+            else:
+                return False
+        else:
+            return False
 
-    return False
+    else:
+        return False
