@@ -139,9 +139,6 @@ These classes are deprecated, but are still usable via the high-level API, until
     nn.layers.FFExpSynBrian
     nn.layers.RecDIAF
 
-    nn.layers.FFIAFNest
-    nn.layers.RecIAFSpkInNest
-    nn.layers.RecAEIFSpkInNest
 
 Standard networks
 ------------------

@@ -15,8 +15,9 @@ if backend_available("samna"):
         Enumerate connected Xylo HDKs, and import the corresponding support module
 
         Returns:
-            List[AFEHDK]: A (possibly empty) list of AFE HDK nodes
+            List[AFEHDK]: A (possibly empty) list of HDK devices
             List[module]: A (possibly empty) list of python modules providing support for the corresponding Xylo HDK
+            List[str]: A (possibly empty) list containing the version string for each detected HDK
         """
         # - Get a list of devices
         device_list = samna.device.get_all_devices()
