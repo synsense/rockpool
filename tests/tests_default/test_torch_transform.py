@@ -319,7 +319,3 @@ def test_t_decay_net():
 
     assert qmodel[1]._mod.alpha == t_decay(init_alpha)
     assert qmodel[1]._mod.beta == t_decay(init_beta)
-
-
-if __name__ == "__main__":
-    test_transform_mod()
