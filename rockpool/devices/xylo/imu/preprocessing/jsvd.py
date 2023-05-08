@@ -18,6 +18,41 @@ from rockpool.nn.modules.module import Module
 __all__ = ["JSVD"]
 
 
+def type_check(func):
+    """Type-check decorator for IMU python simulation to make sure that all the input data are of type `python.object`.
+    This assures that the hardware and software will behave the same for all register sizes.
+
+    Args:
+        func (Callable): the function to be decorated.
+    """
+
+    def verify(input: List[np.ndarray]) -> None:
+        if isinstance(input, list):
+            if len(input) != 0:
+                for el in input:
+                    type_check(el)
+
+        elif isinstance(input, np.ndarray):
+            if input.dtype != object or type(input.ravel()[0]) != int:
+                raise ValueError(
+                    f"The elements of the following variable are not of type `python.object` integer. This may cause mismatch between hardware and python implementation."
+                    + f"problem with the following variable:\n{input}\n"
+                    + f"To solve the problem make sure that all the arrays have `dtype=object`. You can use `Quantizer` class in `quantizer.py` module."
+                )
+
+    @wraps(func)
+    def inner_func(*args, **kwargs):
+        for arg in args:
+            verify(arg)
+
+        for key in kwargs:
+            verify(kwargs[key])
+
+        return func(*args, **kwargs)
+
+    return inner_func
+
+
 class JSVD(Module):
     def __init__(
         self,
@@ -27,7 +62,7 @@ class JSVD(Module):
         nround: int = 4,
         shape: Optional[Union[Tuple, int]] = None,
     ) -> None:
-        """this module runs Jaccobu SVD algorithm in FPGA precision.
+        """Runs Jaccobi SVD algorithm in FPGA precision.
         this is the 2nd version of the algorithm and used joint matrix multiplication in order to reduce the
         number of multiplication operations.
 
@@ -35,7 +70,7 @@ class JSVD(Module):
             lookuptable (RotationLookUpTable): lookup table used for computation.
             num_bits_covariance (int): number of bits used for the covariance matrix.
             num_bits_rotation (int): number of bits devoted for implementing rotation matrix.
-            nround (int): number of round rotation computtaion and update is done over all 3 axes/dims.
+            nround (int): number of round rotation computation and update is done over all 3 axes/dims.
         """
         super().__init__(shape, spiking_input=False, spiking_output=False)
         self.lookuptable = lookuptable
@@ -181,7 +216,7 @@ class JSVD(Module):
 
                 # fetch the sin and cos values from the lookup table
                 # apply absolute values and use just positive values for fetching the row of
-                # lookup table since sign is alreday taken into account
+                # lookup table since sign is already taken into account
                 (
                     row_index,
                     angle_deg,
@@ -559,7 +594,7 @@ class JSVD(Module):
 
     def __str__(self) -> str:
         string = (
-            "JSVD module for comuting the rotation in IMU dataset:"
+            "JSVD module for computing the rotation in IMU dataset:"
             + f"number of bits used for covariance computation: {self.num_bits_covariance}\n"
             + f"number of bits used for rotation computation and storage: {self.num_bits_rotation}\n\n"
             + f"rotation lookuptable used for angle estimation:\n{self.lookuptable}"
