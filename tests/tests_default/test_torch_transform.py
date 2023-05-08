@@ -47,7 +47,7 @@ def test_transform_mod():
     tmod.as_graph()
 
     # - Test evolution
-    out, _, _ = tmod(torch.ones((T, Nin), requires_grad=True))
+    out, _, _ = tmod(torch.ones((T, Nin)))
     out.sum().backward()
 
     # - Make sure gradients are not zeroed
