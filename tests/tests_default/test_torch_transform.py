@@ -205,8 +205,8 @@ def test_deterministic_rounding():
     # verifying the output when input range and output range are None
     n = 16
     rounded_levels = deterministic_rounding(value, num_levels=n)
-    assert -abs(value).max() <= rounded_levels.min()
-    assert rounded_levels.max() <= abs(value).max()
+    assert -abs(value).max().item() <= rounded_levels.min().item()
+    assert rounded_levels.max().item() <= abs(value).max().item()
 
     # verifying mainain_zero with a non asymetric input:
     value = torch.linspace(0, 1, 11)
@@ -215,12 +215,12 @@ def test_deterministic_rounding():
     rounded_levels = deterministic_rounding(
         value, output_range=output_range, maintain_zero=False, num_levels=11
     )
-    assert rounded_levels.min() == output_range[0]
+    assert rounded_levels.min().item() == output_range[0]
 
     rounded_levels = deterministic_rounding(
         value, output_range=output_range, maintain_zero=True, num_levels=11
     )
-    assert rounded_levels.min() == value.min()
+    assert rounded_levels.min().item() == value.min().item()
 
 
 def test_int_quant():
@@ -319,3 +319,7 @@ def test_t_decay_net():
 
     assert qmodel[1]._mod.alpha == t_decay(init_alpha)
     assert qmodel[1]._mod.beta == t_decay(init_beta)
+
+
+if __name__ == "__main__":
+    test_deterministic_rounding()
