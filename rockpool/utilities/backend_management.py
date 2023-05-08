@@ -209,6 +209,21 @@ def list_backends():
 def torch_version_satisfied(
     req_major: int = 0, req_minor: int = 0, req_patch: int = 0
 ) -> bool:
+    """
+    Check if the installed version of torch satisfies a minimum version requirement
+
+    i.e.
+        torch 2.0.0 >= 1.12.0 : True
+        torch 1.12.0 >= 1.12.0 : True
+        torch 1.11.0 >= 1.12.0 : False
+    Args:
+        req_major (int): The minimum major version required
+        req_minor (int): The minimum minor version required
+        req_patch (int): The minimum patch version required
+
+    Returns:
+        bool: The installed version of torch satisfies the minimum version requirement
+    """
     if not backend_available("torch"):
         return False
 
