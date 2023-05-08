@@ -1,3 +1,8 @@
+"""
+Utilities for producing a samna HW configuration for Xylo IMU devices
+"""
+
+
 import numpy as np
 import samna
 
@@ -7,7 +12,7 @@ from warnings import warn
 
 
 # - Configure exports
-__all__ = ["config_from_specification"]
+__all__ = ["config_from_specification", "if_config_from_specification"]
 
 
 def config_from_specification(
@@ -28,7 +33,7 @@ def config_from_specification(
     aliases: Optional[List[List[int]]] = None,
     *args,
     **kwargs,
-):
+) -> samna.xyloImu.configuration.XyloConfiguration:
     """
     Convert a full network specification to a xylo config and validate it
 
@@ -241,3 +246,72 @@ def config_from_specification(
     # - Validate the configuration and return
     is_valid, message = samna.xyloImu.validate_configuration(config)
     return config, is_valid, message
+
+
+def if_config_from_specification(
+    num_avg_bitshift: int = 6,
+    select_iaf_output: bool = False,
+    sampling_period: int = 256,
+    filter_a1_list: list = [
+        -64700,
+        -64458,
+        -64330,
+        -64138,
+        -63884,
+        -63566,
+        -63185,
+        -62743,
+        -62238,
+        -61672,
+        -61045,
+        -60357,
+        -59611,
+        -58805,
+        -57941,
+    ],
+    filter_a2_list: list = [0x00007CBF] + [0x00007C0A] * 14,
+    scale_values: list = [8] * 15,
+    Bb_list: list = [6] * 15,
+    B_wf_list: list = [8] * 15,
+    B_af_list: list = [9] * 15,
+    iaf_threshold_values: list = [0x000007D0] * 15,
+    *args,
+    **kwargs,
+) -> samna.xyloImu.configuration.InputInterfaceConfig:
+    """
+    Configure the imu interface module
+
+    Args:
+        config (XyloConfiguration): a configuration for Xylo IMU
+        num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation
+        select_iaf_output (bool): if True, select the IAF neuron spike encoder; else, select the scale spike encoder
+        sampling_period (int): sampling period
+        filter_a1_list (list): list of a1 tap values
+        filter_a2_list (list): list of a2 tap values
+        scale_values (list): list of number of right-bit-shifts needed for down-scaling the input signal
+        Bb_list (list): list of bits needed for scaling b0
+        B_wf_list (list): list of bits needed for fractional part of the filter output
+        B_af_list (list): list of bits needed for encoding the fractional parts of taps
+        iaf_threshold_values (list): list of threshold values of IAF neurons
+
+    Return:
+        updated Xylo configuration
+    """
+
+    if_config = samna.xyloImu.configuration.InputInterfaceConfig()
+
+    # IMU interface hyperparameters
+    if_config.enable = True
+    if_config.estimator_k_setting = num_avg_bitshift  # num_avg_bitshift
+    if_config.select_iaf_output = select_iaf_output  # True if use IAF encoding
+    if_config.update_matrix_threshold = sampling_period - 1  # sampling_period
+    if_config.delay_threshold = 1
+    if_config.bpf_bb_values = Bb_list
+    if_config.bpf_bwf_values = B_wf_list
+    if_config.bpf_baf_values = B_af_list
+    if_config.bpf_a1_values = [i & 0x1FFFF for i in filter_a1_list]
+    if_config.bpf_a2_values = filter_a2_list
+    if_config.scale_values = scale_values  # num_scale_bits
+    if_config.iaf_threshold_values = iaf_threshold_values
+
+    return if_config

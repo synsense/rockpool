@@ -8,6 +8,7 @@ from samna.xyloImu.configuration import XyloConfiguration
 
 from . import xylo_imu_devkit_utils as hdkutils
 from .xylo_imu_devkit_utils import XyloIMUHDK
+from .xylo_samna import if_config_from_specification
 
 import time
 import numpy as np
@@ -15,7 +16,7 @@ from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 
 # - Typing
-from typing import Optional, Union, Callable, List
+from typing import Optional, Union, Callable, List, Tuple
 from warnings import warn
 
 try:
@@ -24,6 +25,9 @@ except ModuleNotFoundError:
 
     def tqdm(wrapped, *args, **kwargs):
         return wrapped
+
+
+from tqdm.autonotebook import trange
 
 
 # - Configure exports
@@ -102,7 +106,7 @@ class XyloIMUMonitor(Module):
         self.config: Union[
             XyloConfiguration, SimulationParameter
         ] = SimulationParameter(shape=(), init_func=lambda _: config)
-        self._config = config
+
         if hibernation_mode:
             self._config.enable_hibernation_mode = True
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
@@ -123,7 +127,7 @@ class XyloIMUMonitor(Module):
             self._io.set_main_clk_rate(self._main_clk_rate)
 
         # - Configure to auto mode
-        self.auto_config(interface_params)
+        self._enable_auto_mode(interface_params)
 
         # - Send first trigger to start to run full auto mode
         hdkutils.advance_time_step(self._write_buffer)
@@ -146,7 +150,7 @@ class XyloIMUMonitor(Module):
         # - Store the configuration locally
         self._config = new_config
 
-    def auto_config(self, interface_params: dict):
+    def _enable_auto_mode(self, interface_params: dict):
         """
         Configure the Xylo HDK to use real-time mode
 
@@ -158,13 +162,15 @@ class XyloIMUMonitor(Module):
         config = hdkutils.config_auto_mode(
             self._config, self.dt, self._main_clk_rate, self._io
         )
+
         # - Config the IMU interface and apply current configuration
-        self.config = hdkutils.config_if_module(config, **interface_params)
+        self.config.input_interface = if_config_from_specification(**interface_params)
+
         # - Set configuration and reset state buffer
         self._state_buffer.set_configuration(self._config)
         self._state_buffer.reset()
 
-    def evolve(self, input_data, record: bool = False) -> (list, dict, dict):
+    def evolve(self, input_data, record: bool = False) -> Tuple[list, dict, dict]:
         """
         Evolve a network on the Xylo HDK in Real-time mode
 

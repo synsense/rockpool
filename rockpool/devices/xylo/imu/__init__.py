@@ -1,3 +1,8 @@
+"""
+Support for Xylo-IMU devices
+"""
+
+
 from .imu_monitor import *
 from .xylo_imu_devkit_utils import *
 from .xylo_mapper import *
