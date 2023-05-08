@@ -53,7 +53,7 @@ def poisson_generator(rate, t_start=0.0, t_stop=1000.0, refractory=0):
         t_stop  - the end of the SpikeTrain (in ms)
     """
     import numpy as np
-    
+
     n = (t_stop - t_start) / 1000.0 * rate
     number = int(np.ceil(n + 3 * np.sqrt(n)))
     if number < 100:

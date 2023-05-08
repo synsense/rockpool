@@ -761,7 +761,6 @@ def test_event_raster():
     """
     from rockpool import TSEvent
 
-
     # - Build a test event time series
     testTSEvent = TSEvent([0, 30], 0, num_channels=4, t_stop=31)
 

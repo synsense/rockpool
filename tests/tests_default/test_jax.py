@@ -2,6 +2,7 @@ import pytest
 
 pytest.importorskip("jax")
 
+
 def test_imports():
     from rockpool.nn.modules import RateJax
     from rockpool.nn.modules import JaxModule
@@ -39,6 +40,7 @@ def test_rate_jax():
 
     import numpy as np
     from jax.config import config
+
     config.update("jax_log_compiles", True)
 
     # - Generate module
@@ -135,6 +137,7 @@ def test_rate_jax_tree():
     from rockpool.nn.modules import RateJax
     from jax.tree_util import tree_flatten, tree_unflatten
     from jax.config import config
+
     config.update("jax_log_compiles", True)
 
     mod = RateJax(2)
@@ -154,6 +157,7 @@ def test_ffwd_net():
     import numpy as np
     import jax.numpy as jnp
     from jax.config import config
+
     config.update("jax_log_compiles", True)
 
     class my_ffwd_net(JaxModule):
@@ -240,6 +244,7 @@ def test_sgd():
     import numpy as np
     import jax.numpy as jnp
     from jax.config import config
+
     config.update("jax_log_compiles", True)
 
     class my_ffwd_net(JaxModule):

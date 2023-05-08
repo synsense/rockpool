@@ -6,6 +6,7 @@ import pytest
 
 pytest.importorskip("nest")
 
+
 def test_import():
     from rockpool.nn.layers.iaf_nest import FFIAFNest
     from rockpool.nn.layers.iaf_nest import RecIAFSpkInNest
