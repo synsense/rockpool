@@ -7,6 +7,8 @@ All notable changes between Rockpool releases will be documented in this file.
 ### Added
 
 * New HowTo tutorial for performing constrained optimisation with torch and jax
+* Initial module structure for Xylo-IMU support
+  - ``XyloIMUMonitor`` implemented
 
 ### Changed
 
