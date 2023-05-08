@@ -21,9 +21,9 @@ def test_XyloMonitor():
     dt = 1e-3
 
     config, valid, msg = config_from_specification(
-        weights_in=np.random.uniform(-127, 127, size=(Nin, Nhidden, 2)),
+        weights_in=np.random.uniform(-127, 127, size=(Nin, Nhidden, 1)),
         weights_out=np.random.uniform(-127, 127, size=(Nhidden, Nout)),
-        weights_rec=np.random.uniform(-127, 127, size=(Nhidden, Nhidden, 2)),
+        weights_rec=np.random.uniform(-127, 127, size=(Nhidden, Nhidden, 1)),
         dash_mem=2 * np.ones(Nhidden),
         dash_mem_out=3 * np.ones(Nout),
         dash_syn=4 * np.ones(Nhidden),
