@@ -1,9 +1,8 @@
-import pytest
-
-pytest.importorskip("samna")
-
-
 def test_XyloMonitor():
+    import pytest
+
+    pytest.importorskip("samna")
+
     from rockpool.devices.xylo.imu import XyloIMUMonitor, config_from_specification
     import rockpool.devices.xylo.imu.xylo_imu_devkit_utils as putils
     import numpy as np
@@ -51,6 +50,10 @@ def test_XyloMonitor():
 
 
 def test_config_from_specification():
+    import pytest
+
+    pytest.importorskip("samna")
+
     from rockpool.devices.xylo.imu import config_from_specification, mapper
     from rockpool.transform import quantize_methods as q
     from rockpool.nn.modules import LIFTorch, LinearTorch
