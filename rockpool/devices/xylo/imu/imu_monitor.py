@@ -27,9 +27,6 @@ except ModuleNotFoundError:
         return wrapped
 
 
-from tqdm.autonotebook import trange
-
-
 # - Configure exports
 __all__ = ["XyloIMUMonitor"]
 

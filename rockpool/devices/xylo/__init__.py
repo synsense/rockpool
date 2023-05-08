@@ -4,7 +4,7 @@ Xylo-family device simulations, deployment and HDK support
 See Also:
     See :ref:`/devices/xylo-overview.ipynb`, :ref:`/devices/torch-training-spiking-for-xylo.ipynb` and :ref:`/devices/analog-frontend-example.ipynb` for documentation of this module.
 
-    Defines the subpackages :py:mod:`.syns61201`, :py:mod:`.syns61300`, :py:mod:`.syns65300`.
+    Defines the subpackages :py:mod:`.syns61201`, :py:mod:`.syns61300`, :py:mod:`.syns65300`, :py:mod:`.imu`.
 
     Use the function :py:func:`.find_xylo_hdks` to connect and identify an HDK, detect the correct version and import the required module for support.
 

@@ -6,13 +6,20 @@ Utilities for producing a samna HW configuration for Xylo IMU devices
 import numpy as np
 import samna
 
+from samna.xyloImu.configuration import XyloConfiguration, InputInterfaceConfig
+
 # - Typing
 from typing import Optional, Union, Callable, List
 from warnings import warn
 
 
 # - Configure exports
-__all__ = ["config_from_specification", "if_config_from_specification"]
+__all__ = [
+    "config_from_specification",
+    "if_config_from_specification",
+    "save_config",
+    "load_config",
+]
 
 
 def config_from_specification(
@@ -33,7 +40,7 @@ def config_from_specification(
     aliases: Optional[List[List[int]]] = None,
     *args,
     **kwargs,
-) -> samna.xyloImu.configuration.XyloConfiguration:
+) -> XyloConfiguration:
     """
     Convert a full network specification to a xylo config and validate it
 
@@ -277,7 +284,7 @@ def if_config_from_specification(
     iaf_threshold_values: list = [0x000007D0] * 15,
     *args,
     **kwargs,
-) -> samna.xyloImu.configuration.InputInterfaceConfig:
+) -> InputInterfaceConfig:
     """
     Configure the imu interface module
 
@@ -315,3 +322,36 @@ def if_config_from_specification(
     if_config.iaf_threshold_values = iaf_threshold_values
 
     return if_config
+
+
+def save_config(config: XyloConfiguration, filename: str) -> None:
+    """
+    Save a Xylo configuration to disk in JSON format
+
+    Args:
+        config (XyloConfiguration): The configuration to write
+        filename (str): The filename to write to
+    """
+    with open(filename, "w") as f:
+        f.write(config.to_json())
+
+
+def load_config(filename: str) -> XyloConfiguration:
+    """
+    Read a Xylo configuration from disk in JSON format
+
+    Args:
+        filename (str): The filename to read from
+
+    Returns:
+        `.XyloConfiguration`: The configuration loaded from disk
+    """
+    # - Create a new config object
+    conf = XyloConfiguration()
+
+    # - Read the configuration from file
+    with open(filename) as f:
+        conf.from_json(f.read())
+
+    # - Return the configuration
+    return conf
