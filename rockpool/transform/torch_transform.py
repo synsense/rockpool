@@ -225,7 +225,7 @@ def stochastic_rounding(
 
     output_param = levels_round * output_quantum + output_range[0]
 
-    return output_param
+    return torch.tensor(output_param)
 
 
 def stochastic_channel_rounding(
