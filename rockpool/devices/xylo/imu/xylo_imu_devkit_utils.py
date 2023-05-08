@@ -1,5 +1,5 @@
 """
-Low-level device kit utilities for the SYNS61201 Xylo-A2 HDK
+Low-level device kit utilities for the Xylo-IMU HDK
 """
 
 import enum
