@@ -3,10 +3,14 @@ This module implement a simple sample-and-hold module.
 This is not typically implemented like this in the hardware.
 However we can still use this for comparison.
 """
-from typing import Optional, Tuple, Union, Dict
+from typing import Dict, Optional, Tuple, Union
+
 import numpy as np
+
 from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 from rockpool.nn.modules.module import Module
+
+__all__ = ["SampleAndHold"]
 
 
 class SampleAndHold(Module):
