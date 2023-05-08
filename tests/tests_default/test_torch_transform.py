@@ -47,7 +47,7 @@ def test_transform_mod():
     tmod.as_graph()
 
     # - Test evolution
-    out, _, _ = tmod(torch.ones((T, Nin)))
+    out, _, _ = tmod(torch.ones((T, Nin), requires_grad=True))
     out.sum().backward()
 
     # - Make sure gradients are not zeroed
@@ -322,4 +322,4 @@ def test_t_decay_net():
 
 
 if __name__ == "__main__":
-    test_deterministic_rounding()
+    test_transform_mod()
