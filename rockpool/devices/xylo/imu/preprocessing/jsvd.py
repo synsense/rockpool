@@ -7,12 +7,12 @@ computes the 3 x 3 rotation matrix and 3 x 3 diagonal matrix.
     (iii)   This yields a higher precision in implementation of JSVD.
 """
 import warnings
-from typing import Any, Dict, List, Optional, Tuple, Union
+from functools import wraps
+from typing import List, Tuple
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.preprocessing.lookup import RotationLookUpTable
-from rockpool.devices.xylo.imu.preprocessing.utils import type_check
+from rockpool.devices.xylo.imu.preprocessing import RotationLookUpTable
 from rockpool.nn.modules.module import Module
 
 __all__ = ["JSVD"]
@@ -60,7 +60,6 @@ class JSVD(Module):
         num_bits_covariance: int,
         num_bits_rotation: int,
         nround: int = 4,
-        shape: Optional[Union[Tuple, int]] = None,
     ) -> None:
         """Runs Jaccobi SVD algorithm in FPGA precision.
         this is the 2nd version of the algorithm and used joint matrix multiplication in order to reduce the
@@ -72,7 +71,7 @@ class JSVD(Module):
             num_bits_rotation (int): number of bits devoted for implementing rotation matrix.
             nround (int): number of round rotation computation and update is done over all 3 axes/dims.
         """
-        super().__init__(shape, spiking_input=False, spiking_output=False)
+
         self.lookuptable = lookuptable
         self.num_bits_covariance = num_bits_covariance
         self.num_bits_rotation = num_bits_rotation
@@ -81,12 +80,11 @@ class JSVD(Module):
     @type_check
     def evolve(
         self, C_in: np.ndarray, record: bool = False
-    ) -> Tuple[Tuple[np.ndarray, np.ndarray], Dict[str, Any], Dict[str, Any]]:
+    ) -> Tuple[List[np.ndarray], List[np.ndarray], np.ndarray, np.ndarray]:
         """Run Jaccobi-SVD and return all the intermediate states.
 
         Args:
             C_in (np.ndarray): 3 x 3 covariance matrix.
-            record (bool, optional): whether to record the intermediate states or not. Defaults to False.
 
         Raises:
             ValueError: The input covariance matrix should be 3 x 3.
@@ -97,12 +95,11 @@ class JSVD(Module):
             ValueError: Negative value in the diagonal matrix D!
 
         Returns:
-            Tuple[Tuple[np.ndarray, np.ndarray], Dict[str, Any], Dict[str, Any]]:
+            Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
                 R_list (List[np.ndarray]): list of rotation matrices.
                 C_list (List[np.ndarray]): list of covariance matrices.
-                    record (Dict[str, Any]): dictionary of intermediate states.
-                    stats (Dict[str, Any]): dictionary of statistics.
-
+                R_last_sorted (np.ndaray): the last rotation matrix after sorting.
+                C_last_sorted (np.ndarray): the last covariance matrix after sorting.
         """
         # check the dimensions and apply other sanity checks
         row, col = C_in.shape
