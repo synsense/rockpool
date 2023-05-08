@@ -36,7 +36,7 @@ def type_check(func):
             if input.dtype != object or type(input.ravel()[0]) != int:
                 raise ValueError(
                     f"The elements of the following variable are not of type `python.object` integer. This may cause mismatch between hardware and python implementation."
-                    + f"problem with the follpowing variable:\n{input}\n"
+                    + f"problem with the following variable:\n{input}\n"
                     + f"To solve the problem make sure that all the arrays have `dtype=object`. You can use `Quantizer` class in `quantizer.py` module."
                 )
 
@@ -61,7 +61,7 @@ class JSVD(Module):
         num_bits_rotation: int,
         nround: int = 4,
     ) -> None:
-        """this module runs Jaccobu SVD algorithm in FPGA precision.
+        """Runs Jaccobi SVD algorithm in FPGA precision.
         this is the 2nd version of the algorithm and used joint matrix multiplication in order to reduce the
         number of multiplication operations.
 
@@ -69,7 +69,7 @@ class JSVD(Module):
             lookuptable (RotationLookUpTable): lookup table used for computation.
             num_bits_covariance (int): number of bits used for the covariance matrix.
             num_bits_rotation (int): number of bits devoted for implementing rotation matrix.
-            nround (int): number of round rotation computtaion and update is done over all 3 axes/dims.
+            nround (int): number of round rotation computation and update is done over all 3 axes/dims.
         """
 
         self.lookuptable = lookuptable
@@ -213,7 +213,7 @@ class JSVD(Module):
 
                 # fetch the sin and cos values from the lookup table
                 # apply absolute values and use just positive values for fetching the row of
-                # lookup table since sign is alreday taken into account
+                # lookup table since sign is already taken into account
                 (
                     row_index,
                     angle_deg,
@@ -591,7 +591,7 @@ class JSVD(Module):
 
     def __str__(self) -> str:
         string = (
-            "JSVD module for comuting the rotation in IMU dataset:"
+            "JSVD module for computing the rotation in IMU dataset:"
             + f"number of bits used for covariance computation: {self.num_bits_covariance}\n"
             + f"number of bits used for rotation computation and storage: {self.num_bits_rotation}\n\n"
             + f"rotation lookuptable used for angle estimation:\n{self.lookuptable}"
