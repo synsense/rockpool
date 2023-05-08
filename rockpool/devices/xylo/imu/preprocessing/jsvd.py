@@ -12,7 +12,7 @@ from typing import List, Tuple
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.preprocessing import RotationLookUpTable
+from rockpool.devices.xylo.imu.preprocessing.lookup import RotationLookUpTable
 from rockpool.nn.modules.module import Module
 
 __all__ = ["JSVD"]
