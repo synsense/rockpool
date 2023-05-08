@@ -46,7 +46,7 @@ class SampleAndHold(Module):
 
         # additional care with 1-dim array
         if len(sig_in_shape) == 1:
-            sig_in = sig_in.reshape(1, -1)
+            raise ValueError("The input signal should be at least 2-dim!")
 
         sig_out = np.zeros_like(sig_in)
 
