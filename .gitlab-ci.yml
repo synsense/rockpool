@@ -16,6 +16,8 @@ unit_tests:
     - python -c 'import samna'
     - pip install 'sinabs-exodus>=1.1' || exit_code=$?
     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
+    - echo 'export PATH=/usr/local/cuda/bin${PATH:+:${PATH}}' >> ~/.bashrc
+    - source ~/.bashrc
 
   script:
     - pytest -v tests/tests_default -n 4 --forked
@@ -32,7 +34,7 @@ optional_tests:
     - pip install --upgrade .[all] --no-cache-dir
 
   script:
-      - pytest -v tests/test_optional -n 4
+    - pytest -v tests/test_optional -n 4
 
 documentation_linting:
   stage: docs
