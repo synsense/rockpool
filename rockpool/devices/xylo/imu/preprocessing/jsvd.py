@@ -98,7 +98,7 @@ class JSVD(Module):
             Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
                 R_list (List[np.ndarray]): list of rotation matrices.
                 C_list (List[np.ndarray]): list of covariance matrices.
-                R_last_sorted (np.ndaray): the last rotation matrix after sorting.
+                R_last_sorted (np.ndarray): the last rotation matrix after sorting.
                 C_last_sorted (np.ndarray): the last covariance matrix after sorting.
         """
         # check the dimensions and apply other sanity checks
@@ -155,7 +155,7 @@ class JSVD(Module):
                 # print(f"JSVD: early termination n_round: {n_round}, dim: {dim} (out of [3, 2, 1])!")
                 break
 
-            # otherwise continue bu iterating over dimensions ....
+            # otherwise continue by iterating over dimensions ....
             for dim in range(0, 3)[-1::-1]:
                 # dim starts as 2 -> 1 -> 0
                 # update the number of iteration
@@ -391,7 +391,7 @@ class JSVD(Module):
                 R2_embed_in_3d[selection == 1] = R2.ravel()
                 # old version
                 # R2_embed_in_3d[dim,dim] = (2**self.lookuptable.num_bits)-1
-                # new version: to reduced the number of multiplications
+                # new version: to reduce the number of multiplications
                 R2_embed_in_3d[dim, dim] = 2**self.lookuptable.num_bits
 
                 # NOTE: example for dim=1
