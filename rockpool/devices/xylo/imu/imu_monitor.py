@@ -45,7 +45,6 @@ class XyloIMUMonitor(Module):
         self,
         device: XyloIMUHDK,
         config: XyloConfiguration = None,
-        dt: float = 1e-3,
         output_mode: str = "Spike",
         main_clk_rate: Optional[int] = Default_Main_Clock_Rate,
         hibernation_mode: bool = False,
@@ -59,7 +58,6 @@ class XyloIMUMonitor(Module):
         Args:
             device (XyloIMUHDK): An opened `samna` device to a Xylo dev kit
             config (XyloConfiguraration): A Xylo configuration from `samna`
-            dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Vmem"]``. Default: "Spike", return events from the output layer.
             main_clk_rate(int): The main clock rate of Xylo
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
@@ -109,7 +107,9 @@ class XyloIMUMonitor(Module):
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Store the timestep
-        self.dt: Union[float, SimulationParameter] = dt
+        self.dt: Union[float, SimulationParameter] = (
+            1 / 400
+        )  # Fixed sampling rate of 400Hz for Xylo IMU
         """ float: Simulation time-step of the module, in seconds """
 
         # - Store the main clock rate
