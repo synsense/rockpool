@@ -35,7 +35,3 @@ def test_quantization_num_bits():
     # Check that output is equal to expected_output
     expected_output = np.array([8, -8, 1, 0])
     assert_array_equal(output, expected_output)
-
-
-if __name__ == "__main__":
-    test_quantization_num_bits()
