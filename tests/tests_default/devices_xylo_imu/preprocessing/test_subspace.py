@@ -70,8 +70,3 @@ def test_subspace():
         np.array(C_flat_norm, dtype=float),
         atol=1e-5,
     )
-
-
-if __name__ == "__main__":
-    test_SubSpace()
-    print("end of simulation of subspace module!")
