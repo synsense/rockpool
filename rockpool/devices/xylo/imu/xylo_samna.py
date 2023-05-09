@@ -208,18 +208,16 @@ def config_from_specification(
     config.hidden.weight_bit_shift = weight_shift_rec
     config.readout.weight_bit_shift = weight_shift_out
     if weights_in.shape[1] > 128:
-        warn(
-            "More than 128 input expantion neurons (IEN) detected. Only the first 128 will be used."
+        raise ValueError(
+            "More than 128 input expantion neurons (IEN) detected. Only 128 IEN are available on Xylo."
         )
-        config.input.weights = weights_in[:, :128, 0]
     else:
         config.input.weights = weights_in[:, :, 0]
     config.hidden.weights = weights_rec[:, :, 0]
     if weights_out.shape[1] > 128:
-        warn(
-            "More than 128 output expantion neurons (OEN) detected. Only the last 128 will be used."
+        raise ValueError(
+            "More than 128 output expantion neurons (OEN) detected. Only 128 OEN are available on Xylo."
         )
-        config.readout.weights = weights_out[-128:, :]
     else:
         config.readout.weights = weights_out
 
