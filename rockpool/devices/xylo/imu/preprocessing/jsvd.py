@@ -34,7 +34,7 @@ def type_check(func):
 
         elif isinstance(input, np.ndarray):
             if input.dtype != object or type(input.ravel()[0]) != int:
-                raise ValueError(
+                raise TypeError(
                     f"The elements of the following variable are not of type `python.object` integer. This may cause mismatch between hardware and python implementation."
                     + f"problem with the following variable:\n{input}\n"
                     + f"To solve the problem make sure that all the arrays have `dtype=object`. You can use `Quantizer` class in `quantizer.py` module."
