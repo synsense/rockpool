@@ -126,8 +126,8 @@ class JSVD(Module):
             )
 
         # --- initialization and history of computation
-        COV_EXTRA_BIT = 2  # because the components of the covariance can enlarger by a factor 3 (at most), thus, an additional regsiter size of 2
-        ROT_EXTRA_BIT = 1  # rotation can expand at most by a fcator during the multiplication, thus, an additional register size of 1
+        COV_EXTRA_BIT = 2  # because the components of the covariance can enlarger by a factor 3 (at most), thus, an additional register size of 2
+        ROT_EXTRA_BIT = 1  # rotation can expand at most by a factor during the multiplication, thus, an additional register size of 1
 
         # estimated covariance matrices
         C_list = [C_in]
@@ -165,7 +165,7 @@ class JSVD(Module):
                 # we do this by using the following `selection matrix`
                 selection = self.selection_matrix(dim=dim)
 
-                # `selection matrix` specifies which 2 x 2 submatrix should be used
+                # `selection matrix` specifies which 2 x 2 sub-matrix should be used
                 #
                 # 3 possible cases depending on dim in {0, 1, 2}
                 #
@@ -181,15 +181,15 @@ class JSVD(Module):
                 #          |b  c  *|     |b  c|                       |1  1  0|
                 #          |*  *  *|                                  |0  0  0|
 
-                # choose the submatrix
+                # choose the sub-matrix
                 sub_matrix_D = np.copy(D[selection == 1]).reshape(2, 2)
 
-                # extract the three values in the 2 x 2 submatrix
-                # NOTE: the submatrix is symmetric.
+                # extract the three values in the 2 x 2 sub-matrix
+                # NOTE: the sub-matrix is symmetric.
                 a, b, c = sub_matrix_D[0, 0], sub_matrix_D[0, 1], sub_matrix_D[1, 1]
 
                 # NOTE: an additional early termination here
-                # if b==0, the 2 x 2 submatrix is already diagonal so no need to apply JSVD to diagonalize it.
+                # if b==0, the 2 x 2 sub-matrix is already diagonal so no need to apply JSVD to diagonalize it.
                 # skip JUST this dim: other dims may still need computation.
                 if b == 0:
                     # do not run this iteration ...
@@ -285,7 +285,7 @@ class JSVD(Module):
                         self.num_bits_covariance - 1 + COV_EXTRA_BIT
                     ):
                         raise ValueError(
-                            "over- or under-flow happened in upding the almost-diagonal matrix D!"
+                            "over- or under-flow happened in updating the almost-diagonal matrix D!"
                         )
 
                 # check the sign and make sure there is no problem on the diagonal elements
@@ -304,7 +304,7 @@ class JSVD(Module):
 
                 # update the column vector and (dim, dim)-diagonal element in the not-selected part of C
                 # NOTE: as an example
-                # if dim=1  we select the 2 x 2 submatrix containing the elements (a, b, c) -> after the update we obtain (a_new, 0, c_new)
+                # if dim=1  we select the 2 x 2 sub-matrix containing the elements (a, b, c) -> after the update we obtain (a_new, 0, c_new)
                 # we need to also update the 2 x 1 vector containing (*, x) and also the diagonal element `+` at location (1,1) in the matrix
                 # |a  *  b|
                 # |*  +  x|
@@ -334,7 +334,7 @@ class JSVD(Module):
                     self.num_bits_covariance - 1 + COV_EXTRA_BIT
                 ):
                     raise ValueError(
-                        "over- or under-flow happened in updating the diagonl matrix D!"
+                        "over- or under-flow happened in updating the diagonal matrix D!"
                     )
 
                 ## - Uncomment in debug mode - ##
@@ -391,7 +391,7 @@ class JSVD(Module):
                 R2_embed_in_3d[selection == 1] = R2.ravel()
                 # old version
                 # R2_embed_in_3d[dim,dim] = (2**self.lookuptable.num_bits)-1
-                # new version: to reducd the number of multiplications
+                # new version: to reduced the number of multiplications
                 R2_embed_in_3d[dim, dim] = 2**self.lookuptable.num_bits
 
                 # NOTE: example for dim=1
