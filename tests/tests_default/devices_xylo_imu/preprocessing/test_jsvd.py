@@ -103,7 +103,3 @@ def test_JSVD_low_rank_gravity():
         deviation_list.append(deviation)
 
     print(deviation_list)
-
-
-if __name__ == "__main__":
-    test_JSVD_low_rank_gravity()
