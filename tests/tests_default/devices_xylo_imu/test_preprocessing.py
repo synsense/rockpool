@@ -3,6 +3,10 @@ Tests for quantization preprocessing module
 """
 
 
+def test_import():
+    from rockpool.devices.xylo.imu.preprocessing import Quantizer
+
+
 def test_quantization():
     import numpy as np
     from numpy.testing import assert_array_equal
