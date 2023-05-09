@@ -11,7 +11,7 @@ class RotationLookUpTable:
     def __init__(self, num_angles: int, num_bits: int) -> None:
         """A lookup table for JSVD algorithm.
         The range of angles for lookup tables are [0, 45] and they are quantized into `num_angles` angle bins.
-        The data for each angle is quantized/trancated into `num_bits` bits.
+        The data for each angle is quantized/truncated into `num_bits` bits.
 
         Args:
             num_angles (int): number of angles in lookup table.
@@ -26,7 +26,7 @@ class RotationLookUpTable:
         """
         To make sure that the lookup table has a good precision we do the following:
             (i)     we always work with angles in the range [0, 45] degrees.
-            (ii)    since the tan(2 theta) ranges in [0, infty] to avoid loss of precision,
+            (ii)    since the tan(2 theta) ranges in [0, infinity] to avoid loss of precision,
                         - we use tan(2 theta) for theta in [0, 22.5]
                         - we use cot(2 theta) for theta in [22.5, 45].
             (iii)   the lookup table consists of
@@ -35,7 +35,7 @@ class RotationLookUpTable:
                         - 1/sin(2 theta) in the range [22.5, 45]
                         - 1/cos(2 theta) in the range [0, 22.5]
 
-            (iv)       the row of the lookup table used depends on how abs(2b) comparse with abs(a-c) in the 2D submatrix
+            (iv)       the row of the lookup table used depends on how abs(2b) compare with abs(a-c) in the 2D sub-matrix
                        |a  b|
                        |b  c|
         """
@@ -72,8 +72,8 @@ class RotationLookUpTable:
         self.inv_2sin2_vals = 1 / (2 * np.sin(2 * self.angles_radian) + EPS)
         self.inv_2sin2_vals[ind_low_angle == True] = np.nan
 
-        # compute the quanized values:
-        #   (i)     switch to python-version with inifinite number of bits
+        # compute the quantized values:
+        #   (i)     switch to python-version with infinite number of bits
         #   (ii)    add EPS to make sure that all the values are smaller than 1 and can fit in num_bits after quantization
         # NOTE: all the values are positive in the lookup table
 
@@ -123,7 +123,7 @@ class RotationLookUpTable:
 
     @bucket_decorator
     def find_angle(self, a: int, b: int, c: int) -> tuple:
-        """this module computes the best angle in lookup table that matches the given `a`, `b`, `c` parametets.
+        """this module computes the best angle in lookup table that matches the given `a`, `b`, `c` parameters.
         For further details see the paper-dropbox document:
         https://paper.dropbox.com/doc/Hardware-implementation-of-3-x-3-SVD-for-IMU-preprocessing--Bnj3EbtGBF9Th1GUqYAFXn_3Ag-g16myO9A46nqYVLmFkNgQ
 
@@ -156,7 +156,7 @@ class RotationLookUpTable:
             row_index = self.num_angles - 1
 
         else:
-            # here we follow one of these two metheds
+            # here we follow one of these two methods
             if abs(2 * b) <= abs(a - c):
                 # in this case `0<= tan(2 theta) <= 1` and angle is in the range [0, 22.5] degrees.
                 # NOTE: here we should use the `tan(2 theta)` values to find the corresponding row of the lookup table.
@@ -282,7 +282,7 @@ class RotationLookUpTable:
 
     def __str__(self) -> str:
         """
-        return the decimal format of the lookuptable.
+        return the decimal format of the lookup table.
         """
         return self.print_table(
             format="dec",
