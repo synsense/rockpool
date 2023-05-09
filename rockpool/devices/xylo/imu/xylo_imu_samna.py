@@ -11,6 +11,41 @@ from . import xylo_imu_devkit_utils as hdkutils
 from .xylo_imu_devkit_utils import XyloIMUHDK
 
 
+
+
+def save_config(config: XyloConfiguration, filename: str) -> None:
+    """
+    Save a Xylo configuration to disk in JSON format
+
+    Args:
+        config (XyloConfiguration): The configuration to write
+        filename (str): The filename to write to
+    """
+    with open(filename, "w") as f:
+        f.write(config.to_json())
+
+
+def load_config(filename: str) -> XyloConfiguration:
+    """
+    Read a Xylo configuration from disk in JSON format
+
+    Args:
+        filename (str): The filename to read from
+
+    Returns:
+        `.XyloConfiguration`: The configuration loaded from disk
+    """
+    # - Create a new config object
+    conf = XyloConfiguration()
+
+    # - Read the configuration from file
+    with open(filename) as f:
+        conf.from_json(f.read())
+
+    # - Return the configuration
+    return conf
+
+
 class XyloIMUSamna(Module):
     """
     A spiking neuron :py:class:`.Module` backed by the Xylo hardware, via `samna`.
@@ -83,14 +118,6 @@ class XyloIMUSamna(Module):
         # - Store the timestep
         self.dt: Union[float, SimulationParameter] = dt
         """ float: Simulation time-step of the module, in seconds """
-
-        # # - Check that we can access the device node, and that it's a Xylo HDK
-        # if not hdkutils.verify_xylo_version(
-        #     self._read_buffer, self._write_buffer, timeout=10.0
-        # ):
-        #     raise ValueError(
-        #         "Cannot verify HDK version. `device` must be an opened Xylo HDK."
-        #     )
 
         # - Store the configuration (and apply it)
         self.config: Union[
