@@ -49,7 +49,3 @@ def test_lookup_table():
     assert_almost_equal(cos_val, np.cos(true_angle), decimal=1)
     assert_almost_equal(inv_2sin2_val, 1 / (2 * np.sin(2 * true_angle)), decimal=1)
     assert_almost_equal(cot2_val, 1 / np.tan(2 * true_angle), decimal=1)
-
-
-if __name__ == "__main__":
-    test_lookup_table()
