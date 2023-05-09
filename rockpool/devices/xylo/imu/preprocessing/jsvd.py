@@ -597,36 +597,3 @@ class JSVD(Module):
             + f"rotation lookuptable used for angle estimation:\n{self.lookuptable}"
         )
         return string
-
-
-if __name__ == "__main__":
-    from quantizer import Quantizer
-
-    num_angles = 64
-    num_bits = 16
-    lut = RotationLookUpTable(num_angles=num_angles, num_bits=num_bits)
-
-    # create the JSVD module
-    jsvd = JSVD(
-        lookuptable=lut,
-        num_bits_covariance=num_bits + 10,
-        num_bits_rotation=num_bits + 10,
-    )
-
-    # create the covariance matrix
-    C = np.random.rand(3, 3)
-    C = C @ C.T
-
-    # create a quantizer module
-    quantizer = Quantizer(None, scale=0.999 / np.max(np.abs(C)), num_bits=num_bits)
-    C, _, _ = quantizer(C)
-
-    # run the JSVD module
-    R_list, C_list, R_last, C_last = jsvd.evolve(C)
-
-    # print the results
-    print(f"the input covariance matrix:\n{C}\n")
-    print(f"the final covariance matrix:\n{C_last}\n")
-    print(f"the final rotation matrix:\n{R_last}\n")
-    print(f"the list of covariance matrices:\n{C_list}\n")
-    print(f"the list of rotation matrices:\n{R_list}\n")
