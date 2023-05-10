@@ -207,9 +207,9 @@ def test_xylo_vs_xylosim():
         pytest.skip("A connected Xylo IMU HDK is required to run this test")
 
     # - Init Xylo
-    mod_xylo_vmem = x.XyloSamna(daughterboard, conf, dt=1e-3, output_mode="Vmem")
-    mod_xylo_isyn = x.XyloSamna(daughterboard, conf, dt=1e-3, output_mode="Isyn")
-    mod_xylo_spike = x.XyloSamna(daughterboard, conf, dt=1e-3)
+    mod_xylo_vmem = x.XyloImuSamna(daughterboard, conf, dt=1e-3, output_mode="Vmem")
+    mod_xylo_isyn = x.XyloImuSamna(daughterboard, conf, dt=1e-3, output_mode="Isyn")
+    mod_xylo_spike = x.XyloImuSamna(daughterboard, conf, dt=1e-3)
 
     # - Evolve Xylo
     mod_xylo_spike.reset_state()
