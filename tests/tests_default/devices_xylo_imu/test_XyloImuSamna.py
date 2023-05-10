@@ -161,7 +161,7 @@ def test_xylo_vs_xylosim():
     Nin = 3
     Nhidden = 5
     Nout = 2
-    dt = 1e-3
+    T = 1000
 
     config, valid, msg = config_from_specification(
         weights_in=np.random.uniform(-127, 127, size=(Nin, Nhidden, 2)),
