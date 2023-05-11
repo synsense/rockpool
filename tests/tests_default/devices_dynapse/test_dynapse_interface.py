@@ -4,14 +4,16 @@ Optional interfacing tests making sure that Dynap-SE2 HDK and computer connectio
 NOTE : The tests here requires a Dynap-SE2 HDK connected to the computer.
 """
 
-import pytest
-
 
 def test_time_stamp():
     """
     test_time_stamp tries to connect to the HDK and read the time stamp reported by the FPGA.
     It compares the FPGA time with the clock time
     """
+    import pytest
+
+    pytest.importorskip("samna")
+
     from numpy.testing import assert_allclose
     from rockpool.devices.dynapse import find_dynapse_boards, DynapseSamna
     import samna

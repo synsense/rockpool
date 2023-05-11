@@ -1,13 +1,16 @@
-import pytest
-
-pytest.importorskip("brian2")
-
-
 def test_imports():
+    import pytest
+
+    pytest.importorskip("brian2")
+
     from rockpool.nn.layers.exp_synapses_brian import FFExpSynBrian
 
 
 def test_FFExpSynBrian():
+    import pytest
+
+    pytest.importorskip("brian2")
+
     from rockpool.nn.layers.exp_synapses_brian import FFExpSynBrian
     from rockpool.timeseries import TSContinuous, TSEvent
     import numpy as np

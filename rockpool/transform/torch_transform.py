@@ -40,7 +40,8 @@ import copy
 import rockpool.utilities.tree_utils as tu
 
 __all__ = [
-    "stochastic_rounding," "stochastic_channel_rounding",
+    "stochastic_rounding",
+    "stochastic_channel_rounding",
     "deterministic_rounding",
     "dropout",
     "make_param_T_config",

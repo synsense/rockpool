@@ -1,7 +1,6 @@
 """
 Test library integrity
 """
-import pytest
 
 
 def test_import():
@@ -26,6 +25,11 @@ def test_base_attributes():
     import rockpool
 
     print("Rockpool version", rockpool.__version__)
+
+
+def test_backend_query():
+    import pytest
+    import rockpool
 
     pytest.skip("FIXME: Crashes worker for no good reason")
     rockpool.list_backends()
