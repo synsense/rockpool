@@ -8,8 +8,6 @@ import pytest
 
 pytest.importorskip("samna")
 
-from numpy.testing import assert_equal, assert_allclose, assert_array_equal
-
 
 def test_network_building_first_step():
     """
@@ -21,6 +19,7 @@ def test_network_building_first_step():
     from rockpool.nn.modules import LinearJax
     from rockpool.nn.combinators import Sequential
     from rockpool.devices.dynapse import DynapSim
+    from numpy.testing import assert_equal
 
     # - Path building
     __dirname__ = os.path.dirname(os.path.abspath(__file__))
@@ -56,6 +55,7 @@ def test_net_from_spec():
     from rockpool.nn.modules import LinearJax
     from rockpool.nn.combinators import Sequential
     from rockpool.devices.dynapse import DynapSim
+    from numpy.testing import assert_equal, assert_array_equal
 
     # - Path building
     __dirname__ = os.path.dirname(os.path.abspath(__file__))
@@ -106,6 +106,7 @@ def test_net_from_spec_mismatch():
     from rockpool.nn.modules import LinearJax
     from rockpool.nn.combinators import Sequential
     from rockpool.devices.dynapse import DynapSim
+    from numpy.testing import assert_equal, assert_allclose
 
     # - Path building
     __dirname__ = os.path.dirname(os.path.abspath(__file__))
@@ -154,6 +155,7 @@ def test_quantization():
     from rockpool.nn.modules import LinearJax
     from rockpool.nn.combinators import Sequential
     from rockpool.devices.dynapse import DynapSim
+    from numpy.testing import assert_equal, assert_allclose, assert_array_equal
 
     # - Path building
     __dirname__ = os.path.dirname(os.path.abspath(__file__))
@@ -218,6 +220,7 @@ def test_network_from_config():
     from rockpool.nn.modules import LinearJax
     from rockpool.nn.combinators import Sequential
     from rockpool.devices.dynapse import DynapSim
+    from numpy.testing import assert_allclose
 
     # - Path building
     __dirname__ = os.path.dirname(os.path.abspath(__file__))

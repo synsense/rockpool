@@ -4,10 +4,6 @@ pytest.importorskip("samna")
 pytest.importorskip("xylosim")
 
 
-def test_imports():
-    pass
-
-
 def test_configure():
     # - Samna imports
     from samna.xylo.configuration import ReservoirNeuron, OutputNeuron

@@ -2,13 +2,12 @@
 Test FFUpDown layer in updown.py
 """
 
-import numpy as np
-
 
 def test_updown():
     """Test FFUpDown"""
     from rockpool import TSContinuous
     from rockpool.nn.layers import FFUpDown
+    import numpy as np
 
     # - Generic parameters
     weights = np.random.rand(2, 4)

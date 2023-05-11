@@ -104,11 +104,11 @@ def test_pipeline_v1():
 
 def test_rec_rockpool():
     try:
-        from rockpool.devices.xylo import mapper
-        from rockpool.devices.xylo import config_from_specification
-        from rockpool.devices.xylo import XyloSim
+        from rockpool.devices.xylo.syns61300 import mapper
+        from rockpool.devices.xylo.syns61300 import config_from_specification
+        from rockpool.devices.xylo.syns61300 import XyloSim
     except:
-        return
+        pytest.skip("Xylo SYNS61300 package is not installed!")
 
     import numpy as np
     import torch
