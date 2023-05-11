@@ -210,6 +210,9 @@ def test_network_from_config():
     The weight parameters are deviated a lot because of quantization
     The network parameters will be deviated less due to bias parameter selection
     """
+    import pytest
+
+    pytest.importorskip("samna")
 
     ### --- Preliminaries --- ###
     import os
