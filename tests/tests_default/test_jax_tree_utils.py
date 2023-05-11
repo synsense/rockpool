@@ -1,14 +1,17 @@
-import pytest
-
-pytest.importorskip("jax")
-
-
 def test_imports():
+    import pytest
+
+    pytest.importorskip("jax")
+
     import rockpool.utilities.jax_tree_utils as jtu
     from jax.config import config
 
 
 def test_tree_map_reduce_select():
+    import pytest
+
+    pytest.importorskip("jax")
+
     import rockpool.utilities.jax_tree_utils as jtu
     from jax.config import config
     import jax.numpy as jnp
@@ -49,6 +52,10 @@ def test_tree_map_reduce_select():
 
 
 def test_tree_map_select():
+    import pytest
+
+    pytest.importorskip("jax")
+
     import rockpool.utilities.jax_tree_utils as jtu
 
     test_tree = {
@@ -80,6 +87,10 @@ def test_tree_map_select():
 
 
 def test_tree_map_select_with_rng():
+    import pytest
+
+    pytest.importorskip("jax")
+
     import rockpool.utilities.jax_tree_utils as jtu
     import jax
 
@@ -114,6 +125,10 @@ def test_tree_map_select_with_rng():
 
 
 def test_tree_map_with_rng():
+    import pytest
+
+    pytest.importorskip("jax")
+
     import rockpool.utilities.jax_tree_utils as jtu
     import jax
 
