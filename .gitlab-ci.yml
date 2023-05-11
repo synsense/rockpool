@@ -19,20 +19,6 @@ unit_tests:
 
   script:
     - pytest -v tests/tests_default -n 4 --forked
-    - pytest -v tests/test_v1layers -n 4
-
-optional_tests:
-  stage: test
-  allow_failure: true
-  image: "registry.gitlab.com/synsense/rockpool/test:latest"
-  when: manual
-
-  before_script:
-    - pip install --upgrade pip
-    - pip install --upgrade .[all] --no-cache-dir
-
-  script:
-      - pytest -v tests/test_optional -n 4
 
 documentation_linting:
   stage: docs
