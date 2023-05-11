@@ -2,24 +2,17 @@
 Test Brian-based spiking layers from layers.internal.iaf_brian and layers.recurrent.iaf_brian
 """
 
-import pytest
-
-pytest.importorskip("brian2")
-
-import numpy as np
-
-
-# def test_imports():
-#    from rockpool.layers import iaf_brian
-#
-#    # from rockpool.layers import iaf_brian
-
 
 def test_ffiaf():
+    import pytest
+
+    pytest.importorskip("brian2")
+
     """Test FFIAFBrian"""
     from brian2 import second
     from rockpool import timeseries as ts
     from rockpool.nn.layers.iaf_brian import FFIAFBrian
+    import numpy as np
 
     # - Generic parameters
     weights = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
@@ -52,8 +45,13 @@ def test_ffiaf():
 
 def test_ffiaf_spkin():
     """Test FFIAFSpkInBrian"""
+    import pytest
+
+    pytest.importorskip("brian2")
+
     from rockpool import timeseries as ts
     from rockpool.nn.layers.iaf_brian import FFIAFSpkInBrian
+    import numpy as np
 
     # - Generic parameters
     weights = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
@@ -88,9 +86,14 @@ def test_ffiaf_spkin():
 
 def test_reciaf():
     """Test RecIAFBrian"""
+    import pytest
+
+    pytest.importorskip("brian2")
+
     from brian2 import second
     from rockpool import timeseries as ts
     from rockpool.nn.layers.iaf_brian import RecIAFBrian
+    import numpy as np
 
     # - Generic parameters
     np.random.seed(1)
@@ -125,8 +128,13 @@ def test_reciaf():
 
 def test_reciaf_spkin():
     """Test RecIAFSpkInBrian"""
+    import pytest
+
+    pytest.importorskip("brian2")
+
     from rockpool import timeseries as ts
     from rockpool.nn.layers.iaf_brian import RecIAFSpkInBrian
+    import numpy as np
 
     # - Negative weights, so that layer doesn't spike and gets reset
     np.random.seed(1)

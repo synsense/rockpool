@@ -9,6 +9,8 @@ import copy
 import collections.abc
 from pathlib import Path
 from tempfile import TemporaryFile
+from rockpool.utilities.backend_management import backend_available
+
 from typing import (
     Union,
     List,
@@ -29,22 +31,22 @@ import scipy.interpolate as spint
 
 # - Plotting backends
 _global_plotting_backend = None
-try:
+if backend_available("matplotlib"):
     import matplotlib as mpl
     from matplotlib import pyplot as plt
 
     _MPL_AVAILABLE = True
     _global_plotting_backend = "matplotlib"
-except ModuleNotFoundError:
+else:
     _MPL_AVAILABLE = False
 
-try:
+if backend_available("holoviews"):
     import holoviews as hv
 
     _HV_AVAILABLE = True
     if not _MPL_AVAILABLE:
         _global_plotting_backend = "holoviews"
-except ModuleNotFoundError:
+else:
     _HV_AVAILABLE = False
     if not _MPL_AVAILABLE:
         _global_plotting_backend = None

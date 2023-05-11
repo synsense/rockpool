@@ -5,10 +5,6 @@ pytest.importorskip("samna")
 pytest.importorskip("xylosim")
 
 
-def test_imports():
-    pass
-
-
 def test_init():
     from rockpool.devices.xylo.syns65300 import AFESim
 

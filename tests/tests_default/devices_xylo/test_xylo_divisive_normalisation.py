@@ -4,10 +4,6 @@ pytest.importorskip("xylosim")
 pytest.importorskip("samna")
 
 
-def test_imports():
-    pass
-
-
 def test_DN():
     from rockpool.devices.xylo.syns61201 import DivisiveNormalisation, LowPassMode
 

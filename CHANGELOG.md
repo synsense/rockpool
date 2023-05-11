@@ -12,10 +12,14 @@ All notable changes between Rockpool releases will be documented in this file.
 
 * Update to `Sequential` API. `Sequential` now permits instantiation with an `OrderedDict` to specify module names. `Sequential` now supports an `.append()` method, to append new modules, optionally specifying a module name.
 * Cleaned up tree manipulation libraries and added to documentation. Implemented unit tests.
+* Removed obsolete unit tests
 
 ### Fixed
 ### Deprecated
 ### Removed
+
+* NEST backend completely removed
+
 ### Security
 
 ## [v2.6] -- 2023-03-22

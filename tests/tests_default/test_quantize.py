@@ -1,11 +1,10 @@
-import pytest
-
-pytest.importorskip("torch")
-pytest.importorskip("xylosim")
-pytest.importorskip("samna")
-
-
 def test_simple_network():
+    import pytest
+
+    pytest.importorskip("torch")
+    pytest.importorskip("xylosim")
+    pytest.importorskip("samna")
+
     from rockpool.devices.xylo.syns61300 import mapper
     from rockpool.devices.xylo.syns61300 import config_from_specification
     from rockpool.devices.xylo.syns61300 import XyloSim
@@ -210,6 +209,12 @@ def test_simple_network():
 
 
 def test_complex_network():
+    import pytest
+
+    pytest.importorskip("torch")
+    pytest.importorskip("xylosim")
+    pytest.importorskip("samna")
+
     from rockpool.devices.xylo.syns61300 import mapper
     from rockpool.devices.xylo.syns61300 import config_from_specification
     from rockpool.devices.xylo.syns61300 import XyloSim
@@ -462,6 +467,12 @@ def test_complex_network():
 
 
 def test_sequential_combinator():
+    import pytest
+
+    pytest.importorskip("torch")
+    pytest.importorskip("xylosim")
+    pytest.importorskip("samna")
+
     from rockpool.devices.xylo.syns61300 import mapper
     from rockpool.devices.xylo.syns61300 import config_from_specification
     from rockpool.devices.xylo.syns61300 import XyloSim
@@ -613,6 +624,12 @@ def test_sequential_combinator():
 
 
 def test_residual_combinator():
+    import pytest
+
+    pytest.importorskip("torch")
+    pytest.importorskip("xylosim")
+    pytest.importorskip("samna")
+
     from rockpool.devices.xylo.syns61300 import mapper
     from rockpool.devices.xylo.syns61300 import config_from_specification
     from rockpool.devices.xylo.syns61300 import XyloSim
