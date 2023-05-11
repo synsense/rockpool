@@ -3,7 +3,7 @@ Implement a LIF Module, using an Exodus backend
 
 Exodus is an accelerated CUDA-based simulator for LIF-like neuron dynamics, supporting gradient calculations.
 
-This package implements the modules :py:class:`LIFExodus` and `LIFMembraneExodus`.
+This package implements the modules :py:class:`.LIFExodus`, :py:class:`.ExpSynExodus` and :py:class:`.LIFMembraneExodus`.
 """
 
 from rockpool.nn.modules.torch.lif_torch import LIFBaseTorch
@@ -60,8 +60,6 @@ class LIFExodus(LIFBaseTorch):
         The output of evolving this module is the neuron spike events; synaptic currents and membrane potentials are available using the ``record = True`` argument to :py:meth:`~.LIFExodus.evolve`.
 
         Warnings:
-            Exodus does not currently support training time constants, biases or thresholds. Use :py:class:`LIFTorch` or py:class:`LIFJax` to train those parameters.
-
             Exodus currently only supports a single threshold for the layer.
 
             Exodus does not currently support training thresholds.
