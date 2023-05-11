@@ -24,6 +24,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    basics/installation
    basics/introduction_to_snns.ipynb
    basics/getting_started.ipynb
+   basics/hello_MNIST.ipynb
    basics/time_series.ipynb
    basics/standard_modules.ipynb
    basics/sharp_points.ipynb
@@ -38,6 +39,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    in-depth/jax-training.ipynb
    in-depth/torch-api.ipynb
    in-depth/torch-training.ipynb
+   in-depth/howto-constrained-opt.ipynb
 
 .. toctree::
    :maxdepth: 1
@@ -51,7 +53,6 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    tutorials/adversarial_training.ipynb
 
    tutorials/rockpool-shd.ipynb
-   tutorials/analog-frontend-example.ipynb
    tutorials/wavesense_training.ipynb
    
    .. tutorials/building_reservoir.ipynb
@@ -85,6 +86,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    advanced/graph_overview.ipynb
    advanced/graph_mapping.ipynb
    reference/params_types.ipynb
+   reference/lif-benchmarks.ipynb
    reference/api
    advanced/CHANGELOG
 

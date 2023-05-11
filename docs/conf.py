@@ -55,7 +55,12 @@ templates_path = ["_templates"]
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "_templates"]
+exclude_patterns = [
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+    "_templates",
+]
 
 # Models that need to be ported to the v2 API
 exclude_patterns += [
@@ -91,7 +96,7 @@ rst_prolog = """
 """
 
 nbsphinx_prolog = r"""
-{% set docname = env.doc2path(env.docname, base='docs') %}
+{% set docname = 'docs/' + env.doc2path(env.docname, base=None) %}
 
 .. only:: html
 
@@ -101,10 +106,10 @@ nbsphinx_prolog = r"""
     .. nbinfo::
         This page was generated from `{{ docname }}`__.
         Interactive online version:
-        :raw-html:`<a href="https://mybinder.org/v2/gl/synsense%2Frockpool/v{{ env.config.release }}?filepath={{ docname }}"><img alt="Binder badge" src="https://mybinder.org/badge_logo.svg" style="vertical-align:text-bottom"></a>`
+        :raw-html:`<a href="https://mybinder.org/v2/gh/synsense/rockpool/v{{ env.config.release|e }}?filepath={{ docname }}"><img alt="Binder badge" src="https://mybinder.org/badge_logo.svg" style="vertical-align:text-bottom"></a>`
         
-    __ https://mybinder.org/v2/gl/synsense%2Frockpool/
-        {{ env.config.release }}/{{ docname }}
+    __ https://mybinder.org/v2/gh/synsense/rockpool/
+        {{ env.config.release|e }}/{{ docname }}
         
 .. raw:: latex
     \nbsphinxstartnotebook{\scriptsize\noindent\strut

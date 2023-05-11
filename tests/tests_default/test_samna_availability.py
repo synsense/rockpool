@@ -20,7 +20,7 @@ def test_samna_availability():
         import samna
 
         try:
-            print(samna.__version)
+            print(samna.__version__)
             assert backend_available("samna") == True
         except:
             assert backend_available("samna") == False

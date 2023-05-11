@@ -138,9 +138,6 @@ These classes are deprecated, but are still usable via the high-level API, until
     nn.layers.RecIAFSpkInBrian
     nn.layers.FFExpSynBrian
 
-    nn.layers.FFIAFNest
-    nn.layers.RecIAFSpkInNest
-    nn.layers.RecAEIFSpkInNest
 
 Standard networks
 ------------------
@@ -378,6 +375,7 @@ General Utilities
     :template: module.rst
 
     utilities.backend_management
+    utilities.tree_utils
     utilities.jax_tree_utils
     utilities.type_handling
 

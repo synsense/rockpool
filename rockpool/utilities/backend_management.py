@@ -19,7 +19,7 @@ class AbortImport(Exception):
 
 def check_torch_cuda_available() -> bool:
     try:
-        import torch.cuda.is_available
+        from torch.cuda import is_available
 
         return is_available()
     except:
@@ -57,7 +57,6 @@ __checked_backends: Dict[str, bool] = {}
 __backend_specs: Dict[str, tuple] = {
     "numpy": (),
     "numba": (),
-    "nest": (),
     "jax": (["jax", "jaxlib"],),
     "torch": (),
     "sinabs": (),
@@ -210,6 +209,21 @@ def list_backends():
 def torch_version_satisfied(
     req_major: int = 0, req_minor: int = 0, req_patch: int = 0
 ) -> bool:
+    """
+    Check if the installed version of torch satisfies a minimum version requirement
+
+    i.e.
+        torch 2.0.0 >= 1.12.0 : True
+        torch 1.12.0 >= 1.12.0 : True
+        torch 1.11.0 >= 1.12.0 : False
+    Args:
+        req_major (int): The minimum major version required
+        req_minor (int): The minimum minor version required
+        req_patch (int): The minimum patch version required
+
+    Returns:
+        bool: The installed version of torch satisfies the minimum version requirement
+    """
     if not backend_available("torch"):
         return False
 
@@ -222,9 +236,18 @@ def torch_version_satisfied(
     if len(patch_vers) > 1:
         lib_patch, *lib_cuda = patch_vers
 
-    if int(lib_major) >= req_major:
-        if int(lib_minor) >= req_minor:
+    if int(lib_major) > req_major:
+        return True
+    elif int(lib_major) == req_major:
+        if int(lib_minor) > req_minor:
+            return True
+        elif int(lib_minor) == req_minor:
             if int(lib_patch) >= req_patch:
                 return True
+            else:
+                return False
+        else:
+            return False
 
-    return False
+    else:
+        return False

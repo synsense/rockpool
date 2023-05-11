@@ -6,6 +6,7 @@ A back-tick precise spike time recurrent layer, with fast and slow synapses
 
 from rockpool.nn.layers.layer import Layer
 from rockpool.timeseries import *
+from rockpool.utilities.backend_management import backend_available
 
 import numpy as np
 from typing import Union, Callable, Optional, Tuple, Any
@@ -14,9 +15,9 @@ import copy
 from numba import njit
 
 # - Try to import holoviews
-try:
+if backend_available("holoviews"):
     import holoviews as hv
-except Exception:
+else:
     pass
 
 # - Configure exports
