@@ -16,8 +16,6 @@ Notes:
         * ``test_event`` or ``test_destination_key`` fails : DynapSamna interfacing, especially AER package delivery does not work
 """
 
-import pytest
-
 
 def test_full_config():
     """
@@ -30,6 +28,10 @@ def test_full_config():
             * now buggy 221202
         * field renaming
     """
+    import pytest
+
+    pytest.importorskip("samna")
+
     import samna
     from rockpool.devices.dynapse import samna_alias
 
@@ -47,6 +49,10 @@ def test_event():
     * custom hash implementation for Dynapse2Destination object
     * updates in samna
     """
+    import pytest
+
+    pytest.importorskip("samna")
+
     import samna
     from rockpool.devices.dynapse import samna_alias
 
@@ -75,6 +81,10 @@ def test_destination_key():
     The most probable reasons for failure are
     * ...samna_alias/se2/Dynapse2Destination.__hash__
     """
+    import pytest
+
+    pytest.importorskip("samna")
+
     from rockpool.devices.dynapse import samna_alias
 
     # Randomly selected values

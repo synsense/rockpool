@@ -51,6 +51,16 @@ if backend_available("samna"):
                 xylo_support_modules.append(x1)
                 xylo_versions.append("syns61300")
 
+            elif d.device_type_name == "XyloImuTestBoard":
+                print(
+                    "The connected Xylo HDK contains a Xylo IMU. Importing `rockpool.devices.xylo.imu`"
+                )
+                import rockpool.devices.xylo.imu as imu
+
+                xylo_hdks.append(samna.device.open_device(d))
+                xylo_support_modules.append(imu)
+                xylo_versions.append("xylo-imu")
+
         return xylo_hdks, xylo_support_modules, xylo_versions
 
 else:
