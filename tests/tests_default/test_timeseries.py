@@ -1,7 +1,6 @@
 """
 Test TimeSeries methods
 """
-import pytest
 
 
 def test_imports():
@@ -43,6 +42,7 @@ def test_continuous_operators():
     """
     Test creation and manipulation of a continuous time series
     """
+    import pytest
     from rockpool import TSContinuous
     import numpy as np
 
@@ -242,6 +242,7 @@ def test_continuous_indexing():
 
 
 def test_continuous_call():
+    import pytest
     from rockpool import TSContinuous
     import numpy as np
 
@@ -300,6 +301,7 @@ def test_continuous_call():
 
 
 def test_continuous_clip():
+    import pytest
     from rockpool import TSContinuous
     import numpy as np
 
@@ -635,6 +637,7 @@ def test_continuous_from_clocked():
 
 
 def test_event_tstop():
+    import pytest
     from rockpool import TSEvent
 
     # - Generate series
@@ -653,6 +656,7 @@ def test_event_tstop():
 
 
 def test_continuous_nan():
+    import pytest
     from rockpool import TSContinuous
     import numpy as np
 
@@ -692,6 +696,7 @@ def test_continuous_nan():
 
 
 def test_event_call():
+    import pytest
     from rockpool import TSEvent
 
     # - Generate series
@@ -731,6 +736,7 @@ def test_event_call():
 
 
 def test_event_indexing():
+    import pytest
     from rockpool import TSEvent
     import numpy as np
 
@@ -1149,6 +1155,7 @@ def test_save_load():
     """
     Test saving and loading function for timeseries
     """
+    import pytest
     from tempfile import TemporaryFile
     from rockpool import TimeSeries, TSEvent, TSContinuous, load_ts_from_file
     from os import remove
