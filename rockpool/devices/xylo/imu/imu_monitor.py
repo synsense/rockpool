@@ -156,7 +156,7 @@ class XyloIMUMonitor(Module):
         """
 
         # - Config the streaming mode
-        config = hdkutils.config_auto_mode(
+        self.config = hdkutils.config_auto_mode(
             self._config, self.dt, self._main_clk_rate, self._io
         )
 
