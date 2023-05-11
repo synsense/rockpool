@@ -18,7 +18,7 @@ unit_tests:
     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
 
   script:
-    - pytest -v tests/tests_default -n 4 --forked
+    - pytest -v tests/tests_default -n auto --forked
 
 documentation_linting:
   stage: docs
