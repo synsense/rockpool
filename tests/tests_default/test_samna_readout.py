@@ -1,10 +1,10 @@
 import pytest
 
-pytest.importorskip("samna")
-pytest.importorskip("xylosim")
-
 
 def test_XyloSamna_readout():
+    pytest.importorskip("samna")
+    pytest.importorskip("xylosim")
+
     from rockpool.devices.xylo.syns61300 import XyloSamna, config_from_specification
     import rockpool.devices.xylo.syns61300.xylo_devkit_utils as putils
     import numpy as np

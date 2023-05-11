@@ -1,5 +1,5 @@
 """
-Mapper package for Xylo core v2
+Mapper package for Xylo IMU core
 
 - Create a graph using the :py:meth:`~.graph.GraphModule.as_graph` API
 - Call :py:func:`.mapper`
@@ -10,6 +10,7 @@ Mapper package for Xylo core v2
 import numpy as np
 
 import copy
+import warnings
 
 from rockpool.graph import (
     GraphModuleBase,
@@ -22,16 +23,26 @@ from rockpool.graph import (
     find_recurrent_modules,
 )
 from .xylo_graph_modules import (
-    Xylo2HiddenNeurons,
-    Xylo2OutputNeurons,
-    Xylo2Neurons,
+    XyloIMUHiddenNeurons,
+    XyloIMUOutputNeurons,
+    XyloIMUNeurons,
 )
 from rockpool.devices.xylo.syns61300.xylo_mapper import (
-    xylo_drc,
     DRCError,
     DRCWarning,
     check_drc,
     assign_ids_to_class,
+    output_nodes_have_neurons_as_source,
+    input_to_neurons_is_a_weight,
+    first_module_is_a_weight,
+    le_16_input_channels,
+    all_neurons_have_same_dt,
+    output_neurons_cannot_be_recurrent,
+    no_consecutive_weights,
+    alias_inputs_must_be_neurons,
+    alias_output_nodes_must_have_neurons_as_input,
+    at_least_two_neuron_layers_needed,
+    weight_nodes_have_no_biases,
 )
 
 from typing import List, Callable, Set, Optional, Union
@@ -39,34 +50,71 @@ from typing import List, Callable, Set, Optional, Union
 __all__ = ["mapper", "DRCError", "DRCWarning"]
 
 
+def le_16_output_channels(graph: GraphModuleBase) -> None:
+    if len(graph.output_nodes) > 16:
+        warnings.warn(
+            DRCWarning(
+                f"Xylo-IMU only supports up to 16 output channels. The network requires {len(graph.output_nodes)} output channels."
+            ),
+            DRCWarning,
+        )
+
+
+def le_128_input_expansion_neurons(graph: GraphModuleBase) -> None:
+    pass
+
+
+def le_128_output_expansion_neurons(graph: GraphModuleBase) -> None:
+    pass
+
+
+xylo_drc: List[Callable[[GraphModuleBase], None]] = [
+    output_nodes_have_neurons_as_source,
+    input_to_neurons_is_a_weight,
+    first_module_is_a_weight,
+    le_16_input_channels,
+    le_16_output_channels,
+    le_128_input_expansion_neurons,
+    le_128_output_expansion_neurons,
+    all_neurons_have_same_dt,
+    output_neurons_cannot_be_recurrent,
+    no_consecutive_weights,
+    alias_inputs_must_be_neurons,
+    alias_output_nodes_must_have_neurons_as_input,
+    at_least_two_neuron_layers_needed,
+    weight_nodes_have_no_biases,
+]
+""" List[Callable[[GraphModuleBase], None]]: The collection of design rules for Xylo """
+
+
 def mapper(
     graph: GraphModuleBase,
     weight_dtype: Union[np.dtype, str] = "float",
     threshold_dtype: Union[np.dtype, str] = "float",
     dash_dtype: Union[np.dtype, str] = "float",
-    max_hidden_neurons: int = 1000,
-    max_output_neurons: int = 8,
+    max_hidden_neurons: int = 496,
+    max_output_neurons: int = 16,
 ) -> dict:
     """
-    Map a computational graph onto the Xylo v2 (SYNS61201) architecture
+    Map a computational graph onto the Xylo IMU architecture
 
-    This function performs a DRC of the computational graph to ensure it can be mapped onto the Xylo v2 (SYNS61201) architecture.
+    This function performs a DRC of the computational graph to ensure it can be mapped onto the Xylo IMU architecture.
 
     Warnings:
         :py:func:`mapper` operates **in-place** on the graph, and may modify it. If you need the un-mapped graph, you may need to call :py:meth:`.Module.as_graph` again on your :py:class:`.Module`.
 
-    It then allocates neurons and converts the network weights into a specification for Xylo. This specification can be used to create a config object with :py:func:`~rockpool.devices.xylo.syns61201.config_from_specification`.
+    It then allocates neurons and converts the network weights into a specification for Xylo. This specification can be used to create a config object with :py:func:`~rockpool.devices.xylo.imu.config_from_specification`.
 
     Args:
         graph (GraphModuleBase): The graph to map
         weight_dtype (Union[np.dtype, str]): Data type for mapped weight parameters. Default: ``"int8"``
         threshold_dtype (Union[np.dtype, str]): Data type for mapped threshold parameters. Default: ``"int16"``
         dash_dtype (Union[np.dtype, str]): Data type for mapped dash (bitshift time constant) parameters. Default: ``"uint8"``
-        max_hidden_neurons (int): Maximum number of available hidden neurons. Default: ``1000``, matching Xylo hardware
-        max_output_neurons (int): Maximum number of available output neurons. Default: ``8``, matching Xylo hardware
+        max_hidden_neurons (int): Maximum number of available hidden neurons. Default: ``496``, matching Xylo-IMU hardware
+        max_output_neurons (int): Maximum number of available output neurons. Default: ``16``, matching Xylo-IMU hardware
 
     Returns:
-        dict: A dictionary of specifications for Xylo v2, containing the mapped computational graph
+        dict: A dictionary of specifications for Xylo IMU, containing the mapped computational graph
     """
     # - Check design rules
     check_drc(graph, xylo_drc)
@@ -83,7 +131,7 @@ def mapper(
     # - Replace these output neurons with XyloOutputNeurons
     for on in output_neurons:
         try:
-            Xylo2OutputNeurons._convert_from(on)
+            XyloIMUOutputNeurons._convert_from(on)
         except Exception as e:
             raise DRCError(f"Error replacing output neuron module {on}.") from e
 
@@ -91,9 +139,9 @@ def mapper(
     nodes, modules = bag_graph(graph)
 
     for m in modules:
-        if isinstance(m, GenericNeurons) and not isinstance(m, Xylo2OutputNeurons):
+        if isinstance(m, GenericNeurons) and not isinstance(m, XyloIMUOutputNeurons):
             try:
-                Xylo2HiddenNeurons._convert_from(m)
+                XyloIMUHiddenNeurons._convert_from(m)
             except Exception as e:
                 raise DRCError(f"Error replacing module {m}.") from e
 
@@ -103,7 +151,7 @@ def mapper(
     available_hidden_neuron_ids = list(range(max_hidden_neurons))
     try:
         allocated_hidden_neurons = assign_ids_to_class(
-            graph, Xylo2HiddenNeurons, available_hidden_neuron_ids
+            graph, XyloIMUHiddenNeurons, available_hidden_neuron_ids
         )
     except Exception as e:
         raise DRCError("Failed to allocate HW resources for hidden neurons.") from e
@@ -114,7 +162,7 @@ def mapper(
     )
     try:
         allocated_output_neurons = assign_ids_to_class(
-            graph, Xylo2OutputNeurons, available_output_neuron_ids
+            graph, XyloIMUOutputNeurons, available_output_neuron_ids
         )
     except Exception as e:
         raise DRCError("Failed to allocate HW resources for output neurons.") from e
@@ -122,25 +170,23 @@ def mapper(
     # - Enumerate input channels
     input_channels = list(range(len(graph.input_nodes)))
 
-    # - How many synapses are we using for hidden neurons?
-    hidden_neurons: SetList[Xylo2HiddenNeurons] = find_modules_of_subclass(
-        graph, Xylo2HiddenNeurons
+    # - Extract hidden neurons modules
+    hidden_neurons: SetList[XyloIMUHiddenNeurons] = find_modules_of_subclass(
+        graph, XyloIMUHiddenNeurons
     )
+
+    # - Xylo-IMU only provides one synapse per neuron
     num_hidden_synapses = 1
-    for hn in hidden_neurons:
-        if len(hn.input_nodes) > len(hn.output_nodes):
-            num_hidden_synapses = 2
 
     # --- Map weights and build Xylo weight matrices ---
 
     # - Build an input weight matrix
     input_weight_mod: LinearWeights = graph.input_nodes[0].sink_modules[0]
-    target_neurons: Xylo2Neurons = input_weight_mod.output_nodes[0].sink_modules[0]
-    # ^ Since DRC passed, we know this is valid
+    target_neurons: XyloIMUNeurons = input_weight_mod.output_nodes[0].sink_modules[0]
+    # - Since DRC passed, we know this is valid
 
-    weight_num_synapses = (
-        2 if len(target_neurons.input_nodes) > len(target_neurons.output_nodes) else 1
-    )
+    # - Xylo-IMU only provides one synapse per neuron
+    weight_num_synapses = 1
 
     target_ids = target_neurons.hw_ids
     these_dest_indices = [allocated_hidden_neurons.index(id) for id in target_ids]
@@ -187,17 +233,13 @@ def mapper(
                 sm
                 for n in w.output_nodes
                 for sm in n.sink_modules
-                if isinstance(sm, Xylo2Neurons)
+                if isinstance(sm, XyloIMUNeurons)
             ]
         )
-        target_neurons: Xylo2Neurons = sm[0]
+        target_neurons: XyloIMUNeurons = sm[0]
 
-        # - How many target synapses per neuron?
-        num_target_syns = (
-            2
-            if len(target_neurons.input_nodes) > len(target_neurons.output_nodes)
-            else 1
-        )
+        # - Xylo-IMU only provides one synapse per neuron
+        num_target_syns = 1
 
         # - Find the source neurons
         sm = SetList(
@@ -205,17 +247,17 @@ def mapper(
                 sm
                 for n in w.input_nodes
                 for sm in n.source_modules
-                if isinstance(sm, Xylo2Neurons)
+                if isinstance(sm, XyloIMUNeurons)
             ]
         )
-        source_neurons: Xylo2Neurons = sm[0]
+        source_neurons: XyloIMUNeurons = sm[0]
 
         # - Get source and target HW IDs
         source_ids = source_neurons.hw_ids
         target_ids = target_neurons.hw_ids
 
         # - Does this go in the recurrent or output weights?
-        if isinstance(target_neurons, Xylo2HiddenNeurons):
+        if isinstance(target_neurons, XyloIMUHiddenNeurons):
             # - Recurrent weights
             these_weights = np.reshape(
                 w.weights, (len(source_ids), len(target_ids), num_target_syns)
@@ -230,7 +272,7 @@ def mapper(
                 )
             ] = these_weights
 
-        elif isinstance(target_neurons, Xylo2OutputNeurons):
+        elif isinstance(target_neurons, XyloIMUOutputNeurons):
             # - Output weights
             these_source_indices = [w_out_source_ids.index(id) for id in source_ids]
             these_dest_indices = [w_out_dest_ids.index(id) for id in target_ids]
@@ -243,20 +285,13 @@ def mapper(
                 f"Unexpected target of weight graph module {w}. Expected XyloHiddenNeurons or XyloOutputNeurons."
             )
 
-    # - If we are not using synapse 2, we need to trim the weights
-    if num_hidden_synapses == 1:
-        w_in = np.reshape(w_in, (len(input_channels), len(allocated_hidden_neurons)))
-        w_rec = np.reshape(
-            w_rec, (len(allocated_hidden_neurons), len(allocated_hidden_neurons))
-        )
-
     # --- Extract parameters from nodes ---
 
-    hidden_neurons: SetList[Xylo2HiddenNeurons] = find_modules_of_subclass(
-        graph, Xylo2HiddenNeurons
+    hidden_neurons: SetList[XyloIMUHiddenNeurons] = find_modules_of_subclass(
+        graph, XyloIMUHiddenNeurons
     )
-    output_neurons: SetList[Xylo2OutputNeurons] = find_modules_of_subclass(
-        graph, Xylo2OutputNeurons
+    output_neurons: SetList[XyloIMUOutputNeurons] = find_modules_of_subclass(
+        graph, XyloIMUOutputNeurons
     )
     num_hidden_neurons = len(allocated_hidden_neurons)
     num_output_neurons = len(allocated_output_neurons)
@@ -275,14 +310,8 @@ def mapper(
         these_indices = n.hw_ids
         dash_mem[these_indices] = n.dash_mem
 
-        if len(n.input_nodes) > len(n.output_nodes):
-            dash_syn_reshape = np.array(n.dash_syn).reshape((-1, 2))
-            for i, index in enumerate(these_indices):
-                dash_syn[index] = dash_syn_reshape[i][0]
-                dash_syn_2[index] = dash_syn_reshape[i][1]
-        else:
-            for i, index in enumerate(these_indices):
-                dash_syn[index] = n.dash_syn[i]
+        for i, index in enumerate(these_indices):
+            dash_syn[index] = n.dash_syn[i]
 
         threshold[these_indices] = n.threshold
         bias[these_indices] = n.bias
@@ -297,7 +326,7 @@ def mapper(
         threshold_out[these_indices] = n.threshold
         bias_out[these_indices] = n.bias
 
-    neurons: SetList[Xylo2Neurons] = find_modules_of_subclass(graph, Xylo2Neurons)
+    neurons: SetList[XyloIMUNeurons] = find_modules_of_subclass(graph, XyloIMUNeurons)
     dt = None
     for n in neurons:
         dt = n.dt if dt is None else dt
@@ -314,10 +343,10 @@ def mapper(
                 sm
                 for n in a.input_nodes
                 for sm in n.source_modules
-                if isinstance(sm, Xylo2Neurons)
+                if isinstance(sm, XyloIMUNeurons)
             ]
         )
-        source_neurons: Xylo2Neurons = sm[0]
+        source_neurons: XyloIMUNeurons = sm[0]
 
         # - Find the destination neurons
         sm = SetList(
@@ -325,10 +354,10 @@ def mapper(
                 sm
                 for n in a.output_nodes
                 for sm in n.source_modules
-                if isinstance(sm, Xylo2Neurons)
+                if isinstance(sm, XyloIMUNeurons)
             ]
         )
-        target_neurons: Xylo2Neurons = sm[0]
+        target_neurons: XyloIMUNeurons = sm[0]
 
         # - Get the source and target HW IDs
         source_ids = source_neurons.hw_ids

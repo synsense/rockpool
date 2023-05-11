@@ -5,7 +5,7 @@ pytest.importorskip("sinabs")
 pytest.importorskip("sinabs.exodus")
 
 
-@pytest.mark.parametrize("n_synapses", (1, 2))
+@pytest.mark.parametrize("n_synapses", [1, 2])
 def test_FF_equality_exodus(n_synapses):
     import torch
     import numpy as np

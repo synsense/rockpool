@@ -10,6 +10,10 @@ def test_imports():
     """
     test_imports is to first make sure that none of the imports raise any errors
     """
+    import pytest
+
+    pytest.importorskip("samna")
+
     from rockpool.devices.dynapse.parameters.biasgen import (
         digital_to_analog,
         analog_to_digital,
@@ -82,6 +86,10 @@ def test_high_level():
     All bias currents should be the same except for the base weight currents.
     Base weight currents should be different because of the extra quantization step.
     """
+    import pytest
+
+    pytest.importorskip("samna")
+
     from rockpool.devices.dynapse import (
         dynapsim_net_from_config,
         mapper,
