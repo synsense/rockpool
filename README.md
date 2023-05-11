@@ -4,7 +4,7 @@
 
 ![Noodle](https://rockpool.ai/_static/noodle-small.png)
 
-Rockpool is a Python package for developing signal processing applications with spiking neural networks. Rockpool allows you to build networks, simulate, train and test them, deploy them either in simulation or on event-driven neuromorphic compute hardware. Rockpool provides layers with a number of simulation backends, including Brian2, NEST, Torch, JAX, Numba and raw numpy. Rockpool is designed to make machine learning based on SNNs easier. It is not designed for detailed simulation of biological networks.
+Rockpool is a Python package for developing signal processing applications with spiking neural networks. Rockpool allows you to build networks, simulate, train and test them, deploy them either in simulation or on event-driven neuromorphic compute hardware. Rockpool provides layers with a number of simulation backends, including Brian2, Torch, JAX, Numba and raw numpy. Rockpool is designed to make machine learning based on SNNs easier. It is not designed for detailed simulation of biological networks.
 
 # Documentation and getting started
 
@@ -27,10 +27,6 @@ If you want to install all the extra dependencies required for Brian, PyTorch an
 ```bash
 $ pip install rockpool[all] --user
 ```
-
-## NEST-backed modules
-
-The NEST simulator cannot be installed using `pip`. Please see the documentation for NEST at [https://nest-simulator.readthedocs.io/en/latest/] for instructions on how to get NEST running on your system.
 
 # License
 
