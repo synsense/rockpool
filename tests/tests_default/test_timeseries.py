@@ -1,8 +1,6 @@
 """
 Test TimeSeries methods
 """
-import pytest
-import numpy as np
 
 
 def test_imports():
@@ -20,6 +18,7 @@ def test_imports():
     from rockpool.timeseries import TSEvent
     from rockpool.timeseries import set_global_ts_plotting_backend
     import rockpool.timeseries as ts
+    import numpy as np
 
 
 def test_backends():
@@ -43,7 +42,9 @@ def test_continuous_operators():
     """
     Test creation and manipulation of a continuous time series
     """
+    import pytest
     from rockpool import TSContinuous
+    import numpy as np
 
     # - Creation
     ts = TSContinuous([0], [0])
@@ -100,6 +101,7 @@ def test_continuous_operators():
 
 def test_continuous_methods():
     from rockpool import TSContinuous
+    import numpy as np
 
     # - Sample-and-hold interpolation
     ts1 = TSContinuous([0, 1, 2], [0, 1, 2], t_stop=2.1, interp_kind="previous")
@@ -185,6 +187,7 @@ def test_continuous_methods():
 
 def test_continuous_indexing():
     from rockpool import TSContinuous
+    import numpy as np
 
     # - Generate series
     times = np.arange(6) * 0.1
@@ -239,7 +242,9 @@ def test_continuous_indexing():
 
 
 def test_continuous_call():
+    import pytest
     from rockpool import TSContinuous
+    import numpy as np
 
     # - Generate series
     times = np.arange(1, 5) * 0.1
@@ -296,7 +301,9 @@ def test_continuous_call():
 
 
 def test_continuous_clip():
+    import pytest
     from rockpool import TSContinuous
+    import numpy as np
 
     # - Generate series
     times = np.arange(1, 6) * 0.1
@@ -337,6 +344,7 @@ def test_continuous_clip():
 
 def test_continuous_inplace_mutation():
     from rockpool import TSContinuous
+    import numpy as np
 
     ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
 
@@ -384,6 +392,7 @@ def test_continuous_append_c():
     Test append_c method of TSContinuous
     """
     from rockpool import TSContinuous
+    import numpy as np
 
     # - Generate a few TSContinuous objects
     samples = np.random.randint(10, size=(2, 4))
@@ -444,6 +453,7 @@ def test_continuous_append_t():
     Test append method of TSEvent
     """
     from rockpool import TSContinuous
+    import numpy as np
 
     # - Generate a few TSEvent objects
     samples = np.random.randint(10, size=(2, 6))
@@ -530,6 +540,7 @@ def test_continuous_merge():
     Test merge method of TSContinuous
     """
     from rockpool import TSContinuous
+    import numpy as np
 
     # - Generate a few TSEvent objects
     samples = np.random.randint(10, size=(2, 6))
@@ -626,6 +637,7 @@ def test_continuous_from_clocked():
 
 
 def test_event_tstop():
+    import pytest
     from rockpool import TSEvent
 
     # - Generate series
@@ -644,7 +656,9 @@ def test_event_tstop():
 
 
 def test_continuous_nan():
+    import pytest
     from rockpool import TSContinuous
+    import numpy as np
 
     times = np.arange(10) * 0.1 + 0.5
     samples = np.random.rand(10, 3)
@@ -682,6 +696,7 @@ def test_continuous_nan():
 
 
 def test_event_call():
+    import pytest
     from rockpool import TSEvent
 
     # - Generate series
@@ -721,7 +736,9 @@ def test_event_call():
 
 
 def test_event_indexing():
+    import pytest
     from rockpool import TSEvent
+    import numpy as np
 
     # - Generate series
     times = [1, 3, 4, 5, 7]
@@ -774,6 +791,7 @@ def test_event_from_raster():
     Test TSEvent from_raster method
     """
     from rockpool import TSEvent
+    import numpy as np
 
     # - Build some test rasters
     raster_bool = [False, False, True, False, True]
@@ -851,6 +869,7 @@ def test_event_empty():
 
 def test_event_clip():
     from rockpool import TSEvent
+    import numpy as np
 
     # - Generate series
     times = [1, 3, 4, 5, 7]
@@ -893,6 +912,7 @@ def test_event_append_c():
     Test append_c method of TSEvent
     """
     from rockpool import TSEvent
+    import numpy as np
 
     # - Generate a few TSEvent objects
     empty_series = TSEvent()
@@ -972,6 +992,7 @@ def test_event_append_t():
     Test append_t method of TSEvent
     """
     from rockpool import TSEvent
+    import numpy as np
 
     # - Generate a few TSEvent objects
     empty_series = TSEvent()
@@ -1060,6 +1081,7 @@ def test_event_merge():
     Test merge method of TSEvent
     """
     from rockpool import TSEvent
+    import numpy as np
 
     # - Generate a few TSEvent objects
     empty_series = TSEvent()
@@ -1133,10 +1155,12 @@ def test_save_load():
     """
     Test saving and loading function for timeseries
     """
+    import pytest
     from tempfile import TemporaryFile
     from rockpool import TimeSeries, TSEvent, TSContinuous, load_ts_from_file
     from os import remove
     from os.path import getsize
+    import numpy as np
 
     # - Generate time series objects
     times = [1, 3, 6]
@@ -1250,6 +1274,7 @@ def test_save_load():
 
 def test_tsdictondisk():
     from rockpool import TimeSeries, TSEvent, TSContinuous, TSDictOnDisk
+    import numpy as np
 
     def assert_equality(ts0, ts1):
         # - Verify that attributes are still correct
@@ -1324,6 +1349,7 @@ def test_tsdictondisk():
 
 def test_event_raster_periodic_iss5():
     from rockpool import TSEvent
+    import numpy as np
 
     # - Build a periodic event time series
     ts = TSEvent([0, 1, 2, 3, 4, 5, 6], [0, 1, 0, 1, 0, 1, 0], periodic=True, t_stop=7)
@@ -1396,6 +1422,7 @@ def test_event_delay():
 
 def test_rounding():
     from rockpool import TSContinuous
+    import numpy as np
 
     t = np.arange(0, 1, 0.001)
     v = np.sin(t)
