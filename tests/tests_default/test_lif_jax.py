@@ -1,15 +1,18 @@
-import pytest
-
-pytest.importorskip("jax")
-
-
 def test_imports():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.nn.modules.jax.lif_jax import LIFJax
     import jax
     from jax.config import config
 
 
 def test_lif_jax():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.nn.modules.jax.lif_jax import LIFJax
     from jax import jit
     import numpy as np
@@ -112,6 +115,10 @@ def test_lif_jax():
 
 
 def test_ffwd_net():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.nn.modules.jax.lif_jax import LIFJax
     from rockpool.nn.modules.jax.jax_module import JaxModule
     from rockpool.parameters import Parameter
@@ -193,6 +200,10 @@ def test_ffwd_net():
 
 
 def test_sgd():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.nn.modules import LIFJax, LinearJax
     from rockpool.nn.combinators import Sequential
     from rockpool.training.jax_loss import mse, l0_norm_approx
@@ -258,6 +269,10 @@ def test_sgd():
 
 
 def test_lif_jax_batches():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.nn.modules.jax.lif_jax import LIFJax
     from jax import jit
     import numpy as np
@@ -312,6 +327,10 @@ def test_lif_jax_batches():
 
 
 def test_linear_lif():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.nn.combinators import Sequential
     from rockpool.nn.modules import LIFJax, LinearJax
 
