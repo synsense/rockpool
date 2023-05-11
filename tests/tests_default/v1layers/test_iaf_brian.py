@@ -2,17 +2,12 @@
 Test Brian-based spiking layers from layers.internal.iaf_brian and layers.recurrent.iaf_brian
 """
 
-import pytest
-
-pytest.importorskip("brian2")
-
-# def test_imports():
-#    from rockpool.layers import iaf_brian
-#
-#    # from rockpool.layers import iaf_brian
-
 
 def test_ffiaf():
+    import pytest
+
+    pytest.importorskip("brian2")
+
     """Test FFIAFBrian"""
     from brian2 import second
     from rockpool import timeseries as ts
@@ -50,6 +45,10 @@ def test_ffiaf():
 
 def test_ffiaf_spkin():
     """Test FFIAFSpkInBrian"""
+    import pytest
+
+    pytest.importorskip("brian2")
+
     from rockpool import timeseries as ts
     from rockpool.nn.layers.iaf_brian import FFIAFSpkInBrian
     import numpy as np
@@ -87,6 +86,10 @@ def test_ffiaf_spkin():
 
 def test_reciaf():
     """Test RecIAFBrian"""
+    import pytest
+
+    pytest.importorskip("brian2")
+
     from brian2 import second
     from rockpool import timeseries as ts
     from rockpool.nn.layers.iaf_brian import RecIAFBrian
@@ -125,6 +128,10 @@ def test_reciaf():
 
 def test_reciaf_spkin():
     """Test RecIAFSpkInBrian"""
+    import pytest
+
+    pytest.importorskip("brian2")
+
     from rockpool import timeseries as ts
     from rockpool.nn.layers.iaf_brian import RecIAFSpkInBrian
     import numpy as np
