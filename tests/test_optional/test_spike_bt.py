@@ -2,13 +2,12 @@
 Test back-step spiking layer used for Deneve networks, as well as network implementation
 """
 
-import numpy as np
-
 
 def test_RecFSSpikeEulerBT():
     """Test RecFSSpikeEulerBT"""
     from rockpool import timeseries as ts
     from rockpool.nn.layers import RecFSSpikeEulerBT
+    import numpy as np
 
     # - Generic parameters
     mfW = 2 * np.random.rand(3, 3) - 1
@@ -98,6 +97,7 @@ def test_SolveLinearSystem():
 def test_SpecifyNetwork():
     from rockpool.nn.networks import NetworkDeneve
     from rockpool import TSContinuous
+    import numpy as np
 
     net_size = 10
     in_size = 3

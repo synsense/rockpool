@@ -2,15 +2,14 @@ import pytest
 
 pytest.importorskip("jax")
 
-from jax.config import config
-
-config.update("jax_debug_nans", True)
-
 
 def test_ExpSynJax():
     from rockpool.nn.modules import ExpSynJax
     import numpy as np
     import jax
+    from jax.config import config
+
+    config.update("jax_debug_nans", True)
 
     T = 1000
     dt = 1e-3
@@ -42,6 +41,9 @@ def test_ExpSynJax_default():
     from rockpool.nn.modules import ExpSynJax
     import numpy as np
     import jax
+    from jax.config import config
+
+    config.update("jax_debug_nans", True)
 
     T = 1000
     dt = 1e-3
@@ -73,6 +75,9 @@ def test_ExpSynJax_single_tau():
     from rockpool.nn.modules import ExpSynJax
     import numpy as np
     import jax
+    from jax.config import config
+
+    config.update("jax_debug_nans", True)
 
     T = 1000
     dt = 1e-3
@@ -105,6 +110,9 @@ def test_ExpSynJax_constant():
     from rockpool.parameters import Constant
     import numpy as np
     import jax
+    from jax.config import config
+
+    config.update("jax_debug_nans", True)
 
     T = 1000
     dt = 1e-3
