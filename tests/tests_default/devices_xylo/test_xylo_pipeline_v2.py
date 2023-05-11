@@ -104,11 +104,11 @@ def test_pipeline_v2():
 
 def test_rec_rockpool():
     try:
-        from rockpool.devices.xylo import mapper
-        from rockpool.devices.xylo import config_from_specification
-        from rockpool.devices.xylo import XyloSim
+        from rockpool.devices.xylo.syns61201 import mapper
+        from rockpool.devices.xylo.syns61201 import config_from_specification
+        from rockpool.devices.xylo.syns61201 import XyloSim
     except:
-        return
+        pytest.skip("Skip due to missing dependencies")
 
     import numpy as np
     import torch

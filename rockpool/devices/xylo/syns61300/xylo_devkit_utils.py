@@ -1683,7 +1683,7 @@ def export_config(
         makedirs(path)
 
     # - Generate a XyloSim module from the config
-    from rockpool.devices.xylo import XyloSim
+    from rockpool.devices.xylo.syns61300 import XyloSim
 
     sim = XyloSim.from_config(config, dt=dt)
     model = sim._xylo_layer

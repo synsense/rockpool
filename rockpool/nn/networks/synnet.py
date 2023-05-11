@@ -101,6 +101,7 @@ class SynNet(TorchModule):
             threshold_out = threshold
 
         self.output = output
+        self.dt = dt
 
         # round time constants to the values they will take when deploying to Xylo
         if quantize_time_constants:
