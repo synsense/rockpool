@@ -1,9 +1,3 @@
-import pytest
-
-pytest.importorskip("jax")
-pytest.importorskip("torch")
-
-
 class MismatchError(ValueError):
     pass
 
@@ -104,6 +98,11 @@ def get_jax_gradients(module, data):
 
 
 def test_lif_defaults():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import LIF, LIFJax, LIFTorch
 
     # - Set 64-bit mode
@@ -133,6 +132,11 @@ def test_lif_defaults():
 
 
 def test_lif_dynamics():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import LIF, LIFJax, LIFTorch, TorchModule, JaxModule
     import numpy as np
     import torch
@@ -202,6 +206,11 @@ def test_lif_dynamics():
 
 
 def test_linear_dynamics():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import (
         Linear,
         LinearJax,
@@ -249,6 +258,11 @@ def test_linear_dynamics():
 
 
 def test_linear_gradients():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import LinearJax, LinearTorch
     import numpy as np
 
@@ -278,6 +292,11 @@ def test_linear_gradients():
 
 
 def test_rate_defaults():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import Rate, RateJax, RateTorch
 
     # - Set 64-bit mode
@@ -304,6 +323,11 @@ def test_rate_defaults():
 
 
 def test_rate_dynamics():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import Rate, RateJax, RateTorch, TorchModule
     import numpy as np
     import torch
@@ -351,6 +375,11 @@ def test_rate_dynamics():
 
 
 def test_expsyn_defaults():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import ExpSyn, ExpSynJax, ExpSynTorch
 
     # - Set 64-bit mode
@@ -377,6 +406,11 @@ def test_expsyn_defaults():
 
 
 def test_expsyn_dynamics():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import ExpSyn, ExpSynJax, ExpSynTorch, TorchModule
     import numpy as np
     import torch
@@ -414,6 +448,11 @@ def test_expsyn_dynamics():
 
 
 def test_lif_gradients():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import LIFJax, LIFTorch
     import numpy as np
     import torch
@@ -460,6 +499,11 @@ def test_lif_gradients():
 
 
 def test_linearlif_gradients():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import LIFJax, LIFTorch, LinearJax, LinearTorch
     from rockpool.nn.combinators import Sequential
     import numpy as np
@@ -546,6 +590,11 @@ def test_linearlif_gradients():
 
 
 def test_expsyn_gradients():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import ExpSynJax, ExpSynTorch
     import numpy as np
     import torch
@@ -583,6 +632,10 @@ def analytical_dSdt(x, t, window=0.5):
 
 
 def test_jax_surrogate():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.nn.modules.jax.lif_jax import step_pwl
     import numpy as np
     import jax
@@ -629,6 +682,10 @@ def test_jax_surrogate():
 
 
 def test_torch_spike_surrogate():
+    import pytest
+
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules.torch.lif_torch import StepPWL
     import torch
 
