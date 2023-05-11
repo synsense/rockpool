@@ -1,0 +1,198 @@
+"""
+Samna-backed bridge to Xylo dev kit for Xylo IMU
+"""
+
+# - Samna imports
+import samna
+from samna.xyloImu.configuration import XyloConfiguration
+
+from . import xylo_imu_devkit_utils as hdkutils
+from .xylo_imu_devkit_utils import XyloIMUHDK
+from .xylo_samna import if_config_from_specification
+
+import time
+import numpy as np
+from rockpool.nn.modules.module import Module
+from rockpool.parameters import SimulationParameter
+
+# - Typing
+from typing import Optional, Union, Callable, List, Tuple
+from warnings import warn
+
+try:
+    from tqdm.autonotebook import tqdm
+except ModuleNotFoundError:
+
+    def tqdm(wrapped, *args, **kwargs):
+        return wrapped
+
+
+# - Configure exports
+__all__ = ["XyloIMUMonitor"]
+
+Default_Main_Clock_Rate = int(5e7)
+
+
+class XyloIMUMonitor(Module):
+    """
+    A spiking neuron :py:class:`.Module` backed by the Xylo hardware, via `samna`.
+
+    Use :py:func:`.config_from_specification` to build and validate a configuration for Xylo.
+
+    """
+
+    def __init__(
+        self,
+        device: XyloIMUHDK,
+        config: XyloConfiguration = None,
+        dt: float = 1e-3,
+        output_mode: str = "Spike",
+        main_clk_rate: Optional[int] = Default_Main_Clock_Rate,
+        hibernation_mode: bool = False,
+        interface_params: Optional[dict] = dict(),
+        *args,
+        **kwargs,
+    ):
+        """
+        Instantiate a Module with Xylo dev-kit backend
+
+        Args:
+            device (XyloIMUHDK): An opened `samna` device to a Xylo dev kit
+            config (XyloConfiguraration): A Xylo configuration from `samna`
+            dt (float): The simulation time-step to use for this Module
+            output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Vmem"]``. Default: "Spike", return events from the output layer.
+            main_clk_rate(int): The main clock rate of Xylo
+            hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
+            interface_params(dict): The dictionary of Xylo interface parameters used for the `hdkutils.config_if_module` function, the keys of which must be one of "num_avg_bitshif", "select_iaf_output", "sampling_period", "filter_a1_list", "filter_a2_list", "scale_values", "Bb_list", "B_wf_list", "B_af_list", "iaf_threshold_values".
+        """
+
+        # - Check input arguments
+        if device is None:
+            raise ValueError("`device` must be a valid, opened Xylo HDK device.")
+
+        # - Check output mode specification
+        if output_mode not in ["Spike", "Vmem"]:
+            raise ValueError(
+                f'{output_mode} is not supported. Must be one of `["Spike", "Vmem"]`.'
+            )
+        self._output_mode = output_mode
+
+        # - Get a default configuration
+        if config is None:
+            config = samna.xyloImu.configuration.XyloConfiguration()
+
+        # - Get the network shape
+        Nin, Nhidden = np.shape(config.input.weights)
+        _, Nout = np.shape(config.readout.weights)
+
+        # - Register buffers to read and write events, monitor state
+        self._read_buffer = hdkutils.new_xylo_read_buffer(device)
+        self._write_buffer = hdkutils.new_xylo_write_buffer(device)
+        self._state_buffer = hdkutils.new_xylo_state_monitor_buffer(device)
+
+        # - Initialise the superclass
+        super().__init__(
+            shape=(Nin, Nhidden, Nout), spiking_input=True, spiking_output=True
+        )
+
+        # - Store the device
+        self._device: XyloIMUHDK = device
+        """ `.XyloHDK`: The Xylo HDK used by this module """
+
+        # - Store the configuration (and apply it)
+        self.config: Union[
+            XyloConfiguration, SimulationParameter
+        ] = SimulationParameter(shape=(), init_func=lambda _: config)
+
+        if hibernation_mode:
+            self._config.enable_hibernation_mode = True
+        """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
+
+        # - Store the timestep
+        self.dt: Union[float, SimulationParameter] = dt
+        """ float: Simulation time-step of the module, in seconds """
+
+        # - Store the main clock rate
+        self._main_clk_rate = int(main_clk_rate)
+
+        # - Store the io module
+        self._io = self._device.get_io_module()
+        self._io.spi_slave_enable(True)
+
+        # - Set main clock rate
+        if self._main_clk_rate != Default_Main_Clock_Rate:
+            self._io.set_main_clk_rate(self._main_clk_rate)
+
+        # - Configure to auto mode
+        self._enable_auto_mode(interface_params)
+
+        # - Send first trigger to start to run full auto mode
+        hdkutils.advance_time_step(self._write_buffer)
+
+    @property
+    def config(self):
+        # - Return the configuration stored on Xylo HDK
+        return self._device.get_model().get_configuration()
+
+    @config.setter
+    def config(self, new_config):
+        # - Test for a valid configuration
+        is_valid, msg = samna.xyloImu.validate_configuration(new_config)
+        if not is_valid:
+            raise ValueError(f"Invalid configuration for the Xylo HDK: {msg}")
+
+        # - Write the configuration to the device
+        hdkutils.apply_configuration(self._device, new_config)
+
+        # - Store the configuration locally
+        self._config = new_config
+
+    def _enable_auto_mode(self, interface_params: dict):
+        """
+        Configure the Xylo HDK to use real-time mode
+
+        Args:
+            interface_params (dict): specify the interface parameters
+        """
+
+        # - Config the streaming mode
+        self.config = hdkutils.config_auto_mode(
+            self._config, self.dt, self._main_clk_rate, self._io
+        )
+
+        # - Config the IMU interface and apply current configuration
+        self.config.input_interface = if_config_from_specification(**interface_params)
+
+        # - Set configuration and reset state buffer
+        self._state_buffer.set_configuration(self._config)
+        self._state_buffer.reset()
+
+    def evolve(self, input_data, record: bool = False) -> Tuple[list, dict, dict]:
+        """
+        Evolve a network on the Xylo HDK in Real-time mode
+
+        Args:
+            input_data (np.ndarray): An array ``[T, Nin]``, specifying the number of time-steps to record.
+
+        Returns:
+            (list, dict, dict) output_events, {}, {}
+            output_events is a list that stores the output events of T time-steps.
+        """
+
+        Nt = input_data.shape[0]
+        out = []
+        count = 0
+
+        while count < int(Nt):
+            if self._output_mode == "Vmem":
+                output = self._state_buffer.get_output_v_mem()
+
+            elif self._output_mode == "Spike":
+                output = self._state_buffer.get_output_spike()
+
+            if output[0]:
+                self._state_buffer.reset()
+                count += 1
+                out.append([sub[-1] for sub in output])
+
+        return out, {}, {}

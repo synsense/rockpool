@@ -11,7 +11,7 @@ dependencies:
   - numpy
   - pandas
   - python>=3.6
-  - pytorch>=1.0
+  - pytorch<2.0
   - scipy
   - torchvision
   - tqdm
@@ -26,4 +26,3 @@ dependencies:
   - pip:
       - jax
       - jaxlib
-
