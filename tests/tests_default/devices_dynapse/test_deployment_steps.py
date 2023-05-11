@@ -4,9 +4,6 @@ The tests here makes sure that intermediate steps works as expected.
 To test the pipeline, two weight matrices (w_in and w_rec) are loaded
 Every test sequentially combines a `LinearJax` and a `DynapSim` layer whose weight matrices are loaded externally.
 """
-import pytest
-
-pytest.importorskip("samna")
 
 
 def test_network_building_first_step():
@@ -213,6 +210,9 @@ def test_network_from_config():
     The weight parameters are deviated a lot because of quantization
     The network parameters will be deviated less due to bias parameter selection
     """
+    import pytest
+
+    pytest.importorskip("samna")
 
     ### --- Preliminaries --- ###
     import os
