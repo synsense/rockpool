@@ -2,12 +2,12 @@
 Unit tests for jax training utilities, loss functions
 """
 
-import pytest
-
-pytest.importorskip("jax")
-
 
 def test_imports():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.training.jax_loss import (
         mse,
         bounds_cost,
@@ -24,6 +24,10 @@ def test_imports():
 
 
 def test_mse():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.nn.modules import RateJax
     from jax.example_libraries.optimizers import adam
 
@@ -71,6 +75,10 @@ def test_mse():
 
 
 def test_bounds_cost():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.nn.modules.jax.rate_jax import RateEulerJax
     from rockpool.training.jax_loss import bounds_cost, make_bounds
     from rockpool.training.jax_debug import flatten
@@ -122,6 +130,10 @@ def test_bounds_cost():
 
 
 def test_l2sqr_norm():
+    import pytest
+
+    pytest.importorskip("jax")
+
     import jax
     from rockpool.nn.modules.jax.rate_jax import RateJax
     from rockpool.training.jax_loss import l2sqr_norm
@@ -143,6 +155,10 @@ def test_l2sqr_norm():
 
 
 def test_l0norm():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.nn.modules.jax.rate_jax import RateJax
     from rockpool.training.jax_loss import l0_norm_approx
     from rockpool.nn.combinators.ffwd_stack import FFwdStack
@@ -162,6 +178,10 @@ def test_l0norm():
 
 
 def test_softmax():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.training.jax_loss import softmax
     import numpy as np
     import jax
@@ -181,6 +201,10 @@ def test_softmax():
 
 
 def test_logsoftmax():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.training.jax_loss import logsoftmax
     import numpy as np
     import jax
