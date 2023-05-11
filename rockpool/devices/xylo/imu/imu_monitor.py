@@ -20,11 +20,14 @@ from typing import Optional, Union, Callable, List, Tuple
 from warnings import warn
 
 try:
-    from tqdm.autonotebook import tqdm
+    from tqdm.autonotebook import tqdm, trange
 except ModuleNotFoundError:
 
     def tqdm(wrapped, *args, **kwargs):
         return wrapped
+
+    def trange(obj, *args, **kwargs):
+        return range(obj)
 
 
 # - Configure exports
@@ -156,7 +159,7 @@ class XyloIMUMonitor(Module):
         """
 
         # - Config the streaming mode
-        config = hdkutils.config_auto_mode(
+        self.config = hdkutils.config_auto_mode(
             self._config, self.dt, self._main_clk_rate, self._io
         )
 
@@ -167,32 +170,70 @@ class XyloIMUMonitor(Module):
         self._state_buffer.set_configuration(self._config)
         self._state_buffer.reset()
 
-    def evolve(self, input_data, record: bool = False) -> Tuple[list, dict, dict]:
+    def evolve(
+        self,
+        input_data: np.ndarray,
+        record: bool = False,
+        progress: bool = False,
+        timeout: Optional[float] = None,
+    ) -> Tuple[np.ndarray, dict, dict]:
         """
         Evolve a network on the Xylo HDK in Real-time mode
 
         Args:
             input_data (np.ndarray): An array ``[T, Nin]``, specifying the number of time-steps to record.
+            record (bool): A flag indicating whether a recording dictionary should be returned. Default: ``False``, do not return a recording dictionary.
+            progress (bool): Display a progress bar for the read. Default: ``False``
+            timeout (float): A duration in seconds for a read timeout. Default: 2x the real-time duration of the evolution
 
         Returns:
-            (list, dict, dict) output_events, {}, {}
-            output_events is a list that stores the output events of T time-steps.
+            Tuple[np.ndarray, dict, dict] output_events, {}, rec_dict
+            output_events is an array that stores the output events of T time-steps
         """
 
+        # - How many time-steps should we read?
         Nt = input_data.shape[0]
+
+        # - Determine a read timeout
+        timeout = 2 * Nt * self.dt if timeout is None else timeout
+
         out = []
         count = 0
 
+        # - Initialise a progress bar for the read
+        pbar = trange(Nt) if progress else None
+
+        # - Start the read clock
+        t_start = time.time()
+        t_timeout = t_start + timeout
+
         while count < int(Nt):
+            # - Perform a non-blocking read of either Vmem or spikes
             if self._output_mode == "Vmem":
                 output = self._state_buffer.get_output_v_mem()
 
             elif self._output_mode == "Spike":
                 output = self._state_buffer.get_output_spike()
 
+            # - Record output if any was returned
             if output[0]:
+                # - Clear the state buffer
                 self._state_buffer.reset()
-                count += 1
-                out.append([sub[-1] for sub in output])
+
+                # - Save the output
+                output = np.array(output).T
+                out.append(output)
+                count += output.shape[0]
+
+                # - Update the progress
+                if progress:
+                    pbar.update(output.shape[0])
+
+            # - Check for read timeout
+            if time.time() > t_timeout:
+                raise TimeoutError(f"XyloIMUMonitor: Read timeout of {timeout} sec.")
+
+        # - Concatenate and return output data
+        out = np.concatenate(out, axis=0)[:Nt, :]
 
         return out, {}, {}

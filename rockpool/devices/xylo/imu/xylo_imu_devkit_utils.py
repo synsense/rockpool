@@ -283,6 +283,7 @@ def config_auto_mode(
         updated Xylo configuration
     """
     io.write_config(0x11, 0)
+    io.spi_slave_enable(False)
     config.operation_mode = samna.xyloImu.OperationMode.RealTime
     config.bias_enable = True
     config.hidden.aliasing = True
