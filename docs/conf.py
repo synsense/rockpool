@@ -62,6 +62,14 @@ exclude_patterns = [
     "_templates",
 ]
 
+# Models that need to be ported to the v2 API
+exclude_patterns += [
+    "rockpool/nn/networks/net_ads.py",
+    "rockpool/nn/networks/net_deneve.py",
+    "rockpool/training/rr_trained_layer.py",
+    "rockpool/training/train_rr.py",
+]
+
 # - Set the default role to construct python references by default
 default_role = "py:obj"
 

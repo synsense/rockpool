@@ -137,7 +137,6 @@ These classes are deprecated, but are still usable via the high-level API, until
     nn.layers.RecIAFBrian
     nn.layers.RecIAFSpkInBrian
     nn.layers.FFExpSynBrian
-    nn.layers.RecDIAF
 
 
 Standard networks
@@ -249,8 +248,8 @@ Xylo Audio support
     devices.xylo.syns61201.AFESim
     devices.xylo.syns61201.AFESamna
     devices.xylo.syns61201.DivisiveNormalisation
-    devices.xylo.syns61201.XyloHiddenNeurons
-    devices.xylo.syns61201.XyloOutputNeurons
+    devices.xylo.syns61201.Xylo2HiddenNeurons
+    devices.xylo.syns61201.Xylo2OutputNeurons
 
 
 Xylo IMU support
