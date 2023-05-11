@@ -10,7 +10,7 @@ def test_imports():
     from rockpool.devices.xylo.imu import (
         save_config,
         load_config,
-        XyloImuSamna,
+        XyloIMUSamna,
     )
     import rockpool.devices.xylo.imu.xylo_imu_devkit_utils as putils
 
@@ -103,32 +103,24 @@ def test_save_load():
 
     # - Test configuration should be equal
     np.testing.assert_allclose(config.input.weights, conf2.input.weights)
-    np.testing.assert_allclose(config.input.syn2_weights, conf2.input.syn2_weights)
     np.testing.assert_allclose(
         config.input.weight_bit_shift, conf2.input.weight_bit_shift
     )
-    np.testing.assert_allclose(config.reservoir.weights, conf2.reservoir.weights)
+    np.testing.assert_allclose(config.hidden.weights, conf2.hidden.weights)
     np.testing.assert_allclose(
-        config.reservoir.syn2_weights, conf2.reservoir.syn2_weights
+        config.hidden.weight_bit_shift, conf2.hidden.weight_bit_shift
     )
     np.testing.assert_allclose(
-        config.reservoir.weight_bit_shift, conf2.reservoir.weight_bit_shift
+        config.hidden.neurons[0].threshold,
+        conf2.hidden.neurons[0].threshold,
     )
     np.testing.assert_allclose(
-        config.reservoir.neurons[0].i_syn2_decay,
-        conf2.reservoir.neurons[0].i_syn2_decay,
+        config.hidden.neurons[0].i_syn_decay,
+        conf2.hidden.neurons[0].i_syn_decay,
     )
     np.testing.assert_allclose(
-        config.reservoir.neurons[0].threshold,
-        conf2.reservoir.neurons[0].threshold,
-    )
-    np.testing.assert_allclose(
-        config.reservoir.neurons[0].i_syn_decay,
-        conf2.reservoir.neurons[0].i_syn_decay,
-    )
-    np.testing.assert_allclose(
-        config.reservoir.neurons[0].v_mem_decay,
-        conf2.reservoir.neurons[0].v_mem_decay,
+        config.hidden.neurons[0].v_mem_decay,
+        conf2.hidden.neurons[0].v_mem_decay,
     )
 
     np.testing.assert_allclose(config.readout.weights, conf2.readout.weights)
@@ -163,7 +155,7 @@ def test_xylo_vs_xylosim():
     Nout = 2
     T = 1000
 
-    config, valid, msg = config_from_specification(
+    config, valid, msg = x.config_from_specification(
         weights_in=np.random.uniform(-127, 127, size=(Nin, Nhidden, 2)),
         weights_out=np.random.uniform(-127, 127, size=(Nhidden, Nout)),
         weights_rec=np.random.uniform(-127, 127, size=(Nhidden, Nhidden, 2)),
@@ -182,9 +174,9 @@ def test_xylo_vs_xylosim():
 
 
     # - Create XyloSim object
-    mod_xylo_sim_vmem = x.XyloSim.from_config(conf, output_mode="Vmem", dt=1e-3)
-    mod_xylo_sim_isyn = x.XyloSim.from_config(conf, output_mode="Isyn", dt=1e-3)
-    mod_xylo_sim_spike = x.XyloSim.from_config(conf, dt=1e-3)
+    mod_xylo_sim_vmem = x.XyloSim.from_config(config, output_mode="Vmem", dt=1e-3)
+    mod_xylo_sim_isyn = x.XyloSim.from_config(config, output_mode="Isyn", dt=1e-3)
+    mod_xylo_sim_spike = x.XyloSim.from_config(config, dt=1e-3)
     mod_xylo_sim_vmem.timed()
     mod_xylo_sim_isyn.timed()
     mod_xylo_sim_spike.timed()
@@ -207,9 +199,9 @@ def test_xylo_vs_xylosim():
         pytest.skip("A connected Xylo IMU HDK is required to run this test")
 
     # - Init Xylo
-    mod_xylo_vmem = x.XyloImuSamna(daughterboard, conf, dt=1e-3, output_mode="Vmem")
-    mod_xylo_isyn = x.XyloImuSamna(daughterboard, conf, dt=1e-3, output_mode="Isyn")
-    mod_xylo_spike = x.XyloImuSamna(daughterboard, conf, dt=1e-3)
+    # mod_xylo_vmem = x.XyloIMUSamna(daughterboard, config, dt=1e-3, output_mode="Vmem")
+    # mod_xylo_isyn = x.XyloIMUSamna(daughterboard, config, dt=1e-3, output_mode="Isyn")
+    mod_xylo_spike = x.XyloIMUSamna(daughterboard, config, dt=1e-3)
 
     # - Evolve Xylo
     mod_xylo_spike.reset_state()
