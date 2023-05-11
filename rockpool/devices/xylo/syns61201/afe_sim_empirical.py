@@ -666,7 +666,9 @@ class AFESim(Module):
             filter_in += self.bpf_offset
 
         # - Perform the filtering
-        filtered, _, _ = self._butter_filterbank(filter_in)
+        # filtered, _, _ = self._butter_filterbank(filter_in)
+        filtered = self._butter_filterbank(filter_in)
+
 
         # add noise
         if self.add_noise:
