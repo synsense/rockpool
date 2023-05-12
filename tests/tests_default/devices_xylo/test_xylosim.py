@@ -1,10 +1,9 @@
-import pytest
-
-pytest.importorskip("samna")
-pytest.importorskip("xylosim")
-
-
 def test_configure():
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("xylosim")
+
     # - Samna imports
     from samna.xylo.configuration import ReservoirNeuron, OutputNeuron
     from samna.xylo.configuration import XyloConfiguration
@@ -133,6 +132,11 @@ def test_specification():
 
 
 def test_from_config():
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("xylosim")
+
     # - Samna imports
     from rockpool.devices.xylo.syns61300 import XyloSim, config_from_specification
     from samna.xylo import validate_configuration
@@ -167,6 +171,8 @@ def test_from_config():
 
 
 def test_FF_equality_torch():
+    import pytest
+
     pytest.importorskip("torch")
     import torch
     import numpy as np
@@ -269,6 +275,8 @@ def test_FF_equality_torch():
 
 
 def test_Rec_equality_torch():
+    import pytest
+
     pytest.importorskip("torch")
     import torch
     import numpy as np
@@ -363,6 +371,8 @@ def test_Rec_equality_torch():
 
 
 def test_FF_equality_slayer():
+    import pytest
+
     pytest.importorskip("torch")
     pytest.importorskip("sinabs.exodus")
     import torch
@@ -464,6 +474,11 @@ def test_FF_equality_slayer():
 
 
 def test_xylo_vs_xylosim():
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("xylosim")
+
     # - Samna imports
     import samna
     from samna.xylo import validate_configuration
