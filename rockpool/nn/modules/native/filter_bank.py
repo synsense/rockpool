@@ -397,7 +397,3 @@ class ButterFilter(FilterBankBase):
         # - Generate chunks
         chunk_size = int(np.ceil(self.shape[-1] / num_workers))
         self._chunks = self._generate_chunks(self._filters, chunk_size)
-
-    def __call__(self, input_data, *args, **kwargs):
-        output, _, _ = self.evolve(input_data, *args, **kwargs)
-        return np.array(output)
