@@ -669,7 +669,6 @@ class AFESim(Module):
         # filtered, _, _ = self._butter_filterbank(filter_in)
         filtered = self._butter_filterbank(filter_in)
 
-
         # add noise
         if self.add_noise:
             for i in range(self.size_out):
@@ -732,7 +731,6 @@ class AFESim(Module):
     def __call__(self, input_data, *args, **kwargs):
         out, _, _ = self.evolve(input_data, *args, **kwargs)
         return np.array(out)
-     
 
     def raster(self, spikes: np.ndarray):
         """

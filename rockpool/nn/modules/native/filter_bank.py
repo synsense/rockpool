@@ -401,4 +401,3 @@ class ButterFilter(FilterBankBase):
     def __call__(self, input_data, *args, **kwargs):
         output, _, _ = self.evolve(input_data, *args, **kwargs)
         return np.array(output)
-
