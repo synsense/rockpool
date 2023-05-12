@@ -171,6 +171,8 @@ def test_from_config():
 
 
 def test_FF_equality_torch():
+    import pytest
+
     pytest.importorskip("torch")
     import torch
     import numpy as np
@@ -273,6 +275,8 @@ def test_FF_equality_torch():
 
 
 def test_Rec_equality_torch():
+    import pytest
+
     pytest.importorskip("torch")
     import torch
     import numpy as np
@@ -367,6 +371,8 @@ def test_Rec_equality_torch():
 
 
 def test_FF_equality_slayer():
+    import pytest
+
     pytest.importorskip("torch")
     pytest.importorskip("sinabs.exodus")
     import torch
