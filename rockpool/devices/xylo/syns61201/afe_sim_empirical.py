@@ -729,6 +729,11 @@ class AFESim(Module):
 
         return spikes, self.state(), recording
 
+    def __call__(self, input_data, *args, **kwargs):
+        out, _, _ = self.evolve(input_data, *args, **kwargs)
+        return np.array(out)
+     
+
     def raster(self, spikes: np.ndarray):
         """
         Rasterise the produced spikes within the rastering period
