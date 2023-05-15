@@ -202,9 +202,6 @@ def apply_configuration(
     # - Ideal -- just write the configuration using samna
     hdk.get_model().apply_configuration(config)
 
-    # Set imu sensor enable to open the port for geting spikes from imu sensor
-    hdk.set_imu_sensor_enable(True)
-
 
 class XyloState(NamedTuple):
     """
@@ -240,6 +237,7 @@ class XyloState(NamedTuple):
 
 
 def configure_accel_time_mode(
+    hdk: XyloIMUHDK,
     config: XyloConfiguration,
     state_monitor_buffer: XyloIMUNeuronStateBuffer,
     monitor_Nhidden: Optional[int] = 0,
@@ -264,6 +262,10 @@ def configure_accel_time_mode(
     Returns:
         (XyloConfiguration, XyloIMUNeuronStateBuffer): `config` and `monitor_buffer`
     """
+
+    # Set imu sensor enable to open the port for geting spikes from imu sensor
+    hdk.enable_manual_input_acceleration(True)
+
     assert readout in ["Vmem", "Spike", "Isyn"], f"{readout} is not supported."
 
     # - Select accelerated time mode, and general configuration

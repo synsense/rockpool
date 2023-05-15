@@ -169,6 +169,7 @@ class XyloIMUSamna(Module):
             self._last_record_mode = record
 
             self.config, state_buffer = hdkutils.configure_accel_time_mode(
+                self._device,
                 self._config,
                 self._state_buffer,
                 Nhidden,
@@ -258,16 +259,10 @@ class XyloIMUSamna(Module):
             ps = self._power_buf.get_events()
 
             # - Separate out power meaurement events by channel
-            channels = samna.xyloImuTestBoard.MeasurementChannels
+            channels = samna.xyloImuBoards.MeasurementChannels
             io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
-            logic_afe_power = np.array(
-                [e.value for e in ps if e.channel == int(channels.LogicAfe)]
-            )
-            io_afe_power = np.array(
-                [e.value for e in ps if e.channel == int(channels.IoAfe)]
-            )
-            logic_power = np.array(
-                [e.value for e in ps if e.channel == int(channels.Logic)]
+            core_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.Core)]
             )
 
         if record:
@@ -287,9 +282,7 @@ class XyloIMUSamna(Module):
             rec_dict.update(
                 {
                     "io_power": io_power,
-                    "logic_afe_power": logic_afe_power,
-                    "io_afe_power": io_afe_power,
-                    "logic_power": logic_power,
+                    "core_power": core_power,
                 }
             )
 
