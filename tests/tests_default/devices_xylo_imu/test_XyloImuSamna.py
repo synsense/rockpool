@@ -22,10 +22,10 @@ def test_XyloSamna():
     # - Get a Xylo HDK board
     xylo_hdk_nodes = putils.find_xylo_imu_boards()
 
-    daughterboard = xylo_hdk_nodes[0]
-
     if len(xylo_hdk_nodes) == 0:
         pytest.skip("A connected Xylo IMU HDK is required to run this test")
+
+    daughterboard = xylo_hdk_nodes[0]
 
     # - Make a Xylo configuration
     Nin = 3
@@ -188,10 +188,10 @@ def test_xylo_vs_xylosim():
     # - Get a Xylo HDK board
     xylo_hdk_nodes = putils.find_xylo_imu_boards()
 
-    daughterboard = xylo_hdk_nodes[0]
-
     if len(xylo_hdk_nodes) == 0:
         pytest.skip("A connected Xylo IMU HDK is required to run this test")
+
+    daughterboard = xylo_hdk_nodes[0]
 
     # - Init Xylo
     # mod_xylo_vmem = x.XyloIMUSamna(daughterboard, config, dt=1e-3, output_mode="Vmem")
