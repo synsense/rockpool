@@ -11,8 +11,6 @@ from . import xylo_imu_devkit_utils as hdkutils
 from .xylo_imu_devkit_utils import XyloIMUHDK
 
 
-
-
 def save_config(config: XyloConfiguration, filename: str) -> None:
     """
     Save a Xylo configuration to disk in JSON format
@@ -133,10 +131,10 @@ class XyloIMUSamna(Module):
         self.dt: Union[float, SimulationParameter] = dt
         """ float: Simulation time-step of the module, in seconds """
 
-        # # - Set power measurement module
-        # self._power_buf, self.power = hdkutils.set_power_measure(
-        #     self._device, power_frequency
-        # )
+        # - Set power measurement module
+        self._power_buf, self.power = hdkutils.set_power_measure(
+            self._device, power_frequency
+        )
 
     @property
     def config(self):
@@ -255,6 +253,23 @@ class XyloIMUSamna(Module):
             self._state_buffer, Nin, Nhidden, Nout, len(input)
         )
 
+        if record_power:
+            # - Get all recent power events from the power measurement
+            ps = self._power_buf.get_events()
+
+            # - Separate out power meaurement events by channel
+            channels = samna.xyloImuTestBoard.MeasurementChannels
+            io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
+            logic_afe_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.LogicAfe)]
+            )
+            io_afe_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.IoAfe)]
+            )
+            logic_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.Logic)]
+            )
+
         if record:
             rec_dict = {
                 "Vmem": np.array(xylo_data.V_mem_hid),
@@ -266,6 +281,17 @@ class XyloIMUSamna(Module):
             }
         else:
             rec_dict = {}
+
+        # - Return power recordings if requested
+        if record_power:
+            rec_dict.update(
+                {
+                    "io_power": io_power,
+                    "logic_afe_power": logic_afe_power,
+                    "io_afe_power": io_afe_power,
+                    "logic_power": logic_power,
+                }
+            )
 
         # - This module holds no state
         new_state = {}

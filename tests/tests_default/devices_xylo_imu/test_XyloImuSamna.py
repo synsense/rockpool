@@ -1,6 +1,3 @@
-
-
-
 import pytest
 
 pytest.importorskip("samna")
@@ -16,7 +13,6 @@ def test_imports():
 
 
 def test_XyloSamna():
-
     from rockpool.devices.xylo.imu import XyloIMUSamna, config_from_specification
     import rockpool.devices.xylo.imu.xylo_imu_devkit_utils as putils
     from rockpool import TSEvent, TSContinuous
@@ -24,7 +20,7 @@ def test_XyloSamna():
     import numpy as np
 
     # - Get a Xylo HDK board
-    xylo_hdk_nodes= putils.find_xylo_imu_boards()
+    xylo_hdk_nodes = putils.find_xylo_imu_boards()
 
     daughterboard = xylo_hdk_nodes[0]
 
@@ -54,9 +50,10 @@ def test_XyloSamna():
         aliases=None,
     )
 
-
     # - Make a XyloImuSamna module
-    modXyloSamna = XyloIMUSamna(device=daughterboard, config=config, dt=dt, output_mode="Vmem")
+    modXyloSamna = XyloIMUSamna(
+        device=daughterboard, config=config, dt=dt, output_mode="Vmem"
+    )
 
     # - Simulate with random input
     T = 100
@@ -65,7 +62,6 @@ def test_XyloSamna():
     output_ts, _, _ = modXyloSamna(input_spikes)
     print(output_ts)
 
-    
 
 def test_save_load():
     from rockpool.devices.xylo.imu import (
@@ -74,7 +70,6 @@ def test_save_load():
         load_config,
     )
     import numpy as np
-
 
     # - Make a Xylo configuration
     Nin = 3
@@ -140,6 +135,7 @@ def test_save_load():
         conf2.readout.neurons[0].v_mem_decay,
     )
 
+
 def test_xylo_vs_xylosim():
     # - Samna imports
     import samna
@@ -172,7 +168,6 @@ def test_xylo_vs_xylosim():
         aliases=None,
     )
 
-
     # - Create XyloSim object
     mod_xylo_sim_vmem = x.XyloSim.from_config(config, output_mode="Vmem", dt=1e-3)
     mod_xylo_sim_isyn = x.XyloSim.from_config(config, output_mode="Isyn", dt=1e-3)
@@ -191,7 +186,7 @@ def test_xylo_vs_xylosim():
     )
 
     # - Get a Xylo HDK board
-    xylo_hdk_nodes= putils.find_xylo_imu_boards()
+    xylo_hdk_nodes = putils.find_xylo_imu_boards()
 
     daughterboard = xylo_hdk_nodes[0]
 
@@ -214,4 +209,3 @@ def test_xylo_vs_xylosim():
     assert np.all(rec_sim["Vmem_out"] == rec_xylo["Vmem_out"])
     assert np.all(rec_sim["Isyn_out"] == rec_xylo["Isyn_out"])
     assert np.all(rec_sim["Spikes"] == rec_xylo["Spikes"])
-
