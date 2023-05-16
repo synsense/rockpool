@@ -26,3 +26,8 @@ docs/tutorials/mlruns
 tests/tests_default/mlruns
 tests/tests_default/lightning_logs
 tests/tests_default/MNIST
+_fp_q_model_deployments.ipynb
+*.egg-info
+*.DS_Store
+
+docs/basics/MNIST/raw/*

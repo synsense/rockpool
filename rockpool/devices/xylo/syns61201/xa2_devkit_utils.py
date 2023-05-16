@@ -2,9 +2,7 @@
 Low-level device kit utilities for the SYNS61201 Xylo-A2 HDK
 """
 
-from ctypes.wintypes import INT
 import enum
-from ipaddress import IPv4Network
 from rockpool.utilities.backend_management import backend_available
 
 if not backend_available("samna"):
@@ -18,9 +16,6 @@ import samna
 from warnings import warn
 import time
 import numpy as np
-from pathlib import Path
-from os import makedirs
-import json
 from bitstruct import pack_dict, unpack_dict
 
 
@@ -908,7 +903,6 @@ def read_neuron_synapse_state(
     Vmem, Isyn, Isyn2, Spikes = None, None, None, None
 
     if record:
-
         # - Read synaptic currents
         Isyn = read_memory(
             read_buffer,
@@ -937,7 +931,6 @@ def read_neuron_synapse_state(
             read_buffer, write_buffer, memory_table["rspkram"], Nhidden
         )
     else:
-
         if readout_mode == "Isyn":
             Isyn = read_memory(
                 read_buffer,
@@ -1386,7 +1379,7 @@ def read_allram_state(
         read_buffer,
         write_buffer,
         memory_table["nscram"],
-        Nhidden + Nout + num_buffer_neurons(Nhidden),
+        Nhidden + Nout,
     )
 
     # - Read synaptic currents 2
@@ -1397,7 +1390,7 @@ def read_allram_state(
         read_buffer,
         write_buffer,
         memory_table["nmpram"],
-        Nhidden + Nout + num_buffer_neurons(Nhidden),
+        Nhidden + Nout,
     )
 
     # - Read reservoir spikes
@@ -1408,63 +1401,62 @@ def read_allram_state(
         read_buffer,
         write_buffer,
         memory_table["IWTRAM"],
-        Nin * (Nhidden + num_buffer_neurons(Nhidden)),
+        Nin * Nhidden,
     )
 
     input_weight_2ram = read_memory(
         read_buffer,
         write_buffer,
         memory_table["IWT2RAM"],
-        Nin * (Nhidden + num_buffer_neurons(Nhidden)),
+        Nin * Nhidden,
     )
 
     neuron_dash_syn_ram = read_memory(
         read_buffer,
         write_buffer,
         memory_table["NDSRAM"],
-        Nhidden + Nout + num_buffer_neurons(Nhidden),
+        Nhidden + Nout,
     )
 
     reservoir_dash_syn_2ram = read_memory(
         read_buffer,
         write_buffer,
         memory_table["RDS2RAM"],
-        Nhidden + num_buffer_neurons(Nhidden),
+        Nhidden,
     )
 
     neuron_dash_mem_ram = read_memory(
         read_buffer,
         write_buffer,
         memory_table["NDMRAM"],
-        Nhidden + Nout + num_buffer_neurons(Nhidden),
+        Nhidden + Nout,
     )
 
     neuron_threshold_ram = read_memory(
         read_buffer,
         write_buffer,
         memory_table["NTHRAM"],
-        Nhidden + Nout + num_buffer_neurons(Nhidden),
+        Nhidden + Nout,
     )
 
     reservoir_config_ram = read_memory(
         read_buffer,
         write_buffer,
         memory_table["RCRAM"],
-        Nhidden + num_buffer_neurons(Nhidden),
+        Nhidden,
     )
 
     reservoir_aliasing_ram = read_memory(
         read_buffer,
         write_buffer,
         memory_table["RARAM"],
-        Nhidden + num_buffer_neurons(Nhidden),
+        Nhidden,
     )
 
     reservoir_effective_fanout_count_ram = read_memory(
         read_buffer,
         write_buffer,
         memory_table["REFOCRAM"],
-        # Nhidden + num_buffer_neurons(Nhidden), --> dummy neuron
         Nhidden,
     )
 
@@ -1493,7 +1485,7 @@ def read_allram_state(
         read_buffer,
         write_buffer,
         memory_table["OWTRAM"],
-        Nout * (Nhidden + num_buffer_neurons(Nhidden)),
+        Nout * Nhidden,
     )
 
     # - Return the all ram state

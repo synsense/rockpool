@@ -3,7 +3,6 @@ def test_imports():
 
 
 def test_FFwdStack_nojax():
-
     from rockpool.nn.combinators.ffwd_stack import FFwdStack
     from rockpool.nn.modules.module import Module
     from rockpool.parameters import State, Parameter

@@ -80,3 +80,41 @@ def test_TimeStepDropout():
     # the output of time steps that are not dropped are the same as the input
     out, ns, rd = mod(input_data)
     assert torch.allclose(out[out != 0], input_data[out != 0])
+
+
+def test_dropout_evaluation_mode():
+    from rockpool.nn.modules.torch.dropout import TimeStepDropout, UnitDropout
+    import torch
+
+    n_neurons = 12
+    T = 76
+    n_batches = 3
+    p = 0.4
+
+    mod = TimeStepDropout(shape=(n_neurons), p=p)
+    input_data = torch.rand(n_batches, T, n_neurons)
+    mod.eval()
+    out_eval1, _, _ = mod(input_data)
+    mod.train()
+    out_train, _, _ = mod(input_data)
+    mod.eval()
+    out_eval2, _, _ = mod(input_data)
+
+    # dropout should be disabled in evaluation mode
+    assert torch.allclose(out_eval1, out_eval2)
+    # dropout is applied in training mode
+    assert not torch.allclose(out_eval1, out_train)
+
+    mod = UnitDropout(shape=(n_neurons), p=p)
+    input_data = torch.rand(n_batches, T, n_neurons)
+    mod.eval()
+    out_eval1, _, _ = mod(input_data)
+    mod.train()
+    out_train, _, _ = mod(input_data)
+    mod.eval()
+    out_eval2, _, _ = mod(input_data)
+
+    # dropout should be disabled in evaluation mode
+    assert torch.allclose(out_eval1, out_eval2)
+    # dropout is applied in training mode
+    assert not torch.allclose(out_eval1, out_train)

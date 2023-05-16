@@ -2,6 +2,7 @@ import pytest
 
 pytest.importorskip("torch")
 
+
 # shared test with lif_torch
 def test_ahp_LIFTorch_shapes():
     from rockpool.nn.modules.torch.ahp_lif_torch import aLIFTorch

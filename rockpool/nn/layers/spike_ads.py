@@ -10,6 +10,7 @@ from rockpool.timeseries import (
     TimeSeries,
     get_global_ts_plotting_backend,
 )
+from rockpool.utilities.backend_management import backend_available
 import numpy as np
 from typing import Union, Any, Tuple, Optional
 import copy
@@ -20,9 +21,9 @@ from warnings import warn
 FloatVector = Union[float, np.ndarray]
 
 # - Try to import holoviews
-try:
+if backend_available("holoviews"):
     import holoviews as hv
-except Exception:
+else:
     pass
 
 __all__ = ["RecFSSpikeADS"]
@@ -235,7 +236,6 @@ class RecFSSpikeADS(Layer):
         discretize: int,
         discretize_dynapse: bool,
     ):
-
         super().__init__(
             weights=np.zeros(
                 (np.asarray(weights_fast).shape[0], np.asarray(weights_fast).shape[1])
@@ -603,7 +603,6 @@ class RecFSSpikeADS(Layer):
 
         # - Euler integrator loop
         while t_time < final_time:
-
             ### --- END of compiled inner function
             (
                 t_time,
@@ -1133,6 +1132,7 @@ class RecFSSpikeADS(Layer):
 
 
 ###### Convenience functions
+
 
 # - Convenience method to return a nan array
 def full_nan(shape: Union[tuple, int]):

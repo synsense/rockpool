@@ -333,7 +333,6 @@ def test_LIFTorch_reset():
 
 
 def test_LIFTorch_tc_training():
-
     from rockpool.nn.modules.torch import LIFTorch
     from rockpool.parameters import Constant
 
@@ -356,7 +355,6 @@ def test_LIFTorch_decay_training():
 
 
 def test_LIFTorch_bitshift_training():
-
     from rockpool.nn.modules.torch import LIFTorch
     from rockpool.parameters import Constant
 

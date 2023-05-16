@@ -9,6 +9,8 @@ import copy
 import collections.abc
 from pathlib import Path
 from tempfile import TemporaryFile
+from rockpool.utilities.backend_management import backend_available
+
 from typing import (
     Union,
     List,
@@ -29,22 +31,22 @@ import scipy.interpolate as spint
 
 # - Plotting backends
 _global_plotting_backend = None
-try:
+if backend_available("matplotlib"):
     import matplotlib as mpl
     from matplotlib import pyplot as plt
 
     _MPL_AVAILABLE = True
     _global_plotting_backend = "matplotlib"
-except ModuleNotFoundError:
+else:
     _MPL_AVAILABLE = False
 
-try:
+if backend_available("holoviews"):
     import holoviews as hv
 
     _HV_AVAILABLE = True
     if not _MPL_AVAILABLE:
         _global_plotting_backend = "holoviews"
-except ModuleNotFoundError:
+else:
     _HV_AVAILABLE = False
     if not _MPL_AVAILABLE:
         _global_plotting_backend = None
@@ -70,6 +72,7 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 # - Absolute tolerance, e.g. for comparing float values
 _TOLERANCE_ABSOLUTE = 1e-9
 _TOLERANCE_RELATIVE = 1e-6
+
 
 # - Global plotting backend
 def set_global_ts_plotting_backend(backend: Union[str, None], verbose=True):
@@ -1428,7 +1431,6 @@ class TSContinuous(TimeSeries):
             self.interp = lambda t: None
 
         elif np.size(self.times) == 1:
-
             # - Handle sample for single time step (`interp1d` would cause error)
             def single_sample(t):
                 times = np.array(t).flatten()
@@ -1488,7 +1490,6 @@ class TSContinuous(TimeSeries):
 
         # - Correct time points that are slightly out of range
         if self.approx_limit_times:
-
             tol = min(_TOLERANCE_ABSOLUTE, _TOLERANCE_RELATIVE * self.duration)
             # Find values in `times` that are slightly before first or slightly after
             # last sample
@@ -3049,7 +3050,6 @@ class TSEvent(TimeSeries):
 
     @channels.setter
     def channels(self, new_channels: np.ndarray):
-
         new_channels = np.asarray(new_channels)
 
         # - Check size of new data

@@ -439,7 +439,6 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         time_base = self._gen_time_trace(self.t, num_timesteps)
 
         if ts_input is not None:
-
             # - Make sure time series is of correct type
             if not isinstance(ts_input, TSContinuous):
                 raise TypeError(
@@ -496,7 +495,6 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
         # - Extract spike timings and channels
         if ts_input is not None:
-
             # - Make sure time series is of correct type
             if not isinstance(ts_input, TSEvent):
                 raise TypeError(
@@ -764,7 +762,7 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         __registered_attributes, __modules = self._get_attribute_registry()
 
         # - Reset submodule time
-        for (k, m) in __modules.items():
+        for k, m in __modules.items():
             if hasattr(m, "reset_time"):
                 m[0].reset_time()
 
@@ -799,7 +797,7 @@ class TimedModuleWrapper(TimedModule):
 
         If you need to convert a Rockpool v1 :py:class:`~rockpool.nn.layers.Layer` subclass, use either the :py:class:`.LayerToTimedModule` or the `.astimedmodule` decorator.
 
-        For more information, see :ref:`in-depth/api-high-level.ipynb`.
+        For more information, see :ref:`/in-depth/api-high-level.ipynb`.
     """
 
     def __init__(
@@ -939,7 +937,7 @@ class LayerToTimedModule(TimedModule):
     See Also:
         If you want to convert a :py:class:`.Module` object implementing the low-level v2 API to the high-level :py:class:`.TimedModule` v2 API, use the :py:class:`.TimedModuleWrapper` class.
 
-        For more information, see :ref:`in-depth/api-high-level.ipynb`.
+        For more information, see :ref:`/in-depth/api-high-level.ipynb`.
     """
 
     def __init__(
@@ -966,16 +964,16 @@ class LayerToTimedModule(TimedModule):
         spiking_input = layer.input_type is TSEvent
         spiking_output = layer.output_type is TSEvent
 
-        # - Record layer as submodule
-        self._module: Layer = layer
-        """ Layer: The wrapped layer object """
-
         super().__init__(
             shape=(layer.size_in, layer.size),
             dt=layer.dt,
             spiking_input=spiking_input,
             spiking_output=spiking_output,
         )
+
+        # - Record layer as submodule
+        self._module: Layer = layer
+        """ Layer: The wrapped layer object """
 
         self._name: str = layer.name
         """ str: The name of the wrapped layer """
@@ -1125,7 +1123,7 @@ def astimedmodule(
                     ...
 
     See Also
-        For more information, see :ref:`in-depth/api-high-level.ipynb`.
+        For more information, see :ref:`/in-depth/api-high-level.ipynb`.
 
     Args:
         v1_cls (type): A v1 :py:class:`.Layer` subclass to wrap

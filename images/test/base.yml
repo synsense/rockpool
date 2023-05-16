@@ -21,7 +21,6 @@ dependencies:
   - brian2
   - cudatoolkit
   - openblas
-  - nest-simulator
   - cudatoolkit-dev
   - pytorch>=1.9
   - torchvision>=0.9

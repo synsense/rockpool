@@ -19,11 +19,35 @@ class AbortImport(Exception):
 
 def check_torch_cuda_available() -> bool:
     try:
-        import torch.cuda.is_available
+        from torch.cuda import is_available
 
         return is_available()
     except:
         return False
+
+
+def check_samna_available() -> bool:
+    """
+    check_samna_available controls if samna package is "installed" and "usable"
+    The default `backend_available()` operation cannot correctly identifies the samna availability.
+    In the case that one installed samna and then uninstalled via pip
+    * `pip install samna` then `pip uninstall samna`
+    samna leaves a trace and `import samna` does not raise an error even though the package is not usable.
+
+    :return: true if samna package available
+    :rtype: bool
+    """
+    try:
+        import samna
+
+        try:
+            samna.__version__
+        except:
+            return False
+    except:
+        return False
+
+    return True
 
 
 # - Maintain a cache of checked backends
@@ -33,13 +57,13 @@ __checked_backends: Dict[str, bool] = {}
 __backend_specs: Dict[str, tuple] = {
     "numpy": (),
     "numba": (),
-    "nest": (),
     "jax": (["jax", "jaxlib"],),
     "torch": (),
     "sinabs": (),
     "sinabs-exodus": (["sinabs", "sinabs.exodus"], check_torch_cuda_available()),
     "brian": (["brian2"],),
     "cuda": (["torch"], check_torch_cuda_available()),
+    "samna": (["samna"], check_samna_available()),
 }
 
 
@@ -185,6 +209,21 @@ def list_backends():
 def torch_version_satisfied(
     req_major: int = 0, req_minor: int = 0, req_patch: int = 0
 ) -> bool:
+    """
+    Check if the installed version of torch satisfies a minimum version requirement
+
+    i.e.
+        torch 2.0.0 >= 1.12.0 : True
+        torch 1.12.0 >= 1.12.0 : True
+        torch 1.11.0 >= 1.12.0 : False
+    Args:
+        req_major (int): The minimum major version required
+        req_minor (int): The minimum minor version required
+        req_patch (int): The minimum patch version required
+
+    Returns:
+        bool: The installed version of torch satisfies the minimum version requirement
+    """
     if not backend_available("torch"):
         return False
 
@@ -197,9 +236,18 @@ def torch_version_satisfied(
     if len(patch_vers) > 1:
         lib_patch, *lib_cuda = patch_vers
 
-    if int(lib_major) >= req_major:
-        if int(lib_minor) >= req_minor:
+    if int(lib_major) > req_major:
+        return True
+    elif int(lib_major) == req_major:
+        if int(lib_minor) > req_minor:
+            return True
+        elif int(lib_minor) == req_minor:
             if int(lib_patch) >= req_patch:
                 return True
+            else:
+                return False
+        else:
+            return False
 
-    return False
+    else:
+        return False

@@ -135,6 +135,13 @@ class ModuleBase(ABC):
 
         # - Check if this is a new rockpool Parameter
         if isinstance(val, ParameterBase):
+            try:
+                super().__getattribute__("_in_Module_init")
+            except Exception as e:
+                raise NotImplementedError(
+                    "You must call `super.__init__()` in your `Module` subclass."
+                )
+
             if (
                 hasattr(self, name)
                 and hasattr(self, "_in_Module_init")
@@ -266,12 +273,12 @@ class ModuleBase(ABC):
         __registered_attributes, __modules = self._get_attribute_registry()
 
         # - Set self attributes
-        for (k, v) in __registered_attributes.items():
+        for k, v in __registered_attributes.items():
             if k in new_attributes:
                 self.__setattr__(k, new_attributes[k])
 
         # - Set submodule attributes
-        for (k, m) in __modules.items():
+        for k, m in __modules.items():
             if k in new_attributes:
                 m[0].set_attributes(new_attributes[k])
 
@@ -317,7 +324,7 @@ class ModuleBase(ABC):
 
         # - Append sub-module attributes as nested dictionaries
         submodule_attributes = {}
-        for (k, m) in __modules.items():
+        for k, m in __modules.items():
             mod_attributes = m[0]._get_attribute_family(type_name, family)
 
             if (family and mod_attributes) or (not family):
@@ -358,7 +365,7 @@ class ModuleBase(ABC):
 
         # - Append sub-module attributes as nested dictionaries
         submodule_attributes = {}
-        for (k, m) in __modules.items():
+        for k, m in __modules.items():
             mod_attributes = m[0].attributes_named(name)
 
             if mod_attributes:
@@ -505,12 +512,12 @@ class ModuleBase(ABC):
         states = self.state()
 
         # - Set self attributes
-        for (k, v) in __registered_attributes.items():
+        for k, v in __registered_attributes.items():
             if k in states:
                 self._reset_attribute(k)
 
         # - Reset submodule states
-        for (k, m) in __modules.items():
+        for k, m in __modules.items():
             m[0] = m[0].reset_state()
 
         return self
@@ -529,12 +536,12 @@ class ModuleBase(ABC):
         parameters = self.parameters()
 
         # - Set self attributes
-        for (k, v) in __registered_attributes.items():
+        for k, v in __registered_attributes.items():
             if k in parameters:
                 self._reset_attribute(k)
 
         # - Reset submodule states
-        for (k, m) in __modules.items():
+        for k, m in __modules.items():
             m[0] = m[0].reset_parameters()
 
         return self
@@ -548,7 +555,11 @@ class ModuleBase(ABC):
     @property
     def name(self) -> str:
         """str: The name of this module, or an empty string if ``None``"""
-        return f"'{self._name}'" if hasattr(self, "_name") and self._name else ""
+        try:
+            name = super().__getattribute__("_name")
+            return f"'{name}'" if name else ""
+        except:
+            return ""
 
     @property
     def full_name(self) -> str:
@@ -720,7 +731,7 @@ class Module(ModuleBase, ABC, metaclass=PostInitMetaMixin):
         data: np.ndarray,
         states: Tuple = (),
         target_shapes: Tuple = None,
-    ) -> (np.ndarray, Tuple[np.ndarray]):
+    ) -> Tuple[np.ndarray, Tuple[np.ndarray]]:
         """
         Automatically replicate states over batches and verify input dimensions
 

@@ -137,11 +137,7 @@ These classes are deprecated, but are still usable via the high-level API, until
     nn.layers.RecIAFBrian
     nn.layers.RecIAFSpkInBrian
     nn.layers.FFExpSynBrian
-    nn.layers.RecDIAF
 
-    nn.layers.FFIAFNest
-    nn.layers.RecIAFSpkInNest
-    nn.layers.RecAEIFSpkInNest
 
 Standard networks
 ------------------
@@ -248,9 +244,91 @@ Xylo hardware support and simulation
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.syns61201.XyloHiddenNeurons
-    devices.xylo.syns61201.XyloOutputNeurons
+    devices.xylo.syns61300.Xylo1HiddenNeurons
+    devices.xylo.syns61300.Xylo1OutputNeurons
 
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    devices.xylo.syns61201.Xylo2HiddenNeurons
+    devices.xylo.syns61201.Xylo2OutputNeurons
+
+Dynap-SE2 hardware support and simulation
+-----------------------------------------
+
+.. seealso::
+    Tutorials:
+
+    * :ref:`/devices/DynapSE/dynapse-overview.ipynb`
+    * :ref:`/devices/DynapSE/post-training.ipynb`
+    * :ref:`/devices/DynapSE/neuron-model.ipynb`
+    * :ref:`/devices/DynapSE/jax-training.ipynb`
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: module.rst
+
+    devices.dynapse
+
+**Simulation**
+
+.. autosummary::
+    :toctree: _autosummary
+    
+    :template: module.rst
+    devices.dynapse.simulation
+
+    :template: class.rst
+    devices.dynapse.DynapSim
+
+
+**Mismatch**
+
+.. autosummary::
+    :toctree: _autosummary
+
+    transform.mismatch_generator
+    devices.dynapse.frozen_mismatch_prototype
+    devices.dynapse.dynamic_mismatch_prototype
+
+**Device to Simulation**
+
+.. autosummary::
+    :toctree: _autosummary
+
+    devices.dynapse.mapper
+    devices.dynapse.autoencoder_quantization
+    devices.dynapse.config_from_specification
+
+**Computer Interface**
+
+.. autosummary::
+    :toctree: _autosummary
+
+    devices.dynapse.find_dynapse_boards
+
+    :template: class.rst
+    devices.dynapse.DynapseSamna
+
+**Simulation to Device**
+
+.. autosummary::
+    :toctree: _autosummary
+
+    devices.dynapse.dynapsim_net_from_spec
+    devices.dynapse.dynapsim_net_from_config
+
+**More**
+
+.. autosummary::
+    :toctree: _autosummary
+    
+    :template: class.rst
+    devices.dynapse.DynapseNeurons
+
+    :template: class.rst
+    devices.dynapse.DynapSimCore
 
 Graph tracing and mapping
 -------------------------
@@ -297,6 +375,7 @@ General Utilities
     :template: module.rst
 
     utilities.backend_management
+    utilities.tree_utils
     utilities.jax_tree_utils
     utilities.type_handling
 

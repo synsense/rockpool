@@ -258,7 +258,7 @@ def test_find_recurrent_modules():
     g = GraphHolder(gm1.input_nodes, gm3.output_nodes, "graph", None)
 
     # - Search for the recurrent modules
-    rec_mods = find_recurrent_modules(g)
+    _, rec_mods = find_recurrent_modules(g)
     assert len(rec_mods) == 2, "Found too many modules"
     assert gm2_1 in rec_mods, "Did not find first recurrent module"
     assert gm2_2 in rec_mods, "Did not find second recurrent module"

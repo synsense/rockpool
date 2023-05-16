@@ -148,7 +148,7 @@ class JaxModule(Module, ABC):
         obj._name = _name
 
         # - Assign modules if necessary
-        for (name, mod) in modules.items():
+        for name, mod in modules.items():
             if not hasattr(obj, name):
                 setattr(obj, name, mod)
 
@@ -196,12 +196,12 @@ class JaxModule(Module, ABC):
         __registered_attributes, __modules = mod._get_attribute_registry()
 
         # - Set self attributes
-        for (k, v) in __registered_attributes.items():
+        for k, v in __registered_attributes.items():
             if k in new_attributes:
                 mod.__setattr__(k, new_attributes[k])
 
         # - Set submodule attributes
-        for (k, m) in __modules.items():
+        for k, m in __modules.items():
             if k in new_attributes:
                 sub_mod = m[0].set_attributes(new_attributes[k])
                 mod.__setattr__(k, sub_mod)
@@ -236,12 +236,12 @@ class JaxModule(Module, ABC):
         states = mod.state()
 
         # - Set self attributes
-        for (k, v) in __registered_attributes.items():
+        for k, v in __registered_attributes.items():
             if k in states:
                 mod = mod._reset_attribute(k)
 
         # - Reset submodule states
-        for (k, m) in __modules.items():
+        for k, m in __modules.items():
             sub_mod = m[0].reset_state()
             mod.__setattr__(k, sub_mod)
 

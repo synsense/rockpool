@@ -91,7 +91,7 @@ class FFwdStackMixin(ABC):
         )
 
         # - Generate weight parameters
-        for (w_name, w_shape) in zip(weight_names, weight_shapes):
+        for w_name, w_shape in zip(weight_names, weight_shapes):
             setattr(
                 self,
                 w_name,
@@ -103,7 +103,7 @@ class FFwdStackMixin(ABC):
             )
 
         # - Assign modules as submodules
-        for (mod_name, submod) in zip(submod_names, submods):
+        for mod_name, submod in zip(submod_names, submods):
             setattr(
                 self,
                 mod_name,
@@ -120,7 +120,7 @@ class FFwdStackMixin(ABC):
         record_dict = {}
 
         # - Loop through submodules and weights
-        for (submod_name, weight_name) in zip(
+        for submod_name, weight_name in zip(
             self._submodule_names[:-1], self._weight_names
         ):
             # - Get this submodule and weight

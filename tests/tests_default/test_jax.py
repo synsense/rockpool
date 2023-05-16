@@ -2,14 +2,11 @@ import pytest
 
 pytest.importorskip("jax")
 
-from jax.config import config
-
-config.update("jax_log_compiles", True)
-
 
 def test_imports():
     from rockpool.nn.modules import RateJax
     from rockpool.nn.modules import JaxModule
+    from jax.config import config
 
 
 def test_assignment_jax():
@@ -42,6 +39,9 @@ def test_rate_jax():
     import jax.numpy as jnp
 
     import numpy as np
+    from jax.config import config
+
+    config.update("jax_log_compiles", True)
 
     # - Generate module
     lyr = RateJax(
@@ -136,6 +136,9 @@ def test_rate_jax():
 def test_rate_jax_tree():
     from rockpool.nn.modules import RateJax
     from jax.tree_util import tree_flatten, tree_unflatten
+    from jax.config import config
+
+    config.update("jax_log_compiles", True)
 
     mod = RateJax(2)
     tree, treedef = tree_flatten(mod)
@@ -153,12 +156,15 @@ def test_ffwd_net():
 
     import numpy as np
     import jax.numpy as jnp
+    from jax.config import config
+
+    config.update("jax_log_compiles", True)
 
     class my_ffwd_net(JaxModule):
         def __init__(self, shape, *args, **kwargs):
             super().__init__(shape, *args, **kwargs)
 
-            for (index, (N_in, N_out)) in enumerate(zip(shape[:-1], shape[1:])):
+            for index, (N_in, N_out) in enumerate(zip(shape[:-1], shape[1:])):
                 setattr(
                     self,
                     f"weight_{index}",
@@ -237,12 +243,15 @@ def test_sgd():
 
     import numpy as np
     import jax.numpy as jnp
+    from jax.config import config
+
+    config.update("jax_log_compiles", True)
 
     class my_ffwd_net(JaxModule):
         def __init__(self, shape, *args, **kwargs):
             super().__init__(shape, *args, **kwargs)
 
-            for (index, (N_in, N_out)) in enumerate(zip(shape[:-1], shape[1:])):
+            for index, (N_in, N_out) in enumerate(zip(shape[:-1], shape[1:])):
                 setattr(
                     self,
                     f"weight_{index}",

@@ -111,7 +111,7 @@ def all_neurons_have_same_dt(graph: GraphModuleBase) -> None:
 
 
 def output_neurons_cannot_be_recurrent(graph: GraphModuleBase) -> None:
-    recurrent_modules = find_recurrent_modules(graph)
+    _, recurrent_modules = find_recurrent_modules(graph)
 
     output_neurons = SetList()
     for n in graph.output_nodes:
@@ -617,7 +617,7 @@ def mapper(
         target_ids = target_neurons.hw_ids
 
         # - Add to the aliases list
-        for (source, target) in zip(source_ids, target_ids):
+        for source, target in zip(source_ids, target_ids):
             list_aliases[source].append(target)
 
     return {
