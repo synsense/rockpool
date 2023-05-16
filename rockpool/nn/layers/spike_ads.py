@@ -1054,7 +1054,7 @@ class RecFSSpikeADS(Layer):
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
         is_target: Optional[bool] = False,
-    ) -> (np.ndarray, np.ndarray, float):
+    ) Tuple[(np.ndarray, np.ndarray, float]:
         """
         Sample input, set up time base
 
