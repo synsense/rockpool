@@ -14,7 +14,7 @@ from . import xylo_imu_devkit_utils as hdkutils
 from .xylo_imu_devkit_utils import XyloIMUHDK
 
 # - Typing
-from typing import Optional, Union, Callable, List
+from typing import Optional, Union, Callable, List, Tuple
 from warnings import warn
 
 

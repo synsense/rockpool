@@ -7,13 +7,15 @@ def test_imports():
     from rockpool.devices.xylo.imu import (
         save_config,
         load_config,
-        XyloIMUSamna,
+        XyloSamna,
+        config_from_specification,
+        if_config_from_specification,
     )
     import rockpool.devices.xylo.imu.xylo_imu_devkit_utils as putils
 
 
 def test_XyloSamna():
-    from rockpool.devices.xylo.imu import XyloIMUSamna, config_from_specification
+    from rockpool.devices.xylo.imu import XyloSamna, config_from_specification
     import rockpool.devices.xylo.imu.xylo_imu_devkit_utils as putils
     from rockpool import TSEvent, TSContinuous
 
@@ -34,13 +36,12 @@ def test_XyloSamna():
     dt = 1e-3
 
     config, valid, msg = config_from_specification(
-        weights_in=np.random.uniform(-127, 127, size=(Nin, Nhidden, 2)),
+        weights_in=np.random.uniform(-127, 127, size=(Nin, Nhidden, 1)),
         weights_out=np.random.uniform(-127, 127, size=(Nhidden, Nout)),
-        weights_rec=np.random.uniform(-127, 127, size=(Nhidden, Nhidden, 2)),
+        weights_rec=np.random.uniform(-127, 127, size=(Nhidden, Nhidden, 1)),
         dash_mem=2 * np.ones(Nhidden),
         dash_mem_out=3 * np.ones(Nout),
         dash_syn=4 * np.ones(Nhidden),
-        dash_syn_2=2 * np.ones(Nhidden),
         dash_syn_out=3 * np.ones(Nout),
         threshold=128 * np.ones(Nhidden),
         threshold_out=256 * np.ones(Nout),
@@ -51,7 +52,7 @@ def test_XyloSamna():
     )
 
     # - Make a XyloImuSamna module
-    modXyloSamna = XyloIMUSamna(
+    modXyloSamna = XyloSamna(
         device=daughterboard, config=config, dt=dt, output_mode="Vmem"
     )
 
@@ -77,13 +78,12 @@ def test_save_load():
     Nout = 2
 
     config, valid, msg = config_from_specification(
-        weights_in=np.random.uniform(-127, 127, size=(Nin, Nhidden, 2)),
+        weights_in=np.random.uniform(-127, 127, size=(Nin, Nhidden, 1)),
         weights_out=np.random.uniform(-127, 127, size=(Nhidden, Nout)),
-        weights_rec=np.random.uniform(-127, 127, size=(Nhidden, Nhidden, 2)),
+        weights_rec=np.random.uniform(-127, 127, size=(Nhidden, Nhidden, 1)),
         dash_mem=2 * np.ones(Nhidden),
         dash_mem_out=3 * np.ones(Nout),
         dash_syn=4 * np.ones(Nhidden),
-        dash_syn_2=2 * np.ones(Nhidden),
         dash_syn_out=3 * np.ones(Nout),
         threshold=128 * np.ones(Nhidden),
         threshold_out=256 * np.ones(Nout),
@@ -152,13 +152,12 @@ def test_xylo_vs_xylosim():
     T = 1000
 
     config, valid, msg = x.config_from_specification(
-        weights_in=np.random.uniform(-127, 127, size=(Nin, Nhidden, 2)),
+        weights_in=np.random.uniform(-127, 127, size=(Nin, Nhidden, 1)),
         weights_out=np.random.uniform(-127, 127, size=(Nhidden, Nout)),
-        weights_rec=np.random.uniform(-127, 127, size=(Nhidden, Nhidden, 2)),
+        weights_rec=np.random.uniform(-127, 127, size=(Nhidden, Nhidden, 1)),
         dash_mem=2 * np.ones(Nhidden),
         dash_mem_out=3 * np.ones(Nout),
         dash_syn=4 * np.ones(Nhidden),
-        dash_syn_2=2 * np.ones(Nhidden),
         dash_syn_out=3 * np.ones(Nout),
         threshold=128 * np.ones(Nhidden),
         threshold_out=256 * np.ones(Nout),
@@ -196,7 +195,7 @@ def test_xylo_vs_xylosim():
     # - Init Xylo
     # mod_xylo_vmem = x.XyloIMUSamna(daughterboard, config, dt=1e-3, output_mode="Vmem")
     # mod_xylo_isyn = x.XyloIMUSamna(daughterboard, config, dt=1e-3, output_mode="Isyn")
-    mod_xylo_spike = x.XyloIMUSamna(daughterboard, config, dt=1e-3)
+    mod_xylo_spike = x.XyloSamna(daughterboard, config, dt=1e-3)
 
     # - Evolve Xylo
     mod_xylo_spike.reset_state()
@@ -209,3 +208,42 @@ def test_xylo_vs_xylosim():
     assert np.all(rec_sim["Vmem_out"] == rec_xylo["Vmem_out"])
     assert np.all(rec_sim["Isyn_out"] == rec_xylo["Isyn_out"])
     assert np.all(rec_sim["Spikes"] == rec_xylo["Spikes"])
+
+
+def test_config_from_specification():
+    import pytest
+
+    pytest.importorskip("samna")
+
+    from rockpool.devices.xylo.imu import config_from_specification, mapper
+    from rockpool.transform import quantize_methods as q
+    from rockpool.nn.modules import LIFTorch, LinearTorch
+    from rockpool.nn.combinators import Sequential, Residual
+
+    Nin = 2
+    Nhidden = 4
+    Nout = 2
+    dt = 1e-2
+
+    net = Sequential(
+        LinearTorch((Nin, Nhidden), has_bias=False),
+        LIFTorch(Nhidden, dt=dt),
+        Residual(
+            LinearTorch((Nhidden, Nhidden), has_bias=False),
+            LIFTorch(Nhidden, has_rec=True, threshold=1.0, dt=dt),
+        ),
+        LinearTorch((Nhidden, Nout), has_bias=False),
+        LIFTorch(Nout, dt=dt),
+    )
+
+    spec = mapper(
+        net.as_graph(),
+        weight_dtype="float",
+        threshold_dtype="float",
+        dash_dtype="float",
+    )
+    spec.update(q.global_quantize(**spec))
+
+    config, is_valid, msg = config_from_specification(**spec)
+    if not is_valid:
+        print(msg)
