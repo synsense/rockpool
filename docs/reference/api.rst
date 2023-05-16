@@ -137,11 +137,7 @@ These classes are deprecated, but are still usable via the high-level API, until
     nn.layers.RecIAFBrian
     nn.layers.RecIAFSpkInBrian
     nn.layers.FFExpSynBrian
-    nn.layers.RecDIAF
 
-    nn.layers.FFIAFNest
-    nn.layers.RecIAFSpkInNest
-    nn.layers.RecAEIFSpkInNest
 
 Standard networks
 ------------------
@@ -248,8 +244,15 @@ Xylo hardware support and simulation
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.syns61201.XyloHiddenNeurons
-    devices.xylo.syns61201.XyloOutputNeurons
+    devices.xylo.syns61300.Xylo1HiddenNeurons
+    devices.xylo.syns61300.Xylo1OutputNeurons
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    devices.xylo.syns61201.Xylo2HiddenNeurons
+    devices.xylo.syns61201.Xylo2OutputNeurons
 
 Dynap-SE2 hardware support and simulation
 -----------------------------------------
@@ -372,6 +375,7 @@ General Utilities
     :template: module.rst
 
     utilities.backend_management
+    utilities.tree_utils
     utilities.jax_tree_utils
     utilities.type_handling
 

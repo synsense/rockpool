@@ -39,6 +39,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    in-depth/jax-training.ipynb
    in-depth/torch-api.ipynb
    in-depth/torch-training.ipynb
+   in-depth/howto-constrained-opt.ipynb
 
 .. toctree::
    :maxdepth: 1
@@ -85,6 +86,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    advanced/graph_overview.ipynb
    advanced/graph_mapping.ipynb
    reference/params_types.ipynb
+   reference/lif-benchmarks.ipynb
    reference/api
    advanced/CHANGELOG
 
