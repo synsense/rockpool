@@ -1,9 +1,8 @@
-import pytest
-
-pytest.importorskip("samna")
-
-
 def test_XyloMonitor():
+    import pytest
+
+    pytest.importorskip("samna")
+
     from rockpool.devices.xylo.imu import XyloIMUMonitor, config_from_specification
     import rockpool.devices.xylo.imu.xylo_imu_devkit_utils as putils
     import numpy as np
@@ -22,13 +21,12 @@ def test_XyloMonitor():
     dt = 1e-3
 
     config, valid, msg = config_from_specification(
-        weights_in=np.random.uniform(-127, 127, size=(Nin, Nhidden, 2)),
+        weights_in=np.random.uniform(-127, 127, size=(Nin, Nhidden, 1)),
         weights_out=np.random.uniform(-127, 127, size=(Nhidden, Nout)),
-        weights_rec=np.random.uniform(-127, 127, size=(Nhidden, Nhidden, 2)),
+        weights_rec=np.random.uniform(-127, 127, size=(Nhidden, Nhidden, 1)),
         dash_mem=2 * np.ones(Nhidden),
         dash_mem_out=3 * np.ones(Nout),
         dash_syn=4 * np.ones(Nhidden),
-        dash_syn_2=2 * np.ones(Nhidden),
         dash_syn_out=3 * np.ones(Nout),
         threshold=128 * np.ones(Nhidden),
         threshold_out=256 * np.ones(Nout),
@@ -52,6 +50,10 @@ def test_XyloMonitor():
 
 
 def test_config_from_specification():
+    import pytest
+
+    pytest.importorskip("samna")
+
     from rockpool.devices.xylo.imu import config_from_specification, mapper
     from rockpool.transform import quantize_methods as q
     from rockpool.nn.modules import LIFTorch, LinearTorch

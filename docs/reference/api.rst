@@ -137,11 +137,7 @@ These classes are deprecated, but are still usable via the high-level API, until
     nn.layers.RecIAFBrian
     nn.layers.RecIAFSpkInBrian
     nn.layers.FFExpSynBrian
-    nn.layers.RecDIAF
 
-    nn.layers.FFIAFNest
-    nn.layers.RecIAFSpkInNest
-    nn.layers.RecAEIFSpkInNest
 
 Standard networks
 ------------------
@@ -207,23 +203,13 @@ Conversion utilities
 Xylo hardware support and simulation
 ------------------------------------
 
-.. autosummary::
-    :toctree: _autosummary
+Support modules
+~~~~~~~~~~~~~~~
 
-    devices.xylo.syns61201.config_from_specification
-    devices.xylo.syns61201.load_config
-    devices.xylo.syns61201.save_config
+.. autosummary:: 
+    ::toctree: _autosummary
 
-.. autosummary::
-    :toctree: _autosummary
-    :template: class.rst
-
-    devices.xylo.syns61201.XyloSim
-    devices.xylo.syns61201.XyloSamna
-    devices.xylo.syns61201.XyloMonitor
-    devices.xylo.syns61201.AFESim
-    devices.xylo.syns61201.AFESamna
-    devices.xylo.syns61201.DivisiveNormalisation
+    devices.xylo.find_xylo_hdks
 
 .. autosummary::
     :toctree: _autosummary
@@ -238,18 +224,53 @@ Xylo hardware support and simulation
     devices.xylo.syns61300
     devices.xylo.syns61201
     devices.xylo.syns65300
+    devices.xylo.imu
+
+
+Xylo Audio support
+~~~~~~~~~~~~~~~~~~~
 
 .. autosummary::
     :toctree: _autosummary
 
     devices.xylo.syns61201.mapper
+    devices.xylo.syns61201.config_from_specification
+    devices.xylo.syns61201.load_config
+    devices.xylo.syns61201.save_config
 
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.syns61201.XyloHiddenNeurons
-    devices.xylo.syns61201.XyloOutputNeurons
+    devices.xylo.syns61201.XyloSim
+    devices.xylo.syns61201.XyloSamna
+    devices.xylo.syns61201.XyloMonitor
+    devices.xylo.syns61201.AFESim
+    devices.xylo.syns61201.AFESamna
+    devices.xylo.syns61201.DivisiveNormalisation
+    devices.xylo.syns61201.Xylo2HiddenNeurons
+    devices.xylo.syns61201.Xylo2OutputNeurons
+
+
+Xylo IMU support
+~~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+    :toctree: _autosummary
+
+    devices.xylo.imu.mapper
+    devices.xylo.imu.config_from_specification
+    devices.xylo.imu.load_config
+    devices.xylo.imu.save_config
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    devices.xylo.imu.XyloIMUMonitor
+    devices.xylo.imu.XyloIMUHiddenNeurons
+    devices.xylo.imu.XyloIMUOutputNeurons
+
 
 Dynap-SE2 hardware support and simulation
 -----------------------------------------

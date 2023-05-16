@@ -11,7 +11,6 @@ unit_tests:
 
   before_script:
     - pip install --upgrade pip
-    - conda install nest-simulator
     - conda install -c conda-forge cudatoolkit-dev=11.4.0=h5e8e339_5
     - pip install --upgrade .[all] --no-cache-dir
     - python -c 'import samna'
@@ -19,34 +18,7 @@ unit_tests:
     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
 
   script:
-    - pytest -v tests/tests_default -n 4 --forked
-    - pytest -v tests/test_v1layers -n 4
-
-nest_tests:
-  stage: test
-  allow_failure: true
-  when: manual
-  image: "registry.gitlab.com/synsense/rockpool/test:latest"
-
-  before_script:
-    - pip install --upgrade pip
-    - pip install --upgrade .[all] --no-cache-dir
-
-  script:
-      - pytest -v tests/test_nest -n 4
-
-optional_tests:
-  stage: test
-  allow_failure: true
-  image: "registry.gitlab.com/synsense/rockpool/test:latest"
-  when: manual
-
-  before_script:
-    - pip install --upgrade pip
-    - pip install --upgrade .[all] --no-cache-dir
-
-  script:
-      - pytest -v tests/test_optional -n 4
+    - pytest -v tests/tests_default -n auto --forked
 
 documentation_linting:
   stage: docs
@@ -84,7 +56,6 @@ dist_build:
 
   dependencies:
     - unit_tests
-    - nest_tests
 
   before_script:
     - pip install --upgrade pip

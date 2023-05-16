@@ -15,8 +15,9 @@ if backend_available("samna"):
         Enumerate connected Xylo HDKs, and import the corresponding support module
 
         Returns:
-            List[AFEHDK]: A (possibly empty) list of AFE HDK nodes
+            List[AFEHDK]: A (possibly empty) list of HDK devices
             List[module]: A (possibly empty) list of python modules providing support for the corresponding Xylo HDK
+            List[str]: A (possibly empty) list containing the version string for each detected HDK
         """
         # - Get a list of devices
         device_list = samna.device.get_all_devices()
@@ -49,6 +50,16 @@ if backend_available("samna"):
                 xylo_hdks.append(samna.device.open_device(d))
                 xylo_support_modules.append(x1)
                 xylo_versions.append("syns61300")
+
+            elif d.device_type_name == "XyloImuTestBoard":
+                print(
+                    "The connected Xylo HDK contains a Xylo IMU. Importing `rockpool.devices.xylo.imu`"
+                )
+                import rockpool.devices.xylo.imu as imu
+
+                xylo_hdks.append(samna.device.open_device(d))
+                xylo_support_modules.append(imu)
+                xylo_versions.append("xylo-imu")
 
         return xylo_hdks, xylo_support_modules, xylo_versions
 
