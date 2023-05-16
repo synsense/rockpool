@@ -214,7 +214,7 @@ class FFUpDownV1(Layer):
     # @profile
     def _batch_data(
         self, inp: np.ndarray, num_timesteps: int, max_num_timesteps: int = None
-    ) -> (np.ndarray, int):
+    ) -> Tuple[np.ndarray, int]:
         """_batch_data: Generator that returns the data in batches"""
         # - Handle None for max_num_timesteps
         max_num_timesteps = (

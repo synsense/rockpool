@@ -31,7 +31,7 @@ import numpy as np
 import time
 
 # - Typing
-from typing import Optional, Union, Callable, List
+from typing import Optional, Union, Callable, List, Tuple
 
 from warnings import warn
 
@@ -64,7 +64,7 @@ def config_from_specification(
     aliases: Optional[List[List[int]]] = None,
     *args,
     **kwargs,
-) -> (XyloConfiguration, bool, str):
+) -> Tuple[XyloConfiguration, bool, str]:
     """
     Convert a full network specification to a xylo config and validate it
 
@@ -453,7 +453,7 @@ class XyloSamna(Module):
         read_timeout: float = None,
         *args,
         **kwargs,
-    ) -> (np.ndarray, dict, dict):
+    ) Tuple[np.ndarray, dict, dict]:
         """
         Evolve a network on the Xylo HDK in accelerated-time mode
 
@@ -576,7 +576,7 @@ class XyloSamna(Module):
         read_timeout: float = 5.0,
         *args,
         **kwargs,
-    ) -> (np.ndarray, dict, dict):
+    ) -> Tuple[np.ndarray, dict, dict]:
         """
         Evolve a network on the Xylo HDK in single-step manual mode. For debug purposes only. Uses 'samna.xylo.OperationMode.Manual' in samna.
 
@@ -689,7 +689,7 @@ class XyloSamna(Module):
         read_timeout: float = 5.0,
         *args,
         **kwargs,
-    ) -> (np.ndarray, dict, dict):
+    ) -> Tuple[np.ndarray, dict, dict]:
         """
         Evolve a network on the Xylo HDK in single-step manual mode, while recording the entire RAM contents of Xylo. Uses 'samna.xylo.OperationMode.Manual' in samna.
 
@@ -846,7 +846,7 @@ class XyloSamna(Module):
         read_timeout: float = 5.0,
         *args,
         **kwargs,
-    ) -> (np.ndarray, dict, dict):
+    ) -> Tuple[np.ndarray, dict, dict]:
         """
         Evolve a network on the Xylo HDK in single-step manual mode, while recording the entire RAM and register contents of Xylo. Uses 'samna.xylo.OperationMode.Manual' in samna.
 
