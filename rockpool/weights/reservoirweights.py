@@ -7,7 +7,6 @@ from typing import Callable, Optional, Tuple, Union
 from copy import deepcopy
 import random
 import numpy as np
-import scipy.stats as stats
 
 from rockpool.utilities.property_arrays import ArrayLike
 
@@ -148,7 +147,7 @@ def wilson_cowan_net(
     inh_sigma: float = 1,
     rndm_weight_fct: Callable[[int], float] = lambda n: np.random.randn(n, n)
     / np.sqrt(n),
-) -> (np.ndarray, np.ndarray):
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     wilson_cowan_net - FUNCTION Define a Wilson-Cowan network of oscillators
 
@@ -160,6 +159,7 @@ def wilson_cowan_net(
     :param rndm_weight_fct:    Function used to draw random weights. Default: numpy.random.randn
     :return:          2N x 2N weight matrix weights
     """
+    import scipy.stats as stats
 
     # - Check arguments, enforce reasonable defaults
 
@@ -258,7 +258,7 @@ def DiscretiseWeightMatrix(
     max_num_connections: int = 3,
     max_num_inputs: int = None,
     max_num_outputs: int = None,
-) -> (np.ndarray, np.ndarray, float, float):
+) -> Tuple[np.ndarray, np.ndarray, float, float]:
     """
     DiscretiseWeightMatrix - Discretise a weight matrix by strength
 
@@ -1274,7 +1274,7 @@ def gen_sparse_partitioned_network(
         for dest in part_indices:
             # - Get in-partition sources
             sources_in = list(copy.deepcopy(part_indices))
-            shuffle(sources_in)
+            np.random.shuffle(sources_in)
             sources_in = sources_in[:num_internal_inputs]
 
             # - Assign in-partition connections
@@ -1282,7 +1282,7 @@ def gen_sparse_partitioned_network(
 
             # - Get out-partition sources
             sources_out = list(copy.deepcopy(nonpart_indices))
-            shuffle(sources_out)
+            np.random.shuffle(sources_out)
             sources_out = sources_out[:num_between_inputs]
 
             # - Assign out-partition connections
