@@ -16,7 +16,7 @@ from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 
 # - Typing
-from typing import Optional, Union, Callable, List, Tuple
+from typing import Optional, Union, Callable, List
 
 import warnings
 
@@ -268,7 +268,7 @@ class XyloMonitor(Module):
         time.sleep(1)
         self._state_buffer.reset()
 
-    def evolve(self, input_data, record: bool = False) -> Tuple[list, dict, dict]:
+    def evolve(self, input_data, record: bool = False) -> (list, dict, dict):
         """
         Evolve a network on the Xylo HDK in Real-time mode
 

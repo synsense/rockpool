@@ -257,7 +257,7 @@ def blocking_read(
     target_timestamp: Optional[int] = None,
     count: Optional[int] = None,
     timeout: Optional[float] = None,
-) -> Tuple[List, bool]:
+) -> (List, bool):
     """
     Perform a blocking read on a buffer, optionally waiting for a certain count, a target timestamp, or imposing a timeout
 
@@ -1573,7 +1573,7 @@ def configure_accel_time_mode(
     # v_mem_start: Optional[int] = 0,
     readout="Spike",
     record=False,
-) -> Tuple[XyloConfiguration, XyloNeuronStateBuffer]:
+) -> (XyloConfiguration, XyloNeuronStateBuffer):
     """
     Switch on accelerated-time mode on a Xylo hdk, and configure network monitoring
 

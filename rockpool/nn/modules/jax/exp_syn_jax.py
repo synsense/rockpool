@@ -13,7 +13,7 @@ from jax.lax import scan
 
 import numpy as onp
 
-from typing import Union, Optional, Tuple
+from typing import Union, Optional
 
 from rockpool import typehints as rt
 
@@ -103,7 +103,7 @@ class ExpSynJax(JaxModule):
         input_data: np.array,
         *args,
         **kwargs,
-    ) -> Tuple[np.ndarray, dict, dict]:
+    ) -> (np.ndarray, dict, dict):
         # - Get input shapes, add batch dimension if necessary
         if len(input_data.shape) == 2:
             input_data = np.expand_dims(input_data, 0)

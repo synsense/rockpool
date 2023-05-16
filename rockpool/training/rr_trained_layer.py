@@ -9,7 +9,7 @@ raise ImportError("This module needs to be ported to the v2 API")
 
 # - Built-ins
 from abc import ABC, abstractmethod
-from typing import Union, Dict, Optional, Tuple
+from typing import Union, Dict, Optional
 from warnings import warn
 
 # - Third party packages
@@ -189,7 +189,7 @@ class RRTrainedLayer(Layer, ABC):
         ts_input: TimeSeries,
         is_first: bool,
         is_last: bool,
-    ) -> Tuple[Union[None, np.ndarray], np.ndarray, np.ndarray]:
+    ) -> (Union[None, np.ndarray], np.ndarray, np.ndarray):
         """
         Template for preparation of training data. Length of data is determined, dimensions are verified and target data is extracted from `ts_target` argument. Can be used in child classes through ``super()._prepare_training_data``. Extraction of input data needs to be implemented in child classes.
 

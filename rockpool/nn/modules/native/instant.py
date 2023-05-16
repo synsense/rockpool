@@ -13,7 +13,7 @@ from rockpool.utilities.backend_management import (
 
 from warnings import warn
 
-from typing import Callable, Union, Tuple, Any
+from typing import Callable, Union
 
 __all__ = ["Instant", "InstantJax", "InstantTorch"]
 
@@ -51,7 +51,7 @@ class InstantMixin:
         self,
         input,
         record: bool = False,
-    ) -> Tuple[Any, dict, dict]:
+    ) -> (tuple, tuple, tuple):
         return self.function(input), {}, {}
 
 

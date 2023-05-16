@@ -2946,7 +2946,7 @@ class TSEvent(TimeSeries):
         t_start: Optional[float] = None,
         t_stop: Optional[float] = None,
         channels: Optional[Union[int, ArrayLike]] = None,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> (np.ndarray, np.ndarray):
         """
         ts(...) - Return events in interval between indicated times, ignoring
                   events at `t_stop`.

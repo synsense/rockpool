@@ -63,7 +63,7 @@ class LIFODEJax(LIFJax):
         def forward(
             state: Tuple[np.ndarray, np.ndarray, np.ndarray],
             inputs_t: Tuple[np.ndarray, np.ndarray],
-        ) -> Tuple[
+        ) -> (
             Tuple[np.ndarray, np.ndarray, np.ndarray],
             np.ndarray,
             np.ndarray,
@@ -71,7 +71,7 @@ class LIFODEJax(LIFJax):
             np.ndarray,
             np.ndarray,
             np.ndarray,
-        ]:
+        ):
             """
             Single-step LIF dynamics for a recurrent LIF layer
 

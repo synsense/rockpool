@@ -12,7 +12,7 @@ from scipy.signal import butter, sosfilt, sosfreqz
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 
-from typing import Optional, Tuple
+from typing import Optional
 from rockpool.typehints import P_int, P_float, P_bool
 
 __all__ = ["ButterFilter", "ButterMelFilter"]
@@ -158,7 +158,7 @@ class FilterBankBase(Module):
         input: np.ndarray,
         *args,
         **kwargs,
-    ) -> Tuple[np.ndarray, dict, dict]:
+    ) -> (np.ndarray, dict, dict):
         """
         Evolve the state of the filterbanks, given an input
 

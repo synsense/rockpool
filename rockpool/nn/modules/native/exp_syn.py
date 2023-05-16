@@ -11,7 +11,7 @@ from rockpool.typehints import P_float
 import numpy as np
 import scipy.signal as sig
 
-from typing import Union, Optional, Tuple
+from typing import Union, Optional
 
 __all__ = ["ExpSyn"]
 
@@ -114,7 +114,7 @@ class ExpSyn(Module):
         input_data: np.array,
         *args,
         **kwargs,
-    ) -> Tuple[np.ndarray, dict, dict]:
+    ) -> (np.ndarray, dict, dict):
         # - Expand states and data over batches
         input_data, (isyn, window) = self._auto_batch(
             input_data, (self.isyn, self._window)
