@@ -371,7 +371,7 @@ class XyloSamna(Module):
 
     See Also:
 
-        See the tutorials :ref:`/devices/xylo-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-xylo.ipynb` for a high-level overview of building and deploying networks for Xylo.
+        See the tutorials :ref:`/devices/xylo-imu/xylo-imu-intro.ipynb` and :ref:`/devices/torch-training-spiking-for-xylo.ipynb` for a high-level overview of building and deploying networks for Xylo.
 
     """
 
@@ -389,7 +389,7 @@ class XyloSamna(Module):
         Instantiate a Module with Xylo dev-kit backend
 
         Args:
-            device (XyloA2HDK): An opened `samna` device to a Xylo dev kit
+            device (XyloIMUHDK): An opened `samna` device to a Xylo dev kit
             config (XyloConfiguration): A Xylo configuration from `samna`
             dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
@@ -522,10 +522,10 @@ class XyloSamna(Module):
             record_power (bool): Iff ``True``, record the power consumption during each evolve.
 
         Returns:
-            (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
+            (np.ndarray, dict, dict): ``output``, ``new_state``, ``rec_dict``.
             ``output`` is a raster ``(T, Nout)``, containing events for each channel in each time bin. Time bins in ``output`` correspond to the time bins in ``input``.
             ``new_state`` is an empty dictiionary. The Xylo HDK does not permit querying or setting state.
-            ``record_dict`` is a dictionary containing recorded internal state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
+            ``rec_dict`` is a dictionary containing recorded internal state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
         """
 
         # - Get the network size
