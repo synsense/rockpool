@@ -1,3 +1,6 @@
+default:
+   image: "registry.gitlab.com/synsense/rockpool/test:latest"
+
 stages:
   - test
   - docs
@@ -5,9 +8,28 @@ stages:
   - build
   - deploy
 
+latest_tests:
+  stage: test
+  parallel: 4
+
+  before_script:
+    - conda update --all
+    - conda env update --name base --file images/test/resources/base.yml
+    - pip install --upgrade pip
+    - pip install --upgrade .[all] --no-cache-dir
+    - pip install --upgrade jax jaxlib sphinx-rtd-theme sphinx-autobuild
+    - pip install torch==1.12.0+cu116 torchvision==0.13.0+cu116 torchaudio==0.12.0 --extra-index-url https://download.pytorch.org/whl/cu116
+    - export CUDA_HOME=/miniconda
+    - python -c 'import samna'
+    - pip install 'sinabs-exodus>=1.1' || exit_code=$?
+    - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
+
+  script:
+    - pytest -v tests/tests_default -n auto --forked
+
 unit_tests:
   stage: test
-  image: "registry.gitlab.com/synsense/rockpool/test:latest"
+  parallel: 4
 
   before_script:
     - pip install --upgrade pip
@@ -23,7 +45,6 @@ unit_tests:
 documentation_linting:
   stage: docs
   allow_failure: true
-  image: "registry.gitlab.com/synsense/rockpool/test:latest"
 
   before_script:
     - pip install --upgrade pip
@@ -35,7 +56,6 @@ documentation_linting:
 docs_build:
   stage: docs
   allow_failure: true
-  image: "registry.gitlab.com/synsense/rockpool/test:latest"
 
   before_script:
     - pip install --upgrade pip
@@ -52,7 +72,6 @@ docs_build:
 
 dist_build:
   stage: build
-  image: "registry.gitlab.com/synsense/rockpool/test:latest"
 
   dependencies:
     - unit_tests
@@ -70,7 +89,6 @@ dist_build:
 
 black-check:
   stage: test
-  image: "registry.gitlab.com/synsense/rockpool/test:latest"
 
   before_script:
     - pip install --upgrade pip
@@ -85,7 +103,6 @@ pages:
     - master
 
   allow_failure: true
-  image: "registry.gitlab.com/synsense/rockpool/test:latest"
 
   dependencies:
     - docs_build
@@ -100,8 +117,6 @@ pages:
 pypi_deploy:
   stage: deploy
   when: manual
-  image: "registry.gitlab.com/synsense/rockpool/test:latest"
-
   only:
     - master
 
