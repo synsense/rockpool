@@ -11,7 +11,7 @@ stages:
 latest_tests:
   stage: test
   parallel: 4
-
+  image: "registry.gitlab.com/synsense/rockpool:raw"
   before_script:
     - conda update --all
     - conda env update --name base --file images/test/resources/base.yml
