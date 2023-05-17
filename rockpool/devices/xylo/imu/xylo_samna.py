@@ -215,7 +215,7 @@ def config_from_specification(
     config.readout.weight_bit_shift = weight_shift_out
     if weights_in.shape[1] > 128:
         warn(
-            "More than 128 input expantion neurons (IEN) detected. Only the first 128 will be used."
+            "More than 128 input expansion neurons (IEN) detected. Only the first 128 will be used."
         )
         config.input.weights = weights_in[:, :128, 0]
     else:
@@ -223,7 +223,7 @@ def config_from_specification(
     config.hidden.weights = weights_rec[:, :, 0]
     if weights_out.shape[1] > 128:
         warn(
-            "More than 128 output expantion neurons (OEN) detected. Only the last 128 will be used."
+            "More than 128 output expansion neurons (OEN) detected. Only the last 128 will be used."
         )
         config.readout.weights = weights_out[-128:, :]
     else:
@@ -524,7 +524,7 @@ class XyloSamna(Module):
         Returns:
             (np.ndarray, dict, dict): ``output``, ``new_state``, ``rec_dict``.
             ``output`` is a raster ``(T, Nout)``, containing events for each channel in each time bin. Time bins in ``output`` correspond to the time bins in ``input``.
-            ``new_state`` is an empty dictiionary. The Xylo HDK does not permit querying or setting state.
+            ``new_state`` is an empty dictionary. The Xylo HDK does not permit querying or setting state.
             ``rec_dict`` is a dictionary containing recorded internal state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
         """
 

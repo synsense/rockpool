@@ -125,19 +125,6 @@ def new_xylo_state_monitor_buffer(
     return buffer
 
 
-def gen_clear_input_registers_events() -> List:
-    """
-    Create events to clear the input event registers
-    """
-    events = []
-    for addr in [0x11, 0x12, 0x13, 0x14]:
-        event = samna.xyloImu.event.WriteRegisterValue()
-        event.address = addr
-        events.append(event)
-
-    return events
-
-
 def initialise_xylo_hdk(write_buffer: XyloIMUWriteBuffer) -> None:
     """
     Initialise the Xylo HDK
