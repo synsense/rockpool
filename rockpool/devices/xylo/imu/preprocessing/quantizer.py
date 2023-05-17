@@ -35,7 +35,7 @@ class Quantizer(Module):
             scale (float, optional): scale applied before quantization. Defaults to 1.0.
             num_bits (int, optional): the number of bits in the fractional part of the quantized signal. Defaults to 16.
         """
-        super().__init__(shape, spiking_input=False, spiking_output=False)
+        super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
         self.scale = SimulationParameter(scale, shape=(1,))
         """scale factor applied before quantization"""
