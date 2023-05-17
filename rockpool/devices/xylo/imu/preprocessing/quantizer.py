@@ -24,7 +24,7 @@ class Quantizer(Module):
 
     def __init__(
         self,
-        shape: Optional[Union[Tuple, int]] = None,
+        shape: Optional[Union[Tuple, int]],
         scale: float = 1.0,
         num_bits: int = 16,
     ) -> None:
@@ -49,12 +49,12 @@ class Quantizer(Module):
         """Quantize the input signal after suitable scaling. The quantization is done using python-object precision, which has infinite bit length.
 
         Args:
-            input_data (np.ndarray): input signal (single- or multi-channel). Typically `scale x sig_in` should have max amplitude less than 1.
+            input_data (np.ndarray): input signal (single- or multi-channel). Typically `scale x sig_in` should have max amplitude less than 1. shape: (B X T X C)
             record (bool, optional): record flag to match with the other rockpool modules. Practically useless. Defaults to False.
 
         Returns:
             Tuple[np.ndarray, Dict, Dict]:
-                data: the python-object quantized version of the input signal.
+                data: the python-object quantized version of the input signal. shape:(B X T X C)
                 state_dict: empty dictionary.
                 record_dict: empty dictionary.
         """
@@ -70,6 +70,7 @@ class Quantizer(Module):
             """
             return int(self.scale * __data * (2 ** (self.num_bits - 1)))
 
+        input_data, _ = self._auto_batch(input_data)
         out = np.vectorize(__forward, otypes=[object])(input_data)
 
         return out, {}, {}
