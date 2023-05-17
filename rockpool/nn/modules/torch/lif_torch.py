@@ -272,9 +272,7 @@ class LIFBaseTorch(TorchModule):
         """ (float) Noise std.dev. injected onto the membrane of each neuron during evolution """
 
         if self.leak_mode == "taus":
-
             if any([alpha, beta, dash_mem, dash_syn]):
-
                 raise ValueError(
                     "current leak mode is set to taus and only parameters from this family can be directly initilized (eg: tau_mem and tau_syn)"
                 )
@@ -310,9 +308,7 @@ class LIFBaseTorch(TorchModule):
             self._dummy_params = ("alpha", "beta", "dash_syn", "dash_mem")
 
         elif self.leak_mode == "decays":
-
             if any([tau_mem, tau_syn, dash_mem, dash_syn]):
-
                 raise ValueError(
                     "current leak mode is set to decays and only parameters from this family can be directly initilized (eg: alpha and beta)"
                 )
@@ -348,7 +344,6 @@ class LIFBaseTorch(TorchModule):
             self._dummy_params = ("tau_syn", "tau_mem", "dash_syn", "dash_mem")
 
         elif self.leak_mode == "bitshifts":
-
             if any([alpha, beta, tau_mem, tau_syn]):
                 raise ValueError(
                     "current leak mode is set to bitshifts and only parameters from this family can be directly initilized (eg: dash_mem and dash_syn)"
