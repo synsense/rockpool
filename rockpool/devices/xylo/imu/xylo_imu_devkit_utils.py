@@ -269,6 +269,8 @@ def config_auto_mode(
     dt: float,
     main_clk_rate: int,
     io,
+    Nhidden: int,
+    Nout: int,
 ) -> XyloConfiguration:
     """
     Set the Xylo HDK to real-time mode
@@ -293,9 +295,13 @@ def config_auto_mode(
     config.time_resolution_wrap = int(dt * main_clk_rate)
     config.debug.imu_if_clock_freq_div = 0x169
 
-    config.debug.monitor_neuron_v_mem = samna.xyloImu.configuration.NeuronRange(0, 0)
-    config.debug.monitor_neuron_i_syn = samna.xyloImu.configuration.NeuronRange(0, 0)
-    config.debug.monitor_neuron_spike = samna.xyloImu.configuration.NeuronRange(0, 0)
+    config.debug.monitor_neuron_v_mem = samna.xyloImu.configuration.NeuronRange(
+        Nhidden, Nhidden + Nout
+    )
+    config.debug.monitor_neuron_i_syn = samna.xyloImu.configuration.NeuronRange(
+        Nhidden, Nhidden + Nout
+    )
+    config.debug.monitor_neuron_spike = None
 
     return config
 

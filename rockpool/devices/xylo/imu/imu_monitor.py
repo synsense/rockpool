@@ -33,7 +33,7 @@ except ModuleNotFoundError:
 # - Configure exports
 __all__ = ["XyloIMUMonitor"]
 
-Default_Main_Clock_Rate = int(5e7)
+Default_Main_Clock_Rate = int(50e6)  # 50 MHz
 
 
 class XyloIMUMonitor(Module):
@@ -140,7 +140,7 @@ class XyloIMUMonitor(Module):
             self._io.set_main_clk_rate(self._main_clk_rate)
 
         # - Configure to auto mode
-        self._enable_auto_mode(interface_params)
+        self._enable_auto_mode(interface_params, Nhidden, Nout)
 
         # - Send first trigger to start to run full auto mode
         print("advance time step")
@@ -165,7 +165,7 @@ class XyloIMUMonitor(Module):
         # - Store the configuration locally
         self._config = new_config
 
-    def _enable_auto_mode(self, interface_params: dict):
+    def _enable_auto_mode(self, interface_params: dict, Nhidden: int, Nout: int):
         """
         Configure the Xylo HDK to use real-time mode
 
@@ -176,7 +176,12 @@ class XyloIMUMonitor(Module):
         # - Config the streaming mode
         print("configure auto mode")
         self.config = hdkutils.config_auto_mode(
-            self._config, self.dt, self._main_clk_rate, self._io
+            self._config,
+            self.dt,
+            self._main_clk_rate,
+            self._io,
+            Nhidden,
+            Nout,
         )
 
         # - Config the IMU interface and apply current configuration
