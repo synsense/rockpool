@@ -226,7 +226,7 @@ class DivisiveNormalisation(Module):
 
     def evolve(
         self, input_spike: np.ndarray, record: bool = False
-    ) -> (np.ndarray, dict):
+    ) -> Tuple[np.ndarray, dict]:
         """
         This class simulates divisive normalization for an input spike signal
         with one or several channels.
@@ -459,7 +459,7 @@ class DivisiveNormalisationNoLFSR(DivisiveNormalisation):
 
     def evolve(
         self, input_spike: np.ndarray, record: bool = False
-    ) -> (np.ndarray, dict):
+    ) -> Tuple[np.ndarray, dict]:
         """
         This class simulates divisive normalization for an input spike signal
         with possibly several channels.
