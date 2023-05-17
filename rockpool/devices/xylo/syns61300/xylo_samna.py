@@ -453,7 +453,7 @@ class XyloSamna(Module):
         read_timeout: float = None,
         *args,
         **kwargs,
-    ) Tuple[np.ndarray, dict, dict]:
+    ) -> Tuple[np.ndarray, dict, dict]:
         """
         Evolve a network on the Xylo HDK in accelerated-time mode
 
