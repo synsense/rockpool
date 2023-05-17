@@ -508,6 +508,7 @@ class XyloSamna(Module):
         input: np.ndarray,
         record: bool = False,
         record_power: bool = False,
+        read_timeout: Optional[float] = None,
         *args,
         **kwargs,
     ) -> Tuple[np.ndarray, dict, dict]:
@@ -520,6 +521,7 @@ class XyloSamna(Module):
             input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
             record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
             record_power (bool): Iff ``True``, record the power consumption during each evolve.
+            read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
 
         Returns:
             (np.ndarray, dict, dict): ``output``, ``new_state``, ``rec_dict``.
@@ -564,9 +566,30 @@ class XyloSamna(Module):
 
         # - Clear the read and state buffers
         self._state_buffer.reset()
+        self._read_buffer.get_events()
 
         # - Write the events and trigger the simulation
         self._write_buffer.write(input_events_list)
+
+        # - Determine a reasonable read timeout
+        if read_timeout is None:
+            read_timeout = len(input) * self.dt * Nhidden / 800.0
+            read_timeout = read_timeout * 10.0 if record else read_timeout
+
+        # - Wait until the simulation is finished
+        read_events, is_timeout = hdkutils.blocking_read(
+            self._read_buffer,
+            timeout=max(read_timeout, 1.0),
+            target_timestamp=final_timestamp,
+        )
+
+        if is_timeout:
+            message = f"Processing didn't finish for {read_timeout}s. Read {len(read_events)} events"
+            readout_events = [e for e in read_events if hasattr(e, "timestamp")]
+
+            if len(readout_events) > 0:
+                message += f", first timestamp: {readout_events[0].timestamp}, final timestamp: {readout_events[-1].timestamp}, target timestamp: {final_timestamp}"
+            raise TimeoutError(message)
 
         # - Read the simulation output data
         xylo_data = hdkutils.read_accel_mode_data(

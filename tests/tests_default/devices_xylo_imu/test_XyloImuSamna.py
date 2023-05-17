@@ -1,9 +1,7 @@
-import pytest
-
-pytest.importorskip("samna")
-
-
 def test_imports():
+    import pytest
+
+    pytest.importorskip("samna")
     from rockpool.devices.xylo.imu import (
         save_config,
         load_config,
@@ -15,6 +13,10 @@ def test_imports():
 
 
 def test_XyloSamna():
+    import pytest
+
+    pytest.importorskip("samna")
+
     from rockpool.devices.xylo.imu import XyloSamna, config_from_specification
     import rockpool.devices.xylo.imu.xylo_imu_devkit_utils as putils
     from rockpool import TSEvent, TSContinuous
@@ -65,6 +67,10 @@ def test_XyloSamna():
 
 
 def test_save_load():
+    import pytest
+
+    pytest.importorskip("samna")
+
     from rockpool.devices.xylo.imu import (
         config_from_specification,
         save_config,
@@ -137,6 +143,11 @@ def test_save_load():
 
 
 def test_xylo_vs_xylosim():
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("xylosim")
+
     # - Samna imports
     import samna
 

@@ -1,7 +1,7 @@
 def test_XyloMonitor():
     import pytest
 
-    pytest.importorskip("samna")
+    pytest.skip("XyloIMUMonitor not yet implemented")
 
     from rockpool.devices.xylo.imu import XyloIMUMonitor, config_from_specification
     import rockpool.devices.xylo.imu.xylo_imu_devkit_utils as putils
