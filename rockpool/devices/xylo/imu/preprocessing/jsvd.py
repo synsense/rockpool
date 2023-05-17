@@ -7,40 +7,59 @@ computes the 3 x 3 rotation matrix and 3 x 3 diagonal matrix.
     (iii)   This yields a higher precision in implementation of JSVD.
 """
 import warnings
-from functools import wraps
 from typing import List, Tuple
 
 import numpy as np
 
 from rockpool.devices.xylo.imu.preprocessing.lookup import RotationLookUpTable
 from rockpool.devices.xylo.imu.preprocessing.utils import type_check
-from rockpool.nn.modules.module import Module
 
 __all__ = ["JSVD"]
 
-class JSVD(Module):
+
+class JSVD:
+    """Runs Jaccobi SVD algorithm in FPGA precision.
+    this is the 2nd version of the algorithm and used joint matrix multiplication in order to reduce the
+    number of multiplication operations.
+    """
+
     def __init__(
         self,
-        lookuptable: RotationLookUpTable,
+        num_angles: int,
+        num_bits_lookup: int,
         num_bits_covariance: int,
         num_bits_rotation: int,
         nround: int = 4,
     ) -> None:
-        """Runs Jaccobi SVD algorithm in FPGA precision.
-        this is the 2nd version of the algorithm and used joint matrix multiplication in order to reduce the
-        number of multiplication operations.
+        """Object constructor.
 
         Args:
-            lookuptable (RotationLookUpTable): lookup table used for computation.
+            num_angles (int): number of angles in lookup table.
+            num_bits_lookup (int): number of bits used for quantizing the lookup table.
             num_bits_covariance (int): number of bits used for the covariance matrix.
             num_bits_rotation (int): number of bits devoted for implementing rotation matrix.
             nround (int): number of round rotation computation and update is done over all 3 axes/dims.
         """
 
-        self.lookuptable = lookuptable
+        self.num_angles = num_angles
+        """number of angles in lookup table"""
+
+        self.num_bits_lookup = num_bits_lookup
+        """number of bits used for quantizing the lookup table"""
+
         self.num_bits_covariance = num_bits_covariance
+        """number of bits used for the covariance matrix"""
+
         self.num_bits_rotation = num_bits_rotation
+        """number of bits devoted for implementing rotation matrix"""
+
         self.nround = nround
+        """number of round rotation computation and update is done over all 3 axes/dims"""
+
+        self.lookuptable = RotationLookUpTable(
+            num_angles=num_angles, num_bits=num_bits_lookup
+        )
+        """lookup table used for computation"""
 
     @type_check
     def evolve(
