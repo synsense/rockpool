@@ -156,15 +156,16 @@ class XyloIMUMonitor(Module):
         """
 
         # - Config the streaming mode
-        self.config = hdkutils.config_auto_mode(
+        config = hdkutils.config_auto_mode(
             self._config, self.dt, self._main_clk_rate, self._io
         )
 
         # - Config the IMU interface and apply current configuration
-        self.config.input_interface = if_config_from_specification(**interface_params)
+        config.input_interface = if_config_from_specification(**interface_params)
+        self.config = config
 
         # - Set configuration and reset state buffer
-        self._state_buffer.set_configuration(self._config)
+        self._state_buffer.set_configuration(config)
         self._state_buffer.reset()
 
     def evolve(self, input_data, record: bool = False) -> Tuple[list, dict, dict]:
