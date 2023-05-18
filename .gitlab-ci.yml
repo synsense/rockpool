@@ -14,12 +14,10 @@ latest_tests:
   image: "registry.gitlab.com/synsense/rockpool:raw"
   before_script:
     - conda update --all
-    - conda env update --name base --file images/test/resources/base.yml
     - pip install --upgrade pip
     - pip install --upgrade .[all] --no-cache-dir
     - pip install --upgrade jax jaxlib sphinx-rtd-theme sphinx-autobuild
     - pip install torch==1.12.0+cu116 torchvision==0.13.0+cu116 torchaudio==0.12.0 --extra-index-url https://download.pytorch.org/whl/cu116
-    - export CUDA_HOME=/miniconda
     - python -c 'import samna'
     - pip install 'sinabs-exodus>=1.1' || exit_code=$?
     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
