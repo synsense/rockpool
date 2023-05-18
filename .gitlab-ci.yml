@@ -2,11 +2,17 @@ default:
    image: "registry.gitlab.com/synsense/rockpool/test:latest"
 
 stages:
+  - train
   - test
   - docs
   - docs_deploy
   - build
   - deploy
+
+
+train:
+  script:
+    - nvidia-smi
 
 latest_tests:
   stage: test
