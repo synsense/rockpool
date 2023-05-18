@@ -19,6 +19,7 @@ latest_tests:
     - pip install --upgrade jax jaxlib sphinx-rtd-theme sphinx-autobuild
     - pip install torch==1.12.0+cu116 torchvision==0.13.0+cu116 torchaudio==0.12.0 --extra-index-url https://download.pytorch.org/whl/cu116
     - python -c 'import samna'
+    - export CUDA_HOME=/miniconda
     - pip install 'sinabs-exodus>=1.1' || exit_code=$?
     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
 
