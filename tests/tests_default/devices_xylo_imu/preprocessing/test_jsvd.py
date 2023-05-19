@@ -76,7 +76,7 @@ def test_JSVD_low_rank_gravity():
         U, _, _ = np.linalg.svd(cov_quant[0].astype(np.float64))
 
         # compute the covariance matrix using JSVD
-        (R_last, C_last), _, _ = jsvd.evolve(cov_quant[0])
+        R_last, C_last = jsvd(cov_quant[0])
 
         # compute the correlation
         corr = R_last.T @ U

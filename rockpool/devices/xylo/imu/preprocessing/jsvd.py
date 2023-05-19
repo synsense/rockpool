@@ -62,7 +62,7 @@ class JSVD:
         """lookup table used for computation"""
 
     @type_check
-    def evolve(
+    def __call__(
         self, C_in: np.ndarray, record: bool = False
     ) -> Tuple[List[np.ndarray], List[np.ndarray], np.ndarray, np.ndarray]:
         """Run Jaccobi-SVD and return all the intermediate states.
@@ -79,9 +79,7 @@ class JSVD:
             ValueError: Negative value in the diagonal matrix D!
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-                R_list (List[np.ndarray]): list of rotation matrices.
-                C_list (List[np.ndarray]): list of covariance matrices.
+            Tuple[np.ndarray, np.ndarray]:
                 R_last_sorted (np.ndarray): the last rotation matrix after sorting.
                 C_last_sorted (np.ndarray): the last covariance matrix after sorting.
         """
@@ -441,15 +439,7 @@ class JSVD:
 
         # return the computed matrices and the final sorted ones
 
-        if record == True:
-            record_dict = {"C_list": C_list, "R_list": R_list}
-        else:
-            record_dict = {}
-
-        state_dict = {}
-        out = (R_last_sorted, C_last_sorted)
-
-        return out, state_dict, record_dict
+        return R_last_sorted, C_last_sorted
 
     # utility functions
     def selection_matrix(self, dim: int) -> np.ndarray:
