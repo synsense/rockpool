@@ -8,17 +8,23 @@ __all__ = ["RotationLookUpTable"]
 
 
 class RotationLookUpTable:
+    """A lookup table for JSVD algorithm.
+    The range of angles for lookup tables are [0, 45] and they are quantized into `num_angles` angle bins.
+    The data for each angle is quantized/truncated into `num_bits` bits.
+    """
+
     def __init__(self, num_angles: int, num_bits: int) -> None:
-        """A lookup table for JSVD algorithm.
-        The range of angles for lookup tables are [0, 45] and they are quantized into `num_angles` angle bins.
-        The data for each angle is quantized/truncated into `num_bits` bits.
+        """Object constructor
 
         Args:
             num_angles (int): number of angles in lookup table.
             num_bits (int): number of bits used for quantizing the lookup table.
         """
         self.num_angles = num_angles
+        """number of angles in lookup table"""
+
         self.num_bits = num_bits
+        """number of bits used for quantizing the lookup table"""
 
         self._compute_lookup_table()
 
