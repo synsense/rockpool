@@ -2,8 +2,6 @@
 Low-level device kit utilities for the Xylo-IMU HDK
 """
 
-import enum
-from ipaddress import IPv4Network
 from rockpool.utilities.backend_management import backend_available
 
 if not backend_available("samna"):
@@ -15,17 +13,11 @@ import samna
 from samna.xyloImu.configuration import XyloConfiguration
 
 # - Other imports
-from warnings import warn
 import time
 import numpy as np
-from pathlib import Path
-from os import makedirs
-import json
-from bitstruct import pack_dict, unpack_dict
-
 
 # - Typing and useful proxy types
-from typing import Any, List, Iterable, Optional, NamedTuple, Union, Tuple
+from typing import Any, List, Optional, NamedTuple, Tuple
 
 XyloIMUReadBuffer = samna.BasicSinkNode_xylo_imu_event_output_event
 XyloIMUWriteBuffer = samna.BasicSourceNode_xylo_imu_event_input_event
@@ -48,13 +40,13 @@ def find_xylo_imu_boards() -> List[XyloIMUHDK]:
     device_list = samna.device.get_all_devices()
 
     # - Search for a xylo dev kit
-    afev2_hdk_list = [
+    imu_hdk_list = [
         samna.device.open_device(d)
         for d in device_list
         if d.device_type_name == "XyloImuTestBoard"
     ]
 
-    return afev2_hdk_list
+    return imu_hdk_list
 
 
 def new_xylo_read_buffer(
@@ -64,10 +56,10 @@ def new_xylo_read_buffer(
     Create and connect a new buffer to read from a Xylo HDK
 
     Args:
-        hdk (XyloDaughterBoard):
+        hdk (XyloIMUHDK): A Xylo HDK to create a new buffer for
 
     Returns:
-        samna.BasicSinkNode_xylo_event_output_event: Output buffer receiving events from Xylo HDK
+        XyloIMUReadBuffer: A connected event read buffer
     """
     # - Register a buffer to read events from Xylo
     buffer = XyloIMUReadBuffer()
@@ -91,10 +83,10 @@ def new_xylo_write_buffer(hdk: XyloIMUHDK) -> XyloIMUWriteBuffer:
     Create a new buffer for writing events to a Xylo HDK
 
     Args:
-        hdk (XyloDaughterBoard): A Xylo HDK to create a new buffer for
+        hdk (XyloIMUHDK): A Xylo HDK to create a new buffer for
 
     Returns:
-        XyloWriteBuffer: A connected event write buffer
+        XyloIMUWriteBuffer: A connected event write buffer
     """
     buffer = XyloIMUWriteBuffer()
     sink = hdk.get_model().get_sink_node()
@@ -111,7 +103,7 @@ def new_xylo_state_monitor_buffer(
     Create a new buffer for monitoring neuron and synapse state and connect it
 
     Args:
-        hdk (XyloDaughterBoard): A Xylo HDK to configure
+        hdk (XyloIMUHDK): A Xylo HDK to configure
 
     Returns:
         XyloNeuronStateBuffer: A connected neuron / synapse state monitor buffer
@@ -135,7 +127,7 @@ def new_xylo_state_monitor_buffer(
 
 def initialise_xylo_hdk(write_buffer: XyloIMUWriteBuffer) -> None:
     """
-    Initialise the Xylo HDK
+    Initialise the Xylo IMU HDK
 
     Args:
         write_buffer (XyloIMUWriteBuffer): A write buffer connected to a Xylo HDK to initialise
@@ -166,7 +158,7 @@ def set_power_measure(
     Initialize power consumption measure on a hdk
 
     Args:
-        hdk (XyloHDK): The Xylo HDK to be measured
+        hdk (XyloIMUHDK): The Xylo HDK to be measured
         frequency (float): The frequency of power measurement. Default: 5.0
 
     Returns:
@@ -191,14 +183,48 @@ def apply_configuration(
     Apply a configuration to the Xylo HDK
 
     Args:
-        hdk (XyloHDK): The Xylo HDK to write the configuration to
+        hdk (XyloIMUHDK): The Xylo HDK to write the configuration to
         config (XyloConfiguration): A configuration for Xylo
     """
     # - Ideal -- just write the configuration using samna
     hdk.get_model().apply_configuration(config)
 
 
+class XyloState(NamedTuple):
+    """
+    `.NamedTuple` that encapsulates a recorded Xylo HDK state
+    """
+
+    Nin: int
+    """ int: The number of input-layer neurons """
+
+    Nhidden: int
+    """ int: The number of hidden-layer neurons """
+
+    Nout: int
+    """ int: The number of output layer neurons """
+
+    V_mem_hid: np.ndarray
+    """ np.ndarray: Membrane potential of hidden neurons ``(Nhidden,)``"""
+
+    I_syn_hid: np.ndarray
+    """ np.ndarray: Synaptic current 1 of hidden neurons ``(Nhidden,)``"""
+
+    V_mem_out: np.ndarray
+    """ np.ndarray: Membrane potential of output neurons ``(Nhidden,)``"""
+
+    I_syn_out: np.ndarray
+    """ np.ndarray: Synaptic current of output neurons ``(Nout,)``"""
+
+    Spikes_hid: np.ndarray
+    """ np.ndarray: Spikes from hidden layer neurons ``(Nhidden,)``"""
+
+    Spikes_out: np.ndarray
+    """ np.ndarray: Spikes from output layer neurons ``(Nout,)``"""
+
+
 def configure_accel_time_mode(
+    hdk: XyloIMUHDK,
     config: XyloConfiguration,
     state_monitor_buffer: XyloIMUNeuronStateBuffer,
     monitor_Nhidden: Optional[int] = 0,
@@ -217,16 +243,29 @@ def configure_accel_time_mode(
         state_monitor_buffer (XyloIMUNeuronStateBuffer): A connected neuron state monitor buffer
         monitor_Nhidden (Optional[int]): The number of hidden neurons for which to monitor state during evolution. Default: ``0``, don't monitor any hidden neurons.
         monitor_Noutput (Optional[int]): The number of output neurons for which to monitor state during evolution. Default: ``0``, don't monitor any output neurons.
-        readout: The readout out mode for which to output neuron states. Default: ``Spike''. Must be one of ``['Vmem', 'Spike']``.
+        readout: The readout out mode for which to output neuron states. Default: ``Spike''. Must be one of ``['Vmem', 'Spike', 'Isyn']``.
         record (bool): Iff ``True``, record state during evolution. Default: ``False``, do not record state.
 
     Returns:
         (XyloConfiguration, XyloIMUNeuronStateBuffer): `config` and `monitor_buffer`
     """
-    assert readout in ["Vmem", "Spike"], f"{readout} is not supported."
 
-    # - Select accelerated time mode
+    # Set imu sensor enable to open the port for geting spikes from imu sensor
+    hdk.enable_manual_input_acceleration(True)
+
+    assert readout in ["Vmem", "Spike", "Isyn"], f"{readout} is not supported."
+
+    # - Select accelerated time mode, and general configuration
     config.operation_mode = samna.xyloImu.OperationMode.AcceleratedTime
+    config.imu_if_input_enable = False
+    config.debug.always_update_omp_stat = True
+
+    # Configurations set for state memory reading
+    config.debug.isyn_clock_enable = True
+    config.debug.ra_clock_enable = True
+    config.debug.bias_clock_enable = True
+    config.debug.hm_clock_enable = True
+    config.debug.ram_power_enable = True
 
     config.debug.monitor_neuron_spike = None
     config.debug.monitor_neuron_v_mem = None
@@ -238,17 +277,151 @@ def configure_accel_time_mode(
         config.debug.monitor_neuron_v_mem = samna.xyloImu.configuration.NeuronRange(
             0, monitor_Nhidden + monitor_Noutput
         )
+        config.debug.monitor_neuron_i_syn = samna.xyloImu.configuration.NeuronRange(
+            0, monitor_Nhidden + monitor_Noutput
+        )
 
     else:
-        config.debug.monitor_neuron_v_mem = samna.xyloImu.configuration.NeuronRange(
-            monitor_Nhidden, monitor_Nhidden + monitor_Noutput
-        )
+        if readout == "Isyn":
+            config.debug.monitor_neuron_i_syn = samna.xyloImu.configuration.NeuronRange(
+                monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+            )
+        elif readout == "Vmem":
+            config.debug.monitor_neuron_v_mem = samna.xyloImu.configuration.NeuronRange(
+                monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+            )
 
     # - Configure the monitor buffer
     state_monitor_buffer.set_configuration(config)
 
     # - Return the configuration and buffer
     return config, state_monitor_buffer
+
+
+def blocking_read(
+    read_buffer: XyloIMUReadBuffer,
+    target_timestamp: Optional[int] = None,
+    count: Optional[int] = None,
+    timeout: Optional[float] = None,
+) -> Tuple[List, bool]:
+    """
+    Perform a blocking read on a buffer, optionally waiting for a certain count, a target timestamp, or imposing a timeout
+
+    You should not provide `count` and `target_timestamp` together.
+
+    Args:
+        read_buffer (XyloReadBuffer): A buffer to read from
+        target_timestamp (Optional[int]): The desired final timestamp. Read until this timestamp is returned in an event. Default: ``None``, don't wait until a particular timestamp is read.
+        count (Optional[int]): The count of required events. Default: ``None``, just wait for any data.
+        timeout (Optional[float]): The time in seconds to wait for a result. Default: ``None``, no timeout: block until a read is made.
+
+    Returns:
+        (List, bool): `event_list`, `is_timeout`
+        `event_list` is a list of events read from the HDK. `is_timeout` is a boolean flag indicating that the read resulted in a timeout
+    """
+    all_events = []
+
+    # - Read at least a certain number of events
+    continue_read = True
+    is_timeout = False
+    start_time = time.time()
+    while continue_read:
+        # - Perform a read and save events
+        events = read_buffer.get_events()
+        all_events.extend(events)
+
+        # - Check if we reached the desired timestamp
+        if target_timestamp:
+            timestamps = [
+                e.timestamp
+                for e in events
+                if hasattr(e, "timestamp") and e.timestamp is not None
+            ]
+
+            if timestamps:
+                reached_timestamp = timestamps[-1] >= target_timestamp
+                continue_read &= ~reached_timestamp
+
+        # - Check timeout
+        if timeout:
+            is_timeout = (time.time() - start_time) > timeout
+            continue_read &= not is_timeout
+
+        # - Check number of events read
+        if count:
+            continue_read &= len(all_events) < count
+
+        # - Continue reading if no events have been read
+        if not target_timestamp and not count:
+            continue_read &= len(all_events) == 0
+
+    # - Perform one final read for good measure
+    all_events.extend(read_buffer.get_events())
+
+    # - Return read events
+    return all_events, is_timeout
+
+
+def read_accel_mode_data(
+    monitor_buffer: XyloIMUNeuronStateBuffer,
+    Nin: int,
+    Nhidden: int,
+    Nout: int,
+    Nt: int,
+) -> XyloState:
+    """
+    Read accelerated simulation mode data from a Xylo HDK
+
+    Args:
+        monitor_buffer (XyloIMUNeuronStateBuffer): A connected `XyloIMUNeuronStateBuffer` to read from
+        Nin (int): Number of input neurons to read. Default: ``16`` (all neurons).
+        Nhidden (int): The number of hidden neurons to monitor
+        Nout (int): The number of output neurons to monitor
+
+    Returns:
+        XyloState: The encapsulated state read from the Xylo device
+    """
+    # - Leave time for auto-triggering
+    # assert False, "WTF"
+    # time.sleep(0.1 * Nt)
+
+    # - Read data from neuron state buffer
+    vmem_ts = np.array(monitor_buffer.get_reservoir_v_mem(), "int16").T
+    isyn_ts = np.array(monitor_buffer.get_reservoir_i_syn(), "int16").T
+    spikes_ts = np.array(monitor_buffer.get_reservoir_spike(), "int8").T
+    spikes_out_ts = np.array(monitor_buffer.get_output_spike(), "int8").T
+
+    # - Separate hidden and output neurons
+    isyn_out_ts = isyn_ts[:, -Nout:] if len(isyn_ts) > 0 else None
+    isyn_ts = isyn_ts[:, :Nhidden] if len(isyn_ts) > 0 else None
+    vmem_out_ts = vmem_ts[:, -Nout:] if len(vmem_ts) > 0 else None
+    vmem_ts = vmem_ts[:, :Nhidden] if len(vmem_ts) > 0 else None
+
+    # - Return as a XyloState object
+    return XyloState(
+        Nin=Nin,
+        Nhidden=Nhidden,
+        Nout=Nout,
+        V_mem_hid=vmem_ts,
+        I_syn_hid=isyn_ts,
+        V_mem_out=vmem_out_ts,
+        I_syn_out=isyn_out_ts,
+        Spikes_hid=spikes_ts,
+        Spikes_out=spikes_out_ts,
+    )
+
+
+def gen_clear_input_registers_events() -> List:
+    """
+    Create events to clear the input event registers
+    """
+    events = []
+    for addr in [0x47, 0x48, 0x49, 0x4A]:
+        event = samna.xyloImu.event.WriteRegisterValue()
+        event.address = addr
+        events.append(event)
+
+    return events
 
 
 def config_hibernation_mode(
@@ -262,6 +435,53 @@ def config_hibernation_mode(
     """
     config.enable_hibernation_mode = hibernation_mode
     return config
+
+
+def get_current_timestamp(
+    read_buffer: XyloIMUReadBuffer,
+    write_buffer: XyloIMUWriteBuffer,
+    timeout: float = 3.0,
+) -> int:
+    """
+    Retrieve the current timestamp on a Xylo HDK
+
+    Args:
+        read_buffer (XyloIMUReadBuffer): A connected read buffer for the xylo HDK
+        write_buffer (XyloIMUWriteBuffer): A connected write buffer for the Xylo HDK
+        timeout (float): A timeout for reading
+
+    Returns:
+        int: The current timestamp on the Xylo HDK
+    """
+
+    # - Clear read buffer
+    read_buffer.get_events()
+
+    # - Trigger a readout event on Xylo
+    e = samna.xyloImu.event.TriggerReadout()
+    write_buffer.write([e])
+
+    # - Wait for the readout event to be sent back, and extract the timestamp
+    timestamp = None
+    continue_read = True
+    start_t = time.time()
+    while continue_read:
+        readout_events = read_buffer.get_events()
+        ev_filt = [
+            e for e in readout_events if isinstance(e, samna.xyloImu.event.Readout)
+        ]
+        if ev_filt:
+            timestamp = ev_filt[0].timestamp
+            continue_read = False
+        else:
+            # - Check timeout
+            continue_read &= (time.time() - start_t) < timeout
+
+    if timestamp is None:
+        raise TimeoutError(f"Timeout after {timeout}s when reading current timestamp.")
+
+    # - Return the timestamp
+    return timestamp
 
 
 def config_auto_mode(

@@ -18,8 +18,17 @@ from .xylo_mapper import *
 from .xylo_graph_modules import *
 
 try:
+    from .xylo_sim import *
+except:
+    if not backend_available("xylosim", "samna"):
+        XyloSim = missing_backend_shim("XyloSim", "xylosim, samna")
+    else:
+        raise
+
+try:
     from .xylo_samna import *
     from .xylo_imu_devkit_utils import *
+
     from .imu_monitor import *
 except:
     if not backend_available("samna"):
