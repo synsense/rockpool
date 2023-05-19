@@ -3,13 +3,6 @@ Low-level device kit utilities for the SYNS61201 Xylo-A2 HDK
 """
 
 import enum
-from rockpool.utilities.backend_management import backend_available
-
-if not backend_available("samna"):
-    raise ModuleNotFoundError(
-        "`samna` not found. The Xylo HDK requires `samna` for interfacing."
-    )
-
 import samna
 
 # - Other imports
