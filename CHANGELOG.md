@@ -21,6 +21,7 @@ All notable changes between Rockpool releases will be documented in this file.
 ### Removed
 
 * NEST backend completely removed
+* Removed spiking output surrogate "U" from LIF modules
 
 ### Security
 
