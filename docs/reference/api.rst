@@ -282,6 +282,7 @@ Xylo IMU support
     devices.xylo.imu.preprocessing.quantizer.Quantizer
     devices.xylo.imu.preprocessing.lookup.RotationLookUpTable
     devices.xylo.imu.preprocessing.jsvd.JSVD
+    devices.xylo.imu.preprocessing.subspace.SubSpace
 
 
 Dynap-SE2 hardware support and simulation
