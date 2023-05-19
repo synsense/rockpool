@@ -351,9 +351,6 @@ class LIF(Module):
                     (input_data[b, t, :], noise_ts[b, t, :]),
                 )
 
-        # - Generate output surrogate
-        surrogate_ts = sigmoid(Vmem_ts * 20.0, self.threshold)
-
         self.spikes = spikes[0]
         self.isyn = isyn[0]
         self.vmem = vmem[0]
@@ -366,7 +363,6 @@ class LIF(Module):
             "spikes": spikes_ts,
             "isyn": Isyn_ts,
             "vmem": Vmem_ts,
-            "U": surrogate_ts,
         }
 
         # - Return outputs
@@ -412,9 +408,6 @@ class LIF(Module):
             ),
             "irec": TSContinuous.from_clocked(
                 np.squeeze(state_dict["irec"][0]), name="$I_{rec}$", **args
-            ),
-            "U": TSContinuous.from_clocked(
-                np.squeeze(state_dict["U"][0]), name="Surrogate $U$", **args
             ),
             "spikes": TSEvent.from_raster(
                 np.squeeze(state_dict["spikes"][0]), name="Spikes", **args

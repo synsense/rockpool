@@ -370,9 +370,6 @@ class LIFJax(JaxModule):
             spikes, isyn, vmem, input_data, noise_ts
         )
 
-        # - Generate output surrogate
-        surrogate_ts = sigmoid(vmem_ts * 20.0, self.threshold)
-
         # - Generate return arguments
         outputs = spikes_ts
         states = {
@@ -387,7 +384,6 @@ class LIFJax(JaxModule):
             "spikes": spikes_ts,
             "isyn": isyn_ts,
             "vmem": vmem_ts,
-            "U": surrogate_ts,
         }
 
         # - Return outputs
@@ -433,9 +429,6 @@ class LIFJax(JaxModule):
             ),
             "irec": TSContinuous.from_clocked(
                 np.squeeze(state_dict["irec"][0]), name="$I_{rec}$", **args
-            ),
-            "U": TSContinuous.from_clocked(
-                np.squeeze(state_dict["U"][0]), name="Surrogate $U$", **args
             ),
             "spikes": TSEvent.from_raster(
                 np.squeeze(state_dict["spikes"][0]), name="Spikes", **args
