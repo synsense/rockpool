@@ -22,6 +22,10 @@ def test_imports():
     """
     test_imports is to first make sure that none of the imports raise any errors
     """
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
     from rockpool.devices.dynapse import mapper, DynapSim
     from rockpool.nn.modules import LinearJax, LIFJax
     from rockpool.nn.combinators import Sequential
@@ -31,6 +35,10 @@ def test_zero():
     """
     test_zero is a negative tests which tries to map an empty network
     """
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
     from rockpool.devices.dynapse import mapper, DynapSim
 
     with pytest.raises(ValueError):
@@ -41,6 +49,10 @@ def test_single_dynapsim():
     """
     test_single_dynapsim creates a standalone `DynapSim` layer and maps it
     """
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
     from rockpool.devices.dynapse import mapper, DynapSim
 
     # - Parameters
@@ -70,6 +82,10 @@ def test_dynapsim_net_minimal():
     """
     test_dynapsim_net_minimal creates a minimal sequential `LinearJax` + `DynapSim` network and maps it
     """
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
     from rockpool.nn.modules import LinearJax
     from rockpool.nn.combinators import Sequential
     from rockpool.devices.dynapse import mapper, DynapSim
@@ -102,6 +118,10 @@ def test_lif_net_minimal():
     test_lif_net_minimal creates a minimal sequential `LinearJax` + `LIFJax` network and maps it
     It includes an extra step of conversion from `LIFJax` layer to `DynapSim` layer
     """
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
     from rockpool.nn.modules import LIFJax, LinearJax
     from rockpool.nn.combinators import Sequential
     from rockpool.devices.dynapse import mapper
@@ -138,6 +158,10 @@ def test_dynapsim_net_multi():
     test_dynapsim_net_multi creates a multi-layer sequential `LinearJax` + `DynapSim` network and maps it
     It includes an extra step of concatanating the layers together in one layer
     """
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
     from rockpool.nn.modules import LinearJax
     from rockpool.nn.combinators import Sequential
     from rockpool.devices.dynapse import mapper, DynapSim
@@ -215,6 +239,10 @@ def test_lif_net_multi():
     test_lif_net_multi is almost the same test `test_dynapsim_net_multi()`.
     The only difference is it includes an extra step of conversion from `LIFJax` layer to `DynapSim` layer
     """
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
     from rockpool.nn.modules import LIFJax, LinearJax
     from rockpool.nn.combinators import Sequential
     from rockpool.devices.dynapse import mapper, DynapSim
@@ -291,6 +319,10 @@ def test_negative_consecutive_lif():
     """
     test_negative_consecutive_lif tries to map a network with consecutive `LIFJax` layers and results raising an error
     """
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
 
     from rockpool.nn.modules import LIFJax, LinearJax
     from rockpool.nn.combinators import Sequential
@@ -316,6 +348,10 @@ def test_negative_consecutive_linear():
     """
     test_negative_consecutive_linear tries to map a network with consecutive `LinearJax` layers and results raising an error
     """
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
 
     from rockpool.nn.modules import LIFJax, LinearJax
     from rockpool.nn.combinators import Sequential
