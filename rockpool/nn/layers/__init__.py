@@ -5,7 +5,10 @@ Package of converted layers from Rockpool v1
 # - Layer base class
 from .layer import *
 
-from rockpool.utilities.backend_management import backend_available, missing_backend_shim
+from rockpool.utilities.backend_management import (
+    backend_available,
+    missing_backend_shim,
+)
 
 # - Brian modules
 try:
