@@ -1,3 +1,9 @@
+def test_import():
+    from rockpool.devices.xylo.imu.preprocessing import SubSpace
+
+    assert SubSpace is not None
+
+
 def test_subspace():
     # required packages
     import numpy as np
