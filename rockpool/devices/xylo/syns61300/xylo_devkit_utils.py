@@ -8,13 +8,6 @@ See Also:
 
 """
 
-from rockpool.utilities.backend_management import backend_available
-
-if not backend_available("samna"):
-    raise ModuleNotFoundError(
-        "`samna` not found. The Xylo HDK requires `samna` for interfacing."
-    )
-
 # - `samna` imports
 import samna
 from samna.xylo.configuration import XyloConfiguration

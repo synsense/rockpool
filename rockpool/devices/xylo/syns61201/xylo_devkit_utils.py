@@ -7,7 +7,6 @@ See Also:
     The tutorials in :ref:`/devices/xylo-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-xylo.ipynb`.
 
 """
-from rockpool.utilities.backend_management import backend_available
 from rockpool.devices.xylo.syns61201.xa2_devkit_utils import (
     to_hex,
     write_memory,
@@ -17,11 +16,6 @@ from rockpool.devices.xylo.syns61201.xa2_devkit_utils import (
     XyloState,
 )
 from rockpool.devices.xylo.syns61300.xylo_devkit_utils import num_buffer_neurons
-
-if not backend_available("samna"):
-    raise ModuleNotFoundError(
-        "`samna` not found. The Xylo HDK requires `samna` for interfacing."
-    )
 
 # - `samna` imports
 import samna
