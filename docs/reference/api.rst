@@ -271,6 +271,17 @@ Xylo IMU support
     devices.xylo.imu.XyloIMUHiddenNeurons
     devices.xylo.imu.XyloIMUOutputNeurons
 
+**IMU Preprocessing Interface**
+
+.. autosummary::
+    :toctree: _autosummary
+    
+    :template: module.rst
+    devices.xylo.imu.preprocessing
+
+    :template: class.rst
+    devices.xylo.imu.preprocessing.quantizer.Quantizer
+
 
 Dynap-SE2 hardware support and simulation
 -----------------------------------------
