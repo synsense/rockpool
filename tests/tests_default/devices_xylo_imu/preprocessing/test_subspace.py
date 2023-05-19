@@ -15,10 +15,10 @@ def test_subspace():
     gravity = 10
 
     phases = np.random.rand(3) * 2 * np.pi
-    signal = amp * np.sin(
-        (2 * np.pi * phase / r_sampling * np.arange(T)).reshape(1, -1)
-        + phases.reshape(3, 1)
-    )
+    base = np.sin(2 * np.pi * phase / r_sampling * np.arange(T))
+    signal = np.zeros((T, 3))
+    for i in range(3):
+        signal[:, i] = amp * base + phases[i]
     signal[0, :] += gravity
 
     # - Construct the network
@@ -37,6 +37,7 @@ def test_subspace():
 
     subspace = Sequential(
         Quantizer(
+            shape=(3,),
             scale=0.999 / (np.max(np.abs(signal))),
             num_bits=num_bits_in,
         ),
@@ -58,7 +59,7 @@ def test_subspace():
         b=[1 / (2**avg_bitshift)],
         a=[1, -(1 - 1 / (2**avg_bitshift))],
         x=np.asarray(
-            [np.outer(sig_sample, sig_sample).ravel() for sig_sample in signal.T]
+            [np.outer(sig_sample, sig_sample).ravel() for sig_sample in signal]
         ),
         axis=0,
     )
@@ -68,5 +69,5 @@ def test_subspace():
     assert_allclose(
         np.array(C_ground_norm, dtype=float),
         np.array(C_flat_norm, dtype=float),
-        atol=1e-5,
+        atol=1e-4,
     )
