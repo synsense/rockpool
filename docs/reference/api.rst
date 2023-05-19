@@ -267,7 +267,6 @@ Xylo IMU support
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.imu.XyloIMUMonitor
     devices.xylo.imu.XyloIMUHiddenNeurons
     devices.xylo.imu.XyloIMUOutputNeurons
 
