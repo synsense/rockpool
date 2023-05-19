@@ -665,23 +665,9 @@ class LIFTorch(LIFBaseTorch):
                 n_batches, n_timesteps, self.size_out, self.n_synapses
             )
 
-            self._record_dict["U"] = torch.zeros(n_batches, n_timesteps, self.size_out)
-
         self._record_dict["spikes"] = torch.zeros(
             n_batches, n_timesteps, self.size_out, device=input_data.device
         )
-        # if self.leak_mode == 'decays':
-        #     alpha, beta = self.alpha, self.beta
-
-        # elif self.leak_mode == 'bitshifts':
-        #     alpha, beta = 1 - 1 / (2**self.dash_mem), 1 - 1 / (2**self.dash_syn)
-        # else:
-        #     alpha, beta = self.calc_alpha(), self.calc_beta()
-
-        # alpha, beta = _()
-        # dash_mem, dash_syn = _()
-
-        # tau_mem, tau_syn = -()
 
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
 
@@ -724,8 +710,6 @@ class LIFTorch(LIFBaseTorch):
 
                 if hasattr(self, "w_rec"):
                     self._record_dict["irec"][:, t] = irec
-
-                self._record_dict["U"][:, t] = sigmoid(vmem * 20.0, self.threshold)
 
             # - Maintain output spike record
             self._record_dict["spikes"][:, t] = spikes

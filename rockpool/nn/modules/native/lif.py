@@ -277,8 +277,6 @@ class LIF(Module):
             np.ndarray,
             np.ndarray,
             np.ndarray,
-            np.ndarray,
-            np.ndarray,
         ]:
             """
             Single-step LIF dynamics for a recurrent LIF layer
@@ -286,11 +284,9 @@ class LIF(Module):
             :param LayerState state:
             :param Tuple[np.ndarray, np.ndarray] inputs_t: (spike_inputs_ts, current_inputs_ts)
 
-            :return: (state, Irec_ts, output_ts, surrogate_ts, spikes_ts, Vmem_ts, Isyn_ts)
+            :return: (state, Irec_ts, spikes_ts, Vmem_ts, Isyn_ts)
                 state:          (LayerState) Layer state at end of evolution
                 Irec_ts:        (np.ndarray) Recurrent input received at each neuron over time [T, N]
-                output_ts:      (np.ndarray) Weighted output surrogate over time [T, O]
-                surrogate_ts:   (np.ndarray) Surrogate time trace for each neuron [T, N]
                 spikes_ts:      (np.ndarray) Logical spiking raster for each neuron [T, N]
                 Vmem_ts:        (np.ndarray) Membrane voltage of each neuron over time [T, N]
                 Isyn_ts:        (np.ndarray) Synaptic input current received by each neuron over time [T, N]
@@ -351,9 +347,6 @@ class LIF(Module):
                     (input_data[b, t, :], noise_ts[b, t, :]),
                 )
 
-        # - Generate output surrogate
-        surrogate_ts = sigmoid(Vmem_ts * 20.0, self.threshold)
-
         self.spikes = spikes[0]
         self.isyn = isyn[0]
         self.vmem = vmem[0]
@@ -366,7 +359,6 @@ class LIF(Module):
             "spikes": spikes_ts,
             "isyn": Isyn_ts,
             "vmem": Vmem_ts,
-            "U": surrogate_ts,
         }
 
         # - Return outputs
@@ -412,9 +404,6 @@ class LIF(Module):
             ),
             "irec": TSContinuous.from_clocked(
                 np.squeeze(state_dict["irec"][0]), name="$I_{rec}$", **args
-            ),
-            "U": TSContinuous.from_clocked(
-                np.squeeze(state_dict["U"][0]), name="Surrogate $U$", **args
             ),
             "spikes": TSEvent.from_raster(
                 np.squeeze(state_dict["spikes"][0]), name="Spikes", **args
