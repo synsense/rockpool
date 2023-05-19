@@ -175,7 +175,7 @@ class XyloIMUMonitor(Module):
 
         # - Config the streaming mode
         print("configure auto mode")
-        self.config = hdkutils.config_auto_mode(
+        config = hdkutils.config_auto_mode(
             self._config,
             self.dt,
             self._main_clk_rate,
@@ -186,11 +186,12 @@ class XyloIMUMonitor(Module):
 
         # - Config the IMU interface and apply current configuration
         print("config input IF")
-        self.config.input_interface = if_config_from_specification(**interface_params)
+        config.input_interface = if_config_from_specification(**interface_params)
+        self.config = config
 
         # - Set configuration and reset state buffer
         print("set state buffer config")
-        self._state_buffer.set_configuration(self._config)
+        self._state_buffer.set_configuration(config)
 
         print("reset state buffer")
         self._state_buffer.reset()
