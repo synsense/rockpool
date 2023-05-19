@@ -51,6 +51,10 @@ def rel_error_levy_local(v1, v2):
 
 
 def test_spike_generation():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.devices.xylo.syns61201 import AFESim
     from rockpool.devices.xylo.syns61201.afe_spike_generation import (
         _encode_spikes,
@@ -93,6 +97,7 @@ def test_spike_generation():
     #                            Jax version
     # ===========================================================================
     # * first run: dummy to compile jit in case jit is used
+
     start = time.time()
     spikes_jax, final_state_jax = _encode_spikes_jax(**params)
 
