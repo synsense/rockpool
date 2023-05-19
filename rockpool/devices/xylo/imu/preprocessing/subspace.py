@@ -23,7 +23,7 @@ class SubSpace(Module):
         num_bits_highprec_filter: int,
         num_bits_multiplier: int,
         num_avg_bitshift: int,
-        shape: Optional[Union[Tuple, int]] = 3,
+        shape: Optional[Union[Tuple, int]] = (3, 3),
     ) -> None:
         """Object Constructor
 
@@ -52,7 +52,7 @@ class SubSpace(Module):
             record (bool, optional): If True, the intermediate results are recorded and returned. Defaults to False.
 
         Returns:
-            Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]: 
+            Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
                 the covariance matrix of the input data (BxTx3x3)
                 empty dictionary
                 empty dictionary
