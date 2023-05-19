@@ -1,12 +1,17 @@
 """Test JSVD computation module"""
 
 
+def test_import():
+    from rockpool.devices.xylo.imu.preprocessing.jsvd import JSVD
+    
+
+
 def test_type_check():
     import numpy as np
     import pytest
     from numpy.testing import assert_array_equal
 
-    from rockpool.devices.xylo.imu.preprocessing.jsvd import type_check
+    from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 
     # define a class
     @type_check
@@ -100,9 +105,3 @@ def test_JSVD_low_rank_gravity():
             deviation < max_deviation
         ), "JSVD failed to estimate the covariance matrix correctly"
         deviation_list.append(deviation)
-
-    print(deviation_list)
-
-
-if __name__ == "__main__":
-    test_JSVD_low_rank_gravity()
