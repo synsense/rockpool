@@ -113,10 +113,6 @@ class LIFSinabs(TorchModule):
 
     Neurons therefore share a common resting potential of ``0``, a firing threshold of ``0``, and a subtractive reset of ``-1``. Neurons each have an optional bias current `.bias` (default: ``0.``).
 
-    :Surrogate signals:
-
-    To facilitate gradient-based training, a surrogate :math:`U(t)` is generated from the membrane potentials of each neuron.
-
     .. math ::
 
         U_j = \\textrm{tanh}(V_j + 1) / 2 + .5
