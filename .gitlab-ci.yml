@@ -7,6 +7,7 @@ stages:
 
 unit_tests:
   stage: test
+  parallel: 4
   image: "registry.gitlab.com/synsense/rockpool/test:latest"
 
   before_script:
