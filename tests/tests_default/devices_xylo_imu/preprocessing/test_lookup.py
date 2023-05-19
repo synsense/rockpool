@@ -6,9 +6,10 @@ def test_import():
 
 
 def test_lookup_table():
-    from rockpool.devices.xylo.imu.preprocessing import RotationLookUpTable
     import numpy as np
     from numpy.testing import assert_almost_equal
+
+    from rockpool.devices.xylo.imu.preprocessing import RotationLookUpTable
 
     num_angles = 64
     num_bits = 16
