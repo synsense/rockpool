@@ -29,7 +29,7 @@ def test_type_check():
 
 def test_JSVD_low_rank_gravity():
     import numpy as np
-    from numpy.testing import assert_almost_equal
+    from numpy.testing import assert_array_almost_equal
 
     from rockpool.devices.xylo.imu.preprocessing import JSVD, Quantizer
 
@@ -95,4 +95,4 @@ def test_JSVD_low_rank_gravity():
             np.sign(np.diag(corr_ordered))
         )
 
-        assert_almost_equal(corr_ordered_signcorrected, np.eye(3), decimal=1)
+        assert_array_almost_equal(corr_ordered_signcorrected, np.eye(3), decimal=1)
