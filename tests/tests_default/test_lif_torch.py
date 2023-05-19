@@ -378,3 +378,138 @@ def test_LIFTorch_bitshift_training():
     )
 
     assert mod.parameters() == {}
+
+
+def test_LIFTorch_initialization_taus():
+    from rockpool.nn.modules.torch import LIFTorch
+    from rockpool.parameters import Constant
+
+    try:
+        tc_mod = LIFTorch(1, alpha=0.8)
+
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(
+            "ValueError was not raised for wrong parameter initilization"
+        )
+
+    try:
+        tc_mod = LIFTorch(1, beta=0.8)
+
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(
+            "ValueError was not raised for wrong parameter initilization"
+        )
+
+    try:
+        tc_mod = LIFTorch(1, dash_mem=2)
+
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(
+            "ValueError was not raised for wrong parameter initilization"
+        )
+
+    try:
+        tc_mod = LIFTorch(1, dash_syn=2)
+
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(
+            "ValueError was not raised for wrong parameter initilization"
+        )
+
+
+def test_LIFTorch_initialization_decays():
+    from rockpool.nn.modules.torch import LIFTorch
+    from rockpool.parameters import Constant
+
+    try:
+        tc_mod = LIFTorch(1, tau_mem=0.02, leak_mode="decays")
+
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(
+            "ValueError was not raised for wrong parameter initilization"
+        )
+
+    try:
+        tc_mod = LIFTorch(1, tau_syn=0.02, leak_mode="decays")
+
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(
+            "ValueError was not raised for wrong parameter initilization"
+        )
+
+    try:
+        tc_mod = LIFTorch(1, dash_mem=2, leak_mode="decays")
+
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(
+            "ValueError was not raised for wrong parameter initilization"
+        )
+
+    try:
+        tc_mod = LIFTorch(1, dash_syn=2, leak_mode="decays")
+
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(
+            "ValueError was not raised for wrong parameter initilization"
+        )
+
+
+def test_LIFTorch_initialization_bitshifts():
+    from rockpool.nn.modules.torch import LIFTorch
+    from rockpool.parameters import Constant
+
+    try:
+        tc_mod = LIFTorch(1, tau_mem=0.02, leak_mode="bitshifts")
+
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(
+            "ValueError was not raised for wrong parameter initilization"
+        )
+
+    try:
+        tc_mod = LIFTorch(1, tau_syn=0.02, leak_mode="bitshifts")
+
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(
+            "ValueError was not raised for wrong parameter initilization"
+        )
+
+    try:
+        tc_mod = LIFTorch(1, alpha=0.8, leak_mode="bitshifts")
+
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(
+            "ValueError was not raised for wrong parameter initilization"
+        )
+
+    try:
+        tc_mod = LIFTorch(1, beta=0.8, leak_mode="bitshifts")
+
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(
+            "ValueError was not raised for wrong parameter initilization"
+        )
