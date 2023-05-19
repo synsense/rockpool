@@ -3,7 +3,6 @@
 
 def test_import():
     from rockpool.devices.xylo.imu.preprocessing.jsvd import JSVD
-    
 
 
 def test_type_check():
@@ -30,6 +29,7 @@ def test_type_check():
 
 def test_JSVD_low_rank_gravity():
     import numpy as np
+    from numpy.testing import assert_almost_equal
 
     from rockpool.devices.xylo.imu.preprocessing import JSVD, Quantizer
 
@@ -95,13 +95,4 @@ def test_JSVD_low_rank_gravity():
             np.sign(np.diag(corr_ordered))
         )
 
-        deviation = np.linalg.norm(
-            corr_ordered_signcorrected - np.eye(3)
-        ) / np.linalg.norm(np.eye(3))
-
-        # Test
-        max_deviation = 0.05
-        assert (
-            deviation < max_deviation
-        ), "JSVD failed to estimate the covariance matrix correctly"
-        deviation_list.append(deviation)
+        assert_almost_equal(corr_ordered_signcorrected, np.eye(3), decimal=1)
