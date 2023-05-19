@@ -1,4 +1,4 @@
-"""Rotation lookup table for JSVD algorithm"""
+"""Rotation lookup table for JSVD algorithm."""
 
 import numpy as np
 
