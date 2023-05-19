@@ -7,78 +7,62 @@ computes the 3 x 3 rotation matrix and 3 x 3 diagonal matrix.
     (iii)   This yields a higher precision in implementation of JSVD.
 """
 import warnings
-from functools import wraps
 from typing import List, Tuple
 
 import numpy as np
 
 from rockpool.devices.xylo.imu.preprocessing.lookup import RotationLookUpTable
-from rockpool.nn.modules.module import Module
+from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 
 __all__ = ["JSVD"]
 
 
-def type_check(func):
-    """Type-check decorator for IMU python simulation to make sure that all the input data are of type `python.object`.
-    This assures that the hardware and software will behave the same for all register sizes.
-
-    Args:
-        func (Callable): the function to be decorated.
+class JSVD:
+    """Runs Jaccobi SVD algorithm in FPGA precision.
+    this is the 2nd version of the algorithm and used joint matrix multiplication in order to reduce the
+    number of multiplication operations.
     """
 
-    def verify(input: List[np.ndarray]) -> None:
-        if isinstance(input, list):
-            if len(input) != 0:
-                for el in input:
-                    type_check(el)
-
-        elif isinstance(input, np.ndarray):
-            if input.dtype != object or type(input.ravel()[0]) != int:
-                raise ValueError(
-                    f"The elements of the following variable are not of type `python.object` integer. This may cause mismatch between hardware and python implementation."
-                    + f"problem with the following variable:\n{input}\n"
-                    + f"To solve the problem make sure that all the arrays have `dtype=object`. You can use `Quantizer` class in `quantizer.py` module."
-                )
-
-    @wraps(func)
-    def inner_func(*args, **kwargs):
-        for arg in args:
-            verify(arg)
-
-        for key in kwargs:
-            verify(kwargs[key])
-
-        return func(*args, **kwargs)
-
-    return inner_func
-
-
-class JSVD(Module):
     def __init__(
         self,
-        lookuptable: RotationLookUpTable,
+        num_angles: int,
+        num_bits_lookup: int,
         num_bits_covariance: int,
         num_bits_rotation: int,
         nround: int = 4,
     ) -> None:
-        """Runs Jaccobi SVD algorithm in FPGA precision.
-        this is the 2nd version of the algorithm and used joint matrix multiplication in order to reduce the
-        number of multiplication operations.
+        """Object constructor.
 
         Args:
-            lookuptable (RotationLookUpTable): lookup table used for computation.
+            num_angles (int): number of angles in lookup table.
+            num_bits_lookup (int): number of bits used for quantizing the lookup table.
             num_bits_covariance (int): number of bits used for the covariance matrix.
             num_bits_rotation (int): number of bits devoted for implementing rotation matrix.
             nround (int): number of round rotation computation and update is done over all 3 axes/dims.
         """
 
-        self.lookuptable = lookuptable
+        self.num_angles = num_angles
+        """number of angles in lookup table"""
+
+        self.num_bits_lookup = num_bits_lookup
+        """number of bits used for quantizing the lookup table"""
+
         self.num_bits_covariance = num_bits_covariance
+        """number of bits used for the covariance matrix"""
+
         self.num_bits_rotation = num_bits_rotation
+        """number of bits devoted for implementing rotation matrix"""
+
         self.nround = nround
+        """number of round rotation computation and update is done over all 3 axes/dims"""
+
+        self.lookuptable = RotationLookUpTable(
+            num_angles=num_angles, num_bits=num_bits_lookup
+        )
+        """lookup table used for computation"""
 
     @type_check
-    def evolve(
+    def __call__(
         self, C_in: np.ndarray, record: bool = False
     ) -> Tuple[List[np.ndarray], List[np.ndarray], np.ndarray, np.ndarray]:
         """Run Jaccobi-SVD and return all the intermediate states.
@@ -95,9 +79,7 @@ class JSVD(Module):
             ValueError: Negative value in the diagonal matrix D!
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-                R_list (List[np.ndarray]): list of rotation matrices.
-                C_list (List[np.ndarray]): list of covariance matrices.
+            Tuple[np.ndarray, np.ndarray]:
                 R_last_sorted (np.ndarray): the last rotation matrix after sorting.
                 C_last_sorted (np.ndarray): the last covariance matrix after sorting.
         """
@@ -457,15 +439,7 @@ class JSVD(Module):
 
         # return the computed matrices and the final sorted ones
 
-        if record == True:
-            record_dict = {"C_list": C_list, "R_list": R_list}
-        else:
-            record_dict = {}
-
-        state_dict = {}
-        out = (R_last_sorted, C_last_sorted)
-
-        return out, state_dict, record_dict
+        return R_last_sorted, C_last_sorted
 
     # utility functions
     def selection_matrix(self, dim: int) -> np.ndarray:
@@ -597,36 +571,3 @@ class JSVD(Module):
             + f"rotation lookuptable used for angle estimation:\n{self.lookuptable}"
         )
         return string
-
-
-if __name__ == "__main__":
-    from quantizer import Quantizer
-
-    num_angles = 64
-    num_bits = 16
-    lut = RotationLookUpTable(num_angles=num_angles, num_bits=num_bits)
-
-    # create the JSVD module
-    jsvd = JSVD(
-        lookuptable=lut,
-        num_bits_covariance=num_bits + 10,
-        num_bits_rotation=num_bits + 10,
-    )
-
-    # create the covariance matrix
-    C = np.random.rand(3, 3)
-    C = C @ C.T
-
-    # create a quantizer module
-    quantizer = Quantizer(None, scale=0.999 / np.max(np.abs(C)), num_bits=num_bits)
-    C, _, _ = quantizer(C)
-
-    # run the JSVD module
-    R_list, C_list, R_last, C_last = jsvd.evolve(C)
-
-    # print the results
-    print(f"the input covariance matrix:\n{C}\n")
-    print(f"the final covariance matrix:\n{C_last}\n")
-    print(f"the final rotation matrix:\n{R_last}\n")
-    print(f"the list of covariance matrices:\n{C_list}\n")
-    print(f"the list of rotation matrices:\n{R_list}\n")

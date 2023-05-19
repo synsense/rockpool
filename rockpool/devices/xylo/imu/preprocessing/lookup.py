@@ -288,10 +288,3 @@ class RotationLookUpTable:
             format="dec",
             report=False,
         )
-
-
-if __name__ == "__main__":
-    num_angles = 64
-    num_bits = 16
-    lut = RotationLookUpTable(num_angles=num_angles, num_bits=num_bits)
-    lut.print_table(format="dec")
