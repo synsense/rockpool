@@ -1,5 +1,5 @@
-"""Rotation lookup table for JSVD algorithm.
-"""
+"""Rotation lookup table for JSVD algorithm."""
+
 import numpy as np
 
 from rockpool.devices.xylo.imu.preprocessing.utils import bucket_decorator
