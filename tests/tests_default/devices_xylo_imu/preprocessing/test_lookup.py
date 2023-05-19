@@ -1,6 +1,10 @@
 # test lookup table
 
 
+def test_import():
+    from rockpool.devices.xylo.imu.preprocessing import RotationLookUpTable
+
+
 def test_lookup_table():
     from rockpool.devices.xylo.imu.preprocessing import RotationLookUpTable
     import numpy as np
