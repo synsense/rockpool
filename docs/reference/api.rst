@@ -283,6 +283,8 @@ Xylo IMU support
 
     :template: class.rst
     devices.xylo.imu.preprocessing.quantizer.Quantizer
+    devices.xylo.imu.preprocessing.lookup.RotationLookUpTable
+    devices.xylo.imu.preprocessing.jsvd.JSVD
 
 
 Dynap-SE2 hardware support and simulation

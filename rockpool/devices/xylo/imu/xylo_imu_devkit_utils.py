@@ -2,13 +2,6 @@
 Low-level device kit utilities for the Xylo-IMU HDK
 """
 
-from rockpool.utilities.backend_management import backend_available
-
-if not backend_available("samna"):
-    raise ModuleNotFoundError(
-        "`samna` not found. The Xylo HDK requires `samna` for interfacing."
-    )
-
 import samna
 from samna.xyloImu.configuration import XyloConfiguration
 
