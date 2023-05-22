@@ -225,8 +225,22 @@ class XyloIMUMonitor(Module):
             output_events is an array that stores the output events of T time-steps
         """
 
-        # - How many time-steps should we read?
-        Nt = input_data.shape[0]
+        # - Get data shape
+        input_data, _ = self._auto_batch(input_data)
+        Nb, Nt, Nc = input_data.shape[0]
+
+        if Nb > 1:
+            raise ValueError(
+                f"Batched data are not supported by XyloIMUMonitor. Got batched input data with shape {[Nb, Nt, Nc]}."
+            )
+
+        if self._external_imu_input and Nc != 3:
+            raise ValueError(
+                f"When providing IMU input data, 3 channels of input are required. Received input with shape [{Nt, Nc}]."
+            )
+
+        # - Discard the batch dimension
+        input_data = input_data[0]
 
         # - Determine a read timeout
         timeout = 2 * Nt * self.dt if timeout is None else timeout
@@ -235,7 +249,7 @@ class XyloIMUMonitor(Module):
         count = 0
 
         if self._external_imu_input:
-            imu_input = hdkutils.write_imu_data(input_data)
+            imu_input = hdkutils.encode_imu_data(input_data)
             self._write_buffer.write(imu_input)
             hdkutils.advance_time_step(self._write_buffer)
 
