@@ -519,12 +519,15 @@ def config_auto_mode(
     return config
 
 
-def encode_imu_data(input: np.ndarray) -> list:
+def encode_imu_data(input: np.ndarray) -> List[samna.events.Acceleration]:
     """
     Encode imu data as `samna` events
 
     Args:
         input (np.ndarray): An array ``[T, 3]`` of imu data, specifying the number of timesteps, and the accelerations along x, y, z axes. The data must be quantized to int.
+
+    Returns:
+        List[samna.events.Acceleration]: A list of encoded IMU data events
     """
 
     imu_input = [
