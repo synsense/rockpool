@@ -52,6 +52,7 @@ class XyloIMUMonitor(Module):
         device: XyloIMUHDK,
         config: XyloConfiguration = None,
         output_mode: str = "Spike",
+        external_imu_input: bool = False,
         main_clk_rate: Optional[int] = Default_Main_Clock_Rate,
         hibernation_mode: bool = False,
         interface_params: Optional[dict] = dict(),
@@ -65,6 +66,7 @@ class XyloIMUMonitor(Module):
             device (XyloIMUHDK): An opened `samna` device to a Xylo dev kit
             config (XyloConfiguraration): A Xylo configuration from `samna`
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Vmem"]``. Default: "Spike", return events from the output layer.
+            external_imu_input (bool): If True, use the external imu data as input. Otherwise, use imu sensor on chip.
             main_clk_rate(int): The main clock rate of Xylo
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
             interface_params(dict): The dictionary of Xylo interface parameters used for the `hdkutils.config_if_module` function, the keys of which must be one of "num_avg_bitshif", "select_iaf_output", "sampling_period", "filter_a1_list", "filter_a2_list", "scale_values", "Bb_list", "B_wf_list", "B_af_list", "iaf_threshold_values".
@@ -130,9 +132,15 @@ class XyloIMUMonitor(Module):
         # - Store the io module
         self._io = self._device.get_io_module()
 
+        # - Store the choice of external imu input
+        self._external_imu_input = external_imu_input
+
         # - Disable external IMU data input
-        print("disable SPI slave")
-        self._io.spi_slave_enable(False)
+        if not external_imu_input:
+            print("disable SPI slave")
+            self._io.spi_slave_enable(False)
+        else:
+            self._io.spi_slave_enable(True)
 
         # - Set main clock rate
         if self._main_clk_rate != Default_Main_Clock_Rate:
@@ -207,7 +215,7 @@ class XyloIMUMonitor(Module):
         Evolve a network on the Xylo HDK in Real-time mode
 
         Args:
-            input_data (np.ndarray): An array ``[T, Nin]``, specifying the number of time-steps to record.
+            input_data (np.ndarray): An array ``[T, 3]``, specifying the number of time-steps to record. If using external imu data input, the `input_data` is the external imu data. The first dimension is timesteps, and the last dimension is 3 channels of accelerations along x, y, z axes.
             record (bool): A flag indicating whether a recording dictionary should be returned. Default: ``False``, do not return a recording dictionary.
             progress (bool): Display a progress bar for the read. Default: ``False``
             timeout (float): A duration in seconds for a read timeout. Default: 2x the real-time duration of the evolution
@@ -225,6 +233,11 @@ class XyloIMUMonitor(Module):
 
         out = []
         count = 0
+
+        if self._external_imu_input:
+            imu_input = hdkutils.write_imu_data(input_data)
+            self._write_buffer.write(imu_input)
+            hdkutils.advance_time_step(self._write_buffer)
 
         # - Initialise a progress bar for the read
         pbar = trange(Nt) if progress else None

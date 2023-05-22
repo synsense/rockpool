@@ -519,6 +519,28 @@ def config_auto_mode(
     return config
 
 
+def write_imu_data(input: np.ndarray) -> list:
+    """
+    Write the external imu data
+
+    Args:
+        input (np.ndarray): An array ``[T, 3]`` of imu data, specifying the number of timesteps, and the accelerations along x, y, z axes. The data must be quantized to int.
+    """
+
+    imu_input = []
+    for i in range(input.shape[0]):
+        x = int(input[i, 0])
+        y = int(input[i, 1])
+        z = int(input[i, 2])
+        e = samna.events.Acceleration()
+
+        e.x = x
+        e.y = y
+        e.z = z
+        imu_input.append(e)
+    return imu_input
+
+
 def config_if_module(
     config: XyloConfiguration,
     num_avg_bitshift: int = 6,
