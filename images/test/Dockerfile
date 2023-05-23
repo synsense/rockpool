@@ -9,7 +9,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Change shell to bash
 SHELL ["/bin/bash", "--login", "-c"]
-#RUN ln -sf /bin/bash /bin/sh
 
 # Configure the base environment
 RUN apt-get clean && \
@@ -38,7 +37,7 @@ RUN conda update --all && \
     pip install --upgrade jax jaxlib sphinx-rtd-theme sphinx-autobuild && \
     rm -rf base.yml
 
-# ENV CUDA_HOME=/usr/local/cuda-11.5
+ENV CUDA_HOME=/miniconda
 
 # - Set default entry command
 CMD ["/bin/bash", "--login"]
