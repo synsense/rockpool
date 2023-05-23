@@ -15,25 +15,24 @@ gpu_validation:
     - cuda
   script:
     - nvidia-smi
-    - which nvcc
 
-# unit_tests:
-#   stage: test
-#   image: "registry.gitlab.com/synsense/rockpool:raw"
-#   tags:
-#     - cuda
+unit_tests:
+  stage: test
+  image: "registry.gitlab.com/synsense/rockpool:raw"
+  tags:
+    - cuda
 
-#   before_script:
-#     - pip install --upgrade pip
-#     # - conda install -c conda-forge cudatoolkit-dev=11.4.0=h5e8e339_5
-#     - export CUDA_HOME=/miniconda
-#     - pip install --upgrade .[all] --no-cache-dir
-#     - python -c 'import samna'
-#     - pip install 'sinabs-exodus>=1.1' || exit_code=$?
-#     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
+  before_script:
+    - pip install --upgrade pip
+    # - conda install -c conda-forge cudatoolkit-dev=11.4.0=h5e8e339_5
+    - export CUDA_HOME=/miniconda
+    - pip install --upgrade .[all] --no-cache-dir
+    - python -c 'import samna'
+    - pip install 'sinabs-exodus>=1.1' || exit_code=$?
+    - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
 
-#   script:
-#     - pytest -v tests/tests_default -n auto --forked
+  script:
+    - pytest -v tests/tests_default -n auto --forked
 
 # documentation_linting:
 #   stage: docs
