@@ -11,7 +11,7 @@ All notable changes between Rockpool releases will be documented in this file.
 * Initial module structure for Xylo-IMU support
   - Implemented ``XyloIMUMonitor``
   - IMU preprocessing interface
-    - `Quantizer` , `RotationLookUpTable` and `JSVD` implemented
+    - `Quantizer` , `RotationLookUpTable` , `JSVD` , `SubSpace` , `SampleAndHold` are implemented
 
 ### Changed
 
