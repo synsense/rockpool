@@ -14,5 +14,5 @@ if backend_available("jax"):
     from .from_config import dynapsim_net_from_config
     from .from_spec import dynapsim_net_from_spec
 else:
-    DynapseSamna = missing_backend_shim("dynapsim_net_from_config", "jax")
-    find_dynapse_boards = missing_backend_shim("dynapsim_net_from_spec", "jax")
+    dynapsim_net_from_config = missing_backend_shim("dynapsim_net_from_config", "jax")
+    dynapsim_net_from_spec = missing_backend_shim("dynapsim_net_from_spec", "jax")
