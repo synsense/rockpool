@@ -14,8 +14,7 @@ unit_tests:
     - conda install -c conda-forge cudatoolkit-dev=11.4.0=h5e8e339_5
     - pip install --upgrade ".[all]" --no-cache-dir
     - python -c 'import samna'
-    - pip install sinabs-exodus
-    - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
+    - pip install ".[exodus]"; if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
 
   script:
     - pytest -v tests/tests_default -n auto --forked
@@ -27,7 +26,8 @@ documentation_linting:
 
   before_script:
     - pip install --upgrade pip
-    - pip install --upgrade .[all] --no-cache-dir
+    - pip install --upgrade ".[all]" --no-cache-dir
+    - python -c 'import samna'
 
   script:
     - sphinx-build -n -b dummy docs docs/_build/html
@@ -39,7 +39,8 @@ docs_build:
 
   before_script:
     - pip install --upgrade pip
-    - pip install .[all] --no-cache-dir
+    - pip install ".[all]" --no-cache-dir
+    - python -c 'import samna'
 
   script:
     - cp CHANGELOG.md docs/advanced
