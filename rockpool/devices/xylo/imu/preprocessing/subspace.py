@@ -13,66 +13,74 @@ __all__ = ["SubSpace"]
 
 
 class SubSpace(Module):
+    """Averaging and covariance estimation for 3D IMU signals
+    BxTx3 -> BxTx3x3
+    """
+
     def __init__(
         self,
         num_bits_in: int,
         num_bits_highprec_filter: int,
         num_bits_multiplier: int,
         num_avg_bitshift: int,
-        shape: Optional[Union[Tuple, int]] = None,
+        shape: Optional[Union[Tuple, int]] = (3, 3),
     ) -> None:
-        """Data averaging and covariance estimation for the input data.
+        """Object Constructor
 
         Args:
+            shape (Optional[Union[Tuple, int]], optional): The number of channels. Defaults to 3.
             num_bits_in (int): number of bits in the input data. We assume a sign magnitude format.
             num_bits_highprec_filter (int) : number of bits devoted to computing the high-precision filter (to avoid dead-zone effect)
             num_bits_multiplier (int): number of bits devoted to computing [x(t) x(t)^T]_{ij}. If less then needed, the LSB values are removed.
             num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation.
                 The effective window length of the low-pass filter will be `2**num_avg_bitshift`
         """
-        super().__init__(shape, spiking_input=False, spiking_output=False)
+        super().__init__(shape=shape, spiking_input=False, spiking_output=False)
+
         self.num_bits_in = num_bits_in
+        """number of bits in the input data. We assume a sign magnitude format."""
+
         self.num_bits_highprec_filter = num_bits_highprec_filter
+        """number of bits devoted to computing the high-precision filter (to avoid dead-zone effect)"""
+
         self.num_bits_multiplier = num_bits_multiplier
+        """number of bits devoted to computing [x(t) x(t)^T]_{ij}. If less then needed, the LSB values are removed."""
+
         self.num_avg_bitshift = num_avg_bitshift
+        """number of bitshifts used in the low-pass filter implementation."""
 
     @type_check
     def evolve(
-        self, sig_in: np.ndarray, record: bool = False
+        self, input_data: np.ndarray, record: bool = False
     ) -> Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
         """Processes the input signal sample-by-sample and estimate the subspace.
 
         Args:
-            sig_in (np.ndarray): 3 x T input data received from IMU sensor. It should be in integer format.
+            input_data (np.ndarray): batched input data recorded from IMU sensor. It should be in integer format. (BxTx3)
             record (bool, optional): If True, the intermediate results are recorded and returned. Defaults to False.
 
         Returns:
-            Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]: the covariance matrix of the input data, empty dictionary, empty dictionary
+            Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
+                the covariance matrix of the input data (BxTx3x3)
+                empty dictionary
+                empty dictionary
         """
 
         # check the validity of the data
-        if np.max(np.abs(sig_in)) >= 2 ** (self.num_bits_in - 1):
+        if np.max(np.abs(input_data)) >= 2 ** (self.num_bits_in - 1):
             raise ValueError(
                 f"some elements of the input data are beyond the range of {self.num_bits_in} bits!"
             )
 
-        if sig_in.ndim != 2:
-            raise ValueError(
-                "The input IMU signal should be a 2D signal of dimension 3 x T."
-            )
-
-        dim, T = sig_in.shape
-
-        if dim != 3:
-            raise ValueError(
-                "IMU signal should have three input channels corresponding to x-, y-, z-component of acceleration!"
-            )
-
         # check that the values are indeed integers
-        if np.linalg.norm(np.floor(sig_in) - sig_in) > 0:
+        if np.linalg.norm(np.floor(input_data) - input_data) > 0:
             raise TypeError(
                 "All the components of the input signal should be integers! Make sure that the data is quantized properly!"
             )
+
+        # -- Batch processing
+        input_data, _ = self._auto_batch(input_data)
+        input_data = np.array(input_data, dtype=int)
 
         # -- bit size calculation
         # maximimum number of bits that can be used for storing the result of multiplication x(t) * x(t)^T
@@ -82,39 +90,50 @@ class SubSpace(Module):
         mult_right_bit_shift = max_bits_mult_output - self.num_bits_multiplier
 
         # initialize the covariance matrix and covariance matrix with larger precision
-        C_highprec = np.zeros((3, 3), dtype=np.int64).astype(object)
-        C_list = []
+        C_highprec = np.zeros((self.size_out, self.size_out), dtype=np.int64).astype(
+            object
+        )
 
-        for sig_val in sig_in.T:
-            # compute the multiplication [x(t) x(t)^T]_ij
-            xx_trans = np.outer(sig_val, sig_val)
+        C_batched = []
 
-            xx_trans = (
-                (xx_trans >> mult_right_bit_shift)
-                if mult_right_bit_shift > 0
-                else (xx_trans << -mult_right_bit_shift)
-            )
+        for sig_in in input_data:
+            C_list = []
+            for sig_val in sig_in:
+                # compute the multiplication [x(t) x(t)^T]_ij
+                xx_trans = np.outer(sig_val, sig_val)
 
-            # do the high-precision filter computation
-            C_highprec = C_highprec - (C_highprec >> self.num_avg_bitshift) + xx_trans
-
-            # note that due to the specific shape of the low-pass filter used for averaging the input signal,
-            # the output of the low-pass filter will be always less than the input max value
-            if np.max(np.abs(C_highprec)) >= 2 ** (self.num_bits_highprec_filter - 1):
-                raise OverflowError(
-                    "Overflow or underflow in the high-precision filter!"
+                xx_trans = (
+                    (xx_trans >> mult_right_bit_shift)
+                    if mult_right_bit_shift > 0
+                    else (xx_trans << -mult_right_bit_shift)
                 )
 
-            # apply right-bit-shift to go to the output
-            C_regular = C_highprec >> self.num_avg_bitshift
+                # do the high-precision filter computation
+                C_highprec = (
+                    C_highprec - (C_highprec >> self.num_avg_bitshift) + xx_trans
+                )
 
-            # add the values of the list
-            C_list.append(np.copy(C_regular))
+                # note that due to the specific shape of the low-pass filter used for averaging the input signal,
+                # the output of the low-pass filter will be always less than the input max value
+                if np.max(np.abs(C_highprec)) >= 2 ** (
+                    self.num_bits_highprec_filter - 1
+                ):
+                    raise OverflowError(
+                        "Overflow or underflow in the high-precision filter!"
+                    )
 
-        # convert into numpy arrays: T x 3 x 3
-        C_list = np.array(C_list, dtype=object)
+                # apply right-bit-shift to go to the output
+                C_regular = C_highprec >> self.num_avg_bitshift
 
-        return C_list, {}, {}
+                # add the values of the list
+                C_list.append(np.copy(C_regular))
+
+            C_list = np.array(C_list, dtype=object)
+            C_batched.append(C_list)
+
+        # convert into numpy arrays: B x T x 3 x 3
+        C_batched = np.array(C_batched, dtype=object)
+        return C_batched, {}, {}
 
     def __str__(self):
         string = (

@@ -1,10 +1,15 @@
 # test lookup table
 
 
-def test_lookup_table():
+def test_import():
     from rockpool.devices.xylo.imu.preprocessing import RotationLookUpTable
+
+
+def test_lookup_table():
     import numpy as np
     from numpy.testing import assert_almost_equal
+
+    from rockpool.devices.xylo.imu.preprocessing import RotationLookUpTable
 
     num_angles = 64
     num_bits = 16
@@ -49,7 +54,3 @@ def test_lookup_table():
     assert_almost_equal(cos_val, np.cos(true_angle), decimal=1)
     assert_almost_equal(inv_2sin2_val, 1 / (2 * np.sin(2 * true_angle)), decimal=1)
     assert_almost_equal(cot2_val, 1 / np.tan(2 * true_angle), decimal=1)
-
-
-if __name__ == "__main__":
-    test_lookup_table()

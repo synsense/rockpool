@@ -1,12 +1,16 @@
 """Test JSVD computation module"""
 
 
+def test_import():
+    from rockpool.devices.xylo.imu.preprocessing.jsvd import JSVD
+
+
 def test_type_check():
     import numpy as np
     import pytest
     from numpy.testing import assert_array_equal
 
-    from rockpool.devices.xylo.imu.preprocessing.jsvd import type_check
+    from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 
     # define a class
     @type_check
@@ -25,16 +29,14 @@ def test_type_check():
 
 def test_JSVD_low_rank_gravity():
     import numpy as np
+    from numpy.testing import assert_array_almost_equal
 
-    from rockpool.devices.xylo.imu.preprocessing import (
-        JSVD,
-        Quantizer,
-        RotationLookUpTable,
-    )
+    from rockpool.devices.xylo.imu.preprocessing import JSVD, Quantizer
 
     # - Init JSVD module
     jsvd = JSVD(
-        lookuptable=RotationLookUpTable(num_angles=64, num_bits=16),
+        num_angles=64,
+        num_bits_lookup=16,
         num_bits_covariance=32,
         num_bits_rotation=32,
         nround=4,
@@ -64,15 +66,17 @@ def test_JSVD_low_rank_gravity():
 
         # quantize C
         Q = Quantizer(
-            scale=0.999 / np.max(np.abs(cov_in)), num_bits=jsvd.num_bits_covariance
+            shape=num_ch,
+            scale=0.999 / np.max(np.abs(cov_in)),
+            num_bits=jsvd.num_bits_covariance,
         )
         cov_quant, _, _ = Q(cov_in)
 
         # compute the covariance matrix via SVD
-        U, _, _ = np.linalg.svd(cov_quant.astype(np.float64))
+        U, _, _ = np.linalg.svd(cov_quant[0].astype(np.float64))
 
         # compute the covariance matrix using JSVD
-        (R_last, C_last), _, _ = jsvd.evolve(cov_quant)
+        R_last, C_last = jsvd(cov_quant[0])
 
         # compute the correlation
         corr = R_last.T @ U
@@ -91,19 +95,4 @@ def test_JSVD_low_rank_gravity():
             np.sign(np.diag(corr_ordered))
         )
 
-        deviation = np.linalg.norm(
-            corr_ordered_signcorrected - np.eye(3)
-        ) / np.linalg.norm(np.eye(3))
-
-        # Test
-        max_deviation = 0.05
-        assert (
-            deviation < max_deviation
-        ), "JSVD failed to estimate the covariance matrix correctly"
-        deviation_list.append(deviation)
-
-    print(deviation_list)
-
-
-if __name__ == "__main__":
-    test_JSVD_low_rank_gravity()
+        assert_array_almost_equal(corr_ordered_signcorrected, np.eye(3), decimal=1)
