@@ -52,6 +52,7 @@ class SampleAndHold(Module):
         """
         # BxTxC
         input_data, _ = self._auto_batch(input_data)
+        input_data = np.array(input_data, dtype=np.int64)
         __B, __T, __C = input_data.shape
 
         # Generate the output data
@@ -69,6 +70,7 @@ class SampleAndHold(Module):
                 out_data[:, start_idx:end_idx, :], input_data[:, start_idx, :]
             )
 
+        out_data = np.array(out_data, dtype=object)
         return out_data, {}, {}
 
     def __str__(self) -> str:
