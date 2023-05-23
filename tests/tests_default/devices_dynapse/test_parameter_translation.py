@@ -13,6 +13,9 @@ def test_imports():
     import pytest
 
     pytest.importorskip("samna")
+    pytest.importorskip("jax")
+
+    import samna
 
     from rockpool.devices.dynapse.parameters.biasgen import (
         digital_to_analog,
@@ -27,14 +30,17 @@ def test_imports():
         DynapSimCore,
     )
 
-    import samna
-
 
 def test_digital_to_analog():
     """
     test_digital_to_analog computes an analog current value given a coarse and a fine value setting.
     Then it expects to find the same CF tuple doing the inverse operation (analog current -> digital c&f tuple)
     """
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
+
     from rockpool.devices.dynapse.parameters.biasgen import (
         digital_to_analog,
         analog_to_digital,
@@ -53,6 +59,10 @@ def test_analog_to_digital():
     test_analog_to_digital finds digital bias generator settings given random analog current values in a logarithmic search space
     Then it expects to find a similar current value doing the inverse operation (digital c&f tuple -> analog current)
     """
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
     import numpy as np
     from rockpool.devices.dynapse.parameters.biasgen import (
         digital_to_analog,
@@ -89,6 +99,8 @@ def test_high_level():
     import pytest
 
     pytest.importorskip("samna")
+    pytest.importorskip("jax")
+    import samna
 
     from rockpool.devices.dynapse import (
         dynapsim_net_from_config,
@@ -97,7 +109,6 @@ def test_high_level():
         autoencoder_quantization,
         DynapSimCore,
     )
-    import samna
 
     # - Get a default connfiguration object
     config1 = samna.dynapse2.Dynapse2Configuration()

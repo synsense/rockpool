@@ -81,6 +81,11 @@ def test_configure():
 
 
 def test_specification():
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("xylosim")
+
     # - Rockpool imports
     from rockpool.devices.xylo.syns61300 import XyloSim
 
@@ -174,6 +179,8 @@ def test_FF_equality_torch():
     import pytest
 
     pytest.importorskip("torch")
+    pytest.importorskip("samna")
+    pytest.importorskip("xylosim")
     import torch
     import numpy as np
     from xylosim.v1 import XyloSynapse, XyloLayer
@@ -278,6 +285,8 @@ def test_Rec_equality_torch():
     import pytest
 
     pytest.importorskip("torch")
+    pytest.importorskip("samna")
+    pytest.importorskip("xylosim")
     import torch
     import numpy as np
     from xylosim.v1 import XyloSynapse, XyloLayer
@@ -375,6 +384,8 @@ def test_FF_equality_slayer():
 
     pytest.importorskip("torch")
     pytest.importorskip("sinabs.exodus")
+    pytest.importorskip("samna")
+    pytest.importorskip("xylosim")
     import torch
     import numpy as np
 

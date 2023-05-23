@@ -14,8 +14,6 @@ from rockpool.nn.modules.native.filter_bank import ButterFilter
 from rockpool.timeseries import TSEvent, TSContinuous
 from rockpool.parameters import Parameter, State, SimulationParameter, ParameterBase
 
-import matplotlib.pyplot as plt
-
 # - Other imports
 import numpy as np
 from scipy.signal import butter, lfilter

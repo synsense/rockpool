@@ -89,8 +89,12 @@ def test_transform_net():
     )
 
     tconf = tt.make_param_T_config(net, tt.stochastic_rounding, "weights")
-    tu.tree_update(tconf, tt.make_param_T_config(net, tt.stochastic_rounding, "biases"))
-    tu.tree_update(tconf, tt.make_param_T_config(net, tt.stochastic_rounding, "taus"))
+    tconf = tu.tree_update(
+        tconf, tt.make_param_T_config(net, tt.stochastic_rounding, "biases")
+    )
+    tconf = tu.tree_update(
+        tconf, tt.make_param_T_config(net, tt.stochastic_rounding, "taus")
+    )
 
     tnet = tt.make_param_T_network(net, tconf)
 

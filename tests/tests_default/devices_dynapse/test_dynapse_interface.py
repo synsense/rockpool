@@ -13,6 +13,7 @@ def test_time_stamp():
     import pytest
 
     pytest.importorskip("samna")
+    pytest.importorskip("jax")
 
     from numpy.testing import assert_allclose
     from rockpool.devices.dynapse import find_dynapse_boards, DynapseSamna
