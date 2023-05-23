@@ -24,12 +24,12 @@ class SubSpace(Module):
         num_bits_highprec_filter: int,
         num_bits_multiplier: int,
         num_avg_bitshift: int,
-        shape: Optional[Union[Tuple, int]] = (3, 3),
+        shape: Optional[Union[Tuple, int]] = (3, 9),
     ) -> None:
         """Object Constructor
 
         Args:
-            shape (Optional[Union[Tuple, int]], optional): The number of channels. Defaults to 3.
+            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,9).
             num_bits_in (int): number of bits in the input data. We assume a sign magnitude format.
             num_bits_highprec_filter (int) : number of bits devoted to computing the high-precision filter (to avoid dead-zone effect)
             num_bits_multiplier (int): number of bits devoted to computing [x(t) x(t)^T]_{ij}. If less then needed, the LSB values are removed.
@@ -87,6 +87,9 @@ class SubSpace(Module):
 
         # -- Batch processing
         input_data, _ = self._auto_batch(input_data)
+        __B, __T, __C = input_data.shape
+        assert __C == self.size_in
+
         input_data = np.array(input_data, dtype=np.int64)
 
         # -- bit size calculation
@@ -97,7 +100,7 @@ class SubSpace(Module):
         mult_right_bit_shift = max_bits_mult_output - self.num_bits_multiplier
 
         # initialize the covariance matrix and covariance matrix with larger precision
-        C_highprec = np.zeros((self.size_out, self.size_out), dtype=np.int64).astype(
+        C_highprec = np.zeros((self.size_in, self.size_in), dtype=np.int64).astype(
             object
         )
 
@@ -140,6 +143,9 @@ class SubSpace(Module):
 
         # convert into numpy arrays: B x T x 3 x 3
         C_batched = np.array(C_batched, dtype=object)
+
+        # flatten the channel dimension
+        C_batched = C_batched.reshape(__B, __T, self.size_out)
         return C_batched, {}, {}
 
     def __str__(self):
