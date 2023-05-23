@@ -9,6 +9,7 @@ import numpy as np
 
 from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 from rockpool.nn.modules.module import Module
+from rockpool.parameters import SimulationParameter
 
 __all__ = ["SampleAndHold"]
 
@@ -28,7 +29,7 @@ class SampleAndHold(Module):
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
-        self.sampling_period = sampling_period
+        self.sampling_period = SimulationParameter(sampling_period, shape=(1,))
         """Sampling period that the signal is sampled and held"""
 
     @type_check
