@@ -426,16 +426,8 @@ class TWrapper(TorchModule):
         self._spiking_input = mod.spiking_input
         self._spiking_output = mod.spiking_output
 
-        # - Generate null transformation config
-        attributes, _ = self._mod._get_attribute_registry()
-        T_config_null = {k: None for k in attributes.keys()}
-
         # - Default: null transformation config
-        T_config = {} if T_config is None else T_config
-
-        # - Update transformation config to cover all attributes
-        self._T_config = T_config_null
-        self._T_config.update(T_config)
+        self._T_config = {} if T_config is None else T_config
 
     def forward(self, *args, **kwargs):
         # - Get transformed attributes
