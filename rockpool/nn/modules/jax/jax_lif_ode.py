@@ -63,7 +63,7 @@ class LIFODEJax(LIFJax):
         def forward(
             state: Tuple[np.ndarray, np.ndarray, np.ndarray],
             inputs_t: Tuple[np.ndarray, np.ndarray],
-        ) -> (
+        ) -> Tuple[
             Tuple[np.ndarray, np.ndarray, np.ndarray],
             np.ndarray,
             np.ndarray,
@@ -71,18 +71,16 @@ class LIFODEJax(LIFJax):
             np.ndarray,
             np.ndarray,
             np.ndarray,
-        ):
+        ]:
             """
             Single-step LIF dynamics for a recurrent LIF layer
 
             :param LayerState state:
             :param Tuple[np.ndarray, np.ndarray] inputs_t: (spike_inputs_ts, current_inputs_ts)
 
-            :return: (state, Irec_ts, output_ts, surrogate_ts, spikes_ts, Vmem_ts, Isyn_ts)
+            :return: (state, Irec_ts, spikes_ts, Vmem_ts, Isyn_ts)
                 state:          (Tuple[np.ndarray, np.ndarray, np.ndarray]) Layer state at end of evolution
                 Irec_ts:        (np.ndarray) Recurrent input received at each neuron over time [T, N]
-                output_ts:      (np.ndarray) Weighted output surrogate over time [T, O]
-                surrogate_ts:   (np.ndarray) Surrogate time trace for each neuron [T, N]
                 spikes_ts:      (np.ndarray) Logical spiking raster for each neuron [T, N]
                 Vmem_ts:        (np.ndarray) Membrane voltage of each neuron over time [T, N]
                 Isyn_ts:        (np.ndarray) Synaptic input current received by each neuron over time [T, N]
@@ -122,9 +120,6 @@ class LIFODEJax(LIFJax):
             spikes, isyn, vmem, input_data, noise_ts
         )
 
-        # - Generate output surrogate
-        surrogate_ts = sigmoid(vmem_ts * 20.0, self.threshold)
-
         # - Generate return arguments
         outputs = spikes_ts
         states = {
@@ -139,7 +134,6 @@ class LIFODEJax(LIFJax):
             "spikes": spikes_ts,
             "isyn": isyn_ts,
             "vmem": vmem_ts,
-            "U": surrogate_ts,
         }
 
         # - Return outputs
