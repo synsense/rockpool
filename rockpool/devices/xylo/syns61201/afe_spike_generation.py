@@ -189,7 +189,7 @@ try:
 
         return jnp.array(data_up), final_state
 
-except:
+except Exception as e:
     __JAX_VERSION__ = False
 
     info(
