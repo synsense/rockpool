@@ -51,6 +51,10 @@ setup_args = {
         "sinabs": [
             "sinabs>=1.0",
         ],
+        "dynapse": [
+            "rockpool[jax]",
+            "samna>=0.19.0.0",
+        ],
         "extras": [
             "matplotlib",
             "tqdm",
