@@ -5,10 +5,10 @@ def test_sample_and_hold():
 
     # sample and hold of a signal of size larger than period
     for length in np.arange(2, 100):
-        sig_in = np.random.randn(1, length)
+        sig_in = np.random.randn(length, 1)
         mod = Sequential(
-            Quantizer(scale=0.99 / np.max(np.abs(sig_in)), num_bits=30),
-            SampleAndHold(sampling_period=10),
+            Quantizer(shape=1, scale=0.99 / np.max(np.abs(sig_in)), num_bits=30),
+            SampleAndHold(shape=1, sampling_period=10),
         )
         out, _, _ = mod(sig_in)
         out_diff = np.diff(out.flatten())
