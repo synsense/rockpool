@@ -29,7 +29,9 @@ class SampleAndHold(Module):
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
-        self.sampling_period = SimulationParameter(sampling_period, shape=(1,))
+        self.sampling_period = SimulationParameter(
+            sampling_period, shape=(1,), cast_fn=int
+        )
         """Sampling period that the signal is sampled and held"""
 
     @type_check
@@ -57,9 +59,9 @@ class SampleAndHold(Module):
         num_periods = int(np.ceil(__T / self.sampling_period))
 
         for period in range(num_periods):
-            start_idx = int(period * self.sampling_period)
+            start_idx = period * self.sampling_period
 
-            end_idx = int((period + 1) * self.sampling_period)
+            end_idx = (period + 1) * self.sampling_period
             end_idx = end_idx if end_idx <= __T else __T
 
             # copy and repeat the signal along the time dimension
