@@ -25,6 +25,7 @@ unit_tests:
 
   before_script:
     - pip install --upgrade pip
+    - conda install pytorch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 pytorch-cuda=11.7 -c pytorch -c nvidia
     # - conda install -c conda-forge cudatoolkit-dev=11.4.0=h5e8e339_5
     - export CUDA_HOME=/usr/local/
     - pip install --upgrade .[all] --no-cache-dir
