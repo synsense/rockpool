@@ -57,7 +57,7 @@ Dependencies
 
 .. code-block:: bash
 
-    $ pip install "rockpool[numba, jax, torch, brian, sinabs, exodus, xylo, dynapse, tests, docs]
+    $ pip install "rockpool[numba, jax, torch, brian, sinabs, exodus, xylo, dynapse, tests, docs]"
 
 To automatically install all of the extra dependencies required by |project|, use the command
 
@@ -80,7 +80,7 @@ To check which computational back-ends are available to |project|, use the :func
 Building the documentation
 --------------------------
 
-The |project| documentation is based on sphinx, and all dependencies required for a local HTML version are installed with ``pip install rockpool[all]``.
+The |project| documentation is based on sphinx, and all dependencies required for a local HTML version are installed with ``pip install "rockpool[all]"``. You can install just the minimal dependencies to build the documentaion with ``pip install "rockpool[docs]"``, but note that you can only build documentation for the backends which are correctly installed and available for use by |project|.
 
 To build a live, locally-hosted HTML version of the docs, use the command
 
@@ -122,7 +122,7 @@ or
 
 .. code-block:: Bash
 
-    $ pip install -e .[all] --user
+    $ pip install -e ".[all]" --user
 
 
 The main branch is ``development``. You should commit your modifications to a new feature branch.
@@ -156,6 +156,9 @@ To run all the unit tests for |project|, use ``pytest``:
 
 .. code-block:: Bash
 
+    $ git clone https://github.org/synsense/rockpool.git
+    $ cd rockpool
+    $ pip install ".[tests]"
     $ pytest tests
 
 .. _Python 3.7: https://python.org
