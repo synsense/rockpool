@@ -41,7 +41,9 @@ class SubSpace(Module):
         self.num_bits_in = SimulationParameter(num_bits_in, shape=(1,))
         """number of bits in the input data. We assume a sign magnitude format."""
 
-        self.num_bits_highprec_filter = SimulationParameter(num_bits_highprec_filter, shape=(1,))
+        self.num_bits_highprec_filter = SimulationParameter(
+            num_bits_highprec_filter, shape=(1,)
+        )
         """number of bits devoted to computing the high-precision filter (to avoid dead-zone effect)"""
 
         self.num_bits_multiplier = SimulationParameter(num_bits_multiplier, shape=(1,))
