@@ -1,3 +1,9 @@
+def test_import():
+    from rockpool.devices.xylo.imu.preprocessing import SampleAndHold
+
+    assert SampleAndHold is not None
+
+
 def test_sample_and_hold():
     import numpy as np
     from rockpool.devices.xylo.imu.preprocessing import SampleAndHold, Quantizer
