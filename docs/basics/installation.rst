@@ -53,19 +53,20 @@ Dependencies
 * PyTest_ for running tests
 * Sphinx_, pandoc_, recommonmark_, NBSphinx_, sphinx-rtd-theme_ and Sphinx-autobuild_ for building documentation
 
-To automatically install most of the extra dependencies required by |project|, use the command
+|project| provides several convenience installation options to assist with dependency management. These will install the required dependencies for e.g. running the tests, building the docs, installing specific backends, etc.
+
+.. code-block:: bash
+
+    $ pip install "rockpool[numba, jax, torch, brian, sinabs, exodus, xylo, dynapse, tests, docs]
+
+To automatically install all of the extra dependencies required by |project|, use the command
 
 .. code-block:: Bash
 
-    $ pip install rockpool[all]
+    $ pip install "rockpool[all]"
 
-or
 
-.. code-block:: zsh
-
-    $ pip install rockpool\[all\]
-
-if using zsh. Some dependencies, such as pandoc_, must be installed manually.
+Some dependencies, such as pandoc_, must be installed manually.
 
 To check which computational back-ends are available to |project|, use the :func:`.list_backends` function:
 
