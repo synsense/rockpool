@@ -14,61 +14,59 @@ __all__ = ["SampleAndHold"]
 
 
 class SampleAndHold(Module):
-    """Samples and holds the signal in its last index (supposed to be the time-index)
-
-    Parameters:
-        sampling_period (int): sampling period.
-    """
+    """Samples and holds the signal in time dimension (BxTxC)"""
 
     def __init__(
         self,
         sampling_period: int,
-        shape: Optional[Union[Tuple, int]] = None,
+        shape: Optional[Union[Tuple, int]] = (3, 3),
     ) -> None:
-        super().__init__(shape, spiking_input=False, spiking_output=False)
+        """Object Constructor
+
+        Args:
+            sampling_period (int): Sampling period that the signal is sampled and held
+        """
+        super().__init__(shape=shape, spiking_input=False, spiking_output=False)
+
         self.sampling_period = sampling_period
+        """Sampling period that the signal is sampled and held"""
 
     @type_check
     def evolve(
-        self, sig_in: np.ndarray, record: bool = False
+        self, input_data: np.ndarray, record: bool = False
     ) -> Tuple[np.ndarray, Dict, Dict]:
-        """Assume that the last index is the time-dimension, so the sample-and-hold is done always along the last axes.
-        Use swapaxes to change the axes if needed before calling the function.
+        """Operate always along the time axes.
 
         Args:
-            sig_in (np.ndarray): input signal of shape (*,*,...,*, T) where T is the time-dimension along which sample-and-hold is done.
+            input_data (np.ndarray): input signal of shape BxTxC where T is the time-dimension along which sample-and-hold is done. (BxTxC)
             record (bool, optional): record flag to match with the other rockpool modules. Practically useless. Defaults to False.
 
         Returns:
             Tuple[np.ndarray, Dict, Dict]:
-                data: the python-object quantized version of the input signal.
+                out_data: the python-object quantized version of the input signal.
                 state_dict: empty dictionary.
                 record_dict: empty dictionary.
         """
-        # sample and hold the last component
-        sig_in_shape = sig_in.shape
+        # BxTxC
+        input_data, _ = self._auto_batch(input_data)
+        __B, __T, __C = input_data.shape
 
-        # additional care with 1-dim array
-        if len(sig_in_shape) == 1:
-            raise ValueError("The input signal should be at least 2-dim!")
-
-        sig_out = np.zeros_like(sig_in)
-
-        num_periods = int(np.ceil(sig_in.shape[-1] / self.sampling_period))
+        # Generate the output data
+        out_data = np.zeros_like(input_data)
+        num_periods = int(np.ceil(__T / self.sampling_period))
 
         for period in range(num_periods):
             start_idx = period * self.sampling_period
 
             end_idx = (period + 1) * self.sampling_period
-            end_idx = end_idx if end_idx <= sig_in.shape[-1] else sig_in.shape[-1]
+            end_idx = end_idx if end_idx <= __T else __T
 
-            # copy and repeat the signal along the last dimension
-            sig_out[..., start_idx:end_idx] = np.expand_dims(sig_in[..., start_idx], -1)
+            # copy and repeat the signal along the time dimension
+            out_data[:, start_idx:end_idx, :] = np.full_like(
+                out_data[:, start_idx:end_idx, :], input_data[:, start_idx, :]
+            )
 
-        # return to the original shape
-        sig_out = sig_out.reshape(sig_in_shape)
-
-        return sig_out, {}, {}
+        return out_data, {}, {}
 
     def __str__(self) -> str:
         string = "Sample-and-Hold maodule:\n" + f"period: {self.sampling_period}"
