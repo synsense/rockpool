@@ -19,6 +19,7 @@ from rockpool.nn.combinators import Sequential
 
 __all__ = ["RotationRemoval"]
 
+
 class RotationRemoval:
     def __init__(
         self, subspace: SubSpace, sampler: SampleAndHold, jsvd: JSVD, num_bits_out: int
