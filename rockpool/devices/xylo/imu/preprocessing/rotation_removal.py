@@ -141,7 +141,7 @@ class RotationRemoval(Module):
                 # check if the covariance matrix is repeated
                 if np.linalg.norm(covariance_old - cov_new) == 0:
                     # output signal sample after rotation removal
-                    sample_out = self.rotate(rotation_old.T, sample)
+                    sample_out = self.rotate(sample, rotation_old.T)
                     signal_out.append(sample_out)
 
                 # if not, compute the JSVD
@@ -158,7 +158,7 @@ class RotationRemoval(Module):
                     rotation_new = rotation_new @ np.diag(sign_new_old)
 
                     # output signal sample after rotation removal
-                    sample_out = self.rotate(rotation_new.T, sample)
+                    sample_out = self.rotate(sample, rotation_new.T)
                     signal_out.append(sample_out)
 
                     # update the covariance matrix
@@ -175,34 +175,29 @@ class RotationRemoval(Module):
 
     # utility modules
     @type_check
-    def rotate(self, rotation_matrix: np.ndarray, sig_sample: np.ndarray) -> np.ndarray:
-        """this module takes a rotation matrix and also a 3 x 1 signal sample and rotates it.
+    def rotate(self, sample: np.ndarray, rotation_matrix: np.ndarray) -> np.ndarray:
+        """Rotate a 1 timestep IMU signal. The number of bitshifts needed to fit the multiplication into the buffer!
+
+        NOTE: the amplitude amplification due to multiplication with a rotation matrix is already taken into account by right-bit-shift of 1
 
         Args:
-            rotation_matrix (np.ndarray): 3 x 3 input rotation matrix.
-            sig_sample (np.ndarray): 3 x 1 input signal sample.
+            sample (np.ndarray): one timestep signal (3,).
+            rotation_matrix (np.ndarray): 3 x 3 rotation matrix.
 
         Returns:
-            np.ndarray: 3 x 1 input signal after being multiplied with transpose of rotation matrix (rotation removal).
+            np.ndarray: Rotation removed sample.
         """
-        # number of bits used in rotation removal
-        num_bits_rotation = self.jsvd.num_bits_rotation
 
-        # number of bits used in the input signal
-        num_bits_in = self.num_bits_in
+        num_right_bit_shifts = (
+            self.num_bits_rotation + self.num_bits_in - self.num_bits_out
+        )
 
-        # number of bitshifts needed to fit the multiplication into the buffer
-        # NOTE: the amplitude amplification due to multiplication with a rotation matrix
-        # is already taken into account by right-bit-shift of 1
-        num_right_bit_shifts = num_bits_rotation + num_bits_in - self.num_bits_out
+        signal_out = []
 
-        sig_out = []
-
-        for row_vec in rotation_matrix:
+        for row in rotation_matrix:
             buffer = 0
-
-            for val_rotation, val_sig_in in zip(row_vec, sig_sample):
-                update = (val_rotation * val_sig_in) >> num_right_bit_shifts
+            for rot, val in zip(row, sample):
+                update = (rot * val) >> num_right_bit_shifts
 
                 if abs(update) >= 2 ** (self.num_bits_out - 1):
                     raise ValueError(
@@ -217,8 +212,7 @@ class RotationRemoval(Module):
                     )
 
             # add this component
-            sig_out.append(buffer)
+            signal_out.append(buffer)
 
-        sig_out = np.asarray(sig_out, dtype=object)
-
-        return sig_out
+        signal_out = np.asarray(signal_out, dtype=object)
+        return signal_out
