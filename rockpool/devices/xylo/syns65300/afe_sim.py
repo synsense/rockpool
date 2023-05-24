@@ -505,8 +505,10 @@ class AFESim(Module):
 
         Nb, Nt, Nc = input.shape
         if Nb > 1:
-            raise ValueError(f'AFESim does not support batches. Got input of shape {[Nb, Nt, Nc]}.')
-        
+            raise ValueError(
+                f"AFESim does not support batches. Got input of shape {[Nb, Nt, Nc]}."
+            )
+
         # - Make sure input is 1D (number of channels is already checked by _auto_batch)
         input = input[:, 0]
 
