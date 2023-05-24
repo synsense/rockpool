@@ -63,17 +63,18 @@ class RotationRemoval(Module):
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
-        self.subspace = SubSpace(
-            num_bits_in=num_bits_in,
-            num_bits_highprec_filter=num_bits_highprec_filter,
-            num_bits_multiplier=num_bits_multiplier,
-            num_avg_bitshift=num_avg_bitshift,
-            shape=(self.size_in, self.size_in**2),
-        )
-
-        self.sampler = SampleAndHold(
-            sampling_period=sampling_period,
-            shape=(self.size_in**2, self.size_in**2),
+        self.sub_estimate = Sequential(
+            SubSpace(
+                num_bits_in=num_bits_in,
+                num_bits_highprec_filter=num_bits_highprec_filter,
+                num_bits_multiplier=num_bits_multiplier,
+                num_avg_bitshift=num_avg_bitshift,
+                shape=(self.size_in, self.size_in**2),
+            ),
+            SampleAndHold(
+                sampling_period=sampling_period,
+                shape=(self.size_in**2, self.size_in**2),
+            ),
         )
 
         self.jsvd = JSVD(
@@ -105,15 +106,17 @@ class RotationRemoval(Module):
             Dict[str, Any]: empty dictionary
             Dict[str, Any]: empty dictionary
         """
+
+        # Input handling (BxTx3)
         input_data, _ = self._auto_batch(input_data)
+        input_data = np.array(input_data, dtype=np.int64).astype(object)
         __B, __T, __C = input_data.shape
         if __C != self.size_in:
             raise ValueError(f"The input data should have {self.size_in} channels!")
 
         # compute the covariances using subspace estimation: do not save the high-precision ones
         # T x 3 x 3
-        mod = Sequential(self.subspace, self.sampler)
-        covariance_list_SH, _, _ = mod(input_data)
+        covariance_list_SH, _, _ = self.sub_estimate(input_data)
         covariance_list_SH = covariance_list_SH.reshape((__B, __T, __C, __C))
 
         # feed the computed covariance matrices into a JSVD module and compute the rotation and diagonal matrix
