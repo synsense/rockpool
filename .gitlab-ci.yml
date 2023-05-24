@@ -1,5 +1,5 @@
 default:
-  image: "registry.gitlab.com/synsense/rockpool/test:latest"
+  image: "registry.gitlab.com/synsense/rockpool/known_good:latest"
 
 stages:
   - test
@@ -10,30 +10,48 @@ stages:
 
 gpu_validation:
   stage: test
-  image: "registry.gitlab.com/synsense/rockpool:raw"
+  image: "registry.gitlab.com/synsense/rockpool/clean:latest"
   tags:
     - cuda
   script:
     - nvidia-smi
     - which nvcc
 
-unit_tests:
+unit_tests_clean:
   stage: test
-  image: "registry.gitlab.com/synsense/rockpool:raw"
+  image: "registry.gitlab.com/synsense/rockpool/clean:latest"
   tags:
     - cuda
 
   before_script:
     - pip install --upgrade pip
-    - pip install torch==1.12.0+cu116 torchvision==0.13.0+cu116 torchaudio==0.12.0 --extra-index-url https://download.pytorch.org/whl/cu116
     - export CUDA_HOME=/miniconda/
-    - pip install --upgrade .[all] --no-cache-dir
+    - pip install --upgrade ".[all]" --no-cache-dir
     - python -c 'import samna'
-    - pip install 'sinabs-exodus>=1.1' || exit_code=$?
+    - pip install --upgrade sinabs-exodus --no-cache-dir || exit_code=$?
     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
 
   script:
     - pytest -v tests/tests_default --random-order
+
+unit_tests_known_good:
+  stage: test
+  image: "registry.gitlab.com/synsense/rockpool/known_good:latest"
+  tags:
+    - cuda
+  parallel: 4
+
+  before_script:
+    - pip install --upgrade pip
+    - export CUDA_HOME=/miniconda/
+    - pip install --upgrade ".[all]" --no-cache-dir
+    - python -c 'import samna'
+    - pip install --upgrade sinabs-exodus --no-cache-dir || exit_code=$?
+    - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
+
+  script:
+    - pytest -v tests/tests_default --random-order
+
 
 documentation_linting:
   stage: docs
@@ -65,7 +83,8 @@ docs_build:
 dist_build:
   stage: build
   dependencies:
-    - unit_tests
+    - unit_tests_known_good
+    - unit_tests_clean
 
   before_script:
     - pip install --upgrade pip
