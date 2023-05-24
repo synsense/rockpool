@@ -6,10 +6,10 @@ Rotation-Removal module:
 4. Computes the SVD of the resulting covariance matrix to find the rotation matrix,
 5. Applies the rotation matrix to the input data to compute the rotation-removed version of the input data
 
-The resulting signal is then forwarded to the filterbank module. 
+The resulting signal is then forwarded to the filterbank module.
 In this version, we are using `object` rather than `np.int64` so that our simulation works for arbitrary number of quantization bit size for the parameters.
 """
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Optional, Union
 
 import numpy as np
 
@@ -19,12 +19,26 @@ from rockpool.devices.xylo.imu.preprocessing.subspace import SubSpace
 from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 from rockpool.nn.combinators import Sequential
 
+from rockpool.nn.modules.module import Module
+
 __all__ = ["RotationRemoval"]
 
 
-class RotationRemoval:
+class RotationRemoval(Module):
     def __init__(
-        self, subspace: SubSpace, sampler: SampleAndHold, jsvd: JSVD, num_bits_out: int
+        self,
+        num_bits_in: int,
+        num_bits_out: int,
+        num_bits_highprec_filter: int,
+        num_bits_multiplier: int,
+        num_avg_bitshift: int,
+        sampling_period: int,
+        num_angles: int,
+        num_bits_lookup: int,
+        num_bits_covariance: int,
+        num_bits_rotation: int,
+        nround: int = 4,
+        shape: Optional[Union[Tuple, int]] = (3, 3),
     ) -> None:
         """Object constructor.
 
@@ -35,9 +49,25 @@ class RotationRemoval:
             num_bits_out (int): number of bits in the final signal (obtained after rotation removal).
 
         """
-        self.subspace = subspace
-        self.sampler = sampler
-        self.jsvd = jsvd
+        super().__init__(shape=shape, spiking_input=False, spiking_output=False)
+        self.subspace = SubSpace(
+            num_bits_in=num_bits_in,
+            num_bits_highprec_filter=num_bits_highprec_filter,
+            num_bits_multiplier=num_bits_multiplier,
+            num_avg_bitshift=num_avg_bitshift,
+            shape=(self.size_in, self.size_in**2),
+        )
+        self.sampler = SampleAndHold(
+            sampling_period=sampling_period,
+            shape=(self.size_in**2, self.size_in**2),
+        )
+        self.jsvd = JSVD(
+            num_angles=num_angles,
+            num_bits_lookup=num_bits_lookup,
+            num_bits_covariance=num_bits_covariance,
+            num_bits_rotation=num_bits_rotation,
+            nround=nround,
+        )
         self.num_bits_out = num_bits_out
 
     @type_check
