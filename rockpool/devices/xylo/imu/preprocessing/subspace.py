@@ -38,18 +38,22 @@ class SubSpace(Module):
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
-        self.num_bits_in = SimulationParameter(num_bits_in, shape=(1,))
+        self.num_bits_in = SimulationParameter(num_bits_in, shape=(1,), cast_fn=int)
         """number of bits in the input data. We assume a sign magnitude format."""
 
         self.num_bits_highprec_filter = SimulationParameter(
-            num_bits_highprec_filter, shape=(1,)
+            num_bits_highprec_filter, shape=(1,), cast_fn=int
         )
         """number of bits devoted to computing the high-precision filter (to avoid dead-zone effect)"""
 
-        self.num_bits_multiplier = SimulationParameter(num_bits_multiplier, shape=(1,))
+        self.num_bits_multiplier = SimulationParameter(
+            num_bits_multiplier, shape=(1,), cast_fn=int
+        )
         """number of bits devoted to computing [x(t) x(t)^T]_{ij}. If less then needed, the LSB values are removed."""
 
-        self.num_avg_bitshift = SimulationParameter(num_avg_bitshift, shape=(1,))
+        self.num_avg_bitshift = SimulationParameter(
+            num_avg_bitshift, shape=(1,), cast_fn=int
+        )
         """number of bitshifts used in the low-pass filter implementation."""
 
     @type_check
@@ -83,7 +87,7 @@ class SubSpace(Module):
 
         # -- Batch processing
         input_data, _ = self._auto_batch(input_data)
-        input_data = np.array(input_data, dtype=int)
+        input_data = np.array(input_data, dtype=np.int64)
 
         # -- bit size calculation
         # maximimum number of bits that can be used for storing the result of multiplication x(t) * x(t)^T

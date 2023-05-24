@@ -29,7 +29,9 @@ class SampleAndHold(Module):
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
-        self.sampling_period = SimulationParameter(sampling_period, shape=(1,))
+        self.sampling_period = SimulationParameter(
+            sampling_period, shape=(1,), cast_fn=int
+        )
         """Sampling period that the signal is sampled and held"""
 
     @type_check
@@ -50,6 +52,7 @@ class SampleAndHold(Module):
         """
         # BxTxC
         input_data, _ = self._auto_batch(input_data)
+        input_data = np.array(input_data, dtype=np.int64)
         __B, __T, __C = input_data.shape
 
         # Generate the output data
@@ -57,9 +60,9 @@ class SampleAndHold(Module):
         num_periods = int(np.ceil(__T / self.sampling_period))
 
         for period in range(num_periods):
-            start_idx = int(period * self.sampling_period)
+            start_idx = period * self.sampling_period
 
-            end_idx = int((period + 1) * self.sampling_period)
+            end_idx = (period + 1) * self.sampling_period
             end_idx = end_idx if end_idx <= __T else __T
 
             # copy and repeat the signal along the time dimension
@@ -67,6 +70,7 @@ class SampleAndHold(Module):
                 out_data[:, start_idx:end_idx, :], input_data[:, start_idx, :]
             )
 
+        out_data = np.array(out_data, dtype=object)
         return out_data, {}, {}
 
     def __str__(self) -> str:
