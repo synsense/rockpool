@@ -1,13 +1,5 @@
 """
-Rotation-Removal module:
-1. Takes the T x 3 input data received from an IMU sensor,
-2. Computes the 3 x 3 sample covariance using subspace estimation module,
-3. Applies a sample-and-hold module to compute SVD only at specific periods
-4. Computes the SVD of the resulting covariance matrix to find the rotation matrix,
-5. Applies the rotation matrix to the input data to compute the rotation-removed version of the input data
-
-The resulting signal is then forwarded to the filterbank module.
-In this version, we are using `object` rather than `np.int64` so that our simulation works for arbitrary number of quantization bit size for the parameters.
+Rotation-Removal module for removing the rotation from the IMU input signal.
 """
 from typing import Any, Dict, Tuple, Optional, Union
 
@@ -26,6 +18,17 @@ __all__ = ["RotationRemoval"]
 
 
 class RotationRemoval(Module):
+    """
+    1. Takes the T x 3 input data received from an IMU sensor,
+    2. Computes the 3 x 3 sample covariance using subspace estimation module,
+    3. Applies a sample-and-hold module to compute SVD only at specific periods
+    4. Computes the SVD of the resulting covariance matrix to find the rotation matrix,
+    5. Applies the rotation matrix to the input data to compute the rotation-removed version of the input data
+
+    The resulting signal is then forwarded to the filterbank module.
+    In this version, we are using `object` rather than `np.int64` so that our simulation works for arbitrary number of quantization bit size for the parameters.
+    """
+
     def __init__(
         self,
         num_bits_in: int,
