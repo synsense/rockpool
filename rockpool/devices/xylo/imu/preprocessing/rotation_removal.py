@@ -130,14 +130,8 @@ class RotationRemoval(Module):
         # feed the computed covariance matrices into a JSVD module and compute the rotation and diagonal matrix
         covariance_old = -np.ones((3, 3), dtype=object)
         rotation_old = np.eye(3).astype(np.int64).astype(object)
-        diagonal_old = np.eye(3).astype(np.int64).astype(object)
 
-        rotation_list = []
-        diagonal_list = []
         signal_out = []
-
-        rotation_list_batch = []
-        diagonal_list_batch = []
         data_out = []
 
         # loop over the batch
@@ -146,13 +140,9 @@ class RotationRemoval(Module):
             for cov_new, sample in zip(cov_SH, signal):
                 # check if the covariance matrix is repeated
                 if np.linalg.norm(covariance_old - cov_new) == 0:
-                    # do not do any computation: just copy-paste the old values
-                    rotation_list.append(np.copy(rotation_old))
-                    diagonal_list.append(np.copy(diagonal_old))
-
                     # output signal sample after rotation removal
                     sample_out = self.rotate(rotation_old.T, sample)
-                    signal_out.append(np.copy(sample_out))
+                    signal_out.append(sample_out)
 
                 # if not, compute the JSVD
                 else:
@@ -167,42 +157,22 @@ class RotationRemoval(Module):
                     )
                     rotation_new = rotation_new @ np.diag(sign_new_old)
 
-                    # add them to the list
-                    rotation_list.append(np.copy(rotation_new))
-                    diagonal_list.append(np.copy(diagonal_new))
-
                     # output signal sample after rotation removal
                     sample_out = self.rotate(rotation_new.T, sample)
-
-                    signal_out.append(np.copy(sample_out))
+                    signal_out.append(sample_out)
 
                     # update the covariance matrix
                     covariance_old = cov_new
                     rotation_old = rotation_new
-                    diagonal_old = diagonal_new
 
             # convert into array and return
-            rotation_list = np.array(rotation_list, dtype=object)
-            diagonal_list = np.array(diagonal_list, dtype=object)
             signal_out = np.array(signal_out, dtype=object).T
 
-        rotation_list_batch.append(rotation_list)
-        diagonal_list_batch.append(diagonal_list)
         data_out.append(signal_out)
-
-        rotation_list_batch = np.array(rotation_list_batch, dtype=object)
-        diagonal_list_batch = np.array(diagonal_list_batch, dtype=object)
         data_out = np.array(data_out, dtype=object)
 
-        # return  3 x T output signal and T x 3 x 3 rotation/diagonal matrices
-        return data_out, rotation_list_batch, diagonal_list_batch
+        return data_out, {}, {}
 
-    # add the call version for further convenience
-    def __call__(self, *args, **kwargs):
-        """
-        This function simply calls the `evolve()` function and is added for further convenience.
-        """
-        return self.evolve(*args, **kwargs)
 
     # utility modules
     @type_check
