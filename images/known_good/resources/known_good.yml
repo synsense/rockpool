@@ -69,4 +69,3 @@ dependencies:
       - torchvision==0.15.2
       - tqdm==4.65.0
       - xylosim==0.1.3
-prefix: /home/dylan/miniconda3/envs/known_good
