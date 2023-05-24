@@ -37,7 +37,6 @@ unit_tests_clean:
 
   before_script:
     - pip install --upgrade pip
-    - export CUDA_HOME=/miniconda/
     - pip install --upgrade ".[all]" --no-cache-dir
     - python -c 'import samna'
     - pip install --upgrade sinabs-exodus --no-cache-dir || exit_code=$?
@@ -55,7 +54,6 @@ unit_tests_known_good:
 
   before_script:
     - pip install --upgrade pip
-    - export CUDA_HOME=/miniconda/
     - pip install --upgrade ".[all]" --no-cache-dir
     - python -c 'import samna'
 
