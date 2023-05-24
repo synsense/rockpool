@@ -42,6 +42,9 @@ def test_mse():
 
     config.update("jax_debug_nans", True)
 
+    # - Seed for reproducibility
+    np.random.seed(1)
+
     mod = RateJax(2)
     params0 = mod.parameters()
 
