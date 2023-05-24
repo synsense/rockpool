@@ -166,7 +166,7 @@ class RotationRemoval(Module):
                     rotation_old = rotation_new
 
             # convert into array and return
-            signal_out = np.array(signal_out, dtype=object).T
+            signal_out = np.array(signal_out, dtype=object)
 
         data_out.append(signal_out)
         data_out = np.array(data_out, dtype=object)
