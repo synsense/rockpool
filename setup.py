@@ -62,7 +62,7 @@ setup_args = {
             "rich",
         ],
         "all": [
-            "rockpool[numba, docs, tests, torch, jax, xylo, brian, sinabs, extras]",
+            "rockpool[numba, docs, tests, torch, jax, xylo, brian, sinabs, dynapse, extras]",
         ],
     },
     "description": "A Python package for developing, simulating and training spiking neural networks, and deploying on neuromorphic hardware",
