@@ -510,7 +510,7 @@ class AFESim(Module):
             )
 
         # - Make sure input is 1D (number of channels is already checked by _auto_batch)
-        input = input[:, 0]
+        input = input[0, :, 0]
 
         # - Set up the previous input chunk
         if self._last_input is None:

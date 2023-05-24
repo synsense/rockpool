@@ -56,7 +56,6 @@ def test_evolve():
 
     ts_inp = TSContinuous.from_clocked(inp, dt=dt, t_start=0)
     out, state, rec = afe.evolve(ts_inp)
-
     assert out.raster(dt).shape == (T * fs, num_filters)
 
 
@@ -69,5 +68,7 @@ def test_zero_input():
     Nout = 16
     afe = AFESim(Nout)
     out, state, rec = afe(np.zeros((T, Nin)))
+    assert out.shape == (T, Nout)
 
-    assert out.shape == (T, Nin)
+    out, state, rec = afe(np.zeros((1, T, Nin)))
+    assert out.shape == (T, Nout)
