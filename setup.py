@@ -27,9 +27,10 @@ setup_args = {
             "pytest>=6.0",
             "pytest-xdist>=3.2.1",
             "pytest-random-order>=1.1.0",
+            "pytest-test-groups",
         ],
         "torch": [
-            "torch<2.0",
+            "torch",
             "torchvision",
         ],
         "jax": [
