@@ -36,6 +36,11 @@ class SubSpace(Module):
             num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation.
                 The effective window length of the low-pass filter will be `2**num_avg_bitshift`
         """
+        if shape[1] != shape[0] ** 2:
+            raise ValueError(
+                f"The output size should be {shape[0] ** 2} to compute the covariance matrix!"
+            )
+
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
         self.num_bits_in = SimulationParameter(num_bits_in, shape=(1,), cast_fn=int)
@@ -88,7 +93,9 @@ class SubSpace(Module):
         # -- Batch processing
         input_data, _ = self._auto_batch(input_data)
         __B, __T, __C = input_data.shape
-        assert __C == self.size_in
+
+        if __C != self.size_in:
+            raise ValueError(f"The input data should have {self.size_in} channels!")
 
         input_data = np.array(input_data, dtype=np.int64)
 
