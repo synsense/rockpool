@@ -65,8 +65,9 @@ def test_zero_input():
     import numpy as np
 
     T = 1000
+    Nin = 1
     Nout = 16
     afe = AFESim(Nout)
-    out, state, rec = afe(np.zeros((T, Nout)))
+    out, state, rec = afe(np.zeros((T, Nin)))
 
-    assert out.shape == (T, Nout)
+    assert out.shape == (T, Nin)
