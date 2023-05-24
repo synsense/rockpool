@@ -89,27 +89,31 @@ class RotationRemoval(Module):
 
     @type_check
     def evolve(
-        self, sig_in: np.ndarray
+        self, input_data: np.ndarray, record: bool = False
     ) -> Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
-        """this modules takes the 3 x T input signal and processes it to produce the 3 x T rotation-removed signal.
+        """Take the BxTx3 raw analog IMU signal and processes it to produce the BxTx3 rotation-removed signal.
 
         Args:
-            sig_in (np.ndarray): the input signal.
+            input_data (np.ndarray): the input signal (BxTx3)
+            record (bool, optional): record flag to match with the other rockpool modules. Practically useless. Defaults to False.
 
         Raises:
             ValueError: if the dimensions do not match.
 
         Returns:
-            np.ndarray: the 3 x T signal after rotation removal.
+            np.ndarray: Output signal after rotation removal (BxTx3)
+            Dict[str, Any]: empty dictionary
+            Dict[str, Any]: empty dictionary
         """
-        if sig_in.shape[-1] != 3:
-            raise ValueError("th input signal should have 3 input channels!")
+        input_data, _ = self._auto_batch(input_data)
+        __B, __T, __C = input_data.shape
+        if __C != self.size_in:
+            raise ValueError(f"The input data should have {self.size_in} channels!")
 
-        # compute the covarinces using subspace estimation: do not save the high-precision ones
+        # compute the covariances using subspace estimation: do not save the high-precision ones
         # T x 3 x 3
-        __B, __T, __C = sig_in.shape
         mod = Sequential(self.subspace, self.sampler)
-        covariance_list_SH, _, _ = mod(sig_in)
+        covariance_list_SH, _, _ = mod(input_data)
         covariance_list_SH = covariance_list_SH.reshape((__B, __T, __C, __C))
 
         # feed the computed covariance matrices into a JSVD module and compute the rotation and diagonal matrix
@@ -125,7 +129,9 @@ class RotationRemoval(Module):
         diagonal_list_batch = []
         sig_out_batch = []
 
-        for covariance_list_SH_batch, sig_in_batch in zip(covariance_list_SH, sig_in):
+        for covariance_list_SH_batch, sig_in_batch in zip(
+            covariance_list_SH, input_data
+        ):
             for covariance_new, sig_in_sample in zip(
                 covariance_list_SH_batch, sig_in_batch
             ):
