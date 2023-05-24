@@ -85,8 +85,16 @@ class RotationRemoval(Module):
             nround=nround,
         )
 
+        self.num_bits_in = SimulationParameter(num_bits_in, shape=(1,), cast_fn=int)
+        """number of bits in the input data. We assume a sign magnitude format."""
+
         self.num_bits_out = SimulationParameter(num_bits_out, shape=(1,), cast_fn=int)
         """number of round rotation computation and update is done over all 3 axes/dims."""
+
+        self.num_bits_rotation = SimulationParameter(
+            num_bits_rotation, shape=(1,), cast_fn=int
+        )
+        """number of bits devoted for implementing rotation matrix"""
 
     @type_check
     def evolve(
@@ -115,9 +123,9 @@ class RotationRemoval(Module):
             raise ValueError(f"The input data should have {self.size_in} channels!")
 
         # compute the covariances using subspace estimation: do not save the high-precision ones
-        # T x 3 x 3
-        covariance_list_SH, _, _ = self.sub_estimate(input_data)
-        covariance_list_SH = covariance_list_SH.reshape((__B, __T, __C, __C))
+        # B x T x 3 x 3
+        batch_cov_SH, _, _ = self.sub_estimate(input_data)
+        batch_cov_SH = batch_cov_SH.reshape((__B, __T, __C, __C))
 
         # feed the computed covariance matrices into a JSVD module and compute the rotation and diagonal matrix
         covariance_old = -np.ones((3, 3), dtype=object)
@@ -126,73 +134,68 @@ class RotationRemoval(Module):
 
         rotation_list = []
         diagonal_list = []
-        sig_out = []
+        signal_out = []
 
         rotation_list_batch = []
         diagonal_list_batch = []
-        sig_out_batch = []
+        data_out = []
 
-        for covariance_list_SH_batch, sig_in_batch in zip(
-            covariance_list_SH, input_data
-        ):
-            for covariance_new, sig_in_sample in zip(
-                covariance_list_SH_batch, sig_in_batch
-            ):
+        # loop over the batch
+        for cov_SH, signal in zip(batch_cov_SH, input_data):
+            # loop over the time dimension
+            for cov_new, sample in zip(cov_SH, signal):
                 # check if the covariance matrix is repeated
-                if np.linalg.norm(covariance_old - covariance_new) == 0:
+                if np.linalg.norm(covariance_old - cov_new) == 0:
                     # do not do any computation: just copy-paste the old values
                     rotation_list.append(np.copy(rotation_old))
                     diagonal_list.append(np.copy(diagonal_old))
 
                     # output signal sample after rotation removal
-                    sig_out_sample = self.rotate(rotation_old.T, sig_in_sample)
+                    sample_out = self.rotate(rotation_old.T, sample)
+                    signal_out.append(np.copy(sample_out))
 
-                    sig_out.append(np.copy(sig_out_sample))
+                # if not, compute the JSVD
+                else:
+                    rotation_new, diagonal_new = self.jsvd(cov_new)
 
-                    continue
+                    # correct the sign of rotation to keep the consistency with the previous rotations
+                    # no need to change the diagonal matrix
+                    sign_new_old = (
+                        np.sign(np.diag(rotation_new.T @ rotation_old))
+                        .astype(np.int8)
+                        .astype(object)
+                    )
+                    rotation_new = rotation_new @ np.diag(sign_new_old)
 
-                # compute the JSVD
-                # return R_list, C_list, R_last_sorted, C_last_sorted
-                rotation_new, diagonal_new = self.jsvd(covariance_new)
+                    # add them to the list
+                    rotation_list.append(np.copy(rotation_new))
+                    diagonal_list.append(np.copy(diagonal_new))
 
-                # correct the sign of rotation to keep the consistency with the previous rotations
-                # no need to change the diagonal matrix
-                sign_new_old = (
-                    np.sign(np.diag(rotation_new.T @ rotation_old))
-                    .astype(np.int8)
-                    .astype(object)
-                )
-                rotation_new = rotation_new @ np.diag(sign_new_old)
+                    # output signal sample after rotation removal
+                    sample_out = self.rotate(rotation_new.T, sample)
 
-                # add them to the list
-                rotation_list.append(np.copy(rotation_new))
-                diagonal_list.append(np.copy(diagonal_new))
+                    signal_out.append(np.copy(sample_out))
 
-                # output signal sample after rotation removal
-                sig_out_sample = self.rotate(rotation_new.T, sig_in_sample)
-
-                sig_out.append(np.copy(sig_out_sample))
-
-                # update the covariance matrix
-                covariance_old = covariance_new
-                rotation_old = rotation_new
-                diagonal_old = diagonal_new
+                    # update the covariance matrix
+                    covariance_old = cov_new
+                    rotation_old = rotation_new
+                    diagonal_old = diagonal_new
 
             # convert into array and return
-            rotation_list = np.asarray(rotation_list, dtype=object)
-            diagonal_list = np.asarray(diagonal_list, dtype=object)
-            sig_out = np.asarray(sig_out, dtype=object).T
+            rotation_list = np.array(rotation_list, dtype=object)
+            diagonal_list = np.array(diagonal_list, dtype=object)
+            signal_out = np.array(signal_out, dtype=object).T
 
         rotation_list_batch.append(rotation_list)
         diagonal_list_batch.append(diagonal_list)
-        sig_out_batch.append(sig_out)
+        data_out.append(signal_out)
 
-        rotation_list_batch = np.asarray(rotation_list_batch, dtype=object)
-        diagonal_list_batch = np.asarray(diagonal_list_batch, dtype=object)
-        sig_out_batch = np.asarray(sig_out_batch, dtype=object)
+        rotation_list_batch = np.array(rotation_list_batch, dtype=object)
+        diagonal_list_batch = np.array(diagonal_list_batch, dtype=object)
+        data_out = np.array(data_out, dtype=object)
 
         # return  3 x T output signal and T x 3 x 3 rotation/diagonal matrices
-        return sig_out_batch, rotation_list_batch, diagonal_list_batch
+        return data_out, rotation_list_batch, diagonal_list_batch
 
     # add the call version for further convenience
     def __call__(self, *args, **kwargs):
@@ -217,7 +220,7 @@ class RotationRemoval(Module):
         num_bits_rotation = self.jsvd.num_bits_rotation
 
         # number of bits used in the input signal
-        num_bits_in = self.subspace.num_bits_in
+        num_bits_in = self.num_bits_in
 
         # number of bitshifts needed to fit the multiplication into the buffer
         # NOTE: the amplitude amplification due to multiplication with a rotation matrix
