@@ -20,6 +20,7 @@ from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 from rockpool.nn.combinators import Sequential
 
 from rockpool.nn.modules.module import Module
+from rockpool.parameters import SimulationParameter
 
 __all__ = ["RotationRemoval"]
 
@@ -43,13 +44,22 @@ class RotationRemoval(Module):
         """Object constructor.
 
         Args:
-            subspace (SubSpace): subspace estimation/tracking module.
-            sampler (SampleAndHold): sample-and-hold module which allows to update the covariance matrix with a given period.
-            jsvd (JSVD): JSVD mdoule for computing the SVD of the input covariance matrix and recovering the underlying rotation.
+            num_bits_in (int): number of bits in the input data. We assume a sign magnitude format.
             num_bits_out (int): number of bits in the final signal (obtained after rotation removal).
+            num_bits_highprec_filter (int) : number of bits devoted to computing the high-precision filter (to avoid dead-zone effect)
+            num_bits_multiplier (int): number of bits devoted to computing [x(t) x(t)^T]_{ij}. If less then needed, the LSB values are removed.
+            num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation.
+                The effective window length of the low-pass filter will be `2**num_avg_bitshift`
+            sampling_period (int): Sampling period that the signal is sampled and held
+            num_angles (int): number of angles in lookup table.
+            num_bits_lookup (int): number of bits used for quantizing the lookup table.
+            num_bits_covariance (int): number of bits used for the covariance matrix.
+            num_bits_rotation (int): number of bits devoted for implementing rotation matrix.
+            nround (int): number of round rotation computation and update is done over all 3 axes/dims.
 
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
+
         self.subspace = SubSpace(
             num_bits_in=num_bits_in,
             num_bits_highprec_filter=num_bits_highprec_filter,
@@ -57,10 +67,12 @@ class RotationRemoval(Module):
             num_avg_bitshift=num_avg_bitshift,
             shape=(self.size_in, self.size_in**2),
         )
+
         self.sampler = SampleAndHold(
             sampling_period=sampling_period,
             shape=(self.size_in**2, self.size_in**2),
         )
+
         self.jsvd = JSVD(
             num_angles=num_angles,
             num_bits_lookup=num_bits_lookup,
@@ -68,7 +80,9 @@ class RotationRemoval(Module):
             num_bits_rotation=num_bits_rotation,
             nround=nround,
         )
-        self.num_bits_out = num_bits_out
+
+        self.num_bits_out = SimulationParameter(num_bits_out, shape=(1,), cast_fn=int)
+        """number of round rotation computation and update is done over all 3 axes/dims."""
 
     @type_check
     def evolve(
