@@ -173,7 +173,6 @@ class RotationRemoval(Module):
 
         return data_out, {}, {}
 
-
     # utility modules
     @type_check
     def rotate(self, rotation_matrix: np.ndarray, sig_sample: np.ndarray) -> np.ndarray:
