@@ -13,7 +13,9 @@ from typing import Any, Dict, Tuple
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.preprocessing import JSVD, SampleAndHold, SubSpace
+from rockpool.devices.xylo.imu.preprocessing.jsvd import JSVD
+from rockpool.devices.xylo.imu.preprocessing.sample_hold import SampleAndHold
+from rockpool.devices.xylo.imu.preprocessing.subspace import SubSpace
 from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 from rockpool.nn.combinators import Sequential
 
