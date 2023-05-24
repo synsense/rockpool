@@ -500,9 +500,17 @@ class AFESim(Module):
         *args,
         **kwargs,
     ):
-        # - Make sure input is 1D
-        if np.ndim(input) > 1:
-            input = input[:, 0]
+        # - Handle batches
+        input, _ = self._auto_batch(input)
+
+        Nb, Nt, Nc = input.shape
+        if Nb > 1:
+            raise ValueError(
+                f"AFESim does not support batches. Got input of shape {[Nb, Nt, Nc]}."
+            )
+
+        # - Make sure input is 1D (number of channels is already checked by _auto_batch)
+        input = input[0, :, 0]
 
         # - Set up the previous input chunk
         if self._last_input is None:
