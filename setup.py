@@ -43,6 +43,7 @@ setup_args = {
             "bitstruct",
         ],
         "exodus": [
+            "torch",
             "sinabs>=1.0",
             "sinabs-exodus",
         ],
