@@ -15,7 +15,9 @@ import numpy as np
 
 from rockpool.devices.xylo.imu.preprocessing import JSVD, SampleAndHold, SubSpace
 from rockpool.devices.xylo.imu.preprocessing.utils import type_check
+from rockpool.nn.combinators import Sequential
 
+__all__ = ["RotationRemoval"]
 
 class RotationRemoval:
     def __init__(
@@ -50,18 +52,15 @@ class RotationRemoval:
         Returns:
             np.ndarray: the 3 x T signal after rotation removal.
         """
-        if sig_in.shape[0] != 3:
+        if sig_in.shape[-1] != 3:
             raise ValueError("th input signal should have 3 input channels!")
 
         # compute the covarinces using subspace estimation: do not save the high-precision ones
-        covariance_list, _ = self.subspace(
-            sig_in=sig_in,
-        )
-
-        # sample-and-hold the covariance matrix
-        covariance_list_SH = self.sampler(
-            sig_in=covariance_list.swapaxes(0, 2),  # to make the time-axes at the end
-        ).swapaxes(0, 2)
+        # T x 3 x 3
+        __B, __T, __C = sig_in.shape
+        mod = Sequential(self.subspace, self.sampler)
+        covariance_list_SH, _, _ = mod(sig_in)
+        covariance_list_SH = covariance_list_SH.reshape((__B, __T, __C, __C))
 
         # feed the computed covariance matrices into a JSVD module and compute the rotation and diagonal matrix
         covariance_old = -np.ones((3, 3), dtype=object)
@@ -72,54 +71,69 @@ class RotationRemoval:
         diagonal_list = []
         sig_out = []
 
-        for covariance_new, sig_in_sample in zip(covariance_list_SH, sig_in.T):
-            # check if the covariance matrix is repeated
-            if np.linalg.norm(covariance_old - covariance_new) == 0:
-                # do not do any computation: just copy-paste the old values
-                rotation_list.append(np.copy(rotation_old))
-                diagonal_list.append(np.copy(diagonal_old))
+        rotation_list_batch = []
+        diagonal_list_batch = []
+        sig_out_batch = []
+
+        for covariance_list_SH_batch, sig_in_batch in zip(covariance_list_SH, sig_in):
+            for covariance_new, sig_in_sample in zip(
+                covariance_list_SH_batch, sig_in_batch
+            ):
+                # check if the covariance matrix is repeated
+                if np.linalg.norm(covariance_old - covariance_new) == 0:
+                    # do not do any computation: just copy-paste the old values
+                    rotation_list.append(np.copy(rotation_old))
+                    diagonal_list.append(np.copy(diagonal_old))
+
+                    # output signal sample after rotation removal
+                    sig_out_sample = self.rotate(rotation_old.T, sig_in_sample)
+
+                    sig_out.append(np.copy(sig_out_sample))
+
+                    continue
+
+                # compute the JSVD
+                # return R_list, C_list, R_last_sorted, C_last_sorted
+                rotation_new, diagonal_new = self.jsvd(covariance_new)
+
+                # correct the sign of rotation to keep the consistency with the previous rotations
+                # no need to change the diagonal matrix
+                sign_new_old = (
+                    np.sign(np.diag(rotation_new.T @ rotation_old))
+                    .astype(np.int8)
+                    .astype(object)
+                )
+                rotation_new = rotation_new @ np.diag(sign_new_old)
+
+                # add them to the list
+                rotation_list.append(np.copy(rotation_new))
+                diagonal_list.append(np.copy(diagonal_new))
 
                 # output signal sample after rotation removal
-                sig_out_sample = self.rotate(rotation_old.T, sig_in_sample)
+                sig_out_sample = self.rotate(rotation_new.T, sig_in_sample)
 
                 sig_out.append(np.copy(sig_out_sample))
 
-                continue
+                # update the covariance matrix
+                covariance_old = covariance_new
+                rotation_old = rotation_new
+                diagonal_old = diagonal_new
 
-            # compute the JSVD
-            # return R_list, C_list, R_last_sorted, C_last_sorted
-            _, _, rotation_new, diagonal_new = self.jsvd.evolve(covariance_new)
+            # convert into array and return
+            rotation_list = np.asarray(rotation_list, dtype=object)
+            diagonal_list = np.asarray(diagonal_list, dtype=object)
+            sig_out = np.asarray(sig_out, dtype=object).T
 
-            # correct the sign of rotation to keep the consistency with the previous rotations
-            # no need to change the diagonal matrix
-            sign_new_old = (
-                np.sign(np.diag(rotation_new.T @ rotation_old))
-                .astype(np.int8)
-                .astype(object)
-            )
-            rotation_new = rotation_new @ np.diag(sign_new_old)
+        rotation_list_batch.append(rotation_list)
+        diagonal_list_batch.append(diagonal_list)
+        sig_out_batch.append(sig_out)
 
-            # add them to the list
-            rotation_list.append(np.copy(rotation_new))
-            diagonal_list.append(np.copy(diagonal_new))
-
-            # output signal sample after rotation removal
-            sig_out_sample = self.rotate(rotation_new.T, sig_in_sample)
-
-            sig_out.append(np.copy(sig_out_sample))
-
-            # update the covariance matrix
-            covariance_old = covariance_new
-            rotation_old = rotation_new
-            diagonal_old = diagonal_new
-
-        # convert into array and return
-        rotation_list = np.asarray(rotation_list, dtype=object)
-        diagonal_list = np.asarray(diagonal_list, dtype=object)
-        sig_out = np.asarray(sig_out, dtype=object).T
+        rotation_list_batch = np.asarray(rotation_list_batch, dtype=object)
+        diagonal_list_batch = np.asarray(diagonal_list_batch, dtype=object)
+        sig_out_batch = np.asarray(sig_out_batch, dtype=object)
 
         # return  3 x T output signal and T x 3 x 3 rotation/diagonal matrices
-        return sig_out, rotation_list, diagonal_list
+        return sig_out_batch, rotation_list_batch, diagonal_list_batch
 
     # add the call version for further convenience
     def __call__(self, *args, **kwargs):
