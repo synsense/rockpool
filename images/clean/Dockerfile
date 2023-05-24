@@ -37,7 +37,7 @@ RUN conda update --all && \
     conda env update --name base --file clean.yml && \
     rm -rf clean.yml
 
-ENV CUDA_HOME=/miniconda
+ENV CUDA_HOME=/usr/local/cuda
 
 # - Set default entry command
 CMD ["/bin/bash", "--login"]
