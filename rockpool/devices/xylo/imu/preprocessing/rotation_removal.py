@@ -1,54 +1,33 @@
-# -----------------------------------------------------------
-# This module implements Rotation-Removal module:
-#       - its takes the 3 x T input data received from an IMU sensor,
-#       - computes the 3 x 3 sample covariance using subspace estimation module,
-#       - applies a sample-and-hold module to compute SVD only at specific periods
-#       - computes the SVD of the resulting covariance matrix to find the rotation matrix,
-#       - applies the rotation matrix to the input data to compute the rotation-removed version of the input data
-#       - the resulting signal is then forwarded to the filterbank module.
-#
-#
-# In this version, we are using `object` rather than `np.int64` so that our simulation works for arbitrary number of
-# quantization bit size for the parameters.
-#
-#
-# (C) Saeid Haghighatshoar
-# email: saeid.haghighatshoar@synsense.ai
-#
-#
-# last update: 28.08.2022
-# -----------------------------------------------------------
+"""
+Rotation-Removal module:
+1. Takes the T x 3 input data received from an IMU sensor,
+2. Computes the 3 x 3 sample covariance using subspace estimation module,
+3. Applies a sample-and-hold module to compute SVD only at specific periods
+4. Computes the SVD of the resulting covariance matrix to find the rotation matrix,
+5. Applies the rotation matrix to the input data to compute the rotation-removed version of the input data
 
-# required packages
+The resulting signal is then forwarded to the filterbank module. 
+In this version, we are using `object` rather than `np.int64` so that our simulation works for arbitrary number of quantization bit size for the parameters.
+"""
+from typing import Any, Dict, Tuple
+
 import numpy as np
-import warnings
 
-from imu_preprocessing.util.type_decorator import type_check
-
-from imu_preprocessing.subspace_tracking import SubSpace
-from imu_preprocessing.sample_and_hold import SampleAndHold
-from imu_preprocessing.JSVD import JSVD
+from rockpool.devices.xylo.imu.preprocessing import JSVD, SampleAndHold, SubSpace
+from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 
 
 class RotationRemoval:
     def __init__(
         self, subspace: SubSpace, sampler: SampleAndHold, jsvd: JSVD, num_bits_out: int
-    ):
-        """
-        This module implements Rotation-Removal module:
-            - its takes the 3 x T input data received from an IMU sensor,
-            - computes the 3 x 3 sample covariance using subspace estimation module,
-            - applies a sample-and-hold module to compute SVD only at specific periods
-            - computes the SVD of the resulting covariance matrix to find the rotation matrix,
-            - applies the rotation matrix to the input data to compute the rotation-removed version of the input data
-            - the resulting signal is then forwarded to the filterbank module.
+    ) -> None:
+        """Object constructor.
 
         Args:
             subspace (SubSpace): subspace estimation/tracking module.
             sampler (SampleAndHold): sample-and-hold module which allows to update the covariance matrix with a given period.
             jsvd (JSVD): JSVD mdoule for computing the SVD of the input covariance matrix and recovering the underlying rotation.
             num_bits_out (int): number of bits in the final signal (obtained after rotation removal).
-            The input bit size of other modules are taken into account.
 
         """
         self.subspace = subspace
@@ -57,7 +36,9 @@ class RotationRemoval:
         self.num_bits_out = num_bits_out
 
     @type_check
-    def evolve(self, sig_in: np.ndarray):
+    def evolve(
+        self, sig_in: np.ndarray
+    ) -> Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
         """this modules takes the 3 x T input signal and processes it to produce the 3 x T rotation-removed signal.
 
         Args:
@@ -149,7 +130,7 @@ class RotationRemoval:
 
     # utility modules
     @type_check
-    def rotate(self, rotation_matrix, sig_sample):
+    def rotate(self, rotation_matrix: np.ndarray, sig_sample: np.ndarray) -> np.ndarray:
         """this module takes a rotation matrix and also a 3 x 1 signal sample and rotates it.
 
         Args:
@@ -196,15 +177,3 @@ class RotationRemoval:
         sig_out = np.asarray(sig_out, dtype=object)
 
         return sig_out
-
-    def __str__(self):
-        string = (
-            "Rotation-Removal module:\n"
-            + f"bit size of the input: {self.subspace.num_bits_in}\n"
-            + f"bit size of the output: {self.num_bits_out}\n"
-            + f"subspace module for sample-covariance estimation:\n{self.subspace}\n"
-            + f"sample-and-hold module:\n{self.sampler}\n"
-            + f"Jaccobi SVD (JSVD) module:\n{self.jsvd}"
-        )
-
-        return string
