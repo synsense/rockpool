@@ -146,8 +146,7 @@ Standard networks
     :toctree: _autosummary
     :template: class.rst
 
-    nn.networks.wavesense.WaveSenseNet
-    nn.networks.wavesense.WaveBlock
+    nn.networks.WaveSenseNet
 
 
 Conversion utilities
