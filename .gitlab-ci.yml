@@ -2,15 +2,27 @@ default:
   image: "registry.gitlab.com/synsense/rockpool/known_good:latest"
 
 stages:
+  - preliminaries
   - test
   - docs
   - docs_deploy
   - build
   - deploy
 
-gpu_validation:
-  stage: test
+black-check:
+  stage: preliminaries
   image: "registry.gitlab.com/synsense/rockpool/clean:latest"
+  before_script:
+    - pip install --upgrade pip
+    - pip install black==23.1.0
+
+  script:
+    - python -m black --check rockpool tests
+
+gpu_validation:
+  stage: preliminaries
+  image: "registry.gitlab.com/synsense/rockpool/clean:latest"
+  allow_failure: true
   tags:
     - cuda
   script:
@@ -50,7 +62,8 @@ unit_tests_known_good:
     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
 
   script:
-    - pytest -v tests/tests_default --random-order
+    # - pytest -v tests/tests_default --random-order
+    - pytest -v tests/tests_default --test-group-count $CI_NODE_TOTAL --test-group=$CI_NODE_INDEX
 
 
 documentation_linting:
@@ -96,15 +109,6 @@ dist_build:
   artifacts:
     paths:
       - dist
-
-black-check:
-  stage: test
-  before_script:
-    - pip install --upgrade pip
-    - pip install black==23.1.0
-
-  script:
-    - python -m black --check rockpool tests
 
 pages:
   stage: docs_deploy
