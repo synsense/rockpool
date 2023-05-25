@@ -1,11 +1,13 @@
 """
 Hardware butterworth filter implementation for the Xylo IMU.
 """
-from typing import Optional
 from dataclasses import dataclass, field
-import numpy as np
-from rockpool.devices.xylo.imu.preprocessing.utils import type_check
+from typing import Optional
 
+import numpy as np
+
+from rockpool.devices.xylo.imu.preprocessing.utils import type_check
+from rockpool.nn.modules.module import Module
 
 __all__ = ["ChipButterworth", "BlockDiagram"]
 
@@ -73,15 +75,18 @@ class BlockDiagram:
             )
 
 
-class ChipButterworth:
-    def __init__(self):
-        """
-        This class builds the block-diagram version of the filters, which is exactly as it is done in FPGA.
+class ChipButterworth(Module):
+    """
+    This class builds the block-diagram version of the filters, which is exactly as it is done in FPGA.
 
-        NOTE: here we have considered a collection of `candidate` bandpass filters that have the potential to be chosen and implemented by the algorithm team.
-        Here we make sure that all those filters work properly.
+    NOTE: Here we have considered a collection of `candidate` band-pass filters that have the potential to be chosen and implemented by the algorithm team.
+    Here we make sure that all those filters work properly.
+    """
+
+    def __init__(self) -> None:
+        """Object Constructor
+        NOTE : No parameters are needed for this class. (for now)
         """
-        # Create each filter
         self.bd_list = [
             BlockDiagram(B_worst_case=9, a1=-64700, a2=31935, scale_out=0.8139),
             BlockDiagram(a1=-64458),
@@ -100,7 +105,11 @@ class ChipButterworth:
             BlockDiagram(a1=-57941),
             BlockDiagram(a1=-57020),
         ]
-        self.numF = len(self.bd_list)
+
+    @property
+    def numF(self) -> int:
+        """Number of filters in the collection"""
+        return len(self.bd_list)
 
     @type_check
     def _filter_AR(self, bd: BlockDiagram, sig_in: np.ndarray):
