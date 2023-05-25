@@ -83,9 +83,11 @@ class ChipButterworth(Module):
     Here we make sure that all those filters work properly.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, shape: Optional[Union[Tuple, int]] = (3, 48)) -> None:
         """Object Constructor
-        NOTE : No parameters are needed for this class. (for now)
+
+        Args:
+            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,9).
         """
         self.bd_list = [
             BlockDiagram(B_worst_case=9, a1=-64700, a2=31935, scale_out=0.8139),
@@ -105,6 +107,10 @@ class ChipButterworth(Module):
             BlockDiagram(a1=-57941),
             BlockDiagram(a1=-57020),
         ]
+        if shape[1] != shape[0] * len(self.bd_list):
+            raise ValueError(
+                f"The output size should be {shape[0]*len(self.bd_list)} to compute filtered output! Each filter will be applied to one channel."
+            )
 
     @property
     def numF(self) -> int:
