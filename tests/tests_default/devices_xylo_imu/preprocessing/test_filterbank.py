@@ -104,8 +104,6 @@ def test_filterbank():
     __F = __C * mod_if[2].numF
     q_filt_signal, _, _ = mod_if(input_signal)
     assert q_filt_signal.shape == (__B, __T, __F)
-    
+
     with pytest.raises(AssertionError):
-        np.testing.assert_array_equal(
-            q_filt_signal, np.zeros_like(q_filt_signal)
-        )
+        np.testing.assert_array_equal(q_filt_signal, np.zeros_like(q_filt_signal))
