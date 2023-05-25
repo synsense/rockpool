@@ -206,26 +206,6 @@ class ChipButterworth(Module):
         return sig_out
 
     @type_check
-    def _filter(self, bd: BlockDiagram, sig_in: np.ndarray):
-        """
-        This filter combines the filtering done in the AR and MA part of the block-diagram representation.
-
-        Args:
-            bd (BlockDiagram): block diagram representation of the filter.
-            sig_in (np.ndarray): quantized input signal of python.object integer type.
-
-        Raises:
-            OverflowError: if any overflow happens during the filter computation.
-
-        Returns:
-            np.nadarray: quantized filtered output signal.
-        """
-        w = self._filter_AR(bd, sig_in)
-        out = self._filter_MA(bd, w)
-
-        return out
-
-    @type_check
     def evolve(
         self, input_data: np.ndarray, record: bool = False
     ) -> Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
@@ -261,7 +241,10 @@ class ChipButterworth(Module):
             for single_channel in signal.T:
                 for __filter in self.bd_list:
                     # apply the filter to the input signal
-                    channel_out.append(self._filter(__filter, single_channel))
+                    w = self._filter_AR(__filter, single_channel)
+                    out = self._filter_MA(__filter, w)
+                    channel_out.append(out)
+
             data_out.append(channel_out)
 
         # convert into numpy
