@@ -1,8 +1,8 @@
 """
 This function implements the exact block-diagram of the filters
 using bit-shifts and integer multiplication as is done in FPGA.
-NOTE: here we have considered a collection of `candidate` bandpass filters that
-have the potential to be chosen and implemented by the algorithm team.
+
+NOTE: here we have considered a collection of `candidate` bandpass filters that have the potential to be chosen and implemented by the algorithm team.
 Here we make sure that all those filters work properly.
 """
 from typing import Optional
@@ -83,17 +83,7 @@ class ChipButterworth:
         This class builds the block-diagram version of the filters, which is exactly as it is done in FPGA.
         The propsoed filters are candidates that may be chosen for preprocessing of the IMU data.
         """
-
-        # number of bits needed for quantization
-        # self.numQBF_w = 24 # Is this B_A???
-
-        self.numF = 16
-        self.bd_list = []
-
-        # ========================================#
-        # Create block diagram for each filter
-        # ========================================#
-
+        # Create each filter
         self.bd_list = [
             BlockDiagram(B_worst_case=9, a1=-64700, a2=31935, scale_out=0.8139),
             BlockDiagram(a1=-64458),
@@ -112,6 +102,7 @@ class ChipButterworth:
             BlockDiagram(a1=-57941),
             BlockDiagram(a1=-57020),
         ]
+        self.numF = len(self.bd_list)
 
     @type_check
     def _filter_AR(self, bd: BlockDiagram, sig_in: np.ndarray):
