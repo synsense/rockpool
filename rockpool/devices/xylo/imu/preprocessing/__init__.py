@@ -1,4 +1,4 @@
-from .butterworth import *
+from .filterbank import *
 from .jsvd import *
 from .lookup import *
 from .quantizer import *
