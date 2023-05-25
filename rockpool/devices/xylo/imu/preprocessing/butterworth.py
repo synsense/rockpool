@@ -93,43 +93,24 @@ class ChipButterworth:
         # ========================================#
         # Create block diagram for each filter
         # ========================================#
-        # Filter 1
-        bd_filter_1 = BlockDiagram(
-            B_worst_case=9, a1=-64700, a2=31935, scale_out=0.8139
-        )
-        bd_filter_2 = BlockDiagram(a1=-64458)
-        bd_filter_3 = BlockDiagram(a1=-64330)
-        bd_filter_4 = BlockDiagram(a1=-64138)
-        bd_filter_5 = BlockDiagram(a1=-63884)
-        bd_filter_6 = BlockDiagram(a1=-63566)
-        bd_filter_7 = BlockDiagram(a1=-63185)
-        bd_filter_8 = BlockDiagram(a1=-62743)
-        bd_filter_9 = BlockDiagram(a1=-62238)
-        bd_filter_10 = BlockDiagram(a1=-61672)
-        bd_filter_11 = BlockDiagram(a1=-61045)
-        bd_filter_12 = BlockDiagram(a1=-60357)
-        bd_filter_13 = BlockDiagram(a1=-59611)
-        bd_filter_14 = BlockDiagram(a1=-58805)
-        bd_filter_15 = BlockDiagram(a1=-57941)
-        bd_filter_16 = BlockDiagram(a1=-57020)
 
         self.bd_list = [
-            bd_filter_1,
-            bd_filter_2,
-            bd_filter_3,
-            bd_filter_4,
-            bd_filter_5,
-            bd_filter_6,
-            bd_filter_7,
-            bd_filter_8,
-            bd_filter_9,
-            bd_filter_10,
-            bd_filter_11,
-            bd_filter_12,
-            bd_filter_13,
-            bd_filter_14,
-            bd_filter_15,
-            bd_filter_16,
+            BlockDiagram(B_worst_case=9, a1=-64700, a2=31935, scale_out=0.8139),
+            BlockDiagram(a1=-64458),
+            BlockDiagram(a1=-64330),
+            BlockDiagram(a1=-64138),
+            BlockDiagram(a1=-63884),
+            BlockDiagram(a1=-63566),
+            BlockDiagram(a1=-63185),
+            BlockDiagram(a1=-62743),
+            BlockDiagram(a1=-62238),
+            BlockDiagram(a1=-61672),
+            BlockDiagram(a1=-61045),
+            BlockDiagram(a1=-60357),
+            BlockDiagram(a1=-59611),
+            BlockDiagram(a1=-58805),
+            BlockDiagram(a1=-57941),
+            BlockDiagram(a1=-57020),
         ]
 
     @type_check
