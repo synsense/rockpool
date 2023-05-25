@@ -9,11 +9,11 @@ import numpy as np
 from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 from rockpool.nn.modules.module import Module
 
-__all__ = ["ChipButterworth", "BlockDiagram"]
+__all__ = ["FilterBank", "BandPassFilter"]
 
 
 @dataclass(eq=False, repr=False)
-class BlockDiagram:
+class BandPassFilter:
     """
     Class containing the parameters of the filter in state-space representation
     This is the block-diagram structure proposed for implementation.
@@ -75,7 +75,7 @@ class BlockDiagram:
             )
 
 
-class ChipButterworth(Module):
+class FilterBank(Module):
     """
     This class builds the block-diagram version of the filters, which is exactly as it is done in FPGA.
 
@@ -90,22 +90,22 @@ class ChipButterworth(Module):
             shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,9).
         """
         self.bd_list = [
-            BlockDiagram(B_worst_case=9, a1=-64700, a2=31935, scale_out=0.8139),
-            BlockDiagram(a1=-64458),
-            BlockDiagram(a1=-64330),
-            BlockDiagram(a1=-64138),
-            BlockDiagram(a1=-63884),
-            BlockDiagram(a1=-63566),
-            BlockDiagram(a1=-63185),
-            BlockDiagram(a1=-62743),
-            BlockDiagram(a1=-62238),
-            BlockDiagram(a1=-61672),
-            BlockDiagram(a1=-61045),
-            BlockDiagram(a1=-60357),
-            BlockDiagram(a1=-59611),
-            BlockDiagram(a1=-58805),
-            BlockDiagram(a1=-57941),
-            BlockDiagram(a1=-57020),
+            BandPassFilter(B_worst_case=9, a1=-64700, a2=31935, scale_out=0.8139),
+            BandPassFilter(a1=-64458),
+            BandPassFilter(a1=-64330),
+            BandPassFilter(a1=-64138),
+            BandPassFilter(a1=-63884),
+            BandPassFilter(a1=-63566),
+            BandPassFilter(a1=-63185),
+            BandPassFilter(a1=-62743),
+            BandPassFilter(a1=-62238),
+            BandPassFilter(a1=-61672),
+            BandPassFilter(a1=-61045),
+            BandPassFilter(a1=-60357),
+            BandPassFilter(a1=-59611),
+            BandPassFilter(a1=-58805),
+            BandPassFilter(a1=-57941),
+            BandPassFilter(a1=-57020),
         ]
         if shape[1] != shape[0] * len(self.bd_list):
             raise ValueError(
@@ -119,13 +119,13 @@ class ChipButterworth(Module):
         return len(self.bd_list)
 
     @type_check
-    def _filter_AR(self, bd: BlockDiagram, sig_in: np.ndarray):
+    def _filter_AR(self, bp_filter: BandPassFilter, signal: np.ndarray):
         """
-        This function computes the AR part of the filter in the block-diagram with the given parameters.
+        Compute the AR part of the filter in the block-diagram with the given parameters.
 
         Args:
-            bd (BlockDiagram): block diagram representation of the filter.
-            sig_in (np.ndarray): the quantized input signal in python-object integer format.
+            bp_filter (BandPassFilter): block diagram representation of the filter.
+            signal (np.ndarray): the quantized input signal in python-object integer format.
 
         Raises:
             OverflowError: if any overflow happens during the filter computation.
@@ -136,9 +136,9 @@ class ChipButterworth(Module):
 
         # check that the input is within the valid range of block-diagram
 
-        if np.max(np.abs(sig_in)) >= 2 ** (bd.B_in - 1):
+        if np.max(np.abs(signal)) >= 2 ** (bp_filter.B_in - 1):
             raise ValueError(
-                f"The input signal values can be in the range [-2^{bd.B_in-1}, +2^{bd.B_in-1}]!"
+                f"The input signal values can be in the range [-2^{bp_filter.B_in-1}, +2^{bp_filter.B_in-1}]!"
             )
 
         output = []
@@ -146,13 +146,12 @@ class ChipButterworth(Module):
         # w[n], w[n-1], w[n-2]
         w = [0, 0, 0]
 
-        for sig in sig_in:
-            # computation after the clock
-            # w_new = sig * 2**bd.B_wf + np.floor( (-bd.a2*w[2] - bd.a1 * w[1])/ 2**bd.B_af )
-            # w_new = np.floor(w_new / 2**bd.B_b)
-
-            w_new = (sig << bd.B_wf) + ((-bd.a2 * w[2] - bd.a1 * w[1]) >> bd.B_af)
-            w_new = w_new >> bd.B_b
+        for val in signal:
+            # Computation after the clock edge
+            w_new = (val << bp_filter.B_wf) + (
+                (-bp_filter.a2 * w[2] - bp_filter.a1 * w[1]) >> bp_filter.B_af
+            )
+            w_new = w_new >> bp_filter.B_b
 
             w[0] = w_new
 
@@ -163,22 +162,22 @@ class ChipButterworth(Module):
 
             # check the overflow: here we have the integer version
 
-        if np.max(np.abs(output)) >= 2 ** (bd.B_w - 1):
+        if np.max(np.abs(output)) >= 2 ** (bp_filter.B_w - 1):
             raise ValueError(
-                f"output signal is beyond the valid output range of AR branch [-2^{bd.B_w-1}, +2^{bd.B_w-1}]!"
+                f"output signal is beyond the valid output range of AR branch [-2^{bp_filter.B_w-1}, +2^{bp_filter.B_w-1}]!"
             )
 
         # convert into numpy
         return np.asarray(output, dtype=object)
 
     @type_check
-    def _filter_MA(self, bd: BlockDiagram, sig_in: np.ndarray):
+    def _filter_MA(self, bp_filter: BandPassFilter, signal: np.ndarray) -> np.ndarray:
         """
-        This function computes the MA part of the filter in the block-diagram representation.
+        Compute the MA part of the filter in the block-diagram representation.
 
         Args:
-            bd (BlockDiagram): block diagram representation of the filter.
-            sig_in (np.ndarray): input signal (in this case output of AR part) of datatype `pyton.object`.
+            bp_filter (BandPassFilter): block diagram representation of the filter.
+            signal (np.ndarray): input signal (in this case output of AR part) of datatype `pyton.object`.
 
         Raises:
             OverflowError: if any overflow happens during the filter computation.
@@ -188,19 +187,19 @@ class ChipButterworth(Module):
         """
 
         # check dimension
-        if sig_in.ndim > 1:
+        if signal.ndim > 1:
             raise ValueError("input signal should be 1-dim.")
 
-        sig_out = bd.b[0] * sig_in
-        sig_out[2:] = sig_out[2:] + bd.b[2] * sig_in[:-2]
+        sig_out = bp_filter.b[0] * signal
+        sig_out[2:] = sig_out[2:] + bp_filter.b[2] * signal[:-2]
 
         # apply the last B_wf bitshift to get rid of additional scaling needed to avoid dead-zone in the AR part
-        sig_out = sig_out >> bd.B_wf
+        sig_out = sig_out >> bp_filter.B_wf
 
         # check the validity of the computed output
-        if np.max(np.abs(sig_out)) >= 2 ** (bd.B_out - 1):
+        if np.max(np.abs(sig_out)) >= 2 ** (bp_filter.B_out - 1):
             raise OverflowError(
-                f"overflow or underflow: computed filter output is beyond the valid range [-2^{bd.B_out-1}, +2^{bd.B_out-1}]!"
+                f"overflow or underflow: computed filter output is beyond the valid range [-2^{bp_filter.B_out-1}, +2^{bp_filter.B_out-1}]!"
             )
 
         return sig_out
@@ -211,6 +210,7 @@ class ChipButterworth(Module):
     ) -> Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
         """
         Compute the output of all filters for an input signal.
+        Combine the filtering done in the `AR` and `MA` part of the block-diagram representation.
 
         Args:
             input_data (np.ndarray): the quantized input signal of datatype python.object integer. (BxTxC)
