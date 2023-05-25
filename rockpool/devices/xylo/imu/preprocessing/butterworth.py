@@ -224,20 +224,13 @@ class ChipButterworth(Module):
         return out
 
     @type_check
-    def evolve(self, sig_in: np.ndarray, scale_out: bool = False):
+    def evolve(self, sig_in: np.ndarray):
         """
         This function computes the output of all filters for an input signal.
 
         Args:
             sig_in (np.ndarray): the quantized input signal of datatype python.object integer.
-            scale_out (bool, optional)  : add the surplus scaling due to `b` normalization. Defaults to True.
         """
-
-        if scale_out:
-            raise ValueError(
-                "In this version, we work with just integer version of the filters."
-                + "The surplus scaling in the range [0.5, 1.0] can be applied later."
-            )
 
         output = []
 
@@ -247,10 +240,6 @@ class ChipButterworth(Module):
 
             # apply the filter to the input signal
             sig_out = self._filter(bd, sig_in)
-
-            # apply output scaling if requested
-            if scale_out:
-                sig_out = bd.scale_out * sig_out
 
             output.append(sig_out)
 
