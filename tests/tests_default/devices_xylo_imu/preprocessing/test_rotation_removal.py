@@ -5,6 +5,10 @@ def test_import():
 
 
 def test_rotation_removal():
+    """
+    IMPORTANT NOTE: NEED TO BE WORKED ON AND FIXED.
+    CHECK ISSUE #252
+    """
     from rockpool.devices.xylo.imu.preprocessing import RotationRemoval, Quantizer
     from numpy.testing import assert_allclose
     import numpy as np
