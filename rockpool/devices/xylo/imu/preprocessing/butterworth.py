@@ -95,72 +95,42 @@ class ChipButterworth:
         # ========================================#
         # Filter 1
         bd_filter_1 = BlockDiagram(
-            B_worst_case=9,
-            a1=-64700,
-            a2=31935,
-            scale_out=0.8139,
+            B_worst_case=9, a1=-64700, a2=31935, scale_out=0.8139
         )
-        self.bd_list.append(bd_filter_1)
-
-        # Filter 2
         bd_filter_2 = BlockDiagram(a1=-64458)
-        self.bd_list.append(bd_filter_2)
-
-        # Filter 3
         bd_filter_3 = BlockDiagram(a1=-64330)
-        self.bd_list.append(bd_filter_3)
-
-        # Filter 4
         bd_filter_4 = BlockDiagram(a1=-64138)
-        self.bd_list.append(bd_filter_4)
-
-        # Filter 5
         bd_filter_5 = BlockDiagram(a1=-63884)
-        self.bd_list.append(bd_filter_5)
-
-        # Filter 6
         bd_filter_6 = BlockDiagram(a1=-63566)
-        self.bd_list.append(bd_filter_6)
-
-        # Filter 7
         bd_filter_7 = BlockDiagram(a1=-63185)
-        self.bd_list.append(bd_filter_7)
-
-        # Filter 8
         bd_filter_8 = BlockDiagram(a1=-62743)
-        self.bd_list.append(bd_filter_8)
-
-        # Filter 9
         bd_filter_9 = BlockDiagram(a1=-62238)
-        self.bd_list.append(bd_filter_9)
-
-        # Filter 10
         bd_filter_10 = BlockDiagram(a1=-61672)
-        self.bd_list.append(bd_filter_10)
-
-        # Filter 11
         bd_filter_11 = BlockDiagram(a1=-61045)
-        self.bd_list.append(bd_filter_11)
-
-        # Filter 12
         bd_filter_12 = BlockDiagram(a1=-60357)
-        self.bd_list.append(bd_filter_12)
-
-        # Filter 13
         bd_filter_13 = BlockDiagram(a1=-59611)
-        self.bd_list.append(bd_filter_13)
-
-        # Filter 14
         bd_filter_14 = BlockDiagram(a1=-58805)
-        self.bd_list.append(bd_filter_14)
-
-        # Filter 15
         bd_filter_15 = BlockDiagram(a1=-57941)
-        self.bd_list.append(bd_filter_15)
-
-        # Filter 16
         bd_filter_16 = BlockDiagram(a1=-57020)
-        self.bd_list.append(bd_filter_16)
+
+        self.bd_list = [
+            bd_filter_1,
+            bd_filter_2,
+            bd_filter_3,
+            bd_filter_4,
+            bd_filter_5,
+            bd_filter_6,
+            bd_filter_7,
+            bd_filter_8,
+            bd_filter_9,
+            bd_filter_10,
+            bd_filter_11,
+            bd_filter_12,
+            bd_filter_13,
+            bd_filter_14,
+            bd_filter_15,
+            bd_filter_16,
+        ]
 
     @type_check
     def _filter_AR(self, bd: BlockDiagram, sig_in: np.ndarray):
