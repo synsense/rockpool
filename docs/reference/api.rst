@@ -285,6 +285,8 @@ Xylo IMU support
     devices.xylo.imu.preprocessing.subspace.SubSpace
     devices.xylo.imu.preprocessing.sample_hold.SampleAndHold
     devices.xylo.imu.preprocessing.rotation_removal.RotationRemoval
+    devices.xylo.imu.preprocessing.filterbank.BandPassFilter
+    devices.xylo.imu.preprocessing.filterbank.FilterBank
 
 
 Dynap-SE2 hardware support and simulation
