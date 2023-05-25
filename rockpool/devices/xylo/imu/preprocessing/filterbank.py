@@ -191,7 +191,7 @@ class FilterBank(Module):
         Args:
             shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,9).
         """
-        self.bd_list = [
+        self.filter_list = [
             BandPassFilter(B_worst_case=9, a1=-64700, a2=31935, scale_out=0.8139),
             BandPassFilter(a1=-64458),
             BandPassFilter(a1=-64330),
@@ -209,16 +209,16 @@ class FilterBank(Module):
             BandPassFilter(a1=-57941),
             BandPassFilter(a1=-57020),
         ]
-        if shape[1] != shape[0] * len(self.bd_list):
+        if shape[1] != shape[0] * len(self.filter_list):
             raise ValueError(
-                f"The output size should be {shape[0]*len(self.bd_list)} to compute filtered output! Each filter will be applied to one channel."
+                f"The output size should be {shape[0]*len(self.filter_list)} to compute filtered output! Each filter will be applied to one channel."
             )
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
     @property
     def numF(self) -> int:
         """Number of filters in the collection"""
-        return len(self.bd_list)
+        return len(self.filter_list)
 
     @type_check
     def evolve(
@@ -255,7 +255,7 @@ class FilterBank(Module):
             # iterate over channels
             channel_out = []
             for single_channel in signal.T:
-                for __filter in self.bd_list:
+                for __filter in self.filter_list:
                     # apply the filter to the input signal
                     out = __filter(single_channel)
                     channel_out.append(out)
