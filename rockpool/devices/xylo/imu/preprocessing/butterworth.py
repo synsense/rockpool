@@ -194,7 +194,6 @@ class ChipButterworth(Module):
         sig_out[2:] = sig_out[2:] + bd.b[2] * sig_in[:-2]
 
         # apply the last B_wf bitshift to get rid of additional scaling needed to avoid dead-zone in the AR part
-        # sig_out = np.floor(sig_out/2**bd.B_wf)
         sig_out = sig_out >> bd.B_wf
 
         # check the validity of the computed output
@@ -220,11 +219,7 @@ class ChipButterworth(Module):
         Returns:
             np.nadarray: quantized filtered output signal.
         """
-
-        # AR branch
         w = self._filter_AR(bd, sig_in)
-
-        # followed by MA branch
         out = self._filter_MA(bd, w)
 
         return out
