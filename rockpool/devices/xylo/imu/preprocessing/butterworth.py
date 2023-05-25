@@ -257,10 +257,3 @@ class ChipButterworth(Module):
         output = np.asarray(output, dtype=object)
 
         return output, {}, {}
-
-    # add the call version for further convenience
-    def __call__(self, *args, **kwargs):
-        """
-        This function simply calls the `evolve()` function and is added for further convenience.
-        """
-        return self.evolve(*args, **kwargs)
