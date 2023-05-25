@@ -1,9 +1,5 @@
 """
-This function implements the exact block-diagram of the filters
-using bit-shifts and integer multiplication as is done in FPGA.
-
-NOTE: here we have considered a collection of `candidate` bandpass filters that have the potential to be chosen and implemented by the algorithm team.
-Here we make sure that all those filters work properly.
+Hardware butterworth filter implementation for the Xylo IMU.
 """
 from typing import Optional
 from dataclasses import dataclass, field
@@ -81,7 +77,9 @@ class ChipButterworth:
     def __init__(self):
         """
         This class builds the block-diagram version of the filters, which is exactly as it is done in FPGA.
-        The propsoed filters are candidates that may be chosen for preprocessing of the IMU data.
+
+        NOTE: here we have considered a collection of `candidate` bandpass filters that have the potential to be chosen and implemented by the algorithm team.
+        Here we make sure that all those filters work properly.
         """
         # Create each filter
         self.bd_list = [
@@ -258,21 +256,3 @@ class ChipButterworth:
         This function simply calls the `evolve()` function and is added for further convenience.
         """
         return self.evolve(*args, **kwargs)
-
-    # utility functions
-    def print_parameters(self):
-        print("*" * 60)
-        for filt_num in range(self.numF):
-            bd = self.bd_list[filt_num]
-            print(f"filter {filt_num}:")
-            print(f"B_worst_case (worst case amplitude)= {bd.B_worst_case}")
-            print(f"B_b = {bd.B_b}")
-            print(f"B_in = {bd.B_in}")
-            print(f"B_a = {bd.B_a}")
-            print(f"B_w = {bd.B_w}")
-            print(f"B_out = {bd.B_out}")
-            print(f"B_wf = {bd.B_wf}")
-            print(f"B_af = {bd.B_af}")
-            print(f"output surplus scale = {bd.scale_out: 0.4f}")
-
-            print("\n")
