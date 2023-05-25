@@ -111,6 +111,7 @@ class ChipButterworth(Module):
             raise ValueError(
                 f"The output size should be {shape[0]*len(self.bd_list)} to compute filtered output! Each filter will be applied to one channel."
             )
+        super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
     @property
     def numF(self) -> int:
@@ -241,14 +242,30 @@ class ChipButterworth(Module):
                 dict: empty state dictionary.
         """
 
-        output = []
+        # -- Batch processing
+        input_data, _ = self._auto_batch(input_data)
+        __B, __T, __C = input_data.shape
 
-        for __filter in self.bd_list:
-            # apply the filter to the input signal
-            sig_out = self._filter(__filter, input_data)
-            output.append(sig_out)
+        if __C != self.size_in:
+            raise ValueError(f"The input data should have {self.size_in} channels!")
+
+        input_data = np.array(input_data, dtype=np.int64).astype(object)
+
+        # -- Filter
+        data_out = []
+
+        # iterate over batch
+        for signal in input_data:
+            # iterate over channels
+            channel_out = []
+            for single_channel in signal.T:
+                for __filter in self.bd_list:
+                    # apply the filter to the input signal
+                    channel_out.append(self._filter(__filter, single_channel))
+            data_out.append(channel_out)
 
         # convert into numpy
-        output = np.asarray(output, dtype=object)
+        data_out = np.asarray(data_out, dtype=object)
+        data_out = data_out.transpose(0, 2, 1)  # BxTxC
 
-        return output, {}, {}
+        return data_out, {}, {}
