@@ -5,8 +5,8 @@ NOTE: here we have considered a collection of `candidate` bandpass filters that
 have the potential to be chosen and implemented by the algorithm team.
 Here we make sure that all those filters work properly.
 """
-
-from dataclasses import dataclass
+from typing import Optional
+from dataclasses import dataclass, field
 import numpy as np
 from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 
@@ -14,52 +14,67 @@ from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 __all__ = ["ChipButterworth", "BlockDiagram"]
 
 
-@dataclass
+@dataclass(eq=False, repr=False)
 class BlockDiagram:
     """
     Class containing the parameters of the filter in state-space representation
     This is the block-diagram structure proposed for implementation.
     """
 
-    B_worst_case: int
+    a1: int
+    """Integer representation of a1 tap"""
+
+    a2: int = 31754
+    """Integer representation of a2 tap"""
+
+    B_worst_case: int = 5
     """Number of additional bits devoted to storing filter taps such that no over- and under-flow can happen"""
 
-    B_in: int
+    B_in: int = 16
     """Number of input bits that can be processed with the block diagram"""
 
-    B_b: int
+    B_b: int = 6
     """Bits needed for scaling b0"""
 
-    B_a: int
+    B_a: int = 17
     """Total number of bits devoted to storing filter a-taps"""
 
-    B_af: int
+    B_af: int = 9
     """Bits needed for encoding the fractional parts of taps"""
 
-    B_wf: int
+    B_wf: int = 8
     """Bits needed for fractional part of the filter output"""
 
-    B_w: int
+    B_w: Optional[int] = None
     """Total number of bits devoted to storing the values computed by the AR-filter. It should be equal to `B_in + B_worst_case + B_wf`"""
 
-    B_out: int
+    B_out: Optional[int] = None
     """Total number of bits needed for storing the values computed by the WHOLE filter."""
 
-    a1: int
-    """integer representation of a1 tap"""
+    b: list = field(default_factory=lambda: [1, 0, -1])
+    """Special case for normalized Butterworth filters"""
 
-    a2: int
-    """integer representation of a2 tap"""
-
-    b: list
-    """[1, 0 , -1] : special case for normalized Butterworth filters"""
-
-    scale_out: int
-    """surplus scaling due to `b` normalization surplus scaling due to `b` normalization. It is always in the range [0.5, 1.0]"""
+    scale_out: int = 0.9898
+    """Surplus scaling due to `b` normalization surplus scaling due to `b` normalization. It is always in the range [0.5, 1.0]"""
 
     def __post_init__(self) -> None:
-        if self.B_w != self.B_in + self.B_worst_case + self.B_wf:
+        """
+        Fill `None` values with the correct values and check the validity of the parameters.
+        """
+        if self.B_w is None:
+            self.B_w = self.B_in + self.B_worst_case + self.B_wf
+        elif self.B_w != self.B_in + self.B_worst_case + self.B_wf:
             raise ValueError("`B_w` should be equal to `B_in + B_worst_case + B_wf`")
+
+        if self.B_out is None:
+            self.B_out = self.B_in + self.B_worst_case
+        elif self.B_out != self.B_in + self.B_worst_case:
+            raise ValueError("`B_out` should be equal to `B_in + B_worst_case`")
+
+        if self.scale_out < 0.5 or self.scale_out > 1.0:
+            raise ValueError(
+                f"output surplus scale should be in the range [0.5, 1.0]. Got {self.scale_out}."
+            )
 
 
 class ChipButterworth:
@@ -79,273 +94,72 @@ class ChipButterworth:
         # Create block diagram for each filter
         # ========================================#
         # Filter 1
-        bd_filter_1 = BlockDiagram()
-        bd_filter_1.B_worst_case = 9
-        bd_filter_1.B_in = 16
-        bd_filter_1.B_b = 6
-        bd_filter_1.B_a = 17
-        bd_filter_1.B_af = 9
-        bd_filter_1.B_wf = 8  # 9
-        bd_filter_1.B_w = bd_filter_1.B_in + bd_filter_1.B_worst_case + bd_filter_1.B_wf
-        bd_filter_1.B_out = bd_filter_1.B_in + bd_filter_1.B_worst_case
-        bd_filter_1.a1 = -64700
-        bd_filter_1.a2 = 31935
-        bd_filter_1.b = [1, 0, -1]
-        bd_filter_1.scale_out = 0.8139
+        bd_filter_1 = BlockDiagram(
+            B_worst_case=9,
+            a1=-64700,
+            a2=31935,
+            scale_out=0.8139,
+        )
         self.bd_list.append(bd_filter_1)
 
         # Filter 2
-        bd_filter_2 = BlockDiagram()
-        bd_filter_2.B_worst_case = 5
-        bd_filter_2.B_in = 16
-        bd_filter_2.B_b = 6
-        bd_filter_2.B_a = 17
-        bd_filter_2.B_af = 9
-        bd_filter_2.B_wf = 8
-        bd_filter_2.B_w = bd_filter_2.B_in + bd_filter_2.B_worst_case + bd_filter_2.B_wf
-        bd_filter_2.B_out = bd_filter_2.B_in + bd_filter_2.B_worst_case
-        bd_filter_2.a1 = -64458
-        bd_filter_2.a2 = 31754
-        bd_filter_2.b = [1, 0, -1]
-        bd_filter_2.scale_out = 0.9898
+        bd_filter_2 = BlockDiagram(a1=-64458)
         self.bd_list.append(bd_filter_2)
 
         # Filter 3
-        bd_filter_3 = BlockDiagram()
-        bd_filter_3.B_worst_case = 5
-        bd_filter_3.B_in = 16
-        bd_filter_3.B_b = 6
-        bd_filter_3.B_a = 17
-        bd_filter_3.B_af = 9
-        bd_filter_3.B_wf = 8
-        bd_filter_3.B_w = bd_filter_3.B_in + bd_filter_3.B_worst_case + bd_filter_3.B_wf
-        bd_filter_3.B_out = bd_filter_3.B_in + bd_filter_3.B_worst_case
-        bd_filter_3.a1 = -64330
-        bd_filter_3.a2 = 31754
-        bd_filter_3.b = [1, 0, -1]
-        bd_filter_3.scale_out = 0.9898
+        bd_filter_3 = BlockDiagram(a1=-64330)
         self.bd_list.append(bd_filter_3)
 
         # Filter 4
-        bd_filter_4 = BlockDiagram()
-        bd_filter_4.B_worst_case = 5
-        bd_filter_4.B_in = 16
-        bd_filter_4.B_b = 6
-        bd_filter_4.B_a = 17
-        bd_filter_4.B_af = 9
-        bd_filter_4.B_wf = 8
-        bd_filter_4.B_w = bd_filter_4.B_in + bd_filter_4.B_worst_case + bd_filter_4.B_wf
-        bd_filter_4.B_out = bd_filter_4.B_in + bd_filter_4.B_worst_case
-        bd_filter_4.a1 = -64138
-        bd_filter_4.a2 = 31754
-        bd_filter_4.b = [1, 0, -1]
-        bd_filter_4.scale_out = 0.9898
+        bd_filter_4 = BlockDiagram(a1=-64138)
         self.bd_list.append(bd_filter_4)
 
         # Filter 5
-        bd_filter_5 = BlockDiagram()
-        bd_filter_5.B_worst_case = 5
-        bd_filter_5.B_in = 16
-        bd_filter_5.B_b = 6
-        bd_filter_5.B_a = 17
-        bd_filter_5.B_af = 9
-        bd_filter_5.B_wf = 8
-        bd_filter_5.B_w = bd_filter_5.B_in + bd_filter_5.B_worst_case + bd_filter_5.B_wf
-        bd_filter_5.B_out = bd_filter_5.B_in + bd_filter_5.B_worst_case
-        bd_filter_5.a1 = -63884
-        bd_filter_5.a2 = 31754
-        bd_filter_5.b = [1, 0, -1]
-        bd_filter_5.scale_out = 0.9898
+        bd_filter_5 = BlockDiagram(a1=-63884)
         self.bd_list.append(bd_filter_5)
 
         # Filter 6
-        bd_filter_6 = BlockDiagram()
-        bd_filter_6.B_worst_case = 5
-        bd_filter_6.B_in = 16
-        bd_filter_6.B_b = 6
-        bd_filter_6.B_a = 17
-        bd_filter_6.B_af = 9
-        bd_filter_6.B_wf = 8
-        bd_filter_6.B_w = bd_filter_6.B_in + bd_filter_6.B_worst_case + bd_filter_6.B_wf
-        bd_filter_6.B_out = bd_filter_6.B_in + bd_filter_6.B_worst_case
-        bd_filter_6.a1 = -63566
-        bd_filter_6.a2 = 31754
-        bd_filter_6.b = [1, 0, -1]
-        bd_filter_6.scale_out = 0.9898
+        bd_filter_6 = BlockDiagram(a1=-63566)
         self.bd_list.append(bd_filter_6)
 
         # Filter 7
-        bd_filter_7 = BlockDiagram()
-        bd_filter_7.B_worst_case = 5
-        bd_filter_7.B_in = 16
-        bd_filter_7.B_b = 6
-        bd_filter_7.B_a = 17
-        bd_filter_7.B_af = 9
-        bd_filter_7.B_wf = 8
-        bd_filter_7.B_w = bd_filter_7.B_in + bd_filter_7.B_worst_case + bd_filter_7.B_wf
-        bd_filter_7.B_out = bd_filter_7.B_in + bd_filter_7.B_worst_case
-        bd_filter_7.a1 = -63185
-        bd_filter_7.a2 = 31754
-        bd_filter_7.b = [1, 0, -1]
-        bd_filter_7.scale_out = 0.9898
+        bd_filter_7 = BlockDiagram(a1=-63185)
         self.bd_list.append(bd_filter_7)
 
         # Filter 8
-        bd_filter_8 = BlockDiagram()
-        bd_filter_8.B_worst_case = 5
-        bd_filter_8.B_in = 16
-        bd_filter_8.B_b = 6
-        bd_filter_8.B_a = 17
-        bd_filter_8.B_af = 9
-        bd_filter_8.B_wf = 8
-        bd_filter_8.B_w = bd_filter_8.B_in + bd_filter_8.B_worst_case + bd_filter_8.B_wf
-        bd_filter_8.B_out = bd_filter_8.B_in + bd_filter_8.B_worst_case
-        bd_filter_8.a1 = -62743
-        bd_filter_8.a2 = 31754
-        bd_filter_8.b = [1, 0, -1]
-        bd_filter_8.scale_out = 0.9898
+        bd_filter_8 = BlockDiagram(a1=-62743)
         self.bd_list.append(bd_filter_8)
 
         # Filter 9
-        bd_filter_9 = BlockDiagram()
-        bd_filter_9.B_worst_case = 5
-        bd_filter_9.B_in = 16
-        bd_filter_9.B_b = 6
-        bd_filter_9.B_a = 17
-        bd_filter_9.B_af = 9
-        bd_filter_9.B_wf = 8
-        bd_filter_9.B_w = bd_filter_9.B_in + bd_filter_9.B_worst_case + bd_filter_9.B_wf
-        bd_filter_9.B_out = bd_filter_9.B_in + bd_filter_9.B_worst_case
-        bd_filter_9.a1 = -62238
-        bd_filter_9.a2 = 31754
-        bd_filter_9.b = [1, 0, -1]
-        bd_filter_9.scale_out = 0.9898
+        bd_filter_9 = BlockDiagram(a1=-62238)
         self.bd_list.append(bd_filter_9)
 
         # Filter 10
-        bd_filter_10 = BlockDiagram()
-        bd_filter_10.B_worst_case = 5
-        bd_filter_10.B_in = 16
-        bd_filter_10.B_b = 6
-        bd_filter_10.B_a = 17
-        bd_filter_10.B_af = 9
-        bd_filter_10.B_wf = 8
-        bd_filter_10.B_w = (
-            bd_filter_10.B_in + bd_filter_10.B_worst_case + bd_filter_10.B_wf
-        )
-        bd_filter_10.B_out = bd_filter_10.B_in + bd_filter_10.B_worst_case
-        bd_filter_10.a1 = -61672
-        bd_filter_10.a2 = 31754
-        bd_filter_10.b = [1, 0, -1]
-        bd_filter_10.scale_out = 0.9898
+        bd_filter_10 = BlockDiagram(a1=-61672)
         self.bd_list.append(bd_filter_10)
 
         # Filter 11
-        bd_filter_11 = BlockDiagram()
-        bd_filter_11.B_worst_case = 5
-        bd_filter_11.B_in = 16
-        bd_filter_11.B_b = 6
-        bd_filter_11.B_a = 17
-        bd_filter_11.B_af = 9
-        bd_filter_11.B_wf = 8
-        bd_filter_11.B_w = (
-            bd_filter_11.B_in + bd_filter_11.B_worst_case + bd_filter_11.B_wf
-        )
-        bd_filter_11.B_out = bd_filter_11.B_in + bd_filter_11.B_worst_case
-        bd_filter_11.a1 = -61045
-        bd_filter_11.a2 = 31754
-        bd_filter_11.b = [1, 0, -1]
-        bd_filter_11.scale_out = 0.9898
+        bd_filter_11 = BlockDiagram(a1=-61045)
         self.bd_list.append(bd_filter_11)
 
         # Filter 12
-        bd_filter_12 = BlockDiagram()
-        bd_filter_12.B_worst_case = 5
-        bd_filter_12.B_in = 16
-        bd_filter_12.B_b = 6
-        bd_filter_12.B_a = 17
-        bd_filter_12.B_af = 9
-        bd_filter_12.B_wf = 8
-        bd_filter_12.B_w = (
-            bd_filter_12.B_in + bd_filter_12.B_worst_case + bd_filter_12.B_wf
-        )
-        bd_filter_12.B_out = bd_filter_12.B_in + bd_filter_12.B_worst_case
-        bd_filter_12.a1 = -60357
-        bd_filter_12.a2 = 31754
-        bd_filter_12.b = [1, 0, -1]
-        bd_filter_12.scale_out = 0.9898
+        bd_filter_12 = BlockDiagram(a1=-60357)
         self.bd_list.append(bd_filter_12)
 
         # Filter 13
-        bd_filter_13 = BlockDiagram()
-        bd_filter_13.B_worst_case = 5
-        bd_filter_13.B_in = 16
-        bd_filter_13.B_b = 6
-        bd_filter_13.B_a = 17
-        bd_filter_13.B_af = 9
-        bd_filter_13.B_wf = 8
-        bd_filter_13.B_w = (
-            bd_filter_13.B_in + bd_filter_13.B_worst_case + bd_filter_13.B_wf
-        )
-        bd_filter_13.B_out = bd_filter_13.B_in + bd_filter_13.B_worst_case
-        bd_filter_13.a1 = -59611
-        bd_filter_13.a2 = 31754
-        bd_filter_13.b = [1, 0, -1]
-        bd_filter_13.scale_out = 0.9898
+        bd_filter_13 = BlockDiagram(a1=-59611)
         self.bd_list.append(bd_filter_13)
 
         # Filter 14
-        bd_filter_14 = BlockDiagram()
-        bd_filter_14.B_worst_case = 5
-        bd_filter_14.B_in = 16
-        bd_filter_14.B_b = 6
-        bd_filter_14.B_a = 17
-        bd_filter_14.B_af = 9
-        bd_filter_14.B_wf = 8
-        bd_filter_14.B_w = (
-            bd_filter_14.B_in + bd_filter_14.B_worst_case + bd_filter_14.B_wf
-        )
-        bd_filter_14.B_out = bd_filter_14.B_in + bd_filter_14.B_worst_case
-        bd_filter_14.a1 = -58805
-        bd_filter_14.a2 = 31754
-        bd_filter_14.b = [1, 0, -1]
-        bd_filter_14.scale_out = 0.9898
+        bd_filter_14 = BlockDiagram(a1=-58805)
         self.bd_list.append(bd_filter_14)
 
         # Filter 15
-        bd_filter_15 = BlockDiagram()
-        bd_filter_15.B_worst_case = 5
-        bd_filter_15.B_in = 16
-        bd_filter_15.B_b = 6
-        bd_filter_15.B_a = 17
-        bd_filter_15.B_af = 9
-        bd_filter_15.B_wf = 8
-        bd_filter_15.B_w = (
-            bd_filter_15.B_in + bd_filter_15.B_worst_case + bd_filter_15.B_wf
-        )
-        bd_filter_15.B_out = bd_filter_15.B_in + bd_filter_15.B_worst_case
-        bd_filter_15.a1 = -57941
-        bd_filter_15.a2 = 31754
-        bd_filter_15.b = [1, 0, -1]
-        bd_filter_15.scale_out = 0.9898
+        bd_filter_15 = BlockDiagram(a1=-57941)
         self.bd_list.append(bd_filter_15)
 
         # Filter 16
-        bd_filter_16 = BlockDiagram()
-        bd_filter_16.B_worst_case = 5
-        bd_filter_16.B_in = 16
-        bd_filter_16.B_b = 6
-        bd_filter_16.B_a = 17
-        bd_filter_16.B_af = 9
-        bd_filter_16.B_wf = 8
-        bd_filter_16.B_w = (
-            bd_filter_16.B_in + bd_filter_16.B_worst_case + bd_filter_16.B_wf
-        )
-        bd_filter_16.B_out = bd_filter_16.B_in + bd_filter_16.B_worst_case
-        bd_filter_16.a1 = -57020
-        bd_filter_16.a2 = 31754
-        bd_filter_16.b = [1, 0, -1]
-        bd_filter_16.scale_out = 0.9898
+        bd_filter_16 = BlockDiagram(a1=-57020)
         self.bd_list.append(bd_filter_16)
 
     @type_check
