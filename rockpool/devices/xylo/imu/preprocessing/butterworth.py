@@ -2,7 +2,7 @@
 Hardware butterworth filter implementation for the Xylo IMU.
 """
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
@@ -230,29 +230,33 @@ class ChipButterworth(Module):
         return out
 
     @type_check
-    def evolve(self, sig_in: np.ndarray):
+    def evolve(
+        self, input_data: np.ndarray, record: bool = False
+    ) -> Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
         """
-        This function computes the output of all filters for an input signal.
+        Compute the output of all filters for an input signal.
 
         Args:
-            sig_in (np.ndarray): the quantized input signal of datatype python.object integer.
+            input_data (np.ndarray): the quantized input signal of datatype python.object integer. (BxTxC)
+
+        Returns:
+            Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
+                np.ndarray: the filtered output signal of all filters (BxTxC)
+                dict: empty record dictionary.
+                dict: empty state dictionary.
         """
 
         output = []
 
-        for filt_num in range(self.numF):
-            # check the parameters as block diagram
-            bd = self.bd_list[filt_num]
-
+        for __filter in self.bd_list:
             # apply the filter to the input signal
-            sig_out = self._filter(bd, sig_in)
-
+            sig_out = self._filter(__filter, input_data)
             output.append(sig_out)
 
         # convert into numpy
         output = np.asarray(output, dtype=object)
 
-        return output
+        return output, {}, {}
 
     # add the call version for further convenience
     def __call__(self, *args, **kwargs):
