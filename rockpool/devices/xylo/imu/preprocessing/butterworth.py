@@ -1,43 +1,65 @@
-# -----------------------------------------------------------
-# This function implements the exact block-diagram of the filters
-# using bit-shifts and integer multiplication as is done in FPGA.
-#
-# NOTE: here we have considered a collection of `candidate` bandpass filters that
-# have the potential to be chosen and implemented by the algorithm team.
-# Here we make sure that all those filters work properly.
-#
-#
-#
-# (C) Karla Burelo, Saeid Haghighatshoar
-# email: {karla.burelo, saeid.haghighatshoar}@synsense.ai
-#
-# last update: 28.08.2022
-# -----------------------------------------------------------
+"""
+This function implements the exact block-diagram of the filters
+using bit-shifts and integer multiplication as is done in FPGA.
+NOTE: here we have considered a collection of `candidate` bandpass filters that
+have the potential to be chosen and implemented by the algorithm team.
+Here we make sure that all those filters work properly.
+"""
 
-# required packages
+from dataclasses import dataclass
 import numpy as np
-from imu_preprocessing.util.type_decorator import type_check
-
-# class containing the parameters of the filter in state-space representation
-# This is the block-diagram structure proposed for implementation.
-#
-# for further details see the proposed filter structure in the report:
-# https://paper.dropbox.com/doc/Feasibility-study-for-AFE-with-digital-intensive-approach--BoJoECnIUJvHVe~Htanu~Ee6Ag-b07tQKnwpfDFYrZ5E8seQ
+from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 
 
+__all__ = ["ChipButterworth", "BlockDiagram"]
+
+
+@dataclass
 class BlockDiagram:
-    B_worst_case: int  # number of additional bits devoted to storing filter taps such that no over- and under-flow can happen
-    B_in: int  # number of input bits that can be processed with the block diagram
-    B_b: int  # bits needed for scaling b0
-    B_a: int  # total number of bits devoted to storing filter a-taps
-    B_af: int  # bits needed for encoding the fractional parts of taps
-    B_wf: int  # bits needed for fractional part of the filter output
-    B_w: int  # total number of bits devoted to storing the values computed by the AR-filter. It should be equal to `B_in + B_worst_case + B_wf`
-    B_out: int  # total number of bits needed for storing the values computed by the WHOLE filter.
-    a1: int  # integer representation of a1 tap
-    a2: int  # integer representation of a2 tap
-    b: list  # [1, 0 , -1] : special case for normalized Butterworth filters
-    scale_out: int  # surplus scaling due to `b` normalizationsurplus scaling due to `b` normalization. It is always in the range [0.5, 1.0]
+    """
+    Class containing the parameters of the filter in state-space representation
+    This is the block-diagram structure proposed for implementation.
+    """
+
+    B_worst_case: int
+    """Number of additional bits devoted to storing filter taps such that no over- and under-flow can happen"""
+
+    B_in: int
+    """Number of input bits that can be processed with the block diagram"""
+
+    B_b: int
+    """Bits needed for scaling b0"""
+
+    B_a: int
+    """Total number of bits devoted to storing filter a-taps"""
+
+    B_af: int
+    """Bits needed for encoding the fractional parts of taps"""
+
+    B_wf: int
+    """Bits needed for fractional part of the filter output"""
+
+    B_w: int
+    """Total number of bits devoted to storing the values computed by the AR-filter. It should be equal to `B_in + B_worst_case + B_wf`"""
+
+    B_out: int
+    """Total number of bits needed for storing the values computed by the WHOLE filter."""
+
+    a1: int
+    """integer representation of a1 tap"""
+
+    a2: int
+    """integer representation of a2 tap"""
+
+    b: list
+    """[1, 0 , -1] : special case for normalized Butterworth filters"""
+
+    scale_out: int
+    """surplus scaling due to `b` normalization surplus scaling due to `b` normalization. It is always in the range [0.5, 1.0]"""
+
+    def __post_init__(self) -> None:
+        if self.B_w != self.B_in + self.B_worst_case + self.B_wf:
+            raise ValueError("`B_w` should be equal to `B_in + B_worst_case + B_wf`")
 
 
 class ChipButterworth:
