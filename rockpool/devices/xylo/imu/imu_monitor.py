@@ -136,11 +136,12 @@ class XyloIMUMonitor(Module):
         self._external_imu_input = external_imu_input
 
         # - Disable external IMU data input
-        if not external_imu_input:
-            print("disable SPI slave")
-            self._io.spi_slave_enable(False)
-        else:
+        if external_imu_input:
+            print("enable SPI slave - waiting for external IMU input")
             self._io.spi_slave_enable(True)
+        else:
+            print("disable SPI slave - reading from on-board IMU")
+            self._io.spi_slave_enable(False)
 
         # - Set main clock rate
         if self._main_clk_rate != Default_Main_Clock_Rate:
@@ -151,8 +152,9 @@ class XyloIMUMonitor(Module):
         self._enable_auto_mode(interface_params, Nhidden, Nout)
 
         # - Send first trigger to start to run full auto mode
-        print("advance time step")
-        hdkutils.advance_time_step(self._write_buffer)
+        if external_imu_input:
+            print("advance time step - starting real-time mode")
+            hdkutils.advance_time_step(self._write_buffer)
 
     @property
     def config(self):
@@ -249,8 +251,20 @@ class XyloIMUMonitor(Module):
         count = 0
 
         if self._external_imu_input:
+            # - Force configuration of Xylo
+            hdkutils.apply_configuration(self._config)
+
+            # - Encode IMU data and send to FPGA
+            print("encoding and writing IMU data from PC")
             imu_input = hdkutils.encode_imu_data(input_data)
             self._write_buffer.write(imu_input)
+
+            # - Clear the state buffer
+            print("reset state buffer")
+            self._state_buffer.reset()
+
+            # - Trigger real-time mode
+            print("starting real-time mode")
             hdkutils.advance_time_step(self._write_buffer)
 
         # - Initialise a progress bar for the read
@@ -285,6 +299,11 @@ class XyloIMUMonitor(Module):
             # - Check for read timeout
             if time.time() > t_timeout:
                 raise TimeoutError(f"XyloIMUMonitor: Read timeout of {timeout} sec.")
+
+        # - Reset Xylo if sending external IMU data
+        if self._external_imu_input:
+            print("Resetting Xylo board")
+            self._device.reset_board_soft()
 
         # - Concatenate and return output data
         out = np.concatenate(out, axis=0)[:Nt, :]
