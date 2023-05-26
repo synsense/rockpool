@@ -270,6 +270,16 @@ Xylo IMU support
     devices.xylo.imu.XyloIMUHiddenNeurons
     devices.xylo.imu.XyloIMUOutputNeurons
 
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    devices.xylo.imu.XyloSamna
+    devices.xylo.imu.XyloSim
+    devices.xylo.imu.XyloIMUMonitor
+    devices.xylo.imu.IMUData
+
+
 **IMU Preprocessing Interface**
 
 .. autosummary::
@@ -279,13 +289,13 @@ Xylo IMU support
     devices.xylo.imu.preprocessing
 
     :template: class.rst
+    devices.xylo.imu.IMUIFSim
     devices.xylo.imu.preprocessing.quantizer.Quantizer
     devices.xylo.imu.preprocessing.lookup.RotationLookUpTable
     devices.xylo.imu.preprocessing.jsvd.JSVD
     devices.xylo.imu.preprocessing.subspace.SubSpace
     devices.xylo.imu.preprocessing.sample_hold.SampleAndHold
     devices.xylo.imu.preprocessing.rotation_removal.RotationRemoval
-
 
 Dynap-SE2 hardware support and simulation
 -----------------------------------------
