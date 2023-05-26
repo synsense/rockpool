@@ -56,7 +56,7 @@ try:
         def forward(cdc, data_t):
             lk = leakage * cdc * 1e-9
             dq_lk = lk * dt
-            dv = (dt * data_t - dq_lk) / c_iaf
+            dv = (dt * data_t - dq_lk) / (c_iaf)
 
             # - Accumulate membrane voltage, clip to zero
             cdc += dv
@@ -130,9 +130,9 @@ class AFESim(Module):
     def __init__(
         self,
         shape: Union[tuple, int] = (1, 16),
-        Q: int = 5,  # 3-5
-        fc1: float = 100.0,
-        f_factor: float = 1.325,
+        Q: int = 4,  # 3-5
+        fc1: float = 40.0,
+        f_factor: float = 1.41,
         thr_up: float = 0.5,
         leakage: float = 1.0,  # 0.5-20 nA
         digital_counter: int = 1,  # keep 1 spike every xxx spikes
@@ -267,7 +267,7 @@ class AFESim(Module):
         self.F_KNEE_FWR: P_float = Parameter(158)
         self.F_ALPHA_FWR: P_float = Parameter(1)
 
-        self.F_CORNER_HIGHPASS: P_float = Parameter(100)
+        self.F_CORNER_HIGHPASS: P_float = Parameter(20)
         """ float: High pass corner frequency due to AC Coupling from BPF to FWR in Hz. (Default 100Hz)"""
 
         # LNA
@@ -500,9 +500,17 @@ class AFESim(Module):
         *args,
         **kwargs,
     ):
-        # - Make sure input is 1D
-        if np.ndim(input) > 1:
-            input = input[:, 0]
+        # - Handle batches
+        input, _ = self._auto_batch(input)
+
+        Nb, Nt, Nc = input.shape
+        if Nb > 1:
+            raise ValueError(
+                f"AFESim does not support batches. Got input of shape {[Nb, Nt, Nc]}."
+            )
+
+        # - Make sure input is 1D (number of channels is already checked by _auto_batch)
+        input = input[0, :, 0]
 
         # - Set up the previous input chunk
         if self._last_input is None:

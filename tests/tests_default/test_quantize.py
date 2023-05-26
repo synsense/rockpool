@@ -629,6 +629,7 @@ def test_residual_combinator():
     pytest.importorskip("torch")
     pytest.importorskip("xylosim")
     pytest.importorskip("samna")
+    import samna
 
     from rockpool.devices.xylo.syns61300 import mapper
     from rockpool.devices.xylo.syns61300 import config_from_specification

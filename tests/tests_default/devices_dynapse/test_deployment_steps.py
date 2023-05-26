@@ -11,6 +11,10 @@ def test_network_building_first_step():
     test_network_building_first_step checks if the weight matrices after the network construction is identically the same
     """
     ### --- Preliminaries --- ###
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
     import os
     import numpy as np
     from rockpool.nn.modules import LinearJax
@@ -47,6 +51,10 @@ def test_net_from_spec():
     test_net_from_spec checks if the network constructed after mapping is the same network before the mapping
     """
     ### --- Preliminaries --- ###
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
     import os
     import numpy as np
     from rockpool.nn.modules import LinearJax
@@ -98,6 +106,10 @@ def test_net_from_spec_mismatch():
     """
 
     ### --- Preliminaries --- ###
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
     import os
     import numpy as np
     from rockpool.nn.modules import LinearJax
@@ -147,6 +159,10 @@ def test_quantization():
     """
 
     ### --- Preliminaries --- ###
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
     import os
     import numpy as np
     from rockpool.nn.modules import LinearJax
@@ -213,6 +229,7 @@ def test_network_from_config():
     import pytest
 
     pytest.importorskip("samna")
+    pytest.importorskip("jax")
 
     ### --- Preliminaries --- ###
     import os
