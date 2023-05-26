@@ -196,10 +196,6 @@ class aLIFTorch(LIFBaseTorch):
                 n_batches, n_timesteps, self.size_out, device=vmem.device
             )
 
-            self._record_dict["U"] = torch.zeros(
-                n_batches, n_timesteps, self.size_out, device=vmem.device
-            )
-
         self._record_dict["spikes"] = torch.zeros(
             n_batches, n_timesteps, self.size_out, device=vmem.device
         )
@@ -269,8 +265,6 @@ class aLIFTorch(LIFBaseTorch):
 
                 if hasattr(self, "w_ahp"):
                     self._record_dict["iahp"][:, t] = iahp
-
-                self._record_dict["U"][:, t] = sigmoid(vmem * 20.0, self.threshold)
 
             # - Maintain output spike record
             self._record_dict["spikes"][:, t] = spikes

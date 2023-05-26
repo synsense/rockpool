@@ -1,9 +1,9 @@
-import pytest
-
-pytest.importorskip("samna")
-
-
 def test_XyloMonitor():
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("xylosim")
+
     from rockpool.devices.xylo.syns61201 import XyloMonitor, config_from_specification
     import rockpool.devices.xylo.syns61201.xa2_devkit_utils as putils
     import numpy as np

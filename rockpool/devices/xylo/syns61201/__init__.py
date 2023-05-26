@@ -19,6 +19,8 @@ from rockpool.utilities.backend_management import (
 from ..syns65300.afe_sim import *
 from .xylo_graph_modules import *
 
+from .afe_sim_empirical import *
+
 try:
     from .xylo_sim import *
 except:

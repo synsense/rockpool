@@ -5,6 +5,10 @@ Test back-step spiking layer used for Deneve networks, as well as network implem
 
 def test_RecFSSpikeEulerBT():
     """Test RecFSSpikeEulerBT"""
+    import pytest
+
+    pytest.importorskip("numba")
+
     from rockpool import timeseries as ts
     from rockpool.nn.layers import RecFSSpikeEulerBT
     import numpy as np
@@ -48,6 +52,10 @@ def test_RecFSSpikeEulerBT():
 
 def FAILING_test_SolveLinearSystem():
     """Test NetworkDeneve.SolveLinearSystem"""
+    import pytest
+
+    pytest.importorskip("numba")
+
     from rockpool.nn.networks import NetworkDeneve
     import numpy as np
     from rockpool import TSContinuous
@@ -95,6 +103,10 @@ def FAILING_test_SolveLinearSystem():
 
 
 def FAILING_test_SpecifyNetwork():
+    import pytest
+
+    pytest.importorskip("numba")
+
     from rockpool.nn.networks import NetworkDeneve
     from rockpool import TSContinuous
     import numpy as np
