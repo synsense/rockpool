@@ -4,6 +4,7 @@ Low-level device kit utilities for the Xylo-IMU HDK
 
 import samna
 from samna.xyloImu.configuration import XyloConfiguration
+from samna.unifirm.modules.mc3632 import Mc3632
 
 # - Other imports
 import time
@@ -15,6 +16,8 @@ from typing import Any, List, Optional, NamedTuple, Tuple
 XyloIMUReadBuffer = samna.BasicSinkNode_xylo_imu_event_output_event
 XyloIMUWriteBuffer = samna.BasicSourceNode_xylo_imu_event_input_event
 XyloIMUNeuronStateBuffer = samna.xyloImu.NeuronStateSinkNode
+IMUSensorReadBuffer = samna.DeviceSinkNode_unifirm_modules_mc3632_input_event
+IMUSensorWriteBuffer = samna.DeviceSourceNode_unifirm_modules_mc3632_output_event
 
 XyloIMUHDK = Any
 
@@ -116,6 +119,28 @@ def new_xylo_state_monitor_buffer(
 
     # - Return the buffer
     return buffer
+
+
+def Initialise_imu_sensor(
+    hdk: XyloIMUHDK,
+) -> Tuple[IMUSensorReadBuffer, IMUSensorWriteBuffer, Mc3632]:
+    """
+    Initialise the IMU sensor HDK
+
+    Args:
+        hdk (XyloIMUHDK): A Xylo IMU device contains an IMU sensor to initialise
+    """
+
+    hdk.get_stop_watch().set_enable_value(True)
+    time.sleep(0.1)
+    mc = hdk.get_mc3632()
+
+    # Register sink and source buffer to read and write data to IMU sensor
+    read_buffer = samna.graph.sink_from(mc.get_source_node())
+    write_buffer = samna.graph.source_to(mc.get_sink_node())
+
+    # - Return the buffer and the IMU sensor
+    return read_buffer, write_buffer, mc
 
 
 def initialise_xylo_hdk(write_buffer: XyloIMUWriteBuffer) -> None:

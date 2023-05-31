@@ -16,6 +16,7 @@ from rockpool.utilities.backend_management import (
 
 from .xylo_mapper import *
 from .xylo_graph_modules import *
+from .ImuData import *
 
 try:
     from .xylo_sim import *
