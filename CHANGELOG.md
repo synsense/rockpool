@@ -15,12 +15,16 @@ All notable changes between Rockpool releases will be documented in this file.
 * Update to `Sequential` API. `Sequential` now permits instantiation with an `OrderedDict` to specify module names. `Sequential` now supports an `.append()` method, to append new modules, optionally specifying a module name.
 * Cleaned up tree manipulation libraries and added to documentation. Implemented unit tests.
 * Removed obsolete unit tests
+* Changed semantics of transformation configurations for QAT, to only include attributes which will be transformed, rather than all attributes. This fixes an incompatibility with torch >= 2.0.
+* Added support for latest `torch` versions
+* New fine-grained installation options
 
 ### Fixed
 ### Deprecated
 ### Removed
 
 * NEST backend completely removed
+* Removed spiking output surrogate "U" from LIF modules
 
 ### Security
 

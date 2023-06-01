@@ -1,10 +1,9 @@
-import pytest
-
-pytest.importorskip("samna")
-pytest.importorskip("xylosim")
-
-
 def test_imports():
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("xylosim")
+
     from rockpool.devices.xylo.syns61300 import (
         config_from_specification,
         save_config,
@@ -15,6 +14,11 @@ def test_imports():
 
 
 def test_from_specification():
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("xylosim")
+
     from rockpool.devices.xylo.syns61300 import config_from_specification
     import numpy as np
 
@@ -41,6 +45,11 @@ def test_from_specification():
 
 
 def test_save_load():
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("xylosim")
+
     from rockpool.devices.xylo.syns61300 import (
         config_from_specification,
         save_config,
@@ -121,6 +130,11 @@ def test_save_load():
 
 
 def test_XyloSamna():
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("xylosim")
+
     from rockpool.devices.xylo.syns61300 import XyloSamna, config_from_specification
     import rockpool.devices.xylo.syns61300.xylo_devkit_utils as putils
     import numpy as np

@@ -272,6 +272,11 @@ class LIFBaseTorch(TorchModule):
         """ (float) Noise std.dev. injected onto the membrane of each neuron during evolution """
 
         if self.leak_mode == "taus":
+            if any([alpha, beta, dash_mem, dash_syn]):
+                raise ValueError(
+                    "current leak mode is set to taus and only parameters from this family can be directly initilized (eg: tau_mem and tau_syn)"
+                )
+
             self.tau_mem: P_tensor = rp.Parameter(
                 tau_mem,
                 family="taus",
@@ -303,6 +308,11 @@ class LIFBaseTorch(TorchModule):
             self._dummy_params = ("alpha", "beta", "dash_syn", "dash_mem")
 
         elif self.leak_mode == "decays":
+            if any([tau_mem, tau_syn, dash_mem, dash_syn]):
+                raise ValueError(
+                    "current leak mode is set to decays and only parameters from this family can be directly initilized (eg: alpha and beta)"
+                )
+
             self.alpha: P_tensor = rp.Parameter(
                 alpha,
                 family="decays",
@@ -334,6 +344,11 @@ class LIFBaseTorch(TorchModule):
             self._dummy_params = ("tau_syn", "tau_mem", "dash_syn", "dash_mem")
 
         elif self.leak_mode == "bitshifts":
+            if any([alpha, beta, tau_mem, tau_syn]):
+                raise ValueError(
+                    "current leak mode is set to bitshifts and only parameters from this family can be directly initilized (eg: dash_mem and dash_syn)"
+                )
+
             self.dash_mem: P_tensor = rp.Parameter(
                 dash_mem,
                 family="bitshifts",
@@ -650,23 +665,9 @@ class LIFTorch(LIFBaseTorch):
                 n_batches, n_timesteps, self.size_out, self.n_synapses
             )
 
-            self._record_dict["U"] = torch.zeros(n_batches, n_timesteps, self.size_out)
-
         self._record_dict["spikes"] = torch.zeros(
             n_batches, n_timesteps, self.size_out, device=input_data.device
         )
-        # if self.leak_mode == 'decays':
-        #     alpha, beta = self.alpha, self.beta
-
-        # elif self.leak_mode == 'bitshifts':
-        #     alpha, beta = 1 - 1 / (2**self.dash_mem), 1 - 1 / (2**self.dash_syn)
-        # else:
-        #     alpha, beta = self.calc_alpha(), self.calc_beta()
-
-        # alpha, beta = _()
-        # dash_mem, dash_syn = _()
-
-        # tau_mem, tau_syn = -()
 
         noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
 
@@ -709,8 +710,6 @@ class LIFTorch(LIFBaseTorch):
 
                 if hasattr(self, "w_rec"):
                     self._record_dict["irec"][:, t] = irec
-
-                self._record_dict["U"][:, t] = sigmoid(vmem * 20.0, self.threshold)
 
             # - Maintain output spike record
             self._record_dict["spikes"][:, t] = spikes

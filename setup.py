@@ -12,29 +12,60 @@ setup_args = {
     "packages": setuptools.find_packages(),
     "install_requires": ["numpy", "scipy"],
     "extras_require": {
-        "all": [
+        "numba": [
             "numba",
-            "tqdm",
-            "brian2",
-            "pytest>=6.0",
-            "pytest-xdist>=3.2.1",
-            "pytest-random-order>=1.1.0",
-            "torch<2.0",
-            "torchvision",
-            "jax>=0.2.13",
-            "jaxlib>=0.1.66",
+        ],
+        "docs": [
             "sphinx",
             "nbsphinx",
             "sphinx-autobuild",
             "sphinx-rtd-theme",
             "recommonmark",
             "pandoc",
-            "sinabs>=1.0",
+        ],
+        "tests": [
+            "pytest>=6.0",
+            "pytest-xdist>=3.2.1",
+            "pytest-random-order>=1.1.0",
+            "pytest-test-groups",
+        ],
+        "torch": [
+            "torch",
+            "torchvision",
+        ],
+        "jax": [
+            "jax>=0.2.13",
+            "jaxlib>=0.1.66",
+        ],
+        "xylo": [
             "xylosim",
             "deltasigma",
             "samna>=0.23.0.0",
             "bitstruct",
-        ]
+        ],
+        "exodus": [
+            "torch",
+            "sinabs>=1.0",
+            "sinabs-exodus",
+        ],
+        "brian": [
+            "brian2",
+        ],
+        "sinabs": [
+            "sinabs>=1.0",
+        ],
+        "dynapse": [
+            "rockpool[jax]",
+            "samna>=0.19.0.0",
+        ],
+        "extras": [
+            "matplotlib",
+            "tqdm",
+            "rich",
+        ],
+        "all": [
+            "rockpool[numba, docs, tests, torch, jax, xylo, brian, sinabs, dynapse, extras]",
+        ],
     },
     "description": "A Python package for developing, simulating and training spiking neural networks, and deploying on neuromorphic hardware",
     "long_description": open("README.md").read(),
