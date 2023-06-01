@@ -146,8 +146,7 @@ Standard networks
     :toctree: _autosummary
     :template: class.rst
 
-    nn.networks.wavesense.WaveSenseNet
-    nn.networks.wavesense.WaveBlock
+    nn.networks.WaveSenseNet
 
 
 Conversion utilities
@@ -287,6 +286,7 @@ Xylo IMU support
     devices.xylo.imu.preprocessing.jsvd.JSVD
     devices.xylo.imu.preprocessing.subspace.SubSpace
     devices.xylo.imu.preprocessing.sample_hold.SampleAndHold
+    devices.xylo.imu.preprocessing.rotation_removal.RotationRemoval
 
 
 Dynap-SE2 hardware support and simulation

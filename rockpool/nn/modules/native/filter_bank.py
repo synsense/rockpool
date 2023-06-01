@@ -12,7 +12,7 @@ from scipy.signal import butter, sosfilt, sosfreqz
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 
-from typing import Optional
+from typing import Optional, Tuple
 from rockpool.typehints import P_int, P_float, P_bool
 
 __all__ = ["ButterFilter", "ButterMelFilter"]
@@ -118,7 +118,7 @@ class FilterBankBase(Module):
         self._filters: list = []
 
         # - Initialise worker pool
-        self._pool = Pool(self.num_workers)
+        # self._pool = Pool(self.num_workers)
 
     def _terminate(self):
         """Terminates all processes in the worker _pool"""
@@ -158,7 +158,7 @@ class FilterBankBase(Module):
         input: np.ndarray,
         *args,
         **kwargs,
-    ) -> (np.ndarray, dict, dict):
+    ) -> Tuple[np.ndarray, dict, dict]:
         """
         Evolve the state of the filterbanks, given an input
 
@@ -169,7 +169,8 @@ class FilterBankBase(Module):
         args = list(product(self._chunks, [(input.T[0], self._filter_lowpass)]))
 
         # - Map the filtering process over the worker pool
-        res = self._pool.map(self._process_filters, args)
+        # res = self._pool.map(self._process_filters, args)
+        res = list(map(self._process_filters, args))
 
         # - Combine the results
         filtOutput = np.concatenate(res).T

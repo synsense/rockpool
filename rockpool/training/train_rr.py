@@ -144,7 +144,7 @@ class RidgeRegrTrainer:
 
     def _prepare_data(
         self, inp: np.ndarray, target: np.ndarray
-    ) -> (np.ndarray, np.ndarray):
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         _prepare_data - Prepare input and target data by verifying shapes and,
                         if required, standardization and Fisher relabelling.

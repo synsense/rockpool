@@ -31,6 +31,7 @@ def test_full_config():
     import pytest
 
     pytest.importorskip("samna")
+    pytest.importorskip("jax")
 
     import samna
     from rockpool.devices.dynapse import samna_alias
@@ -52,6 +53,7 @@ def test_event():
     import pytest
 
     pytest.importorskip("samna")
+    pytest.importorskip("jax")
 
     import samna
     from rockpool.devices.dynapse import samna_alias
@@ -84,6 +86,7 @@ def test_destination_key():
     import pytest
 
     pytest.importorskip("samna")
+    pytest.importorskip("jax")
 
     from rockpool.devices.dynapse import samna_alias
 

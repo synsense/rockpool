@@ -19,11 +19,10 @@ def test_lv_FF():
 
     # cut to min time
     minTime = np.min(spikeTimes[:, -1])
-    nids = np.array([nids[i][train <= minTime] for i, train in enumerate(spikeTimes)])
-    spikeTimes = np.array([train[train <= minTime] for train in spikeTimes])
-
-    spikeTimes = np.hstack(spikeTimes)
-    nids = np.hstack(nids)
+    nids = np.concatenate(
+        [nids[i][train <= minTime] for i, train in enumerate(spikeTimes)]
+    )
+    spikeTimes = np.concatenate([train[train <= minTime] for train in spikeTimes])
 
     order = np.argsort(spikeTimes)
     spikeTimes = spikeTimes[order]
@@ -51,11 +50,10 @@ def test_entropy():
 
     # cut to min time
     minTime = np.min(spikeTimes[:, -1])
-    nids = np.array([nids[i][train <= minTime] for i, train in enumerate(spikeTimes)])
-    spikeTimes = np.array([train[train <= minTime] for train in spikeTimes])
-
-    spikeTimes = np.hstack(spikeTimes)
-    nids = np.hstack(nids)
+    nids = np.concatenate(
+        [nids[i][train <= minTime] for i, train in enumerate(spikeTimes)]
+    )
+    spikeTimes = np.concatenate([train[train <= minTime] for train in spikeTimes])
 
     order = np.argsort(spikeTimes)
     spikeTimes = spikeTimes[order]
