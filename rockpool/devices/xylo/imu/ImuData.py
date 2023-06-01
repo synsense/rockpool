@@ -25,9 +25,7 @@ class XyloIMUData(Module):
     def __init__(
         self,
         device: XyloIMUHDK,
-        frequency: float = 20.0,
-        timesteps: int = 1000,
-        # dt: float = 0.005,
+        frequency: float = 200.0,
         *args,
         **kwargs,
     ):
@@ -36,9 +34,7 @@ class XyloIMUData(Module):
 
         Args:
             device (XyloIMUHDK): A connected XyloIMUHDK device.
-            shape (tuple): The data shape (axis, timesteps) to record live IMU data
             frequency (float): The frequency to read data from IMU sensor. Default: 200.0
-            timesteps (int): The specify number of timesteps specified to be recorded. Default: 1000
             dt (float): The simulation time-step to use for this Module
         """
 
@@ -61,6 +57,9 @@ class XyloIMUData(Module):
         # Store the dt
         self.dt = 1 / frequency
 
+        # Config the IMU sensor to ready for data reading
+        self.config_imu_sensor(self._mc, 500000)
+
     def config_imu_sensor(self, mcdevice, time_interval=500000):
         mcdevice.setup()
         mcdevice.set_auto_read_period(500000)
@@ -82,8 +81,7 @@ class XyloIMUData(Module):
             (np.ndarray, dict, dict) output_events, {}, {}
         """
 
-        # Config the IMU sensor to ready for data reading
-        self.config_imu_sensor(self._mc, 500000)
+        # self.config_imu_sensor(self._mc, 500000)
 
         Nt, Nc = input_data.shape
 
@@ -100,6 +98,8 @@ class XyloIMUData(Module):
 
         t_start = time.time()
         t_timeout = t_start + timeout
+
+        self._read_buffer.get_events()
 
         while count < int(Nt):
             evts = self._read_buffer.get_events()
