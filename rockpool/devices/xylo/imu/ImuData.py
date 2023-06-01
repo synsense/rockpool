@@ -25,7 +25,7 @@ class XyloIMUData(Module):
     def __init__(
         self,
         device: XyloIMUHDK,
-        frequenccy: float = 200.0,
+        frequency: float = 20.0,
         timesteps: int = 1000,
         # dt: float = 0.005,
         *args,
@@ -59,14 +59,11 @@ class XyloIMUData(Module):
         self._mc = mc
 
         # Store the dt
-        self.dt = 1 / frequenccy
+        self.dt = 1 / frequency
 
-        # Config the IMU sensor to ready for data reading
-        self.config_imu_sensor(mc, 5000000)
-
-    def config_imu_sensor(self, mcdevice, time_interval=5000000):
+    def config_imu_sensor(self, mcdevice, time_interval=500000):
         mcdevice.setup()
-        mcdevice.set_auto_read_period(5000000)
+        mcdevice.set_auto_read_period(500000)
         mcdevice.auto_read_enable(True)
 
     def evolve(
@@ -84,15 +81,16 @@ class XyloIMUData(Module):
         Returns:
             (np.ndarray, dict, dict) output_events, {}, {}
         """
+
+        # Config the IMU sensor to ready for data reading
+        self.config_imu_sensor(self._mc, 500000)
+
         Nt, Nc = input_data.shape
 
         if Nc != 3:
             raise ValueError(
                 f"The specified data should have 3 channels! Recording data with shape [{Nt, Nc}]."
             )
-
-        # - Discard the batch dimension
-        input_data = input_data[0]
 
         out = []
         count = 0
@@ -111,20 +109,13 @@ class XyloIMUData(Module):
                     x = e.x * 4 / math.pow(2, 14)
                     y = e.y * 4 / math.pow(2, 14)
                     z = e.z * 4 / math.pow(2, 14)
-                output = [x, y, z]
-                out.append(output)
+                    output = [x, y, z]
+                    out.append(output)
 
                 # - Check for read timeout
                 if time.time() > t_timeout:
                     raise TimeoutError(f"IMUSensor: Read timeout of {timeout} sec.")
 
-        out = np.array(output)
+        out = np.array(out).T
 
         return out, {}, {}
-
-
-if __name__ == "__main__":
-    dk = samna.device.open_device("XyloImuTestBoard:0")
-    imu_record = XyloIMUData()
-    data, _, _ = imu_record(np.zeros([1000, 3]))
-    print(data)
