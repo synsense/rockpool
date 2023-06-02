@@ -1,5 +1,6 @@
 """
 This module implements the spike encoding for the signal coming out of filters or IMU sensor directly.
+* [ ] TODO : shape check
 """
 
 from typing import Any, Dict, Optional, Tuple, Union
@@ -68,7 +69,6 @@ class ScaleSpikeEncoder(Module):
 
         # truncate the signal
         threshold = (1 << self.num_out_bits) - 1
-
         input_data[input_data > threshold] = threshold
 
         return input_data
@@ -94,12 +94,23 @@ class IAFSpikeEncoder(Module):
         self.iaf_threshold = iaf_threshold
 
     @type_check
-    def evolve(self, input_data: np.ndarray):
-        # check the number of channels
-        if len(input_data.shape) == 1:
-            input_data = input_data.reshape(1, -1)
+    def evolve(
+        self, input_data: np.ndarray, record: bool = False
+    ) -> Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
+        """Processes the input signal and return the encoded spikes
 
-        # compute the absolute value of the signal
+        Args:
+            input_data (np.ndarray): filtered data recorded from IMU sensor. It should be in integer format. (BxTx48)
+            record (bool, optional): If True, the intermediate results are recorded and returned. Defaults to False.
+
+        Returns:
+            Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
+                Encoded spikes (BxTx48)
+                empty dictionary
+                empty dictionary
+        """
+
+        # Full-wave rectification
         input_data = np.abs(input_data)
 
         # compute the cumsum along the time axis
@@ -109,14 +120,14 @@ class IAFSpikeEncoder(Module):
         num_spikes = input_data // self.iaf_threshold
 
         # add a zero column to make sure that the dimensions match
-        num_spikes = np.hstack(
-            [np.zeros((num_spikes.shape[0], 1), dtype=object), num_spikes]
-        )
+        # num_spikes = np.hstack(
+        #     [np.zeros((num_spikes.shape[0], 1), dtype=object), num_spikes]
+        # )
 
-        # compute the spikes
+        # compute the spikes along the time axis
         spikes = np.diff(num_spikes, axis=1)
 
         # if there are more than one spikes, truncate it to 1
-        spikes[spikes > 1] = 1
+        np.clip(spikes, 0, 1, out=spikes)
 
         return spikes
