@@ -69,16 +69,16 @@ class ScaleSpikeEncoder(Module):
             )
 
         # Full-wave rectification
-        input_data = np.abs(input_data)
+        output_data = np.abs(input_data)
 
         # scale the signal
-        input_data = input_data >> self.num_scale_bits
+        output_data = output_data >> self.num_scale_bits
 
         # truncate the signal
         threshold = (1 << self.num_out_bits) - 1
-        input_data[input_data > threshold] = threshold
+        output_data[output_data > threshold] = threshold
 
-        return input_data, {}, {}
+        return output_data, {}, {}
 
 
 class IAFSpikeEncoder(Module):
@@ -129,13 +129,13 @@ class IAFSpikeEncoder(Module):
             )
 
         # Full-wave rectification
-        input_data = np.abs(input_data)
+        output_data = np.abs(input_data)
 
         # compute the cumsum along the time axis
-        input_data = np.cumsum(input_data, axis=1)
+        output_data = np.cumsum(output_data, axis=1)
 
         # compute the number of spikes produced so far
-        num_spikes = input_data // self.iaf_threshold
+        num_spikes = output_data // self.iaf_threshold
 
         # add a zero column to make sure that the dimensions match
         num_spikes = np.hstack([np.zeros((__B, 1, __C), dtype=object), num_spikes])
