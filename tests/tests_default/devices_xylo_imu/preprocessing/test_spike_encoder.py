@@ -10,7 +10,8 @@ def test_import():
 
 def test_scale_spike_encoder():
     import numpy as np
-    from numpy.testing import assert_array_compare
+    import pytest
+    from numpy.testing import assert_array_compare, assert_array_equal
 
     from rockpool.devices.xylo.imu.preprocessing import ScaleSpikeEncoder
 
@@ -26,10 +27,14 @@ def test_scale_spike_encoder():
     assert_array_compare(lambda x, y: x <= y, out, np.full_like(out, 15))
     assert_array_compare(lambda x, y: x >= y, out, np.zeros_like(out))
 
+    with pytest.raises(AssertionError):
+        assert_array_equal(out, np.zeros_like(out))
+
 
 def test_iaf_spike_encoder():
     import numpy as np
-    from numpy.testing import assert_array_compare
+    import pytest
+    from numpy.testing import assert_array_compare, assert_array_equal
 
     from rockpool.devices.xylo.imu.preprocessing import IAFSpikeEncoder
 
@@ -44,3 +49,6 @@ def test_iaf_spike_encoder():
     # Compare the output against the limit value
     assert_array_compare(lambda x, y: x <= y, out, np.ones_like(out))
     assert_array_compare(lambda x, y: x >= y, out, np.zeros_like(out))
+
+    with pytest.raises(AssertionError):
+        assert_array_equal(out, np.zeros_like(out))
