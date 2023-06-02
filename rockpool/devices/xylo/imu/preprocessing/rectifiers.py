@@ -9,6 +9,8 @@ import numpy as np
 from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 from rockpool.nn.modules.module import Module
 
+__all__ = ["FullWaveRectifier", "HalfWaveRectifier"]
+
 
 class FullWaveRectifier(Module):
     """Full-wave rectification to the bipolar input signals"""
