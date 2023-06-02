@@ -14,6 +14,7 @@ from rockpool.parameters import SimulationParameter
 
 __all__ = ["ScaleSpikeEncoder", "IAFSpikeEncoder"]
 
+
 class ScaleSpikeEncoder(Module):
     """
     Encode spikes as follows
@@ -72,7 +73,7 @@ class ScaleSpikeEncoder(Module):
         threshold = (1 << self.num_out_bits) - 1
         input_data[input_data > threshold] = threshold
 
-        return input_data
+        return input_data, {}, {}
 
 
 class IAFSpikeEncoder(Module):
@@ -131,4 +132,4 @@ class IAFSpikeEncoder(Module):
         # if there are more than one spikes, truncate it to 1
         np.clip(spikes, 0, 1, out=spikes)
 
-        return spikes
+        return spikes, {}, {}
