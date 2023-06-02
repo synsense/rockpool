@@ -1,6 +1,5 @@
 """
 This module implements the spike encoding for the signal coming out of filters or IMU sensor directly.
-* [ ] TODO : shape check
 """
 
 from typing import Any, Dict, Optional, Tuple, Union
@@ -92,14 +91,19 @@ class IAFSpikeEncoder(Module):
     $$s(t) = s(t_0) - \\theta + \\sum_{n=t_0+1}^t |y(n)|$$ until the next threshold crossing and spike generation happens.
     """
 
-    def __init__(self, iaf_threshold: int) -> None:
+    def __init__(
+        self, iaf_threshold: int, shape: Optional[Union[Tuple, int]] = (48, 48)
+    ) -> None:
         """
         Object constructor
 
         Args:
             iaf_threshold (int): the threshold of the IAF neuron (quantized)
         """
-        self.iaf_threshold = iaf_threshold
+        super().__init__(shape=shape, spiking_input=False, spiking_output=True)
+
+        self.iaf_threshold = SimulationParameter(iaf_threshold, shape=(1,), cast_fn=int)
+        """the threshold of the IAF neuron (quantized)"""
 
     @type_check
     def evolve(
@@ -134,9 +138,7 @@ class IAFSpikeEncoder(Module):
         num_spikes = input_data // self.iaf_threshold
 
         # add a zero column to make sure that the dimensions match
-        # num_spikes = np.hstack(
-        #     [np.zeros((num_spikes.shape[0], 1), dtype=object), num_spikes]
-        # )
+        num_spikes = np.hstack([np.zeros((__B, 1, __C), dtype=object), num_spikes])
 
         # compute the spikes along the time axis
         spikes = np.diff(num_spikes, axis=1)
