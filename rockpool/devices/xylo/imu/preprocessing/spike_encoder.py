@@ -12,6 +12,7 @@ from rockpool.devices.xylo.imu.preprocessing.rectifiers import FullWaveRectifier
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 
+__all__ = ["ScaleSpikeEncoder", "IAFSpikeEncoder"]
 
 class ScaleSpikeEncoder(Module):
     """
