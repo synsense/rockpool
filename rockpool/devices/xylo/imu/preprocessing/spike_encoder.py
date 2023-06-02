@@ -2,11 +2,17 @@
 This module implements the spike encoding for the signal coming out of filters or IMU sensor directly.
 """
 
+from typing import Any, Dict, Optional, Tuple, Union
+
 import numpy as np
+
 from rockpool.devices.xylo.imu.preprocessing.utils import type_check
+from rockpool.devices.xylo.imu.preprocessing.rectifiers import FullWaveRectifier
+from rockpool.nn.modules.module import Module
+from rockpool.parameters import SimulationParameter
 
 
-class ScaleSpikeEncoder:
+class ScaleSpikeEncoder(Module):
     """
     Encode spikes as follows
 
@@ -15,7 +21,12 @@ class ScaleSpikeEncoder:
     (iii)   Truncate the output so that it can fit within `num_out_bits`
     """
 
-    def __init__(self, num_scale_bits: int, num_out_bits: int) -> None:
+    def __init__(
+        self,
+        num_scale_bits: int,
+        num_out_bits: int,
+        shape: Optional[Union[Tuple, int]] = (48, 48),
+    ) -> None:
         """
         Object constructor
 
@@ -23,26 +34,47 @@ class ScaleSpikeEncoder:
             num_scale_bits (int): number of right-bit-shifts needed for down-scaling the input signal.
             num_out_bits (int): number of bits devoted to storing the output spike encoding.
         """
-        self.num_scale_bits = num_scale_bits
-        self.num_out_bits = num_out_bits
+        super().__init__(shape=shape, spiking_input=False, spiking_output=True)
+
+        self.num_scale_bits = SimulationParameter(
+            num_scale_bits, shape=(1,), cast_fn=int
+        )
+        """number of right-bit-shifts needed for down-scaling the input signal"""
+
+        self.num_out_bits = SimulationParameter(num_out_bits, shape=(1,), cast_fn=int)
+        """number of bits devoted to storing the output spike encoding"""
 
     @type_check
-    def evolve(self, sig_in: np.ndarray):
-        # compute the absolute value of the input signal
-        sig_in = np.abs(sig_in)
+    def evolve(
+        self, input_data: np.ndarray, record: bool = False
+    ) -> Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
+        """Processes the input signal and return the encoded spikes
+
+        Args:
+            input_data (np.ndarray): filtered data recorded from IMU sensor. It should be in integer format. (BxTx48)
+            record (bool, optional): If True, the intermediate results are recorded and returned. Defaults to False.
+
+        Returns:
+            Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
+                Encoded spikes (BxTx48)
+                empty dictionary
+                empty dictionary
+        """
+        # Full-wave rectification
+        input_data = np.abs(input_data)
 
         # scale the signal
-        sig_in = sig_in >> self.num_scale_bits
+        input_data = input_data >> self.num_scale_bits
 
         # truncate the signal
         threshold = (1 << self.num_out_bits) - 1
 
-        sig_in[sig_in > threshold] = threshold
+        input_data[input_data > threshold] = threshold
 
-        return sig_in
+        return input_data
 
 
-class IAFSpikeEncoder:
+class IAFSpikeEncoder(Module):
     """
     Synchronous integrate and fire spike encoder
 
@@ -62,19 +94,19 @@ class IAFSpikeEncoder:
         self.iaf_threshold = iaf_threshold
 
     @type_check
-    def evolve(self, sig_in: np.ndarray):
+    def evolve(self, input_data: np.ndarray):
         # check the number of channels
-        if len(sig_in.shape) == 1:
-            sig_in = sig_in.reshape(1, -1)
+        if len(input_data.shape) == 1:
+            input_data = input_data.reshape(1, -1)
 
         # compute the absolute value of the signal
-        sig_in = np.abs(sig_in)
+        input_data = np.abs(input_data)
 
         # compute the cumsum along the time axis
-        sig_in = np.cumsum(sig_in, axis=1)
+        input_data = np.cumsum(input_data, axis=1)
 
         # compute the number of spikes produced so far
-        num_spikes = sig_in // self.iaf_threshold
+        num_spikes = input_data // self.iaf_threshold
 
         # add a zero column to make sure that the dimensions match
         num_spikes = np.hstack(
