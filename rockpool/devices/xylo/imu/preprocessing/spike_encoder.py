@@ -1,33 +1,12 @@
-# -----------------------------------------------------------
-# This module implements the spike encoding for the signal coming out of filters or IMU sensor directly.
-#
-#
-# (C) Saeid Haghighatshoar
-# email: saeid.haghighatshoar@synsense.ai
-#
-#
-# last update: 28.08.2022
-# -----------------------------------------------------------
+"""
+This module implements the spike encoding for the signal coming out of filters or IMU sensor directly.
+"""
 
-# required packages
 import numpy as np
-from imu_preprocessing.util.type_decorator import type_check
+from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 
 
-class SpikeEncoder:
-    @type_check
-    def evolve(self, sig_in: np.ndarray):
-        """
-        this modules takes the multi-channel input signal of dimension `num-channels x T` and concerts it into spikes.
-        The number of channels is preserved.
-
-        Args:
-            sig_in (np.ndarray): input multi-channel signal of dimnsion `num-channels x T`.
-        """
-        pass
-
-
-class ScaleSpikeEncoder(SpikeEncoder):
+class ScaleSpikeEncoder:
     def __init__(self, num_scale_bits: int, num_out_bits: int):
         """this module does spike encoding as follows:
                 (i)     compute the absolute value of the input sigal (full-wave rectification)
@@ -41,10 +20,8 @@ class ScaleSpikeEncoder(SpikeEncoder):
         self.num_scale_bits = num_scale_bits
         self.num_out_bits = num_out_bits
 
+    @type_check
     def evolve(self, sig_in: np.ndarray):
-        # simple type check
-        super().evolve(sig_in)
-
         # compute the absolute value of the input signal
         sig_in = np.abs(sig_in)
 
@@ -67,14 +44,12 @@ class ScaleSpikeEncoder(SpikeEncoder):
         return string
 
 
-class IAFSpikeEncoder(SpikeEncoder):
+class IAFSpikeEncoder:
     def __init__(self, iaf_threshold: int):
         self.iaf_threshold = iaf_threshold
 
+    @type_check
     def evolve(self, sig_in: np.ndarray):
-        # do the type check
-        super().evolve(sig_in)
-
         # check the number of channels
         if len(sig_in.shape) == 1:
             sig_in = sig_in.reshape(1, -1)
