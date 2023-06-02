@@ -63,6 +63,12 @@ class ScaleSpikeEncoder(Module):
                 empty dictionary
                 empty dictionary
         """
+        __B, __T, __C = input_data.shape
+        if __C != self.size_in:
+            raise ValueError(
+                f"Input data should have {self.size_in} channels, but {__C} channels are given!"
+            )
+
         # Full-wave rectification
         input_data = np.abs(input_data)
 
@@ -111,6 +117,12 @@ class IAFSpikeEncoder(Module):
                 empty dictionary
                 empty dictionary
         """
+        __B, __T, __C = input_data.shape
+
+        if __C != self.size_in:
+            raise ValueError(
+                f"Input data should have {self.size_in} channels, but {__C} channels are given!"
+            )
 
         # Full-wave rectification
         input_data = np.abs(input_data)
