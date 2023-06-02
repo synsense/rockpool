@@ -44,7 +44,3 @@ def test_iaf_spike_encoder():
     # Compare the output against the limit value
     assert_array_compare(lambda x, y: x <= y, out, np.ones_like(out))
     assert_array_compare(lambda x, y: x >= y, out, np.zeros_like(out))
-
-
-if __name__ == "__main__":
-    test_iaf_spike_encoder()
