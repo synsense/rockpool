@@ -28,6 +28,7 @@ def test_half_wave_rectifier():
     out, _, _ = half_wave(-10)
     assert out == 0  # Negative input should be rectified to 0
 
+
 def test_full_wave_rectifier():
     from rockpool.devices.xylo.imu.preprocessing import FullWaveRectifier
 
