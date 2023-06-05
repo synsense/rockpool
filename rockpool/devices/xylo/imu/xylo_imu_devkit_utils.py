@@ -122,9 +122,9 @@ def new_xylo_state_monitor_buffer(
     return buffer
 
 
-def Initialise_imu_sensor(
+def initialise_imu_sensor(
     hdk: XyloIMUHDK,
-):
+) -> Tuple[IMUSensorReadBuffer, IMUSensorWriteBuffer, IMUSensorHDK]:
     """
     Initialise the IMU sensor HDK
 
