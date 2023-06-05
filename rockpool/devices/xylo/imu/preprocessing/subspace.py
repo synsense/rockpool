@@ -12,6 +12,13 @@ from rockpool.parameters import SimulationParameter
 
 __all__ = ["SubSpace"]
 
+num_bits_in = 16
+"""number of bits in the input data. We assume a sign magnitude format."""
+num_bits_highprec_filter = 43
+"""number of bits devoted to computing the high-precision filter (to avoid dead-zone effect)"""
+num_bits_multiplier = 31
+"""number of bits devoted to computing [x(t) x(t)^T]_{ij}. If less then needed, the LSB values are removed"""
+
 
 class SubSpace(Module):
     """Averaging and covariance estimation for 3D IMU signals
@@ -19,20 +26,12 @@ class SubSpace(Module):
     """
 
     def __init__(
-        self,
-        num_bits_in: int,
-        num_bits_highprec_filter: int,
-        num_bits_multiplier: int,
-        num_avg_bitshift: int,
-        shape: Optional[Union[Tuple, int]] = (3, 9),
+        self, num_avg_bitshift: int, shape: Optional[Union[Tuple, int]] = (3, 9)
     ) -> None:
         """Object Constructor
 
         Args:
-            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,9).
-            num_bits_in (int): number of bits in the input data. We assume a sign magnitude format.
-            num_bits_highprec_filter (int) : number of bits devoted to computing the high-precision filter (to avoid dead-zone effect)
-            num_bits_multiplier (int): number of bits devoted to computing [x(t) x(t)^T]_{ij}. If less then needed, the LSB values are removed.
+            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,9)..
             num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation.
                 The effective window length of the low-pass filter will be `2**num_avg_bitshift`
         """
