@@ -39,6 +39,7 @@ class FullWaveRectifier(Module):
                 empty dictionary
                 empty dictionary
         """
+        input_data, _ = self._auto_batch(input_data)
         return np.abs(input_data), {}, {}
 
 
@@ -69,7 +70,7 @@ class HalfWaveRectifier(Module):
                 empty dictionary
                 empty dictionary
         """
-
+        input_data, _ = self._auto_batch(input_data)
         sig_out = np.copy(input_data)
         sig_out[input_data < 0] = 0
 
