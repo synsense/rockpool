@@ -92,19 +92,12 @@ class XyloIMUMonitor(Module):
         _, Nout = np.shape(config.readout.weights)
 
         # - Register buffers to read and write events, monitor state
-        print("New read buffer")
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
-
-        print("New write buffer")
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
-
-        print("New state monitor buffer")
         self._state_buffer = hdkutils.new_xylo_state_monitor_buffer(device)
 
         # - Initialise the superclass
-        super().__init__(
-            shape=(Nin, Nhidden, Nout), spiking_input=True, spiking_output=True
-        )
+        super().__init__(shape=(3, Nout), spiking_input=True, spiking_output=True)
 
         # - Store the device
         self._device: XyloIMUHDK = device
@@ -137,23 +130,19 @@ class XyloIMUMonitor(Module):
 
         # - Disable external IMU data input
         if external_imu_input:
-            print("enable SPI slave - waiting for external IMU input")
             self._io.spi_slave_enable(True)
         else:
-            print("disable SPI slave - reading from on-board IMU")
             self._io.spi_slave_enable(False)
 
         # - Set main clock rate
         if self._main_clk_rate != Default_Main_Clock_Rate:
-            print("set main clk rate")
             self._io.set_main_clk_rate(self._main_clk_rate)
 
         # - Configure to auto mode
         self._enable_auto_mode(interface_params, Nhidden, Nout)
 
         # - Send first trigger to start to run full auto mode
-        if external_imu_input:
-            print("advance time step - starting real-time mode")
+        if not external_imu_input:
             hdkutils.advance_time_step(self._write_buffer)
 
     @property
@@ -169,7 +158,6 @@ class XyloIMUMonitor(Module):
             raise ValueError(f"Invalid configuration for the Xylo HDK: {msg}")
 
         # - Write the configuration to the device
-        print("apply config")
         hdkutils.apply_configuration(self._device, new_config)
 
         # - Store the configuration locally
@@ -184,7 +172,6 @@ class XyloIMUMonitor(Module):
         """
 
         # - Config the streaming mode
-        print("configure auto mode")
         config = hdkutils.config_auto_mode(
             self._config,
             self.dt,
@@ -195,15 +182,11 @@ class XyloIMUMonitor(Module):
         )
 
         # - Config the IMU interface and apply current configuration
-        print("config input IF")
         config.input_interface = if_config_from_specification(**interface_params)
         self.config = config
 
         # - Set configuration and reset state buffer
-        print("set state buffer config")
         self._state_buffer.set_configuration(config)
-
-        print("reset state buffer")
         self._state_buffer.reset()
 
     def evolve(
@@ -229,7 +212,7 @@ class XyloIMUMonitor(Module):
 
         # - Get data shape
         input_data, _ = self._auto_batch(input_data)
-        Nb, Nt, Nc = input_data.shape[0]
+        Nb, Nt, Nc = input_data.shape
 
         if Nb > 1:
             raise ValueError(
@@ -252,7 +235,7 @@ class XyloIMUMonitor(Module):
 
         if self._external_imu_input:
             # - Force configuration of Xylo
-            hdkutils.apply_configuration(self._config)
+            hdkutils.apply_configuration(self._device, self._config)
 
             # - Encode IMU data and send to FPGA
             print("encoding and writing IMU data from PC")
