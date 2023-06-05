@@ -12,6 +12,12 @@ from rockpool.parameters import SimulationParameter
 
 __all__ = ["ScaleSpikeEncoder", "IAFSpikeEncoder"]
 
+NUM_SCALE_BITS = 10
+"""number of right-bit-shifts needed for down-scaling the input signal"""
+
+NUM_OUT_BITS = 4
+"""number of bits devoted to storing the output spike encoding"""
+
 
 class ScaleSpikeEncoder(Module):
     """
@@ -24,8 +30,6 @@ class ScaleSpikeEncoder(Module):
 
     def __init__(
         self,
-        num_scale_bits: int,
-        num_out_bits: int,
         shape: Optional[Union[Tuple, int]] = (48, 48),
     ) -> None:
         """
@@ -36,14 +40,6 @@ class ScaleSpikeEncoder(Module):
             num_out_bits (int): number of bits devoted to storing the output spike encoding.
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=True)
-
-        self.num_scale_bits = SimulationParameter(
-            num_scale_bits, shape=(1,), cast_fn=int
-        )
-        """number of right-bit-shifts needed for down-scaling the input signal"""
-
-        self.num_out_bits = SimulationParameter(num_out_bits, shape=(1,), cast_fn=int)
-        """number of bits devoted to storing the output spike encoding"""
 
     @type_check
     def evolve(
@@ -72,10 +68,10 @@ class ScaleSpikeEncoder(Module):
         output_data = np.abs(input_data)
 
         # scale the signal
-        output_data = output_data >> self.num_scale_bits
+        output_data = output_data >> NUM_SCALE_BITS
 
         # truncate the signal
-        threshold = (1 << self.num_out_bits) - 1
+        threshold = (1 << NUM_OUT_BITS) - 1
         output_data[output_data > threshold] = threshold
 
         return output_data, {}, {}
