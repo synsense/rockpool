@@ -12,7 +12,7 @@ from rockpool.nn.modules import Instant
 __all__ = ["FullWaveRectifier", "HalfWaveRectifier"]
 
 
-class Rectifier(Instant):
+class __Rectifier(Instant):
     """Rectification to the bipolar input signals"""
 
     def __init__(
@@ -47,14 +47,14 @@ class Rectifier(Instant):
         return self.function(input_data), {}, {}
 
 
-class FullWaveRectifier(Rectifier):
+class FullWaveRectifier(__Rectifier):
     """Full-wave rectification to the bipolar input signals"""
 
     def __init__(self, shape: Optional[Union[Tuple, int]] = (48, 48)) -> None:
         super().__init__(function=np.abs, shape=shape)
 
 
-class HalfWaveRectifier(Rectifier):
+class HalfWaveRectifier(__Rectifier):
     """Full-wave rectification to the bipolar input signals"""
 
     def __init__(self, shape: Optional[Union[Tuple, int]] = (48, 48)) -> None:
