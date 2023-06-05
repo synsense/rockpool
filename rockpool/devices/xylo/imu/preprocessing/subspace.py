@@ -154,15 +154,3 @@ class SubSpace(Module):
         # flatten the channel dimension
         C_batched = C_batched.reshape(__B, __T, self.size_out)
         return C_batched, {}, {}
-
-    def __str__(self):
-        string = (
-            "Subspace tracking module for estimating the 3 x 3 covariance matrix of the input 3 x T data:\n"
-            + f"number of bits of input signal: {self.num_bits_in}\n"
-            + f"number of right bit-shifts used in low-pass filter implementation: {self.num_avg_bitshift}\n"
-            + f"averaging window size: {2**self.num_avg_bitshift} samples\n"
-            + f"number of bits used for implementing the multiplication module: {self.num_bits_multiplier}\n"
-            + f"number of bits used for computing the high-precision filter (to avoid dead-zone in low-pass filter): {self.num_bits_highprec_filter}"
-        )
-
-        return string
