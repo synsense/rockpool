@@ -64,9 +64,9 @@ class ScaleSpikeEncoder(Module):
         input_data, _ = self._auto_batch(input_data)
         __B, __T, __C = input_data.shape
         if __C != self.size_in:
-            raise ValueError(
-                f"Input data should have {self.size_in} channels, but {__C} channels are given!"
-            )
+            raise ValueError(f"The input data should have {self.size_in} channels!")
+
+        input_data = np.array(input_data, dtype=np.int64).astype(object)
 
         # Full-wave rectification
         output_data = np.abs(input_data)
@@ -92,17 +92,17 @@ class IAFSpikeEncoder(Module):
     """
 
     def __init__(
-        self, iaf_threshold: int, shape: Optional[Union[Tuple, int]] = (48, 48)
+        self, threshold: int, shape: Optional[Union[Tuple, int]] = (48, 48)
     ) -> None:
         """
         Object constructor
 
         Args:
-            iaf_threshold (int): the threshold of the IAF neuron (quantized)
+            threshold (int): the threshold of the IAF neuron (quantized)
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=True)
 
-        self.iaf_threshold = SimulationParameter(iaf_threshold, shape=(1,), cast_fn=int)
+        self.threshold = SimulationParameter(threshold, shape=(1,), cast_fn=int)
         """the threshold of the IAF neuron (quantized)"""
 
     @type_check
@@ -128,6 +128,7 @@ class IAFSpikeEncoder(Module):
             raise ValueError(
                 f"Input data should have {self.size_in} channels, but {__C} channels are given!"
             )
+        input_data = np.array(input_data, dtype=np.int64).astype(object)
 
         # Full-wave rectification
         output_data = np.abs(input_data)
@@ -136,7 +137,7 @@ class IAFSpikeEncoder(Module):
         output_data = np.cumsum(output_data, axis=1)
 
         # compute the number of spikes produced so far
-        num_spikes = output_data // self.iaf_threshold
+        num_spikes = output_data // self.threshold
 
         # add a zero column to make sure that the dimensions match
         num_spikes = np.hstack([np.zeros((__B, 1, __C), dtype=object), num_spikes])
