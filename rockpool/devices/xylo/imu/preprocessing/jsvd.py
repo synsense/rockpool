@@ -536,12 +536,3 @@ class JSVD:
         subspace_metric = np.asarray(subspace_metric)
 
         return subspace_metric
-
-    def __str__(self) -> str:
-        string = (
-            "JSVD module for computing the rotation in IMU dataset:"
-            + f"number of bits used for covariance computation: {NUM_BITS_COVARIANCE}\n"
-            + f"number of bits used for rotation computation and storage: {NUM_BITS_ROTATION}\n\n"
-            + f"rotation lookuptable used for angle estimation:\n{self.lookuptable}"
-        )
-        return string
