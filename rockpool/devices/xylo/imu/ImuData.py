@@ -60,9 +60,18 @@ class XyloIMUData(Module):
         ti = 1 / frequency * 1e5
         self.config_imu_sensor(self._mc, ti)
 
-    def config_imu_sensor(self, mcdevice, time_interval=500000):
+    def config_imu_sensor(self, mcdevice, time_interval: int = 500000):
+        """
+        Configure the mc3632 module to enable data reading from imu sensor.
+
+        Args:
+            mcdevice : A connected mc3632 device on XyloIMUHDK.
+            time_interval (int): The time interval to generate data. default: 500000.
+        """
+
+        # Configure the imu densor device
         mcdevice.setup()
-        mcdevice.set_auto_read_period(500000)
+        mcdevice.set_auto_read_period(time_interval)
         mcdevice.auto_read_enable(True)
 
     def evolve(
