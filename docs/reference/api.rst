@@ -286,6 +286,8 @@ Xylo IMU support
     devices.xylo.imu.preprocessing.rotation_removal.RotationRemoval
     devices.xylo.imu.preprocessing.filterbank.BandPassFilter
     devices.xylo.imu.preprocessing.filterbank.FilterBank
+    devices.xylo.imu.preprocessing.rectifiers.FullWaveRectifier
+    devices.xylo.imu.preprocessing.rectifiers.HalfWaveRectifier
 
 
 Dynap-SE2 hardware support and simulation
