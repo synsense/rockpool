@@ -61,6 +61,7 @@ class ScaleSpikeEncoder(Module):
                 empty dictionary
                 empty dictionary
         """
+        input_data, _ = self._auto_batch(input_data)
         __B, __T, __C = input_data.shape
         if __C != self.size_in:
             raise ValueError(
@@ -120,6 +121,7 @@ class IAFSpikeEncoder(Module):
                 empty dictionary
                 empty dictionary
         """
+        input_data, _ = self._auto_batch(input_data)
         __B, __T, __C = input_data.shape
 
         if __C != self.size_in:
