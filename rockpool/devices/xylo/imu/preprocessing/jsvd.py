@@ -14,6 +14,11 @@ import numpy as np
 from rockpool.devices.xylo.imu.preprocessing.lookup import RotationLookUpTable
 from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 
+COV_EXTRA_BIT = 2
+"""The components of the covariance can enlarger by a factor 3 (at most), thus, an additional register size of 2"""
+ROT_EXTRA_BIT = 1
+"""Rotation can expand at most by a factor during the multiplication, thus, an additional register size of 1"""
+
 __all__ = ["JSVD"]
 
 
@@ -25,8 +30,6 @@ class JSVD:
 
     def __init__(
         self,
-        num_angles: int,
-        num_bits_lookup: int,
         num_bits_covariance: int,
         num_bits_rotation: int,
         nround: int = 4,
@@ -34,18 +37,10 @@ class JSVD:
         """Object constructor.
 
         Args:
-            num_angles (int): number of angles in lookup table.
-            num_bits_lookup (int): number of bits used for quantizing the lookup table.
             num_bits_covariance (int): number of bits used for the covariance matrix.
             num_bits_rotation (int): number of bits devoted for implementing rotation matrix.
             nround (int): number of round rotation computation and update is done over all 3 axes/dims.
         """
-
-        self.num_angles = num_angles
-        """number of angles in lookup table"""
-
-        self.num_bits_lookup = num_bits_lookup
-        """number of bits used for quantizing the lookup table"""
 
         self.num_bits_covariance = num_bits_covariance
         """number of bits used for the covariance matrix"""
@@ -56,9 +51,7 @@ class JSVD:
         self.nround = nround
         """number of round rotation computation and update is done over all 3 axes/dims"""
 
-        self.lookuptable = RotationLookUpTable(
-            num_angles=num_angles, num_bits=num_bits_lookup
-        )
+        self.lookuptable = RotationLookUpTable()
         """lookup table used for computation"""
 
     @type_check
@@ -106,10 +99,6 @@ class JSVD:
             raise ValueError(
                 f"The input covariance matrix does not fit in the {self.num_bits_covariance} bits assigned to it! If needed, apply quantization to the covariance to truncate it!"
             )
-
-        # --- initialization and history of computation
-        COV_EXTRA_BIT = 2  # because the components of the covariance can enlarger by a factor 3 (at most), thus, an additional register size of 2
-        ROT_EXTRA_BIT = 1  # rotation can expand at most by a factor during the multiplication, thus, an additional register size of 1
 
         # estimated covariance matrices
         C_list = [C_in]
