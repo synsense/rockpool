@@ -47,7 +47,7 @@ class InstantMixin:
         # - Store the function
         self.function: P_Callable = SimulationParameter(function)
 
-        if not hasattr(super(), "_auto_batch"):
+        if not hasattr(self, "_auto_batch"):
             raise NotImplementedError(
                 "_auto_batch must be implemented by superclasses!"
             )
@@ -57,7 +57,7 @@ class InstantMixin:
         input,
         record: bool = False,
     ) -> Tuple[Any, dict, dict]:
-        input, _ = super()._auto_batch(input)
+        input, _ = self._auto_batch(input)
         return self.function(input), {}, {}
 
 
