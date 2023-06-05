@@ -7,12 +7,15 @@ import numpy as np
 
 from rockpool.devices.xylo.imu.preprocessing.jsvd import JSVD, NUM_BITS_ROTATION
 from rockpool.devices.xylo.imu.preprocessing.sample_hold import SampleAndHold
-from rockpool.devices.xylo.imu.preprocessing.subspace import SubSpace
+from rockpool.devices.xylo.imu.preprocessing.subspace import SubSpace, NUM_BITS_IN
 from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 from rockpool.nn.combinators import Sequential
 
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
+
+NUM_BITS_OUT = 16
+"""number of bits in the final signal (obtained after rotation removal). We assume a sign magnitude format."""
 
 __all__ = ["RotationRemoval"]
 
@@ -31,20 +34,17 @@ class RotationRemoval(Module):
 
     def __init__(
         self,
-        num_bits_in: int,
-        num_bits_out: int,
-        num_avg_bitshift: int,
-        sampling_period: int,
         shape: Optional[Union[Tuple, int]] = (3, 3),
+        num_avg_bitshift: int = 4,
+        sampling_period: int = 10,
     ) -> None:
         """Object constructor.
 
         Args:
-            num_bits_in (int): number of bits in the input data. We assume a sign magnitude format.
-            num_bits_out (int): number of bits in the final signal (obtained after rotation removal).
-            num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation.
+            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,3).
+            num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation. Default to 4.
                 The effective window length of the low-pass filter will be `2**num_avg_bitshift`
-            sampling_period (int): Sampling period that the signal is sampled and held
+            sampling_period (int): Sampling period that the signal is sampled and held. Defaults to 10.
 
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
@@ -61,12 +61,6 @@ class RotationRemoval(Module):
         )
 
         self.jsvd = JSVD()
-
-        self.num_bits_in = SimulationParameter(num_bits_in, shape=(1,), cast_fn=int)
-        """number of bits in the input data. We assume a sign magnitude format."""
-
-        self.num_bits_out = SimulationParameter(num_bits_out, shape=(1,), cast_fn=int)
-        """number of round rotation computation and update is done over all 3 axes/dims."""
 
     @type_check
     def evolve(
@@ -160,9 +154,7 @@ class RotationRemoval(Module):
             np.ndarray: Rotation removed sample.
         """
 
-        num_right_bit_shifts = (
-            NUM_BITS_ROTATION + self.num_bits_in - self.num_bits_out
-        )
+        num_right_bit_shifts = NUM_BITS_ROTATION + NUM_BITS_IN - NUM_BITS_OUT
 
         signal_out = []
 
@@ -171,16 +163,16 @@ class RotationRemoval(Module):
             for rot, val in zip(row, sample):
                 update = (rot * val) >> num_right_bit_shifts
 
-                if abs(update) >= 2 ** (self.num_bits_out - 1):
+                if abs(update) >= 2 ** (NUM_BITS_OUT - 1):
                     raise ValueError(
-                        f"The update value {update} encountered in rotation-input signal multiplication is beyond the range [-{2**(self.num_bits_out-1)}, +{2**(self.num_bits_out-1)}]!"
+                        f"The update value {update} encountered in rotation-input signal multiplication is beyond the range [-{2**(NUM_BITS_OUT-1)}, +{2**(NUM_BITS_OUT-1)}]!"
                     )
 
                 buffer += update
 
-                if abs(buffer) >= 2 ** (self.num_bits_out - 1):
+                if abs(buffer) >= 2 ** (NUM_BITS_OUT - 1):
                     raise ValueError(
-                        f"The beffer value {buffer} encountered in rotation-input signal multiplication is beyond the range [-{2**(self.num_bits_out-1)}, +{2**(self.num_bits_out-1)}]!"
+                        f"The beffer value {buffer} encountered in rotation-input signal multiplication is beyond the range [-{2**(NUM_BITS_OUT-1)}, +{2**(NUM_BITS_OUT-1)}]!"
                     )
 
             # add this component
