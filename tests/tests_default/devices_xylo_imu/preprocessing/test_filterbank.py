@@ -85,8 +85,6 @@ def test_filterbank():
             num_bits=num_bits,
         ),
         RotationRemoval(
-            num_bits_in=num_bits,
-            num_bits_out=num_bits,
             num_avg_bitshift=11,
             sampling_period=sampling_period,
         ),
