@@ -10,14 +10,14 @@ from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 
-__all__ = ["SubSpace"]
-
 NUM_BITS_IN = 16
 """number of bits in the input data. We assume a sign magnitude format."""
 NUM_BITS_HIGHPREC_FILTER = 43
 """number of bits devoted to computing the high-precision filter (to avoid dead-zone effect)"""
 NUM_BITS_MULTIPLIER = 31
 """number of bits devoted to computing [x(t) x(t)^T]_{ij}. If less then needed, the LSB values are removed"""
+
+__all__ = ["SubSpace"]
 
 
 class SubSpace(Module):
