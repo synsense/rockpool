@@ -19,13 +19,14 @@ class SampleAndHold(Module):
 
     def __init__(
         self,
-        sampling_period: int,
         shape: Optional[Union[Tuple, int]] = (3, 3),
+        sampling_period: int = 10,
     ) -> None:
         """Object Constructor
 
         Args:
-            sampling_period (int): Sampling period that the signal is sampled and held
+            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,3).
+            sampling_period (int): Sampling period that the signal is sampled and held. Defaults to 10.
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
