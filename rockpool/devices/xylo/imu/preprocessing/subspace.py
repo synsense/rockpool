@@ -12,11 +12,11 @@ from rockpool.parameters import SimulationParameter
 
 __all__ = ["SubSpace"]
 
-num_bits_in = 16
+NUM_BITS_IN = 16
 """number of bits in the input data. We assume a sign magnitude format."""
-num_bits_highprec_filter = 43
+NUM_BITS_HIGHPREC_FILTER = 43
 """number of bits devoted to computing the high-precision filter (to avoid dead-zone effect)"""
-num_bits_multiplier = 31
+NUM_BITS_MULTIPLIER = 31
 """number of bits devoted to computing [x(t) x(t)^T]_{ij}. If less then needed, the LSB values are removed"""
 
 
@@ -74,9 +74,9 @@ class SubSpace(Module):
         """
 
         # check the validity of the data
-        if np.max(np.abs(input_data)) >= 2 ** (num_bits_in - 1):
+        if np.max(np.abs(input_data)) >= 2 ** (NUM_BITS_IN - 1):
             raise ValueError(
-                f"some elements of the input data are beyond the range of {num_bits_in} bits!"
+                f"some elements of the input data are beyond the range of {NUM_BITS_IN} bits!"
             )
 
         # check that the values are indeed integers
@@ -96,10 +96,10 @@ class SubSpace(Module):
 
         # -- bit size calculation
         # maximimum number of bits that can be used for storing the result of multiplication x(t) * x(t)^T
-        max_bits_mult_output = 2 * num_bits_in - 1
+        max_bits_mult_output = 2 * NUM_BITS_IN - 1
 
         # number of bitshifts needed in implementing the high-precision filter
-        mult_right_bit_shift = max_bits_mult_output - num_bits_multiplier
+        mult_right_bit_shift = max_bits_mult_output - NUM_BITS_MULTIPLIER
 
         # initialize the covariance matrix and covariance matrix with larger precision
         C_highprec = np.zeros((self.size_in, self.size_in), dtype=np.int64).astype(
@@ -127,7 +127,7 @@ class SubSpace(Module):
 
                 # note that due to the specific shape of the low-pass filter used for averaging the input signal,
                 # the output of the low-pass filter will be always less than the input max value
-                if np.max(np.abs(C_highprec)) >= 2 ** (num_bits_highprec_filter - 1):
+                if np.max(np.abs(C_highprec)) >= 2 ** (NUM_BITS_HIGHPREC_FILTER - 1):
                     raise OverflowError(
                         "Overflow or underflow in the high-precision filter!"
                     )
