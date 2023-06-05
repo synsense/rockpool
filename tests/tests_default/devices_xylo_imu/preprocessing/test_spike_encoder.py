@@ -43,7 +43,7 @@ def test_iaf_spike_encoder():
     input_data = np.random.randint(0, 2**16, size=(10, 100, 48), dtype=np.uint16)
 
     # Simulate the encoder
-    spike_encoder = IAFSpikeEncoder(1000)
+    spike_encoder = IAFSpikeEncoder(threshold=1000)
     out, _, _ = spike_encoder(input_data.astype(object))
 
     # Compare the output against the limit value
