@@ -5,7 +5,7 @@ from typing import Any, Dict, Tuple, Optional, Union
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.preprocessing.jsvd import JSVD
+from rockpool.devices.xylo.imu.preprocessing.jsvd import JSVD, NUM_BITS_ROTATION
 from rockpool.devices.xylo.imu.preprocessing.sample_hold import SampleAndHold
 from rockpool.devices.xylo.imu.preprocessing.subspace import SubSpace
 from rockpool.devices.xylo.imu.preprocessing.utils import type_check
@@ -35,11 +35,6 @@ class RotationRemoval(Module):
         num_bits_out: int,
         num_avg_bitshift: int,
         sampling_period: int,
-        num_angles: int,
-        num_bits_lookup: int,
-        num_bits_covariance: int,
-        num_bits_rotation: int,
-        nround: int = 4,
         shape: Optional[Union[Tuple, int]] = (3, 3),
     ) -> None:
         """Object constructor.
@@ -50,11 +45,6 @@ class RotationRemoval(Module):
             num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation.
                 The effective window length of the low-pass filter will be `2**num_avg_bitshift`
             sampling_period (int): Sampling period that the signal is sampled and held
-            num_angles (int): number of angles in lookup table.
-            num_bits_lookup (int): number of bits used for quantizing the lookup table.
-            num_bits_covariance (int): number of bits used for the covariance matrix.
-            num_bits_rotation (int): number of bits devoted for implementing rotation matrix.
-            nround (int): number of round rotation computation and update is done over all 3 axes/dims.
 
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
@@ -70,24 +60,13 @@ class RotationRemoval(Module):
             ),
         )
 
-        self.jsvd = JSVD(
-            num_angles=num_angles,
-            num_bits_lookup=num_bits_lookup,
-            num_bits_covariance=num_bits_covariance,
-            num_bits_rotation=num_bits_rotation,
-            nround=nround,
-        )
+        self.jsvd = JSVD()
 
         self.num_bits_in = SimulationParameter(num_bits_in, shape=(1,), cast_fn=int)
         """number of bits in the input data. We assume a sign magnitude format."""
 
         self.num_bits_out = SimulationParameter(num_bits_out, shape=(1,), cast_fn=int)
         """number of round rotation computation and update is done over all 3 axes/dims."""
-
-        self.num_bits_rotation = SimulationParameter(
-            num_bits_rotation, shape=(1,), cast_fn=int
-        )
-        """number of bits devoted for implementing rotation matrix"""
 
     @type_check
     def evolve(
@@ -182,7 +161,7 @@ class RotationRemoval(Module):
         """
 
         num_right_bit_shifts = (
-            self.num_bits_rotation + self.num_bits_in - self.num_bits_out
+            NUM_BITS_ROTATION + self.num_bits_in - self.num_bits_out
         )
 
         signal_out = []
