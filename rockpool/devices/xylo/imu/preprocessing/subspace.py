@@ -42,6 +42,15 @@ class SubSpace(Module):
 
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
+        if num_avg_bitshift < 0:
+            raise ValueError(
+                f"num_avg_bitshift should be a non-negative integer. Got {num_avg_bitshift}"
+            )
+        if num_avg_bitshift > 15:
+            raise ValueError(
+                f"num_avg_bitshift should be less than or equal to 15. Got {num_avg_bitshift}"
+            )
+
         self.num_avg_bitshift = SimulationParameter(
             num_avg_bitshift, shape=(1,), cast_fn=int
         )
