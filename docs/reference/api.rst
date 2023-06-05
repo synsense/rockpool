@@ -288,6 +288,8 @@ Xylo IMU support
     devices.xylo.imu.preprocessing.filterbank.FilterBank
     devices.xylo.imu.preprocessing.rectifiers.FullWaveRectifier
     devices.xylo.imu.preprocessing.rectifiers.HalfWaveRectifier
+    devices.xylo.imu.preprocessing.spike_encoder.ScaleSpikeEncoder
+    devices.xylo.imu.preprocessing.spike_encoder.IAFSpikeEncoder
 
 
 Dynap-SE2 hardware support and simulation
