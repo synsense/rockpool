@@ -7,7 +7,7 @@ import numpy as np
 
 from rockpool.nn.modules.module import Module
 from . import xylo_imu_devkit_utils as hdkutils
-from .xylo_imu_devkit_utils import XyloIMUHDK
+from .xylo_imu_devkit_utils import XyloIMUHDK, IMUSensorHDK
 
 
 __all__ = ["XyloIMUData"]
@@ -52,20 +52,21 @@ class XyloIMUData(Module):
 
         # Store the IMU sensor
         self._mc = mc
+        print(self._mc)
 
         # Store the dt
         self.dt = 1 / frequency
 
         # Config the IMU sensor to ready for data reading
-        ti = 1 / frequency * 1e5
+        ti = int(1 / frequency * 1e8)
         self.config_imu_sensor(self._mc, ti)
 
-    def config_imu_sensor(self, mcdevice, time_interval: int = 500000):
+    def config_imu_sensor(self, mcdevice: IMUSensorHDK, time_interval: int = 500000):
         """
         Configure the mc3632 module to enable data reading from imu sensor.
 
         Args:
-            mcdevice : A connected mc3632 device on XyloIMUHDK.
+            mcdevice (IMUSensorHDK): A connected mc3632 device on XyloIMUHDK.
             time_interval (int): The time interval to generate data. default: 500000.
         """
 

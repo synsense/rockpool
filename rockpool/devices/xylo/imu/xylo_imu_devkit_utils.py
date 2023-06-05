@@ -19,7 +19,8 @@ XyloIMUNeuronStateBuffer = samna.xyloImu.NeuronStateSinkNode
 IMUSensorReadBuffer = samna.DeviceSinkNode_unifirm_modules_mc3632_input_event
 IMUSensorWriteBuffer = samna.DeviceSourceNode_unifirm_modules_mc3632_output_event
 
-XyloIMUHDK = Any
+XyloIMUHDK = samna.xyloImuBoards.XyloImuTestBoard
+IMUSensorHDK = samna.unifirm.modules.mc3632.Mc3632
 
 
 def find_xylo_imu_boards() -> List[XyloIMUHDK]:
