@@ -11,7 +11,7 @@ from typing import List, Tuple
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.preprocessing.lookup import RotationLookUpTable
+from rockpool.devices.xylo.imu.preprocessing.lookup import RotationLookUpTable, NUM_BITS
 from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 
 COV_EXTRA_BIT = 2
@@ -210,13 +210,11 @@ class JSVD:
 
                     # NOTE: sign correction is needed here since `SIN(2 theta)` appears here and `SIN(2 theta)` has the same sign as `TAN(2 theta)``.
                     a_new = (
-                        ((a + c) << self.lookuptable.num_bits) // 2
-                        + rotation_correction_large_angles
-                    ) >> self.lookuptable.num_bits
+                        ((a + c) << NUM_BITS) // 2 + rotation_correction_large_angles
+                    ) >> NUM_BITS
                     c_new = (
-                        ((a + c) << self.lookuptable.num_bits) // 2
-                        - rotation_correction_large_angles
-                    ) >> self.lookuptable.num_bits
+                        ((a + c) << NUM_BITS) // 2 - rotation_correction_large_angles
+                    ) >> NUM_BITS
 
                     if abs(a_new) >= 2 ** (
                         NUM_BITS_COVARIANCE - 1 + COV_EXTRA_BIT
@@ -230,13 +228,11 @@ class JSVD:
 
                     # NOTE: sign modification is NOT needed here since we have `COS(2 theta)` and it is always positive even for negative angles.
                     a_new = (
-                        ((a + c) << self.lookuptable.num_bits) // 2
-                        + rotation_correction_small_angles
-                    ) >> self.lookuptable.num_bits
+                        ((a + c) << NUM_BITS) // 2 + rotation_correction_small_angles
+                    ) >> NUM_BITS
                     c_new = (
-                        ((a + c) << self.lookuptable.num_bits) // 2
-                        - rotation_correction_small_angles
-                    ) >> self.lookuptable.num_bits
+                        ((a + c) << NUM_BITS) // 2 - rotation_correction_small_angles
+                    ) >> NUM_BITS
 
                     if abs(a_new) >= 2 ** (
                         NUM_BITS_COVARIANCE - 1 + COV_EXTRA_BIT
@@ -279,11 +275,11 @@ class JSVD:
                 sub_vector_D_updated[0] = (
                     cos_val_quant * sub_vector_D[0]
                     + sin_val_quant * sign_tan2 * sub_vector_D[1]
-                ) >> self.lookuptable.num_bits
+                ) >> NUM_BITS
                 sub_vector_D_updated[1] = (
                     -sin_val_quant * sign_tan2 * sub_vector_D[0]
                     + cos_val_quant * sub_vector_D[1]
-                ) >> self.lookuptable.num_bits
+                ) >> NUM_BITS
 
                 if np.abs(sub_vector_D[0]) >= 2 ** (
                     NUM_BITS_COVARIANCE - 1 + COV_EXTRA_BIT
@@ -347,9 +343,9 @@ class JSVD:
 
                 R2_embed_in_3d[selection == 1] = R2.ravel()
                 # old version
-                # R2_embed_in_3d[dim,dim] = (2**self.lookuptable.num_bits)-1
+                # R2_embed_in_3d[dim,dim] = (2**NUM_BITS)-1
                 # new version: to reduce the number of multiplications
-                R2_embed_in_3d[dim, dim] = 2**self.lookuptable.num_bits
+                R2_embed_in_3d[dim, dim] = 2**NUM_BITS
 
                 # NOTE: example for dim=1
                 # if the computed rotation matrix using lookup table was |cos_val_quant  -sin_val_quant|
@@ -372,16 +368,13 @@ class JSVD:
                             update += R[i, k] * R2_embed_in_3d[k, j]
 
                             if abs(update) >= 2 ** (
-                                NUM_BITS_ROTATION
-                                + self.lookuptable.num_bits
-                                - 1
-                                + ROT_EXTRA_BIT
+                                NUM_BITS_ROTATION + NUM_BITS - 1 + ROT_EXTRA_BIT
                             ):
                                 raise ValueError(
                                     "an over- or under-flow happened in rotation update!"
                                 )
 
-                        R_out[i, j] = update >> self.lookuptable.num_bits
+                        R_out[i, j] = update >> NUM_BITS
 
                         if abs(R_out[i, j]) >= 2 ** (
                             NUM_BITS_ROTATION - 1 + ROT_EXTRA_BIT
