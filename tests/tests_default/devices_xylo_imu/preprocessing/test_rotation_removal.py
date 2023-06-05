@@ -49,8 +49,6 @@ def test_rotation_removal():
 
     # - Build quantized rotation removal module
     q_rot_remove = RotationRemoval(
-        num_bits_in=num_bits,
-        num_bits_out=num_bits,
         num_avg_bitshift=11,
         sampling_period=sampling_period,
     )
