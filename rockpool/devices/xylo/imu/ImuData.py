@@ -35,7 +35,6 @@ class XyloIMUData(Module):
         Args:
             device (XyloIMUHDK): A connected XyloIMUHDK device.
             frequency (float): The frequency to read data from IMU sensor. Default: 200.0
-            dt (float): The simulation time-step to use for this Module
         """
 
         # Check device validation
@@ -58,7 +57,8 @@ class XyloIMUData(Module):
         self.dt = 1 / frequency
 
         # Config the IMU sensor to ready for data reading
-        self.config_imu_sensor(self._mc, 500000)
+        ti = 1 / frequency * 1e5
+        self.config_imu_sensor(self._mc, ti)
 
     def config_imu_sensor(self, mcdevice, time_interval=500000):
         mcdevice.setup()
