@@ -16,13 +16,14 @@ from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 
 COV_EXTRA_BIT = 2
 """The components of the covariance can enlarger by a factor 3 (at most), thus, an additional register size of 2"""
+
 ROT_EXTRA_BIT = 1
 """Rotation can expand at most by a factor during the multiplication, thus, an additional register size of 1"""
 
-NUM_BITS_COVARIANCE: int
+NUM_BITS_COVARIANCE = 32
 """number of bits used for the covariance matrix"""
 
-NUM_BITS_ROTATION: int
+NUM_BITS_ROTATION = 32
 """number of bits devoted for implementing rotation matrix"""
 
 NROUND = 4
