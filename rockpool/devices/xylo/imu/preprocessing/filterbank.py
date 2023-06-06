@@ -1,13 +1,19 @@
 """
 Hardware butterworth filter implementation for the Xylo IMU.
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
 from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 from rockpool.nn.modules.module import Module
+
+B_IN = 16
+"""Number of input bits that can be processed with the block diagram"""
+
+B_WORST_CASE: int = 9
+"""Number of additional bits devoted to storing filter taps such that no over- and under-flow can happen"""
 
 __all__ = ["FilterBank", "BandPassFilter"]
 
@@ -19,49 +25,30 @@ class BandPassFilter:
     This is the block-diagram structure proposed for implementation.
     """
 
-    a1: int
+    a1: int = 64138
     """Integer representation of a1 tap"""
 
     a2: int = 31754
     """Integer representation of a2 tap"""
 
-    B_worst_case: int = 5
-    """Number of additional bits devoted to storing filter taps such that no over- and under-flow can happen"""
-
-    B_in: int = 16
-    """Number of input bits that can be processed with the block diagram"""
-
     B_b: int = 6
     """Bits needed for scaling b0"""
-
-    B_a: int = 17
-    """Total number of bits devoted to storing filter a-taps"""
-
-    B_af: int = 9
-    """Bits needed for encoding the fractional parts of taps"""
 
     B_wf: int = 8
     """Bits needed for fractional part of the filter output"""
 
-    B_w: Optional[int] = None
-    """Total number of bits devoted to storing the values computed by the AR-filter. It should be equal to `B_in + B_worst_case + B_wf`"""
-
-    B_out: Optional[int] = None
-    """Total number of bits needed for storing the values computed by the WHOLE filter."""
+    B_af: int = 9
+    """Bits needed for encoding the fractional parts of taps"""
 
     def __post_init__(self) -> None:
         """
-        Fill `None` values with the correct values and check the validity of the parameters.
+        Check the validity of the parameters.
         """
-        if self.B_w is None:
-            self.B_w = self.B_in + self.B_worst_case + self.B_wf
-        elif self.B_w != self.B_in + self.B_worst_case + self.B_wf:
-            raise ValueError("`B_w` should be equal to `B_in + B_worst_case + B_wf`")
+        self.B_w = B_IN + B_WORST_CASE + self.B_wf
+        """Total number of bits devoted to storing the values computed by the AR-filter."""
 
-        if self.B_out is None:
-            self.B_out = self.B_in + self.B_worst_case
-        elif self.B_out != self.B_in + self.B_worst_case:
-            raise ValueError("`B_out` should be equal to `B_in + B_worst_case`")
+        self.B_out = B_IN + B_WORST_CASE
+        """Total number of bits needed for storing the values computed by the WHOLE filter."""
 
     @type_check
     def compute_AR(self, signal: np.ndarray) -> np.ndarray:
@@ -80,9 +67,9 @@ class BandPassFilter:
 
         # check that the input is within the valid range of block-diagram
 
-        if np.max(np.abs(signal)) >= 2 ** (self.B_in - 1):
+        if np.max(np.abs(signal)) >= 2 ** (B_IN - 1):
             raise ValueError(
-                f"The input signal values can be in the range [-2^{self.B_in-1}, +2^{self.B_in-1}]!"
+                f"The input signal values can be in the range [-2^{B_IN-1}, +2^{B_IN-1}]!"
             )
 
         output = []
@@ -181,7 +168,7 @@ class FilterBank(Module):
             shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,9).
         """
         self.filter_list = [
-            BandPassFilter(B_worst_case=9, a1=-64700, a2=31935),
+            BandPassFilter(a1=-64700, a2=31935),
             BandPassFilter(a1=-64458),
             BandPassFilter(a1=-64330),
             BandPassFilter(a1=-64138),
