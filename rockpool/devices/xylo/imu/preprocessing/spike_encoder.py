@@ -10,13 +10,10 @@ from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 
-__all__ = ["ScaleSpikeEncoder", "IAFSpikeEncoder"]
-
-NUM_SCALE_BITS = 10
-"""number of right-bit-shifts needed for down-scaling the input signal"""
-
 NUM_OUT_BITS = 4
 """number of bits devoted to storing the output spike encoding"""
+
+__all__ = ["ScaleSpikeEncoder", "IAFSpikeEncoder"]
 
 
 class ScaleSpikeEncoder(Module):
@@ -31,14 +28,30 @@ class ScaleSpikeEncoder(Module):
     def __init__(
         self,
         shape: Optional[Union[Tuple, int]] = (48, 48),
+        num_scale_bits: int = 10,
     ) -> None:
         """
         Object constructor
 
         Args:
             shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (48,48).
+            num_scale_bits (int): number of right-bit-shifts needed for down-scaling the input signal. Defaults to 10.
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=True)
+
+        if num_scale_bits < 0:
+            raise ValueError(
+                f"num_scale_bits should be a non-negative integer. Got {num_scale_bits}"
+            )
+        if num_scale_bits > 15:
+            raise ValueError(
+                f"num_scale_bits should be less than or equal to 15. Got {num_scale_bits}"
+            )
+
+        self.num_scale_bits = SimulationParameter(
+            num_scale_bits, shape=(1,), cast_fn=int
+        )
+        """number of right-bit-shifts needed for down-scaling the input signal"""
 
     @type_check
     def evolve(
@@ -63,7 +76,7 @@ class ScaleSpikeEncoder(Module):
         output_data = np.abs(input_data)
 
         # scale the signal
-        output_data = output_data >> NUM_SCALE_BITS
+        output_data = output_data >> self.num_scale_bits
 
         # truncate the signal
         threshold = (1 << NUM_OUT_BITS) - 1
