@@ -37,7 +37,7 @@ class XyloIMUData(Module):
             frequency (float): The frequency to read data from IMU sensor. Default: 200.0
         """
 
-        # Check device validation
+        # - Check device validation
         if device is None:
             raise ValueError("`device` must be a valid, opened Xylo IMU HDK device.")
 
@@ -50,14 +50,14 @@ class XyloIMUData(Module):
             device
         )
 
-        # Store the IMU sensor
+        # - Store the IMU sensor
         self._mc = mc
         print(self._mc)
 
-        # Store the dt
+        # - Store the dt
         self.dt = 1 / frequency
 
-        # Calculate the time interval and config the IMU sensor to ready for data reading
+        # - Calculate the time interval and config the IMU sensor to ready for data reading
         ti = int(1 / frequency * 1e8)
         self.config_imu_sensor(self._mc, ti)
 
@@ -70,7 +70,7 @@ class XyloIMUData(Module):
             time_interval (int): The time interval to generate data. default: 500000.
         """
 
-        # Configure the imu densor device
+        # - Configure the imu densor device
         mcdevice.setup()
         mcdevice.set_auto_read_period(time_interval)
         mcdevice.auto_read_enable(True)
@@ -79,7 +79,6 @@ class XyloIMUData(Module):
         self,
         input_data,
         timeout: Optional[float] = None,
-        record: bool = False,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
         Use the IMU sensor to record live IMU data and return
@@ -91,8 +90,7 @@ class XyloIMUData(Module):
             (np.ndarray, dict, dict) output_events, {}, {}
         """
 
-        # self.config_imu_sensor(self._mc, 500000)
-
+        # - Get the shape of the output data
         Nt, Nc = input_data.shape
 
         if Nc != 3:
@@ -105,10 +103,10 @@ class XyloIMUData(Module):
 
         # - Determine a read timeout
         timeout = 2 * Nt * self.dt if timeout is None else timeout
-
         t_start = time.time()
         t_timeout = t_start + timeout
 
+        # - Clear the read buffer to ensure no previous events influence
         self._read_buffer.get_events()
 
         while count < int(Nt):

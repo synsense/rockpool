@@ -131,11 +131,12 @@ def initialise_imu_sensor(
         hdk (XyloIMUHDK): A Xylo IMU device contains an IMU sensor to initialise
     """
 
+    # - set XyloIMUHDK to read data mode and get IMU sensor device
     hdk.get_stop_watch().set_enable_value(True)
     time.sleep(0.1)
     mc = hdk.get_mc3632()
 
-    # Register sink and source buffer to read and write data to IMU sensor
+    # - Register sink and source buffer to read and write data to IMU sensor
     read_buffer = samna.graph.sink_from(mc.get_source_node())
     write_buffer = samna.graph.source_to(mc.get_sink_node())
 
