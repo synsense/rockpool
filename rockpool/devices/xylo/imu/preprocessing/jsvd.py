@@ -20,7 +20,7 @@ COV_EXTRA_BIT = 2
 ROT_EXTRA_BIT = 1
 """Rotation can expand at most by a factor during the multiplication, thus, an additional register size of 1"""
 
-NUM_BITS_COVARIANCE = 32
+NUM_BITS_COVARIANCE = 31
 """number of bits used for the covariance matrix"""
 
 NUM_BITS_ROTATION = 32
