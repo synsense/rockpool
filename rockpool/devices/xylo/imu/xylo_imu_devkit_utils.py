@@ -144,6 +144,21 @@ def initialise_imu_sensor(
     return read_buffer, write_buffer, mc
 
 
+def config_imu_sensor(self, mcdevice: IMUSensorHDK, time_interval: int = 500000):
+    """
+    Configure the mc3632 module to enable data reading from imu sensor.
+
+    Args:
+        mcdevice (IMUSensorHDK): A connected mc3632 device on XyloIMUHDK.
+        time_interval (int): The time interval (units in 10ns) to generate data. default: 500000.
+    """
+
+    # - Configure the imu densor device
+    mcdevice.setup()
+    mcdevice.set_auto_read_period(time_interval)
+    mcdevice.auto_read_enable(True)
+
+
 def initialise_xylo_hdk(write_buffer: XyloIMUWriteBuffer) -> None:
     """
     Initialise the Xylo IMU HDK
