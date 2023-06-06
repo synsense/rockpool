@@ -6,7 +6,11 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.preprocessing.utils import type_check
+from rockpool.devices.xylo.imu.preprocessing.utils import (
+    type_check,
+    unsigned_bit_range_check,
+    signed_bit_range_check,
+)
 from rockpool.nn.modules.module import Module
 
 B_IN = 16
@@ -25,12 +29,6 @@ class BandPassFilter:
     This is the block-diagram structure proposed for implementation.
     """
 
-    a1: int = 64138
-    """Integer representation of a1 tap"""
-
-    a2: int = 31754
-    """Integer representation of a2 tap"""
-
     B_b: int = 6
     """Bits needed for scaling b0"""
 
@@ -39,6 +37,12 @@ class BandPassFilter:
 
     B_af: int = 9
     """Bits needed for encoding the fractional parts of taps"""
+
+    a1: int = 73131
+    """Integer representation of a1 tap"""
+
+    a2: int = 31754
+    """Integer representation of a2 tap"""
 
     def __post_init__(self) -> None:
         """
@@ -49,6 +53,12 @@ class BandPassFilter:
 
         self.B_out = B_IN + B_WORST_CASE
         """Total number of bits needed for storing the values computed by the WHOLE filter."""
+
+        unsigned_bit_range_check(self.B_b, n_bits=4)
+        unsigned_bit_range_check(self.B_wf, n_bits=4)
+        unsigned_bit_range_check(self.B_af, n_bits=4)
+        signed_bit_range_check(self.a1, n_bits=17)
+        signed_bit_range_check(self.a2, n_bits=17)
 
     @type_check
     def compute_AR(self, signal: np.ndarray) -> np.ndarray:
@@ -95,7 +105,7 @@ class BandPassFilter:
 
         if np.max(np.abs(output)) >= 2 ** (self.B_w - 1):
             raise ValueError(
-                f"output signal is beyond the valid output range of AR branch [-2^{self.B_w-1}, +2^{self.B_w-1}]!"
+                f"output signal is beyond the valid output range of AR branch max={np.max(np.abs(output))} is not in [-2^{self.B_w-1}, +2^{self.B_w-1}]!"
             )
 
         # convert into numpy
