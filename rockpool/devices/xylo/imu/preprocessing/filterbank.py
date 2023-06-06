@@ -52,9 +52,6 @@ class BandPassFilter:
     b: list = field(default_factory=lambda: [1, 0, -1])
     """Special case for normalized Butterworth filters"""
 
-    scale_out: int = 0.9898
-    """Surplus scaling due to `b` normalization surplus scaling due to `b` normalization. It is always in the range [0.5, 1.0]"""
-
     def __post_init__(self) -> None:
         """
         Fill `None` values with the correct values and check the validity of the parameters.
@@ -68,11 +65,6 @@ class BandPassFilter:
             self.B_out = self.B_in + self.B_worst_case
         elif self.B_out != self.B_in + self.B_worst_case:
             raise ValueError("`B_out` should be equal to `B_in + B_worst_case`")
-
-        if self.scale_out < 0.5 or self.scale_out > 1.0:
-            raise ValueError(
-                f"output surplus scale should be in the range [0.5, 1.0]. Got {self.scale_out}."
-            )
 
     @type_check
     def compute_AR(self, signal: np.ndarray) -> np.ndarray:
@@ -192,7 +184,7 @@ class FilterBank(Module):
             shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,9).
         """
         self.filter_list = [
-            BandPassFilter(B_worst_case=9, a1=-64700, a2=31935, scale_out=0.8139),
+            BandPassFilter(B_worst_case=9, a1=-64700, a2=31935),
             BandPassFilter(a1=-64458),
             BandPassFilter(a1=-64330),
             BandPassFilter(a1=-64138),
