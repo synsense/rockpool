@@ -49,9 +49,6 @@ class BandPassFilter:
     B_out: Optional[int] = None
     """Total number of bits needed for storing the values computed by the WHOLE filter."""
 
-    b: list = field(default_factory=lambda: [1, 0, -1])
-    """Special case for normalized Butterworth filters"""
-
     def __post_init__(self) -> None:
         """
         Fill `None` values with the correct values and check the validity of the parameters.
@@ -136,8 +133,8 @@ class BandPassFilter:
         if signal.ndim > 1:
             raise ValueError("input signal should be 1-dim.")
 
-        sig_out = self.b[0] * signal
-        sig_out[2:] = sig_out[2:] + self.b[2] * signal[:-2]
+        sig_out = np.copy(signal)
+        sig_out[2:] = sig_out[2:] - signal[:-2]
 
         # apply the last B_wf bitshift to get rid of additional scaling needed to avoid dead-zone in the AR part
         sig_out = sig_out >> self.B_wf
