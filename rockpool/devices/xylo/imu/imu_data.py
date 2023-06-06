@@ -46,7 +46,7 @@ class XyloIMUData(Module):
         """ `.XyloHDK`: The Xylo HDK used by this module """
 
         # - Register buffers to read and write events
-        self._read_buffer, self._write_buffer, mc = hdkutils.Initialise_imu_sensor(
+        self._read_buffer, self._write_buffer, mc = hdkutils.initialise_imu_sensor(
             device
         )
 
@@ -57,7 +57,7 @@ class XyloIMUData(Module):
         # Store the dt
         self.dt = 1 / frequency
 
-        # Config the IMU sensor to ready for data reading
+        # Calculate the time interval and config the IMU sensor to ready for data reading
         ti = int(1 / frequency * 1e8)
         self.config_imu_sensor(self._mc, ti)
 

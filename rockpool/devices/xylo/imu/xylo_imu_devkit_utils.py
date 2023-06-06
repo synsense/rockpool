@@ -4,7 +4,6 @@ Low-level device kit utilities for the Xylo-IMU HDK
 
 import samna
 from samna.xyloImu.configuration import XyloConfiguration
-from samna.unifirm.modules.mc3632 import Mc3632
 
 # - Other imports
 import time
