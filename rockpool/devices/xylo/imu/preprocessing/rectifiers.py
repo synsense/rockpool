@@ -14,7 +14,7 @@ __all__ = ["FullWaveRectifier", "HalfWaveRectifier"]
 class FullWaveRectifier(Instant):
     """Full-wave rectification to the bipolar input signals"""
 
-    def __init__(self, shape: Optional[Union[Tuple, int]] = (48, 48)) -> None:
+    def __init__(self, shape: Optional[Union[Tuple, int]] = (15, 15)) -> None:
         super().__init__(
             shape=shape, spiking_input=False, spiking_output=False, function=np.abs
         )
@@ -23,7 +23,7 @@ class FullWaveRectifier(Instant):
 class HalfWaveRectifier(Instant):
     """Full-wave rectification to the bipolar input signals"""
 
-    def __init__(self, shape: Optional[Union[Tuple, int]] = (48, 48)) -> None:
+    def __init__(self, shape: Optional[Union[Tuple, int]] = (15, 15)) -> None:
         super().__init__(
             shape=shape,
             spiking_input=False,
