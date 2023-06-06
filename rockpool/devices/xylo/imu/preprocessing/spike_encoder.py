@@ -6,7 +6,10 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.preprocessing.utils import type_check
+from rockpool.devices.xylo.imu.preprocessing.utils import (
+    type_check,
+    unsigned_bit_range_check,
+)
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 
@@ -28,7 +31,7 @@ class ScaleSpikeEncoder(Module):
     def __init__(
         self,
         shape: Optional[Union[Tuple, int]] = (15, 15),
-        num_scale_bits: int = 10,
+        num_scale_bits: int = 5,
     ) -> None:
         """
         Object constructor
@@ -39,15 +42,7 @@ class ScaleSpikeEncoder(Module):
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=True)
 
-        if num_scale_bits < 0:
-            raise ValueError(
-                f"num_scale_bits should be a non-negative integer. Got {num_scale_bits}"
-            )
-        if num_scale_bits > 15:
-            raise ValueError(
-                f"num_scale_bits should be less than or equal to 15. Got {num_scale_bits}"
-            )
-
+        unsigned_bit_range_check(num_scale_bits, n_bits=5)
         self.num_scale_bits = SimulationParameter(
             num_scale_bits, shape=(1,), cast_fn=int
         )
@@ -96,7 +91,7 @@ class IAFSpikeEncoder(Module):
     """
 
     def __init__(
-        self, shape: Optional[Union[Tuple, int]] = (15, 15), threshold: int = 1000
+        self, shape: Optional[Union[Tuple, int]] = (15, 15), threshold: int = 1024
     ) -> None:
         """
         Object constructor
@@ -107,6 +102,7 @@ class IAFSpikeEncoder(Module):
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=True)
 
+        unsigned_bit_range_check(threshold, n_bits=31)
         self.threshold = SimulationParameter(threshold, shape=(1,), cast_fn=int)
         """the threshold of the IAF neuron (quantized)"""
 
