@@ -52,7 +52,6 @@ class XyloIMUData(Module):
 
         # - Store the IMU sensor
         self._mc = mc
-        print(self._mc)
 
         # - Store the dt
         self.dt = 1 / frequency
