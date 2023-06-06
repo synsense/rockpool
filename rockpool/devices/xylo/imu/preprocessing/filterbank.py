@@ -161,11 +161,11 @@ class FilterBank(Module):
     Here we make sure that all those filters work properly.
     """
 
-    def __init__(self, shape: Optional[Union[Tuple, int]] = (3, 48)) -> None:
+    def __init__(self, shape: Optional[Union[Tuple, int]] = (3, 15)) -> None:
         """Object Constructor
 
         Args:
-            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,9).
+            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,15).
         """
         self.filter_list = [
             BandPassFilter(a1=-64700, a2=31935),
@@ -173,17 +173,6 @@ class FilterBank(Module):
             BandPassFilter(a1=-64330),
             BandPassFilter(a1=-64138),
             BandPassFilter(a1=-63884),
-            BandPassFilter(a1=-63566),
-            BandPassFilter(a1=-63185),
-            BandPassFilter(a1=-62743),
-            BandPassFilter(a1=-62238),
-            BandPassFilter(a1=-61672),
-            BandPassFilter(a1=-61045),
-            BandPassFilter(a1=-60357),
-            BandPassFilter(a1=-59611),
-            BandPassFilter(a1=-58805),
-            BandPassFilter(a1=-57941),
-            BandPassFilter(a1=-57020),
         ]
         if shape[1] != shape[0] * len(self.filter_list):
             raise ValueError(
