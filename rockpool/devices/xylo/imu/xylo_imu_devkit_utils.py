@@ -10,7 +10,7 @@ import time
 import numpy as np
 
 # - Typing and useful proxy types
-from typing import Any, List, Optional, NamedTuple, Tuple
+from typing import List, Optional, NamedTuple, Tuple
 
 XyloIMUReadBuffer = samna.BasicSinkNode_xylo_imu_event_output_event
 XyloIMUWriteBuffer = samna.BasicSourceNode_xylo_imu_event_input_event
