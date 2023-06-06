@@ -102,8 +102,8 @@ class XyloIMUData(Module):
                     x = e.x * 4 / math.pow(2, 14)
                     y = e.y * 4 / math.pow(2, 14)
                     z = e.z * 4 / math.pow(2, 14)
-                    output = [x, y, z]
-                    out.append(output)
+                    # output = [x, y, z]
+                    out.append([x, y, z])
 
                 # - Check for read timeout
                 if time.time() > t_timeout:

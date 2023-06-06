@@ -144,7 +144,7 @@ def initialise_imu_sensor(
     return read_buffer, write_buffer, mc
 
 
-def config_imu_sensor(self, mcdevice: IMUSensorHDK, time_interval: int = 500000):
+def config_imu_sensor(mcdevice: IMUSensorHDK, time_interval: int = 500000):
     """
     Configure the mc3632 module to enable data reading from imu sensor.
 
