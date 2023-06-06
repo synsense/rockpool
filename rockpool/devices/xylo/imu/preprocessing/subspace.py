@@ -12,8 +12,8 @@ from rockpool.parameters import SimulationParameter
 
 NUM_BITS_IN = 16
 """number of bits in the input data. We assume a sign magnitude format."""
-NUM_BITS_HIGHPREC_FILTER = 43
-"""number of bits devoted to computing the high-precision filter (to avoid dead-zone effect)"""
+NUM_BITS_HIGHPREC_FILTER_BASE = 31
+"""number of bits devoted to computing the high-precision filter (to avoid dead-zone effect). NOTE: This is the base value. The actual value is computed as `NUM_BITS_HIGHPREC_FILTER_BASE + num_avg_bitshift`"""
 NUM_BITS_MULTIPLIER = 31
 """number of bits devoted to computing [x(t) x(t)^T]_{ij}. If less then needed, the LSB values are removed"""
 
@@ -46,15 +46,20 @@ class SubSpace(Module):
             raise ValueError(
                 f"num_avg_bitshift should be a non-negative integer. Got {num_avg_bitshift}"
             )
-        if num_avg_bitshift > 15:
+        if num_avg_bitshift > 31:
             raise ValueError(
-                f"num_avg_bitshift should be less than or equal to 15. Got {num_avg_bitshift}"
+                f"num_avg_bitshift should be less than or equal to 31. Got {num_avg_bitshift}"
             )
 
         self.num_avg_bitshift = SimulationParameter(
             num_avg_bitshift, shape=(1,), cast_fn=int
         )
+
         """number of bitshifts used in the low-pass filter implementation."""
+        self.num_bits_highprec_filter = SimulationParameter(
+            NUM_BITS_HIGHPREC_FILTER_BASE + num_avg_bitshift, shape=(1,), cast_fn=int
+        )
+        """number of bits devoted to computing the high-precision filter (to avoid dead-zone effect)"""
 
     @type_check
     def evolve(
@@ -123,7 +128,9 @@ class SubSpace(Module):
 
                 # note that due to the specific shape of the low-pass filter used for averaging the input signal,
                 # the output of the low-pass filter will be always less than the input max value
-                if np.max(np.abs(C_highprec)) >= 2 ** (NUM_BITS_HIGHPREC_FILTER - 1):
+                if np.max(np.abs(C_highprec)) >= 2 ** (
+                    self.num_bits_highprec_filter - 1
+                ):
                     raise OverflowError(
                         "Overflow or underflow in the high-precision filter!"
                     )
