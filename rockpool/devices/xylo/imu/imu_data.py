@@ -78,11 +78,6 @@ class XyloIMUData(Module):
         # - Get the shape of the output data
         Nt, Nc = input_data.shape
 
-        if Nc != 3:
-            raise ValueError(
-                f"The specified data should have 3 channels! Recording data with shape [{Nt, Nc}]."
-            )
-
         out = []
         count = 0
 
