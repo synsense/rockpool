@@ -16,7 +16,6 @@ from rockpool.utilities.backend_management import (
 
 from .xylo_mapper import *
 from .xylo_graph_modules import *
-from .ImuData import *
 
 try:
     from .xylo_sim import *
@@ -27,6 +26,7 @@ except:
         raise
 
 try:
+    from .imu_data import *
     from .xylo_samna import *
     from .xylo_imu_devkit_utils import *
 
