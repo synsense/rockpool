@@ -105,6 +105,6 @@ class XyloIMUData(Module):
                 if time.time() > t_timeout:
                     raise TimeoutError(f"IMUSensor: Read timeout of {timeout} sec.")
 
-        out = np.array(out).T
+        out = np.array(out)
 
         return out, {}, {}
