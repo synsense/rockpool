@@ -88,6 +88,12 @@ class XyloIMUData(Module):
         # - Get the shape of the output data
         Nb, Nt, Nc = data.shape
 
+        # - Check batch size
+        if Nb > 1:
+            raise ValueError(
+                f"Batched data are not supported by IMUData. Got batched input data with shape {[Nb, Nt, Nc]}."
+            )
+
         out = []
         count = 0
 
