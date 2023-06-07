@@ -83,11 +83,13 @@ class XyloIMUData(Module):
 
         # - Determine a read timeout
         timeout = 2 * Nt * self.dt if timeout is None else timeout
-        t_start = time.time()
-        t_timeout = t_start + timeout
 
         # - Clear the read buffer to ensure no previous events influence
         self._read_buffer.get_events()
+
+        # - Start recording time
+        t_start = time.time()
+        t_timeout = t_start + timeout
 
         while count < int(Nt):
             evts = self._read_buffer.get_events()
@@ -97,7 +99,6 @@ class XyloIMUData(Module):
                     x = e.x * 4 / math.pow(2, 14)
                     y = e.y * 4 / math.pow(2, 14)
                     z = e.z * 4 / math.pow(2, 14)
-                    # output = [x, y, z]
                     out.append([x, y, z])
 
                 # - Check for read timeout
