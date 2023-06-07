@@ -8,7 +8,10 @@ import numpy as np
 from rockpool.devices.xylo.imu.preprocessing.jsvd import JSVD, NUM_BITS_ROTATION
 from rockpool.devices.xylo.imu.preprocessing.sample_hold import SampleAndHold
 from rockpool.devices.xylo.imu.preprocessing.subspace import SubSpace, NUM_BITS_IN
-from rockpool.devices.xylo.imu.preprocessing.utils import type_check
+from rockpool.devices.xylo.imu.preprocessing.utils import (
+    type_check,
+    unsigned_bit_range_check,
+)
 from rockpool.nn.combinators import Sequential
 
 from rockpool.nn.modules.module import Module
@@ -48,6 +51,8 @@ class RotationRemoval(Module):
 
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
+
+        unsigned_bit_range_check(num_avg_bitshift, num_bits=5)
 
         self.sub_estimate = Sequential(
             SubSpace(
