@@ -217,30 +217,17 @@ class FilterBank(Module):
                 f"The number of output channels should be a multiple of the number of input channels."
             )
 
-        if len(B_b_list) != shape[1]:
-            raise ValueError(
-                f"The number of B_b should be equal to the number of filters. Expected {shape[1]} Got {len(B_b_list)}"
-            )
+        def __check_list_shape(list: List[int], name: str) -> None:
+            if len(list) != shape[1]:
+                raise ValueError(
+                    f"The number of {name} should be equal to the number of filters. Expected {shape[1]} Got {len(list)}"
+                )
 
-        if len(B_wf_list) != shape[1]:
-            raise ValueError(
-                f"The number of B_wf should be equal to the number of filters. Expected {shape[1]} Got {len(B_wf_list)}"
-            )
-
-        if len(B_af_list) != shape[1]:
-            raise ValueError(
-                f"The number of B_af should be equal to the number of filters. Expected {shape[1]} Got {len(B_af_list)}"
-            )
-
-        if len(a1_list) != shape[1]:
-            raise ValueError(
-                f"The number of a1 should be equal to the number of filters. Expected {shape[1]} Got {len(a1_list)}"
-            )
-
-        if len(a2_list) != shape[1]:
-            raise ValueError(
-                f"The number of a2 should be equal to the number of filters. Expected {shape[1]} Got {len(a2_list)}"
-            )
+        __check_list_shape(B_b_list, "B_b")
+        __check_list_shape(B_wf_list, "B_wf")
+        __check_list_shape(B_af_list, "B_af")
+        __check_list_shape(a1_list, "a1")
+        __check_list_shape(a2_list, "a2")
 
         self.filter_list = []
         for B_b, B_wf, B_af, a1, a2 in zip(
