@@ -172,6 +172,16 @@ class FilterBank(Module):
             BandPassFilter(a1=-64330),
             BandPassFilter(a1=-64138),
             BandPassFilter(a1=-63884),
+            BandPassFilter(a1=-63566),
+            BandPassFilter(a1=-63185),
+            BandPassFilter(a1=-62743),
+            BandPassFilter(a1=-62238),
+            BandPassFilter(a1=-61672),
+            BandPassFilter(a1=-61045),
+            BandPassFilter(a1=-60357),
+            BandPassFilter(a1=-59611),
+            BandPassFilter(a1=-58805),
+            BandPassFilter(a1=-57941),
         ]
         if shape[1] != shape[0] * len(self.filter_list):
             raise ValueError(
