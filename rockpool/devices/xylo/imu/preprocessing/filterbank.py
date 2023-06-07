@@ -183,16 +183,11 @@ class FilterBank(Module):
             BandPassFilter(a1=-58805),
             BandPassFilter(a1=-57941),
         ]
-        if shape[1] != shape[0] * len(self.filter_list):
+        if shape[1] != len(self.filter_list):
             raise ValueError(
-                f"The output size should be {shape[0]*len(self.filter_list)} to compute filtered output! Each filter will be applied to one channel."
+                f"The output size should be {len(self.filter_list)} to compute filtered output! Each filter will be applied to one channel."
             )
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
-
-    @property
-    def numF(self) -> int:
-        """Number of filters in the collection"""
-        return len(self.filter_list)
 
     @type_check
     def evolve(
