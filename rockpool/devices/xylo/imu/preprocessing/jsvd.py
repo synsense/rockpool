@@ -12,7 +12,10 @@ from typing import List, Tuple
 import numpy as np
 
 from rockpool.devices.xylo.imu.preprocessing.lookup import RotationLookUpTable, NUM_BITS
-from rockpool.devices.xylo.imu.preprocessing.utils import type_check
+from rockpool.devices.xylo.imu.preprocessing.utils import (
+    type_check,
+    unsigned_bit_range_check,
+)
 
 COV_EXTRA_BIT = 2
 """The components of the covariance can enlarger by a factor 3 (at most), thus, an additional register size of 2"""
@@ -85,10 +88,7 @@ class JSVD:
                 "The input covariance matrix does not seem to be symmetric! This may cause issues in computation!"
             )
 
-        if np.max(np.abs(C_in)) >= 2 ** (NUM_BITS_COVARIANCE - 1):
-            raise ValueError(
-                f"The input covariance matrix does not fit in the {NUM_BITS_COVARIANCE} bits assigned to it! If needed, apply quantization to the covariance to truncate it!"
-            )
+        unsigned_bit_range_check(np.max(np.abs(C_in)), NUM_BITS_COVARIANCE - 1)
 
         # estimated covariance matrices
         C_list = [C_in]
