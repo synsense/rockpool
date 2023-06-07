@@ -38,7 +38,7 @@ class ScaleSpikeEncoder(Module):
 
         Args:
             shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (15, 15).
-            num_scale_bits (int): number of right-bit-shifts needed for down-scaling the input signal. Defaults to 10.
+            num_scale_bits (int): number of right-bit-shifts needed for down-scaling the input signal. Defaults to 5.
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=True)
 
@@ -98,7 +98,7 @@ class IAFSpikeEncoder(Module):
 
         Args:
             shape (Optional[Union[Tuple, int]], optional): the shape of the input signal. Defaults to (15, 15).
-            threshold (int): the threshold of the IAF neuron (quantized). Default to 1000
+            threshold (int): the threshold of the IAF neuron (quantized). Default to 1024
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=True)
 
