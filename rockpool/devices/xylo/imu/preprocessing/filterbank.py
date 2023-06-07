@@ -185,9 +185,17 @@ class FilterBank(Module):
         ]
         if shape[1] != len(self.filter_list):
             raise ValueError(
-                f"The output size should be {len(self.filter_list)} to compute filtered output! Each filter will be applied to one channel."
+                f"The output size should be {len(self.filter_list)} to compute filtered output!"
             )
+        if shape[1] // shape[0] != shape[1] / shape[0]:
+            raise ValueError(
+                f"The number of output channels should be a multiple of the number of input channels."
+            )
+
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
+
+        self.channel_mapping = np.sort([i % self.size_in for i in range(self.size_out)])
+        """Mapping from IMU channels to filter channels. [0,0,0,0,0,1,1,1,1,1,2,2,2,2,2] by default"""
 
     @type_check
     def evolve(
@@ -216,13 +224,10 @@ class FilterBank(Module):
 
         # iterate over batch
         for signal in input_data:
-            # iterate over channels
             channel_out = []
-            for single_channel in signal.T:
-                for __filter in self.filter_list:
-                    # apply the filter to the input signal
-                    out = __filter(single_channel)
-                    channel_out.append(out)
+            for __filter, __ch in zip(self.filter_list, self.channel_mapping):
+                out = __filter(signal.T[__ch])
+                channel_out.append(out)
 
             data_out.append(channel_out)
 
