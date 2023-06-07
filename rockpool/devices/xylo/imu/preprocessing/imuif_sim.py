@@ -39,7 +39,6 @@ class IMUIFSim(Module):
         shape: Optional[Union[Tuple, int]] = (3, 48),
     ):
         """ """
-
         super().__init__(shape=shape, spiking_input=False, spiking_output=True)
 
     @type_check
@@ -70,8 +69,30 @@ class IMUIFSim(Module):
 
     @classmethod
     def from_config(cls, config: InputInterfaceConfig) -> IMUIFSim:
-        pass
+        ## BandPassFilter
+        config.bpf_a1_values
+        config.bpf_a2_values
+        config.bpf_baf_values
+        config.bpf_bb_values
+        config.bpf_bwf_values
+
+        config.bypass_jsvd
+
+        config.delay_threshold
+        config.enable
+        config.estimator_k_setting
+        config.from_json
+        config.iaf_threshold_values
+        config.scale_values
+        config.select_iaf_output
+
+        config.update_matrix_threshold
 
     @classmethod
     def from_specification(cls, *args, **kwargs) -> IMUIFSim:
         pass
+
+
+if __name__ == "__main__":
+    config = InputInterfaceConfig()
+    print(config.bpf_a1_values)
