@@ -73,7 +73,3 @@ class SampleAndHold(Module):
 
         out_data = np.array(out_data, dtype=object)
         return out_data, {}, {}
-
-    def __str__(self) -> str:
-        string = "Sample-and-Hold maodule:\n" + f"period: {self.sampling_period}"
-        return string
