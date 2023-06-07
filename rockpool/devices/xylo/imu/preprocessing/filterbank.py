@@ -2,7 +2,7 @@
 Hardware butterworth filter implementation for the Xylo IMU.
 """
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -160,36 +160,99 @@ class FilterBank(Module):
     Here we make sure that all those filters work properly.
     """
 
-    def __init__(self, shape: Optional[Union[Tuple, int]] = (3, 15)) -> None:
+    def __init__(
+        self,
+        shape: Optional[Union[Tuple, int]] = (3, 15),
+        B_b_list: List[int] = [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
+        B_wf_list: List[int] = [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+        B_af_list: List[int] = [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+        a1_list: List[int] = [
+            -64700,
+            -64458,
+            -64330,
+            -64138,
+            -63884,
+            -63566,
+            -63185,
+            -62743,
+            -62238,
+            -61672,
+            -61045,
+            -60357,
+            -59611,
+            -58805,
+            -57941,
+        ],
+        a2_list: List[int] = [
+            31935,
+            31754,
+            31754,
+            31754,
+            31754,
+            31754,
+            31754,
+            31754,
+            31754,
+            31754,
+            31754,
+            31754,
+            31754,
+            31754,
+            31754,
+        ],
+    ) -> None:
         """Object Constructor
 
         Args:
             shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,15).
+            B_b_list (List[int], optional): The list of the B_b parameters of each filter. B_b stands for bits needed for scaling b0. Defaults to [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6].
+            B_wf_list (List[int], optional): The list of the B_wf parameters of each filter. B_wf stands for bits needed for fractional part of the filter output. Defaults to [8,8,8,8,8,8,8,8,8,8,8,8,8,8,8].
+            B_af_list (List[int], optional): The list of the B_af parameters of each filter. B_af stands for bits needed for encoding the fractional parts of taps. Defaults to [9,9,9,9,9,9,9,9,9,9,9,9,9,9,9].
+            a1_list (List[int], optional): The list of the a1 tap parameters of each filter. Defaults to [-64700,-64458,-64330,-64138,-63884,-63566,-63185,-62743,-62238,-61672,-61045,-60357,-59611,-58805,-57941].
+            a2_list (List[int], optional): The list of the a2 tap parameters of each filter. Defaults to [31935,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754].
         """
-        self.filter_list = [
-            BandPassFilter(a1=-64700, a2=31935),
-            BandPassFilter(a1=-64458),
-            BandPassFilter(a1=-64330),
-            BandPassFilter(a1=-64138),
-            BandPassFilter(a1=-63884),
-            BandPassFilter(a1=-63566),
-            BandPassFilter(a1=-63185),
-            BandPassFilter(a1=-62743),
-            BandPassFilter(a1=-62238),
-            BandPassFilter(a1=-61672),
-            BandPassFilter(a1=-61045),
-            BandPassFilter(a1=-60357),
-            BandPassFilter(a1=-59611),
-            BandPassFilter(a1=-58805),
-            BandPassFilter(a1=-57941),
-        ]
-        if shape[1] != len(self.filter_list):
-            raise ValueError(
-                f"The output size should be {len(self.filter_list)} to compute filtered output!"
-            )
+
         if shape[1] // shape[0] != shape[1] / shape[0]:
             raise ValueError(
                 f"The number of output channels should be a multiple of the number of input channels."
+            )
+
+        if len(B_b_list) != shape[1]:
+            raise ValueError(
+                f"The number of B_b should be equal to the number of filters. Expected {shape[1]} Got {len(B_b_list)}"
+            )
+
+        if len(B_wf_list) != shape[1]:
+            raise ValueError(
+                f"The number of B_wf should be equal to the number of filters. Expected {shape[1]} Got {len(B_wf_list)}"
+            )
+
+        if len(B_af_list) != shape[1]:
+            raise ValueError(
+                f"The number of B_af should be equal to the number of filters. Expected {shape[1]} Got {len(B_af_list)}"
+            )
+
+        if len(a1_list) != shape[1]:
+            raise ValueError(
+                f"The number of a1 should be equal to the number of filters. Expected {shape[1]} Got {len(a1_list)}"
+            )
+
+        if len(a2_list) != shape[1]:
+            raise ValueError(
+                f"The number of a2 should be equal to the number of filters. Expected {shape[1]} Got {len(a2_list)}"
+            )
+
+        self.filter_list = []
+        for B_b, B_wf, B_af, a1, a2 in zip(
+            B_b_list, B_wf_list, B_af_list, a1_list, a2_list
+        ):
+            self.filter_list.append(
+                BandPassFilter(B_b=B_b, B_wf=B_wf, B_af=B_af, a1=a1, a2=a2)
+            )
+
+        if shape[1] != len(self.filter_list):
+            raise ValueError(
+                f"The output size should be {len(self.filter_list)} to compute filtered output!"
             )
 
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
