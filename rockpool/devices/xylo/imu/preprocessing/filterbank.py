@@ -77,10 +77,7 @@ class BandPassFilter:
 
         # check that the input is within the valid range of block-diagram
 
-        if np.max(np.abs(signal)) >= 2 ** (B_IN - 1):
-            raise ValueError(
-                f"The input signal values can be in the range [-2^{B_IN-1}, +2^{B_IN-1}]!"
-            )
+        unsigned_bit_range_check(np.max(np.abs(signal)), n_bits=B_IN - 1)
 
         output = []
 
@@ -103,11 +100,7 @@ class BandPassFilter:
 
             # check the overflow: here we have the integer version
 
-        if np.max(np.abs(output)) >= 2 ** (self.B_w - 1):
-            raise ValueError(
-                f"output signal is beyond the valid output range of AR branch max={np.max(np.abs(output))} is not in [-2^{self.B_w-1}, +2^{self.B_w-1}]!"
-            )
-
+        unsigned_bit_range_check(np.max(np.abs(output)), n_bits=self.B_w - 1)
         # convert into numpy
         return np.asarray(output, dtype=object)
 
@@ -137,11 +130,7 @@ class BandPassFilter:
         sig_out = sig_out >> self.B_wf
 
         # check the validity of the computed output
-        if np.max(np.abs(sig_out)) >= 2 ** (self.B_out - 1):
-            raise OverflowError(
-                f"overflow or underflow: computed filter output is beyond the valid range [-2^{self.B_out-1}, +2^{self.B_out-1}]!"
-            )
-
+        unsigned_bit_range_check(np.max(np.abs(sig_out)), n_bits=self.B_out - 1)
         return sig_out
 
     @type_check
