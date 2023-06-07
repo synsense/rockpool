@@ -54,9 +54,6 @@ def test_filterbank():
     np.random.seed(2023)
 
     # - Test values
-    num_bits = 16
-    num_bits_multiplier = num_bits + 10
-    num_avg_bitshift = 11
     sampling_period = 10
 
     # - Synthetic data generation
@@ -82,26 +79,17 @@ def test_filterbank():
     mod_if = Sequential(
         Quantizer(
             scale=0.999 / np.max(np.abs(input_signal_rotated)),
-            num_bits=num_bits,
+            num_bits=16,
         ),
         RotationRemoval(
-            num_bits_in=num_bits,
-            num_bits_out=num_bits,
-            num_bits_multiplier=num_bits + 10,
-            num_bits_highprec_filter=num_bits_multiplier + num_avg_bitshift,
             num_avg_bitshift=11,
             sampling_period=sampling_period,
-            num_angles=64,
-            num_bits_lookup=num_bits,
-            num_bits_covariance=2 * num_bits_multiplier,
-            num_bits_rotation=2 * num_bits_multiplier,
-            nround=4,
         ),
         FilterBank(),
     )
 
     __B, __T, __C = input_signal.shape
-    __F = __C * mod_if[2].numF
+    __F = mod_if[2].size_out
     q_filt_signal, _, _ = mod_if(input_signal)
     assert q_filt_signal.shape == (__B, __T, __F)
 

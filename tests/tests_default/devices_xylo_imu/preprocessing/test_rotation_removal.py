@@ -19,8 +19,6 @@ def test_rotation_removal():
 
     # - Test values
     num_bits = 16
-    num_bits_multiplier = num_bits + 10
-    num_avg_bitshift = 11
     sampling_period = 10
 
     # - Synthetic data generation
@@ -51,17 +49,8 @@ def test_rotation_removal():
 
     # - Build quantized rotation removal module
     q_rot_remove = RotationRemoval(
-        num_bits_in=num_bits,
-        num_bits_out=num_bits,
-        num_bits_multiplier=num_bits + 10,
-        num_bits_highprec_filter=num_bits_multiplier + num_avg_bitshift,
         num_avg_bitshift=11,
         sampling_period=sampling_period,
-        num_angles=64,
-        num_bits_lookup=num_bits,
-        num_bits_covariance=2 * num_bits_multiplier,
-        num_bits_rotation=2 * num_bits_multiplier,
-        nround=4,
     )
 
     q_ref_signal, _, _ = quantizer(input_signal)

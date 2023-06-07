@@ -6,9 +6,15 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.preprocessing.utils import type_check
+from rockpool.devices.xylo.imu.preprocessing.utils import (
+    type_check,
+    unsigned_bit_range_check,
+)
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
+
+NUM_OUT_BITS = 4
+"""number of bits devoted to storing the output spike encoding"""
 
 __all__ = ["ScaleSpikeEncoder", "IAFSpikeEncoder"]
 
@@ -24,26 +30,23 @@ class ScaleSpikeEncoder(Module):
 
     def __init__(
         self,
-        num_scale_bits: int,
-        num_out_bits: int,
-        shape: Optional[Union[Tuple, int]] = (48, 48),
+        shape: Optional[Union[Tuple, int]] = (15, 15),
+        num_scale_bits: int = 5,
     ) -> None:
         """
         Object constructor
 
         Args:
-            num_scale_bits (int): number of right-bit-shifts needed for down-scaling the input signal.
-            num_out_bits (int): number of bits devoted to storing the output spike encoding.
+            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (15, 15).
+            num_scale_bits (int): number of right-bit-shifts needed for down-scaling the input signal. Defaults to 5.
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=True)
 
+        unsigned_bit_range_check(num_scale_bits, n_bits=5)
         self.num_scale_bits = SimulationParameter(
             num_scale_bits, shape=(1,), cast_fn=int
         )
         """number of right-bit-shifts needed for down-scaling the input signal"""
-
-        self.num_out_bits = SimulationParameter(num_out_bits, shape=(1,), cast_fn=int)
-        """number of bits devoted to storing the output spike encoding"""
 
     @type_check
     def evolve(
@@ -62,10 +65,6 @@ class ScaleSpikeEncoder(Module):
                 empty dictionary
         """
         input_data, _ = self._auto_batch(input_data)
-        __B, __T, __C = input_data.shape
-        if __C != self.size_in:
-            raise ValueError(f"The input data should have {self.size_in} channels!")
-
         input_data = np.array(input_data, dtype=np.int64).astype(object)
 
         # Full-wave rectification
@@ -75,7 +74,7 @@ class ScaleSpikeEncoder(Module):
         output_data = output_data >> self.num_scale_bits
 
         # truncate the signal
-        threshold = (1 << self.num_out_bits) - 1
+        threshold = (1 << NUM_OUT_BITS) - 1
         output_data[output_data > threshold] = threshold
 
         return output_data, {}, {}
@@ -92,16 +91,18 @@ class IAFSpikeEncoder(Module):
     """
 
     def __init__(
-        self, threshold: int, shape: Optional[Union[Tuple, int]] = (48, 48)
+        self, shape: Optional[Union[Tuple, int]] = (15, 15), threshold: int = 1024
     ) -> None:
         """
         Object constructor
 
         Args:
-            threshold (int): the threshold of the IAF neuron (quantized)
+            shape (Optional[Union[Tuple, int]], optional): the shape of the input signal. Defaults to (15, 15).
+            threshold (int): the threshold of the IAF neuron (quantized). Default to 1024
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=True)
 
+        unsigned_bit_range_check(threshold, n_bits=31)
         self.threshold = SimulationParameter(threshold, shape=(1,), cast_fn=int)
         """the threshold of the IAF neuron (quantized)"""
 
@@ -123,11 +124,6 @@ class IAFSpikeEncoder(Module):
         """
         input_data, _ = self._auto_batch(input_data)
         __B, __T, __C = input_data.shape
-
-        if __C != self.size_in:
-            raise ValueError(
-                f"Input data should have {self.size_in} channels, but {__C} channels are given!"
-            )
         input_data = np.array(input_data, dtype=np.int64).astype(object)
 
         # Full-wave rectification
