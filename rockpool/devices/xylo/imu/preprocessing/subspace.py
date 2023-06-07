@@ -6,7 +6,10 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.preprocessing.utils import type_check
+from rockpool.devices.xylo.imu.preprocessing.utils import (
+    type_check,
+    unsigned_bit_range_check,
+)
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 
@@ -42,14 +45,7 @@ class SubSpace(Module):
 
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
-        if num_avg_bitshift < 0:
-            raise ValueError(
-                f"num_avg_bitshift should be a non-negative integer. Got {num_avg_bitshift}"
-            )
-        if num_avg_bitshift > 31:
-            raise ValueError(
-                f"num_avg_bitshift should be less than or equal to 31. Got {num_avg_bitshift}"
-            )
+        unsigned_bit_range_check(num_avg_bitshift, n_bits=5)
 
         self.num_avg_bitshift = SimulationParameter(
             num_avg_bitshift, shape=(1,), cast_fn=int
@@ -79,10 +75,7 @@ class SubSpace(Module):
         """
 
         # check the validity of the data
-        if np.max(np.abs(input_data)) >= 2 ** (NUM_BITS_IN - 1):
-            raise ValueError(
-                f"some elements of the input data are beyond the range of {NUM_BITS_IN} bits!"
-            )
+        unsigned_bit_range_check(np.max(np.abs(input_data)), n_bits=NUM_BITS_IN - 1)
 
         # check that the values are indeed integers
         if np.linalg.norm(np.floor(input_data) - input_data) > 0:
