@@ -75,8 +75,18 @@ class XyloIMUData(Module):
             (np.ndarray, dict, dict) output_events, {}, {}
         """
 
+        # - Ensure data is a float tensor
+        data = np.array(input_data, "float")
+
+        # - Verify input data shape
+        if len(data.shape) == 1:
+            data = np.expand_dims(data, 0)
+            data = np.expand_dims(data, 2)
+        elif len(data.shape) == 2:
+            data = np.expand_dims(data, 0)
+
         # - Get the shape of the output data
-        Nt, Nc = input_data.shape
+        Nb, Nt, Nc = data.shape
 
         out = []
         count = 0
