@@ -2,7 +2,7 @@
 This module implements the spike encoding for the signal coming out of filters or IMU sensor directly.
 """
 
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -31,20 +31,27 @@ class ScaleSpikeEncoder(Module):
     def __init__(
         self,
         shape: Optional[Union[Tuple, int]] = (15, 15),
-        num_scale_bits: int = 5,
+        num_scale_bits: Union[List[int], int] = 5,
     ) -> None:
         """
         Object constructor
 
         Args:
             shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (15, 15).
-            num_scale_bits (int): number of right-bit-shifts needed for down-scaling the input signal. Defaults to 5.
+            num_scale_bits (int): number of right-bit-shifts needed for down-scaling the input signal. Defaults to [5,5,5,5,5,5,5,5,5,5,5,5,5,5,5].
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=True)
 
-        unsigned_bit_range_check(num_scale_bits, n_bits=5)
+        num_scale_bits = (
+            [num_scale_bits] * self.size_out
+            if isinstance(num_scale_bits, int)
+            else num_scale_bits
+        )
+
+        [unsigned_bit_range_check(__s, n_bits=5) for __s in num_scale_bits]
+
         self.num_scale_bits = SimulationParameter(
-            num_scale_bits, shape=(1,), cast_fn=int
+            num_scale_bits, shape=(self.size_out,)
         )
         """number of right-bit-shifts needed for down-scaling the input signal"""
 
@@ -71,7 +78,8 @@ class ScaleSpikeEncoder(Module):
         output_data = np.abs(input_data)
 
         # scale the signal
-        output_data = output_data >> self.num_scale_bits
+        for ch, __scale in enumerate(self.num_scale_bits):
+            output_data[:, :, ch] = output_data[:, :, ch] >> __scale
 
         # truncate the signal
         threshold = (1 << NUM_OUT_BITS) - 1
@@ -91,19 +99,24 @@ class IAFSpikeEncoder(Module):
     """
 
     def __init__(
-        self, shape: Optional[Union[Tuple, int]] = (15, 15), threshold: int = 1024
+        self,
+        shape: Optional[Union[Tuple, int]] = (15, 15),
+        threshold: Union[List[int], int] = 1024,
     ) -> None:
         """
         Object constructor
 
         Args:
             shape (Optional[Union[Tuple, int]], optional): the shape of the input signal. Defaults to (15, 15).
-            threshold (int): the threshold of the IAF neuron (quantized). Default to 1024
+            threshold (int): the thresholds of the IAF neurons (quantized). Default to [1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024]
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=True)
 
-        unsigned_bit_range_check(threshold, n_bits=31)
-        self.threshold = SimulationParameter(threshold, shape=(1,), cast_fn=int)
+        threshold = (
+            [threshold] * self.size_out if isinstance(threshold, int) else threshold
+        )
+        [unsigned_bit_range_check(th, n_bits=31) for th in threshold]
+        self.threshold = SimulationParameter(threshold, shape=(self.size_out,))
         """the threshold of the IAF neuron (quantized)"""
 
     @type_check
@@ -133,10 +146,11 @@ class IAFSpikeEncoder(Module):
         output_data = np.cumsum(output_data, axis=1)
 
         # compute the number of spikes produced so far
-        num_spikes = output_data // self.threshold
+        for ch, __th in enumerate(self.threshold):
+            output_data[:, :, ch] = output_data[:, :, ch] // __th
 
         # add a zero column to make sure that the dimensions match
-        num_spikes = np.hstack([np.zeros((__B, 1, __C), dtype=object), num_spikes])
+        num_spikes = np.hstack([np.zeros((__B, 1, __C), dtype=object), output_data])
 
         # compute the spikes along the time axis
         spikes = np.diff(num_spikes, axis=1)
