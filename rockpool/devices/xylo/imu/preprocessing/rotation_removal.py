@@ -111,11 +111,11 @@ class RotationRemoval(Module):
         covariance_old = -np.ones((3, 3), dtype=object)
         rotation_old = np.eye(3).astype(np.int64).astype(object)
 
-        signal_out = []
         data_out = []
 
         # loop over the batch
         for cov_SH, signal in zip(batch_cov_SH, input_data):
+            signal_out = []
             # loop over the time dimension
             for cov_new, sample in zip(cov_SH, signal):
                 # check if the covariance matrix is repeated
@@ -145,10 +145,8 @@ class RotationRemoval(Module):
                     covariance_old = cov_new
                     rotation_old = rotation_new
 
-            # convert into array and return
-            signal_out = np.array(signal_out, dtype=object)
+            data_out.append(signal_out)
 
-        data_out.append(signal_out)
         data_out = np.array(data_out, dtype=object)
 
         return data_out, {}, {}
