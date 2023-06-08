@@ -2,7 +2,7 @@
 This module implements the spike encoding for the signal coming out of filters or IMU sensor directly.
 """
 
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -31,18 +31,25 @@ class ScaleSpikeEncoder(Module):
     def __init__(
         self,
         shape: Optional[Union[Tuple, int]] = (15, 15),
-        num_scale_bits: int = 5,
+        num_scale_bits: Union[List[int], int] = 5,
     ) -> None:
         """
         Object constructor
 
         Args:
             shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (15, 15).
-            num_scale_bits (int): number of right-bit-shifts needed for down-scaling the input signal. Defaults to 5.
+            num_scale_bits (int): number of right-bit-shifts needed for down-scaling the input signal. Defaults to [5,5,5,5,5,5,5,5,5,5,5,5,5,5,5].
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=True)
 
-        unsigned_bit_range_check(num_scale_bits, n_bits=5)
+        num_scale_bits = (
+            [num_scale_bits] * self.size_out
+            if isinstance(num_scale_bits, int)
+            else num_scale_bits
+        )
+
+        [unsigned_bit_range_check(__s, n_bits=5) for __s in num_scale_bits]
+
         self.num_scale_bits = SimulationParameter(
             num_scale_bits, shape=(1,), cast_fn=int
         )
@@ -91,18 +98,23 @@ class IAFSpikeEncoder(Module):
     """
 
     def __init__(
-        self, shape: Optional[Union[Tuple, int]] = (15, 15), threshold: int = 1024
+        self,
+        shape: Optional[Union[Tuple, int]] = (15, 15),
+        threshold: Union[List[int], int] = 1024,
     ) -> None:
         """
         Object constructor
 
         Args:
             shape (Optional[Union[Tuple, int]], optional): the shape of the input signal. Defaults to (15, 15).
-            threshold (int): the threshold of the IAF neuron (quantized). Default to 1024
+            threshold (int): the thresholds of the IAF neurons (quantized). Default to [1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024]
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=True)
 
-        unsigned_bit_range_check(threshold, n_bits=31)
+        threshold = (
+            [threshold] * self.size_out if isinstance(threshold, int) else threshold
+        )
+        [unsigned_bit_range_check(th, n_bits=31) for th in threshold]
         self.threshold = SimulationParameter(threshold, shape=(1,), cast_fn=int)
         """the threshold of the IAF neuron (quantized)"""
 
