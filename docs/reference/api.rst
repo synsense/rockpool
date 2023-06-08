@@ -278,6 +278,7 @@ Xylo IMU support
     devices.xylo.imu.preprocessing
 
     :template: class.rst
+    devices.xylo.imu.preprocessing.imuif_sim.IMUIFSim
     devices.xylo.imu.preprocessing.quantizer.Quantizer
     devices.xylo.imu.preprocessing.lookup.RotationLookUpTable
     devices.xylo.imu.preprocessing.jsvd.JSVD
