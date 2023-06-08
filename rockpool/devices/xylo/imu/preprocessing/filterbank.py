@@ -57,8 +57,8 @@ class BandPassFilter:
         unsigned_bit_range_check(self.B_b, n_bits=4)
         unsigned_bit_range_check(self.B_wf, n_bits=4)
         unsigned_bit_range_check(self.B_af, n_bits=4)
-        signed_bit_range_check(self.a1, n_bits=17)
-        signed_bit_range_check(self.a2, n_bits=17)
+        unsigned_bit_range_check(self.a1, n_bits=17)
+        unsigned_bit_range_check(self.a2, n_bits=17)
 
     @type_check
     def compute_AR(self, signal: np.ndarray) -> np.ndarray:
@@ -167,21 +167,21 @@ class FilterBank(Module):
         B_wf_list: Union[List[int], int] = 8,
         B_af_list: Union[List[int], int] = 9,
         a1_list: Union[List[int], int] = [
-            -64700,
-            -64458,
-            -64330,
-            -64138,
-            -63884,
-            -63566,
-            -63185,
-            -62743,
-            -62238,
-            -61672,
-            -61045,
-            -60357,
-            -59611,
-            -58805,
-            -57941,
+            64700,
+            64458,
+            64330,
+            64138,
+            63884,
+            63566,
+            63185,
+            62743,
+            62238,
+            61672,
+            61045,
+            60357,
+            59611,
+            58805,
+            57941,
         ],
         a2_list: Union[List[int], int] = [
             31935,
