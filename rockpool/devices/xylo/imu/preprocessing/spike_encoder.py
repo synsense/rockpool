@@ -78,7 +78,8 @@ class ScaleSpikeEncoder(Module):
         output_data = np.abs(input_data)
 
         # scale the signal
-        output_data = output_data >> self.num_scale_bits
+        for ch, __scale in enumerate(self.num_scale_bits):
+            output_data[:, :, ch] = output_data[:, :, ch] >> __scale
 
         # truncate the signal
         threshold = (1 << NUM_OUT_BITS) - 1
