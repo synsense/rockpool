@@ -66,6 +66,16 @@ class RotationRemoval(Module):
             ),
         )
 
+        self.num_avg_bitshift = SimulationParameter(
+            num_avg_bitshift, shape=(1,), cast_fn=int
+        )
+        """number of bitshifts used in the low-pass filter implementation"""
+
+        self.sampling_period = SimulationParameter(
+            sampling_period, shape=(1,), cast_fn=int
+        )
+        """sampling period that the signal is sampled and held"""
+
         self.jsvd = JSVD()
 
     @type_check
