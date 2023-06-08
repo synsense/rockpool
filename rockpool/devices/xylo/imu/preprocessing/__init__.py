@@ -5,6 +5,7 @@ Defines the modules :py:class:`.JVSD`, :py:class:`.RotationLookUpTable`, :py:cla
 """
 
 from .filterbank import *
+from .imuif_sim import *
 from .jsvd import *
 from .lookup import *
 from .quantizer import *
