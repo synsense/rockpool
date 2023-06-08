@@ -197,6 +197,8 @@ class IMUIFSim(Module):
         bypass_jsvd = True
         scale_values = default_config.scale_values
         iaf_threshold_values = default_config.iaf_threshold_values
+        estimator_k_setting = default_config.estimator_k_setting
+        update_matrix_threshold = default_config.update_matrix_threshold
 
         for module in self.mod_IMUIF:
             if isinstance(module, FilterBank):
