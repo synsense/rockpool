@@ -52,8 +52,8 @@ class RotationRemoval(Module):
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
-        unsigned_bit_range_check(num_avg_bitshift, num_bits=5)
-        unsigned_bit_range_check(sampling_period, num_bits=11)
+        unsigned_bit_range_check(num_avg_bitshift, n_bits=5)
+        unsigned_bit_range_check(sampling_period, n_bits=11)
 
         self.sub_estimate = Sequential(
             SubSpace(
