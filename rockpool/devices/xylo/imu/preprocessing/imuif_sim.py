@@ -147,6 +147,10 @@ class IMUIFSim(Module):
     @classmethod
     def from_config(cls, config: InputInterfaceConfig) -> IMUIFSim:
         ## BandPassFilter
+        if not isinstance(config, InputInterfaceConfig):
+            raise TypeError(
+                f"config must be an instance of `samna.xyloImu.configuration.InputInterfaceConfig`. We got {type(config)}"
+            )
         if config.enable != True:
             raise ValueError("IMUIF is not enabled in configuration!")
 
