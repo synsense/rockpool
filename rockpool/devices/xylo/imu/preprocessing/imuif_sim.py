@@ -103,6 +103,7 @@ class IMUIFSim(Module):
             1024,
         ],
         num_avg_bitshift: int = 4,
+        sampling_period: int = 10,
     ):
         """ """
         super().__init__(shape=shape, spiking_input=False, spiking_output=True)
@@ -135,6 +136,8 @@ class IMUIFSim(Module):
             )
             mod_IMUIF = Sequential(rotation_removal, filter_bank, spike_encoder)
 
+        self.mod_IMUIF = mod_IMUIF
+
     @type_check
     def evolve(
         self, input_data: np.ndarray, record: bool = False
@@ -164,6 +167,7 @@ class IMUIFSim(Module):
         if config.enable != True:
             raise ValueError("IMUIF is not enabled in configuration!")
 
+        # We could not use `config.delay_threshold` here because it does not affect the simulation
         return cls(
             shape=(3, 15),
             select_iaf_output=config.select_iaf_output,
@@ -176,9 +180,8 @@ class IMUIFSim(Module):
             scale_values=config.scale_values,
             iaf_threshold_values=config.iaf_threshold_values,
             num_avg_bitshift=config.estimator_k_setting,
+            sampling_period=config.update_matrix_threshold,
         )
-        config.delay_threshold
-        config.update_matrix_threshold
 
     @classmethod
     def from_specification(cls, *args, **kwargs) -> IMUIFSim:
@@ -186,5 +189,7 @@ class IMUIFSim(Module):
 
 
 if __name__ == "__main__":
-    config = InputInterfaceConfig()
-    print(config.update_matrix_threshold)
+    # config = InputInterfaceConfig()
+    # print(config.update_matrix_threshold)
+
+    IMUIFSim()
