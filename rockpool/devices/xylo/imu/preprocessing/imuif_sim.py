@@ -121,12 +121,13 @@ class IMUIFSim(Module):
             mod_IMUIF = Sequential(rotation_removal, filter_bank, spike_encoder)
 
         self.mod_IMUIF = mod_IMUIF
+        """The sequential module that simulates the IMU front-end"""
 
     @type_check
     def evolve(
         self, input_data: np.ndarray, record: bool = False
     ) -> Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
-        """Processes the input signal sample-by-sample and generate spikes
+        """Processes the input IMU signal sample-by-sample and generate spikes
 
         Args:
             input_data (np.ndarray): batched input data recorded from IMU sensor. It should be in integer format. (BxTx3)
@@ -146,7 +147,17 @@ class IMUIFSim(Module):
 
     @classmethod
     def from_config(cls, config: InputInterfaceConfig) -> IMUIFSim:
-        ## BandPassFilter
+        """Obtain an instance of IMUIFSim from a samna configuration object
+
+        Args:
+            config (InputInterfaceConfig): a samna object that encapsulates the hardware configuration such as register values
+
+        Raises:
+            TypeError: if the input is not the samna configuration object that is expected
+
+        Returns:
+            IMUIFSim: an instance of IMUIFSim
+        """
         if not isinstance(config, InputInterfaceConfig):
             raise TypeError(
                 f"config must be an instance of `samna.xyloImu.configuration.InputInterfaceConfig`. We got {type(config)}"
@@ -172,11 +183,56 @@ class IMUIFSim(Module):
 
     @classmethod
     def from_specification(cls, *args, **kwargs) -> IMUIFSim:
-        pass
+        raise NotImplementedError(
+            "Here we do not have any high-level specification that's different than __init__ parameters."
+        )
 
+    def export_config(self) -> InputInterfaceConfig:
+        """Export the current configuration of the IMUIF module
 
-if __name__ == "__main__":
-    # config = InputInterfaceConfig()
-    # print(config.update_matrix_threshold)
+        Returns:
+            InputInterfaceConfig: a samna object that encapsulates the hardware configuration such as register values
+        """
+        default_config = InputInterfaceConfig()
+        bypass_jsvd = True
+        scale_values = default_config.scale_values
+        iaf_threshold_values = default_config.iaf_threshold_values
 
-    IMUIFSim()
+        for module in mod.mod_IMUIF:
+            if isinstance(module, FilterBank):
+                bpf_bb_values = module.B_b_list
+                bpf_bwf_values = module.B_wf_list
+                bpf_baf_values = module.B_af_list
+                bpf_a1_values = module.a1_list
+                bpf_a2_values = module.a2_list
+            elif isinstance(module, IAFSpikeEncoder):
+                select_iaf_output = True
+                iaf_threshold_values = module.threshold
+            elif isinstance(module, ScaleSpikeEncoder):
+                select_iaf_output = False
+                scale_values = module.num_scale_bits
+            elif isinstance(module, RotationRemoval):
+                bypass_jsvd = False
+                estimator_k_setting = module.num_avg_bitshift
+                update_matrix_threshold = module.sampling_period
+            else:
+                raise TypeError(
+                    f"module {module} is not recognized as a module of IMUIF"
+                )
+
+        # We could not use `config.delay_threshold` here because it does not affect the simulation
+        config = InputInterfaceConfig(
+            enable=True,
+            bpf_a1_values=bpf_a1_values,
+            bpf_a2_values=bpf_a2_values,
+            bpf_baf_values=bpf_baf_values,
+            bpf_bb_values=bpf_bb_values,
+            bpf_bwf_values=bpf_bwf_values,
+            bypass_jsvd=bypass_jsvd,
+            estimator_k_setting=estimator_k_setting,
+            iaf_threshold_values=iaf_threshold_values,
+            scale_values=scale_values,
+            select_iaf_output=select_iaf_output,
+            update_matrix_threshold=update_matrix_threshold,
+        )
+        return config
