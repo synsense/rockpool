@@ -146,10 +146,11 @@ class IAFSpikeEncoder(Module):
         output_data = np.cumsum(output_data, axis=1)
 
         # compute the number of spikes produced so far
-        num_spikes = output_data // self.threshold
+        for ch, __th in enumerate(self.threshold):
+            output_data[:, :, ch] = output_data[:, :, ch] // __th
 
         # add a zero column to make sure that the dimensions match
-        num_spikes = np.hstack([np.zeros((__B, 1, __C), dtype=object), num_spikes])
+        num_spikes = np.hstack([np.zeros((__B, 1, __C), dtype=object), output_data])
 
         # compute the spikes along the time axis
         spikes = np.diff(num_spikes, axis=1)
