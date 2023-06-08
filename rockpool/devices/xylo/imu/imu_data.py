@@ -110,7 +110,7 @@ class XyloIMUData(Module):
         while count < int(Nt):
             evts = self._read_buffer.get_events()
             for e in evts:
-                if isinstance(e, samna.events.Acceleration):
+                if isinstance(e, samna.events.Acceleration) and count < int(Nt):
                     count += 1
                     x = e.x * 4 / math.pow(2, 14)
                     y = e.y * 4 / math.pow(2, 14)
