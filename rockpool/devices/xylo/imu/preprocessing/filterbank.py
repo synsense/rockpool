@@ -163,10 +163,10 @@ class FilterBank(Module):
     def __init__(
         self,
         shape: Optional[Union[Tuple, int]] = (3, 15),
-        B_b_list: List[int] = [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
-        B_wf_list: List[int] = [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
-        B_af_list: List[int] = [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
-        a1_list: List[int] = [
+        B_b_list: Union[List[int], int] = 6,
+        B_wf_list: Union[List[int], int] = 8,
+        B_af_list: Union[List[int], int] = 9,
+        a1_list: Union[List[int], int] = [
             -64700,
             -64458,
             -64330,
@@ -183,7 +183,7 @@ class FilterBank(Module):
             -58805,
             -57941,
         ],
-        a2_list: List[int] = [
+        a2_list: Union[List[int], int] = [
             31935,
             31754,
             31754,
@@ -205,17 +205,29 @@ class FilterBank(Module):
 
         Args:
             shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,15).
-            B_b_list (List[int], optional): The list of the B_b parameters of each filter. B_b stands for bits needed for scaling b0. Defaults to [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6].
-            B_wf_list (List[int], optional): The list of the B_wf parameters of each filter. B_wf stands for bits needed for fractional part of the filter output. Defaults to [8,8,8,8,8,8,8,8,8,8,8,8,8,8,8].
-            B_af_list (List[int], optional): The list of the B_af parameters of each filter. B_af stands for bits needed for encoding the fractional parts of taps. Defaults to [9,9,9,9,9,9,9,9,9,9,9,9,9,9,9].
-            a1_list (List[int], optional): The list of the a1 tap parameters of each filter. Defaults to [-64700,-64458,-64330,-64138,-63884,-63566,-63185,-62743,-62238,-61672,-61045,-60357,-59611,-58805,-57941].
-            a2_list (List[int], optional): The list of the a2 tap parameters of each filter. Defaults to [31935,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754].
+            B_b_list (Union[List[int], int], optional): The list of the B_b parameters of each filter (repeats if int). B_b stands for bits needed for scaling b0. Defaults to [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6].
+            B_wf_list (Union[List[int], int], optional): The list of the B_wf parameters of each filter (repeats if int). B_wf stands for bits needed for fractional part of the filter output. Defaults to [8,8,8,8,8,8,8,8,8,8,8,8,8,8,8].
+            B_af_list (Union[List[int], int], optional): The list of the B_af parameters of each filter (repeats if int). B_af stands for bits needed for encoding the fractional parts of taps. Defaults to [9,9,9,9,9,9,9,9,9,9,9,9,9,9,9].
+            a1_list (Union[List[int], int], optional): The list of the a1 tap parameters of each filter (repeats if int). Defaults to [-64700,-64458,-64330,-64138,-63884,-63566,-63185,-62743,-62238,-61672,-61045,-60357,-59611,-58805,-57941].
+            a2_list (Union[List[int], int], optional): The list of the a2 tap parameters of each filter (repeats if int). Defaults to [31935,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754].
         """
 
         if shape[1] // shape[0] != shape[1] / shape[0]:
             raise ValueError(
                 f"The number of output channels should be a multiple of the number of input channels."
             )
+
+        def __make_list(val: Union[List[int], int]) -> List[int]:
+            if isinstance(val, int):
+                return [val] * shape[1]
+            else:
+                return val
+
+        B_b_list = __make_list(B_b_list)
+        B_wf_list = __make_list(B_wf_list)
+        B_af_list = __make_list(B_af_list)
+        a1_list = __make_list(a1_list)
+        a2_list = __make_list(a2_list)
 
         def __check_list_shape(list: List[int], name: str) -> None:
             if len(list) != shape[1]:
