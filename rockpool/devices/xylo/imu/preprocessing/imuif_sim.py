@@ -140,10 +140,9 @@ class IMUIFSim(Module):
         """
 
         # Shape check
-        __B, __T, __C = input_data.shape
         input_data, _ = self._auto_batch(input_data)
-
-        return input_data, {}, {}
+        input_data = np.array(input_data, dtype=np.int64).astype(object)
+        return self.mod_IMUIF(input_data, record=record)
 
     @classmethod
     def from_config(cls, config: InputInterfaceConfig) -> IMUIFSim:
