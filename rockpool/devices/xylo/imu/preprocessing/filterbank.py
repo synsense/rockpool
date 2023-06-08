@@ -205,11 +205,11 @@ class FilterBank(Module):
 
         Args:
             shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,15).
-            B_b_list (Union[List[int], int], optional): The list of the B_b parameters of each filter (repeats if int). B_b stands for bits needed for scaling b0. Defaults to [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6].
-            B_wf_list (Union[List[int], int], optional): The list of the B_wf parameters of each filter (repeats if int). B_wf stands for bits needed for fractional part of the filter output. Defaults to [8,8,8,8,8,8,8,8,8,8,8,8,8,8,8].
-            B_af_list (Union[List[int], int], optional): The list of the B_af parameters of each filter (repeats if int). B_af stands for bits needed for encoding the fractional parts of taps. Defaults to [9,9,9,9,9,9,9,9,9,9,9,9,9,9,9].
-            a1_list (Union[List[int], int], optional): The list of the a1 tap parameters of each filter (repeats if int). Defaults to [-64700,-64458,-64330,-64138,-63884,-63566,-63185,-62743,-62238,-61672,-61045,-60357,-59611,-58805,-57941].
-            a2_list (Union[List[int], int], optional): The list of the a2 tap parameters of each filter (repeats if int). Defaults to [31935,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754].
+            B_b_list (Union[List[int], int], optional): Bits needed for scaling b0 values of each filter. Defaults to [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6].
+            B_wf_list (Union[List[int], int], optional): Bits needed for fractional part of the filter output of each filter. Defaults to [8,8,8,8,8,8,8,8,8,8,8,8,8,8,8].
+            B_af_list (Union[List[int], int], optional): Bits needed for encoding the fractional parts of taps of each filter. Defaults to [9,9,9,9,9,9,9,9,9,9,9,9,9,9,9].
+            a1_list (Union[List[int], int], optional): a1 tap parameters of each filter. Defaults to [-64700,-64458,-64330,-64138,-63884,-63566,-63185,-62743,-62238,-61672,-61045,-60357,-59611,-58805,-57941].
+            a2_list (Union[List[int], int], optional): a2 tap parameters of each filter (repeats if int). Defaults to [31935,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754].
         """
 
         if shape[1] // shape[0] != shape[1] / shape[0]:
@@ -223,11 +223,16 @@ class FilterBank(Module):
             else:
                 return val
 
-        B_b_list = __make_list(B_b_list)
-        B_wf_list = __make_list(B_wf_list)
-        B_af_list = __make_list(B_af_list)
-        a1_list = __make_list(a1_list)
-        a2_list = __make_list(a2_list)
+        self.B_b_list = __make_list(B_b_list)
+        """Bits needed for scaling b0 values of each filter"""
+        self.B_wf_list = __make_list(B_wf_list)
+        """Bits needed for fractional part of the filter output of each filter"""
+        self.B_af_list = __make_list(B_af_list)
+        """Bits needed for encoding the fractional parts of taps of each filter"""
+        self.a1_list = __make_list(a1_list)
+        """a1 tap parameters of each filter"""
+        self.a2_list = __make_list(a2_list)
+        """a2 tap parameters of each filter"""
 
         def __check_list_shape(list: List[int], name: str) -> None:
             if len(list) != shape[1]:
@@ -235,15 +240,15 @@ class FilterBank(Module):
                     f"The number of {name} should be equal to the number of filters. Expected {shape[1]} Got {len(list)}"
                 )
 
-        __check_list_shape(B_b_list, "B_b")
-        __check_list_shape(B_wf_list, "B_wf")
-        __check_list_shape(B_af_list, "B_af")
-        __check_list_shape(a1_list, "a1")
-        __check_list_shape(a2_list, "a2")
+        __check_list_shape(self.B_b_list, "B_b")
+        __check_list_shape(self.B_wf_list, "B_wf")
+        __check_list_shape(self.B_af_list, "B_af")
+        __check_list_shape(self.a1_list, "a1")
+        __check_list_shape(self.a2_list, "a2")
 
         self.filter_list = []
         for B_b, B_wf, B_af, a1, a2 in zip(
-            B_b_list, B_wf_list, B_af_list, a1_list, a2_list
+            self.B_b_list, self.B_wf_list, self.B_af_list, self.a1_list, self.a2_list
         ):
             self.filter_list.append(
                 BandPassFilter(B_b=B_b, B_wf=B_wf, B_af=B_af, a1=a1, a2=a2)
