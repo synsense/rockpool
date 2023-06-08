@@ -120,7 +120,7 @@ class IMUIFSim(Module):
             )
             mod_IMUIF = Sequential(rotation_removal, filter_bank, spike_encoder)
 
-        self.mod_IMUIF = mod_IMUIF
+        self.model = mod_IMUIF
         """The sequential module that simulates the IMU front-end"""
 
     @type_check
@@ -143,7 +143,7 @@ class IMUIFSim(Module):
         # Shape check
         input_data, _ = self._auto_batch(input_data)
         input_data = np.array(input_data, dtype=np.int64).astype(object)
-        return self.mod_IMUIF(input_data, record=record)
+        return self.model(input_data, record=record)
 
     @classmethod
     def from_config(cls, config: InputInterfaceConfig) -> IMUIFSim:
@@ -200,7 +200,7 @@ class IMUIFSim(Module):
         estimator_k_setting = default_config.estimator_k_setting
         update_matrix_threshold = default_config.update_matrix_threshold
 
-        for module in self.mod_IMUIF:
+        for module in self.model:
             if isinstance(module, FilterBank):
                 bpf_bb_values = module.B_b_list
                 bpf_bwf_values = module.B_wf_list
