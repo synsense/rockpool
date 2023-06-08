@@ -9,6 +9,7 @@ See Also:
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple, Union
+from warnings import warn
 
 import numpy as np
 
@@ -21,7 +22,6 @@ from rockpool.devices.xylo.imu.preprocessing.spike_encoder import (
 from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 from rockpool.nn.combinators import Sequential
 from rockpool.nn.modules.module import Module
-from rockpool.parameters import SimulationParameter
 from rockpool.utilities.backend_management import backend_available
 
 if backend_available("samna"):
@@ -152,7 +152,7 @@ class IMUIFSim(Module):
                 f"config must be an instance of `samna.xyloImu.configuration.InputInterfaceConfig`. We got {type(config)}"
             )
         if config.enable != True:
-            raise ValueError("IMUIF is not enabled in configuration!")
+            warn("IMUIF is not enabled in configuration!")
 
         # We could not use `config.delay_threshold` here because it does not affect the simulation
         return cls(
