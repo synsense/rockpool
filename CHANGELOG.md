@@ -12,7 +12,7 @@ All notable changes between Rockpool releases will be documented in this file.
   - ``XyloIMUMonitor`` implemented
   - IMU preprocessing interface
     - Sub-modules : `Quantizer` , `RotationLookUpTable` , `JSVD` , `SubSpace` , `SampleAndHold` , `RotationRemoval` , `BandPassFilter` , `FilterBank` , `HalfWaveRectifier` , `FullWaveRectifier` , `ScaleSpikeEncoder` , `IAFSpikeEncoder` are implemented
-    - The high-level module operating and configuring the preprocessing unit `IMUIFSim` implemented.
+    - The high-level simulation module encapsulating sub-modules `IMUIFSim` implemented.
 
 ### Changed
 
