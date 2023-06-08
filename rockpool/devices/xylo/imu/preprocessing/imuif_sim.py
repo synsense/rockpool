@@ -198,7 +198,7 @@ class IMUIFSim(Module):
         scale_values = default_config.scale_values
         iaf_threshold_values = default_config.iaf_threshold_values
 
-        for module in mod.mod_IMUIF:
+        for module in self.mod_IMUIF:
             if isinstance(module, FilterBank):
                 bpf_bb_values = module.B_b_list
                 bpf_bwf_values = module.B_wf_list
