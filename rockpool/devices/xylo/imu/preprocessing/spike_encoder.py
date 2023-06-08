@@ -51,7 +51,7 @@ class ScaleSpikeEncoder(Module):
         [unsigned_bit_range_check(__s, n_bits=5) for __s in num_scale_bits]
 
         self.num_scale_bits = SimulationParameter(
-            num_scale_bits, shape=(1,), cast_fn=int
+            num_scale_bits, shape=(self.size_out,)
         )
         """number of right-bit-shifts needed for down-scaling the input signal"""
 
@@ -116,7 +116,7 @@ class IAFSpikeEncoder(Module):
             [threshold] * self.size_out if isinstance(threshold, int) else threshold
         )
         [unsigned_bit_range_check(th, n_bits=31) for th in threshold]
-        self.threshold = SimulationParameter(threshold, shape=(1,), cast_fn=int)
+        self.threshold = SimulationParameter(threshold, shape=(self.size_out,))
         """the threshold of the IAF neuron (quantized)"""
 
     @type_check
