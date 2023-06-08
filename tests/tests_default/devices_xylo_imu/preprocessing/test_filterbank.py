@@ -26,7 +26,7 @@ def test_bandpass_filter():
     q_signal, _, _ = quantizer(signal)
     q_signal = q_signal.flatten()
 
-    bandpass_filter = BandPassFilter(a1=-6400)
+    bandpass_filter = BandPassFilter(a1=6400)
 
     # Apply the bandpass filter to the test signal
     filtered_signal = bandpass_filter(q_signal)
