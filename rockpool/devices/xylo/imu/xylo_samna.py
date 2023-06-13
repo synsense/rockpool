@@ -536,7 +536,7 @@ class XyloSamna(Module):
         # - Configure the recording mode
         self._configure_accel_time_mode(Nhidden, Nout, record)
 
-        start_timestep = hdkutils.get_current_timestamp(
+        start_timestep = hdkutils.get_current_timestep(
             self._read_buffer, self._write_buffer
         )
         final_timestamp = start_timestep + len(input) - 1
@@ -592,7 +592,7 @@ class XyloSamna(Module):
             raise TimeoutError(message)
 
         # - Read the simulation output data
-        xylo_data = hdkutils.read_accel_mode_data(
+        xylo_data = hdkutils.decode_accel_mode_data(
             self._state_buffer, Nin, Nhidden, Nout, len(input)
         )
 
