@@ -277,7 +277,7 @@ class EnvelopeController:
         self.num_processed_samples += 1
 
         # check the amplitude of the input signal
-        if type(sig_in) != int:
+        if type(sig_in) != int and type(sig_in)!= np.int64:
             raise ValueError("input quantized sample should be of integer type!")
 
         if sig_in >= 2 ** (self.num_bits - 1) or sig_in < -(2 ** (self.num_bits - 1)):

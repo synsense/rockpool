@@ -189,7 +189,7 @@ class GainSmootherFPGA:
             )
 
         # check that the input type is indeed an integer
-        if not isinstance(audio, int):
+        if not isinstance(audio, (int, np.int64)):
             raise ValueError(
                 "the input to gain smoother module coming from ADC should be in integer format!"
             )

@@ -193,72 +193,59 @@ class AntiAliasingDecimationFilter:
         # NOTE: we use an additional dummy register so that the computation of MA part is simplified.
         # This is not needed in the ordinary computation.
         self.state = np.zeros(len(self.bd.a_taps)-1 + 1, dtype=np.int64) 
-        
-        # set the sampling rate of the filter
-        self.time = 0
-        
-        # output signal and its distortion
-        self.sig_out = 0
-        self.rel_distortion = 0
                 
     
-    def evolve_onestep(self, sig_in:float, time_in:float):
+    def evolve_onestep(self, sig_in:float):
         #* check the range of input
         if np.max(sig_in) >= 2**(self.bd.B_in-1) or np.min(sig_in) < -2**(self.bd.B_in-1):
             raise ValueError(f"input signal should have {self.bd.B_in} and in the range [{-2**(self.bd.B_in-1)}, {2**(self.bd.B_in-1)-1}]!")
         
-        # check if a new sample has arrived and needs to be processed
-        if time_in >= self.time:
-            #* compute AR part
-            # compute the feedback part: each branch individually
-            feedback_branches_out = (- self.state[:-1] * self.bd.a_taps[1:]) >> self.bd.B_af
 
-            # add all branches
-            feedback_out = np.sum(feedback_branches_out)
-            
-            # add the input
-            next_w_sample = sig_in + feedback_out
-            
-            # update w
-            self.state[1:] = self.state[:-1]
-            self.state[0] = next_w_sample
-            
-            #* compute the MA part
-            sig_out_MA = np.sum(self.state * self.bd.b_taps)
-            
-            # check the overflow in MA part of the filter
-            if np.max(sig_out_MA) >= 2**(self.bd.B_out-1) or np.min(sig_out_MA) < -2**(self.bd.B_out-1):
-                raise FilterOverflowError(f"Overflow in the MA branch of the filter! the output of MA should fit in {self.bd.B_out} signed bits!")
-                #warn(f"Overflow in the MA branch of the filter! the output of MA should fit in {self.bd.B_out} signed bits!")
-            
-            #* compute the output after surplus scaling
-            sig_out_surplus = (sig_out_MA * self.bd.surplus)>>self.bd.B_af
-            
-            #* compute the output after final truncation
-            max_pos_amplitude = 2**(self.bd.B_in-1)-1
-            min_neg_amplitude = -2**(self.bd.B_in-1)
-            
-            sig_out = sig_out_surplus
-            
-            if sig_out > max_pos_amplitude:
-                sig_out = max_pos_amplitude
-            
-            if sig_out < min_neg_amplitude:
-                sig_out = min_neg_amplitude
-                
-            
-            # compute the ralative truncation distortion
-            rel_distortion = np.abs(sig_out - sig_out_surplus)/np.max([np.abs(sig_out), np.abs(sig_out_surplus)])
+        #* compute AR part
+        # compute the feedback part: each branch individually
+        feedback_branches_out = (- self.state[:-1] * self.bd.a_taps[1:]) >> self.bd.B_af
 
-            #* update the output signal and relative distortion
-            self.sig_out = sig_out
-            self.rel_distortion = rel_distortion
+        # add all branches
+        feedback_out = np.sum(feedback_branches_out)
+        
+        # add the input
+        next_w_sample = sig_in + feedback_out
+        
+        # update w
+        self.state[1:] = self.state[:-1]
+        self.state[0] = next_w_sample
+        
+        #* compute the MA part
+        sig_out_MA = np.sum(self.state * self.bd.b_taps)
+        
+        # check the overflow in MA part of the filter
+        if np.max(sig_out_MA) >= 2**(self.bd.B_out-1) or np.min(sig_out_MA) < -2**(self.bd.B_out-1):
+            raise FilterOverflowError(f"Overflow in the MA branch of the filter! the output of MA should fit in {self.bd.B_out} signed bits!")
+            #warn(f"Overflow in the MA branch of the filter! the output of MA should fit in {self.bd.B_out} signed bits!")
+        
+        #* compute the output after surplus scaling
+        sig_out_surplus = (sig_out_MA * self.bd.surplus)>>self.bd.B_af
+        
+        #* compute the output after final truncation
+        max_pos_amplitude = 2**(self.bd.B_in-1)-1
+        min_neg_amplitude = -2**(self.bd.B_in-1)
+        
+        sig_out = sig_out_surplus
+        
+        if sig_out > max_pos_amplitude:
+            sig_out = max_pos_amplitude
+        
+        if sig_out < min_neg_amplitude:
+            sig_out = min_neg_amplitude
             
-            #* update the time to get prepared for the next sample
-            self.time += 1/self.sample_rate
+        
+        # compute the ralative truncation distortion
+        EPS = 0.000000001
+        rel_distortion = np.abs(sig_out - sig_out_surplus)/(np.max([np.abs(sig_out), np.abs(sig_out_surplus)]) + EPS)
+        
         
         # final output sample and its distortion
-        return self.sig_out, self.rel_distortion
+        return sig_out, rel_distortion
             
 
     def __repr__(self)->str:
@@ -369,7 +356,9 @@ class ADC:
                     "num_processed_samples": [],
                     "time_in": [],
                     "adc_in": [],
-                    "adc_out": [],
+                    "adc_oversampled_out": [],
+                    "anti_aliasing_filter_out": [],
+                    "anti_aliasing_filter_rel_distortion": [],
                 }
             else:
                 self.state = {}
@@ -397,12 +386,13 @@ class ADC:
             self.time_stamp += 1
             
             # process this sample with the anti-aliasing + decimation filter
-            anti_aliasing_filter_out = self.anti_aliasing_filter.evolve_onestep(sig_in=sample_return, time_in=None)
+            anti_aliasing_filter_out, anti_aliasing_filter_rel_distortion = self.anti_aliasing_filter.evolve_onestep(sig_in=sample_return)
             
             # record the state: returned sample
             if record:
                 self.state["adc_oversampled_out"].append(sample_return)
                 self.state["anti_aliasing_filter_out"].append(anti_aliasing_filter_out)
+                self.state["anti_aliasing_filter_rel_distortion"].append(anti_aliasing_filter_rel_distortion)
 
         else:
             # * otherwise: ignore those incoming signals

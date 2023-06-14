@@ -228,6 +228,7 @@ class AGC_ADC:
             # input time instant
             time_in = time_idx / audio_sample_rate
 
+
             # produce amplifier output
             #! note the old value of agc_pga_command computed in the past clock is used to produce amplifier output and ADC output
             amplifier_out = self.amplifier.evolve(
@@ -238,7 +239,7 @@ class AGC_ADC:
             )
 
             # NOTE: since amplifier can have a higher clock (for better precision), it should be `self.amplifier_simulation_oversampling` times faster
-            num_samples_fed_to_amplifier = num_samples_fed_to_amplifier + 1
+            num_samples_fed_to_amplifier += 1
 
             if (
                 num_samples_fed_to_amplifier % self.amplifier_simulation_oversampling
@@ -252,6 +253,8 @@ class AGC_ADC:
                 time_in=time_in,
                 record=record,
             )
+
+            num_samples_received_from_adc += 1
             
             # if adc is in oversampled mode, run the next modules with a lower clock
             if num_samples_received_from_adc % self.adc.oversampling_factor > 0:
@@ -310,6 +313,7 @@ class AGC_ADC:
             "agc_pga_gain": agc_pga_gain_vec,
             "amplifier_output": amplifier_out_vec,
             "envelope": envelope_vec,
+            "adc_output": adc_out_vec,
             "gain_smoother_output": gain_smoother_vec,
         }
 
