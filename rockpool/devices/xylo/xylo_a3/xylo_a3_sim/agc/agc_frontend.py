@@ -7,16 +7,16 @@
 # email: saeid.haghighatshoar@synsense.ai
 #
 #
-# last update: 12.04.2023
+# last update: 14.06.2023
 # -----------------------------------------------------------
 import numpy as np
 
-from agc.amplifier import Amplifier
-from agc.adc import ADC
-from agc.envelope_controller import EnvelopeController
-from agc.gain_smoother import GainSmootherFPGA
+from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.amplifier import Amplifier
+from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.adc import ADC
+from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.envelope_controller import EnvelopeController
+from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.gain_smoother import GainSmootherFPGA
 
-from agc.xylo_a3_agc_specs import AUDIO_SAMPLING_RATE
+from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.xylo_a3_agc_specs import AUDIO_SAMPLING_RATE
 
 from typing import Any
 from tqdm import tqdm

@@ -7,7 +7,7 @@
 # email: saeid.haghighatshoar@synsense.ai
 #
 #
-# last update: 11.04.2023
+# last update: 14.06.2023
 # -----------------------------------------------------------
 
 
@@ -19,7 +19,7 @@ import warnings
 # ===========================================================================
 # *    some constants defined according to Xylo-A3 specficiations
 # ===========================================================================
-from agc.xylo_a3_agc_specs import (
+from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.xylo_a3_agc_specs import (
     NUM_BITS_ADC,
     AUDIO_SAMPLING_RATE,
     AMPLITUDE_THRESHOLDS,

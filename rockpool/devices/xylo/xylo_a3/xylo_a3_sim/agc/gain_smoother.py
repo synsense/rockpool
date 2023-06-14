@@ -15,10 +15,10 @@
 #
 #
 #
-# last update: 11.04.2023
+# last update: 14.06.2023
 # -----------------------------------------------------------
 
-from agc.utils.audio_propagation import AUDIO_SAMPLING_RATE
+from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.xylo_a3_agc_specs import AUDIO_SAMPLING_RATE
 import numpy as np
 from typing import Any
 
@@ -27,19 +27,19 @@ from typing import Any
 # *                        Some constants needed in the design
 # ===========================================================================
 # default setting used for envelope controller
-from agc.xylo_a3_agc_specs import EXP_PGA_GAIN_VEC, NUM_BITS_COMMAND, NUM_BITS_ADC
+from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.xylo_a3_agc_specs import EXP_PGA_GAIN_VEC, NUM_BITS_COMMAND, NUM_BITS_ADC
 
 # maximum number of bits devoted for implementng waiting times in the AGC controller algorithm
 # NOTE: with a clock rate of 50K, this is around 1 min waiting time which would definitely be enough for all ranges of applications
 # MAX_WAITING_BITWIDTH is set 24 in default mode
-from agc.xylo_a3_agc_specs import MAX_WAITING_BITWIDTH
+from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.xylo_a3_agc_specs import MAX_WAITING_BITWIDTH
 
 # how many time-constants is considered `INFINITY` in low-pass filter transient period
 # INIFINITY_OF_TRANSIENT_PHASE is set to 6 in default mode
-from agc.xylo_a3_agc_specs import INIFINITY_OF_TRANSIENT_PHASE
+from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.xylo_a3_agc_specs import INIFINITY_OF_TRANSIENT_PHASE
 
 # how many bits are needed to quantize the gain ratio associated with the start and end of the jump
-from agc.xylo_a3_agc_specs import NUM_BITS_GAIN_QUANTIZATION
+from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.xylo_a3_agc_specs import NUM_BITS_GAIN_QUANTIZATION
 
 
 # ===========================================================================

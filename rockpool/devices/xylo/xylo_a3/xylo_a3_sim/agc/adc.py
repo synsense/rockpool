@@ -35,7 +35,6 @@ __all__ = ["ADC"]
 # ===========================================================================
 # *    some constants defined according to Xylo-A3 specficiations
 # ===========================================================================
-from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.anti_aliasing_decimation_filter import AntiAliasingDecimationFilter
 from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.xylo_a3_agc_specs import XYLO_MAX_AMP, AUDIO_SAMPLING_RATE
 
 
