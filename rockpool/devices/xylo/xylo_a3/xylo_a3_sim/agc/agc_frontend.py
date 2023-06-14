@@ -107,8 +107,10 @@ class AGC_ADC:
         # how much faster the amplifier module should be simulated so that modules timings match
         # NOTE: oversampling of the modules could be arbitrary (upto the caveat that it may cause frequency shift in the signal).
         # However, the simulation oversampling should be always an inetegr! So that the amplifier module can be fed/run an integer-times faster than the other modules.
+        # NOTE: since the next module after the amplifier is the ADC, which is implemented as high-rate ADC + anti-aliasing decimation filter, the amplifier sampling rate
+        # should be larger than this high-rate ADC.
         amplifier_simulation_oversampling = (
-            self.amplifier.oversampling_factor / np.mean(oversampling_factors)
+            self.amplifier.oversampling_factor / ( np.mean(oversampling_factors) * self.adc.oversampling_factor)
         )
         if (
             np.abs(
@@ -124,7 +126,7 @@ class AGC_ADC:
             > EPS
         ):
             raise ValueError(
-                "the ratio between oversampling factors of amplifier and other modules should be an integer!"
+                "the ratio between oversampling factors of amplifier and the adc module following it should be an integer!"
             )
 
         self.amplifier_simulation_oversampling = amplifier_simulation_oversampling
@@ -220,6 +222,7 @@ class AGC_ADC:
 
         # flag for running the amplifier module faster than other modules
         num_samples_fed_to_amplifier = 0
+        num_samples_received_from_adc = 0
 
         for time_idx, sig_in in iterator:
             # input time instant
@@ -249,6 +252,11 @@ class AGC_ADC:
                 time_in=time_in,
                 record=record,
             )
+            
+            # if adc is in oversampled mode, run the next modules with a lower clock
+            if num_samples_received_from_adc % self.adc.oversampling_factor > 0:
+                continue
+                
 
             # * record the gain and the gain index that was used at this time slot
             #! Note that as soon as the new clock comes, gain index is updated by envelope controller but that gain index will be used for the current clock
@@ -279,6 +287,8 @@ class AGC_ADC:
                 )
 
             # save the results
+            # NOTE: due to skipping some samples when modules have various sampling rates, 
+            # the output of all modules is registered only at lowet sampling rate of all modules
             adc_out_vec.append(adc_out)
             agc_pga_gain_vec.append(agc_pga_gain)
             agc_pga_command_vec.append(agc_pga_command)
@@ -303,7 +313,9 @@ class AGC_ADC:
             "gain_smoother_output": gain_smoother_vec,
         }
 
-        return adc_out_vec, simulation_state
+        # depending on if gain smoother is activated
+        return (adc_out_vec, simulation_state) if self.gain_smoother is None else (gain_smoother_vec, simulation_state)
+        
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         """
