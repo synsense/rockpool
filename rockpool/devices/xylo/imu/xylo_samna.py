@@ -427,7 +427,7 @@ class XyloSamna(Module):
         # - Register buffers to read and write events, monitor state
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
-        self._state_buffer = hdkutils.new_xylo_state_monitor_buffer(device)
+        # self._state_buffer = hdkutils.new_xylo_state_monitor_buffer(device)
 
         # - Store the io module
         self._io = device.get_io_module()
@@ -469,7 +469,7 @@ class XyloSamna(Module):
 
         # - Write the configuration to the device
         hdkutils.apply_configuration(self._device, new_config)
-        self._state_buffer.set_configuration(new_config)
+        # self._state_buffer.set_configuration(new_config)
         self._config = new_config
 
     def _configure_accel_time_mode(
@@ -487,10 +487,10 @@ class XyloSamna(Module):
             # - Keep a registry of the last recording mode
             self._last_record_mode = record
 
-            self.config, state_buffer = hdkutils.configure_accel_time_mode(
+            self.config = hdkutils.configure_accel_time_mode(
                 self._device,
                 self._config,
-                self._state_buffer,
+                # self._state_buffer,
                 Nhidden,
                 Nout,
                 readout=self._output_mode,
@@ -535,11 +535,19 @@ class XyloSamna(Module):
 
         # - Configure the recording mode
         self._configure_accel_time_mode(Nhidden, Nout, record)
+        Nhidden_monitor = Nhidden if record else 0
+        Nout_monitor = Nout if record else 0
+
+        print(
+            f"current_TS: {hdkutils.get_current_timestep(self._read_buffer, self._write_buffer)}"
+        )
 
         start_timestep = hdkutils.get_current_timestep(
             self._read_buffer, self._write_buffer
         )
-        final_timestamp = start_timestep + len(input) - 1
+        final_timestep = start_timestep + len(input) - 1
+
+        print(f"start {start_timestep}, final {final_timestep}")
 
         # -- Encode input events
         input_events_list = []
@@ -558,42 +566,52 @@ class XyloSamna(Module):
 
         # - Add an extra event to ensure readout for entire input extent
         event = samna.xyloImu.event.Spike()
-        event.timestamp = final_timestamp + 1
+        event.timestamp = final_timestep + 1
         input_events_list.append(event)
 
         # - Clear the input registers to ensure the dummy event has no effect
         input_events_list.extend(hdkutils.gen_clear_input_registers_events())
 
         # - Clear the read and state buffers
-        self._state_buffer.reset()
+        # self._state_buffer.reset()
         self._read_buffer.get_events()
+
+        print(
+            f"current_TS: {hdkutils.get_current_timestep(self._read_buffer, self._write_buffer)}"
+        )
 
         # - Write the events and trigger the simulation
         self._write_buffer.write(input_events_list)
 
         # - Determine a reasonable read timeout
         if read_timeout is None:
-            read_timeout = len(input) * self.dt * Nhidden / 800.0
+            read_timeout = len(input) * self.dt * Nhidden / 1.0
             read_timeout = read_timeout * 10.0 if record else read_timeout
 
         # - Wait until the simulation is finished
         read_events, is_timeout = hdkutils.blocking_read(
             self._read_buffer,
             timeout=max(read_timeout, 1.0),
-            target_timestamp=final_timestamp,
+            target_timestep=final_timestep,
         )
 
         if is_timeout:
             message = f"Processing didn't finish for {read_timeout}s. Read {len(read_events)} events"
-            readout_events = [e for e in read_events if hasattr(e, "timestamp")]
+            readout_events = [e for e in read_events if hasattr(e, "timestep")]
 
             if len(readout_events) > 0:
-                message += f", first timestamp: {readout_events[0].timestamp}, final timestamp: {readout_events[-1].timestamp}, target timestamp: {final_timestamp}"
+                message += f", first timestep: {readout_events[0].timestep}, final timestep: {readout_events[-1].timestep}, target timestep: {final_timestep}"
             raise TimeoutError(message)
 
         # - Read the simulation output data
         xylo_data = hdkutils.decode_accel_mode_data(
-            self._state_buffer, Nin, Nhidden, Nout, len(input)
+            read_events,
+            Nin,
+            Nhidden_monitor,
+            Nout_monitor,
+            Nout,
+            start_timestep,
+            final_timestep,
         )
 
         if record_power:
@@ -614,7 +632,7 @@ class XyloSamna(Module):
                 "Spikes": np.array(xylo_data.Spikes_hid),
                 "Vmem_out": np.array(xylo_data.V_mem_out),
                 "Isyn_out": np.array(xylo_data.I_syn_out),
-                "times": np.arange(start_timestep, final_timestamp + 1),
+                "times": np.arange(start_timestep, final_timestep + 1),
             }
         else:
             rec_dict = {}

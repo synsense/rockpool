@@ -16,6 +16,8 @@ XyloIMUReadBuffer = samna.BasicSinkNode_xylo_imu_event_output_event
 XyloIMUWriteBuffer = samna.BasicSourceNode_xylo_imu_event_input_event
 # XyloIMUNeuronStateBuffer = samna.xyloImu.NeuronStateSinkNode
 
+ReadoutEvent = samna.xyloImu.event.Readout
+
 XyloIMUHDK = Any
 
 
@@ -356,51 +358,71 @@ def blocking_read(
 
 
 def decode_accel_mode_data(
-    monitor_buffer: XyloIMUNeuronStateBuffer,
+    readout_events: List[ReadoutEvent],
     Nin: int,
-    Nhidden: int,
+    Nhidden_monitor: int,
+    Nout_monitor: int,
     Nout: int,
-    Nt: int,
+    T_start: int,
+    T_end: int,
 ) -> XyloState:
     """
     Read accelerated simulation mode data from a Xylo HDK
 
     Args:
-        monitor_buffer (XyloIMUNeuronStateBuffer): A connected `XyloIMUNeuronStateBuffer` to read from
-        Nin (int): Number of input neurons to read. Default: ``16`` (all neurons).
+        readout_events (List[ReadoutEvent]): A list of `ReadoutEvent`s recorded from Xylo IMU
+        Nin (int): The number of input channels for the configured network
         Nhidden (int): The number of hidden neurons to monitor
         Nout (int): The number of output neurons to monitor
+        T_start (int): Initial timestep
+        T_end (int): Final timestep
 
     Returns:
         XyloState: The encapsulated state read from the Xylo device
     """
-    # - Leave time for auto-triggering
-    # assert False, "WTF"
-    # time.sleep(0.1 * Nt)
+    # - Initialise lists for recording state
+    T_count = T_end - T_start + 1
+    vmem_ts = np.zeros((T_count, Nhidden_monitor), np.int16)
+    isyn_ts = np.zeros((T_count, Nhidden_monitor), np.int16)
+    vmem_out_ts = np.zeros((T_count, Nout_monitor), np.int16)
+    isyn_out_ts = np.zeros((T_count, Nout_monitor), np.int16)
+    spikes_ts = np.zeros((T_count, Nhidden_monitor), np.int8)
+    output_ts = np.zeros((T_count, Nout), np.int8)
 
-    # - Read data from neuron state buffer
-    vmem_ts = np.array(monitor_buffer.get_reservoir_v_mem(), "int16").T
-    isyn_ts = np.array(monitor_buffer.get_reservoir_i_syn(), "int16").T
-    spikes_ts = np.array(monitor_buffer.get_reservoir_spike(), "int8").T
-    spikes_out_ts = np.array(monitor_buffer.get_output_spike(), "int8").T
+    print(f"T_start {T_start} T_end {T_end}; T_count {T_count}")
 
-    # - Separate hidden and output neurons
-    isyn_out_ts = isyn_ts[:, -Nout:] if len(isyn_ts) > 0 else None
-    isyn_ts = isyn_ts[:, :Nhidden] if len(isyn_ts) > 0 else None
-    vmem_out_ts = vmem_ts[:, -Nout:] if len(vmem_ts) > 0 else None
-    vmem_ts = vmem_ts[:, :Nhidden] if len(vmem_ts) > 0 else None
+    # - Loop over time steps
+    for ev in readout_events:
+        print(ev)
+        if type(ev) is ReadoutEvent:
+            timestep = ev.timestep - T_start
+            print(f"timestep {ev.timestep}. Relative: {timestep}")
+            vmems = ev.neuron_v_mems
+            vmem_ts[timestep, 0:Nhidden_monitor] = vmems[0:Nhidden_monitor]
+            vmem_out_ts[timestep, 0:Nout] = vmems[
+                Nhidden_monitor : Nhidden_monitor + Nout
+            ]
+
+            isyns = ev.neuron_i_syns
+            isyn_ts[timestep, 0:Nhidden_monitor] = isyns[0:Nhidden_monitor]
+            isyn_out_ts[timestep, 0:Nout] = isyns[
+                Nhidden_monitor : Nhidden_monitor + Nout
+            ]
+
+            spikes_ts[timestep] = ev.hidden_spikes
+            output_ts[timestep] = ev.output_spikes
 
     # - Return as a XyloState object
     return XyloState(
         Nin=Nin,
-        Nhidden=Nhidden,
+        Nhidden=Nhidden_monitor,
         Nout=Nout,
         V_mem_hid=vmem_ts,
         I_syn_hid=isyn_ts,
         V_mem_out=vmem_out_ts,
         I_syn_out=isyn_out_ts,
         Spikes_hid=spikes_ts,
-        Spikes_out=spikes_out_ts,
+        Spikes_out=output_ts,
     )
 
 
