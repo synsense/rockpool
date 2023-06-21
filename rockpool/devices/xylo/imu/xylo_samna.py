@@ -18,6 +18,11 @@ from typing import Optional, Union, Callable, List, Tuple
 from warnings import warn
 
 
+try:
+    from rich import print
+except:
+    pass
+
 # - Configure exports
 __all__ = [
     "config_from_specification",
@@ -425,6 +430,8 @@ class XyloSamna(Module):
         """ `.XyloHDK`: The Xylo HDK used by this module """
 
         # - Register buffers to read and write events, monitor state
+        # self._read_buffer, self._write_buffer = hdkutils.get_read_write_buffers(device)
+
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
         # self._state_buffer = hdkutils.new_xylo_state_monitor_buffer(device)
@@ -559,18 +566,26 @@ class XyloSamna(Module):
         # - Generate input events
         for timestep, channel, count in zip(spikes[:, 0], spikes[:, 1], counts):
             for _ in range(count):
-                event = samna.xyloImu.event.Spike()
-                event.neuron_id = channel
-                event.timestamp = start_timestep + timestep
+                event = samna.xyloImu.event.Spike(
+                    neuron_id=channel, timestamp=start_timestep + timestep
+                )
+                # event.neuron_id = channel
+                # event.timestamp = start_timestep + timestep
                 input_events_list.append(event)
+                # self._write_buffer.write([event])
+                # print(
+                #     f"wrote {start_timestep + timestep}, current_TS: {hdkutils.get_current_timestep(self._read_buffer, self._write_buffer)}"
+                # )
 
         # - Add an extra event to ensure readout for entire input extent
-        event = samna.xyloImu.event.Spike()
-        event.timestamp = final_timestep + 1
+        event = samna.xyloImu.event.Spike(timestamp=final_timestep + 1)
         input_events_list.append(event)
+        # self._write_buffer.write([event])
 
         # - Clear the input registers to ensure the dummy event has no effect
         input_events_list.extend(hdkutils.gen_clear_input_registers_events())
+
+        print(input_events_list)
 
         # - Clear the read and state buffers
         # self._state_buffer.reset()
@@ -585,7 +600,7 @@ class XyloSamna(Module):
 
         # - Determine a reasonable read timeout
         if read_timeout is None:
-            read_timeout = len(input) * self.dt * Nhidden / 1.0
+            read_timeout = len(input) * self.dt * Nhidden / 100.0
             read_timeout = read_timeout * 10.0 if record else read_timeout
 
         # - Wait until the simulation is finished

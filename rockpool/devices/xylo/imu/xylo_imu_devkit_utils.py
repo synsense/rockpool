@@ -44,6 +44,15 @@ def find_xylo_imu_boards() -> List[XyloIMUHDK]:
     return imu_hdk_list
 
 
+def get_read_write_buffers(
+    hdk: XyloIMUHDK,
+) -> Tuple[XyloIMUReadBuffer, XyloIMUWriteBuffer]:
+    read_buffer = samna.graph.sink_from(hdk.get_model_source_node())
+    write_buffer = samna.graph.source_to(hdk.get_model_sink_node())
+
+    return read_buffer, write_buffer
+
+
 def new_xylo_read_buffer(
     hdk: XyloIMUHDK,
 ) -> XyloIMUReadBuffer:
@@ -389,14 +398,13 @@ def decode_accel_mode_data(
     spikes_ts = np.zeros((T_count, Nhidden_monitor), np.int8)
     output_ts = np.zeros((T_count, Nout), np.int8)
 
-    print(f"T_start {T_start} T_end {T_end}; T_count {T_count}")
+    print(f"decode_accel_mode_data: T_start {T_start} T_end {T_end}; T_count {T_count}")
 
     # - Loop over time steps
     for ev in readout_events:
-        print(ev)
         if type(ev) is ReadoutEvent:
             timestep = ev.timestep - T_start
-            print(f"timestep {ev.timestep}. Relative: {timestep}")
+            print(f"   ReadoutEvent: timestep {ev.timestep}. Relative: {timestep}")
             vmems = ev.neuron_v_mems
             vmem_ts[timestep, 0:Nhidden_monitor] = vmems[0:Nhidden_monitor]
             vmem_out_ts[timestep, 0:Nout] = vmems[
