@@ -1,5 +1,5 @@
-# Simulator fo Xylo-A3 
-This module contains a full simulator for Xylo-A3 chip starting from the input audio upto the produced spikes.
+# Simulator of Xylo-A3 Audio front-end
+This module contains a full simulator for the Xylo-A3 audio front-end, from the input audio up to the produced spikes.
 It contains the following modules:
 - PDM quantization module: This module takes the input audio signal and applies sigma-delta modultion on it. This transformation is applied within a microphone. The result is a 1-bit stream of modulated signal. The resulting 1-bit signal is further processed by a low-pass filter and decimator to produce the sampled audio signal. The PDM microphone followed by the implemented low-pass filtering can be seen as an equivalent ADC that takes the input audio signal and converts it into sampled\& quantized audio signal.
 - Digital filterbanks: The sampled audio signal is then porcessed by a collection of 16 band-pass filters. In this version of Xylo, all filters have been replaced with the digital ones and do not suffer the mismatch existing in the analog filters in the previous versions.
