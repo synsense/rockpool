@@ -332,6 +332,11 @@ class XyloSamna(Module):
     See Also:
 
         See the tutorials :ref:`/devices/xylo-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-xylo.ipynb` for a high-level overview of building and deploying networks for Xylo.
+        See the tutorial :ref:`/devices/quick-xylo/xylo-audio-2-intro.ipynb` for information specific to the Xylo™ Audio 2 dev kit, including power measurement.
+
+    Note:
+
+        Evolution of this module support measuring power during evolution. See :py:meth:`.evolve` for more information.
 
     """
 
@@ -492,6 +497,15 @@ class XyloSamna(Module):
         Evolve a network on the Xylo HDK in accelerated-time mode
 
         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period. Optionally record internal state of the network, selectable with the ``record`` flag.
+
+        If measuring power, pass ``record_power = True`` to :py:meth:`.evolve`.
+        In this case, ``record_dict`` will contain the keys ``"io_power"``, ``"logic_afe_power"``, ``"io_afe_power"`` and ``"logic_power"``.
+        These contain lists of power measurements for the four power nets on Xylo, in Watts, sampled at the ``power_freq`` attribute in Hz, supplied when instantiating the module (Default: 5 Hz).
+        `'io_power'` is the total I/O power of the device.
+        '`logic_power'` is the power consumption of the digital SNN core and control logic.
+        '`logic_afe_power'` is the power of the analog audio front-end core.
+        '`io_afe_power'` is the power consumption of the internal low-drop-out voltage supply used by the AFE.
+
 
         Args:
             input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
