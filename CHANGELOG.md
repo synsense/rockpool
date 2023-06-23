@@ -18,6 +18,7 @@ All notable changes between Rockpool releases will be documented in this file.
 * Changed semantics of transformation configurations for QAT, to only include attributes which will be transformed, rather than all attributes. This fixes an incompatibility with torch >= 2.0.
 * Added support for latest `torch` versions
 * New fine-grained installation options
+* Renamed power measurement dict keys returned by Xylo Audio 2 (`syns61201`) `XyloSamna` module, to be more descriptive
 
 ### Fixed
 ### Deprecated
