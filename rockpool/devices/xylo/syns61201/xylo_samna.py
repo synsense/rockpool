@@ -499,12 +499,12 @@ class XyloSamna(Module):
         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period. Optionally record internal state of the network, selectable with the ``record`` flag.
 
         If measuring power, pass ``record_power = True`` to :py:meth:`.evolve`.
-        In this case, ``record_dict`` will contain the keys ``"io_power"``, ``"logic_afe_power"``, ``"io_afe_power"`` and ``"logic_power"``.
+        In this case, ``record_dict`` will contain the keys ``"io_power"``, ``"afe_core_power"``, ``"afe_ldo_power"`` and ``"snn_core_power"``.
         These contain lists of power measurements for the four power nets on Xylo, in Watts, sampled at the ``power_freq`` attribute in Hz, supplied when instantiating the module (Default: 5 Hz).
         `'io_power'` is the total I/O power of the device.
-        '`logic_power'` is the power consumption of the digital SNN core and control logic.
-        '`logic_afe_power'` is the power of the analog audio front-end core.
-        '`io_afe_power'` is the power consumption of the internal low-drop-out voltage supply used by the AFE.
+        '`snn_core_power'` is the power consumption of the digital SNN core and control logic.
+        '`afe_core_power'` is the power of the analog audio front-end core.
+        '`afe_ldo_power'` is the power consumption of the internal low-drop-out voltage supply used by the AFE.
 
 
         Args:
@@ -611,13 +611,13 @@ class XyloSamna(Module):
             # - Separate out power meaurement events by channel
             channels = samna.xyloA2TestBoard.MeasurementChannels
             io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
-            logic_afe_power = np.array(
+            afe_core_power = np.array(
                 [e.value for e in ps if e.channel == int(channels.LogicAfe)]
             )
-            io_afe_power = np.array(
+            afe_ldo_power = np.array(
                 [e.value for e in ps if e.channel == int(channels.IoAfe)]
             )
-            logic_power = np.array(
+            snn_core_power = np.array(
                 [e.value for e in ps if e.channel == int(channels.Logic)]
             )
 
@@ -639,9 +639,9 @@ class XyloSamna(Module):
             rec_dict.update(
                 {
                     "io_power": io_power,
-                    "logic_afe_power": logic_afe_power,
-                    "io_afe_power": io_afe_power,
-                    "logic_power": logic_power,
+                    "afe_core_power": afe_core_power,
+                    "afe_ldo_power": afe_ldo_power,
+                    "snn_core_power": snn_core_power,
                 }
             )
 
