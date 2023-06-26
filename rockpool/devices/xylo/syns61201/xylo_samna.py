@@ -502,9 +502,9 @@ class XyloSamna(Module):
         In this case, ``record_dict`` will contain the keys ``"io_power"``, ``"afe_core_power"``, ``"afe_ldo_power"`` and ``"snn_core_power"``.
         These contain lists of power measurements for the four power nets on Xylo, in Watts, sampled at the ``power_freq`` attribute in Hz, supplied when instantiating the module (Default: 5 Hz).
         `'io_power'` is the total I/O power of the device.
-        '`snn_core_power'` is the power consumption of the digital SNN core and control logic.
-        '`afe_core_power'` is the power of the analog audio front-end core.
-        '`afe_ldo_power'` is the power consumption of the internal low-drop-out voltage supply used by the AFE.
+        `'snn_core_power'` is the power consumption of the digital SNN core and control logic.
+        `'afe_core_power'` is the power of the analog audio front-end core.
+        `'afe_ldo_power'` is the power consumption of the internal low-drop-out voltage supply used by the AFE.
 
 
         Args:
