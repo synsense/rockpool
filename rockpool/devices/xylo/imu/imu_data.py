@@ -1,4 +1,4 @@
-from typing import Any, Optional, Tuple, Union
+from typing import Optional, Tuple
 import samna
 import time
 import math
@@ -7,7 +7,7 @@ import numpy as np
 
 from rockpool.nn.modules.module import Module
 from . import xylo_imu_devkit_utils as hdkutils
-from .xylo_imu_devkit_utils import XyloIMUHDK, IMUSensorHDK
+from .xylo_imu_devkit_utils import XyloIMUHDK
 
 
 __all__ = ["XyloIMUData"]
@@ -25,7 +25,7 @@ class XyloIMUData(Module):
     def __init__(
         self,
         device: XyloIMUHDK,
-        frequency: float = 200.0,
+        frequency: float = 20.0,
         *args,
         **kwargs,
     ):
@@ -34,7 +34,7 @@ class XyloIMUData(Module):
 
         Args:
             device (XyloIMUHDK): A connected XyloIMUHDK device.
-            frequency (float): The frequency to read data from IMU sensor. Default: 200.0
+            frequency (float): The frequency to read data from IMU sensor. Default: 20.0
         """
 
         # - Check device validation
@@ -56,9 +56,8 @@ class XyloIMUData(Module):
         # - Store the dt
         self.dt = 1 / frequency
 
-        # - Calculate the time interval and config the IMU sensor to ready for data reading
-        ti = int(1 / frequency * 1e8)
-        hdkutils.config_imu_sensor(self._mc, ti)
+        # - Set the frequency and config the IMU sensor to ready for data reading
+        hdkutils.config_imu_sensor(self._mc, frequency)
 
     def evolve(
         self,
