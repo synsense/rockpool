@@ -1,4 +1,3 @@
-from random import sample
 import pytest
 
 
@@ -79,7 +78,3 @@ def test_pdm_adc():
 
         MIN_CORR = 0.7
         assert corr > MIN_CORR
-
-
-if __name__ == "__main__":
-    test_pdm_adc()

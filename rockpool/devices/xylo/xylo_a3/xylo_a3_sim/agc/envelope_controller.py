@@ -29,7 +29,7 @@ from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.xylo_a3_agc_specs import (
     WAITING_TIME_VEC,
     RELIABLE_MAX_HYSTERESIS,
     PGA_GAIN_INDEX_VARIATION,
-    MAX_WAITING_TIME_BEFORE_GAIN_CHANGE
+    MAX_WAITING_TIME_BEFORE_GAIN_CHANGE,
 )
 
 
@@ -42,7 +42,7 @@ class EnvelopeController:
         fall_time_constant: float = FALL_TIME_CONSTANT,
         reliable_max_hysteresis: int = RELIABLE_MAX_HYSTERESIS,
         waiting_time_vec: np.ndarray = WAITING_TIME_VEC,
-        max_waiting_time_before_gain_change = MAX_WAITING_TIME_BEFORE_GAIN_CHANGE,
+        max_waiting_time_before_gain_change=MAX_WAITING_TIME_BEFORE_GAIN_CHANGE,
         pga_gain_index_variation: np.ndarray = PGA_GAIN_INDEX_VARIATION,
         num_bits_command: int = NUM_BITS_COMMAND,
         fs: float = AUDIO_SAMPLING_RATE,
@@ -159,9 +159,11 @@ class EnvelopeController:
         self.waiting_time_length_vec = (self.waiting_time_vec * self.fs).astype(
             np.int64
         )
-        
+
         # maximum waiting time before gain change
-        self.max_num_samples_in_waiting_time = int(max_waiting_time_before_gain_change * self.fs)
+        self.max_num_samples_in_waiting_time = int(
+            max_waiting_time_before_gain_change * self.fs
+        )
 
         # ===========================================================================
         #         Specify how much pga_gain_index needs to be varied
@@ -277,7 +279,7 @@ class EnvelopeController:
         self.num_processed_samples += 1
 
         # check the amplitude of the input signal
-        if type(sig_in) != int and type(sig_in)!= np.int64:
+        if type(sig_in) != int and type(sig_in) != np.int64:
             raise ValueError("input quantized sample should be of integer type!")
 
         if sig_in >= 2 ** (self.num_bits - 1) or sig_in < -(2 ** (self.num_bits - 1)):

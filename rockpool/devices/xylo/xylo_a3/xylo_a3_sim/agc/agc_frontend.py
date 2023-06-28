@@ -13,10 +13,14 @@ import numpy as np
 
 from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.amplifier import Amplifier
 from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.adc import ADC
-from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.envelope_controller import EnvelopeController
+from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.envelope_controller import (
+    EnvelopeController,
+)
 from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.gain_smoother import GainSmootherFPGA
 
-from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.xylo_a3_agc_specs import AUDIO_SAMPLING_RATE
+from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.xylo_a3_agc_specs import (
+    AUDIO_SAMPLING_RATE,
+)
 
 from typing import Any
 from tqdm import tqdm
@@ -109,8 +113,8 @@ class AGC_ADC:
         # However, the simulation oversampling should be always an inetegr! So that the amplifier module can be fed/run an integer-times faster than the other modules.
         # NOTE: since the next module after the amplifier is the ADC, which is implemented as high-rate ADC + anti-aliasing decimation filter, the amplifier sampling rate
         # should be larger than this high-rate ADC.
-        amplifier_simulation_oversampling = (
-            self.amplifier.oversampling_factor / ( np.mean(oversampling_factors) * self.adc.oversampling_factor)
+        amplifier_simulation_oversampling = self.amplifier.oversampling_factor / (
+            np.mean(oversampling_factors) * self.adc.oversampling_factor
         )
         if (
             np.abs(
@@ -228,7 +232,6 @@ class AGC_ADC:
             # input time instant
             time_in = time_idx / audio_sample_rate
 
-
             # produce amplifier output
             #! note the old value of agc_pga_command computed in the past clock is used to produce amplifier output and ADC output
             amplifier_out = self.amplifier.evolve(
@@ -255,11 +258,10 @@ class AGC_ADC:
             )
 
             num_samples_received_from_adc += 1
-            
+
             # if adc is in oversampled mode, run the next modules with a lower clock
             if num_samples_received_from_adc % self.adc.oversampling_factor > 0:
                 continue
-                
 
             # * record the gain and the gain index that was used at this time slot
             #! Note that as soon as the new clock comes, gain index is updated by envelope controller but that gain index will be used for the current clock
@@ -290,7 +292,7 @@ class AGC_ADC:
                 )
 
             # save the results
-            # NOTE: due to skipping some samples when modules have various sampling rates, 
+            # NOTE: due to skipping some samples when modules have various sampling rates,
             # the output of all modules is registered only at lowet sampling rate of all modules
             adc_out_vec.append(adc_out)
             agc_pga_gain_vec.append(agc_pga_gain)
@@ -318,8 +320,11 @@ class AGC_ADC:
         }
 
         # depending on if gain smoother is activated
-        return (adc_out_vec, simulation_state) if self.gain_smoother is None else (gain_smoother_vec, simulation_state)
-        
+        return (
+            (adc_out_vec, simulation_state)
+            if self.gain_smoother is None
+            else (gain_smoother_vec, simulation_state)
+        )
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         """
@@ -330,7 +335,9 @@ class AGC_ADC:
     def __repr__(self) -> str:
         # string representation of the quantization module.
         string = (
-            " AGC + ADC module consisting of the following sub-modules ".center(100, "=")
+            " AGC + ADC module consisting of the following sub-modules ".center(
+                100, "="
+            )
             + "\n\n"
             + str(self.amplifier)
             + "\n\n"

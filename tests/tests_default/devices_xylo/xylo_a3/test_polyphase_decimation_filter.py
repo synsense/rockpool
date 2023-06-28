@@ -73,7 +73,3 @@ def test_polyphase_decimation_filter():
 
         MIN_CORR = 0.7
         assert corr > MIN_CORR
-
-
-if __name__ == "__main__":
-    test_polyphase_decimation_filter()

@@ -29,7 +29,6 @@ def test_deltasigma():
     order_list = [1, 2, 3, 4, 5]
 
     for order in order_list:
-
         # build the deltasigma module
         ds = DeltaSigma(amplitude=amplitude, bandwidth=bandwidth, order=order, fs=fs)
 
@@ -115,8 +114,3 @@ def test_pdm_mic():
 
     deltasigma_filter_states = recording["deltasigma_filter_states"]
     assert deltasigma_filter_states.shape == (len(pdm_bits), mic.sdm_order)
-
-
-if __name__ == "__main__":
-    # test_deltasigma()
-    test_pdm_mic()
