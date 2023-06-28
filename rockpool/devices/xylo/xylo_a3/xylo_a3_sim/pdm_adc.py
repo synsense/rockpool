@@ -25,6 +25,7 @@
 
 
 # - Rockpool imports
+from multiprocessing.sharedctypes import Value
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 from rockpool.nn.combinators import Sequential
@@ -36,9 +37,11 @@ from rockpool.timeseries import TSContinuous
 import numpy as np
 import scipy.signal as sp
 
+
 import warnings
 
 from typing import Union, Tuple, Any
+from numbers import Number
 
 from rockpool.typehints import P_int, P_float
 
@@ -356,7 +359,7 @@ class PDM_Microphone(Module):
 
     def evolve(
         self,
-        audio: np.ndarray,
+        audio_in: Tuple[np.ndarray, float],
         record: bool = False,
         *args,
         **kwargs,
@@ -372,8 +375,7 @@ class PDM_Microphone(Module):
             Resampling is performed if the sample rate of the input signal is less that the clock rate of PDM bitstream.
 
         Args:
-            audio (np.ndarray): input audio signal.
-            sample_rate (float): sample rate of the input audio signal.
+            audio_in (Tuple[np.ndarray), float]: a tuple containing the input audio signal and its sampling rate.
             record (bool): record the inner states of the deltasigma module used for PDM modulation.
 
         Raises:
@@ -382,6 +384,16 @@ class PDM_Microphone(Module):
         Returns:
             np.ndarray: array containing PDM bit-stream at the output of the microphone.
         """
+
+        try:
+            audio, sample_rate = audio_in
+
+            if isinstance(audio, np.ndarray) and isinstance(sample_rate, Number):
+                pass
+        except:
+            raise TypeError(
+                "`audio_in` should be a tuple consisting of a numpy array containing the audio and its sample rate!"
+            )
 
         if audio.ndim != 1:
             raise ValueError(
