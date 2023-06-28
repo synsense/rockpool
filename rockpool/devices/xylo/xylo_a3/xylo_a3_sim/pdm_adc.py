@@ -357,7 +357,6 @@ class PDM_Microphone(Module):
     def evolve(
         self,
         audio: np.ndarray,
-        sample_rate: float,
         record: bool = False,
         *args,
         **kwargs,
