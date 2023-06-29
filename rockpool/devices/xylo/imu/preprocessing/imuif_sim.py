@@ -64,14 +64,14 @@ class IMUIFSim(Module):
             shape (Optional[Union[Tuple, int]], optional): the shape of the input-output transformation. Defaults to (3, 15).
             select_iaf_output (bool, optional): If true, the output of the module is encoded using IAF spike encoding. If false, the output of the module is encoded using scale spike encoding. Defaults to False.
             bypass_jsvd (bool, optional): If true, the module does not perform the rotation removal stage. Defaults to False.
-            B_b_list (Union[List[int], int], optional): Bits needed for scaling b0 values of each filter. Defaults to [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6].
-            B_wf_list (Union[List[int], int], optional): Bits needed for fractional part of the filter output of each filter. Defaults to [8,8,8,8,8,8,8,8,8,8,8,8,8,8,8].
-            B_af_list (Union[List[int], int], optional): Bits needed for encoding the fractional parts of taps of each filter. Defaults to [9,9,9,9,9,9,9,9,9,9,9,9,9,9,9].
+            B_b_list (Union[List[int], int], optional): Maximum number of right bit shifts in the feedback loops of the filters. Defaults to [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6].
+            B_wf_list (Union[List[int], int], optional): Maximum number of left bit shifts in the input for avoiding dead zones of the filters. Defaults to [8,8,8,8,8,8,8,8,8,8,8,8,8,8,8].
+            B_af_list (Union[List[int], int], optional): Maximum number of right bit shifts in computing the AR part multiplication of the filters. Defaults to [9,9,9,9,9,9,9,9,9,9,9,9,9,9,9].
             a1_list (Union[List[int], int], optional): a1 tap parameters of each filter. Defaults to [-64700,-64458,-64330,-64138,-63884,-63566,-63185,-62743,-62238,-61672,-61045,-60357,-59611,-58805,-57941].
             a2_list (Union[List[int], int], optional): a2 tap parameters of each filter (repeats if int). Defaults to [31935,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754].
             scale_values (Union[List[int], int], optional): number of right-bit-shifts needed for down-scaling the input signal (per channel). Defaults to [5,5,5,5,5,5,5,5,5,5,5,5,5,5,5].
             iaf_threshold_values (Union[List[int], int], optional): the thresholds of the IAF neurons (quantized). Default to [1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024].
-            num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation. Default to 4.
+            num_avg_bitshift (int): number of bit shifts used in the low-pass filter implementation. Default to 4.
                 The effective window length of the low-pass filter will be `2**num_avg_bitshift`
             sampling_period (int): Sampling period that the signal is sampled and held, in number of timesteps. Defaults to 10.
         """
