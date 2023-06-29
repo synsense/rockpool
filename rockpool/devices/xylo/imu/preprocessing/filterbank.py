@@ -166,40 +166,8 @@ class FilterBank(Module):
         B_b_list: Union[List[int], int] = 6,
         B_wf_list: Union[List[int], int] = 8,
         B_af_list: Union[List[int], int] = 9,
-        a1_list: Union[List[int], int] = [
-            64700,
-            64458,
-            64330,
-            64138,
-            63884,
-            63566,
-            63185,
-            62743,
-            62238,
-            61672,
-            61045,
-            60357,
-            59611,
-            58805,
-            57941,
-        ],
-        a2_list: Union[List[int], int] = [
-            31935,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-        ],
+        a1_list: Optional[Union[List[int], int]] = None,
+        a2_list: Optional[Union[List[int], int]] = None,
     ) -> None:
         """Object Constructor
 
@@ -218,6 +186,44 @@ class FilterBank(Module):
             )
 
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
+
+        if a1_list is None:
+            a1_list = [
+                64700,
+                64458,
+                64330,
+                64138,
+                63884,
+                63566,
+                63185,
+                62743,
+                62238,
+                61672,
+                61045,
+                60357,
+                59611,
+                58805,
+                57941,
+            ]
+
+        if a2_list is None:
+            a2_list = [
+                31935,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+            ]
 
         def __make_list(val: Union[List[int], int]) -> List[int]:
             if isinstance(val, int):

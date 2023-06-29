@@ -50,40 +50,8 @@ class IMUIFSim(Module):
         B_b_list: Union[List[int], int] = 6,
         B_wf_list: Union[List[int], int] = 8,
         B_af_list: Union[List[int], int] = 9,
-        a1_list: Union[List[int], int] = [
-            64700,
-            64458,
-            64330,
-            64138,
-            63884,
-            63566,
-            63185,
-            62743,
-            62238,
-            61672,
-            61045,
-            60357,
-            59611,
-            58805,
-            57941,
-        ],
-        a2_list: Union[List[int], int] = [
-            31935,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-        ],
+        a1_list: Optional[Union[List[int], int]] = None,
+        a2_list: Optional[Union[List[int], int]] = None,
         scale_values: Union[List[int], int] = 5,
         iaf_threshold_values: Union[List[int], int] = 1024,
         num_avg_bitshift: int = 4,
@@ -91,6 +59,44 @@ class IMUIFSim(Module):
     ):
         """ """
         super().__init__(shape=shape, spiking_input=False, spiking_output=True)
+
+        if a1_list is None:
+            a1_list = [
+                64700,
+                64458,
+                64330,
+                64138,
+                63884,
+                63566,
+                63185,
+                62743,
+                62238,
+                61672,
+                61045,
+                60357,
+                59611,
+                58805,
+                57941,
+            ]
+
+        if a2_list is None:
+            a2_list = [
+                31935,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+            ]
 
         filter_bank = FilterBank(
             shape=shape,
