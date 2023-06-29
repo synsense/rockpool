@@ -47,7 +47,7 @@ class RotationRemoval(Module):
             shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,3).
             num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation. Default to 4.
                 The effective window length of the low-pass filter will be `2**num_avg_bitshift`
-            sampling_period (int): Sampling period that the signal is sampled and held. Defaults to 10.
+            sampling_period (int): Sampling period that the signal is sampled and held, in number of timesteps. Defaults to 10.
 
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
