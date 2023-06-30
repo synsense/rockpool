@@ -39,6 +39,7 @@ import scipy.signal as sp
 
 
 import warnings
+from logging import info
 
 from typing import Union, Tuple, Any
 from numbers import Number
@@ -144,13 +145,18 @@ class DeltaSigma:
         self.C = np.linalg.inv(N) @ C
 
     def evolve(
-        self, sig_in: np.ndarray, sample_rate: float = None, record: bool = False
+        self,
+        sig_in: np.ndarray,
+        sample_rate: float = None,
+        python_version: bool = False,
+        record: bool = False,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """this module processes the input signal and produces its corresponding sigmadelta modulation via simulating the corrresponding ODE.
 
         Args:
             sig_in (np.ndarray): input signal.
             sample_rate (float): sample rate of the input signal. Defaults to None.
+            python_version (bool, optional): ttthis flag forces deltasigma computation to be done in Python without any Jax speedup. Defaults to False.
             record (bool, optional): record the states of the filter. Defaults to False.
 
         Returns:
@@ -180,6 +186,22 @@ class DeltaSigma:
             # replace the original signal
             sig_in = sig_in_resampled
 
+        # check if Jax is available for speedup and if it is permitted
+        if JAX_DeltaSigma and not python_version:
+            sig_out_Q, sig_out, state_list = jax_deltasigma_evolve(
+                sig_in=sig_in,
+                fs=self.fs,
+                A=self.A,
+                A_Q=self.A_Q,
+                B=self.B,
+                C=self.C,
+                amplitude=self.amplitude,
+                record=record,
+            )
+
+            return sig_out_Q, sig_out, sig_in, state_list
+
+        # otherwise: proceed with the python versiooon
         state_list = []
 
         # states for the simulation
@@ -901,3 +923,119 @@ def PDM_ADC(
             fs=fs,
         ),
     )
+
+
+# ===========================================================================
+# *  Jax implementation for further speedup of deltasigma modulation module
+# ===========================================================================
+try:
+    import jax
+    import jax.numpy as jnp
+
+    # only jax.float32 version implemented as jax.int32 will not work in the filters due to their large number of bits.
+    def jax_deltasigma_evolve(
+        sig_in: np.ndarray,
+        A: np.ndarray,
+        A_Q: np.ndarray,
+        B: np.ndarray,
+        C: np.ndarray,
+        amplitude: np.ndarray,
+        fs: float,
+        record: bool = False,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """this module implements the jax version of deltasigma modulator for further speedup.
+
+        Args:
+            sig_in (np.ndarray): input signal
+            A (np.ndarray): A matrix in block-diagram version.
+            A_Q (np.ndarray): A_Q vector in block-diagram version.
+            B (np.ndarray): B vector in block-diagramm version.
+            C (np.ndarray): C vector in block-diagram version.
+            amplitude (np.ndarray): amplitude of the antipodal output of deltasigma modulator.
+            record (bool, optional): record the inner states of deltasigma. Defaults to False.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: a tuple containing the deltasigma output after quantizatio and before quenatization, and the inner states of the deltasigma module.
+        """
+        # dimension of the state
+        state_dim = A.shape[0]
+
+        state_init = jnp.zeros(state_dim + 1, dtype=jnp.float32)
+        A = jnp.asarray(A, dtype=jnp.float32)
+        A_Q = jnp.asarray(A_Q, dtype=jnp.float32)
+        B = jnp.asarray(B, dtype=jnp.float32)
+        C = jnp.asarray(C, dtype=jnp.float32)
+
+        # define the forward function of the dynamics
+        def forward(state_in, input):
+            # decompse the state and the quantized output
+            state, sig_out_Q = state_in[:-1], state_in[-1]
+
+            # compute diffrential of the state
+            d_state = A @ state + B * input + A_Q * sig_out_Q
+
+            # update the state
+            state += d_state * 1 / fs
+
+            # produce the quantized output
+            sig_out = state[-1]
+            sig_out_Q = amplitude * (2 * jnp.heaviside(sig_out, 0) - 1)
+
+            # build the output state and output
+            state_out = jnp.zeros_like(state_in)
+            state_out = state_out.at[:-1].set(state)
+            state_out = state_out.at[-1].set(sig_out_Q)
+
+            output = state_out if record else state_out[-2:]
+
+            return state_out, output
+
+        # apply the forward dynamics to compute the deltasigma output
+        final_state, output = jax.lax.scan(forward, state_init, sig_in)
+
+        # convert into numpy format for return
+        sig_out = np.asarray(output[:, -2], dtype=np.float64)
+        sig_out_Q = np.asarray(output[:, -1], dtype=np.float64)
+
+        state = (
+            np.asarray(output[:, :-1], dtype=np.float64)
+            if record
+            else np.asarray([], dtype=np.float64)
+        )
+
+        return sig_out_Q, sig_out, state
+
+    # set the  flag for jax version
+    JAX_DeltaSigma = True
+
+    info(
+        "Jax version was found. DeltaSigma module will be computed using jax speedup.\n"
+    )
+
+except ModuleNotFoundError as e:
+    info(
+        "No jax module was found for DeltaSigma implementation. DeltaSigma module will use python version!\n"
+        + str(e)
+    )
+
+    # set flag for jax
+    JAX_DeltaSigma = False
+
+
+# - In debug mode deactivate accelerated version
+__DEBUG_MODE__ = False
+
+if __DEBUG_MODE__:
+    JAX_DeltaSigma = False
+
+
+if JAX_DeltaSigma:
+    # Jax version is active: use jax since it is slightly faster than CPP if all dependencies are ok!
+    # apply simple embedding in Python
+    info(
+        f"JAX_DeltaSigma: {JAX_DeltaSigma}: Using Jax-JIT version of DeltaSigma modulation."
+    )
+
+else:
+    # use the Python version
+    info(f"No Jax version: Using Python native for DeltaSigma modulation.")
