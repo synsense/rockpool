@@ -656,13 +656,13 @@ class LIFTorch(LIFBaseTorch):
         # - Set up state record and output
         if self._record:
             self._record_dict["vmem"] = torch.zeros(
-                n_batches, n_timesteps, self.size_out
+                n_batches, n_timesteps, self.size_out, device=input_data.device
             )
             self._record_dict["isyn"] = torch.zeros(
-                n_batches, n_timesteps, self.size_out, self.n_synapses
+                n_batches, n_timesteps, self.size_out, self.n_synapses, device=input_data.device
             )
             self._record_dict["irec"] = torch.zeros(
-                n_batches, n_timesteps, self.size_out, self.n_synapses
+                n_batches, n_timesteps, self.size_out, self.n_synapses, device=input_data.device
             )
 
         self._record_dict["spikes"] = torch.zeros(
