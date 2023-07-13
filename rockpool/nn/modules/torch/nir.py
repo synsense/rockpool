@@ -39,8 +39,8 @@ def linear_from_nir(
     node: nir.Linear,
 ):
     return LinearTorch(
-        shape=(node.weight.shape[0], node.weight.shape[1]),
-        weight=node.weight,
+        shape=(node.weight.shape[1], node.weight.shape[0]),
+        weight=node.weight.T,
     )
 
 def affline_from_nir(
@@ -48,8 +48,8 @@ def affline_from_nir(
 ):
 
     return LinearTorch(
-        shape=(node.weight.shape[0], node.weight.shape[1]),
-        weight=node.weight,
+        shape=(node.weight.shape[1], node.weight.shape[0]),
+        weight=node.weight.T,
         bias=node.bias,
     )
 
@@ -78,7 +78,7 @@ def from_nir(
     for node in source.nodes:
 
         if type(node) in [nir.LI, nir.CubaLIF]:
-            num_neuron = store_node.weight.shape[1]
+            num_neuron = store_node.weight.shape[0]
             layer = node_conversion_functions[type(node)](node, num_neuron)
         elif type(node) in [nir.Linear, nir.Affine]:
             layer = node_conversion_functions[type(node)](node)
@@ -113,9 +113,9 @@ def _extract_rockpool_module(module) -> Optional[nir.NIRNode]:
 
     elif isinstance(module, LinearTorch):
         if module.bias is None:
-            return nir.Linear(module.weight.detach())
+            return nir.Linear(module.weight.T.detach())
         else:
-            return nir.Affine(module.weight.detach(), module.bias.detach())
+            return nir.Affine(module.weight.T.detach(), module.bias.detach())
 
     return None
 
