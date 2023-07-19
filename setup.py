@@ -55,7 +55,7 @@ setup_args = {
         ],
         "dynapse": [
             "rockpool[jax]",
-            "samna>=0.30.25.0",
+            "samna>=0.31.9.0",
         ],
         "extras": [
             "matplotlib",
