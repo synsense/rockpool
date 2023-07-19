@@ -430,14 +430,11 @@ class XyloSamna(Module):
         """ `.XyloHDK`: The Xylo HDK used by this module """
 
         # - Register buffers to read and write events, monitor state
-        # self._read_buffer, self._write_buffer = hdkutils.get_read_write_buffers(device)
-
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
-        self._write_buffer = hdkutils.new_xylo_write_buffer(device)
-        # self._state_buffer = hdkutils.new_xylo_state_monitor_buffer(device)
+        """ `.XyloIMUReadBuffer`: The read buffer for the connected HDK """
 
-        # - Store the io module
-        self._io = device.get_io_module()
+        self._write_buffer = hdkutils.new_xylo_write_buffer(device)
+        """ `.XyloIMUWriteBuffer`: The write buffer for the connected HDK """
 
         # - Store the timestep
         self.dt: Union[float, SimulationParameter] = dt
@@ -476,7 +473,6 @@ class XyloSamna(Module):
 
         # - Write the configuration to the device
         hdkutils.apply_configuration(self._device, new_config)
-        # self._state_buffer.set_configuration(new_config)
         self._config = new_config
 
     def _configure_accel_time_mode(
@@ -497,7 +493,6 @@ class XyloSamna(Module):
             self.config = hdkutils.configure_accel_time_mode(
                 self._device,
                 self._config,
-                # self._state_buffer,
                 Nhidden,
                 Nout,
                 readout=self._output_mode,
@@ -546,11 +541,11 @@ class XyloSamna(Module):
         Nout_monitor = Nout if record else 0
 
         print(
-            f"current_TS: {hdkutils.get_current_timestep(self._read_buffer, self._write_buffer)}"
+            f"current_TS: {[hdkutils.get_current_timestep(self._read_buffer, self._write_buffer) for _ in range(10)]}"
         )
 
-        start_timestep = hdkutils.get_current_timestep(
-            self._read_buffer, self._write_buffer
+        start_timestep = (
+            hdkutils.get_current_timestep(self._read_buffer, self._write_buffer) + 1
         )
         final_timestep = start_timestep + len(input) - 1
 
@@ -567,28 +562,19 @@ class XyloSamna(Module):
         for timestep, channel, count in zip(spikes[:, 0], spikes[:, 1], counts):
             for _ in range(count):
                 event = samna.xyloImu.event.Spike(
-                    neuron_id=channel, timestamp=start_timestep + timestep
+                    neuron_id=channel, timestep=start_timestep + timestep
                 )
-                # event.neuron_id = channel
-                # event.timestamp = start_timestep + timestep
                 input_events_list.append(event)
-                # self._write_buffer.write([event])
-                # print(
-                #     f"wrote {start_timestep + timestep}, current_TS: {hdkutils.get_current_timestep(self._read_buffer, self._write_buffer)}"
-                # )
 
-        # - Add an extra event to ensure readout for entire input extent
-        event = samna.xyloImu.event.Spike(timestamp=final_timestep + 1)
+        # - Add a `TriggerProcessing` event to ensure all time-steps are processed
+        event = samna.xyloImu.event.TriggerProcessing(
+            target_timestep=final_timestep + 1
+        )
         input_events_list.append(event)
-        # self._write_buffer.write([event])
-
-        # - Clear the input registers to ensure the dummy event has no effect
-        input_events_list.extend(hdkutils.gen_clear_input_registers_events())
 
         print(input_events_list)
 
         # - Clear the read and state buffers
-        # self._state_buffer.reset()
         self._read_buffer.get_events()
 
         print(

@@ -44,13 +44,13 @@ def find_xylo_imu_boards() -> List[XyloIMUHDK]:
     return imu_hdk_list
 
 
-def get_read_write_buffers(
-    hdk: XyloIMUHDK,
-) -> Tuple[XyloIMUReadBuffer, XyloIMUWriteBuffer]:
-    read_buffer = samna.graph.sink_from(hdk.get_model_source_node())
-    write_buffer = samna.graph.source_to(hdk.get_model_sink_node())
+# def get_read_write_buffers(
+#     hdk: XyloIMUHDK,
+# ) -> Tuple[XyloIMUReadBuffer, XyloIMUWriteBuffer]:
+#     read_buffer = samna.graph.sink_from(hdk.get_model_source_node())
+#     write_buffer = samna.graph.source_to(hdk.get_model_sink_node())
 
-    return read_buffer, write_buffer
+#     return read_buffer, write_buffer
 
 
 def new_xylo_read_buffer(
@@ -65,21 +65,7 @@ def new_xylo_read_buffer(
     Returns:
         XyloIMUReadBuffer: A connected event read buffer
     """
-    # - Register a buffer to read events from Xylo
-    buffer = XyloIMUReadBuffer()
-
-    # - Get the device model
-    model = hdk.get_model()
-
-    # - Get Xylo output event source node
-    source_node = model.get_source_node()
-
-    # - Add the buffer as a destination for the Xylo output events
-    graph = samna.graph.EventFilterGraph()
-    graph.sequential([source_node, buffer])
-
-    # - Return the buffer
-    return buffer
+    return samna.graph.sink_from(hdk.get_model_source_node())
 
 
 def new_xylo_write_buffer(hdk: XyloIMUHDK) -> XyloIMUWriteBuffer:
@@ -92,12 +78,7 @@ def new_xylo_write_buffer(hdk: XyloIMUHDK) -> XyloIMUWriteBuffer:
     Returns:
         XyloIMUWriteBuffer: A connected event write buffer
     """
-    buffer = XyloIMUWriteBuffer()
-    sink = hdk.get_model().get_sink_node()
-    graph = samna.graph.EventFilterGraph()
-    graph.sequential([buffer, sink])
-
-    return buffer
+    return samna.graph.source_to(hdk.get_model_sink_node())
 
 
 # def new_xylo_state_monitor_buffer(
@@ -230,7 +211,6 @@ class XyloState(NamedTuple):
 def configure_accel_time_mode(
     hdk: XyloIMUHDK,
     config: XyloConfiguration,
-    # state_monitor_buffer: XyloIMUNeuronStateBuffer,
     monitor_Nhidden: Optional[int] = 0,
     monitor_Noutput: Optional[int] = 0,
     readout="Spike",
@@ -244,7 +224,6 @@ def configure_accel_time_mode(
 
     Args:
         config (XyloConfiguration): The desired Xylo configuration to use
-        # state_monitor_buffer (XyloIMUNeuronStateBuffer): A connected neuron state monitor buffer
         monitor_Nhidden (Optional[int]): The number of hidden neurons for which to monitor state during evolution. Default: ``0``, don't monitor any hidden neurons.
         monitor_Noutput (Optional[int]): The number of output neurons for which to monitor state during evolution. Default: ``0``, don't monitor any output neurons.
         readout: The readout out mode for which to output neuron states. Default: ``Spike''. Must be one of ``['Vmem', 'Spike', 'Isyn']``.
@@ -294,9 +273,6 @@ def configure_accel_time_mode(
             config.debug.monitor_neuron_v_mem = samna.xyloImu.configuration.NeuronRange(
                 monitor_Nhidden, monitor_Nhidden + monitor_Noutput
             )
-
-    # - Configure the monitor buffer
-    # state_monitor_buffer.set_configuration(config)
 
     # - Return the configuration and buffer
     return config
