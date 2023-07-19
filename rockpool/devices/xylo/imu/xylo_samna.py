@@ -540,16 +540,16 @@ class XyloSamna(Module):
         Nhidden_monitor = Nhidden if record else 0
         Nout_monitor = Nout if record else 0
 
-        print(
-            f"current_TS: {[hdkutils.get_current_timestep(self._read_buffer, self._write_buffer) for _ in range(10)]}"
-        )
+        # print(
+        #     f"current_TS: {[hdkutils.get_current_timestep(self._read_buffer, self._write_buffer) for _ in range(10)]}"
+        # )
 
         start_timestep = (
             hdkutils.get_current_timestep(self._read_buffer, self._write_buffer) + 1
         )
         final_timestep = start_timestep + len(input) - 1
 
-        print(f"start {start_timestep}, final {final_timestep}")
+        # print(f"start {start_timestep}, final {final_timestep}")
 
         # -- Encode input events
         input_events_list = []
@@ -572,14 +572,14 @@ class XyloSamna(Module):
         )
         input_events_list.append(event)
 
-        print(input_events_list)
+        # print(input_events_list)
 
         # - Clear the read and state buffers
         self._read_buffer.get_events()
 
-        print(
-            f"current_TS: {hdkutils.get_current_timestep(self._read_buffer, self._write_buffer)}"
-        )
+        # print(
+        #     f"current_TS: {hdkutils.get_current_timestep(self._read_buffer, self._write_buffer)}"
+        # )
 
         # - Write the events and trigger the simulation
         self._write_buffer.write(input_events_list)
