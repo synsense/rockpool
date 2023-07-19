@@ -26,7 +26,7 @@ def test_bandpass_filter():
     q_signal, _, _ = quantizer(signal)
     q_signal = q_signal.flatten()
 
-    bandpass_filter = BandPassFilter(a1=-6400)
+    bandpass_filter = BandPassFilter(a1=6400)
 
     # Apply the bandpass filter to the test signal
     filtered_signal = bandpass_filter(q_signal)
@@ -54,9 +54,6 @@ def test_filterbank():
     np.random.seed(2023)
 
     # - Test values
-    num_bits = 16
-    num_bits_multiplier = num_bits + 10
-    num_avg_bitshift = 11
     sampling_period = 10
 
     # - Synthetic data generation
@@ -82,7 +79,7 @@ def test_filterbank():
     mod_if = Sequential(
         Quantizer(
             scale=0.999 / np.max(np.abs(input_signal_rotated)),
-            num_bits=num_bits,
+            num_bits=16,
         ),
         RotationRemoval(
             num_avg_bitshift=11,
@@ -92,7 +89,7 @@ def test_filterbank():
     )
 
     __B, __T, __C = input_signal.shape
-    __F = __C * mod_if[2].numF
+    __F = mod_if[2].size_out
     q_filt_signal, _, _ = mod_if(input_signal)
     assert q_filt_signal.shape == (__B, __T, __F)
 
