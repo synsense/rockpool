@@ -151,9 +151,8 @@ def set_power_measure(
         power_monitor: The power monitoring object
     """
     power_monitor = hdk.get_power_monitor()
-    power_buf = samna.BasicSinkNode_unifirm_modules_events_measurement()
-    graph = samna.graph.EventFilterGraph()
-    graph.sequential([power_monitor.get_source_node(), power_buf])
+    power_source = power_monitor.get_source_node()
+    power_buf = samna.graph.sink_from(power_source)
     power_monitor.start_auto_power_measurement(frequency)
     return power_buf, power_monitor
 
