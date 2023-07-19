@@ -17,10 +17,10 @@ def test_scale_spike_encoder():
 
     # Prepare input
     np.random.seed(2023)
-    input_data = np.random.randint(0, 2**16, size=(10, 100, 48), dtype=np.uint16)
+    input_data = np.random.randint(0, 2**16, size=(10, 100, 15), dtype=np.uint16)
 
     # Simulate the encoder
-    spike_encoder = ScaleSpikeEncoder(num_scale_bits=10, num_out_bits=4)
+    spike_encoder = ScaleSpikeEncoder()
     out, _, _ = spike_encoder(input_data.astype(object))
 
     # Compare the output against the limit value
@@ -40,10 +40,10 @@ def test_iaf_spike_encoder():
 
     # Prepare input
     np.random.seed(2023)
-    input_data = np.random.randint(0, 2**16, size=(10, 100, 48), dtype=np.uint16)
+    input_data = np.random.randint(0, 2**16, size=(10, 100, 15), dtype=np.uint16)
 
     # Simulate the encoder
-    spike_encoder = IAFSpikeEncoder(1000)
+    spike_encoder = IAFSpikeEncoder(threshold=1000)
     out, _, _ = spike_encoder(input_data.astype(object))
 
     # Compare the output against the limit value

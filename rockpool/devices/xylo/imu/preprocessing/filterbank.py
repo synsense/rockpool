@@ -1,13 +1,23 @@
 """
 Hardware butterworth filter implementation for the Xylo IMU.
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.preprocessing.utils import type_check
+from rockpool.devices.xylo.imu.preprocessing.utils import (
+    type_check,
+    unsigned_bit_range_check,
+    signed_bit_range_check,
+)
 from rockpool.nn.modules.module import Module
+
+B_IN = 16
+"""Number of input bits that can be processed with the block diagram"""
+
+B_WORST_CASE: int = 9
+"""Number of additional bits devoted to storing filter taps such that no over- and under-flow can happen"""
 
 __all__ = ["FilterBank", "BandPassFilter"]
 
@@ -19,60 +29,36 @@ class BandPassFilter:
     This is the block-diagram structure proposed for implementation.
     """
 
-    a1: int
+    B_b: int = 6
+    """Bits needed for scaling b0"""
+
+    B_wf: int = 8
+    """Bits needed for fractional part of the filter output"""
+
+    B_af: int = 9
+    """Bits needed for encoding the fractional parts of taps"""
+
+    a1: int = 73131
     """Integer representation of a1 tap"""
 
     a2: int = 31754
     """Integer representation of a2 tap"""
 
-    B_worst_case: int = 5
-    """Number of additional bits devoted to storing filter taps such that no over- and under-flow can happen"""
-
-    B_in: int = 16
-    """Number of input bits that can be processed with the block diagram"""
-
-    B_b: int = 6
-    """Bits needed for scaling b0"""
-
-    B_a: int = 17
-    """Total number of bits devoted to storing filter a-taps"""
-
-    B_af: int = 9
-    """Bits needed for encoding the fractional parts of taps"""
-
-    B_wf: int = 8
-    """Bits needed for fractional part of the filter output"""
-
-    B_w: Optional[int] = None
-    """Total number of bits devoted to storing the values computed by the AR-filter. It should be equal to `B_in + B_worst_case + B_wf`"""
-
-    B_out: Optional[int] = None
-    """Total number of bits needed for storing the values computed by the WHOLE filter."""
-
-    b: list = field(default_factory=lambda: [1, 0, -1])
-    """Special case for normalized Butterworth filters"""
-
-    scale_out: int = 0.9898
-    """Surplus scaling due to `b` normalization surplus scaling due to `b` normalization. It is always in the range [0.5, 1.0]"""
-
     def __post_init__(self) -> None:
         """
-        Fill `None` values with the correct values and check the validity of the parameters.
+        Check the validity of the parameters.
         """
-        if self.B_w is None:
-            self.B_w = self.B_in + self.B_worst_case + self.B_wf
-        elif self.B_w != self.B_in + self.B_worst_case + self.B_wf:
-            raise ValueError("`B_w` should be equal to `B_in + B_worst_case + B_wf`")
+        self.B_w = B_IN + B_WORST_CASE + self.B_wf
+        """Total number of bits devoted to storing the values computed by the AR-filter."""
 
-        if self.B_out is None:
-            self.B_out = self.B_in + self.B_worst_case
-        elif self.B_out != self.B_in + self.B_worst_case:
-            raise ValueError("`B_out` should be equal to `B_in + B_worst_case`")
+        self.B_out = B_IN + B_WORST_CASE
+        """Total number of bits needed for storing the values computed by the WHOLE filter."""
 
-        if self.scale_out < 0.5 or self.scale_out > 1.0:
-            raise ValueError(
-                f"output surplus scale should be in the range [0.5, 1.0]. Got {self.scale_out}."
-            )
+        unsigned_bit_range_check(self.B_b, n_bits=4)
+        unsigned_bit_range_check(self.B_wf, n_bits=4)
+        unsigned_bit_range_check(self.B_af, n_bits=4)
+        signed_bit_range_check(self.a1, n_bits=17)
+        signed_bit_range_check(self.a2, n_bits=17)
 
     @type_check
     def compute_AR(self, signal: np.ndarray) -> np.ndarray:
@@ -91,10 +77,7 @@ class BandPassFilter:
 
         # check that the input is within the valid range of block-diagram
 
-        if np.max(np.abs(signal)) >= 2 ** (self.B_in - 1):
-            raise ValueError(
-                f"The input signal values can be in the range [-2^{self.B_in-1}, +2^{self.B_in-1}]!"
-            )
+        unsigned_bit_range_check(np.max(np.abs(signal)), n_bits=B_IN - 1)
 
         output = []
 
@@ -117,11 +100,7 @@ class BandPassFilter:
 
             # check the overflow: here we have the integer version
 
-        if np.max(np.abs(output)) >= 2 ** (self.B_w - 1):
-            raise ValueError(
-                f"output signal is beyond the valid output range of AR branch [-2^{self.B_w-1}, +2^{self.B_w-1}]!"
-            )
-
+        unsigned_bit_range_check(np.max(np.abs(output)), n_bits=self.B_w - 1)
         # convert into numpy
         return np.asarray(output, dtype=object)
 
@@ -144,18 +123,14 @@ class BandPassFilter:
         if signal.ndim > 1:
             raise ValueError("input signal should be 1-dim.")
 
-        sig_out = self.b[0] * signal
-        sig_out[2:] = sig_out[2:] + self.b[2] * signal[:-2]
+        sig_out = np.copy(signal)
+        sig_out[2:] = sig_out[2:] - signal[:-2]
 
         # apply the last B_wf bitshift to get rid of additional scaling needed to avoid dead-zone in the AR part
         sig_out = sig_out >> self.B_wf
 
         # check the validity of the computed output
-        if np.max(np.abs(sig_out)) >= 2 ** (self.B_out - 1):
-            raise OverflowError(
-                f"overflow or underflow: computed filter output is beyond the valid range [-2^{self.B_out-1}, +2^{self.B_out-1}]!"
-            )
-
+        unsigned_bit_range_check(np.max(np.abs(sig_out)), n_bits=self.B_out - 1)
         return sig_out
 
     @type_check
@@ -185,29 +160,18 @@ class FilterBank(Module):
     Here we make sure that all those filters work properly.
     """
 
-    def __init__(self, shape: Optional[Union[Tuple, int]] = (3, 48)) -> None:
+    def __init__(self, shape: Optional[Union[Tuple, int]] = (3, 15)) -> None:
         """Object Constructor
 
         Args:
-            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,9).
+            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,15).
         """
         self.filter_list = [
-            BandPassFilter(B_worst_case=9, a1=-64700, a2=31935, scale_out=0.8139),
+            BandPassFilter(a1=-64700, a2=31935),
             BandPassFilter(a1=-64458),
             BandPassFilter(a1=-64330),
             BandPassFilter(a1=-64138),
             BandPassFilter(a1=-63884),
-            BandPassFilter(a1=-63566),
-            BandPassFilter(a1=-63185),
-            BandPassFilter(a1=-62743),
-            BandPassFilter(a1=-62238),
-            BandPassFilter(a1=-61672),
-            BandPassFilter(a1=-61045),
-            BandPassFilter(a1=-60357),
-            BandPassFilter(a1=-59611),
-            BandPassFilter(a1=-58805),
-            BandPassFilter(a1=-57941),
-            BandPassFilter(a1=-57020),
         ]
         if shape[1] != shape[0] * len(self.filter_list):
             raise ValueError(
@@ -240,11 +204,6 @@ class FilterBank(Module):
 
         # -- Batch processing
         input_data, _ = self._auto_batch(input_data)
-        __B, __T, __C = input_data.shape
-
-        if __C != self.size_in:
-            raise ValueError(f"The input data should have {self.size_in} channels!")
-
         input_data = np.array(input_data, dtype=np.int64).astype(object)
 
         # -- Filter

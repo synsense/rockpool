@@ -34,13 +34,7 @@ def test_JSVD_low_rank_gravity():
     from rockpool.devices.xylo.imu.preprocessing import JSVD, Quantizer
 
     # - Init JSVD module
-    jsvd = JSVD(
-        num_angles=64,
-        num_bits_lookup=16,
-        num_bits_covariance=32,
-        num_bits_rotation=32,
-        nround=4,
-    )
+    jsvd = JSVD()
 
     num_test = 10
     np.random.seed(2023)
@@ -68,7 +62,7 @@ def test_JSVD_low_rank_gravity():
         Q = Quantizer(
             shape=num_ch,
             scale=0.999 / np.max(np.abs(cov_in)),
-            num_bits=jsvd.num_bits_covariance,
+            num_bits=16,
         )
         cov_quant, _, _ = Q(cov_in)
 
