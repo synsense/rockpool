@@ -35,10 +35,6 @@ def test_subspace():
     avg_window_len = int(avg_window_duration * r_sampling)
     avg_bitshift = int(np.log2(avg_window_len) + 1)
 
-    ## How many bits we need to compute the covariance matrix
-    num_bits_multiplier = 2 * num_bits_in
-    bits_highprec_filter = num_bits_multiplier + avg_bitshift
-
     # - Subspace module
 
     subspace = Sequential(
@@ -47,12 +43,7 @@ def test_subspace():
             scale=0.999 / (np.max(np.abs(signal))),
             num_bits=num_bits_in,
         ),
-        SubSpace(
-            num_bits_in=num_bits_in,
-            num_bits_multiplier=num_bits_multiplier,
-            num_bits_highprec_filter=bits_highprec_filter,
-            num_avg_bitshift=avg_bitshift,
-        ),
+        SubSpace(num_avg_bitshift=avg_bitshift),
     )
     C_list, _, _ = subspace(signal)
 

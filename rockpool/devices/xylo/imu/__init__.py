@@ -28,6 +28,7 @@ except:
 try:
     from .xylo_samna import *
     from .xylo_imu_devkit_utils import *
+    from .preprocessing import IMUIFSim
 
     from .imu_monitor import *
 except:

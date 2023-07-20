@@ -6,34 +6,36 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.preprocessing.utils import type_check
+from rockpool.devices.xylo.imu.preprocessing.utils import (
+    type_check,
+    unsigned_bit_range_check,
+)
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
+
+NUM_BITS_IN = 16
+"""number of bits in the input data. We assume a sign magnitude format."""
+NUM_BITS_HIGHPREC_FILTER_BASE = 31
+"""number of bits devoted to computing the high-precision filter (to avoid dead-zone effect). NOTE: This is the base value. The actual value is computed as `NUM_BITS_HIGHPREC_FILTER_BASE + num_avg_bitshift`"""
+NUM_BITS_MULTIPLIER = 31
+"""number of bits devoted to computing [x(t) x(t)^T]_{ij}. If less then needed, the LSB values are removed"""
 
 __all__ = ["SubSpace"]
 
 
 class SubSpace(Module):
     """Averaging and covariance estimation for 3D IMU signals
-    BxTx3 -> BxTx3x3
+    BxTx3 -> BxTx(3x3)
     """
 
     def __init__(
-        self,
-        num_bits_in: int,
-        num_bits_highprec_filter: int,
-        num_bits_multiplier: int,
-        num_avg_bitshift: int,
-        shape: Optional[Union[Tuple, int]] = (3, 9),
+        self, shape: Optional[Union[Tuple, int]] = (3, 9), num_avg_bitshift: int = 4
     ) -> None:
         """Object Constructor
 
         Args:
-            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,9).
-            num_bits_in (int): number of bits in the input data. We assume a sign magnitude format.
-            num_bits_highprec_filter (int) : number of bits devoted to computing the high-precision filter (to avoid dead-zone effect)
-            num_bits_multiplier (int): number of bits devoted to computing [x(t) x(t)^T]_{ij}. If less then needed, the LSB values are removed.
-            num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation.
+            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,9)..
+            num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation. Defaults to 4.
                 The effective window length of the low-pass filter will be `2**num_avg_bitshift`
         """
         if shape[1] != shape[0] ** 2:
@@ -43,23 +45,17 @@ class SubSpace(Module):
 
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
-        self.num_bits_in = SimulationParameter(num_bits_in, shape=(1,), cast_fn=int)
-        """number of bits in the input data. We assume a sign magnitude format."""
-
-        self.num_bits_highprec_filter = SimulationParameter(
-            num_bits_highprec_filter, shape=(1,), cast_fn=int
-        )
-        """number of bits devoted to computing the high-precision filter (to avoid dead-zone effect)"""
-
-        self.num_bits_multiplier = SimulationParameter(
-            num_bits_multiplier, shape=(1,), cast_fn=int
-        )
-        """number of bits devoted to computing [x(t) x(t)^T]_{ij}. If less then needed, the LSB values are removed."""
+        unsigned_bit_range_check(num_avg_bitshift, n_bits=5)
 
         self.num_avg_bitshift = SimulationParameter(
             num_avg_bitshift, shape=(1,), cast_fn=int
         )
+
         """number of bitshifts used in the low-pass filter implementation."""
+        self.num_bits_highprec_filter = SimulationParameter(
+            NUM_BITS_HIGHPREC_FILTER_BASE + num_avg_bitshift, shape=(1,), cast_fn=int
+        )
+        """number of bits devoted to computing the high-precision filter (to avoid dead-zone effect)"""
 
     @type_check
     def evolve(
@@ -79,10 +75,7 @@ class SubSpace(Module):
         """
 
         # check the validity of the data
-        if np.max(np.abs(input_data)) >= 2 ** (self.num_bits_in - 1):
-            raise ValueError(
-                f"some elements of the input data are beyond the range of {self.num_bits_in} bits!"
-            )
+        unsigned_bit_range_check(np.max(np.abs(input_data)), n_bits=NUM_BITS_IN - 1)
 
         # check that the values are indeed integers
         if np.linalg.norm(np.floor(input_data) - input_data) > 0:
@@ -93,18 +86,14 @@ class SubSpace(Module):
         # -- Batch processing
         input_data, _ = self._auto_batch(input_data)
         __B, __T, __C = input_data.shape
-
-        if __C != self.size_in:
-            raise ValueError(f"The input data should have {self.size_in} channels!")
-
         input_data = np.array(input_data, dtype=np.int64)
 
         # -- bit size calculation
         # maximimum number of bits that can be used for storing the result of multiplication x(t) * x(t)^T
-        max_bits_mult_output = 2 * self.num_bits_in - 1
+        max_bits_mult_output = 2 * NUM_BITS_IN - 1
 
         # number of bitshifts needed in implementing the high-precision filter
-        mult_right_bit_shift = max_bits_mult_output - self.num_bits_multiplier
+        mult_right_bit_shift = max_bits_mult_output - NUM_BITS_MULTIPLIER
 
         # initialize the covariance matrix and covariance matrix with larger precision
         C_highprec = np.zeros((self.size_in, self.size_in), dtype=np.int64).astype(
@@ -154,15 +143,3 @@ class SubSpace(Module):
         # flatten the channel dimension
         C_batched = C_batched.reshape(__B, __T, self.size_out)
         return C_batched, {}, {}
-
-    def __str__(self):
-        string = (
-            "Subspace tracking module for estimating the 3 x 3 covariance matrix of the input 3 x T data:\n"
-            + f"number of bits of input signal: {self.num_bits_in}\n"
-            + f"number of right bit-shifts used in low-pass filter implementation: {self.num_avg_bitshift}\n"
-            + f"averaging window size: {2**self.num_avg_bitshift} samples\n"
-            + f"number of bits used for implementing the multiplication module: {self.num_bits_multiplier}\n"
-            + f"number of bits used for computing the high-precision filter (to avoid dead-zone in low-pass filter): {self.num_bits_highprec_filter}"
-        )
-
-        return string
