@@ -8,7 +8,10 @@ import numpy as np
 from rockpool.devices.xylo.imu.preprocessing.jsvd import JSVD, NUM_BITS_ROTATION
 from rockpool.devices.xylo.imu.preprocessing.sample_hold import SampleAndHold
 from rockpool.devices.xylo.imu.preprocessing.subspace import SubSpace, NUM_BITS_IN
-from rockpool.devices.xylo.imu.preprocessing.utils import type_check
+from rockpool.devices.xylo.imu.preprocessing.utils import (
+    type_check,
+    unsigned_bit_range_check,
+)
 from rockpool.nn.combinators import Sequential
 
 from rockpool.nn.modules.module import Module
@@ -44,10 +47,13 @@ class RotationRemoval(Module):
             shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,3).
             num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation. Default to 4.
                 The effective window length of the low-pass filter will be `2**num_avg_bitshift`
-            sampling_period (int): Sampling period that the signal is sampled and held. Defaults to 10.
+            sampling_period (int): Sampling period that the signal is sampled and held, in number of timesteps. Defaults to 10.
 
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
+
+        unsigned_bit_range_check(num_avg_bitshift, n_bits=5)
+        unsigned_bit_range_check(sampling_period, n_bits=11)
 
         self.sub_estimate = Sequential(
             SubSpace(
@@ -59,6 +65,16 @@ class RotationRemoval(Module):
                 shape=(self.size_in**2, self.size_in**2),
             ),
         )
+
+        self.num_avg_bitshift = SimulationParameter(
+            num_avg_bitshift, shape=(1,), cast_fn=int
+        )
+        """number of bitshifts used in the low-pass filter implementation"""
+
+        self.sampling_period = SimulationParameter(
+            sampling_period, shape=(1,), cast_fn=int
+        )
+        """sampling period that the signal is sampled and held"""
 
         self.jsvd = JSVD()
 
@@ -95,11 +111,11 @@ class RotationRemoval(Module):
         covariance_old = -np.ones((3, 3), dtype=object)
         rotation_old = np.eye(3).astype(np.int64).astype(object)
 
-        signal_out = []
         data_out = []
 
         # loop over the batch
         for cov_SH, signal in zip(batch_cov_SH, input_data):
+            signal_out = []
             # loop over the time dimension
             for cov_new, sample in zip(cov_SH, signal):
                 # check if the covariance matrix is repeated
@@ -129,10 +145,8 @@ class RotationRemoval(Module):
                     covariance_old = cov_new
                     rotation_old = rotation_new
 
-            # convert into array and return
-            signal_out = np.array(signal_out, dtype=object)
+            data_out.append(signal_out)
 
-        data_out.append(signal_out)
         data_out = np.array(data_out, dtype=object)
 
         return data_out, {}, {}

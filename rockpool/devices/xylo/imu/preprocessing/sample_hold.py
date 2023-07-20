@@ -67,8 +67,8 @@ class SampleAndHold(Module):
             end_idx = end_idx if end_idx <= __T else __T
 
             # copy and repeat the signal along the time dimension
-            out_data[:, start_idx:end_idx, :] = np.full_like(
-                out_data[:, start_idx:end_idx, :], input_data[:, start_idx, :]
+            out_data[:, start_idx:end_idx, :] = np.repeat(
+                input_data[:, start_idx, np.newaxis, :], end_idx - start_idx, axis=1
             )
 
         out_data = np.array(out_data, dtype=object)

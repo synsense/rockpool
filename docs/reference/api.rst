@@ -273,23 +273,32 @@ Xylo IMU support
 
 .. autosummary::
     :toctree: _autosummary
-    
+    :template: class.rst
+
+    devices.xylo.imu.IMUIFSim
+
+.. autosummary::
+    :toctree: _autosummary
     :template: module.rst
+
     devices.xylo.imu.preprocessing
 
+.. autosummary::
+    :toctree: _autosummary
     :template: class.rst
-    devices.xylo.imu.preprocessing.quantizer.Quantizer
-    devices.xylo.imu.preprocessing.lookup.RotationLookUpTable
-    devices.xylo.imu.preprocessing.jsvd.JSVD
-    devices.xylo.imu.preprocessing.subspace.SubSpace
-    devices.xylo.imu.preprocessing.sample_hold.SampleAndHold
-    devices.xylo.imu.preprocessing.rotation_removal.RotationRemoval
-    devices.xylo.imu.preprocessing.filterbank.BandPassFilter
-    devices.xylo.imu.preprocessing.filterbank.FilterBank
-    devices.xylo.imu.preprocessing.rectifiers.FullWaveRectifier
-    devices.xylo.imu.preprocessing.rectifiers.HalfWaveRectifier
-    devices.xylo.imu.preprocessing.spike_encoder.ScaleSpikeEncoder
-    devices.xylo.imu.preprocessing.spike_encoder.IAFSpikeEncoder
+
+    devices.xylo.imu.preprocessing.Quantizer
+    devices.xylo.imu.preprocessing.RotationLookUpTable
+    devices.xylo.imu.preprocessing.JSVD
+    devices.xylo.imu.preprocessing.SubSpace
+    devices.xylo.imu.preprocessing.SampleAndHold
+    devices.xylo.imu.preprocessing.RotationRemoval
+    devices.xylo.imu.preprocessing.BandPassFilter
+    devices.xylo.imu.preprocessing.FilterBank
+    devices.xylo.imu.preprocessing.FullWaveRectifier
+    devices.xylo.imu.preprocessing.HalfWaveRectifier
+    devices.xylo.imu.preprocessing.ScaleSpikeEncoder
+    devices.xylo.imu.preprocessing.IAFSpikeEncoder
 
 
 Dynap-SE2 hardware support and simulation

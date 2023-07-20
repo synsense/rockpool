@@ -166,48 +166,16 @@ class FilterBank(Module):
         B_b_list: Union[List[int], int] = 6,
         B_wf_list: Union[List[int], int] = 8,
         B_af_list: Union[List[int], int] = 9,
-        a1_list: Union[List[int], int] = [
-            64700,
-            64458,
-            64330,
-            64138,
-            63884,
-            63566,
-            63185,
-            62743,
-            62238,
-            61672,
-            61045,
-            60357,
-            59611,
-            58805,
-            57941,
-        ],
-        a2_list: Union[List[int], int] = [
-            31935,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-            31754,
-        ],
+        a1_list: Optional[Union[List[int], int]] = None,
+        a2_list: Optional[Union[List[int], int]] = None,
     ) -> None:
         """Object Constructor
 
         Args:
             shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,15).
-            B_b_list (Union[List[int], int], optional): Bits needed for scaling b0 values of each filter. Defaults to [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6].
-            B_wf_list (Union[List[int], int], optional): Bits needed for fractional part of the filter output of each filter. Defaults to [8,8,8,8,8,8,8,8,8,8,8,8,8,8,8].
-            B_af_list (Union[List[int], int], optional): Bits needed for encoding the fractional parts of taps of each filter. Defaults to [9,9,9,9,9,9,9,9,9,9,9,9,9,9,9].
+            B_b_list (Union[List[int], int], optional):  Maximum number of right bit shifts in the feedback loops of the filters. Defaults to [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6].
+            B_wf_list (Union[List[int], int], optional): Maximum number of left bit shifts in the input for avoiding dead zones of the filters. Defaults to [8,8,8,8,8,8,8,8,8,8,8,8,8,8,8].
+            B_af_list (Union[List[int], int], optional): Maximum number of right bit shifts in computing the AR part multiplication of the filters. Defaults to [9,9,9,9,9,9,9,9,9,9,9,9,9,9,9].
             a1_list (Union[List[int], int], optional): a1 tap parameters of each filter. Defaults to [-64700,-64458,-64330,-64138,-63884,-63566,-63185,-62743,-62238,-61672,-61045,-60357,-59611,-58805,-57941].
             a2_list (Union[List[int], int], optional): a2 tap parameters of each filter (repeats if int). Defaults to [31935,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754].
         """
@@ -218,6 +186,44 @@ class FilterBank(Module):
             )
 
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
+
+        if a1_list is None:
+            a1_list = [
+                64700,
+                64458,
+                64330,
+                64138,
+                63884,
+                63566,
+                63185,
+                62743,
+                62238,
+                61672,
+                61045,
+                60357,
+                59611,
+                58805,
+                57941,
+            ]
+
+        if a2_list is None:
+            a2_list = [
+                31935,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+                31754,
+            ]
 
         def __make_list(val: Union[List[int], int]) -> List[int]:
             if isinstance(val, int):
