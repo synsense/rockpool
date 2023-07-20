@@ -1,7 +1,7 @@
 """
 Modules for pre-processing IMU data, as implemented in Xylo IMU
 
-Defines the modules :py:class:`.JVSD`, :py:class:`.RotationLookUpTable`, :py:class:`.Quantizer`, :py:class:`.RotationRemoval`, :py:class:`.SampleAndHold`, :py:class:`.SubSpace`.
+Defines the modules :py:class:`.IMUIFSim`, :py:class:`.JVSD`, :py:class:`.RotationLookUpTable`, :py:class:`.Quantizer`, :py:class:`.RotationRemoval`, :py:class:`.SampleAndHold`, :py:class:`.SubSpace`.
 """
 
 from rockpool.utilities.backend_management import (

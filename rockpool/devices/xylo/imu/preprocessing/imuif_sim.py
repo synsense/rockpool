@@ -34,7 +34,7 @@ __all__ = ["IMUIFSim"]
 
 class IMUIFSim(Module):
     """
-    A :py:class:`.Module` that simulates analog IMU signal preprocessing into spikes.
+    A :py:class:`.Module` that simulates the IMU signal preprocessing on Xylo IMU
 
     This module simulates the Xylo IMU front-end stage. This is a signal-to-event core that consists of rotation removal units, low-pass filters, and a spike generator. The module takes in a 3D IMU signal and outputs a spike train.
 
