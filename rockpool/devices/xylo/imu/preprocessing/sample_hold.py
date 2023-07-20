@@ -19,13 +19,14 @@ class SampleAndHold(Module):
 
     def __init__(
         self,
-        sampling_period: int,
         shape: Optional[Union[Tuple, int]] = (3, 3),
+        sampling_period: int = 10,
     ) -> None:
         """Object Constructor
 
         Args:
-            sampling_period (int): Sampling period that the signal is sampled and held
+            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,3).
+            sampling_period (int): Sampling period that the signal is sampled and held. Defaults to 10.
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
@@ -66,13 +67,9 @@ class SampleAndHold(Module):
             end_idx = end_idx if end_idx <= __T else __T
 
             # copy and repeat the signal along the time dimension
-            out_data[:, start_idx:end_idx, :] = np.full_like(
-                out_data[:, start_idx:end_idx, :], input_data[:, start_idx, :]
+            out_data[:, start_idx:end_idx, :] = np.repeat(
+                input_data[:, start_idx, np.newaxis, :], end_idx - start_idx, axis=1
             )
 
         out_data = np.array(out_data, dtype=object)
         return out_data, {}, {}
-
-    def __str__(self) -> str:
-        string = "Sample-and-Hold maodule:\n" + f"period: {self.sampling_period}"
-        return string

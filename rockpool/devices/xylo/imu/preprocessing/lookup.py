@@ -4,6 +4,12 @@ import numpy as np
 
 from rockpool.devices.xylo.imu.preprocessing.utils import bucket_decorator
 
+NUM_ANGLES = 64
+"""number of angles in lookup table"""
+NUM_BITS = 16
+"""number of bits used for quantizing the lookup table"""
+EPS = 10e-30
+
 __all__ = ["RotationLookUpTable"]
 
 
@@ -13,22 +19,7 @@ class RotationLookUpTable:
     The data for each angle is quantized/truncated into `num_bits` bits.
     """
 
-    def __init__(self, num_angles: int, num_bits: int) -> None:
-        """Object constructor
-
-        Args:
-            num_angles (int): number of angles in lookup table.
-            num_bits (int): number of bits used for quantizing the lookup table.
-        """
-        self.num_angles = num_angles
-        """number of angles in lookup table"""
-
-        self.num_bits = num_bits
-        """number of bits used for quantizing the lookup table"""
-
-        self._compute_lookup_table()
-
-    def _compute_lookup_table(self) -> None:
+    def __init__(self) -> None:
         """
         To make sure that the lookup table has a good precision we do the following:
             (i)     we always work with angles in the range [0, 45] degrees.
@@ -50,7 +41,7 @@ class RotationLookUpTable:
         max_angle_degree = 45
         max_angle_radian = max_angle_degree / 180 * np.pi
 
-        self.angles_radian = np.linspace(0, max_angle_radian, self.num_angles)
+        self.angles_radian = np.linspace(0, max_angle_radian, NUM_ANGLES)
         self.angles_degree = self.angles_radian / np.pi * 180
 
         # compute the sin and cos in the lookup table
@@ -70,7 +61,6 @@ class RotationLookUpTable:
 
         # compute the 1/sin(2 theta) and 1/cos(2 theta)
         # set them equal to NAN at the positions when they are not needed.
-        EPS = 10e-30
 
         self.inv_2cos2_vals = 1 / (2 * np.cos(2 * self.angles_radian) + EPS)
         self.inv_2cos2_vals[ind_low_angle == False] = np.nan
@@ -86,28 +76,28 @@ class RotationLookUpTable:
         self.tan2_vals_quantized = np.asarray(
             [
                 int(el / (1 + EPS)) if not np.isnan(el) else np.nan
-                for el in (self.tan2_vals * 2**self.num_bits)
+                for el in (self.tan2_vals * 2**NUM_BITS)
             ],
             dtype=object,
         )
         self.cot2_vals_quantized = np.asarray(
             [
                 int(el / (1 + EPS)) if not np.isnan(el) else np.nan
-                for el in (self.cot2_vals * 2**self.num_bits)
+                for el in (self.cot2_vals * 2**NUM_BITS)
             ],
             dtype=object,
         )
         self.sin_vals_quantized = np.asarray(
             [
                 int(el / (1 + EPS)) if not np.isnan(el) else np.nan
-                for el in ((2**self.num_bits - 1) * self.sin_vals)
+                for el in ((2**NUM_BITS - 1) * self.sin_vals)
             ],
             dtype=object,
         )
         self.cos_vals_quantized = np.asarray(
             [
                 int(el / (1 + EPS)) if not np.isnan(el) else np.nan
-                for el in ((2**self.num_bits - 1) * self.cos_vals)
+                for el in ((2**NUM_BITS - 1) * self.cos_vals)
             ],
             dtype=object,
         )
@@ -115,14 +105,14 @@ class RotationLookUpTable:
         self.inv_2cos2_vals_quantized = np.asarray(
             [
                 int(el) if not np.isnan(el) else np.nan
-                for el in (2**self.num_bits * self.inv_2cos2_vals)
+                for el in (2**NUM_BITS * self.inv_2cos2_vals)
             ],
             dtype=object,
         )
         self.inv_2sin2_vals_quantized = np.asarray(
             [
                 int(el) if not np.isnan(el) else np.nan
-                for el in (2**self.num_bits * self.inv_2sin2_vals)
+                for el in (2**NUM_BITS * self.inv_2sin2_vals)
             ],
             dtype=object,
         )
@@ -159,7 +149,7 @@ class RotationLookUpTable:
             row_index = 0
 
         elif a == c:
-            row_index = self.num_angles - 1
+            row_index = NUM_ANGLES - 1
 
         else:
             # here we follow one of these two methods
@@ -171,7 +161,7 @@ class RotationLookUpTable:
                 #   (ii)    we do this to find the corresponding row of the lookup table.
                 row_index = np.sum(
                     [
-                        el * abs(a - c) <= abs(2 * b) * 2**self.num_bits
+                        el * abs(a - c) <= abs(2 * b) * 2**NUM_BITS
                         if not np.isnan(el)
                         else False
                         for el in self.tan2_vals_quantized
@@ -191,14 +181,14 @@ class RotationLookUpTable:
                 #   (iii)   since the cot(2 theta) values start later in the lookup table we need shift the row-index
                 row_index = np.sum(
                     [
-                        el * abs(2 * b) >= abs(a - c) * 2**self.num_bits
+                        el * abs(2 * b) >= abs(a - c) * 2**NUM_BITS
                         if not np.isnan(el)
                         else True
                         for el in self.cot2_vals_quantized
                     ]
                 )
 
-                if row_index == self.num_angles:
+                if row_index == NUM_ANGLES:
                     row_index -= 1
 
         return (

@@ -24,14 +24,14 @@ class Quantizer(Module):
 
     def __init__(
         self,
-        shape: Optional[Union[Tuple, int]],
+        shape: Optional[Union[Tuple, int]] = (3, 3),
         scale: float = 1.0,
         num_bits: int = 16,
     ) -> None:
         """Object constructor.
 
         Args:
-            shape (Optional[Union[Tuple, int]], optional): Network shape. Defaults to None.
+            shape (Optional[Union[Tuple, int]], optional): Network shape. Defaults to (3,3).
             scale (float, optional): scale applied before quantization. Defaults to 1.0.
             num_bits (int, optional): the number of bits in the fractional part of the quantized signal. Defaults to 16.
         """

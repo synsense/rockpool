@@ -11,8 +11,26 @@ from typing import List, Tuple
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.preprocessing.lookup import RotationLookUpTable
-from rockpool.devices.xylo.imu.preprocessing.utils import type_check
+from rockpool.devices.xylo.imu.preprocessing.lookup import RotationLookUpTable, NUM_BITS
+from rockpool.devices.xylo.imu.preprocessing.utils import (
+    type_check,
+    unsigned_bit_range_check,
+)
+
+COV_EXTRA_BIT = 2
+"""The components of the covariance can enlarger by a factor 3 (at most), thus, an additional register size of 2"""
+
+ROT_EXTRA_BIT = 1
+"""Rotation can expand at most by a factor during the multiplication, thus, an additional register size of 1"""
+
+NUM_BITS_COVARIANCE = 31
+"""number of bits used for the covariance matrix"""
+
+NUM_BITS_ROTATION = 32
+"""number of bits devoted for implementing rotation matrix"""
+
+NROUND = 4
+"""number of round rotation computation and update is done over all 3 axes/dims"""
 
 __all__ = ["JSVD"]
 
@@ -23,42 +41,10 @@ class JSVD:
     number of multiplication operations.
     """
 
-    def __init__(
-        self,
-        num_angles: int,
-        num_bits_lookup: int,
-        num_bits_covariance: int,
-        num_bits_rotation: int,
-        nround: int = 4,
-    ) -> None:
-        """Object constructor.
+    def __init__(self) -> None:
+        """Object constructor."""
 
-        Args:
-            num_angles (int): number of angles in lookup table.
-            num_bits_lookup (int): number of bits used for quantizing the lookup table.
-            num_bits_covariance (int): number of bits used for the covariance matrix.
-            num_bits_rotation (int): number of bits devoted for implementing rotation matrix.
-            nround (int): number of round rotation computation and update is done over all 3 axes/dims.
-        """
-
-        self.num_angles = num_angles
-        """number of angles in lookup table"""
-
-        self.num_bits_lookup = num_bits_lookup
-        """number of bits used for quantizing the lookup table"""
-
-        self.num_bits_covariance = num_bits_covariance
-        """number of bits used for the covariance matrix"""
-
-        self.num_bits_rotation = num_bits_rotation
-        """number of bits devoted for implementing rotation matrix"""
-
-        self.nround = nround
-        """number of round rotation computation and update is done over all 3 axes/dims"""
-
-        self.lookuptable = RotationLookUpTable(
-            num_angles=num_angles, num_bits=num_bits_lookup
-        )
+        self.lookuptable = RotationLookUpTable()
         """lookup table used for computation"""
 
     @type_check
@@ -102,27 +88,20 @@ class JSVD:
                 "The input covariance matrix does not seem to be symmetric! This may cause issues in computation!"
             )
 
-        if np.max(np.abs(C_in)) >= 2 ** (self.num_bits_covariance - 1):
-            raise ValueError(
-                f"The input covariance matrix does not fit in the {self.num_bits_covariance} bits assigned to it! If needed, apply quantization to the covariance to truncate it!"
-            )
-
-        # --- initialization and history of computation
-        COV_EXTRA_BIT = 2  # because the components of the covariance can enlarger by a factor 3 (at most), thus, an additional register size of 2
-        ROT_EXTRA_BIT = 1  # rotation can expand at most by a factor during the multiplication, thus, an additional register size of 1
+        unsigned_bit_range_check(np.max(np.abs(C_in)), NUM_BITS_COVARIANCE - 1)
 
         # estimated covariance matrices
         C_list = [C_in]
 
         # estimated rotation matrices
-        R_list = [(2 ** (self.num_bits_rotation - 1) - 1) * np.eye(3, dtype=object)]
+        R_list = [(2 ** (NUM_BITS_ROTATION - 1) - 1) * np.eye(3, dtype=object)]
 
         R = np.copy(R_list[0])
         D = np.copy(C_list[0])
 
         niter = 0
 
-        for n_round in range(self.nround):
+        for n_round in range(NROUND):
             # number of rounds the algorithm should run
 
             # NOTE: check the early termination condition
@@ -231,19 +210,15 @@ class JSVD:
 
                     # NOTE: sign correction is needed here since `SIN(2 theta)` appears here and `SIN(2 theta)` has the same sign as `TAN(2 theta)``.
                     a_new = (
-                        ((a + c) << self.lookuptable.num_bits) // 2
-                        + rotation_correction_large_angles
-                    ) >> self.lookuptable.num_bits
+                        ((a + c) << NUM_BITS) // 2 + rotation_correction_large_angles
+                    ) >> NUM_BITS
                     c_new = (
-                        ((a + c) << self.lookuptable.num_bits) // 2
-                        - rotation_correction_large_angles
-                    ) >> self.lookuptable.num_bits
+                        ((a + c) << NUM_BITS) // 2 - rotation_correction_large_angles
+                    ) >> NUM_BITS
 
                     if abs(a_new) >= 2 ** (
-                        self.num_bits_covariance - 1 + COV_EXTRA_BIT
-                    ) or abs(c_new) >= 2 ** (
-                        self.num_bits_covariance - 1 + COV_EXTRA_BIT
-                    ):
+                        NUM_BITS_COVARIANCE - 1 + COV_EXTRA_BIT
+                    ) or abs(c_new) >= 2 ** (NUM_BITS_COVARIANCE - 1 + COV_EXTRA_BIT):
                         raise ValueError(
                             "over- or under-flow happened in updating the almost-diagonal matrix D!"
                         )
@@ -253,19 +228,15 @@ class JSVD:
 
                     # NOTE: sign modification is NOT needed here since we have `COS(2 theta)` and it is always positive even for negative angles.
                     a_new = (
-                        ((a + c) << self.lookuptable.num_bits) // 2
-                        + rotation_correction_small_angles
-                    ) >> self.lookuptable.num_bits
+                        ((a + c) << NUM_BITS) // 2 + rotation_correction_small_angles
+                    ) >> NUM_BITS
                     c_new = (
-                        ((a + c) << self.lookuptable.num_bits) // 2
-                        - rotation_correction_small_angles
-                    ) >> self.lookuptable.num_bits
+                        ((a + c) << NUM_BITS) // 2 - rotation_correction_small_angles
+                    ) >> NUM_BITS
 
                     if abs(a_new) >= 2 ** (
-                        self.num_bits_covariance - 1 + COV_EXTRA_BIT
-                    ) or abs(c_new) >= 2 ** (
-                        self.num_bits_covariance - 1 + COV_EXTRA_BIT
-                    ):
+                        NUM_BITS_COVARIANCE - 1 + COV_EXTRA_BIT
+                    ) or abs(c_new) >= 2 ** (NUM_BITS_COVARIANCE - 1 + COV_EXTRA_BIT):
                         raise ValueError(
                             "over- or under-flow happened in updating the almost-diagonal matrix D!"
                         )
@@ -304,16 +275,16 @@ class JSVD:
                 sub_vector_D_updated[0] = (
                     cos_val_quant * sub_vector_D[0]
                     + sin_val_quant * sign_tan2 * sub_vector_D[1]
-                ) >> self.lookuptable.num_bits
+                ) >> NUM_BITS
                 sub_vector_D_updated[1] = (
                     -sin_val_quant * sign_tan2 * sub_vector_D[0]
                     + cos_val_quant * sub_vector_D[1]
-                ) >> self.lookuptable.num_bits
+                ) >> NUM_BITS
 
                 if np.abs(sub_vector_D[0]) >= 2 ** (
-                    self.num_bits_covariance - 1 + COV_EXTRA_BIT
+                    NUM_BITS_COVARIANCE - 1 + COV_EXTRA_BIT
                 ) or np.abs(sub_vector_D[1]) >= 2 ** (
-                    self.num_bits_covariance - 1 + COV_EXTRA_BIT
+                    NUM_BITS_COVARIANCE - 1 + COV_EXTRA_BIT
                 ):
                     raise ValueError(
                         "over- or under-flow happened in updating the diagonal matrix D!"
@@ -372,9 +343,9 @@ class JSVD:
 
                 R2_embed_in_3d[selection == 1] = R2.ravel()
                 # old version
-                # R2_embed_in_3d[dim,dim] = (2**self.lookuptable.num_bits)-1
+                # R2_embed_in_3d[dim,dim] = (2**NUM_BITS)-1
                 # new version: to reduce the number of multiplications
-                R2_embed_in_3d[dim, dim] = 2**self.lookuptable.num_bits
+                R2_embed_in_3d[dim, dim] = 2**NUM_BITS
 
                 # NOTE: example for dim=1
                 # if the computed rotation matrix using lookup table was |cos_val_quant  -sin_val_quant|
@@ -397,19 +368,16 @@ class JSVD:
                             update += R[i, k] * R2_embed_in_3d[k, j]
 
                             if abs(update) >= 2 ** (
-                                self.num_bits_rotation
-                                + self.lookuptable.num_bits
-                                - 1
-                                + ROT_EXTRA_BIT
+                                NUM_BITS_ROTATION + NUM_BITS - 1 + ROT_EXTRA_BIT
                             ):
                                 raise ValueError(
                                     "an over- or under-flow happened in rotation update!"
                                 )
 
-                        R_out[i, j] = update >> self.lookuptable.num_bits
+                        R_out[i, j] = update >> NUM_BITS
 
                         if abs(R_out[i, j]) >= 2 ** (
-                            self.num_bits_rotation - 1 + ROT_EXTRA_BIT
+                            NUM_BITS_ROTATION - 1 + ROT_EXTRA_BIT
                         ):
                             raise ValueError(
                                 "an over- or under-flow happened in rotation update!"
@@ -423,7 +391,7 @@ class JSVD:
                 R_list.append(np.copy(R))
 
         # fill the list of returned value/stored states in case of early termination
-        max_iter = self.nround * 3  # because  of 3 dimensions
+        max_iter = NROUND * 3  # because  of 3 dimensions
 
         for i in range(max_iter - niter):
             C_list.append(np.copy(C_list[-1]))
@@ -562,12 +530,3 @@ class JSVD:
         subspace_metric = np.asarray(subspace_metric)
 
         return subspace_metric
-
-    def __str__(self) -> str:
-        string = (
-            "JSVD module for computing the rotation in IMU dataset:"
-            + f"number of bits used for covariance computation: {self.num_bits_covariance}\n"
-            + f"number of bits used for rotation computation and storage: {self.num_bits_rotation}\n\n"
-            + f"rotation lookuptable used for angle estimation:\n{self.lookuptable}"
-        )
-        return string
