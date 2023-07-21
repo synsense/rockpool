@@ -124,7 +124,7 @@ class BandPassFilter:
 
         unsigned_bit_range_check(np.max(np.abs(output)), n_bits=self.B_w - 1)
         # convert into numpy
-        return np.asarray(output, dtype=object)
+        return np.array(output, dtype=np.int64).astype(object)
 
     @type_check
     def compute_MA(self, signal: np.ndarray) -> np.ndarray:
@@ -153,7 +153,7 @@ class BandPassFilter:
 
         # check the validity of the computed output
         unsigned_bit_range_check(np.max(np.abs(sig_out)), n_bits=self.B_out - 1)
-        return sig_out
+        return np.array(sig_out, dtype=np.int64).astype(object)
 
     @type_check
     def __call__(self, signal: np.ndarray):
