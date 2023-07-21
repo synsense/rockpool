@@ -130,7 +130,7 @@ def test_external_input():
         device=daughterboard,
         config=config,
         output_mode="Vmem",
-        external_imu_input=True,
+        prerecorded_imu_input=True,
     )
 
     # - Simulate with random input

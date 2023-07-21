@@ -429,7 +429,7 @@ class XyloSamna(Module):
         self._device: XyloIMUHDK = device
         """ `.XyloHDK`: The Xylo HDK used by this module """
 
-        # - Register buffers to read and write events, monitor state
+        # - Register buffers to read and write events
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
         """ `.XyloIMUReadBuffer`: The read buffer for the connected HDK """
 

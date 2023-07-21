@@ -356,8 +356,9 @@ def decode_accel_mode_data(
     Args:
         readout_events (List[ReadoutEvent]): A list of `ReadoutEvent`s recorded from Xylo IMU
         Nin (int): The number of input channels for the configured network
-        Nhidden (int): The number of hidden neurons to monitor
-        Nout (int): The number of output neurons to monitor
+        Nhidden_monitor (int): The number of hidden neurons to monitor
+        Nout_monitor (int): The number of output neurons to monitor
+        Nout (int): The number of output neurons in total
         T_start (int): Initial timestep
         T_end (int): Final timestep
 
@@ -407,6 +408,46 @@ def decode_accel_mode_data(
         Spikes_hid=spikes_ts,
         Spikes_out=output_ts,
     )
+
+
+def decode_realtime_mode_data(
+    readout_events: List[ReadoutEvent],
+    # Nin: int,
+    # Nhidden_monitor: int,
+    # Nout_monitor: int,
+    Nout: int,
+    T_start: int,
+    T_end: int,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Read realtime simulation mode data from a Xylo HDK
+
+    Args:
+        readout_events (List[ReadoutEvent]): A list of `ReadoutEvent`s recorded from Xylo IMU
+        # Nin (int): The number of input channels for the configured network
+        # Nhidden (int): The number of hidden neurons to monitor
+        Nout (int): The number of output neurons to monitor
+        T_start (int): Initial timestep
+        T_end (int): Final timestep
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: (`vmem_out_ts`, `output_ts`) The membrane potential and output event trains from Xylo
+    """
+    # - Initialise lists for recording state
+    T_count = T_end - T_start + 1
+    vmem_out_ts = np.zeros((T_count, Nout), np.int16)
+    output_ts = np.zeros((T_count, Nout), np.int8)
+
+    # - Loop over time steps
+    for ev in readout_events:
+        if type(ev) is ReadoutEvent:
+            timestep = ev.timestep - T_start
+            if timestep >= 0:
+                vmem_out_ts[timestep, 0:Nout] = ev.output_v_mems
+                output_ts[timestep] = ev.output_spikes
+
+    # - Return Vmem and spikes
+    return vmem_out_ts, output_ts
 
 
 def gen_clear_input_registers_events() -> List:
@@ -482,13 +523,10 @@ def get_current_timestep(
     return timestep
 
 
-def config_auto_mode(
+def config_realtime_mode(
     config: XyloConfiguration,
     dt: float,
     main_clk_rate: int,
-    io,
-    Nhidden: int,
-    Nout: int,
 ) -> XyloConfiguration:
     """
     Set the Xylo HDK to real-time mode
@@ -497,28 +535,25 @@ def config_auto_mode(
         config (XyloConfiguration): A configuration for Xylo IMU
         dt (float): The simulation time-step to use for this Module
         main_clk_rate(int): The main clock rate of Xylo
-        io: The io module of Xylo
 
     Return:
         updated Xylo configuration
     """
-    io.write_config(0x11, 0)
-    io.spi_slave_enable(False)
+    # - Select real-time operation mode
     config.operation_mode = samna.xyloImu.OperationMode.RealTime
-    config.bias_enable = True
-    config.hidden.aliasing = True
+
     config.debug.always_update_omp_stat = True
     config.imu_if_input_enable = True
     config.debug.imu_if_clk_enable = True
-    config.time_resolution_wrap = int(dt * main_clk_rate)
+
+    # - Configure Xylo IMU clock rate
+    # config.time_resolution_wrap = int(dt * main_clk_rate)
+    config.time_resolution_wrap = 0x61A80
     config.debug.imu_if_clock_freq_div = 0x169
 
-    config.debug.monitor_neuron_v_mem = samna.xyloImu.configuration.NeuronRange(
-        Nhidden, Nhidden + Nout
-    )
-    config.debug.monitor_neuron_i_syn = samna.xyloImu.configuration.NeuronRange(
-        Nhidden, Nhidden + Nout
-    )
+    # - No monitoring of internal state in realtime mode
+    config.debug.monitor_neuron_v_mem = None
+    config.debug.monitor_neuron_i_syn = None
     config.debug.monitor_neuron_spike = None
 
     return config

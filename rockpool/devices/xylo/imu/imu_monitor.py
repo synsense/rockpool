@@ -33,7 +33,7 @@ except ModuleNotFoundError:
 # - Configure exports
 __all__ = ["XyloIMUMonitor"]
 
-Default_Main_Clock_Rate = int(50e6)  # 50 MHz
+Default_Main_Clock_Rate = int(100e6)  # 100 MHz
 
 
 class XyloIMUMonitor(Module):
@@ -52,7 +52,7 @@ class XyloIMUMonitor(Module):
         device: XyloIMUHDK,
         config: XyloConfiguration = None,
         output_mode: str = "Spike",
-        external_imu_input: bool = False,
+        prerecorded_imu_input: bool = False,
         main_clk_rate: Optional[int] = Default_Main_Clock_Rate,
         hibernation_mode: bool = False,
         interface_params: Optional[dict] = dict(),
@@ -66,10 +66,10 @@ class XyloIMUMonitor(Module):
             device (XyloIMUHDK): An opened `samna` device to a Xylo dev kit
             config (XyloConfiguraration): A Xylo configuration from `samna`
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Vmem"]``. Default: "Spike", return events from the output layer.
-            external_imu_input (bool): If True, use the external imu data as input. Otherwise, use imu sensor on chip.
+            prerecorded_imu_input (bool): If ``True``, use prerocorded imu data from PC as input. If ``False``, use the live IMU sensor on the HDK. Default: ``False``, use the IMU sensor.
             main_clk_rate(int): The main clock rate of Xylo
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
-            interface_params(dict): The dictionary of Xylo interface parameters used for the `hdkutils.config_if_module` function, the keys of which must be one of "num_avg_bitshif", "select_iaf_output", "sampling_period", "filter_a1_list", "filter_a2_list", "scale_values", "Bb_list", "B_wf_list", "B_af_list", "iaf_threshold_values".
+            interface_params(dict): The dictionary of Xylo interface parameters used for the `hdkutils.config_if_module` function, the keys of which must be "num_avg_bitshif", "select_iaf_output", "sampling_period", "filter_a1_list", "filter_a2_list", "scale_values", "Bb_list", "B_wf_list", "B_af_list", "iaf_threshold_values".
         """
 
         # - Check input arguments
@@ -94,10 +94,21 @@ class XyloIMUMonitor(Module):
         # - Register buffers to read and write events, monitor state
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
-        self._state_buffer = hdkutils.new_xylo_state_monitor_buffer(device)
+
+        # - Build a filter graph to filter `Readout` events from Xylo IMU
+        self._readout_graph = samna.graph.EventFilterGraph()
+        _, etf0, self._readout_buffer = self._readout_graph.sequential(
+            [
+                device.get_model_source_node(),
+                "XyloImuOutputEventTypeFilter",
+                samna.graph.JitSink(),
+            ]
+        )
+        etf0.set_desired_type("xyloImu::event::Readout")
+        self._readout_graph.start()
 
         # - Initialise the superclass
-        super().__init__(shape=(3, Nout), spiking_input=True, spiking_output=True)
+        super().__init__(shape=(3, Nout), spiking_input=False, spiking_output=True)
 
         # - Store the device
         self._device: XyloIMUHDK = device
@@ -126,24 +137,20 @@ class XyloIMUMonitor(Module):
         self._io = self._device.get_io_module()
 
         # - Store the choice of external imu input
-        self._external_imu_input = external_imu_input
+        self._external_imu_input = prerecorded_imu_input
 
-        # - Disable external IMU data input
-        if external_imu_input:
-            self._io.spi_slave_enable(True)
+        # - Select source of IMU accel data input
+        if prerecorded_imu_input:
+            self._device.enable_manual_input_acceleration(True)
         else:
-            self._io.spi_slave_enable(False)
+            self._device.enable_manual_input_acceleration(False)
 
         # - Set main clock rate
         if self._main_clk_rate != Default_Main_Clock_Rate:
             self._io.set_main_clk_rate(self._main_clk_rate)
 
         # - Configure to auto mode
-        self._enable_auto_mode(interface_params, Nhidden, Nout)
-
-        # - Send first trigger to start to run full auto mode
-        if not external_imu_input:
-            hdkutils.advance_time_step(self._write_buffer)
+        self._enable_realtime_mode(interface_params)
 
     @property
     def config(self):
@@ -163,7 +170,7 @@ class XyloIMUMonitor(Module):
         # - Store the configuration locally
         self._config = new_config
 
-    def _enable_auto_mode(self, interface_params: dict, Nhidden: int, Nout: int):
+    def _enable_realtime_mode(self, interface_params: dict):
         """
         Configure the Xylo HDK to use real-time mode
 
@@ -172,43 +179,39 @@ class XyloIMUMonitor(Module):
         """
 
         # - Config the streaming mode
-        config = hdkutils.config_auto_mode(
+        config = hdkutils.config_realtime_mode(
             self._config,
             self.dt,
             self._main_clk_rate,
-            self._io,
-            Nhidden,
-            Nout,
         )
 
         # - Config the IMU interface and apply current configuration
         config.input_interface = if_config_from_specification(**interface_params)
         self.config = config
 
-        # - Set configuration and reset state buffer
-        self._state_buffer.set_configuration(config)
-        self._state_buffer.reset()
-
     def evolve(
         self,
         input_data: np.ndarray,
         record: bool = False,
-        progress: bool = False,
-        timeout: Optional[float] = None,
+        read_timeout: Optional[float] = None,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
         Evolve a network on the Xylo HDK in Real-time mode
 
         Args:
             input_data (np.ndarray): An array ``[T, 3]``, specifying the number of time-steps to record. If using external imu data input, the `input_data` is the external imu data. The first dimension is timesteps, and the last dimension is 3 channels of accelerations along x, y, z axes.
-            record (bool): A flag indicating whether a recording dictionary should be returned. Default: ``False``, do not return a recording dictionary.
-            progress (bool): Display a progress bar for the read. Default: ``False``
+            record (bool): ``False``, do not return a recording dictionary. Recording internal state is not supported by :py:class:`.XyloIMUMonitor`
             timeout (float): A duration in seconds for a read timeout. Default: 2x the real-time duration of the evolution
 
         Returns:
             Tuple[np.ndarray, dict, dict] output_events, {}, rec_dict
             output_events is an array that stores the output events of T time-steps
         """
+        # - Check `record` flag
+        if record:
+            raise ValueError(
+                "Recording internal state is not supported by XyloIMUMonitor."
+            )
 
         # - Get data shape
         input_data, _ = self._auto_batch(input_data)
@@ -227,68 +230,44 @@ class XyloIMUMonitor(Module):
         # - Discard the batch dimension
         input_data = input_data[0]
 
+        # - Get the current time step, determine duration
+        start_timestep = (
+            hdkutils.get_current_timestep(self._read_buffer, self._write_buffer) + 1
+        )
+        end_timestep = start_timestep + Nt - 1
+
         # - Determine a read timeout
-        timeout = 2 * Nt * self.dt if timeout is None else timeout
+        read_timeout = 2 * Nt * self.dt if read_timeout is None else read_timeout
 
-        out = []
-        count = 0
-
+        # - Send external IMU input to Xylo, if requested
         if self._external_imu_input:
-            # - Force configuration of Xylo
+            # - Ensure configuration of Xylo
             hdkutils.apply_configuration(self._device, self._config)
 
             # - Encode IMU data and send to FPGA
-            print("encoding and writing IMU data from PC")
             imu_input = hdkutils.encode_imu_data(input_data)
+            self._readout_buffer.get_events()
             self._write_buffer.write(imu_input)
 
-            # - Clear the state buffer
-            print("reset state buffer")
-            self._state_buffer.reset()
+        # - Process in real-time mode for a desired number of time steps
+        self._write_buffer.write(
+            [samna.xyloImu.event.TriggerProcessing(target_timestep=end_timestep + 1)]
+        )
 
-            # - Trigger real-time mode
-            print("starting real-time mode")
-            hdkutils.advance_time_step(self._write_buffer)
+        # - Blocking read of events until simulation is finished
+        read_events, is_timeout = hdkutils.blocking_read(
+            self._readout_buffer, target_timestep=end_timestep, timeout=read_timeout
+        )
 
-        # - Initialise a progress bar for the read
-        pbar = trange(Nt) if progress else None
+        if is_timeout:
+            raise TimeoutError(
+                f"Reading events timeout after {read_timeout} seconds. Read {len(read_events)} events, expected {Nt}. Last event timestep: {read_events[-1].timestep if len(read_events) > 0 else 'None'}, waiting for timestep {end_timestep}."
+            )
 
-        # - Start the read clock
-        t_start = time.time()
-        t_timeout = t_start + timeout
-
-        while count < int(Nt):
-            # - Perform a non-blocking read of either Vmem or spikes
-            if self._output_mode == "Vmem":
-                output = self._state_buffer.get_output_v_mem()
-
-            elif self._output_mode == "Spike":
-                output = self._state_buffer.get_output_spike()
-
-            # - Record output if any was returned
-            if output[0]:
-                # - Clear the state buffer
-                self._state_buffer.reset()
-
-                # - Save the output
-                output = np.array(output).T
-                out.append(output)
-                count += output.shape[0]
-
-                # - Update the progress
-                if progress:
-                    pbar.update(output.shape[0])
-
-            # - Check for read timeout
-            if time.time() > t_timeout:
-                raise TimeoutError(f"XyloIMUMonitor: Read timeout of {timeout} sec.")
-
-        # - Reset Xylo if sending external IMU data
-        if self._external_imu_input:
-            print("Resetting Xylo board")
-            self._device.reset_board_soft()
-
-        # - Concatenate and return output data
-        out = np.concatenate(out, axis=0)[:Nt, :]
+        # - Decode data read from Xylo
+        vmem_out_ts, spike_out_ts = hdkutils.decode_realtime_mode_data(
+            read_events, self.size_out, start_timestep, end_timestep
+        )
+        out = vmem_out_ts if self._output_mode == "vmem" else spike_out_ts
 
         return out, {}, {}
