@@ -9,15 +9,24 @@ import numpy as np
 from rockpool.devices.xylo.imu.preprocessing.utils import (
     type_check,
     unsigned_bit_range_check,
+    signed_bit_range_check,
 )
 from rockpool.parameters import SimulationParameter
 from rockpool.nn.modules.module import Module
+from scipy.signal import butter
+from numpy.linalg import norm
 
 B_IN = 16
 """Number of input bits that can be processed with the block diagram"""
 
 B_WORST_CASE: int = 9
 """Number of additional bits devoted to storing filter taps such that no over- and under-flow can happen"""
+
+FILTER_ORDER = 1
+"""HARD_CODED: Filter order of the Xylo-IMU filters"""
+
+EPS = 0.001
+"""Epsilon for floating point comparison"""
 
 __all__ = ["FilterBank", "BandPassFilter"]
 
@@ -44,6 +53,10 @@ class BandPassFilter:
     a2: int = 31754
     """Integer representation of a2 tap"""
 
+    scale_out: Optional[float] = None
+    """A virtual scaling factor that is applied to the output of the filter, NOT IMPLEMENTED ON HARDWARE!
+    That shows the surplus scaling needed in the output (accepted range is [0.5, 1.0])"""
+
     def __post_init__(self) -> None:
         """
         Check the validity of the parameters.
@@ -54,11 +67,17 @@ class BandPassFilter:
         self.B_out = B_IN + B_WORST_CASE
         """Total number of bits needed for storing the values computed by the WHOLE filter."""
 
+        if self.scale_out is not None:
+            if self.scale_out < 0.5 or self.scale_out > 1.0:
+                raise ValueError(
+                    f"scale_out should be in the range [0.5, 1.0]. Got {self.scale_out}"
+                )
+
         unsigned_bit_range_check(self.B_b, n_bits=4)
         unsigned_bit_range_check(self.B_wf, n_bits=4)
         unsigned_bit_range_check(self.B_af, n_bits=4)
-        unsigned_bit_range_check(self.a1, n_bits=17)
-        unsigned_bit_range_check(self.a2, n_bits=17)
+        signed_bit_range_check(self.a1, n_bits=17)
+        signed_bit_range_check(self.a2, n_bits=17)
 
     @type_check
     def compute_AR(self, signal: np.ndarray) -> np.ndarray:
@@ -150,6 +169,83 @@ class BandPassFilter:
         signal = self.compute_AR(signal)
         signal = self.compute_MA(signal)
         return signal
+
+    @classmethod
+    def from_specification(
+        cls, low_cut_off: float, high_cut_off: float, fs: float = 200
+    ) -> "BandPassFilter":
+        """
+        Create a filter with the given upper and lower cut-off frequencies.
+        Note that the hardware filter WOULD NOT BE EXACTLY the same as the one specified here.
+        This script finds the closest one possible
+
+        Args:
+            low_cut_off (float): The low cut-off frequency of the band-pass filter.
+            high_cut_off (float): The high cut-off frequency of the band-pass filter.
+            fs (float, optional): The clock rate of the chip running the filters (in Hz). Defaults to 200.
+        Raises:
+            ValueError: if the low cut-off frequency is larger than the high cut-off frequency.
+
+        Returns:
+            BandPassFilter: the filter with the given cut-off frequencies.
+        """
+        if low_cut_off >= high_cut_off:
+            raise ValueError(
+                f"Low cut-off frequency should be smaller than the high cut-off frequency."
+            )
+        elif low_cut_off <= 0:
+            raise ValueError(f"Low cut-off frequency should be positive.")
+
+        # IIR filter coefficients
+        b, a = butter(
+            N=FILTER_ORDER,
+            Wn=(low_cut_off, high_cut_off),
+            btype="bandpass",
+            analog=False,
+            output="ba",
+            fs=fs,
+        )
+
+        # --- Sanity Check --- #
+
+        if np.max(np.abs(b)) >= 1:
+            raise ValueError(
+                "all the coefficients of MA part `b` should be less than 1!"
+            )
+
+        if a[0] != 1:
+            raise ValueError(
+                "AR coefficients: `a` should be in standard format with a[0]=1!"
+            )
+
+        if np.max(np.abs(a)) >= 2:
+            raise ValueError(
+                "AR coefficients seem to be invalid: make sure that all values a[.] are in the range (-2,2)!"
+            )
+
+        b_norm = b / abs(b[0])
+        b_norm_expected = np.array([1, 0, -1])
+
+        if (
+            norm(b_norm - b_norm_expected) > EPS
+            and norm(b_norm + b_norm_expected) > EPS
+        ):
+            raise ValueError(
+                "in Butterworth filters used in Xylo-IMU the normalize MA part should be of the form [1, 0, -1]!"
+            )
+
+        # compute the closest power of 2 larger that than b[0]
+        B_b = int(np.log2(1 / abs(b[0])))
+        B_wf = B_WORST_CASE - 1
+        B_af = B_IN - B_b - 1
+
+        # quantize the a-taps of the filter
+        a_taps = (2 ** (B_af + B_b) * a).astype(np.int64)
+        a1 = a_taps[1]
+        a2 = a_taps[2]
+        scale_out = b[0] * (2**B_b)
+
+        return cls(B_b=B_b, B_wf=B_wf, B_af=B_af, a1=a1, a2=a2, scale_out=scale_out)
 
 
 class FilterBank(Module):
