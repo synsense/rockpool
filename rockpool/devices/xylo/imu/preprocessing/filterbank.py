@@ -47,7 +47,7 @@ class BandPassFilter:
     B_af: int = 9
     """Bits needed for encoding the fractional parts of taps"""
 
-    a1: int = 73131
+    a1: int = -36565
     """Integer representation of a1 tap"""
 
     a2: int = 31754
