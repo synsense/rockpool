@@ -266,43 +266,13 @@ class FilterBank(Module):
     """
 
     def __init__(
-        self,
-        shape: Optional[Union[Tuple, int]] = (3, 15),
-        filter_0: Optional[BandPassFilter] = None,
-        filter_1: Optional[BandPassFilter] = None,
-        filter_2: Optional[BandPassFilter] = None,
-        filter_3: Optional[BandPassFilter] = None,
-        filter_4: Optional[BandPassFilter] = None,
-        filter_5: Optional[BandPassFilter] = None,
-        filter_6: Optional[BandPassFilter] = None,
-        filter_7: Optional[BandPassFilter] = None,
-        filter_8: Optional[BandPassFilter] = None,
-        filter_9: Optional[BandPassFilter] = None,
-        filter_10: Optional[BandPassFilter] = None,
-        filter_11: Optional[BandPassFilter] = None,
-        filter_12: Optional[BandPassFilter] = None,
-        filter_13: Optional[BandPassFilter] = None,
-        filter_14: Optional[BandPassFilter] = None,
+        self, shape: Optional[Union[Tuple, int]] = (3, 15), *args: List[BandPassFilter]
     ) -> None:
         """Object Constructor
 
         Args:
             shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,15).
-            filter_0 (Optional[BandPassFilter], optional): The zeroth filter, processes the most significant channels(ch0) input. Defaults to None.
-            filter_1 (Optional[BandPassFilter], optional): The first filter, processes the most significant channels(ch0) input. Defaults to None.
-            filter_2 (Optional[BandPassFilter], optional): The second filter, processes the most significant channels(ch0) input. Defaults to None.
-            filter_3 (Optional[BandPassFilter], optional): The third filter, processes the most significant channels(ch0) input. Defaults to None.
-            filter_4 (Optional[BandPassFilter], optional): The fourth filter, processes the most significant channels(ch0) input. Defaults to None.
-            filter_5 (Optional[BandPassFilter], optional): The fifth filter, processes the second most significant channels(ch1) input. Defaults to None.
-            filter_6 (Optional[BandPassFilter], optional): The sixth filter, processes the second most significant channels(ch1) input. Defaults to None.
-            filter_7 (Optional[BandPassFilter], optional): The seventh filter, processes the second most significant channels(ch1) input. Defaults to None.
-            filter_8 (Optional[BandPassFilter], optional): The eighth filter, processes the second most significant channels(ch1) input. Defaults to None.
-            filter_9 (Optional[BandPassFilter], optional): The ninth filter, processes the second most significant channels(ch1) input. Defaults to None.
-            filter_10 (Optional[BandPassFilter], optional): The tenth filter, processes the least significant channels(ch2) input. Defaults to None.
-            filter_11 (Optional[BandPassFilter], optional): The eleventh filter, processes the least significant channels(ch2) input. Defaults to None.
-            filter_12 (Optional[BandPassFilter], optional): The twelfth filter, processes the least significant channels(ch2) input. Defaults to None.
-            filter_13 (Optional[BandPassFilter], optional): The thirteenth filter, processes the least significant channels(ch2) input. Defaults to None.
-            filter_14 (Optional[BandPassFilter], optional): The fourteenth filter, processes the least significant channels(ch2) input. Defaults to None.
+            *args: A BandPassFilter to register to the filterbank. Defaults to None.
         """
 
         if shape[1] // shape[0] != shape[1] / shape[0]:
@@ -312,71 +282,17 @@ class FilterBank(Module):
 
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
-        # First channel filters
-        if filter_0 is None:
-            filter_0 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[0])
+        if not args:
+            args = [
+                BandPassFilter.from_specification(*band)
+                for band in DEFAULT_FILTER_BANDS
+            ]
 
-        if filter_1 is None:
-            filter_1 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[1])
+        for arg in args:
+            if not isinstance(arg, BandPassFilter):
+                raise TypeError(f"Expected BandPassFilter, got {type(arg)} instead.")
 
-        if filter_2 is None:
-            filter_2 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[2])
-
-        if filter_3 is None:
-            filter_3 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[3])
-
-        if filter_4 is None:
-            filter_4 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[4])
-
-        # Second channel filters
-        if filter_5 is None:
-            filter_5 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[5])
-
-        if filter_6 is None:
-            filter_6 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[6])
-
-        if filter_7 is None:
-            filter_7 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[7])
-
-        if filter_8 is None:
-            filter_8 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[8])
-
-        if filter_9 is None:
-            filter_9 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[9])
-
-        # Third channel filters
-        if filter_10 is None:
-            filter_10 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[10])
-
-        if filter_11 is None:
-            filter_11 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[11])
-
-        if filter_12 is None:
-            filter_12 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[12])
-
-        if filter_13 is None:
-            filter_13 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[13])
-
-        if filter_14 is None:
-            filter_14 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[14])
-
-        self.filter_list = [
-            filter_0,
-            filter_1,
-            filter_2,
-            filter_3,
-            filter_4,
-            filter_5,
-            filter_6,
-            filter_7,
-            filter_8,
-            filter_9,
-            filter_10,
-            filter_11,
-            filter_12,
-            filter_13,
-            filter_14,
-        ]
+        self.filter_list = args
 
         if shape[1] != len(self.filter_list):
             raise ValueError(
@@ -388,65 +304,29 @@ class FilterBank(Module):
 
     @classmethod
     def from_specification(
-        self,
-        band_0: Tuple[float] = DEFAULT_FILTER_BANDS[0],
-        band_1: Tuple[float] = DEFAULT_FILTER_BANDS[1],
-        band_2: Tuple[float] = DEFAULT_FILTER_BANDS[2],
-        band_3: Tuple[float] = DEFAULT_FILTER_BANDS[3],
-        band_4: Tuple[float] = DEFAULT_FILTER_BANDS[4],
-        band_5: Tuple[float] = DEFAULT_FILTER_BANDS[5],
-        band_6: Tuple[float] = DEFAULT_FILTER_BANDS[6],
-        band_7: Tuple[float] = DEFAULT_FILTER_BANDS[7],
-        band_8: Tuple[float] = DEFAULT_FILTER_BANDS[8],
-        band_9: Tuple[float] = DEFAULT_FILTER_BANDS[9],
-        band_10: Tuple[float] = DEFAULT_FILTER_BANDS[10],
-        band_11: Tuple[float] = DEFAULT_FILTER_BANDS[11],
-        band_12: Tuple[float] = DEFAULT_FILTER_BANDS[12],
-        band_13: Tuple[float] = DEFAULT_FILTER_BANDS[13],
-        band_14: Tuple[float] = DEFAULT_FILTER_BANDS[14],
+        self, shape: Tuple[int] = (3, 15), *args: List[Tuple[float]]
     ) -> "FilterBank":
         """
         Create a filter bank with the given frequency bands.
 
         Args:
-            band_0 (Tuple[float], optional): The frequency band of the zeroth filter. Defaults to DEFAULT_FILTER_BANDS[0].
-            band_1 (Tuple[float], optional): The frequency band of the first filter. Defaults to DEFAULT_FILTER_BANDS[1].
-            band_2 (Tuple[float], optional): The frequency band of the second filter. Defaults to DEFAULT_FILTER_BANDS[2].
-            band_3 (Tuple[float], optional): The frequency band of the third filter. Defaults to DEFAULT_FILTER_BANDS[3].
-            band_4 (Tuple[float], optional): The frequency band of the fourth filter. Defaults to DEFAULT_FILTER_BANDS[4].
-            band_5 (Tuple[float], optional): The frequency band of the fifth filter. Defaults to DEFAULT_FILTER_BANDS[5].
-            band_6 (Tuple[float], optional): The frequency band of the sixth filter. Defaults to DEFAULT_FILTER_BANDS[6].
-            band_7 (Tuple[float], optional): The frequency band of the seventh filter. Defaults to DEFAULT_FILTER_BANDS[7].
-            band_8 (Tuple[float], optional): The frequency band of the eighth filter. Defaults to DEFAULT_FILTER_BANDS[8].
-            band_9 (Tuple[float], optional): The frequency band of the ninth filter. Defaults to DEFAULT_FILTER_BANDS[9].
-            band_10 (Tuple[float], optional): The frequency band of the tenth filter. Defaults to DEFAULT_FILTER_BANDS[10].
-            band_11 (Tuple[float], optional): The frequency band of the eleventh filter. Defaults to DEFAULT_FILTER_BANDS[11].
-            band_12 (Tuple[float], optional): The frequency band of the twelfth filter. Defaults to DEFAULT_FILTER_BANDS[12].
-            band_13 (Tuple[float], optional): The frequency band of the thirteenth filter. Defaults to DEFAULT_FILTER_BANDS[13].
-            band_14 (Tuple[float], optional): The frequency band of the fourteenth filter. Defaults to DEFAULT_FILTER_BANDS[14].
+            *args (List[Tuple[float]]): A list of tuples containing the lower and upper cut-off frequencies of the filters.
 
         Returns:
             FilterBank: the filter bank with the given frequency bands.
         """
+        if not args:
+            args = DEFAULT_FILTER_BANDS
 
-        return FilterBank(
-            shape=(3, 15),
-            filter_0=BandPassFilter.from_specification(*band_0),
-            filter_1=BandPassFilter.from_specification(*band_1),
-            filter_2=BandPassFilter.from_specification(*band_2),
-            filter_3=BandPassFilter.from_specification(*band_3),
-            filter_4=BandPassFilter.from_specification(*band_4),
-            filter_5=BandPassFilter.from_specification(*band_5),
-            filter_6=BandPassFilter.from_specification(*band_6),
-            filter_7=BandPassFilter.from_specification(*band_7),
-            filter_8=BandPassFilter.from_specification(*band_8),
-            filter_9=BandPassFilter.from_specification(*band_9),
-            filter_10=BandPassFilter.from_specification(*band_10),
-            filter_11=BandPassFilter.from_specification(*band_11),
-            filter_12=BandPassFilter.from_specification(*band_12),
-            filter_13=BandPassFilter.from_specification(*band_13),
-            filter_14=BandPassFilter.from_specification(*band_14),
-        )
+        for arg in args:
+            if not isinstance(arg, tuple):
+                raise TypeError(f"Expected tuple, got {type(arg)} instead.")
+            elif not len(arg) == 2:
+                raise ValueError(f"Expected tuple of length 2, got {len(arg)} instead.")
+
+        filter_list = [BandPassFilter.from_specification(*band) for band in args]
+
+        return FilterBank(shape=shape, *filter_list)
 
     @type_check
     def evolve(
