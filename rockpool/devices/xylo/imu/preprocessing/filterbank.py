@@ -28,7 +28,13 @@ FILTER_ORDER = 1
 EPS = 0.001
 """Epsilon for floating point comparison"""
 
-DEFAULT_FILTER_BANDS = [(1e-6, 1.0), (1.0, 2.0), (2.0, 4.0), (4.0, 6.0), (6.0, 10.0)]
+DEFAULT_FILTER_BANDS = [
+    (1e-6, 1.0),
+    (1.0, 2.0),
+    (2.0, 4.0),
+    (4.0, 6.0),
+    (6.0, 10.0),
+] * 3
 """Default filter bands for the Xylo-IMU"""
 
 __all__ = ["FilterBank", "BandPassFilter"]
@@ -324,35 +330,35 @@ class FilterBank(Module):
 
         # Second channel filters
         if filter_5 is None:
-            filter_5 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[0])
+            filter_5 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[5])
 
         if filter_6 is None:
-            filter_6 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[1])
+            filter_6 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[6])
 
         if filter_7 is None:
-            filter_7 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[2])
+            filter_7 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[7])
 
         if filter_8 is None:
-            filter_8 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[3])
+            filter_8 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[8])
 
         if filter_9 is None:
-            filter_9 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[4])
+            filter_9 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[9])
 
         # Third channel filters
         if filter_10 is None:
-            filter_10 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[0])
+            filter_10 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[10])
 
         if filter_11 is None:
-            filter_11 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[1])
+            filter_11 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[11])
 
         if filter_12 is None:
-            filter_12 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[2])
+            filter_12 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[12])
 
         if filter_13 is None:
-            filter_13 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[3])
+            filter_13 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[13])
 
         if filter_14 is None:
-            filter_14 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[4])
+            filter_14 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[14])
 
         self.filter_list = [
             filter_0,
@@ -388,16 +394,16 @@ class FilterBank(Module):
         band_2: Tuple[float] = DEFAULT_FILTER_BANDS[2],
         band_3: Tuple[float] = DEFAULT_FILTER_BANDS[3],
         band_4: Tuple[float] = DEFAULT_FILTER_BANDS[4],
-        band_5: Tuple[float] = DEFAULT_FILTER_BANDS[0],
-        band_6: Tuple[float] = DEFAULT_FILTER_BANDS[1],
-        band_7: Tuple[float] = DEFAULT_FILTER_BANDS[2],
-        band_8: Tuple[float] = DEFAULT_FILTER_BANDS[3],
-        band_9: Tuple[float] = DEFAULT_FILTER_BANDS[4],
-        band_10: Tuple[float] = DEFAULT_FILTER_BANDS[0],
-        band_11: Tuple[float] = DEFAULT_FILTER_BANDS[1],
-        band_12: Tuple[float] = DEFAULT_FILTER_BANDS[2],
-        band_13: Tuple[float] = DEFAULT_FILTER_BANDS[3],
-        band_14: Tuple[float] = DEFAULT_FILTER_BANDS[4],
+        band_5: Tuple[float] = DEFAULT_FILTER_BANDS[5],
+        band_6: Tuple[float] = DEFAULT_FILTER_BANDS[6],
+        band_7: Tuple[float] = DEFAULT_FILTER_BANDS[7],
+        band_8: Tuple[float] = DEFAULT_FILTER_BANDS[8],
+        band_9: Tuple[float] = DEFAULT_FILTER_BANDS[9],
+        band_10: Tuple[float] = DEFAULT_FILTER_BANDS[10],
+        band_11: Tuple[float] = DEFAULT_FILTER_BANDS[11],
+        band_12: Tuple[float] = DEFAULT_FILTER_BANDS[12],
+        band_13: Tuple[float] = DEFAULT_FILTER_BANDS[13],
+        band_14: Tuple[float] = DEFAULT_FILTER_BANDS[14],
     ) -> "FilterBank":
         """
         Create a filter bank with the given frequency bands.
@@ -408,16 +414,16 @@ class FilterBank(Module):
             band_2 (Tuple[float], optional): The frequency band of the second filter. Defaults to DEFAULT_FILTER_BANDS[2].
             band_3 (Tuple[float], optional): The frequency band of the third filter. Defaults to DEFAULT_FILTER_BANDS[3].
             band_4 (Tuple[float], optional): The frequency band of the fourth filter. Defaults to DEFAULT_FILTER_BANDS[4].
-            band_5 (Tuple[float], optional): The frequency band of the fifth filter. Defaults to DEFAULT_FILTER_BANDS[0].
-            band_6 (Tuple[float], optional): The frequency band of the sixth filter. Defaults to DEFAULT_FILTER_BANDS[1].
-            band_7 (Tuple[float], optional): The frequency band of the seventh filter. Defaults to DEFAULT_FILTER_BANDS[2].
-            band_8 (Tuple[float], optional): The frequency band of the eighth filter. Defaults to DEFAULT_FILTER_BANDS[3].
-            band_9 (Tuple[float], optional): The frequency band of the ninth filter. Defaults to DEFAULT_FILTER_BANDS[4].
-            band_10 (Tuple[float], optional): The frequency band of the tenth filter. Defaults to DEFAULT_FILTER_BANDS[0].
-            band_11 (Tuple[float], optional): The frequency band of the eleventh filter. Defaults to DEFAULT_FILTER_BANDS[1].
-            band_12 (Tuple[float], optional): The frequency band of the twelfth filter. Defaults to DEFAULT_FILTER_BANDS[2].
-            band_13 (Tuple[float], optional): The frequency band of the thirteenth filter. Defaults to DEFAULT_FILTER_BANDS[3].
-            band_14 (Tuple[float], optional): The frequency band of the fourteenth filter. Defaults to DEFAULT_FILTER_BANDS[4].
+            band_5 (Tuple[float], optional): The frequency band of the fifth filter. Defaults to DEFAULT_FILTER_BANDS[5].
+            band_6 (Tuple[float], optional): The frequency band of the sixth filter. Defaults to DEFAULT_FILTER_BANDS[6].
+            band_7 (Tuple[float], optional): The frequency band of the seventh filter. Defaults to DEFAULT_FILTER_BANDS[7].
+            band_8 (Tuple[float], optional): The frequency band of the eighth filter. Defaults to DEFAULT_FILTER_BANDS[8].
+            band_9 (Tuple[float], optional): The frequency band of the ninth filter. Defaults to DEFAULT_FILTER_BANDS[9].
+            band_10 (Tuple[float], optional): The frequency band of the tenth filter. Defaults to DEFAULT_FILTER_BANDS[10].
+            band_11 (Tuple[float], optional): The frequency band of the eleventh filter. Defaults to DEFAULT_FILTER_BANDS[11].
+            band_12 (Tuple[float], optional): The frequency band of the twelfth filter. Defaults to DEFAULT_FILTER_BANDS[12].
+            band_13 (Tuple[float], optional): The frequency band of the thirteenth filter. Defaults to DEFAULT_FILTER_BANDS[13].
+            band_14 (Tuple[float], optional): The frequency band of the fourteenth filter. Defaults to DEFAULT_FILTER_BANDS[14].
 
         Returns:
             FilterBank: the filter bank with the given frequency bands.
