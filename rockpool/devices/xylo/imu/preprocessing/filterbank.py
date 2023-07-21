@@ -28,6 +28,9 @@ FILTER_ORDER = 1
 EPS = 0.001
 """Epsilon for floating point comparison"""
 
+DEFAULT_FILTER_BANDS = [(1e-6, 1.0), (1.0, 2.0), (2.0, 4.0), (4.0, 6.0), (6.0, 10.0)]
+"""Default filter bands for the Xylo-IMU"""
+
 __all__ = ["FilterBank", "BandPassFilter"]
 
 
@@ -259,21 +262,41 @@ class FilterBank(Module):
     def __init__(
         self,
         shape: Optional[Union[Tuple, int]] = (3, 15),
-        B_b_list: Union[List[int], int] = 6,
-        B_wf_list: Union[List[int], int] = 8,
-        B_af_list: Union[List[int], int] = 9,
-        a1_list: Optional[Union[List[int], int]] = None,
-        a2_list: Optional[Union[List[int], int]] = None,
+        filter_0: Optional[BandPassFilter] = None,
+        filter_1: Optional[BandPassFilter] = None,
+        filter_2: Optional[BandPassFilter] = None,
+        filter_3: Optional[BandPassFilter] = None,
+        filter_4: Optional[BandPassFilter] = None,
+        filter_5: Optional[BandPassFilter] = None,
+        filter_6: Optional[BandPassFilter] = None,
+        filter_7: Optional[BandPassFilter] = None,
+        filter_8: Optional[BandPassFilter] = None,
+        filter_9: Optional[BandPassFilter] = None,
+        filter_10: Optional[BandPassFilter] = None,
+        filter_11: Optional[BandPassFilter] = None,
+        filter_12: Optional[BandPassFilter] = None,
+        filter_13: Optional[BandPassFilter] = None,
+        filter_14: Optional[BandPassFilter] = None,
     ) -> None:
         """Object Constructor
 
         Args:
             shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,15).
-            B_b_list (Union[List[int], int], optional):  Maximum number of right bit shifts in the feedback loops of the filters. Defaults to [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6].
-            B_wf_list (Union[List[int], int], optional): Maximum number of left bit shifts in the input for avoiding dead zones of the filters. Defaults to [8,8,8,8,8,8,8,8,8,8,8,8,8,8,8].
-            B_af_list (Union[List[int], int], optional): Maximum number of right bit shifts in computing the AR part multiplication of the filters. Defaults to [9,9,9,9,9,9,9,9,9,9,9,9,9,9,9].
-            a1_list (Union[List[int], int], optional): a1 tap parameters of each filter. Defaults to [-64700,-64458,-64330,-64138,-63884,-63566,-63185,-62743,-62238,-61672,-61045,-60357,-59611,-58805,-57941].
-            a2_list (Union[List[int], int], optional): a2 tap parameters of each filter (repeats if int). Defaults to [31935,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754].
+            filter_0 (Optional[BandPassFilter], optional): The first filter, processes the most significant channels(ch0) input. Defaults to None.
+            filter_1 (Optional[BandPassFilter], optional): The second filter, processes the most significant channels(ch0) input. Defaults to None.
+            filter_2 (Optional[BandPassFilter], optional): The third filter, processes the most significant channels(ch0) input. Defaults to None.
+            filter_3 (Optional[BandPassFilter], optional): The fourth filter, processes the most significant channels(ch0) input. Defaults to None.
+            filter_4 (Optional[BandPassFilter], optional): The fifth filter, processes the most significant channels(ch0) input. Defaults to None.
+            filter_5 (Optional[BandPassFilter], optional): The sixth filter, processes the second most significant channels(ch1) input. Defaults to None.
+            filter_6 (Optional[BandPassFilter], optional): The seventh filter, processes the second most significant channels(ch1) input. Defaults to None.
+            filter_7 (Optional[BandPassFilter], optional): The eighth filter, processes the second most significant channels(ch1) input. Defaults to None.
+            filter_8 (Optional[BandPassFilter], optional): The ninth filter, processes the second most significant channels(ch1) input. Defaults to None.
+            filter_9 (Optional[BandPassFilter], optional): The tenth filter, processes the second most significant channels(ch1) input. Defaults to None.
+            filter_10 (Optional[BandPassFilter], optional): The eleventh filter, processes the least significant channels(ch2) input. Defaults to None.
+            filter_11 (Optional[BandPassFilter], optional): The twelfth filter, processes the least significant channels(ch2) input. Defaults to None.
+            filter_12 (Optional[BandPassFilter], optional): The thirteenth filter, processes the least significant channels(ch2) input. Defaults to None.
+            filter_13 (Optional[BandPassFilter], optional): The fourteenth filter, processes the least significant channels(ch2) input. Defaults to None.
+            filter_14 (Optional[BandPassFilter], optional): The fifteenth filter, processes the least significant channels(ch2) input. Defaults to None.
         """
 
         if shape[1] // shape[0] != shape[1] / shape[0]:
@@ -283,72 +306,71 @@ class FilterBank(Module):
 
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
-        if a1_list is None:
-            a1_list = [
-                64700,
-                64458,
-                64330,
-                64138,
-                63884,
-                63566,
-                63185,
-                62743,
-                62238,
-                61672,
-                61045,
-                60357,
-                59611,
-                58805,
-                57941,
-            ]
+        # First channel filters
+        if filter_0 is None:
+            filter_0 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[0])
 
-        if a2_list is None:
-            a2_list = [
-                31935,
-                31754,
-                31754,
-                31754,
-                31754,
-                31754,
-                31754,
-                31754,
-                31754,
-                31754,
-                31754,
-                31754,
-                31754,
-                31754,
-                31754,
-            ]
+        if filter_1 is None:
+            filter_1 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[1])
 
-        def __make_list(val: Union[List[int], int]) -> List[int]:
-            if isinstance(val, int):
-                return [val] * shape[1]
-            else:
-                return val
+        if filter_2 is None:
+            filter_2 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[2])
 
-        self.B_b_list = SimulationParameter(__make_list(B_b_list), shape=self.size_out)
-        """Bits needed for scaling b0 values of each filter"""
-        self.B_wf_list = SimulationParameter(
-            __make_list(B_wf_list), shape=self.size_out
-        )
-        """Bits needed for fractional part of the filter output of each filter"""
-        self.B_af_list = SimulationParameter(
-            __make_list(B_af_list), shape=self.size_out
-        )
-        """Bits needed for encoding the fractional parts of taps of each filter"""
-        self.a1_list = SimulationParameter(__make_list(a1_list), shape=self.size_out)
-        """a1 tap parameters of each filter"""
-        self.a2_list = SimulationParameter(__make_list(a2_list), shape=self.size_out)
-        """a2 tap parameters of each filter"""
+        if filter_3 is None:
+            filter_3 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[3])
 
-        self.filter_list = []
-        for B_b, B_wf, B_af, a1, a2 in zip(
-            self.B_b_list, self.B_wf_list, self.B_af_list, self.a1_list, self.a2_list
-        ):
-            self.filter_list.append(
-                BandPassFilter(B_b=B_b, B_wf=B_wf, B_af=B_af, a1=a1, a2=a2)
-            )
+        if filter_4 is None:
+            filter_4 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[4])
+
+        # Second channel filters
+        if filter_5 is None:
+            filter_5 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[0])
+
+        if filter_6 is None:
+            filter_6 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[1])
+
+        if filter_7 is None:
+            filter_7 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[2])
+
+        if filter_8 is None:
+            filter_8 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[3])
+
+        if filter_9 is None:
+            filter_9 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[4])
+
+        # Third channel filters
+        if filter_10 is None:
+            filter_10 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[0])
+
+        if filter_11 is None:
+            filter_11 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[1])
+
+        if filter_12 is None:
+            filter_12 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[2])
+
+        if filter_13 is None:
+            filter_13 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[3])
+
+        if filter_14 is None:
+            filter_14 = BandPassFilter.from_specification(*DEFAULT_FILTER_BANDS[4])
+
+        self.filter_list = [
+            filter_0,
+            filter_1,
+            filter_2,
+            filter_3,
+            filter_4,
+            filter_5,
+            filter_6,
+            filter_7,
+            filter_8,
+            filter_9,
+            filter_10,
+            filter_11,
+            filter_12,
+            filter_13,
+            filter_14,
+        ]
 
         if shape[1] != len(self.filter_list):
             raise ValueError(
