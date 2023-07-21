@@ -367,3 +367,28 @@ class FilterBank(Module):
         data_out = data_out.transpose(0, 2, 1)  # BxTxC
 
         return data_out, {}, {}
+
+    @property
+    def B_b_list(self) -> List[int]:
+        """List of B_b values of all filters"""
+        return [f.B_b for f in self.filter_list]
+
+    @property
+    def B_wf_list(self) -> List[int]:
+        """List of B_wf values of all filters"""
+        return [f.B_wf for f in self.filter_list]
+
+    @property
+    def B_af_list(self) -> List[int]:
+        """List of B_af values of all filters"""
+        return [f.B_af for f in self.filter_list]
+
+    @property
+    def a1_list(self) -> List[int]:
+        """List of a1 values of all filters"""
+        return [f.a1 for f in self.filter_list]
+
+    @property
+    def a2_list(self) -> List[int]:
+        """List of a2 values of all filters"""
+        return [f.a2 for f in self.filter_list]
