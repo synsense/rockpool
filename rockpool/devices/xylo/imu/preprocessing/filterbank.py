@@ -282,21 +282,21 @@ class FilterBank(Module):
 
         Args:
             shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,15).
-            filter_0 (Optional[BandPassFilter], optional): The first filter, processes the most significant channels(ch0) input. Defaults to None.
-            filter_1 (Optional[BandPassFilter], optional): The second filter, processes the most significant channels(ch0) input. Defaults to None.
-            filter_2 (Optional[BandPassFilter], optional): The third filter, processes the most significant channels(ch0) input. Defaults to None.
-            filter_3 (Optional[BandPassFilter], optional): The fourth filter, processes the most significant channels(ch0) input. Defaults to None.
-            filter_4 (Optional[BandPassFilter], optional): The fifth filter, processes the most significant channels(ch0) input. Defaults to None.
-            filter_5 (Optional[BandPassFilter], optional): The sixth filter, processes the second most significant channels(ch1) input. Defaults to None.
-            filter_6 (Optional[BandPassFilter], optional): The seventh filter, processes the second most significant channels(ch1) input. Defaults to None.
-            filter_7 (Optional[BandPassFilter], optional): The eighth filter, processes the second most significant channels(ch1) input. Defaults to None.
-            filter_8 (Optional[BandPassFilter], optional): The ninth filter, processes the second most significant channels(ch1) input. Defaults to None.
-            filter_9 (Optional[BandPassFilter], optional): The tenth filter, processes the second most significant channels(ch1) input. Defaults to None.
-            filter_10 (Optional[BandPassFilter], optional): The eleventh filter, processes the least significant channels(ch2) input. Defaults to None.
-            filter_11 (Optional[BandPassFilter], optional): The twelfth filter, processes the least significant channels(ch2) input. Defaults to None.
-            filter_12 (Optional[BandPassFilter], optional): The thirteenth filter, processes the least significant channels(ch2) input. Defaults to None.
-            filter_13 (Optional[BandPassFilter], optional): The fourteenth filter, processes the least significant channels(ch2) input. Defaults to None.
-            filter_14 (Optional[BandPassFilter], optional): The fifteenth filter, processes the least significant channels(ch2) input. Defaults to None.
+            filter_0 (Optional[BandPassFilter], optional): The zeroth filter, processes the most significant channels(ch0) input. Defaults to None.
+            filter_1 (Optional[BandPassFilter], optional): The first filter, processes the most significant channels(ch0) input. Defaults to None.
+            filter_2 (Optional[BandPassFilter], optional): The second filter, processes the most significant channels(ch0) input. Defaults to None.
+            filter_3 (Optional[BandPassFilter], optional): The third filter, processes the most significant channels(ch0) input. Defaults to None.
+            filter_4 (Optional[BandPassFilter], optional): The fourth filter, processes the most significant channels(ch0) input. Defaults to None.
+            filter_5 (Optional[BandPassFilter], optional): The fifth filter, processes the second most significant channels(ch1) input. Defaults to None.
+            filter_6 (Optional[BandPassFilter], optional): The sixth filter, processes the second most significant channels(ch1) input. Defaults to None.
+            filter_7 (Optional[BandPassFilter], optional): The seventh filter, processes the second most significant channels(ch1) input. Defaults to None.
+            filter_8 (Optional[BandPassFilter], optional): The eighth filter, processes the second most significant channels(ch1) input. Defaults to None.
+            filter_9 (Optional[BandPassFilter], optional): The ninth filter, processes the second most significant channels(ch1) input. Defaults to None.
+            filter_10 (Optional[BandPassFilter], optional): The tenth filter, processes the least significant channels(ch2) input. Defaults to None.
+            filter_11 (Optional[BandPassFilter], optional): The eleventh filter, processes the least significant channels(ch2) input. Defaults to None.
+            filter_12 (Optional[BandPassFilter], optional): The twelfth filter, processes the least significant channels(ch2) input. Defaults to None.
+            filter_13 (Optional[BandPassFilter], optional): The thirteenth filter, processes the least significant channels(ch2) input. Defaults to None.
+            filter_14 (Optional[BandPassFilter], optional): The fourteenth filter, processes the least significant channels(ch2) input. Defaults to None.
         """
 
         if shape[1] // shape[0] != shape[1] / shape[0]:
@@ -379,6 +379,68 @@ class FilterBank(Module):
 
         self.channel_mapping = np.sort([i % self.size_in for i in range(self.size_out)])
         """Mapping from IMU channels to filter channels. [0,0,0,0,0,1,1,1,1,1,2,2,2,2,2] by default"""
+
+    @classmethod
+    def from_specification(
+        self,
+        band_0: Tuple[float] = DEFAULT_FILTER_BANDS[0],
+        band_1: Tuple[float] = DEFAULT_FILTER_BANDS[1],
+        band_2: Tuple[float] = DEFAULT_FILTER_BANDS[2],
+        band_3: Tuple[float] = DEFAULT_FILTER_BANDS[3],
+        band_4: Tuple[float] = DEFAULT_FILTER_BANDS[4],
+        band_5: Tuple[float] = DEFAULT_FILTER_BANDS[0],
+        band_6: Tuple[float] = DEFAULT_FILTER_BANDS[1],
+        band_7: Tuple[float] = DEFAULT_FILTER_BANDS[2],
+        band_8: Tuple[float] = DEFAULT_FILTER_BANDS[3],
+        band_9: Tuple[float] = DEFAULT_FILTER_BANDS[4],
+        band_10: Tuple[float] = DEFAULT_FILTER_BANDS[0],
+        band_11: Tuple[float] = DEFAULT_FILTER_BANDS[1],
+        band_12: Tuple[float] = DEFAULT_FILTER_BANDS[2],
+        band_13: Tuple[float] = DEFAULT_FILTER_BANDS[3],
+        band_14: Tuple[float] = DEFAULT_FILTER_BANDS[4],
+    ) -> "FilterBank":
+        """
+        Create a filter bank with the given frequency bands.
+
+        Args:
+            band_0 (Tuple[float], optional): The frequency band of the zeroth filter. Defaults to DEFAULT_FILTER_BANDS[0].
+            band_1 (Tuple[float], optional): The frequency band of the first filter. Defaults to DEFAULT_FILTER_BANDS[1].
+            band_2 (Tuple[float], optional): The frequency band of the second filter. Defaults to DEFAULT_FILTER_BANDS[2].
+            band_3 (Tuple[float], optional): The frequency band of the third filter. Defaults to DEFAULT_FILTER_BANDS[3].
+            band_4 (Tuple[float], optional): The frequency band of the fourth filter. Defaults to DEFAULT_FILTER_BANDS[4].
+            band_5 (Tuple[float], optional): The frequency band of the fifth filter. Defaults to DEFAULT_FILTER_BANDS[0].
+            band_6 (Tuple[float], optional): The frequency band of the sixth filter. Defaults to DEFAULT_FILTER_BANDS[1].
+            band_7 (Tuple[float], optional): The frequency band of the seventh filter. Defaults to DEFAULT_FILTER_BANDS[2].
+            band_8 (Tuple[float], optional): The frequency band of the eighth filter. Defaults to DEFAULT_FILTER_BANDS[3].
+            band_9 (Tuple[float], optional): The frequency band of the ninth filter. Defaults to DEFAULT_FILTER_BANDS[4].
+            band_10 (Tuple[float], optional): The frequency band of the tenth filter. Defaults to DEFAULT_FILTER_BANDS[0].
+            band_11 (Tuple[float], optional): The frequency band of the eleventh filter. Defaults to DEFAULT_FILTER_BANDS[1].
+            band_12 (Tuple[float], optional): The frequency band of the twelfth filter. Defaults to DEFAULT_FILTER_BANDS[2].
+            band_13 (Tuple[float], optional): The frequency band of the thirteenth filter. Defaults to DEFAULT_FILTER_BANDS[3].
+            band_14 (Tuple[float], optional): The frequency band of the fourteenth filter. Defaults to DEFAULT_FILTER_BANDS[4].
+
+        Returns:
+            FilterBank: the filter bank with the given frequency bands.
+        """
+
+        return FilterBank(
+            shape=(3, 15),
+            filter_0=BandPassFilter.from_specification(*band_0),
+            filter_1=BandPassFilter.from_specification(*band_1),
+            filter_2=BandPassFilter.from_specification(*band_2),
+            filter_3=BandPassFilter.from_specification(*band_3),
+            filter_4=BandPassFilter.from_specification(*band_4),
+            filter_5=BandPassFilter.from_specification(*band_5),
+            filter_6=BandPassFilter.from_specification(*band_6),
+            filter_7=BandPassFilter.from_specification(*band_7),
+            filter_8=BandPassFilter.from_specification(*band_8),
+            filter_9=BandPassFilter.from_specification(*band_9),
+            filter_10=BandPassFilter.from_specification(*band_10),
+            filter_11=BandPassFilter.from_specification(*band_11),
+            filter_12=BandPassFilter.from_specification(*band_12),
+            filter_13=BandPassFilter.from_specification(*band_13),
+            filter_14=BandPassFilter.from_specification(*band_14),
+        )
 
     @type_check
     def evolve(
