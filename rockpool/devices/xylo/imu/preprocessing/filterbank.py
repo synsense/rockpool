@@ -185,15 +185,13 @@ class BandPassFilter:
     ) -> "BandPassFilter":
         """
         Create a filter with the given upper and lower cut-off frequencies.
-        Note that the hardware filter WOULD NOT BE EXACTLY the same as the one specified here.
+        Note that the hardware filter WOULD NOT BE EXACTLY THE SAME as the one specified here.
         This script finds the closest one possible
 
         Args:
             low_cut_off (float): The low cut-off frequency of the band-pass filter.
             high_cut_off (float): The high cut-off frequency of the band-pass filter.
             fs (float, optional): The clock rate of the chip running the filters (in Hz). Defaults to 200.
-        Raises:
-            ValueError: if the low cut-off frequency is larger than the high cut-off frequency.
 
         Returns:
             BandPassFilter: the filter with the given cut-off frequencies.
