@@ -236,8 +236,10 @@ class XyloIMUMonitor(Module):
         )
         end_timestep = start_timestep + Nt - 1
 
+        print(f"start {start_timestep} end {end_timestep}")
+
         # - Determine a read timeout
-        read_timeout = 2 * Nt * self.dt if read_timeout is None else read_timeout
+        read_timeout = 3 * Nt * self.dt if read_timeout is None else read_timeout
 
         # - Send external IMU input to Xylo, if requested
         if self._external_imu_input:
