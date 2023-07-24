@@ -44,15 +44,6 @@ def find_xylo_imu_boards() -> List[XyloIMUHDK]:
     return imu_hdk_list
 
 
-# def get_read_write_buffers(
-#     hdk: XyloIMUHDK,
-# ) -> Tuple[XyloIMUReadBuffer, XyloIMUWriteBuffer]:
-#     read_buffer = samna.graph.sink_from(hdk.get_model_source_node())
-#     write_buffer = samna.graph.source_to(hdk.get_model_sink_node())
-
-#     return read_buffer, write_buffer
-
-
 def new_xylo_read_buffer(
     hdk: XyloIMUHDK,
 ) -> XyloIMUReadBuffer:
@@ -79,35 +70,6 @@ def new_xylo_write_buffer(hdk: XyloIMUHDK) -> XyloIMUWriteBuffer:
         XyloIMUWriteBuffer: A connected event write buffer
     """
     return samna.graph.source_to(hdk.get_model_sink_node())
-
-
-# def new_xylo_state_monitor_buffer(
-#     hdk: XyloIMUHDK,
-# ) -> XyloIMUNeuronStateBuffer:
-#     """
-#     Create a new buffer for monitoring neuron and synapse state and connect it
-
-#     Args:
-#         hdk (XyloIMUHDK): A Xylo HDK to configure
-
-#     Returns:
-#         XyloNeuronStateBuffer: A connected neuron / synapse state monitor buffer
-#     """
-#     # - Register a new buffer to receive neuron and synapse state
-#     buffer = XyloIMUNeuronStateBuffer()
-
-#     # - Get the device model
-#     model = hdk.get_model()
-
-#     # - Get Xylo output event source node
-#     source_node = model.get_source_node()
-
-#     # - Add the buffer as a destination for the Xylo output events
-#     graph = samna.graph.EventFilterGraph()
-#     graph.sequential([source_node, buffer])
-
-#     # - Return the buffer
-#     return buffer
 
 
 def initialise_xylo_hdk(write_buffer: XyloIMUWriteBuffer) -> None:
@@ -356,8 +318,9 @@ def decode_accel_mode_data(
     Args:
         readout_events (List[ReadoutEvent]): A list of `ReadoutEvent`s recorded from Xylo IMU
         Nin (int): The number of input channels for the configured network
-        Nhidden (int): The number of hidden neurons to monitor
-        Nout (int): The number of output neurons to monitor
+        Nhidden_monitor (int): The number of hidden neurons to monitor
+        Nout_monitor (int): The number of output neurons to monitor
+        Nout (int): The number of output neurons in total
         T_start (int): Initial timestep
         T_end (int): Final timestep
 
@@ -407,6 +370,41 @@ def decode_accel_mode_data(
         Spikes_hid=spikes_ts,
         Spikes_out=output_ts,
     )
+
+
+def decode_realtime_mode_data(
+    readout_events: List[ReadoutEvent],
+    Nout: int,
+    T_start: int,
+    T_end: int,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Read realtime simulation mode data from a Xylo HDK
+
+    Args:
+        readout_events (List[ReadoutEvent]): A list of `ReadoutEvent`s recorded from Xylo IMU
+        Nout (int): The number of output neurons to monitor
+        T_start (int): Initial timestep
+        T_end (int): Final timestep
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: (`vmem_out_ts`, `output_ts`) The membrane potential and output event trains from Xylo
+    """
+    # - Initialise lists for recording state
+    T_count = T_end - T_start + 1
+    vmem_out_ts = np.zeros((T_count, Nout), np.int16)
+    output_ts = np.zeros((T_count, Nout), np.int8)
+
+    # - Loop over time steps
+    for ev in readout_events:
+        if type(ev) is ReadoutEvent:
+            timestep = ev.timestep - T_start
+            if timestep >= 0:
+                vmem_out_ts[timestep, 0:Nout] = ev.output_v_mems
+                output_ts[timestep] = ev.output_spikes
+
+    # - Return Vmem and spikes
+    return vmem_out_ts, output_ts
 
 
 def gen_clear_input_registers_events() -> List:
@@ -482,11 +480,10 @@ def get_current_timestep(
     return timestep
 
 
-def config_auto_mode(
+def config_realtime_mode(
     config: XyloConfiguration,
     dt: float,
     main_clk_rate: int,
-    io,
 ) -> XyloConfiguration:
     """
     Set the Xylo HDK to real-time mode
@@ -495,22 +492,50 @@ def config_auto_mode(
         config (XyloConfiguration): A configuration for Xylo IMU
         dt (float): The simulation time-step to use for this Module
         main_clk_rate(int): The main clock rate of Xylo
-        io: The io module of Xylo
 
     Return:
         updated Xylo configuration
     """
-    io.write_config(0x11, 0)
+    # - Select real-time operation mode
     config.operation_mode = samna.xyloImu.OperationMode.RealTime
-    config.bias_enable = True
-    config.hidden.aliasing = True
+
     config.debug.always_update_omp_stat = True
     config.imu_if_input_enable = True
     config.debug.imu_if_clk_enable = True
+
+    # - Configure Xylo IMU clock rate
     config.time_resolution_wrap = int(dt * main_clk_rate)
     config.debug.imu_if_clock_freq_div = 0x169
 
+    # - No monitoring of internal state in realtime mode
+    config.debug.monitor_neuron_v_mem = None
+    config.debug.monitor_neuron_i_syn = None
+    config.debug.monitor_neuron_spike = None
+
     return config
+
+
+def encode_imu_data(input: np.ndarray) -> List[samna.events.Acceleration]:
+    """
+    Encode imu data as `samna` events
+
+    Args:
+        input (np.ndarray): An array ``[T, 3]`` of imu data, specifying the number of timesteps, and the accelerations along x, y, z axes. The data must be quantized to int.
+
+    Returns:
+        List[samna.events.Acceleration]: A list of encoded IMU data events
+    """
+
+    imu_input = [
+        samna.events.Acceleration(
+            x=int(i[0]),
+            y=int(i[1]),
+            z=int(i[2]),
+        )
+        for i in input
+    ]
+
+    return imu_input
 
 
 def config_if_module(

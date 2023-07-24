@@ -8,9 +8,6 @@ from typing import Union, Tuple
 
 from logging import debug, info
 
-info = print
-debug = print
-
 __all__ = [
     "_encode_spikes",
     # "_encode_spikes_cpp",
