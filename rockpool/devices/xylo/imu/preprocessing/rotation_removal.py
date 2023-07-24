@@ -5,14 +5,20 @@ from typing import Any, Dict, Tuple, Optional, Union
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.preprocessing.jsvd import JSVD
+from rockpool.devices.xylo.imu.preprocessing.jsvd import JSVD, NUM_BITS_ROTATION
 from rockpool.devices.xylo.imu.preprocessing.sample_hold import SampleAndHold
-from rockpool.devices.xylo.imu.preprocessing.subspace import SubSpace
-from rockpool.devices.xylo.imu.preprocessing.utils import type_check
+from rockpool.devices.xylo.imu.preprocessing.subspace import SubSpace, NUM_BITS_IN
+from rockpool.devices.xylo.imu.preprocessing.utils import (
+    type_check,
+    unsigned_bit_range_check,
+)
 from rockpool.nn.combinators import Sequential
 
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
+
+NUM_BITS_OUT = 16
+"""number of bits in the final signal (obtained after rotation removal). We assume a sign magnitude format."""
 
 __all__ = ["RotationRemoval"]
 
@@ -31,45 +37,28 @@ class RotationRemoval(Module):
 
     def __init__(
         self,
-        num_bits_in: int,
-        num_bits_out: int,
-        num_bits_highprec_filter: int,
-        num_bits_multiplier: int,
-        num_avg_bitshift: int,
-        sampling_period: int,
-        num_angles: int,
-        num_bits_lookup: int,
-        num_bits_covariance: int,
-        num_bits_rotation: int,
-        nround: int = 4,
         shape: Optional[Union[Tuple, int]] = (3, 3),
+        num_avg_bitshift: int = 4,
+        sampling_period: int = 10,
     ) -> None:
         """Object constructor.
 
         Args:
-            num_bits_in (int): number of bits in the input data. We assume a sign magnitude format.
-            num_bits_out (int): number of bits in the final signal (obtained after rotation removal).
-            num_bits_highprec_filter (int) : number of bits devoted to computing the high-precision filter (to avoid dead-zone effect)
-            num_bits_multiplier (int): number of bits devoted to computing [x(t) x(t)^T]_{ij}. If less then needed, the LSB values are removed.
-            num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation.
+            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,3).
+            num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation. Default to 4.
                 The effective window length of the low-pass filter will be `2**num_avg_bitshift`
-            sampling_period (int): Sampling period that the signal is sampled and held
-            num_angles (int): number of angles in lookup table.
-            num_bits_lookup (int): number of bits used for quantizing the lookup table.
-            num_bits_covariance (int): number of bits used for the covariance matrix.
-            num_bits_rotation (int): number of bits devoted for implementing rotation matrix.
-            nround (int): number of round rotation computation and update is done over all 3 axes/dims.
+            sampling_period (int): Sampling period that the signal is sampled and held, in number of timesteps. Defaults to 10.
 
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
+        unsigned_bit_range_check(num_avg_bitshift, n_bits=5)
+        unsigned_bit_range_check(sampling_period, n_bits=11)
+
         self.sub_estimate = Sequential(
             SubSpace(
-                num_bits_in=num_bits_in,
-                num_bits_highprec_filter=num_bits_highprec_filter,
-                num_bits_multiplier=num_bits_multiplier,
-                num_avg_bitshift=num_avg_bitshift,
                 shape=(self.size_in, self.size_in**2),
+                num_avg_bitshift=num_avg_bitshift,
             ),
             SampleAndHold(
                 sampling_period=sampling_period,
@@ -77,24 +66,17 @@ class RotationRemoval(Module):
             ),
         )
 
-        self.jsvd = JSVD(
-            num_angles=num_angles,
-            num_bits_lookup=num_bits_lookup,
-            num_bits_covariance=num_bits_covariance,
-            num_bits_rotation=num_bits_rotation,
-            nround=nround,
+        self.num_avg_bitshift = SimulationParameter(
+            num_avg_bitshift, shape=(1,), cast_fn=int
         )
+        """number of bitshifts used in the low-pass filter implementation"""
 
-        self.num_bits_in = SimulationParameter(num_bits_in, shape=(1,), cast_fn=int)
-        """number of bits in the input data. We assume a sign magnitude format."""
-
-        self.num_bits_out = SimulationParameter(num_bits_out, shape=(1,), cast_fn=int)
-        """number of round rotation computation and update is done over all 3 axes/dims."""
-
-        self.num_bits_rotation = SimulationParameter(
-            num_bits_rotation, shape=(1,), cast_fn=int
+        self.sampling_period = SimulationParameter(
+            sampling_period, shape=(1,), cast_fn=int
         )
-        """number of bits devoted for implementing rotation matrix"""
+        """sampling period that the signal is sampled and held"""
+
+        self.jsvd = JSVD()
 
     @type_check
     def evolve(
@@ -119,8 +101,6 @@ class RotationRemoval(Module):
         input_data, _ = self._auto_batch(input_data)
         input_data = np.array(input_data, dtype=np.int64).astype(object)
         __B, __T, __C = input_data.shape
-        if __C != self.size_in:
-            raise ValueError(f"The input data should have {self.size_in} channels!")
 
         # compute the covariances using subspace estimation: do not save the high-precision ones
         # B x T x 3 x 3
@@ -131,11 +111,11 @@ class RotationRemoval(Module):
         covariance_old = -np.ones((3, 3), dtype=object)
         rotation_old = np.eye(3).astype(np.int64).astype(object)
 
-        signal_out = []
         data_out = []
 
         # loop over the batch
         for cov_SH, signal in zip(batch_cov_SH, input_data):
+            signal_out = []
             # loop over the time dimension
             for cov_new, sample in zip(cov_SH, signal):
                 # check if the covariance matrix is repeated
@@ -165,10 +145,8 @@ class RotationRemoval(Module):
                     covariance_old = cov_new
                     rotation_old = rotation_new
 
-            # convert into array and return
-            signal_out = np.array(signal_out, dtype=object)
+            data_out.append(signal_out)
 
-        data_out.append(signal_out)
         data_out = np.array(data_out, dtype=object)
 
         return data_out, {}, {}
@@ -188,9 +166,7 @@ class RotationRemoval(Module):
             np.ndarray: Rotation removed sample.
         """
 
-        num_right_bit_shifts = (
-            self.num_bits_rotation + self.num_bits_in - self.num_bits_out
-        )
+        num_right_bit_shifts = NUM_BITS_ROTATION + NUM_BITS_IN - NUM_BITS_OUT
 
         signal_out = []
 
@@ -199,16 +175,16 @@ class RotationRemoval(Module):
             for rot, val in zip(row, sample):
                 update = (rot * val) >> num_right_bit_shifts
 
-                if abs(update) >= 2 ** (self.num_bits_out - 1):
+                if abs(update) >= 2 ** (NUM_BITS_OUT - 1):
                     raise ValueError(
-                        f"The update value {update} encountered in rotation-input signal multiplication is beyond the range [-{2**(self.num_bits_out-1)}, +{2**(self.num_bits_out-1)}]!"
+                        f"The update value {update} encountered in rotation-input signal multiplication is beyond the range [-{2**(NUM_BITS_OUT-1)}, +{2**(NUM_BITS_OUT-1)}]!"
                     )
 
                 buffer += update
 
-                if abs(buffer) >= 2 ** (self.num_bits_out - 1):
+                if abs(buffer) >= 2 ** (NUM_BITS_OUT - 1):
                     raise ValueError(
-                        f"The beffer value {buffer} encountered in rotation-input signal multiplication is beyond the range [-{2**(self.num_bits_out-1)}, +{2**(self.num_bits_out-1)}]!"
+                        f"The beffer value {buffer} encountered in rotation-input signal multiplication is beyond the range [-{2**(NUM_BITS_OUT-1)}, +{2**(NUM_BITS_OUT-1)}]!"
                     )
 
             # add this component

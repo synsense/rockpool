@@ -29,8 +29,9 @@ try:
     from .imu_data import *
     from .xylo_samna import *
     from .xylo_imu_devkit_utils import *
+    from .preprocessing import IMUIFSim
 
-    # from .imu_monitor import *
+    from .imu_monitor import *
 except:
     if not backend_available("samna"):
         XyloSamna = missing_backend_shim("XyloSamna", "samna")

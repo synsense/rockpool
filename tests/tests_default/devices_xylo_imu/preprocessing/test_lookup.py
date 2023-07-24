@@ -11,10 +11,7 @@ def test_lookup_table():
 
     from rockpool.devices.xylo.imu.preprocessing import RotationLookUpTable
 
-    num_angles = 64
-    num_bits = 16
-
-    lut = RotationLookUpTable(num_angles=num_angles, num_bits=num_bits)
+    lut = RotationLookUpTable()
 
     # find a set of parameters
     a = 2
