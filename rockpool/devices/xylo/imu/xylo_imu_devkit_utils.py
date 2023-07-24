@@ -89,21 +89,27 @@ def initialise_imu_sensor(
     time.sleep(0.1)
     mc = hdk.get_mc3632()
 
-    # - Register sink and source buffer to read and write data to IMU sensor
+    # - Register read buffer to read data from IMU sensor
     read_buffer = samna.graph.sink_from(mc.get_source_node())
-    write_buffer = samna.graph.source_to(mc.get_sink_node())
+
+    # - Build an acceleration event filter
+    # graph = samna.graph.EventFilterGraph()
+    # _, etf0, accel_buf = graph.sequential(
+    #     [mc.get_source_node(), "XyloImuOutputEventTypeFilter", samna.graph.JitSink()]
+    # )
+    # etf0.set_desired_type("xyloImu::event::Acceleration")
 
     # - Return the buffer and the IMU sensor
-    return read_buffer, write_buffer, mc
+    return read_buffer, read_buffer, mc
 
 
-def config_imu_sensor(mcdevice: IMUSensorHDK, frequency: int = 20):
+def config_imu_sensor(mcdevice: IMUSensorHDK, frequency: int = 200):
     """
     Configure the mc3632 module to enable data reading from imu sensor.
 
     Args:
-        mcdevice (IMUSensorHDK): A connected mc3632 device on XyloIMUHDK.
-        frequency (int): The frequency(Hz) to generate data. default: 20.
+        mcdevice (IMUSensorHDK): A connected mc3632 device on XyloIMUHDK
+        frequency (int): The frequency(Hz) to generate data. default: 200.
     """
 
     # - Configure the imu densor device

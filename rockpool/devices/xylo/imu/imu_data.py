@@ -10,32 +10,33 @@ from . import xylo_imu_devkit_utils as hdkutils
 from .xylo_imu_devkit_utils import XyloIMUHDK
 
 
-__all__ = ["XyloIMUData"]
+__all__ = ["IMUData"]
 
 
-class XyloIMUData(Module):
+class IMUData(Module):
     """
-    Interface to the IMU sensor on a Xylo-Imu HDK
+    Interface to the IMU sensor on a Xylo IMU HDK
 
-    This module uses ``samna`` to interface to the IMU hardware on a Xylo-IMU HDK. It permits recording from the IMU sensor.
+    This module uses ``samna`` to interface to the IMU hardware on a Xylo IMU HDK. It permits recording from the IMU sensor.
 
-    To record from the module, use the :py:meth:`~.XyloImuData.evolve` method. You need to pass this method an empty matrix, with the desired number of time-steps. The time-step ``dt`` is specified at module instantiation.
+    To record from the module, use the :py:meth:`~.IMUData.evolve` method. You need to pass this method an empty matrix, with the desired number of time-steps. The time-step ``dt`` is specified at module instantiation.
     """
 
     def __init__(
         self,
         device: XyloIMUHDK,
-        frequency: float = 20.0,
+        sample_frequency: float = 200.0,
         *args,
         **kwargs,
     ):
         """
-        Instantiate a XyloIMUData Module, via a samna backend
+        Instantiate an IMUData Module, via a samna backend
 
         Args:
             device (XyloIMUHDK): A connected XyloIMUHDK device.
-            frequency (float): The frequency to read data from IMU sensor. Default: 20.0
+            frequency (float): The frequency to read data from IMU sensor. Default: 200.0
         """
+        super().__init__(shape=(1, 3), spiking_input=False, spiking_output=False)
 
         # - Check device validation
         if device is None:
@@ -45,19 +46,18 @@ class XyloIMUData(Module):
         self._device: XyloIMUHDK = device
         """ `.XyloHDK`: The Xylo HDK used by this module """
 
-        # - Register buffers to read and write events
-        self._read_buffer, self._write_buffer, mc = hdkutils.initialise_imu_sensor(
-            device
-        )
-
-        # - Store the IMU sensor
-        self._mc = mc
+        # - Register buffers to read and write events, initialise sensor
+        (
+            self._read_buffer,
+            self._accel_buffer,
+            self._mc,
+        ) = hdkutils.initialise_imu_sensor(device)
 
         # - Store the dt
-        self.dt = 1 / frequency
+        self.dt = 1 / sample_frequency
 
         # - Set the frequency and config the IMU sensor to ready for data reading
-        hdkutils.config_imu_sensor(self._mc, frequency)
+        hdkutils.config_imu_sensor(self._mc, sample_frequency)
 
     def evolve(
         self,
@@ -73,18 +73,8 @@ class XyloIMUData(Module):
         Returns:
             (np.ndarray, dict, dict) output_events, {}, {}
         """
-
-        # - Ensure data is a float tensor
-        data = np.array(input_data, "float")
-
-        # - Verify input data shape
-        if len(data.shape) == 1:
-            data = np.expand_dims(data, 0)
-            data = np.expand_dims(data, 2)
-        elif len(data.shape) == 2:
-            data = np.expand_dims(data, 0)
-
         # - Get the shape of the output data
+        data, _ = self._auto_batch(input_data)
         Nb, Nt, Nc = data.shape
 
         # - Check batch size
@@ -100,7 +90,7 @@ class XyloIMUData(Module):
         timeout = 2 * Nt * self.dt if timeout is None else timeout
 
         # - Clear the read buffer to ensure no previous events influence
-        self._read_buffer.get_events()
+        events = self._read_buffer.get_events()
 
         # - Start recording time
         t_start = time.time()
