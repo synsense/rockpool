@@ -13,7 +13,11 @@ from warnings import warn
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.preprocessing.filterbank import FilterBank
+from rockpool.devices.xylo.imu.preprocessing.filterbank import (
+    FilterBank,
+    BandPassFilter,
+    DEFAULT_FILTER_BANDS,
+)
 from rockpool.devices.xylo.imu.preprocessing.rotation_removal import RotationRemoval
 from rockpool.devices.xylo.imu.preprocessing.spike_encoder import (
     IAFSpikeEncoder,
@@ -32,6 +36,29 @@ else:
 __all__ = ["IMUIFSim"]
 
 
+def convert_17bit_to_16bit_signed(unsigned_17bit: int) -> int:
+    # Check if the 17th bit (most significant bit) is set
+    is_negative = unsigned_17bit & 0x10000 != 0
+
+    # If it's negative, convert to two's complement representation
+    if is_negative:
+        signed_16bit = -((unsigned_17bit ^ 0x1FFFF) + 1)
+    else:
+        signed_16bit = unsigned_17bit
+
+    return signed_16bit
+
+
+def convert_16bit_signed_to_17bit(signed_16bit: int) -> int:
+    if signed_16bit < 0:
+        # Convert negative value to two's complement representation
+        unsigned_17bit = (1 << 17) + signed_16bit
+    else:
+        unsigned_17bit = signed_16bit
+
+    return unsigned_17bit
+
+
 class IMUIFSim(Module):
     """
     A :py:class:`.Module` that simulates the IMU signal preprocessing on Xylo IMU
@@ -47,11 +74,7 @@ class IMUIFSim(Module):
         shape: Optional[Union[Tuple, int]] = (3, 15),
         select_iaf_output: bool = False,
         bypass_jsvd: bool = False,
-        B_b_list: Union[List[int], int] = 6,
-        B_wf_list: Union[List[int], int] = 8,
-        B_af_list: Union[List[int], int] = 9,
-        a1_list: Optional[Union[List[int], int]] = None,
-        a2_list: Optional[Union[List[int], int]] = None,
+        filter_list: Optional[List[BandPassFilter]] = None,
         scale_values: Union[List[int], int] = 5,
         iaf_threshold_values: Union[List[int], int] = 1024,
         num_avg_bitshift: int = 4,
@@ -64,11 +87,7 @@ class IMUIFSim(Module):
             shape (Optional[Union[Tuple, int]], optional): the shape of the input-output transformation. Defaults to (3, 15).
             select_iaf_output (bool, optional): If true, the output of the module is encoded using IAF spike encoding. If false, the output of the module is encoded using scale spike encoding. Defaults to False.
             bypass_jsvd (bool, optional): If true, the module does not perform the rotation removal stage. Defaults to False.
-            B_b_list (Union[List[int], int], optional): Maximum number of right bit shifts in the feedback loops of the filters. Defaults to [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6].
-            B_wf_list (Union[List[int], int], optional): Maximum number of left bit shifts in the input for avoiding dead zones of the filters. Defaults to [8,8,8,8,8,8,8,8,8,8,8,8,8,8,8].
-            B_af_list (Union[List[int], int], optional): Maximum number of right bit shifts in computing the AR part multiplication of the filters. Defaults to [9,9,9,9,9,9,9,9,9,9,9,9,9,9,9].
-            a1_list (Union[List[int], int], optional): a1 tap parameters of each filter. Defaults to [-64700,-64458,-64330,-64138,-63884,-63566,-63185,-62743,-62238,-61672,-61045,-60357,-59611,-58805,-57941].
-            a2_list (Union[List[int], int], optional): a2 tap parameters of each filter (repeats if int). Defaults to [31935,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754,31754].
+            filter_list (Optional[List[BandPassFilter]], optional): the list of filters of the filterbank. Note that first 5 filters will apply to the first input channel, the second 5 filters apply to the second input channel, and the last 5 filters will apply to the 3rd input channel. Defaults to None, when it's None, the default values apply.
             scale_values (Union[List[int], int], optional): number of right-bit-shifts needed for down-scaling the input signal (per channel). Defaults to [5,5,5,5,5,5,5,5,5,5,5,5,5,5,5].
             iaf_threshold_values (Union[List[int], int], optional): the thresholds of the IAF neurons (quantized). Default to [1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024].
             num_avg_bitshift (int): number of bit shifts used in the low-pass filter implementation. Default to 4.
@@ -77,52 +96,18 @@ class IMUIFSim(Module):
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=True)
 
-        if a1_list is None:
-            a1_list = [
-                64700,
-                64458,
-                64330,
-                64138,
-                63884,
-                63566,
-                63185,
-                62743,
-                62238,
-                61672,
-                61045,
-                60357,
-                59611,
-                58805,
-                57941,
+        if filter_list is None:
+            filter_list = [
+                BandPassFilter.from_specification(*band)
+                for band in DEFAULT_FILTER_BANDS
             ]
 
-        if a2_list is None:
-            a2_list = [
-                31935,
-                31754,
-                31754,
-                31754,
-                31754,
-                31754,
-                31754,
-                31754,
-                31754,
-                31754,
-                31754,
-                31754,
-                31754,
-                31754,
-                31754,
-            ]
+        if len(filter_list) != self.size_out:
+            raise ValueError(
+                f"the number of filters {len(filter_list)} does not match the number of output channels {self.size_out}"
+            )
 
-        filter_bank = FilterBank(
-            shape=shape,
-            B_b_list=B_b_list,
-            B_wf_list=B_wf_list,
-            B_af_list=B_af_list,
-            a1_list=a1_list,
-            a2_list=a2_list,
-        )
+        filter_bank = FilterBank(shape, *filter_list)
 
         if select_iaf_output:
             spike_encoder = IAFSpikeEncoder(
@@ -189,15 +174,31 @@ class IMUIFSim(Module):
             warn("IMUIF is not enabled in configuration!")
 
         # We could not use `config.delay_threshold` here because it does not affect the simulation
+        filter_list = []
+        for i, (B_b, B_wf, B_af, a1, a2) in enumerate(
+            zip(
+                config.bpf_bb_values,
+                config.bpf_bwf_values,
+                config.bpf_baf_values,
+                config.bpf_a1_values,
+                config.bpf_a2_values,
+            )
+        ):
+            filter_list.append(
+                BandPassFilter(
+                    B_b=B_b,
+                    B_wf=B_wf,
+                    B_af=B_af,
+                    a1=convert_17bit_to_16bit_signed(a1),
+                    a2=convert_17bit_to_16bit_signed(a2),
+                )
+            )
+
         return cls(
             shape=(3, 15),
             select_iaf_output=config.select_iaf_output,
             bypass_jsvd=config.bypass_jsvd,
-            B_b_list=config.bpf_bb_values,
-            B_wf_list=config.bpf_bwf_values,
-            B_af_list=config.bpf_baf_values,
-            a1_list=config.bpf_a1_values,
-            a2_list=config.bpf_a2_values,
+            filter_list=filter_list,
             scale_values=config.scale_values,
             iaf_threshold_values=config.iaf_threshold_values,
             num_avg_bitshift=config.estimator_k_setting,
@@ -228,8 +229,12 @@ class IMUIFSim(Module):
                 bpf_bb_values = module.B_b_list
                 bpf_bwf_values = module.B_wf_list
                 bpf_baf_values = module.B_af_list
-                bpf_a1_values = module.a1_list
-                bpf_a2_values = module.a2_list
+                bpf_a1_values = [
+                    convert_16bit_signed_to_17bit(a1) for a1 in module.a1_list
+                ]
+                bpf_a2_values = [
+                    convert_16bit_signed_to_17bit(a2) for a2 in module.a2_list
+                ]
             elif isinstance(module, IAFSpikeEncoder):
                 select_iaf_output = True
                 iaf_threshold_values = module.threshold
