@@ -1,4 +1,4 @@
-from typing import Any, Optional, Tuple, Union
+from typing import Optional, Tuple
 import samna
 import time
 import math
@@ -7,7 +7,7 @@ import numpy as np
 
 from rockpool.nn.modules.module import Module
 from . import xylo_imu_devkit_utils as hdkutils
-from .xylo_imu_devkit_utils import XyloIMUHDK, IMUSensorHDK
+from .xylo_imu_devkit_utils import XyloIMUHDK
 
 
 __all__ = ["XyloIMUData"]
@@ -25,7 +25,7 @@ class XyloIMUData(Module):
     def __init__(
         self,
         device: XyloIMUHDK,
-        frequency: float = 200.0,
+        frequency: float = 20.0,
         *args,
         **kwargs,
     ):
@@ -34,7 +34,7 @@ class XyloIMUData(Module):
 
         Args:
             device (XyloIMUHDK): A connected XyloIMUHDK device.
-            frequency (float): The frequency to read data from IMU sensor. Default: 200.0
+            frequency (float): The frequency to read data from IMU sensor. Default: 20.0
         """
 
         # - Check device validation
@@ -56,9 +56,8 @@ class XyloIMUData(Module):
         # - Store the dt
         self.dt = 1 / frequency
 
-        # - Calculate the time interval and config the IMU sensor to ready for data reading
-        ti = int(1 / frequency * 1e8)
-        hdkutils.config_imu_sensor(self._mc, ti)
+        # - Set the frequency and config the IMU sensor to ready for data reading
+        hdkutils.config_imu_sensor(self._mc, frequency)
 
     def evolve(
         self,
@@ -75,12 +74,23 @@ class XyloIMUData(Module):
             (np.ndarray, dict, dict) output_events, {}, {}
         """
 
-        # - Get the shape of the output data
-        Nt, Nc = input_data.shape
+        # - Ensure data is a float tensor
+        data = np.array(input_data, "float")
 
-        if Nc != 3:
+        # - Verify input data shape
+        if len(data.shape) == 1:
+            data = np.expand_dims(data, 0)
+            data = np.expand_dims(data, 2)
+        elif len(data.shape) == 2:
+            data = np.expand_dims(data, 0)
+
+        # - Get the shape of the output data
+        Nb, Nt, Nc = data.shape
+
+        # - Check batch size
+        if Nb > 1:
             raise ValueError(
-                f"The specified data should have 3 channels! Recording data with shape [{Nt, Nc}]."
+                f"Batched data are not supported by IMUData. Got batched input data with shape {[Nb, Nt, Nc]}."
             )
 
         out = []
@@ -88,27 +98,28 @@ class XyloIMUData(Module):
 
         # - Determine a read timeout
         timeout = 2 * Nt * self.dt if timeout is None else timeout
-        t_start = time.time()
-        t_timeout = t_start + timeout
 
         # - Clear the read buffer to ensure no previous events influence
         self._read_buffer.get_events()
 
+        # - Start recording time
+        t_start = time.time()
+        t_timeout = t_start + timeout
+
         while count < int(Nt):
             evts = self._read_buffer.get_events()
             for e in evts:
-                if isinstance(e, samna.events.Acceleration):
+                if isinstance(e, samna.events.Acceleration) and count < int(Nt):
                     count += 1
                     x = e.x * 4 / math.pow(2, 14)
                     y = e.y * 4 / math.pow(2, 14)
                     z = e.z * 4 / math.pow(2, 14)
-                    # output = [x, y, z]
                     out.append([x, y, z])
 
                 # - Check for read timeout
                 if time.time() > t_timeout:
                     raise TimeoutError(f"IMUSensor: Read timeout of {timeout} sec.")
 
-        out = np.array(out).T
+        out = np.array(out)
 
         return out, {}, {}
