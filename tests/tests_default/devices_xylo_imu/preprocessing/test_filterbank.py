@@ -155,4 +155,4 @@ def test_signal_gain_drop():
         pass_band_power_dB = power_dB(pass_band)
         stop_band_power_dB = power_dB(stop_band)
 
-        assert pass_band_power_dB - stop_band_power_dB
+        assert pass_band_power_dB - stop_band_power_dB > 3
