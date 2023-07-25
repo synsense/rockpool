@@ -352,14 +352,11 @@ class FilterBank(Module):
         input_data = np.array(input_data, dtype=np.int64).astype(object)
 
         __B, __T, __C = input_data.shape
+        __T_margin = CLOCK_RATE
 
-        # Reverse and repeat the signal at the beginning at most 1 sec worth data to avoid boundary effects
+        # Repeat the first time step sample for 1 sec worth timesteps to avoid boundary effects
         if __T > CLOCK_RATE:
-            margin = np.flip(input_data[:, :CLOCK_RATE, :], axis=1)
-        else:
-            margin = np.flip(input_data, axis=1)
-
-        __B_margin, __T_margin, __C_margin = margin.shape
+            margin = np.tile(input_data[:, 0, :], (1, __T_margin, 1))
 
         input_data = np.concatenate((margin, input_data), axis=1)
 
