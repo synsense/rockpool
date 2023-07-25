@@ -355,9 +355,7 @@ class FilterBank(Module):
         __T_margin = CLOCK_RATE
 
         # Repeat the first time step sample for 1 sec worth timesteps to avoid boundary effects
-        if __T > CLOCK_RATE:
-            margin = np.tile(input_data[:, 0, :], (1, __T_margin, 1))
-
+        margin = np.tile(input_data[:, 0, :], (1, __T_margin, 1))
         input_data = np.concatenate((margin, input_data), axis=1)
 
         # -- Filter
