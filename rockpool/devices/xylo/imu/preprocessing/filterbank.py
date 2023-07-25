@@ -351,12 +351,10 @@ class FilterBank(Module):
         input_data, _ = self._auto_batch(input_data)
         input_data = np.array(input_data, dtype=np.int64).astype(object)
 
+        # -- Revert and repeat the input signal in the beginning to avoid boundary effects
         __B, __T, __C = input_data.shape
-        __T_margin = CLOCK_RATE
-
-        # Repeat the first time step sample for 1 sec worth timesteps to avoid boundary effects
-        margin = np.tile(input_data[:, 0, :], (1, __T_margin, 1))
-        input_data = np.concatenate((margin, input_data), axis=1)
+        __input_data_rev = np.flip(input_data, axis=1)
+        input_data = np.concatenate((__input_data_rev, input_data), axis=1)
 
         # -- Filter
         data_out = []
@@ -375,7 +373,7 @@ class FilterBank(Module):
         data_out = data_out.transpose(0, 2, 1)  # BxTxC
 
         # -- Cut the margin
-        data_out = data_out[:, __T_margin:, :]
+        data_out = data_out[:, __T:, :]
 
         return data_out, {}, {}
 
