@@ -95,3 +95,64 @@ def test_filterbank():
 
     with pytest.raises(AssertionError):
         np.testing.assert_array_equal(q_filt_signal, np.zeros_like(q_filt_signal))
+
+
+def test_signal_gain_drop():
+    """
+    Create a chirp signal and filter it with a bandpass filter.
+    Compute the power of the filtered signal in the pass band and in the stop band.
+    Assert that the power in the pass band is at least 3dB higher than the power in the stop band.
+    """
+
+    import numpy as np
+    from rockpool.devices.xylo.imu.preprocessing import Quantizer, BandPassFilter
+
+    f_init = 0.5
+    f_end = 20.5
+    f_sampling = 200
+    t_end = 10
+    band_width = 1
+
+    quantizer = Quantizer(shape=(1, 1), scale=0.9, num_bits=16)
+
+    def power_dB(signal: np.ndarray) -> float:
+        """Compute the power of a signal in dB"""
+        power = np.mean(np.abs(signal) ** 2)
+        return 10 * np.log10(power)
+
+    def f_idx(freq: float) -> int:
+        """Compute the index of a frequency in the chirp signal"""
+        return int(f_sampling * (freq - f_init) * t_end / (f_end - f_init))
+
+    def get_quantized_chirp_signal() -> np.ndarray:
+        """Return a quantized chirp signal"""
+        t = np.linspace(0, t_end, int(t_end * f_sampling), endpoint=False)
+        frequency = f_init + (f_end - f_init) * t / t_end
+        phase = 2 * np.pi * np.cumsum(frequency) / f_sampling
+        chirp_signal = np.sin(phase)
+        quantized_data, _, _ = quantizer(chirp_signal)
+        return quantized_data.flatten()
+
+    low_cut_range = np.arange(f_init, f_end, band_width)
+    high_cut_range = np.arange(f_init + band_width, f_end + band_width, band_width)
+
+    # Sweep the `band_width` wide bandpass filters over the chirp signal
+
+    for low, high in zip(low_cut_range, high_cut_range):
+        chirp_signal = get_quantized_chirp_signal()
+        band_pass = BandPassFilter.from_specification(low, high)
+        filtered_data = band_pass(chirp_signal)
+
+        # Compute the power of the pass and stop bands of the filtered signal
+        idx_low_cut = f_idx(low)
+        idx_high_cut = f_idx(high)
+
+        pass_band = filtered_data[idx_low_cut:idx_high_cut]
+        stop_band = np.concatenate(
+            (filtered_data[:idx_low_cut], filtered_data[idx_high_cut:])
+        )
+
+        pass_band_power_dB = power_dB(pass_band)
+        stop_band_power_dB = power_dB(stop_band)
+
+        assert pass_band_power_dB - stop_band_power_dB
