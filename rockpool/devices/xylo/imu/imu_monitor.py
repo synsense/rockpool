@@ -8,7 +8,7 @@ from samna.xyloImu.configuration import XyloConfiguration
 
 from . import xylo_imu_devkit_utils as hdkutils
 from .xylo_imu_devkit_utils import XyloIMUHDK
-from .xylo_samna import if_config_from_specification
+from . import IMUIFSim
 
 import time
 import numpy as np
@@ -186,7 +186,7 @@ class XyloIMUMonitor(Module):
         )
 
         # - Config the IMU interface and apply current configuration
-        config.input_interface = if_config_from_specification(**interface_params)
+        config.input_interface = IMUIFSim(**interface_params).export_config()
         self.config = config
 
     def evolve(
