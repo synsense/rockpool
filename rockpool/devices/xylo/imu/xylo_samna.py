@@ -423,6 +423,7 @@ class XyloSamna(Module):
             self.config = hdkutils.configure_accel_time_mode(
                 self._device,
                 self._config,
+                Nout,
                 Nhidden,
                 Nout,
                 readout=self._output_mode,
@@ -468,7 +469,7 @@ class XyloSamna(Module):
         # - Configure the recording mode
         self._configure_accel_time_mode(Nhidden, Nout, record)
         Nhidden_monitor = Nhidden if record else 0
-        Nout_monitor = Nout if record else 0
+        Nout_monitor = Nout if record or self._output_mode is "Isyn" else 0
 
         start_timestep = (
             hdkutils.get_current_timestep(self._read_buffer, self._write_buffer) + 1
@@ -505,7 +506,7 @@ class XyloSamna(Module):
         # - Determine a reasonable read timeout
         if read_timeout is None:
             read_timeout = 2 * len(input) * self.dt * Nhidden / 100.0
-            read_timeout = read_timeout * 10.0 if record else read_timeout
+            read_timeout = read_timeout * 30.0 if record else read_timeout
 
         # - Wait until the simulation is finished
         read_events, is_timeout = hdkutils.blocking_read(

@@ -219,8 +219,9 @@ class XyloState(NamedTuple):
 def configure_accel_time_mode(
     hdk: XyloIMUHDK,
     config: XyloConfiguration,
-    monitor_Nhidden: Optional[int] = 0,
-    monitor_Noutput: Optional[int] = 0,
+    Nout: int = 0,
+    monitor_Nhidden: int = 0,
+    monitor_Noutput: int = 0,
     readout="Spike",
     record=False,
 ) -> Tuple[XyloConfiguration]:
@@ -232,6 +233,7 @@ def configure_accel_time_mode(
 
     Args:
         config (XyloConfiguration): The desired Xylo configuration to use
+        Nout (int): Number of output neurons in total
         monitor_Nhidden (Optional[int]): The number of hidden neurons for which to monitor state during evolution. Default: ``0``, don't monitor any hidden neurons.
         monitor_Noutput (Optional[int]): The number of output neurons for which to monitor state during evolution. Default: ``0``, don't monitor any output neurons.
         readout: The readout out mode for which to output neuron states. Default: ``Spike''. Must be one of ``['Vmem', 'Spike', 'Isyn']``.
@@ -275,11 +277,11 @@ def configure_accel_time_mode(
     else:
         if readout == "Isyn":
             config.debug.monitor_neuron_i_syn = samna.xyloImu.configuration.NeuronRange(
-                monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+                monitor_Nhidden, monitor_Nhidden + Nout
             )
         elif readout == "Vmem":
             config.debug.monitor_neuron_v_mem = samna.xyloImu.configuration.NeuronRange(
-                monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+                monitor_Nhidden, monitor_Nhidden + Nout
             )
 
     # - Return the configuration and buffer
@@ -378,7 +380,7 @@ def decode_accel_mode_data(
     T_count = T_end - T_start + 1
     vmem_ts = np.zeros((T_count, Nhidden_monitor), np.int16)
     isyn_ts = np.zeros((T_count, Nhidden_monitor), np.int16)
-    vmem_out_ts = np.zeros((T_count, Nout_monitor), np.int16)
+    vmem_out_ts = np.zeros((T_count, Nout), np.int16)
     isyn_out_ts = np.zeros((T_count, Nout_monitor), np.int16)
     spikes_ts = np.zeros((T_count, Nhidden_monitor), np.int8)
     output_ts = np.zeros((T_count, Nout), np.int8)
@@ -389,17 +391,14 @@ def decode_accel_mode_data(
     for ev in readout_events:
         if type(ev) is ReadoutEvent:
             timestep = ev.timestep - T_start
-            # print(f"   ReadoutEvent: timestep {ev.timestep}. Relative: {timestep}")
             vmems = ev.neuron_v_mems
             vmem_ts[timestep, 0:Nhidden_monitor] = vmems[0:Nhidden_monitor]
-            vmem_out_ts[timestep, 0:Nout] = vmems[
-                Nhidden_monitor : Nhidden_monitor + Nout
-            ]
+            vmem_out_ts[timestep, 0:Nout] = ev.output_v_mems
 
             isyns = ev.neuron_i_syns
             isyn_ts[timestep, 0:Nhidden_monitor] = isyns[0:Nhidden_monitor]
             isyn_out_ts[timestep, 0:Nout] = isyns[
-                Nhidden_monitor : Nhidden_monitor + Nout
+                Nhidden_monitor : Nhidden_monitor + Nout_monitor
             ]
 
             spikes_ts[timestep] = ev.hidden_spikes
