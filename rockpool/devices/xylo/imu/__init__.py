@@ -26,6 +26,7 @@ except:
         raise
 
 try:
+    from .imu_data import *
     from .xylo_samna import *
     from .xylo_imu_devkit_utils import *
     from .preprocessing import IMUIFSim
@@ -37,9 +38,6 @@ except:
         XyloIMUMonitor = missing_backend_shim("XyloIMUMonitor", "samna")
         config_from_specification = missing_backend_shim(
             "config_from_specification", "samna"
-        )
-        if_config_from_specification = missing_backend_shim(
-            "if_config_from_specification", "samna"
         )
         save_config = missing_backend_shim("save_config", "samna")
         load_config = missing_backend_shim("load_config", "samna")

@@ -254,6 +254,9 @@ Xylo Audio support
 Xylo IMU support
 ~~~~~~~~~~~~~~~~~~~
 
+.. seealso::
+    * :ref:`/devices/xylo-imu/xylo-imu-intro.ipynb`
+
 .. autosummary::
     :toctree: _autosummary
 
@@ -269,6 +272,11 @@ Xylo IMU support
     devices.xylo.imu.XyloSim
     devices.xylo.imu.XyloSamna
     devices.xylo.imu.XyloIMUMonitor
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
     devices.xylo.imu.XyloIMUHiddenNeurons
     devices.xylo.imu.XyloIMUOutputNeurons
 
@@ -284,11 +292,15 @@ Xylo IMU support
 
 **IMU Preprocessing Interface**
 
+.. seealso::
+    * :ref:`/devices/xylo-imu/preprocessing.ipynb`
+
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
     devices.xylo.imu.IMUIFSim
+    devices.xylo.imu.IMUData
 
 .. autosummary::
     :toctree: _autosummary
