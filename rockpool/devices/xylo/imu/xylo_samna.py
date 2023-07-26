@@ -26,7 +26,6 @@ except:
 # - Configure exports
 __all__ = [
     "config_from_specification",
-    "if_config_from_specification",
     "save_config",
     "load_config",
     "XyloSamna",

@@ -39,9 +39,6 @@ except:
         config_from_specification = missing_backend_shim(
             "config_from_specification", "samna"
         )
-        if_config_from_specification = missing_backend_shim(
-            "if_config_from_specification", "samna"
-        )
         save_config = missing_backend_shim("save_config", "samna")
         load_config = missing_backend_shim("load_config", "samna")
     else:
