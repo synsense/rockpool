@@ -40,11 +40,13 @@ DEFAULT_FILTER_BANDS = [
 __all__ = ["FilterBank", "BandPassFilter"]
 
 
-@dataclass(eq=False, repr=False)
+@dataclass
 class BandPassFilter:
     """
-    Class containing the parameters of the filter in state-space representation
-    This is the block-diagram structure proposed for implementation.
+    Class that instantiates a single quantised band-pass filter, as implemented on Xylo IMU hardware
+
+    This class will design the best filter that meets a pass-band specification, using the class method :py:meth:`~.BandPassFilter.from_specification`.
+    Alternatively, you can specify the `a1` and `a2` taps directly as a signed integer representation, as well as specifying the number of bits needed for specifying the filter.
     """
 
     B_b: int = 6
@@ -269,11 +271,11 @@ class FilterBank(Module):
         """Object Constructor
 
         Args:
-            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,15).
-            *args: A BandPassFilter to register to the filterbank. Defaults to None.
+            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to `(3, 15)`.
+            *args: A list of `BandPassFilter`s to register to the filterbank. Defaults to `None`; use a default filterbank configuration.
         """
 
-        if shape[1] // shape[0] != shape[1] / shape[0]:
+        if shape[1] % shape[0] != 0:
             raise ValueError(
                 f"The number of output channels should be a multiple of the number of input channels."
             )
@@ -286,23 +288,28 @@ class FilterBank(Module):
                 for band in DEFAULT_FILTER_BANDS
             ]
 
+        self._filters = []
         for arg in args:
-            if not isinstance(arg, BandPassFilter):
-                raise TypeError(f"Expected BandPassFilter, got {type(arg)} instead.")
+            if isinstance(arg, BandPassFilter):
+                self._filters.append(arg)
+            else:
+                raise TypeError(
+                    f"Expected `BandPassFilter` or specifications, got {type(arg)} instead."
+                )
 
-        self.filter_list = args
-
-        if shape[1] != len(self.filter_list):
+        if shape[1] != len(self._filters):
             raise ValueError(
-                f"The output size should be {len(self.filter_list)} to compute filtered output!"
+                f"The output size ({shape[1]}) must match the number of filters {len(self._filters)} to compute filtered output!"
             )
 
-        self.channel_mapping = np.sort([i % self.size_in for i in range(self.size_out)])
-        """Mapping from IMU channels to filter channels. [0,0,0,0,0,1,1,1,1,1,2,2,2,2,2] by default"""
+        self._channel_mapping = np.sort(
+            [i % self.size_in for i in range(self.size_out)]
+        )
+        """ Mapping from IMU channels to filter channels. [0,0,0,0,0,1,1,1,1,1,2,2,2,2,2] by default """
 
     @classmethod
     def from_specification(
-        self, shape: Tuple[int] = (3, 15), *args: List[Tuple[float]]
+        cls, shape: Tuple[int] = (3, 15), *args: List[Tuple[float]]
     ) -> "FilterBank":
         """
         Create a filter bank with the given frequency bands.
@@ -319,12 +326,14 @@ class FilterBank(Module):
         for arg in args:
             if not isinstance(arg, tuple):
                 raise TypeError(f"Expected tuple, got {type(arg)} instead.")
-            elif not len(arg) == 2:
-                raise ValueError(f"Expected tuple of length 2, got {len(arg)} instead.")
+            elif not (len(arg) == 2 or len(arg) == 3):
+                raise ValueError(
+                    f"Expected tuple of length 2 or 3, got {len(arg)} instead."
+                )
 
         filter_list = [BandPassFilter.from_specification(*band) for band in args]
 
-        return FilterBank(shape=shape, *filter_list)
+        return cls(shape, *filter_list)
 
     @type_check
     def evolve(
@@ -351,10 +360,10 @@ class FilterBank(Module):
         # -- Filter
         data_out = []
 
-        # iterate over batch
+        # iterate over batches
         for signal in input_data:
             channel_out = []
-            for __filter, __ch in zip(self.filter_list, self.channel_mapping):
+            for __filter, __ch in zip(self._filters, self._channel_mapping):
                 out = __filter(signal.T[__ch])
                 channel_out.append(out)
 
@@ -369,24 +378,24 @@ class FilterBank(Module):
     @property
     def B_b_list(self) -> List[int]:
         """List of B_b values of all filters"""
-        return [f.B_b for f in self.filter_list]
+        return [f.B_b for f in self._filters]
 
     @property
     def B_wf_list(self) -> List[int]:
         """List of B_wf values of all filters"""
-        return [f.B_wf for f in self.filter_list]
+        return [f.B_wf for f in self._filters]
 
     @property
     def B_af_list(self) -> List[int]:
         """List of B_af values of all filters"""
-        return [f.B_af for f in self.filter_list]
+        return [f.B_af for f in self._filters]
 
     @property
     def a1_list(self) -> List[int]:
         """List of a1 values of all filters"""
-        return [f.a1 for f in self.filter_list]
+        return [f.a1 for f in self._filters]
 
     @property
     def a2_list(self) -> List[int]:
         """List of a2 values of all filters"""
-        return [f.a2 for f in self.filter_list]
+        return [f.a2 for f in self._filters]
