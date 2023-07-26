@@ -8,11 +8,24 @@ def test_import():
     assert BandPassFilter is not None
 
 
+def test_BPF_FB_from_specification():
+    import pytest
+    from rockpool.devices.xylo.imu.preprocessing import BandPassFilter, FilterBank
+
+    bpf = BandPassFilter.from_specification(0.1, 10)
+
+    with pytest.raises(ValueError):
+        bpf = BandPassFilter.from_specification(0.1, 0.1)
+
+    with pytest.raises(ValueError):
+        bpf = BandPassFilter.from_specification(0.1, 10, 2)
+
+    fb = FilterBank()
+
+    db = FilterBank.from_specification((1, 3), (0.1, 1), (1, 10), (40, 50))
+
+
 def test_bandpass_filter():
-    """
-    NOTE : work on this later with Saeid after explaining the `BandPassFilter` parameters
-    CHECK ISSUE #259
-    """
     import numpy as np
     from rockpool.devices.xylo.imu.preprocessing import Quantizer, BandPassFilter
 
@@ -36,10 +49,6 @@ def test_bandpass_filter():
 
 
 def test_filterbank():
-    """
-    IMPORTANT NOTE: NEED TO BE WORKED ON AND FIXED.
-    CHECK ISSUE #259
-    """
     from rockpool.devices.xylo.imu.preprocessing import (
         RotationRemoval,
         Quantizer,
