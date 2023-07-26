@@ -75,8 +75,14 @@ def new_xylo_write_buffer(hdk: XyloIMUHDK) -> XyloIMUWriteBuffer:
 
 
 def initialise_imu_sensor(
-    hdk: XyloIMUHDK,
-) -> Tuple[IMUSensorReadBuffer, IMUSensorWriteBuffer, IMUSensorHDK]:
+    hdk: XyloIMUHDK, frequency: int = 200
+) -> Tuple[
+    IMUSensorReadBuffer,
+    IMUSensorWriteBuffer,
+    IMUSensorReadBuffer,
+    IMUSensorHDK,
+    samna.graph.EventFilterGraph,
+]:
     """
     Initialise the IMU sensor HDK
 
@@ -91,31 +97,26 @@ def initialise_imu_sensor(
 
     # - Register read buffer to read data from IMU sensor
     read_buffer = samna.graph.sink_from(mc.get_source_node())
+    write_buffer = samna.graph.source_to(mc.get_sink_node())
 
     # - Build an acceleration event filter
-    # graph = samna.graph.EventFilterGraph()
-    # _, etf0, accel_buf = graph.sequential(
-    #     [mc.get_source_node(), "XyloImuOutputEventTypeFilter", samna.graph.JitSink()]
-    # )
-    # etf0.set_desired_type("xyloImu::event::Acceleration")
-
-    # - Return the buffer and the IMU sensor
-    return read_buffer, read_buffer, mc
-
-
-def config_imu_sensor(mcdevice: IMUSensorHDK, frequency: int = 200):
-    """
-    Configure the mc3632 module to enable data reading from imu sensor.
-
-    Args:
-        mcdevice (IMUSensorHDK): A connected mc3632 device on XyloIMUHDK
-        frequency (int): The frequency(Hz) to generate data. default: 200.
-    """
+    graph = samna.graph.EventFilterGraph()
+    _, etf0, accel_buf = graph.sequential(
+        [mc.get_source_node(), "Mc3632OutputEventTypeFilter", samna.graph.JitSink()]
+    )
+    etf0.set_desired_type("events::Acceleration")
+    graph.start()
 
     # - Configure the imu densor device
-    mcdevice.setup()
-    mcdevice.set_auto_read_freq(int(frequency))
-    mcdevice.auto_read_enable(True)
+    if not mc.setup():
+        raise ConnectionError("Could not connect to the MC3632 device.")
+
+    # - Initialise auto reading of sensor values
+    mc.set_auto_read_freq(int(frequency))
+    mc.auto_read_enable(True)
+
+    # - Return the buffer and the IMU sensor
+    return read_buffer, write_buffer, accel_buf, mc, graph
 
 
 def initialise_xylo_hdk(write_buffer: XyloIMUWriteBuffer) -> None:

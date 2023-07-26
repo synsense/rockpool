@@ -25,7 +25,7 @@ class IMUData(Module):
     def __init__(
         self,
         device: XyloIMUHDK,
-        sample_frequency: float = 200.0,
+        sample_frequency: int = 200,
         *args,
         **kwargs,
     ):
@@ -34,9 +34,9 @@ class IMUData(Module):
 
         Args:
             device (XyloIMUHDK): A connected XyloIMUHDK device.
-            frequency (float): The frequency to read data from IMU sensor. Default: 200.0
+            frequency (int): The frequency to read data from IMU sensor, in Hz. Default: `200`
         """
-        super().__init__(shape=(1, 3), spiking_input=False, spiking_output=False)
+        super().__init__(shape=(0, 3), spiking_input=False, spiking_output=False)
 
         # - Check device validation
         if device is None:
@@ -46,18 +46,19 @@ class IMUData(Module):
         self._device: XyloIMUHDK = device
         """ `.XyloHDK`: The Xylo HDK used by this module """
 
-        # - Register buffers to read and write events, initialise sensor
+        # - Store the dt
+        sample_frequency = int(sample_frequency)
+        self.dt = 1.0 / sample_frequency
+
+        # - Register buffers to read and write events
+        # - Set the frequency and config the IMU sensor to ready for data reading
         (
             self._read_buffer,
+            self._write_buffer,
             self._accel_buffer,
             self._mc,
-        ) = hdkutils.initialise_imu_sensor(device)
-
-        # - Store the dt
-        self.dt = 1 / sample_frequency
-
-        # - Set the frequency and config the IMU sensor to ready for data reading
-        hdkutils.config_imu_sensor(self._mc, sample_frequency)
+            self._accel_graph,
+        ) = hdkutils.initialise_imu_sensor(device, sample_frequency)
 
     def evolve(
         self,
@@ -83,33 +84,25 @@ class IMUData(Module):
                 f"Batched data are not supported by IMUData. Got batched input data with shape {[Nb, Nt, Nc]}."
             )
 
-        out = []
-        count = 0
-
         # - Determine a read timeout
         timeout = 2 * Nt * self.dt if timeout is None else timeout
 
         # - Clear the read buffer to ensure no previous events influence
-        events = self._read_buffer.get_events()
+        self._accel_buffer.get_events()
 
-        # - Start recording time
-        t_start = time.time()
-        t_timeout = t_start + timeout
+        # - Read Nt Acceleration events
+        events = self._accel_buffer.get_n_events(Nt, int(timeout * 1000))
+        if len(events) < Nt:
+            raise TimeoutError(
+                f"IMUSensor: Read timeout of {timeout} sec. Expected {Nt} events, read {len(events)}."
+            )
 
-        while count < int(Nt):
-            evts = self._read_buffer.get_events()
-            for e in evts:
-                if isinstance(e, samna.events.Acceleration) and count < int(Nt):
-                    count += 1
-                    x = e.x * 4 / math.pow(2, 14)
-                    y = e.y * 4 / math.pow(2, 14)
-                    z = e.z * 4 / math.pow(2, 14)
-                    out.append([x, y, z])
+        # - Decode acceleration events
+        out = []
+        for e in events:
+            x = e.x * 4 / math.pow(2, 14)
+            y = e.y * 4 / math.pow(2, 14)
+            z = e.z * 4 / math.pow(2, 14)
+            out.append([x, y, z])
 
-                # - Check for read timeout
-                if time.time() > t_timeout:
-                    raise TimeoutError(f"IMUSensor: Read timeout of {timeout} sec.")
-
-        out = np.array(out)
-
-        return out, {}, {}
+        return np.array(out), {}, {}
