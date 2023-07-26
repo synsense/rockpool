@@ -36,29 +36,6 @@ else:
 __all__ = ["IMUIFSim"]
 
 
-def convert_17bit_to_16bit_signed(unsigned_17bit: int) -> int:
-    # Check if the 17th bit (most significant bit) is set
-    is_negative = unsigned_17bit & 0x10000 != 0
-
-    # If it's negative, convert to two's complement representation
-    if is_negative:
-        signed_16bit = -((unsigned_17bit ^ 0x1FFFF) + 1)
-    else:
-        signed_16bit = unsigned_17bit
-
-    return signed_16bit
-
-
-def convert_16bit_signed_to_17bit(signed_16bit: int) -> int:
-    if signed_16bit < 0:
-        # Convert negative value to two's complement representation
-        unsigned_17bit = (1 << 17) + signed_16bit
-    else:
-        unsigned_17bit = signed_16bit
-
-    return unsigned_17bit
-
-
 class IMUIFSim(Module):
     """
     A :py:class:`.Module` that simulates the IMU signal preprocessing on Xylo IMU
@@ -189,8 +166,8 @@ class IMUIFSim(Module):
                     B_b=B_b,
                     B_wf=B_wf,
                     B_af=B_af,
-                    a1=convert_17bit_to_16bit_signed(a1),
-                    a2=convert_17bit_to_16bit_signed(a2),
+                    a1=a1,
+                    a2=a2,
                 )
             )
 
@@ -229,12 +206,8 @@ class IMUIFSim(Module):
                 bpf_bb_values = module.B_b_list
                 bpf_bwf_values = module.B_wf_list
                 bpf_baf_values = module.B_af_list
-                bpf_a1_values = [
-                    convert_16bit_signed_to_17bit(a1) for a1 in module.a1_list
-                ]
-                bpf_a2_values = [
-                    convert_16bit_signed_to_17bit(a2) for a2 in module.a2_list
-                ]
+                bpf_a1_values = [a1 for a1 in module.a1_list]
+                bpf_a2_values = [a2 for a2 in module.a2_list]
             elif isinstance(module, IAFSpikeEncoder):
                 select_iaf_output = True
                 iaf_threshold_values = module.threshold
