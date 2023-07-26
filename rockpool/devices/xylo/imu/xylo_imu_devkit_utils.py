@@ -10,15 +10,17 @@ import time
 import numpy as np
 
 # - Typing and useful proxy types
-from typing import Any, List, Optional, NamedTuple, Tuple
+from typing import List, Optional, NamedTuple, Tuple
 
 XyloIMUReadBuffer = samna.BasicSinkNode_xylo_imu_event_output_event
 XyloIMUWriteBuffer = samna.BasicSourceNode_xylo_imu_event_input_event
-# XyloIMUNeuronStateBuffer = samna.xyloImu.NeuronStateSinkNode
+IMUSensorReadBuffer = samna.DeviceSinkNode_unifirm_modules_mc3632_input_event
+IMUSensorWriteBuffer = samna.DeviceSourceNode_unifirm_modules_mc3632_output_event
 
 ReadoutEvent = samna.xyloImu.event.Readout
 
-XyloIMUHDK = Any
+XyloIMUHDK = samna.xyloImuBoards.XyloImuTestBoard
+IMUSensorHDK = samna.unifirm.modules.mc3632.Mc3632
 
 
 def find_xylo_imu_boards() -> List[XyloIMUHDK]:
@@ -70,6 +72,51 @@ def new_xylo_write_buffer(hdk: XyloIMUHDK) -> XyloIMUWriteBuffer:
         XyloIMUWriteBuffer: A connected event write buffer
     """
     return samna.graph.source_to(hdk.get_model_sink_node())
+
+
+def initialise_imu_sensor(
+    hdk: XyloIMUHDK, frequency: int = 200
+) -> Tuple[
+    IMUSensorReadBuffer,
+    IMUSensorWriteBuffer,
+    IMUSensorReadBuffer,
+    IMUSensorHDK,
+    samna.graph.EventFilterGraph,
+]:
+    """
+    Initialise the IMU sensor HDK
+
+    Args:
+        hdk (XyloIMUHDK): A Xylo IMU device contains an IMU sensor to initialise
+    """
+
+    # - set XyloIMUHDK to read data mode and get IMU sensor device
+    hdk.get_stop_watch().set_enable_value(True)
+    time.sleep(0.1)
+    mc = hdk.get_mc3632()
+
+    # - Register read buffer to read data from IMU sensor
+    read_buffer = samna.graph.sink_from(mc.get_source_node())
+    write_buffer = samna.graph.source_to(mc.get_sink_node())
+
+    # - Build an acceleration event filter
+    graph = samna.graph.EventFilterGraph()
+    _, etf0, accel_buf = graph.sequential(
+        [mc.get_source_node(), "Mc3632OutputEventTypeFilter", samna.graph.JitSink()]
+    )
+    etf0.set_desired_type("events::Acceleration")
+    graph.start()
+
+    # - Configure the imu densor device
+    if not mc.setup():
+        raise ConnectionError("Could not connect to the MC3632 device.")
+
+    # - Initialise auto reading of sensor values
+    mc.set_auto_read_freq(int(frequency))
+    mc.auto_read_enable(True)
+
+    # - Return the buffer and the IMU sensor
+    return read_buffer, write_buffer, accel_buf, mc, graph
 
 
 def initialise_xylo_hdk(write_buffer: XyloIMUWriteBuffer) -> None:
@@ -172,8 +219,9 @@ class XyloState(NamedTuple):
 def configure_accel_time_mode(
     hdk: XyloIMUHDK,
     config: XyloConfiguration,
-    monitor_Nhidden: Optional[int] = 0,
-    monitor_Noutput: Optional[int] = 0,
+    Nout: int = 0,
+    monitor_Nhidden: int = 0,
+    monitor_Noutput: int = 0,
     readout="Spike",
     record=False,
 ) -> Tuple[XyloConfiguration]:
@@ -185,6 +233,7 @@ def configure_accel_time_mode(
 
     Args:
         config (XyloConfiguration): The desired Xylo configuration to use
+        Nout (int): Number of output neurons in total
         monitor_Nhidden (Optional[int]): The number of hidden neurons for which to monitor state during evolution. Default: ``0``, don't monitor any hidden neurons.
         monitor_Noutput (Optional[int]): The number of output neurons for which to monitor state during evolution. Default: ``0``, don't monitor any output neurons.
         readout: The readout out mode for which to output neuron states. Default: ``Spike''. Must be one of ``['Vmem', 'Spike', 'Isyn']``.
@@ -228,11 +277,11 @@ def configure_accel_time_mode(
     else:
         if readout == "Isyn":
             config.debug.monitor_neuron_i_syn = samna.xyloImu.configuration.NeuronRange(
-                monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+                monitor_Nhidden, monitor_Nhidden + Nout
             )
         elif readout == "Vmem":
             config.debug.monitor_neuron_v_mem = samna.xyloImu.configuration.NeuronRange(
-                monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+                monitor_Nhidden, monitor_Nhidden + Nout
             )
 
     # - Return the configuration and buffer
@@ -331,7 +380,7 @@ def decode_accel_mode_data(
     T_count = T_end - T_start + 1
     vmem_ts = np.zeros((T_count, Nhidden_monitor), np.int16)
     isyn_ts = np.zeros((T_count, Nhidden_monitor), np.int16)
-    vmem_out_ts = np.zeros((T_count, Nout_monitor), np.int16)
+    vmem_out_ts = np.zeros((T_count, Nout), np.int16)
     isyn_out_ts = np.zeros((T_count, Nout_monitor), np.int16)
     spikes_ts = np.zeros((T_count, Nhidden_monitor), np.int8)
     output_ts = np.zeros((T_count, Nout), np.int8)
@@ -342,17 +391,14 @@ def decode_accel_mode_data(
     for ev in readout_events:
         if type(ev) is ReadoutEvent:
             timestep = ev.timestep - T_start
-            # print(f"   ReadoutEvent: timestep {ev.timestep}. Relative: {timestep}")
             vmems = ev.neuron_v_mems
             vmem_ts[timestep, 0:Nhidden_monitor] = vmems[0:Nhidden_monitor]
-            vmem_out_ts[timestep, 0:Nout] = vmems[
-                Nhidden_monitor : Nhidden_monitor + Nout
-            ]
+            vmem_out_ts[timestep, 0:Nout] = ev.output_v_mems
 
             isyns = ev.neuron_i_syns
             isyn_ts[timestep, 0:Nhidden_monitor] = isyns[0:Nhidden_monitor]
             isyn_out_ts[timestep, 0:Nout] = isyns[
-                Nhidden_monitor : Nhidden_monitor + Nout
+                Nhidden_monitor : Nhidden_monitor + Nout_monitor
             ]
 
             spikes_ts[timestep] = ev.hidden_spikes
