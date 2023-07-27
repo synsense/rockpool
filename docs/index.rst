@@ -81,6 +81,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
 
    devices/xylo-imu/xylo-imu-intro.ipynb
    devices/xylo-imu/imu-if.ipynb
+   devices/xylo-imu/configure_preprocessing.ipynb
 
 .. toctree::
    :maxdepth: 1
