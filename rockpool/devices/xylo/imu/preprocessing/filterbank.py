@@ -28,6 +28,9 @@ FILTER_ORDER = 1
 EPS = 0.001
 """Epsilon for floating point comparison"""
 
+CLOCK_RATE = 200
+"""Clock rate of the Xylo-IMU in Hz"""
+
 DEFAULT_FILTER_BANDS = [
     (1e-6, 1.0),
     (1.0, 2.0),
@@ -183,7 +186,7 @@ class BandPassFilter:
 
     @classmethod
     def from_specification(
-        cls, low_cut_off: float, high_cut_off: float, fs: float = 200
+        cls, low_cut_off: float, high_cut_off: float, fs: float = CLOCK_RATE
     ) -> "BandPassFilter":
         """
         Create a filter with the given upper and lower cut-off frequencies.
@@ -357,6 +360,11 @@ class FilterBank(Module):
         input_data, _ = self._auto_batch(input_data)
         input_data = np.array(input_data, dtype=np.int64).astype(object)
 
+        # -- Revert and repeat the input signal in the beginning to avoid boundary effects
+        __B, __T, __C = input_data.shape
+        __input_data_rev = np.flip(input_data, axis=1)
+        input_data = np.concatenate((__input_data_rev, input_data), axis=1)
+
         # -- Filter
         data_out = []
 
@@ -372,6 +380,9 @@ class FilterBank(Module):
         # convert into numpy
         data_out = np.asarray(data_out, dtype=object)
         data_out = data_out.transpose(0, 2, 1)  # BxTxC
+
+        # -- Cut the margin
+        data_out = data_out[:, __T:, :]
 
         return data_out, {}, {}
 
