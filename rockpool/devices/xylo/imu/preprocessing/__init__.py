@@ -18,6 +18,7 @@ from .rotation_removal import *
 from .sample_hold import *
 from .spike_encoder import *
 from .subspace import *
+from .identity_net import *
 
 if backend_available("samna"):
     from .imuif_sim import *

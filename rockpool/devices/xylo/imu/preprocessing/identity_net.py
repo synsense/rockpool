@@ -12,6 +12,8 @@ from rockpool.nn.modules import Module
 from rockpool.typehints import FloatVector
 from rockpool.parameters import SimulationParameter
 
+__all__ = ["IdentityNet"]
+
 
 class IdentityNet(Module):
     """
