@@ -29,11 +29,11 @@ EPS = 0.001
 """Epsilon for floating point comparison"""
 
 DEFAULT_FILTER_BANDS = [
-    (1e-6, 1.0),
-    (1.0, 2.0),
-    (2.0, 4.0),
-    (4.0, 6.0),
-    (6.0, 10.0),
+    (1e-6, 1.0, 200.0),
+    (1.0, 2.0, 200.0),
+    (2.0, 4.0, 200.0),
+    (4.0, 6.0, 200.0),
+    (6.0, 10.0, 200.0),
 ] * 3
 """Default filter bands for the Xylo-IMU"""
 
@@ -193,7 +193,7 @@ class BandPassFilter:
         Args:
             low_cut_off (float): The low cut-off frequency of the band-pass filter.
             high_cut_off (float): The high cut-off frequency of the band-pass filter.
-            fs (float, optional): The clock rate of the chip running the filters (in Hz). Defaults to 200.
+            fs (float): The clock rate of the chip running the filters (in Hz). Defaults to 200.
 
         Returns:
             BandPassFilter: the filter with the given cut-off frequencies.
@@ -259,7 +259,7 @@ class BandPassFilter:
 
 class FilterBank(Module):
     """
-    This class builds the block-diagram version of the filters, which is exactly as it is done in FPGA.
+    This class builds the block-diagram version of the filters, which is exactly as it is done in HW.
 
     NOTE: Here we have considered a collection of `candidate` band-pass filters that have the potential to be chosen and implemented by the algorithm team.
     Here we make sure that all those filters work properly.

@@ -28,6 +28,8 @@ from rockpool.nn.combinators import Sequential
 from rockpool.nn.modules.module import Module
 from rockpool.utilities.backend_management import backend_available
 
+from rockpool.parameters import SimulationParameter
+
 if backend_available("samna"):
     from samna.xyloImu.configuration import InputInterfaceConfig
 else:
@@ -55,7 +57,8 @@ class IMUIFSim(Module):
         scale_values: Union[List[int], int] = 5,
         iaf_threshold_values: Union[List[int], int] = 1024,
         num_avg_bitshift: int = 4,
-        sampling_period: int = 10,
+        SAH_period: int = 10,
+        sampling_freq: float = 200.0,
     ) -> None:
         """
         Object constructor
@@ -69,7 +72,8 @@ class IMUIFSim(Module):
             iaf_threshold_values (Union[List[int], int], optional): the thresholds of the IAF neurons (quantized). Default to [1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024].
             num_avg_bitshift (int): number of bit shifts used in the low-pass filter implementation. Default to 4.
                 The effective window length of the low-pass filter will be `2**num_avg_bitshift`
-            sampling_period (int): Sampling period that the signal is sampled and held, in number of timesteps. Defaults to 10.
+            SAH_period (int): Sampling period that the signal is sampled and held, in number of timesteps. Defaults to 10.
+            sampling_freq (float): Sampling frequency of the IMU interface. Default: ``200.``
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=True)
 
@@ -101,12 +105,15 @@ class IMUIFSim(Module):
             rotation_removal = RotationRemoval(
                 shape=(self.size_in, self.size_in),
                 num_avg_bitshift=num_avg_bitshift,
-                sampling_period=sampling_period,
+                sampling_period=SAH_period,
             )
             mod_IMUIF = Sequential(rotation_removal, filter_bank, spike_encoder)
 
         self.model = mod_IMUIF
         """The sequential module that simulates the IMU front-end"""
+
+        self.dt = SimulationParameter(1 / sampling_freq)
+        """ (float) Time-step of the encoding simulation in seconds """
 
     @type_check
     def evolve(
@@ -125,9 +132,13 @@ class IMUIFSim(Module):
                 empty dictionary
         """
 
-        # Shape check
+        # - Auto batch and shape check
         input_data, _ = self._auto_batch(input_data)
+
+        # - Ensure data is the correct dtype
         input_data = np.array(input_data, dtype=np.int64).astype(object)
+
+        # - Encode data and return
         return self.model(input_data, record=record)
 
     @classmethod
