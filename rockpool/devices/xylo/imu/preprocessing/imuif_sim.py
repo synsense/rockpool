@@ -190,7 +190,7 @@ class IMUIFSim(Module):
             scale_values=config.scale_values,
             iaf_threshold_values=config.iaf_threshold_values,
             num_avg_bitshift=config.estimator_k_setting,
-            sampling_period=config.update_matrix_threshold,
+            SAH_period=config.update_matrix_threshold,
         )
 
     @classmethod
