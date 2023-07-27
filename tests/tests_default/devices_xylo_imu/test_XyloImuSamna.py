@@ -7,7 +7,6 @@ def test_imports():
         load_config,
         XyloSamna,
         config_from_specification,
-        if_config_from_specification,
     )
     import rockpool.devices.xylo.imu.xylo_imu_devkit_utils as putils
 
@@ -62,6 +61,18 @@ def test_XyloSamna():
     T = 100
     f = 0.4
     input_spikes = np.random.rand(T, Nin) < f
+    output_ts, _, _ = modXyloSamna(input_spikes)
+    print(output_ts)
+
+    # - Make a XyloImuSamna module
+    modXyloSamna = XyloSamna(
+        device=daughterboard, config=config, dt=dt, output_mode="Isyn"
+    )
+    output_ts, _, _ = modXyloSamna(input_spikes)
+    print(output_ts)
+
+    # - Make a XyloImuSamna module
+    modXyloSamna = XyloSamna(device=daughterboard, config=config, dt=dt)
     output_ts, _, _ = modXyloSamna(input_spikes)
     print(output_ts)
 
@@ -179,9 +190,9 @@ def test_xylo_vs_xylosim():
     )
 
     # - Create XyloSim object
-    mod_xylo_sim_vmem = x.XyloSim.from_config(config, output_mode="Vmem", dt=1e-3)
-    mod_xylo_sim_isyn = x.XyloSim.from_config(config, output_mode="Isyn", dt=1e-3)
-    mod_xylo_sim_spike = x.XyloSim.from_config(config, dt=1e-3)
+    mod_xylo_sim_vmem = x.XyloSim.from_config(config, output_mode="Vmem", dt=1.0 / 200)
+    mod_xylo_sim_isyn = x.XyloSim.from_config(config, output_mode="Isyn", dt=1.0 / 200)
+    mod_xylo_sim_spike = x.XyloSim.from_config(config, dt=1.0 / 200)
     mod_xylo_sim_vmem.timed()
     mod_xylo_sim_isyn.timed()
     mod_xylo_sim_spike.timed()
@@ -204,9 +215,7 @@ def test_xylo_vs_xylosim():
     daughterboard = xylo_hdk_nodes[0]
 
     # - Init Xylo
-    # mod_xylo_vmem = x.XyloIMUSamna(daughterboard, config, dt=1e-3, output_mode="Vmem")
-    # mod_xylo_isyn = x.XyloIMUSamna(daughterboard, config, dt=1e-3, output_mode="Isyn")
-    mod_xylo_spike = x.XyloSamna(daughterboard, config, dt=1e-3)
+    mod_xylo_spike = x.XyloSamna(daughterboard, config, dt=1.0 / 200)
 
     # - Evolve Xylo
     mod_xylo_spike.reset_state()
