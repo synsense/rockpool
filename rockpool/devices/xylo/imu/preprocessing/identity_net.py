@@ -9,8 +9,14 @@ from rockpool.devices.xylo.imu.xylo_samna import (
 )
 from rockpool.devices.xylo.imu.xylo_sim import XyloSim
 from rockpool.nn.modules import Module
-from rockpool.typehints import FloatVector
 from rockpool.parameters import SimulationParameter
+from rockpool.typehints import FloatVector
+from rockpool.utilities.backend_management import backend_available
+
+if backend_available("samna"):
+    from samna.xyloImu.configuration import XyloConfiguration
+else:
+    XyloConfiguration = Any
 
 __all__ = ["IdentityNet"]
 
@@ -19,6 +25,9 @@ class IdentityNet(Module):
     """
     A simple identity network, to be used as a dummy network which aimed to return the input as the output.
     Since there is no other option to record the output of IMUIF directly, `IdentityNet` will serve as a buffer on SNN core, making it possible to implement a `IMUIFSamna` module
+
+    NOTE : NOT SURE IF THIS IS THE BEST WAY TO DO IT
+    NOTE : THIS IS A HACKY SOLUTION, TO BE REPLACED BY A BETTER ONE
     """
 
     def __init__(
@@ -74,14 +83,21 @@ class IdentityNet(Module):
 
         else:
             print("Using XyloSamna")
-            config, is_valid, msg = config_from_specification(**self.__specs)
-            if not is_valid:
-                print(msg)
-            self.model = XyloSamna(device=device, config=config, dt=self.dt)
+            self.model = XyloSamna(device=device, config=self.config, dt=self.dt)
 
     def reset_state(self) -> None:
         """Reset the underlying network."""
         self.model.reset_state()
+
+    @property
+    def config(self) -> XyloConfiguration:
+        """
+        Get the configuration from the specs
+        """
+        __config, is_valid, msg = config_from_specification(**self.__specs)
+        if not is_valid:
+            print(msg)
+        return __config
 
     def dilute(self, spike_train: FloatVector) -> FloatVector:
         """
