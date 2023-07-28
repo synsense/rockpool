@@ -79,11 +79,9 @@ class IdentityNet(Module):
         }
 
         if device is None:
-            print("No device provided, using XyloSim")
             self.model = XyloSim.from_specification(**self.__specs)
 
         else:
-            print("Using XyloSamna")
             self.model = XyloSamna(device=device, config=self.config, dt=self.dt)
 
     def reset_state(self) -> None:
