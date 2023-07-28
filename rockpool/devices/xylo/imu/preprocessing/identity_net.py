@@ -28,6 +28,7 @@ class IdentityNet(Module):
 
     NOTE : NOT SURE IF THIS IS THE BEST WAY TO DO IT
     NOTE : THIS IS A HACKY SOLUTION, TO BE REPLACED BY A BETTER ONE
+    NOTE : With a speed_up_factor >= 2, the output of the network is not the same as the input. However, it's not possible to implement this on the SNN core, so we have to live with it for now
     """
 
     def __init__(
