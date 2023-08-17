@@ -14,9 +14,7 @@ __all__ = ["mismatch_generator"]
 
 def mismatch_generator(
     prototype: Dict[str, bool], percent_deviation: float = 0.30, sigma_rule: float = 3.0
-) -> Callable[
-    [Tuple[Dict[str, jax.Array], jax.Array]], Dict[str, jax.Array]
-]:
+) -> Callable[[Tuple[Dict[str, jax.Array], jax.Array]], Dict[str, jax.Array]]:
     """ 
     mismatch_generator returns a function which simulates the analog device mismatch effect.
     The function deviates the parameter values provided in statistical means.
@@ -52,9 +50,7 @@ def mismatch_generator(
 
     sigma_eff = jnp.array(percent_deviation / sigma_rule)
 
-    def regenerate_mismatch(
-        mod: JaxModule, rng_key: jax.Array
-    ) -> Dict[str, jax.Array]:
+    def regenerate_mismatch(mod: JaxModule, rng_key: jax.Array) -> Dict[str, jax.Array]:
         """
         regenerate_mismatch takes a parameter dictionary, flattens the tree and applies parameter mismatch to every leaf of the tree.
 
@@ -66,9 +62,7 @@ def mismatch_generator(
         :rtype: Dict[str, jax.Array]
         """
 
-        def __map_fun(
-            array: jax.Array, rng_key: jax.Array
-        ) -> jax.Array:
+        def __map_fun(array: jax.Array, rng_key: jax.Array) -> jax.Array:
             """
             __map_fun is the mapping functions that applies the deviation to all leaves of the tree
 

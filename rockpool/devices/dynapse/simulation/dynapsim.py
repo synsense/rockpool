@@ -304,9 +304,7 @@ class DynapSim(JaxModule):
         ### --- Parameters --- ###
         __parameter = lambda _param: Parameter(
             data=_param
-            if isinstance(
-                _param, (np.ndarray, jnp.ndarray, jax.Array, jax.core.Tracer)
-            )
+            if isinstance(_param, (np.ndarray, jnp.ndarray, jax.Array, jax.core.Tracer))
             else jnp.full((self.size_out,), _param, dtype=jnp.float32),
             family="bias",
             shape=(self.size_out,),
@@ -334,9 +332,7 @@ class DynapSim(JaxModule):
         # --- Simulation Parameters --- #
         __simparam = lambda _param: SimulationParameter(
             data=_param
-            if isinstance(
-                _param, (np.ndarray, jnp.ndarray, jax.Array, jax.core.Tracer)
-            )
+            if isinstance(_param, (np.ndarray, jnp.ndarray, jax.Array, jax.core.Tracer))
             else jnp.full((self.size_out,), _param),
             shape=(self.size_out,),
             permit_reshape=False,
