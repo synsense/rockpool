@@ -305,7 +305,7 @@ class DynapSim(JaxModule):
         __parameter = lambda _param: Parameter(
             data=_param
             if isinstance(
-                _param, (np.ndarray, jnp.ndarray, jnp.DeviceArray, jax.core.Tracer)
+                _param, (np.ndarray, jnp.ndarray, jax.Array, jax.core.Tracer)
             )
             else jnp.full((self.size_out,), _param, dtype=jnp.float32),
             family="bias",
@@ -335,7 +335,7 @@ class DynapSim(JaxModule):
         __simparam = lambda _param: SimulationParameter(
             data=_param
             if isinstance(
-                _param, (np.ndarray, jnp.ndarray, jnp.DeviceArray, jax.core.Tracer)
+                _param, (np.ndarray, jnp.ndarray, jax.Array, jax.core.Tracer)
             )
             else jnp.full((self.size_out,), _param),
             shape=(self.size_out,),
@@ -487,7 +487,7 @@ class DynapSim(JaxModule):
 
     def evolve(
         self, input_data: FloatVector, record: bool = True
-    ) -> Tuple[jnp.DeviceArray, Dict[str, jnp.DeviceArray], Dict[str, jnp.DeviceArray]]:
+    ) -> Tuple[jax.Array, Dict[str, jax.Array], Dict[str, jax.Array]]:
         """
         evolve implements raw rockpool JAX evolution function for a DynapSim module.
         The function solves the dynamical equations introduced at the ``DynapSim`` module definition
@@ -500,7 +500,7 @@ class DynapSim(JaxModule):
             :spikes_ts: is an array with shape ``(T, Nrec)`` containing the output data(spike raster) produced by the module.
             :states: is a dictionary containing the updated module state following evolution.
             :record_dict: is a dictionary containing the recorded state variables during the evolution at each time step, if the ``record`` argument is ``True`` else empty dictionary {}
-        :rtype: Tuple[jnp.DeviceArray, Dict[str, jnp.DeviceArray], Dict[str, jnp.DeviceArray]]
+        :rtype: Tuple[jax.Array, Dict[str, jax.Array], Dict[str, jax.Array]]
         """
 
         kappa = (self.kappa_n + self.kappa_p) / 2
@@ -544,7 +544,7 @@ class DynapSim(JaxModule):
         input_data, initial_state = self._auto_batch(input_data, initial_state)
 
         def forward(
-            state: DynapSimState, ws_input: jnp.DeviceArray
+            state: DynapSimState, ws_input: jax.Array
         ) -> Tuple[DynapSimState, DynapSimRecord]:
             """
             forward implements single time-step neuron and synapse dynamics
@@ -559,7 +559,7 @@ class DynapSim(JaxModule):
                 vmem: Membrane voltages of each neuron [Nrec]
             :type state: DynapSimState
             :param ws_input: weighted input spikes [Nrec, 4]
-            :type ws_input: jnp.DeviceArray
+            :type ws_input: jax.Array
             :return: state, record
                 state: Updated state at end of the forward steps
                 record: Updated record instance to including spikes, igaba, ishunt, inmda, iampa, iahp, imem, and vmem states
