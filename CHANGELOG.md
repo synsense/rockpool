@@ -54,6 +54,7 @@ All notable changes between Rockpool releases will be documented in this file.
 * Added initial developer documentation
 * Added MNIST tutorial
 * Fixed notebook links to MyBinder.org
+* added PeakLoss which can be imported as `peak_loss = rockpool.nn.losses.PeakLoss()`.
 
 ### Changed
 
