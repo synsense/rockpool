@@ -293,7 +293,7 @@ Xylo IMU support
 **IMU Preprocessing Interface**
 
 .. seealso::
-    * :ref:`/devices/xylo-imu/preprocessing.ipynb`
+    * :ref:`/devices/xylo-imu/imu-if.ipynb`
 
 .. autosummary::
     :toctree: _autosummary
@@ -330,8 +330,6 @@ Dynap-SE2 hardware support and simulation
 -----------------------------------------
 
 .. seealso::
-    Tutorials:
-
     * :ref:`/devices/DynapSE/dynapse-overview.ipynb`
     * :ref:`/devices/DynapSE/post-training.ipynb`
     * :ref:`/devices/DynapSE/neuron-model.ipynb`

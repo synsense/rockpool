@@ -42,7 +42,7 @@ def test_XyloMonitor():
     )
 
     # - Simulate with random input
-    T = 10
+    T = 1000
     input_ts = np.random.rand(T, Nin)
     # mod_xylo.reset_state()
     output_ts, _, _ = mod_xylo(input_ts)
