@@ -10,6 +10,7 @@ from typing import Callable, Optional, Tuple
 import numpy as np
 
 # JAX
+import jax
 from jax import numpy as jnp
 from jax.nn import sigmoid
 
@@ -39,9 +40,9 @@ class DigitalAutoEncoder(JaxModule):
     :param n_code: the length of the code. It refers to the number of bias weight parameters used., defaults to 4
     :type n_code: int, optional
     :param w_en: encoder weight matrix that transforms a weight matrix to the code, defaults to None
-    :type w_en: Optional[jnp.DeviceArray], optional
+    :type w_en: Optional[jax.Array], optional
     :param w_dec: decoder wegiht matrix that reconstructs a weight matrix from the code, defaults to None
-    :type w_dec: Optional[jnp.DeviceArray], optional
+    :type w_dec: Optional[jax.Array], optional
     :param weight_init: weight initialization function which gets a size and creates a weight, defaults to kaiming
     :type weight_init: Callable[[Tuple[int]], np.ndarray], optional
     """
@@ -50,8 +51,8 @@ class DigitalAutoEncoder(JaxModule):
         self,
         shape: Tuple[int],
         n_code: int = 4,
-        w_en: Optional[jnp.DeviceArray] = None,
-        w_dec: Optional[jnp.DeviceArray] = None,
+        w_en: Optional[jax.Array] = None,
+        w_dec: Optional[jax.Array] = None,
         weight_init: Callable[[Tuple[int]], np.ndarray] = kaiming,
         *args,
         **kwargs,
@@ -73,8 +74,8 @@ class DigitalAutoEncoder(JaxModule):
         self.w_dec = Parameter(w_dec, init_func=_init, shape=(n_code, self.size_out))
 
     def evolve(
-        self, matrix: jnp.DeviceArray, record: bool = False
-    ) -> Tuple[jnp.DeviceArray, jnp.DeviceArray, jnp.DeviceArray]:
+        self, matrix: jax.Array, record: bool = False
+    ) -> Tuple[jax.Array, jax.Array, jax.Array]:
         """
         evolve implements raw rockpool JAX evolution function for a AutoEncoder module.
         The AutoEncoder architecture is stateless, threfore, there is no state to return.
@@ -82,14 +83,14 @@ class DigitalAutoEncoder(JaxModule):
         It uses the rockpool jax backend for the sake of compatibility.
 
         :param matrix: The weight matrix to encode via a weight currents and bit_mask
-        :type matrix: jnp.DeviceArray
+        :type matrix: jax.Array
         :param record: dummy record flag, required for rockpool jax modules, defaults to False
         :type record: bool, optional
         :return: reconstructed, code, bit_mask
             :reconstructed: the reconstructed weight matrix
             :code: compressed matrix
             :bit_mask: binary decoder
-        :rtype: Tuple[jnp.DeviceArray, jnp.DeviceArray, jnp.DeviceArray]
+        :rtype: Tuple[jax.Array, jax.Array, jax.Array]
         """
         assert matrix.size == self.size_out
 
@@ -99,32 +100,32 @@ class DigitalAutoEncoder(JaxModule):
 
         return reconstructed, code, self.bit_mask
 
-    def encode(self, matrix: jnp.DeviceArray) -> jnp.DeviceArray:
+    def encode(self, matrix: jax.Array) -> jax.Array:
         """
         encode generates the compressed version of a matrix using the encoder
 
         :param matrix: any matrix to compress
-        :type matrix: jnp.DeviceArray
+        :type matrix: jax.Array
         :return: the code generated, or the compressed version
-        :rtype: jnp.DeviceArray
+        :rtype: jax.Array
         """
         assert matrix.size == self.size_in
         return matrix @ self.w_en
 
-    def decode(self, code: jnp.DeviceArray) -> jnp.DeviceArray:
+    def decode(self, code: jax.Array) -> jax.Array:
         """
         decode reconstructs the matrix from the code
 
         :param code: the compressed version of the matrix
-        :type code: jnp.DeviceArray
+        :type code: jax.Array
         :return: the reconstructed matrix
-        :rtype: jnp.DeviceArray
+        :rtype: jax.Array
         """
         assert code.size == self.n_code
         return code @ self.bit_mask
 
     @property
-    def bit_mask(self) -> jnp.DeviceArray:
+    def bit_mask(self) -> jax.Array:
         """
         bit_mask applies the sigmoid to the decoder weights to scale them in 0,1 with ditribution center at .5
         Then it applies a heaviside step function with piece-wise linear derivative to obtain a valid bit_mask consisting only of bits

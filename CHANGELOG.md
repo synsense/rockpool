@@ -19,6 +19,8 @@ All notable changes between Rockpool releases will be documented in this file.
 * Added support for latest `torch` versions
 * New fine-grained installation options
 * Renamed power measurement dict keys returned by Xylo Audio 2 (`syns61201`) `XyloSamna` module, to be more descriptive
+* Upgrade minimum Python version supported to 3.8
+* Upgrade minimum JAX version supported to 0.4.10
 
 ### Fixed
 ### Deprecated

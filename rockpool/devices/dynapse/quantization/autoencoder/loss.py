@@ -14,6 +14,8 @@ from rockpool.training import jax_loss as l
 from .digital import DigitalAutoEncoder
 from .weight_handler import WeightHandler
 
+import jax
+
 
 __all__ = ["loss_reconstruction", "penalty_negative", "penalty_reconstruction"]
 
@@ -21,7 +23,7 @@ __all__ = ["loss_reconstruction", "penalty_negative", "penalty_reconstruction"]
 def loss_reconstruction(
     encoder: DigitalAutoEncoder,
     parameters: Dict[str, Any],
-    input: jnp.DeviceArray,
+    input: jax.Array,
     f_penalty: float = 1e3,
 ) -> float:
     """
@@ -53,12 +55,12 @@ def loss_reconstruction(
     return _loss
 
 
-def penalty_negative(param: jnp.DeviceArray) -> float:
+def penalty_negative(param: jax.Array) -> float:
     """
     penalty_negative applies a below zero limit violation penalty to any parameter
 
     :param param: the parameter to apply the zero limit
-    :type param: jnp.DeviceArray
+    :type param: jax.Array
     :return: an exponentially increasing bound loss punishing the parameter values below zero
     :rtype: float
     """
@@ -71,7 +73,7 @@ def penalty_negative(param: jnp.DeviceArray) -> float:
     return penalty
 
 
-def penalty_reconstruction(n_bits: int, bit_mask: jnp.DeviceArray) -> float:
+def penalty_reconstruction(n_bits: int, bit_mask: jax.Array) -> float:
     """
     penalty_reconstruction applies a penalty if the bit_mask encoding&decoding is non-unique.
     It also assures that the rounded decoding weights are the same as the bit_mask desired, and the
@@ -80,7 +82,7 @@ def penalty_reconstruction(n_bits: int, bit_mask: jnp.DeviceArray) -> float:
     :param n_bits: number of bits reserved for representing the integer values
     :type n_bits: int
     :param bit_mask: the bit_mask to check if encoding&decoding is unique
-    :type bit_mask: jnp.DeviceArray
+    :type bit_mask: jax.Array
     :return: mean square error loss between the bit_mask found and the bitmap reconstructed after encoding decoding
     :rtype: float
     """
