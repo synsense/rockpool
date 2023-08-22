@@ -22,5 +22,7 @@ from .identity_net import *
 
 if backend_available("samna"):
     from .imuif_sim import *
+    from .imuif_samna import *
 else:
     IMUIFSim = missing_backend_shim("IMUIFSim", "samna")
+    IMUIFSamna = missing_backend_shim("IMUIFSamna", "samna")
