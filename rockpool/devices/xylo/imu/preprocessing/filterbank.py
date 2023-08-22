@@ -32,11 +32,11 @@ CLOCK_RATE = 200
 """Clock rate of the Xylo-IMU in Hz"""
 
 DEFAULT_FILTER_BANDS = [
-    (0.2, 1.2),
-    (1.2, 2.2),
-    (2.2, 4.2),
-    (4.2, 6.2),
-    (6.2, 10.2),
+    (1.0, 2.0),
+    (2.0, 4.0),
+    (4.0, 8.0),
+    (8.0, 16.0),
+    (16.0, 32.0),
 ] * 3
 """Default filter bands for the Xylo-IMU"""
 
