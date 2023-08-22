@@ -2,7 +2,7 @@ from typing import Optional, Tuple
 
 from rockpool.devices.xylo.imu.xylo_imu_devkit_utils import XyloIMUHDK
 from rockpool.devices.xylo.imu.preprocessing.identity_net import IdentityNet
-from rockpool.devices.xylo.imu.imu_monitor import XyloIMUMonitor
+from .imu_monitor import XyloIMUMonitor
 from rockpool.nn.modules import Module
 from rockpool.utilities.backend_management import backend_available
 
