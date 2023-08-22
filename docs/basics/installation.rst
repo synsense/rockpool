@@ -6,7 +6,7 @@ Installing |project| and contributing
 Base requirements
 -----------------
 
-|project| requires `Python 3.7`_, numpy_ and scipy_ to install. These requirements will be installed by ``pip`` when installing |project|. We recommend using anaconda_, miniconda_ or another environment manager to keep your Python dependencies clean.
+|project| requires `Python 3.8`_, numpy_ and scipy_ to install. These requirements will be installed by ``pip`` when installing |project|. We recommend using anaconda_, miniconda_ or another environment manager to keep your Python dependencies clean.
 
 Installation using ``pip``
 --------------------------
@@ -161,7 +161,7 @@ To run all the unit tests for |project|, use ``pytest``:
     $ pip install ".[tests]"
     $ pytest tests
 
-.. _Python 3.7: https://python.org
+.. _Python 3.8: https://python.org
 .. _numpy: https://www.numpy.org
 .. _scipy: https://www.scipy.org
 .. _numba: https://numba.pydata.org
