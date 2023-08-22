@@ -85,7 +85,7 @@ def test_binary_peak_loss():
 
     # pick event time such that the loss window fits within the sample
     pl = BinaryPeakLoss(
-        max_interval=max_interval, weight_negatives=1.0, target_output=target_output
+        max_interval=max_interval, weight_nontarget=1.0, target_output=target_output
     )
     tmax = 5
     vmem = torch.rand((batch_size, T, 1))
@@ -102,7 +102,7 @@ def test_binary_peak_loss():
     # pick event time as the second last time point and window size three, thus the output at event time should be
     # counted twice
     pl = BinaryPeakLoss(
-        max_interval=3, weight_negatives=1.0, target_output=target_output
+        max_interval=3, weight_nontarget=1.0, target_output=target_output
     )
     vmem = torch.rand((batch_size, T, 1))
     vmem[targets == 1, -2, 0] = torch.max(vmem) + 1e-5
@@ -119,7 +119,7 @@ def test_binary_peak_loss():
     # pick event time such that the loss window fits within the sample
     max_interval = T
     pl = BinaryPeakLoss(
-        max_interval=max_interval, weight_negatives=1.0, target_output=0.0
+        max_interval=max_interval, weight_nontarget=1.0, target_output=0.0
     )
     tmax = 0
     vmem = 0.5 * torch.ones((batch_size, T, 1))

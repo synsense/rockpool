@@ -41,7 +41,7 @@ class PeakLoss(_Loss):
         :param target_threshold: target output signal of target neuron
         """
 
-        super().__init__()
+        super().__init__(weight_nontarget=weight_nontarget)
         self.max_interval = max_interval
         self.weight_nontarget = weight_nontarget
         self.target_output = target_output
@@ -134,20 +134,20 @@ class BinaryPeakLoss(_Loss):
     def __init__(
         self,
         max_interval: int,
-        weight_negatives: float,
+        weight_nontarget: float,
         target_output: float,
         nontarget_output: Optional[float] = 0.0,
     ):
         """
 
         :param max_interval: window size of loss function
-        :param weight_negatives: scaling factor of loss calculated from negative samples
+        :param weight_nontarget: scaling factor of loss calculated from negative samples
         :param target_threshold: target output signal of target neuron
         """
 
-        super().__init__()
+        super().__init__(weight_nontarget=weight_nontarget)
         self.max_interval = max_interval
-        self.weight_negatives = weight_negatives
+        self.weight_nontarget= weight_nontarget
         self.target_output = target_output
         self.nontarget_output = nontarget_output
         self.mse = nn.MSELoss()
@@ -210,5 +210,5 @@ class BinaryPeakLoss(_Loss):
         loss_negatives = self.loss_negatives(prediction, target)
 
         # add losses
-        loss = loss_positives + self.weight_negatives * loss_negatives
+        loss = loss_positives + self.weight_nontarget * loss_negatives
         return loss, loss_positives, loss_negatives
