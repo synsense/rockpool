@@ -8,7 +8,7 @@ from samna.xyloImu.configuration import XyloConfiguration
 
 from . import xylo_imu_devkit_utils as hdkutils
 from .xylo_imu_devkit_utils import XyloIMUHDK
-from . import IMUIFSim
+from .imuif_sim import IMUIFSim
 
 import time
 import numpy as np
