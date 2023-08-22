@@ -46,10 +46,7 @@ class IMUIFSamna(Module):
         super().__init__(shape=(0, N_CHANNEL), spiking_input=False, spiking_output=True)
 
         self.dummy_net = IdentityNet(
-            device=None,
-            n_channel=N_CHANNEL,
-            clock_rate=CLOCK_RATE,
-            speed_up_factor=1,  # NOTE : IT RESULTS IN A SUBOPTIMAL PERFORMANCE, BUT IT IS THE ONLY WAY TO GET THE NETWORK WORKING
+            device=None, n_channel=N_CHANNEL, clock_rate=CLOCK_RATE
         )
 
         self.monitor = XyloIMUMonitor(
@@ -60,10 +57,26 @@ class IMUIFSamna(Module):
         )
 
     def evolve(
-        self, input_data: FloatVector, record: bool = False
+        self,
+        input_data: FloatVector,
+        record: bool = False,
+        read_timeout: Optional[float] = None,
     ) -> Tuple[FloatVector, dict, dict]:
-        return self.monitor.evolve(input_data)
+        """
+        Wrap the `evolve` method of the `XyloIMUMonitor` class
+        Evolve a network on the Xylo HDK in Real-time mode
 
+        Args:
+            input_data (FloatVector): Pre-recorded IMU data, (Tx3)
+            record (bool): ``False``, do not return a recording dictionary. Recording internal state is not supported by :py:class:`.XyloIMUMonitor`
+            read_timeout (float): A duration in seconds for a read timeout. Default: 2x the real-time duration of the evolution
 
-if __name__ == "__main__":
-    print("Hi")
+        Returns:
+            Tuple[FloatVector, dict, dict]:
+                * output_data (FloatVector): The output spike train
+                * state (dict): The state dictionary from the network
+                * rec (dict): The record dictionary from the network
+        """
+        return self.monitor.evolve(
+            input_data=input_data, record=record, read_timeout=read_timeout
+        )
