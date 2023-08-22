@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_import():
     import pytest
 
@@ -7,19 +10,23 @@ def test_import():
     assert IdentityNet is not None
 
 
-def test_network_operation():
+@pytest.mark.parametrize("seed", [1995, 2023])
+@pytest.mark.parametrize("f_rate,T", [(0.2, 1000), (0.8, 10000)])
+def test_network_operation(seed: int, f_rate: float, T: int):
     """
     The identity network should return the same input spike train provided as input
+
+    Args:
+        seed (int): The seed for the random number generator
+        f_rate (float): The firing rate of the input spike train
+        T (int): The length of the input spike train
     """
     import numpy as np
     from rockpool.devices.xylo.imu.preprocessing import IdentityNet
 
-    np.random.seed(2023)
-    f_rate = 0.2
+    np.random.seed(seed)
     n_channels = 15
-    T = 10000
     clock_rate = 200
-    speed_up_factor = 2
     input_spike_train = np.random.rand(T, n_channels) < f_rate
 
     # Operate with XyloSim
@@ -27,7 +34,6 @@ def test_network_operation():
         device=None,
         n_channel=n_channels,
         clock_rate=clock_rate,
-        speed_up_factor=speed_up_factor,
     )
 
     out, _, _ = mod(input_spike_train)
