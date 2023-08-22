@@ -147,7 +147,7 @@ class BinaryPeakLoss(_Loss):
 
         super().__init__(weight_nontarget=weight_nontarget)
         self.max_interval = max_interval
-        self.weight_nontarget= weight_nontarget
+        self.weight_nontarget = weight_nontarget
         self.target_output = target_output
         self.nontarget_output = nontarget_output
         self.mse = nn.MSELoss()
