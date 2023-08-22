@@ -13,6 +13,8 @@ else:
 
 from rockpool.typehints import FloatVector
 
+__all__ = ["IMUIFSamna"]
+
 
 N_CHANNEL = 15
 """Fixed number of channels employed"""
