@@ -18,9 +18,7 @@ __all__ = ["_Loss"]
 class _Loss(nn.Module):
     reduction: str
 
-    def __init__(self,
-                 weight_nontarget: float
-                 ) -> None:
+    def __init__(self, weight_nontarget: float) -> None:
         super().__init__()
         self.weight_nontarget = weight_nontarget
 
