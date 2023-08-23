@@ -28,6 +28,25 @@ CLOCK_RATE = 200
 COV_EXTRA_BIT = 2
 """The components of the covariance can enlarger by a factor 3 (at most), thus, an additional register size of 2"""
 
+DEFAULT_FILTER_BANDS = [
+    (1.0, 2.0),
+    (2.0, 4.0),
+    (4.0, 8.0),
+    (8.0, 16.0),
+    (16.0, 32.0),
+    (1.0, 2.0),
+    (2.0, 4.0),
+    (4.0, 8.0),
+    (8.0, 16.0),
+    (16.0, 32.0),
+    (1.0, 2.0),
+    (2.0, 4.0),
+    (4.0, 8.0),
+    (8.0, 16.0),
+    (16.0, 32.0),
+]
+"""Default passbands for the IMUIF Filters"""
+
 FILTER_ORDER = 1
 """HARD_CODED: Filter order of the Xylo-IMU filters"""
 
