@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any
 import numpy as np
 from rockpool.nn.modules import Module
 from rockpool.parameters import SimulationParameter
