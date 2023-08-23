@@ -14,6 +14,7 @@ from rockpool.utilities.backend_management import (
     missing_backend_shim,
 )
 
+from .transform import *
 from .xylo_mapper import *
 from .xylo_graph_modules import *
 
