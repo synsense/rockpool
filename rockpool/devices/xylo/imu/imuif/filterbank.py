@@ -11,34 +11,21 @@ from rockpool.devices.xylo.imu.imuif.utils import (
     unsigned_bit_range_check,
     signed_bit_range_check,
 )
-from rockpool.parameters import SimulationParameter
+
+from rockpool.devices.xylo.imu.imuif.params import (
+    NUM_BITS,
+    B_WORST_CASE,
+    FILTER_ORDER,
+    CLOCK_RATE,
+    DEFAULT_FILTER_BANDS,
+)
+
 from rockpool.nn.modules.module import Module
 from scipy.signal import butter
 from numpy.linalg import norm
 
-B_IN = 16
-"""Number of input bits that can be processed with the block diagram"""
-
-B_WORST_CASE: int = 9
-"""Number of additional bits devoted to storing filter taps such that no over- and under-flow can happen"""
-
-FILTER_ORDER = 1
-"""HARD_CODED: Filter order of the Xylo-IMU filters"""
-
 EPS = 0.001
 """Epsilon for floating point comparison"""
-
-CLOCK_RATE = 200
-"""Clock rate of the Xylo-IMU in Hz"""
-
-DEFAULT_FILTER_BANDS = [
-    (1.0, 2.0),
-    (2.0, 4.0),
-    (4.0, 8.0),
-    (8.0, 16.0),
-    (16.0, 32.0),
-] * 3
-"""Default filter bands for the Xylo-IMU"""
 
 __all__ = ["FilterBank", "BandPassFilter"]
 
@@ -75,10 +62,10 @@ class BandPassFilter:
         """
         Check the validity of the parameters.
         """
-        self.B_w = B_IN + B_WORST_CASE + self.B_wf
+        self.B_w = NUM_BITS + B_WORST_CASE + self.B_wf
         """Total number of bits devoted to storing the values computed by the AR-filter."""
 
-        self.B_out = B_IN + B_WORST_CASE
+        self.B_out = NUM_BITS + B_WORST_CASE
         """Total number of bits needed for storing the values computed by the WHOLE filter."""
 
         if self.scale_out is not None:
@@ -110,7 +97,7 @@ class BandPassFilter:
 
         # check that the input is within the valid range of block-diagram
 
-        unsigned_bit_range_check(np.max(np.abs(signal)), n_bits=B_IN - 1)
+        unsigned_bit_range_check(np.max(np.abs(signal)), n_bits=NUM_BITS - 1)
 
         output = []
 
@@ -249,7 +236,7 @@ class BandPassFilter:
         # compute the closest power of 2 larger that than b[0]
         B_b = int(np.log2(1 / abs(b[0])))
         B_wf = B_WORST_CASE - 1
-        B_af = B_IN - B_b - 1
+        B_af = NUM_BITS - B_b - 1
 
         # quantize the a-taps of the filter
         a_taps = (2 ** (B_af + B_b) * a).astype(np.int64)
