@@ -1,12 +1,19 @@
 from typing import Optional, Tuple
-
-from rockpool.devices.xylo.imu.imu_monitor import XyloIMUMonitor
-from rockpool.devices.xylo.imu.xylo_imu_devkit_utils import XyloIMUHDK
-from rockpool.devices.xylo.imu.xylo_sim import XyloSim
+import numpy as np
 from rockpool.nn.modules import Module
 from rockpool.parameters import SimulationParameter
 from rockpool.typehints import FloatVector
 from rockpool.utilities.backend_management import backend_available
+
+from rockpool.devices.xylo.imu import (
+    XyloIMUMonitor,
+    XyloSim,
+    XyloIMUHDK,
+    XyloSamna,
+    config_from_specification,
+)
+
+from rockpool.devices.xylo.imu.imuif.params import N_CHANNEL, CLOCK_RATE
 
 if backend_available("samna"):
     from samna.xyloImu.configuration import InputInterfaceConfig, XyloConfiguration
@@ -14,22 +21,8 @@ else:
     InputInterfaceConfig = Any
     XyloConfiguration = Any
 
-import numpy as np
-
-from rockpool.devices.xylo.imu.xylo_samna import (
-    XyloIMUHDK,
-    XyloSamna,
-    config_from_specification,
-)
 
 __all__ = ["IMUIFSamna", "IdentityNet"]
-
-
-N_CHANNEL = 15
-"""Fixed number of channels employed"""
-
-CLOCK_RATE = 200
-"""Fixed computation step rate of 200Hz for Xylo IMU"""
 
 
 class IdentityNet(Module):
