@@ -17,26 +17,15 @@ from rockpool.devices.xylo.imu.imuif.utils import (
     bucket_decorator,
 )
 
-COV_EXTRA_BIT = 2
-"""The components of the covariance can enlarger by a factor 3 (at most), thus, an additional register size of 2"""
-
-ROT_EXTRA_BIT = 1
-"""Rotation can expand at most by a factor during the multiplication, thus, an additional register size of 1"""
-
-NUM_BITS_COVARIANCE = 31
-"""number of bits used for the covariance matrix"""
-
-NUM_BITS_ROTATION = 32
-"""number of bits devoted for implementing rotation matrix"""
-
-NROUND = 4
-"""number of round rotation computation and update is done over all 3 axes/dims"""
-
-NUM_ANGLES = 64
-"""number of angles in lookup table"""
-
-NUM_BITS = 16
-"""number of bits used for quantizing the lookup table"""
+from rockpool.devices.xylo.imu.imuif.params import (
+    COV_EXTRA_BIT,
+    ROT_EXTRA_BIT,
+    NUM_BITS_COVARIANCE,
+    NUM_BITS_ROTATION,
+    NROUND,
+    NUM_ANGLES,
+    NUM_BITS,
+)
 
 EPS = 10e-30
 
