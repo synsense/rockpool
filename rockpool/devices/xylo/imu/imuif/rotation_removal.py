@@ -14,19 +14,13 @@ from rockpool.devices.xylo.imu.imuif.utils import (
     type_check,
     unsigned_bit_range_check,
 )
+from rockpool.devices.xylo.imu.imuif.params import (
+    NUM_BITS,
+    NUM_BITS_ROTATION,
+)
 from rockpool.nn.combinators import Sequential
-
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
-
-NUM_BITS_IN = 16
-"""number of bits in the input data. We assume a sign magnitude format."""
-
-NUM_BITS_OUT = 16
-"""number of bits in the final signal (obtained after rotation removal). We assume a sign magnitude format."""
-
-NUM_BITS_ROTATION = 32
-"""number of bits devoted for implementing rotation matrix"""
 
 __all__ = ["RotationRemoval"]
 
@@ -174,25 +168,23 @@ class RotationRemoval(Module):
             np.ndarray: Rotation removed sample.
         """
 
-        num_right_bit_shifts = NUM_BITS_ROTATION + NUM_BITS_IN - NUM_BITS_OUT
-
         signal_out = []
 
         for row in rotation_matrix:
             buffer = 0
             for rot, val in zip(row, sample):
-                update = (rot * val) >> num_right_bit_shifts
+                update = (rot * val) >> NUM_BITS_ROTATION
 
-                if abs(update) >= 2 ** (NUM_BITS_OUT - 1):
+                if abs(update) >= 2 ** (NUM_BITS - 1):
                     raise ValueError(
-                        f"The update value {update} encountered in rotation-input signal multiplication is beyond the range [-{2**(NUM_BITS_OUT-1)}, +{2**(NUM_BITS_OUT-1)}]!"
+                        f"The update value {update} encountered in rotation-input signal multiplication is beyond the range [-{2**(NUM_BITS-1)}, +{2**(NUM_BITS-1)}]!"
                     )
 
                 buffer += update
 
-                if abs(buffer) >= 2 ** (NUM_BITS_OUT - 1):
+                if abs(buffer) >= 2 ** (NUM_BITS - 1):
                     raise ValueError(
-                        f"The beffer value {buffer} encountered in rotation-input signal multiplication is beyond the range [-{2**(NUM_BITS_OUT-1)}, +{2**(NUM_BITS_OUT-1)}]!"
+                        f"The beffer value {buffer} encountered in rotation-input signal multiplication is beyond the range [-{2**(NUM_BITS-1)}, +{2**(NUM_BITS-1)}]!"
                     )
 
             # add this component
