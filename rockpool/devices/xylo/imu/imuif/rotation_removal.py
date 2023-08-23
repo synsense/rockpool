@@ -5,19 +5,9 @@ from typing import Any, Dict, Tuple, Optional, Union
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.imuif.rotation import (
-    JSVD,
-    SampleAndHold,
-    SubSpace,
-)
-from rockpool.devices.xylo.imu.imuif.utils import (
-    type_check,
-    unsigned_bit_range_check,
-)
-from rockpool.devices.xylo.imu.imuif.params import (
-    NUM_BITS,
-    NUM_BITS_ROTATION,
-)
+from rockpool.devices.xylo.imu.imuif.rotation import JSVD, SampleAndHold, SubSpace
+from rockpool.devices.xylo.imu.imuif.utils import type_check, unsigned_bit_range_check
+from rockpool.devices.xylo.imu.imuif.params import NUM_BITS, NUM_BITS_ROTATION
 from rockpool.nn.combinators import Sequential
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
