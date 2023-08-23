@@ -36,3 +36,4 @@ from .helper import find_xylo_hdks
 import rockpool.devices.xylo.syns61300 as pollen
 import rockpool.devices.xylo.syns65300 as vA1
 import rockpool.devices.xylo.syns61201 as vA2
+import rockpool.devices.xylo.syns63300 as imu

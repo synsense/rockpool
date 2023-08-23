@@ -12,9 +12,9 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from warnings import warn
 
 import numpy as np
-from rockpool.devices.xylo.imu.imuif.params import DEFAULT_FILTER_BANDS
-from rockpool.devices.xylo.imu.imuif.utils import type_check
-from rockpool.devices.xylo.imu.imuif import (
+from rockpool.devices.xylo.syns63300.imuif.params import DEFAULT_FILTER_BANDS
+from rockpool.devices.xylo.syns63300.imuif.utils import type_check
+from rockpool.devices.xylo.syns63300.imuif import (
     IAFSpikeEncoder,
     ScaleSpikeEncoder,
     RotationRemoval,

@@ -6,13 +6,13 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.imuif.utils import (
+from rockpool.devices.xylo.syns63300.imuif.utils import (
     type_check,
     unsigned_bit_range_check,
     signed_bit_range_check,
 )
 
-from rockpool.devices.xylo.imu.imuif.params import (
+from rockpool.devices.xylo.syns63300.imuif.params import (
     NUM_BITS,
     B_WORST_CASE,
     FILTER_ORDER,

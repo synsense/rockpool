@@ -7,7 +7,7 @@ from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.imuif.utils import type_check
+from rockpool.devices.xylo.syns63300.imuif.utils import type_check
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 

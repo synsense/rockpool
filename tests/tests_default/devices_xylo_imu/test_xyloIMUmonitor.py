@@ -3,8 +3,8 @@ def test_XyloMonitor():
 
     pytest.importorskip("samna")
 
-    from rockpool.devices.xylo.imu import XyloIMUMonitor, config_from_specification
-    import rockpool.devices.xylo.imu.xylo_imu_devkit_utils as putils
+    from rockpool.devices.xylo.syns63300 import XyloIMUMonitor, config_from_specification
+    import rockpool.devices.xylo.syns63300.xylo_imu_devkit_utils as putils
     import numpy as np
 
     xylo_hdk_nodes = putils.find_xylo_imu_boards()
@@ -54,7 +54,7 @@ def test_config_from_specification():
 
     pytest.importorskip("samna")
 
-    from rockpool.devices.xylo.imu import config_from_specification, mapper
+    from rockpool.devices.xylo.syns63300 import config_from_specification, mapper
     from rockpool.transform import quantize_methods as q
     from rockpool.nn.modules import LIFTorch, LinearTorch
     from rockpool.nn.combinators import Sequential, Residual
@@ -93,8 +93,8 @@ def test_external_input():
 
     pytest.importorskip("samna")
 
-    from rockpool.devices.xylo.imu import XyloIMUMonitor, config_from_specification
-    import rockpool.devices.xylo.imu.xylo_imu_devkit_utils as putils
+    from rockpool.devices.xylo.syns63300 import XyloIMUMonitor, config_from_specification
+    import rockpool.devices.xylo.syns63300.xylo_imu_devkit_utils as putils
     import numpy as np
 
     xylo_hdk_nodes = putils.find_xylo_imu_boards()

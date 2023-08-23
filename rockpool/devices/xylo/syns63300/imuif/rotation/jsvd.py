@@ -11,13 +11,13 @@ from typing import List, Tuple
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.imuif.utils import (
+from rockpool.devices.xylo.syns63300.imuif.utils import (
     type_check,
     unsigned_bit_range_check,
     bucket_decorator,
 )
 
-from rockpool.devices.xylo.imu.imuif.params import (
+from rockpool.devices.xylo.syns63300.imuif.params import (
     COV_EXTRA_BIT,
     ROT_EXTRA_BIT,
     NUM_BITS_COVARIANCE,

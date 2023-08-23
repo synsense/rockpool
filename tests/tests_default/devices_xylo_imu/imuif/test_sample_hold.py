@@ -1,13 +1,13 @@
 def test_import():
-    from rockpool.devices.xylo.imu.imuif.rotation import SampleAndHold
+    from rockpool.devices.xylo.syns63300.imuif.rotation import SampleAndHold
 
     assert SampleAndHold is not None
 
 
 def test_sample_and_hold():
     import numpy as np
-    from rockpool.devices.xylo.imu.imuif.rotation import SampleAndHold
-    from rockpool.devices.xylo.imu.transform import Quantizer
+    from rockpool.devices.xylo.syns63300.imuif.rotation import SampleAndHold
+    from rockpool.devices.xylo.syns63300.transform import Quantizer
     from rockpool.nn.combinators import Sequential
 
     # sample and hold of a signal of size larger than period

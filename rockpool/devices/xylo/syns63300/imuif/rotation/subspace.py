@@ -6,12 +6,12 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.imuif.params import (
+from rockpool.devices.xylo.syns63300.imuif.params import (
     NUM_BITS,
     NUM_BITS_HIGHPREC_FILTER_BASE,
     NUM_BITS_MULTIPLIER,
 )
-from rockpool.devices.xylo.imu.imuif.utils import type_check, unsigned_bit_range_check
+from rockpool.devices.xylo.syns63300.imuif.utils import type_check, unsigned_bit_range_check
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 

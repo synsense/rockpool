@@ -2,7 +2,7 @@
 
 
 def test_import():
-    from rockpool.devices.xylo.imu.imuif.rotation import JSVD
+    from rockpool.devices.xylo.syns63300.imuif.rotation import JSVD
 
     assert JSVD is not None
 
@@ -12,7 +12,7 @@ def test_type_check():
     import pytest
     from numpy.testing import assert_array_equal
 
-    from rockpool.devices.xylo.imu.imuif.utils import type_check
+    from rockpool.devices.xylo.syns63300.imuif.utils import type_check
 
     # define a class
     @type_check
@@ -32,8 +32,8 @@ def test_type_check():
 def test_JSVD_low_rank_gravity():
     import numpy as np
     from numpy.testing import assert_array_almost_equal
-    from rockpool.devices.xylo.imu.imuif.rotation import JSVD
-    from rockpool.devices.xylo.imu.transform import Quantizer
+    from rockpool.devices.xylo.syns63300.imuif.rotation import JSVD
+    from rockpool.devices.xylo.syns63300.transform import Quantizer
 
     # - Init JSVD module
     jsvd = JSVD()

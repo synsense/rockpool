@@ -5,7 +5,7 @@ def test_import():
     import pytest
 
     pytest.importorskip("samna")
-    from rockpool.devices.xylo.imu import IdentityNet
+    from rockpool.devices.xylo.syns63300 import IdentityNet
 
     assert IdentityNet is not None
 
@@ -22,7 +22,7 @@ def test_network_operation(seed: int, f_rate: float, T: int):
         T (int): The length of the input spike train
     """
     import numpy as np
-    from rockpool.devices.xylo.imu import IdentityNet
+    from rockpool.devices.xylo.syns63300 import IdentityNet
 
     np.random.seed(seed)
     n_channels = 15

@@ -5,7 +5,7 @@ from rockpool.parameters import SimulationParameter
 from rockpool.typehints import FloatVector
 from rockpool.utilities.backend_management import backend_available
 
-from rockpool.devices.xylo.imu import (
+from rockpool.devices.xylo.syns63300 import (
     XyloIMUMonitor,
     XyloSim,
     XyloIMUHDK,
@@ -13,7 +13,7 @@ from rockpool.devices.xylo.imu import (
     config_from_specification,
 )
 
-from rockpool.devices.xylo.imu.imuif.params import N_CHANNEL, CLOCK_RATE
+from rockpool.devices.xylo.syns63300.imuif.params import N_CHANNEL, CLOCK_RATE
 
 if backend_available("samna"):
     from samna.xyloImu.configuration import InputInterfaceConfig, XyloConfiguration

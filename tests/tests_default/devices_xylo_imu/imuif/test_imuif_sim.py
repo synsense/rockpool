@@ -2,7 +2,7 @@ def test_import():
     import pytest
 
     pytest.importorskip("samna")
-    from rockpool.devices.xylo.imu import IMUIFSim
+    from rockpool.devices.xylo.syns63300 import IMUIFSim
 
     assert IMUIFSim is not None
 
@@ -23,7 +23,7 @@ def test_simulate():
     import numpy as np
     from numpy.testing import assert_array_compare, assert_array_equal
 
-    from rockpool.devices.xylo.imu import IMUIFSim
+    from rockpool.devices.xylo.syns63300 import IMUIFSim
 
     mod_if = IMUIFSim(bypass_jsvd=False)
 
@@ -46,7 +46,7 @@ def test_samna_import():
     from numpy.testing import assert_array_compare, assert_array_equal
     from samna.xyloImu.configuration import InputInterfaceConfig
 
-    from rockpool.devices.xylo.imu import IMUIFSim
+    from rockpool.devices.xylo.syns63300 import IMUIFSim
 
     default_config = InputInterfaceConfig(enable=True)
 
@@ -64,7 +64,7 @@ def test_samna_export():
     pytest.importorskip("samna")
     from samna.xyloImu.configuration import InputInterfaceConfig
 
-    from rockpool.devices.xylo.imu import IMUIFSim
+    from rockpool.devices.xylo.syns63300 import IMUIFSim
 
     default_config = InputInterfaceConfig(enable=True)
 
