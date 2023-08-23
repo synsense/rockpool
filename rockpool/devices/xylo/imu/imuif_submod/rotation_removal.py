@@ -5,9 +5,11 @@ from typing import Any, Dict, Tuple, Optional, Union
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.imuif_submod.jsvd import JSVD, NUM_BITS_ROTATION
-from rockpool.devices.xylo.imu.imuif_submod.sample_hold import SampleAndHold
-from rockpool.devices.xylo.imu.imuif_submod.subspace import SubSpace, NUM_BITS_IN
+from rockpool.devices.xylo.imu.imuif_submod.rotation import (
+    JSVD,
+    SampleAndHold,
+    SubSpace,
+)
 from rockpool.devices.xylo.imu.imuif_submod.utils import (
     type_check,
     unsigned_bit_range_check,
@@ -17,8 +19,14 @@ from rockpool.nn.combinators import Sequential
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 
+NUM_BITS_IN = 16
+"""number of bits in the input data. We assume a sign magnitude format."""
+
 NUM_BITS_OUT = 16
 """number of bits in the final signal (obtained after rotation removal). We assume a sign magnitude format."""
+
+NUM_BITS_ROTATION = 32
+"""number of bits devoted for implementing rotation matrix"""
 
 __all__ = ["RotationRemoval"]
 
