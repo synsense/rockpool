@@ -1,5 +1,5 @@
 def test_import():
-    from rockpool.devices.xylo.imu.imuif_submod import RotationRemoval
+    from rockpool.devices.xylo.imu.imuif import RotationRemoval
 
     assert RotationRemoval is not None
 
@@ -9,7 +9,7 @@ def test_rotation_removal():
     IMPORTANT NOTE: NEED TO BE WORKED ON AND FIXED.
     CHECK ISSUE #252
     """
-    from rockpool.devices.xylo.imu.imuif_submod import RotationRemoval
+    from rockpool.devices.xylo.imu.imuif import RotationRemoval
     from rockpool.devices.xylo.imu.transform import Quantizer
     from numpy.testing import assert_allclose
     import numpy as np

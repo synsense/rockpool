@@ -2,7 +2,7 @@
 
 
 def test_import():
-    from rockpool.devices.xylo.imu.imuif_submod.rotation import RotationLookUpTable
+    from rockpool.devices.xylo.imu.imuif.rotation import RotationLookUpTable
 
     assert RotationLookUpTable is not None
 
@@ -11,7 +11,7 @@ def test_lookup_table():
     import numpy as np
     from numpy.testing import assert_almost_equal
 
-    from rockpool.devices.xylo.imu.imuif_submod.rotation import RotationLookUpTable
+    from rockpool.devices.xylo.imu.imuif.rotation import RotationLookUpTable
 
     lut = RotationLookUpTable()
 

@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.imuif_submod.utils import (
+from rockpool.devices.xylo.imu.imuif.utils import (
     type_check,
     unsigned_bit_range_check,
 )

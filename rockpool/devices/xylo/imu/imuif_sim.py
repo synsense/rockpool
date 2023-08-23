@@ -13,17 +13,17 @@ from warnings import warn
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.imuif_submod.filterbank import (
+from rockpool.devices.xylo.imu.imuif.filterbank import (
     FilterBank,
     BandPassFilter,
     DEFAULT_FILTER_BANDS,
 )
-from rockpool.devices.xylo.imu.imuif_submod.rotation_removal import RotationRemoval
-from rockpool.devices.xylo.imu.imuif_submod.spike_encoder import (
+from rockpool.devices.xylo.imu.imuif.rotation_removal import RotationRemoval
+from rockpool.devices.xylo.imu.imuif.spike_encoder import (
     IAFSpikeEncoder,
     ScaleSpikeEncoder,
 )
-from rockpool.devices.xylo.imu.imuif_submod.utils import type_check
+from rockpool.devices.xylo.imu.imuif.utils import type_check
 from rockpool.nn.combinators import Sequential
 from rockpool.nn.modules.module import Module
 from rockpool.utilities.backend_management import backend_available

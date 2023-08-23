@@ -1,12 +1,12 @@
 def test_import():
-    from rockpool.devices.xylo.imu.imuif_submod.rotation import SampleAndHold
+    from rockpool.devices.xylo.imu.imuif.rotation import SampleAndHold
 
     assert SampleAndHold is not None
 
 
 def test_sample_and_hold():
     import numpy as np
-    from rockpool.devices.xylo.imu.imuif_submod.rotation import SampleAndHold
+    from rockpool.devices.xylo.imu.imuif.rotation import SampleAndHold
     from rockpool.devices.xylo.imu.transform import Quantizer
     from rockpool.nn.combinators import Sequential
 
