@@ -3,7 +3,10 @@ def test_XyloMonitor():
 
     pytest.importorskip("samna")
 
-    from rockpool.devices.xylo.syns63300 import XyloIMUMonitor, config_from_specification
+    from rockpool.devices.xylo.syns63300 import (
+        XyloIMUMonitor,
+        config_from_specification,
+    )
     import rockpool.devices.xylo.syns63300.xylo_imu_devkit_utils as putils
     import numpy as np
 
@@ -93,7 +96,10 @@ def test_external_input():
 
     pytest.importorskip("samna")
 
-    from rockpool.devices.xylo.syns63300 import XyloIMUMonitor, config_from_specification
+    from rockpool.devices.xylo.syns63300 import (
+        XyloIMUMonitor,
+        config_from_specification,
+    )
     import rockpool.devices.xylo.syns63300.xylo_imu_devkit_utils as putils
     import numpy as np
 
