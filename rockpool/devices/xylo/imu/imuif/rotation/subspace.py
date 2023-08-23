@@ -6,19 +6,14 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.imuif.utils import (
-    type_check,
-    unsigned_bit_range_check,
+from rockpool.devices.xylo.imu.imuif.params import (
+    NUM_BITS,
+    NUM_BITS_HIGHPREC_FILTER_BASE,
+    NUM_BITS_MULTIPLIER,
 )
+from rockpool.devices.xylo.imu.imuif.utils import type_check, unsigned_bit_range_check
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
-
-NUM_BITS_IN = 16
-"""number of bits in the input data. We assume a sign magnitude format."""
-NUM_BITS_HIGHPREC_FILTER_BASE = 31
-"""number of bits devoted to computing the high-precision filter (to avoid dead-zone effect). NOTE: This is the base value. The actual value is computed as `NUM_BITS_HIGHPREC_FILTER_BASE + num_avg_bitshift`"""
-NUM_BITS_MULTIPLIER = 31
-"""number of bits devoted to computing [x(t) x(t)^T]_{ij}. If less then needed, the LSB values are removed"""
 
 __all__ = ["SubSpace"]
 
@@ -75,7 +70,7 @@ class SubSpace(Module):
         """
 
         # check the validity of the data
-        unsigned_bit_range_check(np.max(np.abs(input_data)), n_bits=NUM_BITS_IN - 1)
+        unsigned_bit_range_check(np.max(np.abs(input_data)), n_bits=NUM_BITS - 1)
 
         # check that the values are indeed integers
         if np.linalg.norm(np.floor(input_data) - input_data) > 0:
@@ -90,7 +85,7 @@ class SubSpace(Module):
 
         # -- bit size calculation
         # maximimum number of bits that can be used for storing the result of multiplication x(t) * x(t)^T
-        max_bits_mult_output = 2 * NUM_BITS_IN - 1
+        max_bits_mult_output = 2 * NUM_BITS - 1
 
         # number of bitshifts needed in implementing the high-precision filter
         mult_right_bit_shift = max_bits_mult_output - NUM_BITS_MULTIPLIER
