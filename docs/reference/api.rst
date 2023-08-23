@@ -297,21 +297,17 @@ Xylo IMU support
     :toctree: _autosummary
     :template: module.rst
 
-    devices.xylo.imu.imuif_submod
+    devices.xylo.imu.imuif
 
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.imu.imuif_submod.RotationLookUpTable
-    devices.xylo.imu.imuif_submod.JSVD
-    devices.xylo.imu.imuif_submod.SubSpace
-    devices.xylo.imu.imuif_submod.SampleAndHold
-    devices.xylo.imu.imuif_submod.RotationRemoval
-    devices.xylo.imu.imuif_submod.BandPassFilter
-    devices.xylo.imu.imuif_submod.FilterBank
-    devices.xylo.imu.imuif_submod.ScaleSpikeEncoder
-    devices.xylo.imu.imuif_submod.IAFSpikeEncoder
+    devices.xylo.imu.imuif.RotationRemoval
+    devices.xylo.imu.imuif.BandPassFilter
+    devices.xylo.imu.imuif.FilterBank
+    devices.xylo.imu.imuif.ScaleSpikeEncoder
+    devices.xylo.imu.imuif.IAFSpikeEncoder
 
 .. autosummary::
     :toctree: _autosummary
