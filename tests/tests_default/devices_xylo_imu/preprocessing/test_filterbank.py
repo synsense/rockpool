@@ -1,16 +1,16 @@
 def test_import():
-    from rockpool.devices.xylo.imu.preprocessing import FilterBank
+    from rockpool.devices.xylo.imu.imuif_submod import FilterBank
 
     assert FilterBank is not None
 
-    from rockpool.devices.xylo.imu.preprocessing import BandPassFilter
+    from rockpool.devices.xylo.imu.imuif_submod import BandPassFilter
 
     assert BandPassFilter is not None
 
 
 def test_BPF_FB_from_specification():
     import pytest
-    from rockpool.devices.xylo.imu.preprocessing import BandPassFilter, FilterBank
+    from rockpool.devices.xylo.imu.imuif_submod import BandPassFilter, FilterBank
 
     bpf = BandPassFilter.from_specification(0.1, 10)
 
@@ -27,7 +27,7 @@ def test_BPF_FB_from_specification():
 
 def test_bandpass_filter():
     import numpy as np
-    from rockpool.devices.xylo.imu.preprocessing import Quantizer, BandPassFilter
+    from rockpool.devices.xylo.imu.imuif_submod import Quantizer, BandPassFilter
 
     # Generate a test signal
     duration = 1.0  # seconds
@@ -49,7 +49,7 @@ def test_bandpass_filter():
 
 
 def test_filterbank():
-    from rockpool.devices.xylo.imu.preprocessing import (
+    from rockpool.devices.xylo.imu.imuif_submod import (
         RotationRemoval,
         Quantizer,
         FilterBank,
@@ -114,7 +114,7 @@ def test_signal_gain_drop():
     """
 
     import numpy as np
-    from rockpool.devices.xylo.imu.preprocessing import Quantizer, BandPassFilter
+    from rockpool.devices.xylo.imu.imuif_submod import Quantizer, BandPassFilter
 
     f_init = 0.5
     f_end = 20.5

@@ -1,5 +1,5 @@
 def test_import():
-    from rockpool.devices.xylo.imu.preprocessing import SubSpace
+    from rockpool.devices.xylo.imu.imuif_submod import SubSpace
 
     assert SubSpace is not None
 
@@ -10,7 +10,7 @@ def test_subspace():
     from numpy.testing import assert_allclose
     from scipy.signal import lfilter
 
-    from rockpool.devices.xylo.imu.preprocessing import Quantizer, SubSpace
+    from rockpool.devices.xylo.imu.imuif_submod import Quantizer, SubSpace
     from rockpool.nn.combinators import Sequential
 
     #  - Generate the input signal

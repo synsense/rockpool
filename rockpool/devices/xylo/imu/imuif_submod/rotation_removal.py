@@ -5,10 +5,10 @@ from typing import Any, Dict, Tuple, Optional, Union
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.preprocessing.jsvd import JSVD, NUM_BITS_ROTATION
-from rockpool.devices.xylo.imu.preprocessing.sample_hold import SampleAndHold
-from rockpool.devices.xylo.imu.preprocessing.subspace import SubSpace, NUM_BITS_IN
-from rockpool.devices.xylo.imu.preprocessing.utils import (
+from rockpool.devices.xylo.imu.imuif_submod.jsvd import JSVD, NUM_BITS_ROTATION
+from rockpool.devices.xylo.imu.imuif_submod.sample_hold import SampleAndHold
+from rockpool.devices.xylo.imu.imuif_submod.subspace import SubSpace, NUM_BITS_IN
+from rockpool.devices.xylo.imu.imuif_submod.utils import (
     type_check,
     unsigned_bit_range_check,
 )

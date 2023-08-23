@@ -1,5 +1,5 @@
 def test_import():
-    from rockpool.devices.xylo.imu.preprocessing import (
+    from rockpool.devices.xylo.imu.imuif_submod import (
         IAFSpikeEncoder,
         ScaleSpikeEncoder,
     )
@@ -13,7 +13,7 @@ def test_scale_spike_encoder():
     import pytest
     from numpy.testing import assert_array_compare, assert_array_equal
 
-    from rockpool.devices.xylo.imu.preprocessing import ScaleSpikeEncoder
+    from rockpool.devices.xylo.imu.imuif_submod import ScaleSpikeEncoder
 
     # Prepare input
     np.random.seed(2023)
@@ -36,7 +36,7 @@ def test_iaf_spike_encoder():
     import pytest
     from numpy.testing import assert_array_compare, assert_array_equal
 
-    from rockpool.devices.xylo.imu.preprocessing import IAFSpikeEncoder
+    from rockpool.devices.xylo.imu.imuif_submod import IAFSpikeEncoder
 
     # Prepare input
     np.random.seed(2023)

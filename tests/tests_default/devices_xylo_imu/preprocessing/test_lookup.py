@@ -2,14 +2,14 @@
 
 
 def test_import():
-    from rockpool.devices.xylo.imu.preprocessing import RotationLookUpTable
+    from rockpool.devices.xylo.imu.imuif_submod import RotationLookUpTable
 
 
 def test_lookup_table():
     import numpy as np
     from numpy.testing import assert_almost_equal
 
-    from rockpool.devices.xylo.imu.preprocessing import RotationLookUpTable
+    from rockpool.devices.xylo.imu.imuif_submod import RotationLookUpTable
 
     lut = RotationLookUpTable()
 

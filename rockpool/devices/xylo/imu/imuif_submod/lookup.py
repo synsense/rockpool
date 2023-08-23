@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.preprocessing.utils import bucket_decorator
+from rockpool.devices.xylo.imu.imuif_submod.utils import bucket_decorator
 
 NUM_ANGLES = 64
 """number of angles in lookup table"""

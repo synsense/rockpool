@@ -2,7 +2,7 @@
 
 
 def test_import():
-    from rockpool.devices.xylo.imu.preprocessing.jsvd import JSVD
+    from rockpool.devices.xylo.imu.imuif_submod.jsvd import JSVD
 
 
 def test_type_check():
@@ -10,7 +10,7 @@ def test_type_check():
     import pytest
     from numpy.testing import assert_array_equal
 
-    from rockpool.devices.xylo.imu.preprocessing.utils import type_check
+    from rockpool.devices.xylo.imu.imuif_submod.utils import type_check
 
     # define a class
     @type_check
@@ -31,7 +31,7 @@ def test_JSVD_low_rank_gravity():
     import numpy as np
     from numpy.testing import assert_array_almost_equal
 
-    from rockpool.devices.xylo.imu.preprocessing import JSVD, Quantizer
+    from rockpool.devices.xylo.imu.imuif_submod import JSVD, Quantizer
 
     # - Init JSVD module
     jsvd = JSVD()

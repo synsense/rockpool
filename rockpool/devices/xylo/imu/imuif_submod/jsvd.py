@@ -11,8 +11,8 @@ from typing import List, Tuple
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.preprocessing.lookup import RotationLookUpTable, NUM_BITS
-from rockpool.devices.xylo.imu.preprocessing.utils import (
+from rockpool.devices.xylo.imu.imuif_submod.lookup import RotationLookUpTable, NUM_BITS
+from rockpool.devices.xylo.imu.imuif_submod.utils import (
     type_check,
     unsigned_bit_range_check,
 )
