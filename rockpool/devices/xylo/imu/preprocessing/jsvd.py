@@ -36,9 +36,11 @@ __all__ = ["JSVD"]
 
 
 class JSVD:
-    """Runs Jaccobi SVD algorithm in FPGA precision.
-    this is the 2nd version of the algorithm and used joint matrix multiplication in order to reduce the
-    number of multiplication operations.
+    """
+    Runs Jaccobi SVD algorithm in FPGA precision
+
+    Note: This is the 2nd version of the algorithm and uses joint matrix multiplication in order to reduce the
+    number of multiplication operations
     """
 
     def __init__(self) -> None:

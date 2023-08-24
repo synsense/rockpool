@@ -269,15 +269,36 @@ class FilterBank(Module):
     """
 
     def __init__(
-        self, shape: Optional[Union[Tuple, int]] = (3, 15), *args: List[BandPassFilter]
+        self,
+        shape: Optional[Union[Tuple, int]] = (3, 15),
+        *args: Union[List[BandPassFilter], List[Tuple[float]]],
     ) -> None:
-        """Object Constructor
+        """Build a FilterBank simulation by specifying pass bands for individual filters
+
+        .. Examples::
+
+            # - Generate a default filterbank
+            >>> FilterBank()
+
+            # - Specify three filters, single input channel
+            >>> Filterbank(3, (0.1, 5), (5, 10), (10, 20))
+
+            # - Combine existing band-pass filters into a filter bank
+            >>> bpf1 = BandPassFilter(...)
+            >>> bpf2 = BandPassFilter(...)
+            >>> bpf3 = BandPassFilter(...)
+            >>> FilterBank(3, bpf1, bpf2, bpf3)
 
         Args:
             shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to `(3, 15)`.
             *args: A list of `BandPassFilter`s to register to the filterbank. Defaults to `None`; use a default filterbank configuration.
         """
 
+        # - If an integer number of filters is provided, use one input channel only
+        if isinstance(shape, int):
+            shape = (1, shape)
+
+        # - Check that input and output shapes match
         if shape[1] % shape[0] != 0:
             raise ValueError(
                 f"The number of output channels should be a multiple of the number of input channels."
@@ -308,7 +329,7 @@ class FilterBank(Module):
         self._channel_mapping = np.sort(
             [i % self.size_in for i in range(self.size_out)]
         )
-        """ Mapping from IMU channels to filter channels. [0,0,0,0,0,1,1,1,1,1,2,2,2,2,2] by default """
+        """ Mapping from IMU channels to filter channels. Equal number of filters per channel by default, with all filters for each input channel in order of input channel. e.g. [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2] or similar"""
 
     @classmethod
     def from_specification(

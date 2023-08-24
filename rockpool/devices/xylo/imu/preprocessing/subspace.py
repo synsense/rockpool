@@ -24,19 +24,20 @@ __all__ = ["SubSpace"]
 
 
 class SubSpace(Module):
-    """Averaging and covariance estimation for 3D IMU signals
+    """
+    Averaging and covariance estimation for 3D IMU signals
     BxTx3 -> BxTx(3x3)
     """
 
     def __init__(
         self, shape: Optional[Union[Tuple, int]] = (3, 9), num_avg_bitshift: int = 4
     ) -> None:
-        """Object Constructor
+        """Instantiate a `SubSpace` module
 
         Args:
-            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,9)..
-            num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation. Defaults to 4.
-                The effective window length of the low-pass filter will be `2**num_avg_bitshift`
+            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to ``(3, 9)``.
+            num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation. Defaults to ``4``.
+                The effective window length of the low-pass filter will be ``2 ** num_avg_bitshift``
         """
         if shape[1] != shape[0] ** 2:
             raise ValueError(

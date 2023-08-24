@@ -25,10 +25,12 @@ __all__ = ["RotationRemoval"]
 
 class RotationRemoval(Module):
     """
-    1. Takes the T x 3 input data received from an IMU sensor,
-    2. Computes the 3 x 3 sample covariance using subspace estimation module,
+    A Rockpool module simulating the rotation estimation and removal block in the Xylo IMU interface
+
+    1. Takes the T x 3 input data received from an IMU sensor
+    2. Computes the 3 x 3 sample covariance using subspace estimation module
     3. Applies a sample-and-hold module to compute SVD only at specific periods
-    4. Computes the SVD of the resulting covariance matrix to find the rotation matrix,
+    4. Computes the SVD of the resulting covariance matrix to find the rotation matrix
     5. Applies the rotation matrix to the input data to compute the rotation-removed version of the input data
 
     The resulting signal is then forwarded to the filterbank module.
@@ -41,13 +43,12 @@ class RotationRemoval(Module):
         num_avg_bitshift: int = 4,
         sampling_period: int = 10,
     ) -> None:
-        """Object constructor.
+        """Instantiate a `RotationRemoval` object
 
         Args:
-            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,3).
-            num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation. Default to 4.
-                The effective window length of the low-pass filter will be `2**num_avg_bitshift`
-            sampling_period (int): Sampling period that the signal is sampled and held, in number of timesteps. Defaults to 10.
+            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to ``(3, 3)``.
+            num_avg_bitshift (int): number of bitshifts used in the low-pass filter implementation. Default to ``4``. The effective window length of the low-pass filter will be ``2 ** num_avg_bitshift``
+            sampling_period (int): Sampling period that the signal is sampled and held, in number of timesteps. Defaults to ``10``.
 
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)

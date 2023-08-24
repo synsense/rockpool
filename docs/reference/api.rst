@@ -319,8 +319,8 @@ Xylo IMU support
     devices.xylo.imu.preprocessing.SubSpace
     devices.xylo.imu.preprocessing.SampleAndHold
     devices.xylo.imu.preprocessing.RotationRemoval
-    devices.xylo.imu.preprocessing.BandPassFilter
     devices.xylo.imu.preprocessing.FilterBank
+    devices.xylo.imu.preprocessing.BandPassFilter
     devices.xylo.imu.preprocessing.FullWaveRectifier
     devices.xylo.imu.preprocessing.HalfWaveRectifier
     devices.xylo.imu.preprocessing.ScaleSpikeEncoder
