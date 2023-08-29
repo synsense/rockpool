@@ -300,31 +300,32 @@ Xylo IMU support
     :template: class.rst
 
     devices.xylo.imu.IMUIFSim
+    devices.xylo.imu.IMUIFSamna
     devices.xylo.imu.IMUData
 
 .. autosummary::
     :toctree: _autosummary
     :template: module.rst
 
-    devices.xylo.imu.preprocessing
+    devices.xylo.imu.imuif
 
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
     devices.xylo.imu.IMUIFSim
 
-    devices.xylo.imu.preprocessing.Quantizer
-    devices.xylo.imu.preprocessing.RotationLookUpTable
-    devices.xylo.imu.preprocessing.JSVD
-    devices.xylo.imu.preprocessing.SubSpace
-    devices.xylo.imu.preprocessing.SampleAndHold
-    devices.xylo.imu.preprocessing.RotationRemoval
-    devices.xylo.imu.preprocessing.FilterBank
-    devices.xylo.imu.preprocessing.BandPassFilter
-    devices.xylo.imu.preprocessing.FullWaveRectifier
-    devices.xylo.imu.preprocessing.HalfWaveRectifier
-    devices.xylo.imu.preprocessing.ScaleSpikeEncoder
-    devices.xylo.imu.preprocessing.IAFSpikeEncoder
+    devices.xylo.imu.imuif.RotationRemoval
+    devices.xylo.imu.imuif.BandPassFilter
+    devices.xylo.imu.imuif.FilterBank
+    devices.xylo.imu.imuif.ScaleSpikeEncoder
+    devices.xylo.imu.imuif.IAFSpikeEncoder
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    devices.xylo.imu.transform.Quantizer
+
 
 Dynap-SE2 hardware support and simulation
 -----------------------------------------
