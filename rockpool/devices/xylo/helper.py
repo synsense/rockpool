@@ -69,13 +69,13 @@ if backend_available("samna"):
                     )
 
                 print(
-                    "The connected Xylo HDK contains a Xylo IMU. Importing `rockpool.devices.xylo.imu`"
+                    "The connected Xylo HDK contains a Xylo IMU. Importing `rockpool.devices.xylo.syns63300`"
                 )
-                import rockpool.devices.xylo.syns63300 as syns63300
+                import rockpool.devices.xylo.syns63300 as imu
 
                 xylo_hdks.append(dev)
-                xylo_support_modules.append(syns63300)
-                xylo_versions.append("xylo-imu")
+                xylo_support_modules.append(imu)
+                xylo_versions.append("syns63300")
 
         return xylo_hdks, xylo_support_modules, xylo_versions
 
