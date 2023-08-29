@@ -12,18 +12,15 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from warnings import warn
 
 import numpy as np
-
-from rockpool.devices.xylo.imu.preprocessing.filterbank import (
-    FilterBank,
-    BandPassFilter,
-    DEFAULT_FILTER_BANDS,
-)
-from rockpool.devices.xylo.imu.preprocessing.rotation_removal import RotationRemoval
-from rockpool.devices.xylo.imu.preprocessing.spike_encoder import (
+from rockpool.devices.xylo.syns63300.imuif.params import DEFAULT_FILTER_BANDS
+from rockpool.devices.xylo.syns63300.imuif.utils import type_check
+from rockpool.devices.xylo.syns63300.imuif import (
     IAFSpikeEncoder,
     ScaleSpikeEncoder,
+    RotationRemoval,
+    FilterBank,
+    BandPassFilter,
 )
-from rockpool.devices.xylo.imu.preprocessing.utils import type_check
 from rockpool.nn.combinators import Sequential
 from rockpool.nn.modules.module import Module
 from rockpool.utilities.backend_management import backend_available

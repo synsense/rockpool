@@ -6,15 +6,14 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from rockpool.devices.xylo.imu.preprocessing.utils import (
+from rockpool.devices.xylo.syns63300.imuif.utils import (
     type_check,
     unsigned_bit_range_check,
 )
+from rockpool.devices.xylo.syns63300.imuif.params import NUM_BITS_SPIKE
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 
-NUM_OUT_BITS = 4
-"""number of bits devoted to storing the output spike encoding"""
 
 __all__ = ["ScaleSpikeEncoder", "IAFSpikeEncoder"]
 
@@ -25,7 +24,7 @@ class ScaleSpikeEncoder(Module):
 
     (i)     Apply full-wave rectification to the input signal
     (ii)    Down-scale the input signal by right-bit-shift by `num_scale_bit` (e.g. multiplying with 1/2^num_scale_bits)
-    (iii)   Truncate the output so that it can fit within `num_out_bits`
+    (iii)   Truncate the output so that it can fit within `NUM_BITS_SPIKE`
     """
 
     def __init__(
@@ -82,7 +81,7 @@ class ScaleSpikeEncoder(Module):
             output_data[:, :, ch] = output_data[:, :, ch] >> __scale
 
         # truncate the signal
-        threshold = (1 << NUM_OUT_BITS) - 1
+        threshold = (1 << NUM_BITS_SPIKE) - 1
         output_data[output_data > threshold] = threshold
 
         return output_data, {}, {}

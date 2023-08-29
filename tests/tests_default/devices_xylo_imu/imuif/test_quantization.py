@@ -4,13 +4,13 @@ Tests for quantization preprocessing module
 
 
 def test_import():
-    from rockpool.devices.xylo.imu.preprocessing import Quantizer
+    from rockpool.devices.xylo.syns63300.transform import Quantizer
 
 
 def test_quantization():
     import numpy as np
     from numpy.testing import assert_array_equal
-    from rockpool.devices.xylo.imu.preprocessing import Quantizer
+    from rockpool.devices.xylo.syns63300.transform import Quantizer
 
     # Create quantizer with scale of 1.0 and num_bits of 16
     quantizer = Quantizer(shape=1, scale=1.0, num_bits=16)
@@ -28,7 +28,7 @@ def test_quantization():
 def test_quantization_num_bits():
     import numpy as np
     from numpy.testing import assert_array_equal
-    from rockpool.devices.xylo.imu.preprocessing import Quantizer
+    from rockpool.devices.xylo.syns63300.transform import Quantizer
 
     # Create quantizer with scale of 1.0 and num_bits of 4
     quantizer = Quantizer(shape=1, scale=1.0, num_bits=4)

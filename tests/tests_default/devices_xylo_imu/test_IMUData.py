@@ -3,7 +3,7 @@ def test_IMUData():
 
     pytest.importorskip("samna")
 
-    from rockpool.devices.xylo.imu import IMUData, find_xylo_imu_boards
+    from rockpool.devices.xylo.syns63300 import IMUData, find_xylo_imu_boards
     import numpy as np
 
     hdks = find_xylo_imu_boards()
