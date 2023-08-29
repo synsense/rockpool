@@ -469,7 +469,7 @@ class XyloSamna(Module):
         # - Configure the recording mode
         self._configure_accel_time_mode(Nhidden, Nout, record)
         Nhidden_monitor = Nhidden if record else 0
-        Nout_monitor = Nout if record or self._output_mode is "Isyn" else 0
+        Nout_monitor = Nout if record or self._output_mode == "Isyn" else 0
 
         start_timestep = (
             hdkutils.get_current_timestep(self._read_buffer, self._write_buffer) + 1
