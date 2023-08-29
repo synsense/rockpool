@@ -290,6 +290,7 @@ Xylo IMU support
     :template: class.rst
 
     devices.xylo.imu.IMUIFSim
+    devices.xylo.imu.IMUIFSamna
     devices.xylo.imu.IMUData
 
 .. autosummary::

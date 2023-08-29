@@ -29,13 +29,15 @@ try:
     from .imu_data import *
     from .xylo_samna import *
     from .xylo_imu_devkit_utils import *
-    from .preprocessing import IMUIFSim
-
     from .imu_monitor import *
+    from .imuif_sim import *
+    from .imuif_samna import *
 except:
     if not backend_available("samna"):
         XyloSamna = missing_backend_shim("XyloSamna", "samna")
         XyloIMUMonitor = missing_backend_shim("XyloIMUMonitor", "samna")
+        IMUIFSim = missing_backend_shim("IMUIFSim", "samna")
+        IMUIFSamna = missing_backend_shim("IMUIFSamna", "samna")
         config_from_specification = missing_backend_shim(
             "config_from_specification", "samna"
         )
