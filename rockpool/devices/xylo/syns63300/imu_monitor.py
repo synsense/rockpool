@@ -44,7 +44,7 @@ class XyloIMUMonitor(Module):
 
     On evolution, :py:class:`.XyloIMUMonitor` returns a chunk of buffered processed time of a specified duration.
 
-    Use :py:func:`~.devices.xylo.imu.config_from_specification` to build and validate a configuration for Xylo.
+    Use :py:func:`~.devices.xylo.syns63300.config_from_specification` to build and validate a configuration for Xylo.
     """
 
     def __init__(
