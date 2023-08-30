@@ -622,6 +622,12 @@ class AFESim(Module):
         # - Make sure input is 1D
         if np.ndim(input) > 1:
             raise ValueError("the input signal should be 1-dim.")
+        
+        # -- Revert and repeat the input signal in the beginning to avoid boundary effects
+        l = np.shape(input)[0]
+        __input_rev = np.flip(input, axis = 0)
+        input = np.concatenate((__input_rev, input), axis=0)
+
 
         #### Microphone model ####
         mic_out = self._MIC_evolve(
@@ -693,6 +699,10 @@ class AFESim(Module):
                     self.F_ALPHA_FWR,
                 )
             )
+
+        # removing the part of the signal coresponding to __input_rev (which was added to avoid sharo boundary effects)
+        rectified = rectified[l:, :]
+        filtered = filtered[l:, :]
 
         # Encoding to spike by integrating the FWR output for positive going(UP)
         spikes, new_state = _encode_spikes(
