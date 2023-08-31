@@ -1,3 +1,7 @@
+"""
+Implments :py:class:`.IMUData` to read raw IMU data for Xylo IMU
+"""
+
 from typing import Optional, Tuple
 import samna
 import time

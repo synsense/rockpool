@@ -223,7 +223,7 @@ Support modules
     devices.xylo.syns61300
     devices.xylo.syns61201
     devices.xylo.syns65300
-    devices.xylo.imu
+    devices.xylo.syns63300
 
 
 Xylo Audio support
@@ -260,25 +260,25 @@ Xylo IMU support
 .. autosummary::
     :toctree: _autosummary
 
-    devices.xylo.imu.mapper
-    devices.xylo.imu.config_from_specification
-    devices.xylo.imu.load_config
-    devices.xylo.imu.save_config
+    devices.xylo.syns63300.mapper
+    devices.xylo.syns63300.config_from_specification
+    devices.xylo.syns63300.load_config
+    devices.xylo.syns63300.save_config
 
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.imu.XyloSim
-    devices.xylo.imu.XyloSamna
-    devices.xylo.imu.XyloIMUMonitor
+    devices.xylo.syns63300.XyloSim
+    devices.xylo.syns63300.XyloSamna
+    devices.xylo.syns63300.XyloIMUMonitor
 
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.imu.XyloIMUHiddenNeurons
-    devices.xylo.imu.XyloIMUOutputNeurons
+    devices.xylo.syns63300.XyloIMUHiddenNeurons
+    devices.xylo.syns63300.XyloIMUOutputNeurons
 
 **IMU Preprocessing Interface**
 
@@ -289,31 +289,31 @@ Xylo IMU support
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.imu.IMUIFSim
-    devices.xylo.imu.IMUIFSamna
-    devices.xylo.imu.IMUData
+    devices.xylo.syns63300.IMUIFSim
+    devices.xylo.syns63300.IMUIFSamna
+    devices.xylo.syns63300.IMUData
 
 .. autosummary::
     :toctree: _autosummary
     :template: module.rst
 
-    devices.xylo.imu.imuif
+    devices.xylo.syns63300.imuif
 
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.imu.imuif.RotationRemoval
-    devices.xylo.imu.imuif.BandPassFilter
-    devices.xylo.imu.imuif.FilterBank
-    devices.xylo.imu.imuif.ScaleSpikeEncoder
-    devices.xylo.imu.imuif.IAFSpikeEncoder
+    devices.xylo.syns63300.imuif.RotationRemoval
+    devices.xylo.syns63300.imuif.BandPassFilter
+    devices.xylo.syns63300.imuif.FilterBank
+    devices.xylo.syns63300.imuif.ScaleSpikeEncoder
+    devices.xylo.syns63300.imuif.IAFSpikeEncoder
 
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.imu.transform.Quantizer
+    devices.xylo.syns63300.transform.Quantizer
 
 
 Dynap-SE2 hardware support and simulation

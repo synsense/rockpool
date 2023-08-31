@@ -1,9 +1,10 @@
 """
-Package to support the Xylo IMU
+Package to support the Xylo HW SYNS63300 (Xylo™ IMU)
 
-Defines the Rockpool modules :py:class:`.XyloIMUMonitor`, :py:class:`.XyloSamna`,
+Defines the Rockpool modules :py:class:`~.syns63300.XyloIMUMonitor`, :py:class:`~.syns63300.XyloSamna`, :py:class:`~.syns63300.XyloIMUMonitor`, :py:class:`~.syns63300.IMUIFSim`, :py:class:`~.syns63300.IMUIFSamna`, :py:class:`~.syns63300.IMUData`.
 
-Defines the mapper function :py:func:`.mapper`.
+Defines the mapper function :py:func:`~.syns63300.mapper`.
+Defines the configuration function :py:func:`~.syns63300.config_from_specification`.
 
 Defines the subpackage :py:mod:`.xylo_imu_devkit_utils`.
 """
