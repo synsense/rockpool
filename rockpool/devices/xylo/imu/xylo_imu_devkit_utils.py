@@ -718,3 +718,25 @@ def write_imu_register(
     wwv_ev.address = register
     wwv_ev.data = data
     write_buffer.write([wwv_ev])
+
+
+def set_xylo_core_clock_freq(device: XyloIMUHDK, desired_freq_MHz: float) -> float:
+    """
+    Set the inference core clock frequency used by Xylo
+
+    Args:
+        device (XyloIMUHDK): A Xylo device to configure
+        desired_freq_MHz (float): The desired Xylo core clock frequency in MHz
+
+    Returns:
+        float: The obtained Xylo core clock frequency in MHz
+    """
+    # - Determine wait period and actual obtianed clock frequency
+    wait_period = int(round(100 / desired_freq_MHz) / 2 - 1)
+    actual_freq = 100 / (2 * (wait_period + 1))
+
+    # - Configure device
+    device.get_io_module().write_config(0x0021, wait_period)
+
+    # - Return actual obtained clock freq.
+    return actual_freq
