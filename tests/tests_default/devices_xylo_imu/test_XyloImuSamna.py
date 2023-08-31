@@ -2,13 +2,13 @@ def test_imports():
     import pytest
 
     pytest.importorskip("samna")
-    from rockpool.devices.xylo.imu import (
+    from rockpool.devices.xylo.syns63300 import (
         save_config,
         load_config,
         XyloSamna,
         config_from_specification,
     )
-    import rockpool.devices.xylo.imu.xylo_imu_devkit_utils as putils
+    import rockpool.devices.xylo.syns63300.xylo_imu_devkit_utils as putils
 
 
 def test_XyloSamna():
@@ -16,8 +16,8 @@ def test_XyloSamna():
 
     pytest.importorskip("samna")
 
-    from rockpool.devices.xylo.imu import XyloSamna, config_from_specification
-    import rockpool.devices.xylo.imu.xylo_imu_devkit_utils as putils
+    from rockpool.devices.xylo.syns63300 import XyloSamna, config_from_specification
+    import rockpool.devices.xylo.syns63300.xylo_imu_devkit_utils as putils
     from rockpool import TSEvent, TSContinuous
 
     import numpy as np
@@ -82,7 +82,7 @@ def test_save_load():
 
     pytest.importorskip("samna")
 
-    from rockpool.devices.xylo.imu import (
+    from rockpool.devices.xylo.syns63300 import (
         config_from_specification,
         save_config,
         load_config,
@@ -162,8 +162,8 @@ def test_xylo_vs_xylosim():
     # - Samna imports
     import samna
 
-    from rockpool.devices.xylo.imu import xylo_imu_devkit_utils as putils
-    import rockpool.devices.xylo.imu as x
+    from rockpool.devices.xylo.syns63300 import xylo_imu_devkit_utils as putils
+    import rockpool.devices.xylo.syns63300 as x
 
     import numpy as np
 
@@ -235,7 +235,7 @@ def test_config_from_specification():
 
     pytest.importorskip("samna")
 
-    from rockpool.devices.xylo.imu import config_from_specification, mapper
+    from rockpool.devices.xylo.syns63300 import config_from_specification, mapper
     from rockpool.transform import quantize_methods as q
     from rockpool.nn.modules import LIFTorch, LinearTorch
     from rockpool.nn.combinators import Sequential, Residual

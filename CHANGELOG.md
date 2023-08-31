@@ -11,8 +11,11 @@ All notable changes between Rockpool releases will be documented in this file.
 * Initial module structure for Xylo-IMU support
   - Implemented ``XyloIMUMonitor``
   - IMU preprocessing interface
-    - Sub-modules : `Quantizer` , `RotationLookUpTable` , `JSVD` , `SubSpace` , `SampleAndHold` , `RotationRemoval` , `BandPassFilter` , `FilterBank` , `HalfWaveRectifier` , `FullWaveRectifier` , `ScaleSpikeEncoder` , `IAFSpikeEncoder` are implemented
-    - The high-level simulation module encapsulating sub-modules `IMUIFSim` implemented.
+    - Implemented sub-modules : `RotationLookUpTable` , `JSVD` , `SubSpace` , `SampleAndHold` , `RotationRemoval` , `BandPassFilter` , `FilterBank` , `ScaleSpikeEncoder` , `IAFSpikeEncoder`
+    - Implemented data transform : `Quantizer`
+    - Implemented `IMUIFSim`, which is a high-level simulation module encapsulating the sub-modules mentioned above.
+    - Implemented `IMUIFSamna` module, which allows user to read the real-time `IMUIF` output utilizing the SNN core.
+      - Implemented `IdentityNet` which makes it possible to read the `IMUIF` output from the SNN core hidden neurons.
 
 ### Changed
 
@@ -23,6 +26,9 @@ All notable changes between Rockpool releases will be documented in this file.
 * Changed semantics of transformation configurations for QAT, to only include attributes which will be transformed, rather than all attributes. This fixes an incompatibility with torch >= 2.0.
 * Added support for latest `torch` versions
 * New fine-grained installation options
+* Renamed power measurement dict keys returned by Xylo Audio 2 (`syns61201`) `XyloSamna` module, to be more descriptive
+* Upgrade minimum Python version supported to 3.8
+* Upgrade minimum JAX version supported to 0.4.10
 
 ### Fixed
 
@@ -60,6 +66,7 @@ All notable changes between Rockpool releases will be documented in this file.
 * Added initial developer documentation
 * Added MNIST tutorial
 * Fixed notebook links to MyBinder.org
+* added PeakLoss which can be imported as `peak_loss = rockpool.nn.losses.PeakLoss()`.
 
 ### Changed
 

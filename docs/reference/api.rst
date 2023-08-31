@@ -260,34 +260,34 @@ Xylo IMU support
 .. autosummary::
     :toctree: _autosummary
 
-    devices.xylo.imu.mapper
-    devices.xylo.imu.config_from_specification
-    devices.xylo.imu.load_config
-    devices.xylo.imu.save_config
+    devices.xylo.syns63300.mapper
+    devices.xylo.syns63300.config_from_specification
+    devices.xylo.syns63300.load_config
+    devices.xylo.syns63300.save_config
 
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.imu.XyloSim
-    devices.xylo.imu.XyloSamna
-    devices.xylo.imu.XyloIMUMonitor
+    devices.xylo.syns63300.XyloSim
+    devices.xylo.syns63300.XyloSamna
+    devices.xylo.syns63300.XyloIMUMonitor
 
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.imu.XyloIMUHiddenNeurons
-    devices.xylo.imu.XyloIMUOutputNeurons
+    devices.xylo.syns63300.XyloIMUHiddenNeurons
+    devices.xylo.syns63300.XyloIMUOutputNeurons
 
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.imu.XyloSamna
-    devices.xylo.imu.XyloSim
-    devices.xylo.imu.XyloIMUMonitor
-    devices.xylo.imu.IMUData
+    devices.xylo.syns63300.XyloSamna
+    devices.xylo.syns63300.XyloSim
+    devices.xylo.syns63300.XyloIMUMonitor
+    devices.xylo.syns63300.IMUData
 
 
 **IMU Preprocessing Interface**
@@ -299,32 +299,33 @@ Xylo IMU support
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.imu.IMUIFSim
-    devices.xylo.imu.IMUData
+    devices.xylo.syns63300.IMUIFSim
+    devices.xylo.syns63300.IMUIFSamna
+    devices.xylo.syns63300.IMUData
 
 .. autosummary::
     :toctree: _autosummary
     :template: module.rst
 
-    devices.xylo.imu.preprocessing
+    devices.xylo.syns63300.imuif
 
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
-    devices.xylo.imu.IMUIFSim
+    devices.xylo.syns63300.IMUIFSim
 
-    devices.xylo.imu.preprocessing.Quantizer
-    devices.xylo.imu.preprocessing.RotationLookUpTable
-    devices.xylo.imu.preprocessing.JSVD
-    devices.xylo.imu.preprocessing.SubSpace
-    devices.xylo.imu.preprocessing.SampleAndHold
-    devices.xylo.imu.preprocessing.RotationRemoval
-    devices.xylo.imu.preprocessing.FilterBank
-    devices.xylo.imu.preprocessing.BandPassFilter
-    devices.xylo.imu.preprocessing.FullWaveRectifier
-    devices.xylo.imu.preprocessing.HalfWaveRectifier
-    devices.xylo.imu.preprocessing.ScaleSpikeEncoder
-    devices.xylo.imu.preprocessing.IAFSpikeEncoder
+    devices.xylo.syns63300.imuif.RotationRemoval
+    devices.xylo.syns63300.imuif.BandPassFilter
+    devices.xylo.syns63300.imuif.FilterBank
+    devices.xylo.syns63300.imuif.ScaleSpikeEncoder
+    devices.xylo.syns63300.imuif.IAFSpikeEncoder
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    devices.xylo.syns63300.transform.Quantizer
+
 
 Dynap-SE2 hardware support and simulation
 -----------------------------------------

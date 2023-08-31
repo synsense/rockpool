@@ -7,6 +7,7 @@ Includes utility methods to restore/reshape weight matrices from compartments
 """
 from typing import Any, Optional, Tuple, Union
 
+import jax
 import numpy as np
 from jax import numpy as jnp
 
@@ -181,9 +182,9 @@ class WeightHandler:
     @staticmethod
     def bit2int_mask(
         n_bits: int,
-        bit_mask: Union[jnp.DeviceArray, np.ndarray],
+        bit_mask: Union[jax.Array, np.ndarray],
         np_back: Any = np,
-    ) -> Union[jnp.DeviceArray, np.ndarray]:
+    ) -> Union[jax.Array, np.ndarray]:
         """
         bit2int_mask apply 4-bit selection to binary values representing select bits and generates a compressed bit_mask
 
@@ -196,11 +197,11 @@ class WeightHandler:
         :param n_bits: number of bits reserved for representing the integer values
         :type n_bits: int
         :param bit_mask: an array of indices of selected bits, only binary values, (n_bits,shape)
-        :type bit_mask: jnp.DeviceArray
+        :type bit_mask: jax.Array
         :param np_back: the numpy backend to be used(jax.numpy or numpy), defaults to numpy
         :type np_back: Any
         :return: integer values representing binary numbers (shape,)
-        :rtype: jnp.DeviceArray
+        :rtype: jax.Array
         """
         pattern = np_back.array([1 << n for n in range(n_bits)])  # [1,2,4,8, ..]
         int_mask = np_back.sum(bit_mask.T * pattern, axis=-1).T
@@ -209,9 +210,9 @@ class WeightHandler:
     @staticmethod
     def int2bit_mask(
         n_bits: int,
-        int_mask: Union[jnp.DeviceArray, np.ndarray],
+        int_mask: Union[jax.Array, np.ndarray],
         np_back: Any = np,
-    ) -> Union[jnp.DeviceArray, np.ndarray]:
+    ) -> Union[jax.Array, np.ndarray]:
         """
         int2bit_mask converts a integer valued bit_mask to 4 dimension (4-bits) bit_mask representing the indexes of the selection
 
@@ -224,11 +225,11 @@ class WeightHandler:
         :param n_bits: number of bits reserved for representing the integer values
         :type n_bits: int
         :param int_mask: integer values representing binary numbers to select (shape,)
-        :type int_mask: jnp.DeviceArray
+        :type int_mask: jax.Array
         :param np_back: the numpy backend to be used(jax.numpy or numpy), defaults to numpy
         :type np_back: Any
         :return: an array of indices of selected bits, only binary values, (n_bits,shape)
-        :rtype: jnp.DeviceArray
+        :rtype: jax.Array
         """
 
         pattern = np_back.array([1 << n for n in range(n_bits)])  # [1,2,4,8, ..]
