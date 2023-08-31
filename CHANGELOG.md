@@ -16,7 +16,8 @@ All notable changes between Rockpool releases will be documented in this file.
     - Implemented `IMUIFSim`, which is a high-level simulation module encapsulating the sub-modules mentioned above.
     - Implemented `IMUIFSamna` module, which allows user to read the real-time `IMUIF` output utilizing the SNN core.
       - Implemented `IdentityNet` which makes it possible to read the `IMUIF` output from the SNN core hidden neurons.
-
+  - Added introduction documentation describing Xylo IMU and how to configure the preprocessing
+  
 ### Changed
 
 * Update dependency version of pytest-xdist to >=3.2.1.
@@ -29,6 +30,7 @@ All notable changes between Rockpool releases will be documented in this file.
 * Renamed power measurement dict keys returned by Xylo Audio 2 (`syns61201`) `XyloSamna` module, to be more descriptive
 * Upgrade minimum Python version supported to 3.8
 * Upgrade minimum JAX version supported to 0.4.10
+* Rearranged Xylo documentation to separate overview, Xylo Audio and Xylo IMU
 
 ### Fixed
 

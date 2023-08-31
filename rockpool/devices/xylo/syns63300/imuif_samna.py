@@ -38,7 +38,7 @@ class IdentityNet(Module):
         self,
         device: Optional[XyloIMUHDK] = None,
         n_channel: int = 15,
-        clock_rate: int = 200,
+        clock_rate: float = 200.0,
     ) -> None:
         """
         Object constructor
@@ -124,6 +124,19 @@ class IdentityNet(Module):
 
 
 class IMUIFSamna(Module):
+    """
+    A module wrapping the Xylo IMU IF on hardware, permitting recording
+
+    .. warning::
+        This module currently uses a work-around to record encoded IMU data as events.
+        It is only capable of recording one event per time-step per channel from the IMU interface.
+        However, the IMU interface is capable of producing multiple events per time-step per channel.
+        As a result, data recorded using :py:class:`.IMUIFSamna` may differ from that transmitted to the SNN core on Xylo IMU.
+        You can alternatively use :py:class:`.IMUData` to record raw IMU data, and :py:class:`.IMUIFSim` to encode that data, supporting multiple events per time-step per channel.
+        This may result in more accurate encoding of data.
+
+    """
+
     def __init__(
         self,
         device: Optional[XyloIMUHDK] = None,
@@ -132,7 +145,7 @@ class IMUIFSamna(Module):
     ) -> None:
         """
         Implements the interface between the Xylo IMU IF module and the `rockpool` framework.
-        It's a workaround to read the IMU IF output data
+        It's a workaround to read the IMU IF output data.
 
         NOTE : The output is slightly different from the actual output of the Xylo IMU IF module in the case that there are consecutive spikes in the output of the Xylo IMU IF module.
 
