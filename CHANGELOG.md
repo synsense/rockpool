@@ -6,18 +6,24 @@ All notable changes between Rockpool releases will be documented in this file.
 
 ### Added
 
-* Add dependency to pytest-random-order v1.1.0
+* Dependency on `pytest-random-order` v1.1.0 for test order randomization.
 * New HowTo tutorial for performing constrained optimisation with torch and jax
-* Initial module structure for Xylo-IMU support
-  - Implemented ``XyloIMUMonitor``
-  - IMU preprocessing interface
-    - Implemented sub-modules : `RotationLookUpTable` , `JSVD` , `SubSpace` , `SampleAndHold` , `RotationRemoval` , `BandPassFilter` , `FilterBank` , `ScaleSpikeEncoder` , `IAFSpikeEncoder`
-    - Implemented data transform : `Quantizer`
-    - Implemented `IMUIFSim`, which is a high-level simulation module encapsulating the sub-modules mentioned above.
-    - Implemented `IMUIFSamna` module, which allows user to read the real-time `IMUIF` output utilizing the SNN core.
-      - Implemented `IdentityNet` which makes it possible to read the `IMUIF` output from the SNN core hidden neurons.
-  - Added introduction documentation describing Xylo IMU and how to configure the preprocessing
-  
+* Xylo IMU application software support:
+
+  * `XyloSim` module: SNN core simulation for Xylo IMU.
+  * `IMUIFSim` module: Simulation of the input encoding interface with sub-modules:
+    * `BandPassFilter`
+    * `FilterBank`
+    * `RotationRemoval`
+    * `IAFSpikeEncoder`
+    * `ScaleSpikeEncoder`
+  * `XyloIMUMonitor` module: Real-time hardware monitoring for Xylo IMU.
+  * `XyloSamna` module: Interface to the SNN core.
+  * `IMUIFSamna` module: Interface to `IMUIF`, utilizing neurons in the SNN core.
+  * `IMUData` module: Collection of sensor data from the onboard IMU sensor.
+  * Utility functions for network mapping to the Xylo IMU HDK, interfacing, and data processing.
+  * Introductory documentation providing an overview of Xylo IMU and instructions on configuring preprocessing.
+
 ### Changed
 
 * Update dependency version of pytest-xdist to >=3.2.1.
