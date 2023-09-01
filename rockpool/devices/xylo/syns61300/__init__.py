@@ -1,5 +1,5 @@
 """
-Package to support the Xylo HW SYNS61300 (Xylo-1 core; "Pollen")
+Package to support the Xylo HW SYNS61300 (Xylo™ core; "Pollen")
 
 Defines the Rockpool modules :py:class:`.XyloSim`, :py:class:`.XyloSamna`.
 
