@@ -471,6 +471,12 @@ class XyloSamna(Module):
         Nhidden_monitor = Nhidden if record else 0
         Nout_monitor = Nout if record or self._output_mode == "Isyn" else 0
 
+        # - Manage RAM access
+        if Nhidden_monitor > 0 or Nout_monitor > 0:
+            hdkutils.enable_ram_access(self._device, True)
+        else:
+            hdkutils.enable_ram_access(self._device, False)
+
         start_timestep = (
             hdkutils.get_current_timestep(self._read_buffer, self._write_buffer) + 1
         )
@@ -499,6 +505,9 @@ class XyloSamna(Module):
 
         # - Clear the read and state buffers
         self._read_buffer.get_events()
+
+        # - Clear the power recording buffer, if recording power
+        self._power_buf.clear_events()
 
         # - Write the events and trigger the simulation
         self._write_buffer.write(input_events_list)

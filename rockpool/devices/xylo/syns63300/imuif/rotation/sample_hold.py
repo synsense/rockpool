@@ -15,7 +15,9 @@ __all__ = ["SampleAndHold"]
 
 
 class SampleAndHold(Module):
-    """Samples and holds the signal in time dimension (BxTxC)"""
+    """
+    Samples and holds a signal in the time dimension (BxTxC)
+    """
 
     def __init__(
         self,
@@ -25,25 +27,25 @@ class SampleAndHold(Module):
         """Object Constructor
 
         Args:
-            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (3,3).
-            sampling_period (int): Sampling period that the signal is sampled and held. Defaults to 10.
+            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to ``(3, 3)``.
+            sampling_period (int): Sampling period that the signal is sampled and held. Defaults to ``10``.
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
         self.sampling_period = SimulationParameter(
             sampling_period, shape=(1,), cast_fn=int
         )
-        """Sampling period that the signal is sampled and held"""
+        """(int) Sampling period that the signal is sampled and held"""
 
     @type_check
     def evolve(
         self, input_data: np.ndarray, record: bool = False
     ) -> Tuple[np.ndarray, Dict, Dict]:
-        """Operate always along the time axes.
+        """Operate always along the time axes
 
         Args:
-            input_data (np.ndarray): input signal of shape BxTxC where T is the time-dimension along which sample-and-hold is done. (BxTxC)
-            record (bool, optional): record flag to match with the other rockpool modules. Practically useless. Defaults to False.
+            input_data (np.ndarray): input signal of shape ``BxTxC`` where T is the time-dimension along which sample-and-hold is done. ``(B, T, C)``
+            record (bool, optional): Unused.
 
         Returns:
             Tuple[np.ndarray, Dict, Dict]:

@@ -280,10 +280,20 @@ Xylo IMU support
     devices.xylo.syns63300.XyloIMUHiddenNeurons
     devices.xylo.syns63300.XyloIMUOutputNeurons
 
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    devices.xylo.syns63300.XyloSamna
+    devices.xylo.syns63300.XyloSim
+    devices.xylo.syns63300.XyloIMUMonitor
+    devices.xylo.syns63300.IMUData
+
+
 **IMU Preprocessing Interface**
 
 .. seealso::
-    * :ref:`/devices/xylo-imu/preprocessing.ipynb`
+    * :ref:`/devices/xylo-imu/imu-if.ipynb`
 
 .. autosummary::
     :toctree: _autosummary
@@ -302,6 +312,7 @@ Xylo IMU support
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
+    devices.xylo.syns63300.IMUIFSim
 
     devices.xylo.syns63300.imuif.RotationRemoval
     devices.xylo.syns63300.imuif.BandPassFilter
@@ -320,8 +331,6 @@ Dynap-SE2 hardware support and simulation
 -----------------------------------------
 
 .. seealso::
-    Tutorials:
-
     * :ref:`/devices/DynapSE/dynapse-overview.ipynb`
     * :ref:`/devices/DynapSE/post-training.ipynb`
     * :ref:`/devices/DynapSE/neuron-model.ipynb`

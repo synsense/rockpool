@@ -29,15 +29,15 @@ class ScaleSpikeEncoder(Module):
 
     def __init__(
         self,
-        shape: Optional[Union[Tuple, int]] = (15, 15),
+        shape: Union[Tuple, int] = (15, 15),
         num_scale_bits: Union[List[int], int] = 5,
     ) -> None:
         """
         Object constructor
 
         Args:
-            shape (Optional[Union[Tuple, int]], optional): The number of input and output channels. Defaults to (15, 15).
-            num_scale_bits (int): number of right-bit-shifts needed for down-scaling the input signal. Defaults to [5,5,5,5,5,5,5,5,5,5,5,5,5,5,5].
+            shape (Union[Tuple, int]): The number of input and output channels. Defaults to (15, 15).
+            num_scale_bits (Union[List[int], int]): number of right-bit-shifts needed for down-scaling the input signal. Defaults to ``5`` for each neuron.
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=True)
 
@@ -50,9 +50,10 @@ class ScaleSpikeEncoder(Module):
         [unsigned_bit_range_check(__s, n_bits=5) for __s in num_scale_bits]
 
         self.num_scale_bits = SimulationParameter(
-            num_scale_bits, shape=(self.size_out,)
+            num_scale_bits,
+            shape=(self.size_out,),
         )
-        """number of right-bit-shifts needed for down-scaling the input signal"""
+        """(int) Number of right-bit-shifts needed for down-scaling the input signal"""
 
     @type_check
     def evolve(
@@ -61,8 +62,8 @@ class ScaleSpikeEncoder(Module):
         """Processes the input signal and return the encoded spikes
 
         Args:
-            input_data (np.ndarray): filtered data recorded from IMU sensor. It should be in integer format. (BxTx48)
-            record (bool, optional): If True, the intermediate results are recorded and returned. Defaults to False.
+            input_data (np.ndarray): filtered data recorded from IMU sensor. It should be in integer format. (BxTx15)
+            record (bool): Unused.
 
         Returns:
             Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
@@ -92,9 +93,8 @@ class IAFSpikeEncoder(Module):
     Synchronous integrate and fire spike encoder
 
     More specifically, denoting a specific filter output by $$y(t)$$,
-    this module computes $$s(t) = \\sum_{n=0}^t |y(n)|$$ and as soon as it passes the firing threshold $$\\theta$$.
-    Say at a time $$t=t_0$$, it produces a spike at $$t=t_0$$ and reduces the counter by $$\theta$$ and keeps accumulating the input signal
-    $$s(t) = s(t_0) - \\theta + \\sum_{n=t_0+1}^t |y(n)|$$ until the next threshold crossing and spike generation happens.
+    this module computes $$s(t) = \\sum_{n=0}^t |y(n)|$$ and as soon as it passes the firing threshold $$\\theta$$, say at time $$t=t_0$$, it produces a spike at $$t=t_0$$ and reduces the counter by $$\theta$$ and keeps accumulating the input signal:
+    $$s(t) = s(t_0) - \\theta + \\sum_{n=t_0+1}^t |y(n)|$$ until the next threshold crossing and spike generation occurs.
     """
 
     def __init__(
@@ -103,11 +103,11 @@ class IAFSpikeEncoder(Module):
         threshold: Union[List[int], int] = 1024,
     ) -> None:
         """
-        Object constructor
+        Instantiate an IAF spike encoder
 
         Args:
-            shape (Optional[Union[Tuple, int]], optional): the shape of the input signal. Defaults to (15, 15).
-            threshold (int): the thresholds of the IAF neurons (quantized). Default to [1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024]
+            shape (Optional[Union[Tuple, int]]): the input and output shape of the module. Defaults to ``(15, 15)``.
+            threshold (Union[int, List[int]]): the thresholds of the IAF neurons (quantized unsigned integer). Provide a single integer to use the same threshold for each neuron, or a list of thresholds with one for each neuron. Default: ``1024`` for each neuron.
         """
         super().__init__(shape=shape, spiking_input=False, spiking_output=True)
 
@@ -116,7 +116,7 @@ class IAFSpikeEncoder(Module):
         )
         [unsigned_bit_range_check(th, n_bits=31) for th in threshold]
         self.threshold = SimulationParameter(threshold, shape=(self.size_out,))
-        """the threshold of the IAF neuron (quantized)"""
+        """ (np.ndarray) The unsigned integer thresholds of the IAF neurons"""
 
     @type_check
     def evolve(
@@ -125,12 +125,12 @@ class IAFSpikeEncoder(Module):
         """Processes the input signal and return the encoded spikes
 
         Args:
-            input_data (np.ndarray): filtered data recorded from IMU sensor. It should be in integer format. (BxTx48)
-            record (bool, optional): If True, the intermediate results are recorded and returned. Defaults to False.
+            input_data (np.ndarray): filtered data recorded from IMU sensor. It should be in integer format. (BxTx15)
+            record (bool, optional): Unused.
 
         Returns:
             Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
-                Encoded spikes (BxTx48)
+                Encoded spikes (BxTx15)
                 empty dictionary
                 empty dictionary
         """
@@ -154,7 +154,7 @@ class IAFSpikeEncoder(Module):
         # compute the spikes along the time axis
         spikes = np.diff(num_spikes, axis=1)
 
-        # if there are more than one spikes, truncate it to 1
+        # if there are more than one spike per dt, truncate it to 1
         np.clip(spikes, 0, 1, out=spikes)
 
         return spikes, {}, {}
