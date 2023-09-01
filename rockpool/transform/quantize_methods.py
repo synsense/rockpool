@@ -1,5 +1,8 @@
 """
 Quantisation methods for Xylo
+
+Defines the post-training quasntization methods :py:func:`.global_quantize` and :py:func:`.channel_quantize`.
+
 """
 
 import numpy as np
@@ -32,20 +35,24 @@ def global_quantize(
 
     The figure below illustrates the groups of weights which are considered for quantization. Under this global method, all weights in the network are considered together when scaling and quantizing weights and thresholds. Input and recurrent weights are considered together as a group; output weights are considered separately when quantizing. Dashes are rounded and cast to integer.
 
-                 target
-           -------------------
-    s   -------------------  -
-    o   -**- -**- -**- -**-  -
-    u   -**- -**- -**- -**-  -
-    r   -**- -**- -**- -**-  -
-    c   -**- -**- -**- -**-  -
-    e   -**- -**- -**- -**-  -
-        -------------------
+    ::
+
+                    target
+            -------------------
+        s   -------------------  -
+        o   -**- -**- -**- -**-  -
+        u   -**- -**- -**- -**-  -
+        r   -**- -**- -**- -**-  -
+        c   -**- -**- -**- -**-  -
+        e   -**- -**- -**- -**-  -
+            -------------------
 
     Examples:
-        specs = xylo.devices.mapper(net.as_graph(), weight_dtype="float", threshold_dtype="float")
-        specs.update(global_quantize(**specs, fuzzy_scaling = True))
-        xylo.devices.XyloSim.from_specifications(specs)
+        >>> specs = xylo.devices.mapper(net.as_graph(), weight_dtype="float", threshold_dtype="float")
+
+        >>> specs.update(global_quantize(**specs, fuzzy_scaling = True))
+
+        >>> xylo.devices.XyloSim.from_specifications(specs)
 
     Args:
         weights_in (np.ndarray): Input weight matrix
@@ -186,20 +193,24 @@ def channel_quantize(
 
     The figure below illustrates the groups of weights which are considered for quantization. Under this per-channel method, all input weights to a single target neuron are considered together when scaling and quantizing weights and thresholds. Input and recurrent weights are considered together as a group; output weights are considered separately when quantizing. Dashes are rounded and cast to integer.
 
-                 target
-           -------------------
-    s   -------------------  -
-    o   -++- -**- -##- -oo-  -
-    u   -++- -**- -##- -oo-  -
-    r   -++- -**- -##- -oo-  -
-    c   -++- -**- -##- -oo-  -
-    e   -++- -**- -##- -oo-  -
-        -------------------
+    ::
+
+                    target
+            -------------------
+        s   -------------------  -
+        o   -++- -**- -##- -oo-  -
+        u   -++- -**- -##- -oo-  -
+        r   -++- -**- -##- -oo-  -
+        c   -++- -**- -##- -oo-  -
+        e   -++- -**- -##- -oo-  -
+            -------------------
 
     Examples:
-        specs = xylo.devices.mapper(net.as_graph(), weight_dtype="float", threshold_dtype="float")
-        specs.update(channel_quantize(**specs, bits_per_weight = 12))
-        xylo.devices.XyloSim.from_specifications(specs)
+        >>> specs = xylo.devices.mapper(net.as_graph(), weight_dtype="float", threshold_dtype="float")
+
+        >>> specs.update(channel_quantize(**specs, bits_per_weight = 12))
+
+        >>> xylo.devices.XyloSim.from_specifications(specs)
 
     Args:
         weights_in (np.ndarray): Input weight matrix

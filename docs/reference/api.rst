@@ -225,6 +225,12 @@ Support modules
     devices.xylo.syns65300
     devices.xylo.syns63300
 
+.. autosummary::
+    :toctree: _autosummary
+
+    transform.quantize_methods.global_quantize
+    transform.quantize_methods.channel_quantize
+
 
 Xylo Audio support
 ~~~~~~~~~~~~~~~~~~~
@@ -324,7 +330,7 @@ Xylo IMU support
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.syns63300.transform.Quantizer
+    devices.xylo.syns63300.Quantizer
 
 
 Dynap-SE2 hardware support and simulation
