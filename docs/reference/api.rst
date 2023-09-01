@@ -206,7 +206,7 @@ Support modules
 ~~~~~~~~~~~~~~~
 
 .. autosummary:: 
-    ::toctree: _autosummary
+    :toctree: _autosummary
 
     devices.xylo.find_xylo_hdks
 
@@ -318,8 +318,8 @@ Xylo IMU support
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
-    devices.xylo.syns63300.IMUIFSim
 
+    devices.xylo.syns63300.IMUIFSim
     devices.xylo.syns63300.imuif.RotationRemoval
     devices.xylo.syns63300.imuif.BandPassFilter
     devices.xylo.syns63300.imuif.FilterBank
