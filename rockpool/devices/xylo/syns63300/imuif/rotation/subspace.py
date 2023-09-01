@@ -16,7 +16,7 @@ from rockpool.devices.xylo.syns63300.imuif.utils import (
     unsigned_bit_range_check,
 )
 from rockpool.nn.modules.module import Module
-from rockpool.parameters import SimulationParameter
+from rockpool.parameters import SimulationParameter, State
 
 __all__ = ["SubSpace"]
 
@@ -56,8 +56,10 @@ class SubSpace(Module):
         )
         """number of bits devoted to computing the high-precision filter (to avoid dead-zone effect)"""
 
-        self.C_highprec = np.zeros((self.size_in, self.size_in), dtype=np.int64).astype(
-            object
+        self.C_highprec = State(
+            data=np.zeros((self.size_in, self.size_in), dtype=np.int64).astype(object),
+            shape=(self.size_in, self.size_in),
+            permit_reshape=False,
         )
         """initialize the covariance matrix and covariance matrix with larger precision"""
 
