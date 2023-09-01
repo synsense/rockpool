@@ -55,6 +55,11 @@ class SubSpace(Module):
         )
         """number of bits devoted to computing the high-precision filter (to avoid dead-zone effect)"""
 
+        self.C_highprec = np.zeros((self.size_in, self.size_in), dtype=np.int64).astype(
+            object
+        )
+        """initialize the covariance matrix and covariance matrix with larger precision"""
+
     @type_check
     def evolve(
         self, input_data: np.ndarray, record: bool = False
@@ -93,11 +98,6 @@ class SubSpace(Module):
         # number of bitshifts needed in implementing the high-precision filter
         mult_right_bit_shift = max_bits_mult_output - NUM_BITS_MULTIPLIER
 
-        # initialize the covariance matrix and covariance matrix with larger precision
-        C_highprec = np.zeros((self.size_in, self.size_in), dtype=np.int64).astype(
-            object
-        )
-
         C_batched = []
 
         for sig_in in input_data:
@@ -113,13 +113,13 @@ class SubSpace(Module):
                 )
 
                 # do the high-precision filter computation
-                C_highprec = (
-                    C_highprec - (C_highprec >> self.num_avg_bitshift) + xx_trans
+                self.C_highprec = (
+                    self.C_highprec - (self.C_highprec >> self.num_avg_bitshift) + xx_trans
                 )
 
                 # note that due to the specific shape of the low-pass filter used for averaging the input signal,
                 # the output of the low-pass filter will be always less than the input max value
-                if np.max(np.abs(C_highprec)) >= 2 ** (
+                if np.max(np.abs(self.C_highprec)) >= 2 ** (
                     self.num_bits_highprec_filter - 1
                 ):
                     raise OverflowError(
@@ -127,7 +127,7 @@ class SubSpace(Module):
                     )
 
                 # apply right-bit-shift to go to the output
-                C_regular = C_highprec >> self.num_avg_bitshift
+                C_regular = self.C_highprec >> self.num_avg_bitshift
 
                 # add the values of the list
                 C_list.append(np.copy(C_regular))
