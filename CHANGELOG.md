@@ -9,7 +9,7 @@ All notable changes between Rockpool releases will be documented in this file.
 * Add dependency to pytest-random-order v1.1.0
 * New HowTo tutorial for performing constrained optimisation with torch and jax
 * Initial module structure for Xylo-IMU support
-  - Implemented ``XyloIMUMonitor``
+  - Implemented ``mapper``, ``XyloSamna``, ``XyloSim``, ``XyloIMUMonitor``, graph mapping support modules
   - IMU preprocessing interface
     - Implemented sub-modules : `RotationLookUpTable` , `JSVD` , `SubSpace` , `SampleAndHold` , `RotationRemoval` , `BandPassFilter` , `FilterBank` , `ScaleSpikeEncoder` , `IAFSpikeEncoder`
     - Implemented data transform : `Quantizer`
