@@ -118,6 +118,8 @@ def test_act_transform_net():
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential, Residual
 
+    torch.manual_seed(1)
+
     net = Sequential(
         LinearTorch((3, 5)),
         LIFTorch(5),

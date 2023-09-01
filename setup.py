@@ -39,7 +39,7 @@ setup_args = {
         ],
         "xylo": [
             "xylosim",
-            "samna>=0.19.0.0",
+            "samna>=0.30.25.0",
             "bitstruct",
         ],
         "exodus": [
@@ -55,7 +55,7 @@ setup_args = {
         ],
         "dynapse": [
             "rockpool[jax]",
-            "samna>=0.19.0.0",
+            "samna>=0.32.1.0",
         ],
         "extras": [
             "matplotlib",
