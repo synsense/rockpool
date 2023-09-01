@@ -1,3 +1,7 @@
+"""
+Implements :py:class:`.IMUIFSamna`, to record encoded data from Xylo IMU
+"""
+
 from typing import Optional, Tuple, Any
 import numpy as np
 from rockpool.nn.modules import Module

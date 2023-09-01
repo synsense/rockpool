@@ -223,7 +223,7 @@ Support modules
     devices.xylo.syns61300
     devices.xylo.syns61201
     devices.xylo.syns65300
-    devices.xylo.imu
+    devices.xylo.syns63300
 
 
 Xylo Audio support
