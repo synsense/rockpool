@@ -61,7 +61,7 @@ class SubSpace(Module):
             shape=(self.size_in, self.size_in),
             permit_reshape=False,
         )
-        """initialize the covariance matrix and covariance matrix with larger precision"""
+        """Covariance matrix with high precision"""
 
     @type_check
     def evolve(
