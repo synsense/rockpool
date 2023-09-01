@@ -115,7 +115,9 @@ class SubSpace(Module):
 
                 # do the high-precision filter computation
                 self.C_highprec = (
-                    self.C_highprec - (self.C_highprec >> self.num_avg_bitshift) + xx_trans
+                    self.C_highprec
+                    - (self.C_highprec >> self.num_avg_bitshift)
+                    + xx_trans
                 )
 
                 # note that due to the specific shape of the low-pass filter used for averaging the input signal,
