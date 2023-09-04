@@ -108,8 +108,8 @@ class PeakLoss(_Loss):
         self.loss_nontarget = loss / (n_classes - 1)
 
     def forward(self, prediction: Tensor, target: Tensor) -> float:
-        self.calc_loss_target(prediction, target)
-        self.calc_loss_nontarget(prediction, target)
+        self.calculate_loss_target(prediction, target)
+        self.calculate_loss_nontarget(prediction, target)
 
         # add losses
         self.loss = self.loss_target + self.weight_nontarget * self.loss_nontarget
@@ -194,25 +194,25 @@ class BinaryPeakLoss(_Loss):
                 )
 
             # target readout neuron should be active
-            loss_positives = self.mse(
+            self.loss_positives = self.mse(
                 prediction_max_positives,
                 torch.ones_like(prediction_max_positives) * self.target_output,
             )
         else:
-            loss_positives = 0
+            self.loss_positives = 0
 
     def calculate_loss_negatives(self, prediction: Tensor, target: Tensor) -> None:
         # for negative samples the neuron should be silent
         if sum(target == 0) > 0:
             prediction_negatives = prediction[target == 0, :, 0]
-            loss_negatives = self.mse(
+            self.loss_negatives = self.mse(
                 prediction_negatives, torch.zeros_like(prediction_negatives)
             )
         else:
-            loss_negatives = 0
+            self.loss_negatives = 0
 
     def forward(self, prediction: Tensor, target: Tensor) -> float:
-        self.loss_positives(prediction, target)
+        self.calculate_loss_positives(prediction, target)
         self.calculate_loss_negatives(prediction, target)
 
         # add losses
