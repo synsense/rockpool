@@ -32,7 +32,8 @@ def test_peak_loss():
             vmem[i, tmax : tmax + max_interval, targets[i]], axis=0
         )
     loss_target = mse(vmem_max_target, target_output * torch.ones(batch_size))
-    assert torch.allclose(loss_target, pl.loss_target(vmem, targets))
+    pl(vmem, targets)
+    assert torch.allclose(loss_target, pl.loss_target)
 
     # pick event time as the second last time point and window size three, thus the output at event time should be
     # counted twice
@@ -45,7 +46,8 @@ def test_peak_loss():
             2 * vmem[i, -2, targets[i]] + vmem[i, -1, targets[i]]
         ) / 3.0
     loss_target = mse(vmem_max_target, target_output * torch.ones(batch_size))
-    assert torch.allclose(loss_target, pl.loss_target(vmem, targets))
+    pl(vmem, targets)
+    assert torch.allclose(loss_target, pl.loss_target)
 
     ## check loss of non-target neurons
 
@@ -60,9 +62,8 @@ def test_peak_loss():
         vmem_max_target[i] = torch.mean(
             vmem[i, tmax : tmax + max_interval, targets[i]], axis=0
         )
-    assert torch.allclose(
-        pl.loss_nontarget(vmem, targets), pl.loss_target(vmem, targets)
-    )
+    pl(vmem, targets)
+    assert torch.allclose(pl.loss_nontarget, pl.loss_target)
 
 
 def test_binary_peak_loss():
@@ -96,8 +97,9 @@ def test_binary_peak_loss():
         vmem_max_positives[i] = torch.mean(
             vmem[targets == 1, tmax : tmax + max_interval, 0][i], axis=0
         )
+    pl(vmem, targets)
     loss_positives = mse(vmem_max_positives, target_output * torch.ones(n_positives))
-    assert torch.allclose(loss_positives, pl.loss_positives(vmem, targets))
+    assert torch.allclose(loss_positives, pl.loss_positives)
 
     # pick event time as the second last time point and window size three, thus the output at event time should be
     # counted twice
@@ -112,7 +114,8 @@ def test_binary_peak_loss():
             2 * vmem[targets == 1, -2, 0][i] + vmem[targets == 1, -1, 0][i]
         ) / 3.0
     loss_positives = mse(vmem_max_positives, target_output * torch.ones(n_positives))
-    assert torch.allclose(loss_positives, pl.loss_positives(vmem, targets))
+    pl(vmem, targets)
+    assert torch.allclose(loss_positives, pl.loss_positives)
 
     ## check loss of negative samples
 
@@ -129,6 +132,25 @@ def test_binary_peak_loss():
         vmem_max_positives[i] = torch.mean(
             vmem[targets == 1, tmax : tmax + max_interval, 0][i], axis=0
         )
-    assert torch.allclose(
-        pl.loss_negatives(vmem, targets), pl.loss_positives(vmem, targets)
-    )
+    pl(vmem, targets)
+    assert torch.allclose(pl.loss_negatives, pl.loss_positives)
+
+def test_mse_loss():
+    import torch
+    from rockpool.nn.losses import MSELoss
+
+    n_classes = 3
+    T = 35
+    batch_size = 5 * 3
+
+    mse = torch.nn.MSELoss()
+
+    # create random target signal
+    targets = torch.randint(0, n_classes, (batch_size,))
+
+    ## check loss of target neuron
+
+    # pick event time such that the loss window fits within the sample
+    mse_rockpool = MSELoss()
+    vmem = torch.rand((batch_size, T, n_classes))
+    assert torch.allclose(mse(vmem, targets), mse_rockpool(vmem, targets))
