@@ -14,5 +14,5 @@ class _Loss(nn.Module):
     def __init__(self) -> None:
         super().__init__()
 
-    def forward(self) -> int:
+    def forward(self) -> float:
         pass
