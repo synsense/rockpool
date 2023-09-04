@@ -135,6 +135,7 @@ def test_binary_peak_loss():
     pl(vmem, targets)
     assert torch.allclose(pl.loss_negatives, pl.loss_positives)
 
+
 def test_mse_loss():
     import torch
     from rockpool.nn.losses import MSELoss

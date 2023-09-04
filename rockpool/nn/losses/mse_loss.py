@@ -11,11 +11,10 @@ __all__ = ["MSELoss"]
 class MSELoss(_Loss):
 
     """
-       This is a wrapper around the PyTorch MSE loss.
+    This is a wrapper around the PyTorch MSE loss.
     """
 
     def __init__(self):
-
         super().__init__()
         self.mse = nn.MSELoss()
         self.loss = 0
@@ -28,7 +27,6 @@ class MSELoss(_Loss):
         ]
         for key, value in params:
             parser.add_argument("--" + key, type=type(value), default=value)
-
 
     def forward(self, prediction: Tensor, target: Tensor) -> List[Tensor]:
         self.loss = self.mse(prediction, target)
