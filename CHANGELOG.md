@@ -43,6 +43,8 @@ All notable changes between Rockpool releases will be documented in this file.
 
 ### Fixed
 
+* Fixed bug in initialising access to MC3620 IMU sensor on Xylo IMU HDK, where it would fail with an error the on the second initialisation
+
 ### Deprecated
 
 ### Removed
