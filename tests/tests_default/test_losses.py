@@ -63,9 +63,7 @@ def test_peak_loss():
             vmem[i, tmax : tmax + max_interval, targets[i]], axis=0
         )
     pl(vmem, targets)
-    assert torch.allclose(
-        pl.loss_nontarget, pl.loss_target
-    )
+    assert torch.allclose(pl.loss_nontarget, pl.loss_target)
 
 
 def test_binary_peak_loss():
@@ -135,6 +133,4 @@ def test_binary_peak_loss():
             vmem[targets == 1, tmax : tmax + max_interval, 0][i], axis=0
         )
     pl(vmem, targets)
-    assert torch.allclose(
-        pl.loss_negatives, pl.loss_positives
-    )
+    assert torch.allclose(pl.loss_negatives, pl.loss_positives)
