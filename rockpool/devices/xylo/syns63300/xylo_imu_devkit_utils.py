@@ -108,6 +108,7 @@ def initialise_imu_sensor(
     graph.start()
 
     # - Configure the imu densor device
+    mc.auto_read_enable(False)
     if not mc.setup():
         raise ConnectionError("Could not connect to the MC3632 device.")
 
