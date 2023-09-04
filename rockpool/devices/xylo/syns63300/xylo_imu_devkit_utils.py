@@ -84,10 +84,10 @@ def initialise_imu_sensor(
     samna.graph.EventFilterGraph,
 ]:
     """
-    Initialise the IMU sensor HDK
+    Initialise the MC3632 IMU sensor HDK
 
     Args:
-        hdk (XyloIMUHDK): A Xylo IMU device contains an IMU sensor to initialise
+        hdk (XyloIMUHDK): A Xylo IMU device containing an IMU sensor to initialise
     """
 
     # - set XyloIMUHDK to read data mode and get IMU sensor device

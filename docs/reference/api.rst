@@ -293,7 +293,6 @@ Xylo IMU support
     devices.xylo.syns63300.XyloSamna
     devices.xylo.syns63300.XyloSim
     devices.xylo.syns63300.XyloIMUMonitor
-    devices.xylo.syns63300.IMUData
 
 
 **IMU Preprocessing Interface**
