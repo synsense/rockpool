@@ -1,18 +1,17 @@
 """
 Simulation of an analog audio filtering front-end
 
-Defines :py:class:`.AFESim` module.
+Defines the :py:class:`.AFESim` module, with an empirically-validated simulation of the audio front-end on Xylo A2 (SYNS61201).
 
 See Also:
     For example usage of the :py:class:`.AFESim` Module, see :ref:`/devices/analog-frontend-example.ipynb`
 """
 
 # - Rockpool imports
-import os
 from rockpool.nn.modules.module import Module
 from rockpool.nn.modules.native.filter_bank import ButterFilter
 from rockpool.timeseries import TSEvent, TSContinuous
-from rockpool.parameters import Parameter, State, SimulationParameter, ParameterBase
+from rockpool.parameters import State, SimulationParameter
 
 # - Other imports
 import numpy as np
@@ -20,12 +19,7 @@ from scipy.signal import butter, lfilter
 from scipy import signal, fftpack
 import enum
 
-from typing import Union, Tuple
-
-from logging import debug, info
-
-info = print
-debug = print
+from typing import Tuple
 
 from rockpool.typehints import P_int, P_float, P_bool, P_ndarray
 
@@ -42,14 +36,19 @@ class AFESim(Module):
     This module simulates the Xylo audio front-end stage. This is a signal-to-event core that consists of a number of band-pass filters, followed by rectifying event production
     simulating a spiking LIF neuron. The event rate in each channel is roughly correlated to the energy in each filter band.
 
-    Notes:
-        - The AFE contains frequency tripling internally. For accurate simulation, the sampling frequency must be at least 6 times higher than the highest frequency component in the filtering chain. This would be the centre frequency of the highest filter, plus half the BW of that signal. To prevent signal aliasing, you should apply a low-pass filter to restrict the bandwidth of the input, to ensure you don't exceed this target highest frequency.
+    .. warning::
 
-        - Input to the module is in Volts. Input amplitude should be scaled to a maximum of 112mV RMS.
+        - The AFE contains frequency tripling internally. **For accurate simulation, the sampling frequency must be at least 6 times higher than the highest frequency component in the filtering chain.** This would be the centre frequency of the highest filter, plus half the BW of that signal.
+
+        - **To prevent signal aliasing, you should apply a low-pass filter to restrict the bandwidth of the input, to ensure you don't exceed this target highest frequency.**
+
+        - Input to the module is in Volts. **Input amplitude should be scaled to a maximum of 112mV RMS.**
+
+    .. note::
 
         - By default, the module simulates HW mismatch in the analog encoding block. This is controlled on instantiation with the ``add_noise``, ``add_offset`` and ``add_mismatch`` arguments on initialisation and the corresponding simulation parameters.
 
-        - Mismatch can be re-sampled by calling the :py:meth:`.generate_mismatch` method
+        - Mismatch can be re-sampled by calling the :py:meth:`~.AFESim.generate_mismatch` method.
 
     See Also:
         For example usage of the :py:class:`.AFESim` Module, see :ref:`/devices/analog-frontend-example.ipynb`
@@ -57,9 +56,9 @@ class AFESim(Module):
 
     def __init__(
         self,
-        fs: int,  # this should be the same as the sampling rate of the audio fed to AFESim. Otherwise, the frequencies are proportionally shifted.
-        raster_period: float = 0.01,  # this is the period to which the generated spikes are rastered
-        max_spike_per_raster_period: int = 15,  # maximum number of spikes to be forwarded to SNN in Xylo within a raster period
+        fs: int,
+        raster_period: float = 0.01,
+        max_spike_per_raster_period: int = 15,
         add_noise: bool = True,
         add_offset: bool = True,
         add_mismatch: bool = True,
