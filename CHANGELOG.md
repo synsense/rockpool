@@ -63,6 +63,7 @@ All notable changes between Rockpool releases will be documented in this file.
 * Updated Samna version requirement to >=0.19.0
 * User explicitly defines Cuda device for LIFExodus, ExpDynExodus and LIFMembraneExodus
 * Improved error message when a backend is missing
+* Improved transient removal in `syns61201.AFESim`
 
 ### Fixed
 
