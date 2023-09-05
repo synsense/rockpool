@@ -11,6 +11,7 @@ stages:
 
 black-check:
   stage: preliminaries
+  needs: []
   image: "registry.gitlab.com/synsense/rockpool/clean:latest"
   before_script:
     - pip install --upgrade pip
@@ -47,6 +48,7 @@ unit_tests_clean:
 
 unit_tests_known_good:
   stage: test
+  needs: []
   image: "registry.gitlab.com/synsense/rockpool/known_good:latest"
   tags:
     - cuda
@@ -60,14 +62,13 @@ unit_tests_known_good:
     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
 
   script:
-    # - pytest -v tests/tests_default --random-order
     - pytest -v tests/tests_default --test-group-count $CI_NODE_TOTAL --test-group=$CI_NODE_INDEX
 
 
 documentation_linting:
   stage: docs
   allow_failure: true
-
+  needs: []
   before_script:
     - pip install --upgrade pip
     - pip install --upgrade ".[all]" --no-cache-dir
@@ -95,9 +96,7 @@ docs_build:
 
 dist_build:
   stage: build
-  dependencies:
-    - unit_tests_known_good
-    - unit_tests_clean
+  needs: ["unit_tests_known_good", "unit_tests_clean"]
 
   before_script:
     - pip install --upgrade pip
