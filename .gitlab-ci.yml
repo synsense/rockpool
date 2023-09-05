@@ -34,6 +34,7 @@ unit_tests_clean:
   image: "registry.gitlab.com/synsense/rockpool/clean:latest"
   tags:
     - cuda
+  parallel: 4
 
   before_script:
     - pip install --upgrade pip
@@ -43,7 +44,7 @@ unit_tests_clean:
     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
 
   script:
-    - pytest -v tests/tests_default --random-order
+    - pytest -v tests/tests_default --random-order -n auto
 
 unit_tests_known_good:
   stage: test
@@ -60,8 +61,7 @@ unit_tests_known_good:
     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
 
   script:
-    # - pytest -v tests/tests_default --random-order
-    - pytest -v tests/tests_default --test-group-count $CI_NODE_TOTAL --test-group=$CI_NODE_INDEX
+    - pytest -v tests/tests_default --test-group-count $CI_NODE_TOTAL --test-group=$CI_NODE_INDEX -n auto
 
 
 documentation_linting:
