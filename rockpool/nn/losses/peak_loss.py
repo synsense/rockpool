@@ -38,7 +38,7 @@ class PeakLoss(_Loss):
 
         :param max_interval: window size of loss function
         :param weight_nontarget: scaling factor of loss calculated from non-target neurons
-        :param target_threshold: target output signal of target neuron
+        :param target_output: target output signal of target neuron
         """
 
         super().__init__()
@@ -145,7 +145,7 @@ class BinaryPeakLoss(_Loss):
 
         :param max_interval: window size of loss function
         :param weight_nontarget: scaling factor of loss calculated from negative samples
-        :param target_threshold: target output signal of target neuron
+        :param target_output: target output signal of target neuron
         """
 
         super().__init__()
