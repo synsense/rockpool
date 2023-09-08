@@ -231,7 +231,7 @@ class DeltaSigma:
         return sig_out_Q, sig_out, sig_in, state_list
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        """ this is the same as `evolve` function. """
+        """this is the same as `evolve` function."""
         return self.evolve(*args, **kwargs)
 
     def recover(self, bin_in: np.ndarray) -> np.ndarray:

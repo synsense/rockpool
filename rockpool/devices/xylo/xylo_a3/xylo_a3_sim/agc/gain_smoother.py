@@ -51,13 +51,13 @@ from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.xylo_a3_agc_specs import (
 # ===========================================================================
 class GainSmootherFPGA:
     def __init__(
-            self,
-            num_bits: int = NUM_BITS_ADC,
-            min_waiting_time: float = (2 ** MAX_WAITING_BITWIDTH - 1) / AUDIO_SAMPLING_RATE,
-            num_bits_command: int = NUM_BITS_COMMAND,
-            pga_gain_vec: np.ndarray = EXP_PGA_GAIN_VEC,
-            num_bits_gain_quantization: int = NUM_BITS_GAIN_QUANTIZATION,
-            fs: float = AUDIO_SAMPLING_RATE,
+        self,
+        num_bits: int = NUM_BITS_ADC,
+        min_waiting_time: float = (2**MAX_WAITING_BITWIDTH - 1) / AUDIO_SAMPLING_RATE,
+        num_bits_command: int = NUM_BITS_COMMAND,
+        pga_gain_vec: np.ndarray = EXP_PGA_GAIN_VEC,
+        num_bits_gain_quantization: int = NUM_BITS_GAIN_QUANTIZATION,
+        fs: float = AUDIO_SAMPLING_RATE,
     ):
         """this calss applies gain smoothing so that there is no jump in signal amplitude when gain is switched.
 
@@ -104,7 +104,7 @@ class GainSmootherFPGA:
 
         # check the gain ratios
         try:
-            if len(pga_gain_vec) != 2 ** num_bits_command:
+            if len(pga_gain_vec) != 2**num_bits_command:
                 raise ValueError(
                     "number of PGA gains should be the same as number of commands that can be sent from AGC to PGA!"
                 )
@@ -127,7 +127,7 @@ class GainSmootherFPGA:
 
         # how many bits are needed for the fractional part
         self.num_bits_gain_fraction = (
-                num_bits_gain_quantization - self.num_bits_gain_integer
+            num_bits_gain_quantization - self.num_bits_gain_integer
         )
 
         # total number of bits used for quantization
@@ -137,13 +137,13 @@ class GainSmootherFPGA:
         # case 1: when gain increases
         self.up_gain_ratio_float = self.pga_gain_vec[1:] / self.pga_gain_vec[:-1]
         self.up_gain_ratio = np.fix(
-            self.up_gain_ratio_float * 2 ** self.num_bits_gain_fraction
+            self.up_gain_ratio_float * 2**self.num_bits_gain_fraction
         ).astype(np.int64)
 
         # case 2: when gain decreases
         self.down_gain_ratio_float = self.pga_gain_vec[:-1] / self.pga_gain_vec[1:]
         self.down_gain_ratio = np.fix(
-            self.down_gain_ratio_float * 2 ** self.num_bits_gain_fraction
+            self.down_gain_ratio_float * 2**self.num_bits_gain_fraction
         ).astype(np.int64)
 
         self.reset()
@@ -159,17 +159,17 @@ class GainSmootherFPGA:
         # set the high and low resolution gain values
         self.gain_high_res = 1 << (self.avg_bitshift + self.num_bits_gain_fraction)
         self.gain = self.gain_high_res >> self.avg_bitshift
-        self.float_gain = self.gain / (2 ** self.num_bits_gain_fraction)
+        self.float_gain = self.gain / (2**self.num_bits_gain_fraction)
 
         # reset the state
         self.state = {}
 
     def evolve(
-            self,
-            audio: int,
-            time_in: float,
-            pga_gain_index: int,
-            record: bool = False,
+        self,
+        audio: int,
+        time_in: float,
+        pga_gain_index: int,
+        record: bool = False,
     ):
         """this module process the signal coming from the AGC and tries to smooth it out to avoid gain jumps.
 
@@ -202,7 +202,7 @@ class GainSmootherFPGA:
             # integer gain to be used
             self.gain_high_res = 1 << (self.avg_bitshift + self.num_bits_gain_fraction)
             self.gain = self.gain_high_res >> self.avg_bitshift
-            self.float_gain = self.gain / (2 ** self.num_bits_gain_fraction)
+            self.float_gain = self.gain / (2**self.num_bits_gain_fraction)
 
             # set the gain index
             self.pga_current_gain_index = 0
@@ -239,11 +239,11 @@ class GainSmootherFPGA:
                 # * gain has increased: so we need to attenuate the sigal at first (based on the previous/current gain index)
                 # NOTE: for example, if index changes from current_gain_index:0 -> pga_gain_index:1, we need to scale the signal by pga_gain_vec[0]/pga_gain_vec[1] -> down_gain_ratio[0 => current_gain_index]
                 self.gain_high_res = (
-                        self.down_gain_ratio[self.pga_current_gain_index]
-                        << self.avg_bitshift
+                    self.down_gain_ratio[self.pga_current_gain_index]
+                    << self.avg_bitshift
                 )
                 self.gain = self.gain_high_res >> self.avg_bitshift
-                self.float_gain = self.gain / (2 ** self.num_bits_gain_fraction)
+                self.float_gain = self.gain / (2**self.num_bits_gain_fraction)
 
                 # NOTE: adjust the gain index after computing the `gain_high_res`
                 self.pga_current_gain_index = pga_gain_index
@@ -256,22 +256,22 @@ class GainSmootherFPGA:
 
                 # adjust the gain
                 self.gain_high_res = (
-                        self.up_gain_ratio[self.pga_current_gain_index] << self.avg_bitshift
+                    self.up_gain_ratio[self.pga_current_gain_index] << self.avg_bitshift
                 )
                 self.gain = self.gain_high_res >> self.avg_bitshift
-                self.float_gain = self.gain / (2 ** self.num_bits_gain_fraction)
+                self.float_gain = self.gain / (2**self.num_bits_gain_fraction)
 
         else:
             # gain has not changed in the mean time
             # continue to evolve the high-res gain value according to low-pass filter dynamics
             # NOTE: our final target relative gain is always 1.0 so that the new gain settles down.
             self.gain_high_res = (
-                    self.gain_high_res
-                    - (self.gain_high_res >> self.avg_bitshift)
-                    + (1 << self.num_bits_gain_fraction)
+                self.gain_high_res
+                - (self.gain_high_res >> self.avg_bitshift)
+                + (1 << self.num_bits_gain_fraction)
             )
             self.gain = self.gain_high_res >> self.avg_bitshift
-            self.float_gain = self.gain / (2 ** self.num_bits_gain_fraction)
+            self.float_gain = self.gain / (2**self.num_bits_gain_fraction)
 
         # compute output audio signal always with the updated gain
         audio_out = (audio * self.gain) >> self.num_bits_gain_fraction
@@ -312,22 +312,22 @@ class GainSmootherFPGA:
     def __repr__(self) -> str:
         # a simple string representation of the gain smoother
         string = (
-                "+" * 100
-                + "\n"
-                + "Gain smoother module:\n"
-                + f"clock rate:{self.fs}\n"
-                + f"designed for PGA gain vector:\n{self.pga_gain_vec}\n"
-                + f"number of bits in input signal coming from ADC: {self.num_bits}\n"
-                + f"designed for minimum waiting time: {self.min_waiting_time} sec with {self.min_waiting_num_samples} samples\n"
-                + f"number of bits used in quantizing the gain ratio at the transition time\n"
-                + f"\ttotal number of bits used for gain quantization: {self.num_bits_gain_quantization}\n"
-                + f"\tfractional bits: {self.num_bits_gain_fraction}\n"
-                + f"\tinteger bits: {self.num_bits_gain_integer}\n"
-                + f"number of bits used in gain smoothing filter: {self.avg_bitshift}\n"
-                + f"up-gain ratio vector before quantization:\n{self.up_gain_ratio_float}\n"
-                + f"up-gain ratio vector after quantization:\n{self.up_gain_ratio}\n"
-                + f"down-gain ratio vector before quantization:\n{self.down_gain_ratio_float}\n"
-                + f"down-gain ratio vector after quantization:\n{self.down_gain_ratio}\n"
+            "+" * 100
+            + "\n"
+            + "Gain smoother module:\n"
+            + f"clock rate:{self.fs}\n"
+            + f"designed for PGA gain vector:\n{self.pga_gain_vec}\n"
+            + f"number of bits in input signal coming from ADC: {self.num_bits}\n"
+            + f"designed for minimum waiting time: {self.min_waiting_time} sec with {self.min_waiting_num_samples} samples\n"
+            + f"number of bits used in quantizing the gain ratio at the transition time\n"
+            + f"\ttotal number of bits used for gain quantization: {self.num_bits_gain_quantization}\n"
+            + f"\tfractional bits: {self.num_bits_gain_fraction}\n"
+            + f"\tinteger bits: {self.num_bits_gain_integer}\n"
+            + f"number of bits used in gain smoothing filter: {self.avg_bitshift}\n"
+            + f"up-gain ratio vector before quantization:\n{self.up_gain_ratio_float}\n"
+            + f"up-gain ratio vector after quantization:\n{self.up_gain_ratio}\n"
+            + f"down-gain ratio vector before quantization:\n{self.down_gain_ratio_float}\n"
+            + f"down-gain ratio vector after quantization:\n{self.down_gain_ratio}\n"
         )
 
         return string
