@@ -1,14 +1,8 @@
-# -----------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 # This module implements a simple model of the amplifier as a high-pass module
-# with possibility to switch the amplitudes abruptly.
+# with possibility to switch the amplitudes abruptly if its gain changes.
 #
-#
-# (C) Saeid Haghighatshoar
-# email: saeid.haghighatshoar@synsense.ai
-#
-#
-# last update: 11.04.2023
-# -----------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,7 +12,7 @@ import warnings
 
 
 # ===========================================================================
-# *    some constants defined according to Xylo-A3 specficiations
+# *    some constants defined according to Xylo-A3 specifications
 # ===========================================================================s
 from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.xylo_a3_agc_specs import (
     AUDIO_SAMPLING_RATE,
@@ -174,7 +168,7 @@ class Amplifier:
             record (bool, optional): record the state during the simulation. Defaults to False.
         """
 
-        # check if PGA is in frozen-gain mode and if yes ignore the comand received from envelope-controller module.
+        # check if PGA is in frozen-gain mode and if yes ignore the command received from envelope-controller module.
         if self.fixed_gain_for_PGA_mode:
             pga_command = self.pga_command_in_fixed_gain_for_PGA_mode
 

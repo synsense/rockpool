@@ -1,14 +1,7 @@
-# -----------------------------------------------------------
-# This module implements a new controller for adjusting the gain based on the
-# envelope detection of the input signal.
+# ----------------------------------------------------------------------------------------------------------------------
+# This module implements a new controller for adjusting the gain based on the envelope detection of the input signal.
 #
-#
-# (C) Saeid Haghighatshoar
-# email: saeid.haghighatshoar@synsense.ai
-#
-#
-# last update: 14.06.2023
-# -----------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 
 
 import numpy as np
@@ -86,7 +79,7 @@ class EnvelopeController:
             or np.any(amplitude_thresholds >= 2 ** (self.num_bits - 1))
         ):
             raise ValueError(
-                f"Amplitude thresholds should be an increasing sequenceue of length {2**num_bits_command} with elements in the range [0, {2**(self.num_bits-1)-1}]!"
+                f"Amplitude thresholds should be an increasing sequence of length {2**num_bits_command} with elements in the range [0, {2**(self.num_bits-1)-1}]!"
             )
 
         self.amp_thresholds = amplitude_thresholds
@@ -103,7 +96,7 @@ class EnvelopeController:
             )
 
         # number of signal samples received during rise period -> quantize it into a power of two
-        # NOTE: we changed it slightly so that the number of fall samples does not chnage with gain ratio
+        # NOTE: we changed it slightly so that the number of fall samples does not change with gain ratio
         # num_rise_samples = rise_time_constant * fs * np.log(gain_ratio)
         num_rise_samples = rise_time_constant * fs
         self.num_rise_samples = int(2 ** np.ceil(np.log2(num_rise_samples)))
@@ -168,7 +161,7 @@ class EnvelopeController:
         # ===========================================================================
         #         Specify how much pga_gain_index needs to be varied
         # ===========================================================================
-        # NOTE: this variation simply oppurtunistic in the sense that it sepecifies how much jump in amplitude is desired but it may not be fulfilled.
+        # NOTE: this variation simply opportunistic in the sense that it specifies how much jump in amplitude is desired but it may not be fulfilled.
         # For example, suppose signal is very strong and the command is already set to the lowest value b0000 (for 4-bit command).
         # In such a case, if the signal is in saturation mode, we may request a gain decrease by setting `pga_gain_index_variation = -1` but this is not
         # of course fulfilled since the gain is already in its lowest level.
@@ -357,7 +350,7 @@ class EnvelopeController:
             # gain-index goes to the PGA
             self.state["pga_gain_index"].append(self.pga_gain_index)
 
-        # * becuase of the one-clock delay to the output we record the past gain and gain index values
+        # * because of the one-clock delay to the output we record the past gain and gain index values
         pga_gain_index_to_be_sent_out = self.pga_gain_index
 
         # NOTE: from this point on we need to check saturation and non-saturation regions
@@ -401,7 +394,7 @@ class EnvelopeController:
                 or updated_max_envelope_index < 0
             ):
                 raise ValueError(
-                    "the maximum enevlope index after jump should be valid index! This might be caused by a flow in the AGC jump pattern!"
+                    "the maximum envelope index after jump should be valid index! This might be caused by a flow in the AGC jump pattern!"
                 )
 
             # step 2: since envelope drops very slowly, update the envelope by setting it to a lower value than the satureation level
@@ -489,7 +482,7 @@ class EnvelopeController:
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         """
-        this is the same as evolve function.
+        this is the same as `evolve` function.
         """
         return self.evolve(*args, **kwargs)
 

@@ -1,30 +1,8 @@
-# -----------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 # This module implements the digital filterbank in Xylo-A3 chip.
-# This is the first version of Xylo chip in which the analog filters
-# have been replaced with the digital ones.
+# This is the first version of Xylo chip in which the analog filters have been replaced with the digital ones.
 #
-#
-#
-# (C) Saeid Haghighatshoar
-# email: saeid.haghighatshoar@synsense.ai
-#
-#
-# last update: 19.01.2023
-# -----------------------------------------------------------
-
-# FIXME:
-# (i) at the moment in MA part of the filter I dot get rid of B_wf bits that was added at the start of the filter to get rid of dead zone.
-# It would be better to keep these B_wf bits to have a better bit resolution especially for the first filter.
-# I need to finalize this with Sunil.
-
-
-# FIXME: I need to take into account 4 additional bits in PDM ADC.
-
-# FIXME: what should we do with removing right bitshift in the filters due to B_wf left bitshift we did to avoid dead zone.
-#        I need to add this to all the filters. And also adjust the filters parameters.
-
-# FIXME: In the jax version, I dod not do any over- and under-flow check according to the filter params designed according to the worst case analysis.
-#        I need to add this although it would be useless because filters are implemented in the float32 version.
+# ----------------------------------------------------------------------------------------------------------------------
 
 
 # required packages
@@ -83,8 +61,8 @@ def type_check(func):
             ):
                 raise ValueError(
                     f"The elements of the following variable are not of type {valid_types}. This may cause mismatch between hardware and python implementation.\n"
-                    + f"problem with the follpowing variable:\n{input}\n"
-                    + f"To solve the problem make sure that all the arrays have `dtype in {valid_types}`."
+                    + f"issue with the following variable:\n{input}\n"
+                    + f"To solve this issue make sure that all the arrays have `dtype in {valid_types}`."
                 )
 
         return
@@ -135,20 +113,17 @@ class BlockDiagram:
 
 class ChipButterworth(Module):
     """
-    Implement a simulaiton module for a digital Butterworth filterbank
+    Implement a simulation module for a digital Butterworth filterbank.
     """
 
     def __init__(self, shape: Union[int, Tuple[int]] = NUM_FILETRS):
         """
         This class builds the block-diagram version of the filters, which is exactly as it is done in FPGA.
-        The propsoed filters are candidates that may be chosen for preprocessing of the audio data.
+        The proposed filters are candidates that may be chosen for preprocessing of the audio data.
         """
         super().__init__(shape=shape)
 
-        # number of bits needed for quantization
-        # self.numQBF_w = 24 # Is this B_A???
-
-        # self.size_out: P_int = Parameter(NUM_FILETRS)
+        # list of block-diagram representations corresponding to the filters
         self.bd_list = []
 
         # ========================================#
@@ -487,8 +462,8 @@ class ChipButterworth(Module):
         w = [0, 0, 0]
 
         for sig in sig_in:
-            # NOTE: Here we assume that AR part uses the latched/gated version of the filter at its ouput.
-            # we have used the same convention for jax version
+            # NOTE: Here we assume that AR part uses the latched/gated version of the filter at its output.
+            # we have used the same convention for jax version.
             output.append(w[0])
 
             # computation after the clock
@@ -534,13 +509,6 @@ class ChipButterworth(Module):
         sig_out = bd.b[0] * sig_in
         sig_out[2:] = sig_out[2:] + bd.b[2] * sig_in[:-2]
 
-        # apply the last B_wf bitshift to get rid of additional scaling needed to avoid dead-zone in the AR part
-        # NOTE: we need to bitshift by B_wf (=8 bits here for all the filters) to get rid of the left-bitshift that we had added to avoid dead-zone in the filter
-        #       After discussing with the hardware team we decided to not do this to have a better resolution at the output.
-        #       This implies that the low-pass filter, thresholds, etc. in the DN and spike generation part also needs to be increased by 8 bits.
-        #
-        # sig_out = sig_out >> bd.B_wf
-
         # check the validity of the computed output
         if np.max(np.abs(sig_out)) >= 2 ** (bd.B_out - 1):
             raise OverflowError(
@@ -575,7 +543,8 @@ class ChipButterworth(Module):
 
     def _filter_iter(self, args_tuple):
         """
-        this is the the same `_filter` function with the difference that it maps on a single argument which contains a tuple of other arguments.
+        this is the the same as `_filter` function with the difference that it maps on a single argument which contains a tuple of other arguments.
+        This is used then in the multi-processing version of the filter needed for further speedup.
         """
         return self._filter(*args_tuple)
 
@@ -596,7 +565,7 @@ class ChipButterworth(Module):
         Args:
             sig_in (np.ndarray): integer-valued input signal.
             record (bool, optional): record the state of the filter (AR part). Defaults to False.
-            num_workers (int): number of independent processes (noth threads) used to compute the filte faster. Defaults to 1 (4 workers).
+            num_workers (int): number of independent processes (or threads) used to compute the filters faster. Defaults to 4 (4 workers).
             scale_out (bool, optional): add the surplus scaling due to `b` normalization.
             NOTE: this is due to the fact that after integer-quantization, one may still need to scale
             the filter output by some value in the range [0.5, 1.0] to obtain the final output. Defaults to False.
@@ -648,7 +617,7 @@ class ChipButterworth(Module):
                 # use the multi-processing version
                 # NOTE: this is unstable sometimes: processes start but they do not return any output
 
-                # create an executer
+                # create an executor
                 with ProcessPoolExecutor(max_workers=num_workers) as PPE:
                     # obtain the results
                     results = PPE.map(self._filter_iter, args_iter)
@@ -678,12 +647,12 @@ class ChipButterworth(Module):
 
         return sig_out, self.state(), recording
 
-    # # add the call version for further convenience
-    # def __call__(self, *args, **kwargs):
-    #     """
-    #     This function simply calls the `evolve()` function and is added for further convenience.
-    #     """
-    #     return self.evolve(*args, **kwargs)
+    # add the call version for further convenience
+    def __call__(self, *args, **kwargs):
+        """
+        This function simply calls the `evolve()` function and is added for further convenience.
+        """
+        return self.evolve(*args, **kwargs)
 
     # utility functions
     def _info(self) -> str:
@@ -724,12 +693,10 @@ try:
     ) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
         """this function implements the filters in jax with float32 format.
 
-        NOTE: To have the exact chip version, one need to implement the filters in integer format.
+        NOTE: To have the exact chip version, one needs to implement the filters in integer format.
         But with jax int32 there might be high chance for over-flow and under-flow. So we decided to use only float32 version.
 
-        The problem with flost32 is that there might be a slight difference between software and hardware version.
-
-
+        The problem with float32, in contrast, is that there might be a slight difference between software and hardware version.
 
         Args:
             sig_in (np.ndarray): quantized input signal.
@@ -757,7 +724,8 @@ try:
         b_list = jnp.asarray(b_list, dtype=jnp.float32)
         scale_out_list = jnp.asarray(scale_out_list, dtype=jnp.float32)
 
-        # number of states in AR part of the filter: 2 due to order 1 filters + 1 (assuming that we latch the state at the output of AR filter -> then feed to AR)
+        # number of states in AR part of the filter: 2 due to order 1 filters + 1
+        # assuming that we latch the state at the output of AR filter -> then feed to AR
         NUM_STATE_AR = 2 + 1
 
         @partial(jax.jit, static_argnums=(6,))
@@ -785,7 +753,7 @@ try:
                 # find the next state after bitshift by Bb -> the next state is going to be loaded in the next clock
                 next_state = merged_input / 2**Bb_list
 
-                ## compute the next state
+                # compute the next state
                 state_out = jnp.zeros_like(state_in)
 
                 # first shift right when the clock comes -> then replace the new value into the state
@@ -804,7 +772,7 @@ try:
                 # if states needed to be recorded -> consider states as part of the output
                 output = (sig_out, state_out) if record else (sig_out,)
 
-                return (state_out, output)
+                return state_out, output
 
             # apply the forward to compute
             final_state, output = jax.lax.scan(forward, init_state, sig_in)
@@ -842,7 +810,7 @@ try:
 
 except ModuleNotFoundError as e:
     info(
-        "No jax module was found for filter implementation. Filterbank will use python version (multi-procesing version).\n"
+        "No jax module was found for filter implementation. Filterbank will use python version (multi-processing version).\n"
         + str(e)
     )
 

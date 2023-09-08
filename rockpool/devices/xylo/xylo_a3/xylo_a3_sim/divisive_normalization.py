@@ -1,14 +1,14 @@
-# -------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 # This module implements the divisive normalization (DN) algorithm to balance the spike rate.
 #
 # NOTE: In the previous version Xylo-A2, DN module was after the spike generation because spikes
 # were produced asynchronously within the analog part (analog filter + leaky IF spike generator).
 #
 # In the current version Xylo-A3 since the output of the filters (here digital filters) is directly
-# available, one does not need to do (i) spike generation => (ii) DN on the generated spikes.
+# available, one does not need to do (i) spike generation followed by (ii) DN on the generated spikes.
 #
 # Instead, we merge these two so that DN is applied directly to the filter output to normalize its
-# power, which has a better performance than DN applied to spikes.
+# power, which yields a better performance than DN applied to spikes.
 #
 # NOTE: There is of course an option to NOT apply DN where in that case, spikes are produced using
 # ordinary IAF with given/fixed thresholds rather than adaptive ones computed and used in DN.
@@ -17,30 +17,17 @@
 # to the following repo and documentation:
 # https://spinystellate.office.synsense.ai/research/auditoryprocessing/synchronous-divisive-normalization
 #
-#
-#
-#
-# (C) Saeid Haghighatshoar
-# email: saeid.haghighatshoar@synsense.ai
-#
-#
-# last update: 20.01.2023
-# ------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 
-# FIXME: don't forget to activate the jax flag again otherwise DN will always use python vresion.
-
-# FIXME: In the current version of DN, we have a scaling of threshold which is a power of two. This implies that the threshold of DN
+# Important Remarks:
+#
+# (i) don't forget to activate the jax flag again otherwise DN will always use python vresion.
+#
+# (ii) In the current version of DN, we have a scaling of threshold which is a power of two. This implies that the threshold of DN
 # thus the spike rate moves in steps of power of 2:
-# we should replace this by the difference of two bit-shifts such that we can cover a more flexible range of spike rates.
-# this was fixed and needs more testing to make sure that it ios working.
-
-# FIXME: I added a global spike rating across channels such that the relative ratio/scale between various channels is still preserved
-# after DN.
-
-# FIXME: the surplus scaling of the filters is not added in the filterbank. This simply means that they should be added in thresholds we use for DN
-# I need to add them somehow. Maybe I should talk with Dylan, etc. to see what is the best way to include this, so that it does not become confusing later.
-# After discussion with Sunil, I think it is a good idea if we consider weighted spikes (not good for per-channel DN) or return joint spike and weights as the
-# output. This makes sure that we have no issues.
+# we replaced this by the difference of two bit-shifts so that we can cover a more flexible range of spike rates.
+#
+# (iii) the surplus scaling of the filters is not added in the filterbank. This simply means that they should be added in thresholds we use for DN.
 
 
 # required packages
@@ -61,9 +48,6 @@ import warnings
 
 from logging import debug, info
 
-# info = print
-# debug = print
-
 from typing import Union, Tuple, List, Dict
 from rockpool.typehints import P_int, P_ndarray, P_float
 
@@ -73,7 +57,7 @@ __all__ = ["DivisiveNormalization", "jax_spike_gen", "fjax_spike_gen", "py_spike
 
 class DivisiveNormalization(Module):
     """
-    This class implments a divisive normalisation module for Xylo-A3
+    This class implements a divisive normalisation module for Xylo-A3.
     """
 
     def __init__(
@@ -103,7 +87,7 @@ class DivisiveNormalization(Module):
             low_pass_bitshift (int): number of bitshifts used in filter implementation. A bitshift of size `b` implies an averaging window of `2^b` clock periods. Defaults to 12.
             NOTE: The default value of 12, implies an averaging window of size 4096 clock periods. For an audio of clock rate 50K, this yields an averaging window of size 80 ms.
 
-            EPS_vec (Union[int, np.ndarray]): lower bound on spike generation threshold. Dafaults to 1 when not set.
+            EPS_vec (Union[int, np.ndarray]): lower bound on spike generation threshold. Defaults to 1 when not set.
             NOTE: Using this parameter we can control the noise level in the sense that if average power in a channel is less than EPS, the spike rate of that channel is somehow diminished
             during spike generation. We refer to the documentation file (see the top part) for further explanation.
 
@@ -205,28 +189,12 @@ class DivisiveNormalization(Module):
                 + f"from the numbers of channels ({self.size_out} in DN module!"
             )
 
-        # if isinstance(enable_DN_channel, Number):
-        #     if enable_DN_channel not in {0, 1}:
-        #         raise ValueError(
-        #             "mode can have only values {0,1}: 0 => fixed-threshold mode, 1 => divisive normalization mode"
-        #         )
-
-        #     enable_DN_channel = (enable_DN_channel * np.ones(num_channels)).astype(np.int64)
-
-        # else:
-        #     if len(set(np.unique(enable_DN_channel)) - {0, 1}) != 0:
-        #         raise ValueError(
-        #             "mode can have only values {0,1}: 0 => fixed-threshold mode, 1 => divisive normalization mode"
-        #         )
-
-        #     enable_DN_channel = np.asarray(enable_DN_channel, dtype=np.int64)
-
-        # check if jax is availble
+        # check if jax is available
         if JAX_SPIKE_GEN:
             ## use jax version:
             # we have int32 and float32 version:
             #       - former matches the python version exactly but may have over- and under-flow issues due to int32 limitation in jax.
-            #       - latter may have deviation from python version, e.g., spike times may be shifted sligtly, which would be fine for applications in Xylo-A3.
+            #       - latter may have deviation from python version, e.g., spike times may be shifted slightly, which would be fine for applications in Xylo-A3.
 
             # check if int32 version is ok
 
@@ -246,7 +214,7 @@ class DivisiveNormalization(Module):
                 info(
                     "Jax float32 was chosen for spike generation.\n\n"
                     + f"NOTE #1: Since Jax has only 32 bit for integer simulation, it could not simulate the current divisive normalization setting. More specifically, the amplitude of the low-pass filter can go up to {max_low_pass_value} in channel {max_low_pass_channel}. This cannot be simulated with 32-bit integer format.\n\n"
-                    + "NOTE #2: Jax float32 should be sufficiently good for Xylo-A3 simulation but it has the issues that the gnerated spikes may have some jitter compared with the exact integer version obtained from the Xylo-A3 chip. However, the average rate of spikes even over very small time intervals should be the same as exact integer version. This jitter simply implies that spikes should not be comapred with MSE distance, for example, because jitter may yield a very large distance, whereas the spikes are indeed quite similar.\n"
+                    + "NOTE #2: Jax float32 should be sufficiently good for Xylo-A3 simulation but it has the issues that the generated spikes may have some jitter compared with the exact integer version obtained from the Xylo-A3 chip. However, the average rate of spikes even over very small time intervals should be the same as exact integer version. This jitter simply implies that spikes should not be compared with MSE distance, for example, because jitter may yield a very large distance, whereas the spikes are indeed quite similar.\n"
                     + "Other metrics such as Wasserstein metric should be good in this case."
                 )
 
@@ -320,7 +288,7 @@ try:
     import jax
     import jax.numpy as jnp
 
-    # NOTE: this function implements DN using the integer version of jax, which is unfortnately still 32-bit.
+    # NOTE: this function implements DN using the integer version of jax, which is unfortunately still 32-bit.
     # This is in general fine when the input comes from the filterbank filters.
     # The only problem is that in the filterbank we have this initial bitshift to avoid deadzone which makes the input 14 + 8 = 22 bits.
     # So there is only 10 bits left to avoid any over- and under-flow.
@@ -365,9 +333,7 @@ try:
         #   (ii)    make them time x channel so that they fit in jax compilation model
 
         sig_in = jnp.asarray(sig_in, dtype=jnp.int64)
-        # mode_vec = jnp.asarray(np.ones((T,1)) * mode_vec.reshape(1,-1), dtype=jnp.int64)
-        # EPS_vec = jnp.asarray(np.ones((T,1)) * (EPS_vec.reshape(1,-1)), dtype=jnp.int64)
-        # fixed_threshold_vec = jnp.asarray(np.ones((T,1)) * fixed_threshold_vec.reshape(1,-1), dtype=jnp.int64)
+
         mode_vec = jnp.asarray(mode_vec, dtype=jnp.int64)
         EPS_vec = jnp.asarray(EPS_vec, dtype=jnp.int64)
         fixed_threshold_vec = jnp.asarray(fixed_threshold_vec, dtype=jnp.int64)
@@ -747,10 +713,6 @@ except ModuleNotFoundError as e:
         f"jax module was not found! Using python version for DN and spike generation.\n{e}\n",
     )
     JAX_SPIKE_GEN = False
-
-
-# deactivate jax version for the moment [Debug]
-# JAX_SPIKE_GEN = False
 
 
 # we always implement the python version

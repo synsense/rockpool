@@ -2,12 +2,12 @@
 # This module implements the ADC as a state machine.
 #
 #
-# NOTE: this modules consists of a possibly oversampled ADC followed by an nti-aliasing and decimation filter implemented in the digital domain.
+# NOTE: this modules consists of a possibly oversampled ADC followed by an anti-aliasing and decimation filter implemented in the digital domain.
 #
-# The anti-aliaisng filter is implemented as an IIR low-pass filter + decimation via some fine tuned optimization.
+# The anti-aliaisng filter is implemented as an IIR low-pass filter + decimation via some fine-tuning and optimization.
 #
 # NOTE: This module contains the block-diagram implementation of the filter to make sure that it is compatible with Hardware.
-#       To design this filter, we apply optimization to reduce the aliasing nosie due to sampling as much as possible.
+#       To design this filter, we apply optimization to reduce the aliasing noise due to sampling as much as possible.
 #       We use the class of IIR Elliptic filters to get the sharpest transition and smallest aliasing noise.
 #       Also we use an optimized truncation method so that:
 #           - the dynamic range of the ADC does not drop due to worst-case vs. average case amplitude gain of the filter.
@@ -16,14 +16,6 @@
 #       For further details on the implementation of this filter and its performance evaluation, please refer to the original design repo
 #       https://spinystellate.office.synsense.ai/saeid.haghighatshoar/anti-aliasing-filter-for-xylo-a2
 #
-#
-#
-# (C) Saeid Haghighatshoar
-# email: saeid.haghighatshoar@synsense.ai
-#
-#
-#
-# last update: 14.06.2023
 # ----------------------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -32,7 +24,7 @@ __all__ = ["ADC"]
 
 
 # ===========================================================================
-# *    some constants defined according to Xylo-A3 specficiations
+# *    some constants defined according to Xylo-A3 specifications
 # ===========================================================================
 from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.xylo_a3_agc_specs import (
     XYLO_MAX_AMP,
@@ -105,7 +97,7 @@ class BlockDiagram:
 bd_oversampling_0 = None
 
 # note for oversampling 1, we use just a dummy filter (it passes the signal without any filtering)
-# this would be simply equibvalent to an ordinary ADC without additional aliasing reducntion via oversampling
+# this would be simply equivalent to an ordinary ADC without additional aliasing reduction via oversampling
 bd_oversampling_1 = BlockDiagram(
     adc_oversampling_factor=2,
     fs=1 * AUDIO_SAMPLING_RATE,
@@ -418,7 +410,7 @@ class ADC:
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         """
-        this is the same ads evolve function.
+        this is the same as `evolve` function.
         """
         return self.evolve(*args, **kwargs)
 

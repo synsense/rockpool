@@ -1,19 +1,13 @@
-# -----------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 # This module contains the design specs for Xylo-A3 and the AGC module.
 #
-#
-# (C) Saeid Haghighatshoar
-# email: saeid.haghighatshoar@synsense.ai
-#
-#
-# last update: 14.06.2023
-# -----------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 
 import numpy as np
 
 
 # ===========================================================================
-# *    some constants defined according to Xylo-A3 specficiations
+# *    some constants defined according to Xylo-A3 specifications
 # ===========================================================================
 # NOTE: We refer to the following documentation file for further details on the design
 # https://spinystellate.office.synsense.ai/saeid.haghighatshoar/agc-for-xylo-v3/blob/master/README.md
@@ -96,7 +90,7 @@ DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE = 2**NUM_BITS_COMMAND - 1
 RISE_TIME_CONSTANT = 0.1e-3
 FALL_TIME_CONSTANT = 300e-3
 
-# * what is the saturation level boundry
+# * what is the saturation level boundary
 # NOTE: we should set the saturation level a little bit lower for two reasons
 #       (i)  when it is low, the system is more cautious and, when the signal becomes strong suddenly, goes outside saturation very fast.
 #       (ii) at the moment, we are using an oversampled ADC with decimation filter where as a result of processing, the quantized signal may not have full rail-to-rail dynamics
@@ -108,7 +102,7 @@ SATURATION_LEVEL = int(2 ** (NUM_BITS_ADC - 1) * 0.7)
 # so for a 4-bit command, we have 16 + 1 = 17 regions
 # However since we never WAIT in the saturation region, we have only 16 waiting times.
 # NOTE (2): we design a square-root pattern for waiting times such that waiting times are larger for larger amplitude levels
-# The retionale is that at those cases the signal is large enough and we should be patient and cautious in amplifying the signal
+# The rationale is that at those cases the signal is large enough and we should be patient and cautious in amplifying the signal
 # since we may push it into saturation region.
 WAITING_TIME_VEC = FALL_TIME_CONSTANT * np.sqrt(np.arange(1, 2**NUM_BITS_COMMAND + 1))
 
@@ -132,10 +126,10 @@ RELIABLE_MAX_HYSTERESIS = max([2, int(2 ** (NUM_BITS_ADC - 1) / 100)])
 #       - [-1] in saturation mode to push the signal outside saturation.
 #       - [0 ] in the next two lower amplitude levels to stop over amplification when the signal amplitude changes very fast.
 #       - [+1] in the lower amplitude levels to keep amplifying the signal.
-# NOTE (3): These numbers are oppurtunistic in the sense that a requested gain change may be fulfilled if there is resources in PGA.
+# NOTE (3): These numbers are opportunistic in the sense that a requested gain change may be fulfilled if there is resources in PGA.
 # More specifically, if the signal is very weak and PGA uses the maximum gain to amplify it but the signal is still very weak, EC may request increasing gain
 # but since already all the gain is used up, this will be ignored by PGA.
-# NOTE (4): This design guarrantees a good AGC performance when the first/fixed amplifier is designed properly such that it does not force the signal into saturation level or
+# NOTE (4): This design guarantees a good AGC performance when the first/fixed amplifier is designed properly such that it does not force the signal into saturation level or
 # weak below-noise level.
 
 # * default gain variation
