@@ -56,8 +56,6 @@ unit_tests_known_good:
 
   before_script:
     - pip install --upgrade pip
-    - pip install --upgrade ".[all]" --no-cache-dir
-    - python -c 'import samna'
     - pip install --upgrade sinabs-exodus --no-cache-dir || exit_code=$?
     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
 
