@@ -1,5 +1,5 @@
 default:
-  image: "registry.gitlab.com/synsense/rockpool/known_good:latest"
+  image: "registry.gitlab.com/synsense/rockpool/clean:latest"
 
 stages:
   - preliminaries
