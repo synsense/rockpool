@@ -52,7 +52,7 @@ unit_tests_known_good:
   image: "registry.gitlab.com/synsense/rockpool/known_good:latest"
   tags:
     - cuda
-  parallel: 4
+  # parallel: 4
 
   before_script:
     - pip install --upgrade pip
