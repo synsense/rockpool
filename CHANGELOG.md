@@ -25,7 +25,9 @@ All notable changes between Rockpool releases will be documented in this file.
   * `IMUData` module: Collection of sensor data from the onboard IMU sensor.
   * Utility functions for network mapping to the Xylo IMU HDK, interfacing, and data processing.
   * Introductory documentation providing an overview of Xylo IMU and instructions on configuring preprocessing.
-
+* New losses, with structure similar to PyTorch.
+  * PeakLoss which can be imported as `peak_loss = rockpool.nn.losses.PeakLoss()`.
+  * MSELoss which can be imported as  `mse_loss = rockpool.nn.losses.MSELoss()`.
 
 ### Changed
 
@@ -77,7 +79,7 @@ All notable changes between Rockpool releases will be documented in this file.
 * Added initial developer documentation
 * Added MNIST tutorial
 * Fixed notebook links to MyBinder.org
-* added PeakLoss which can be imported as `peak_loss = rockpool.nn.losses.PeakLoss()`.
+
 
 ### Changed
 
