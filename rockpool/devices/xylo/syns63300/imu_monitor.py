@@ -48,7 +48,7 @@ class XyloIMUMonitor(Module):
 
     .. Warning::
 
-        :py:class:`.XyloIMUMonitor` blocks FPGA access to the IMU sensor on the Xylo HDK, if ``prerecorded_imu_inpu = False``, becuase it connects the IMU sensor directly to Xylo.
+        :py:class:`.XyloIMUMonitor` blocks FPGA access to the IMU sensor on the Xylo HDK, if ``prerecorded_imu_input = False``, because it connects the IMU sensor directly to Xylo.
         This means that other modules such as :py:class:`.IMUData` that attempt to connect to the IMU sensor may fail.
 
         :py:class:`.XyloIMUMonitor` will reset the HDK on deletion, releasing the IMU sensor for use.
