@@ -38,15 +38,18 @@ class PeakLoss(_Loss):
 
         :param max_interval: window size of loss function
         :param weight_nontarget: scaling factor of loss calculated from non-target neurons
-        :param target_threshold: target output signal of target neuron
+        :param target_output: target output signal of target neuron
         """
 
-        super().__init__(weight_nontarget=weight_nontarget)
+        super().__init__()
         self.max_interval = max_interval
         self.weight_nontarget = weight_nontarget
         self.target_output = target_output
         self.nontarget_output = nontarget_output
         self.mse = nn.MSELoss()
+        self.loss = 0
+        self.loss_target = 0
+        self.loss_nontarget = 0
 
     def log_params(self, parser) -> None:
         params = [
@@ -57,7 +60,7 @@ class PeakLoss(_Loss):
         for key, value in params:
             parser.add_argument("--" + key, type=type(value), default=value)
 
-    def loss_target(self, prediction: Tensor, target: Tensor) -> Tensor:
+    def calculate_loss_target(self, prediction: Tensor, target: Tensor) -> None:
         nr_samples = prediction.size()[0]
         nr_time_steps = prediction.size()[1]
         batch_indices = torch.arange(nr_samples).long()
@@ -82,12 +85,12 @@ class PeakLoss(_Loss):
             )
 
         # target readout neuron should be active
-        return self.mse(
+        self.loss_target = self.mse(
             prediction_max_target,
             torch.ones_like(prediction_max_target) * self.target_output,
         )
 
-    def loss_nontarget(self, prediction: Tensor, target: Tensor) -> Tensor:
+    def calculate_loss_nontarget(self, prediction: Tensor, target: Tensor) -> None:
         n_classes = prediction.size()[2]
         nr_samples = prediction.size()[0]
         batch_indices = torch.arange(nr_samples).long()
@@ -102,15 +105,15 @@ class PeakLoss(_Loss):
                 prediction_nontarget, torch.zeros_like(prediction_nontarget)
             )
 
-        return loss / (n_classes - 1)
+        self.loss_nontarget = loss / (n_classes - 1)
 
-    def forward(self, prediction: Tensor, target: Tensor) -> List[Tensor]:
-        loss_target = self.loss_target(prediction, target)
-        loss_nontarget = self.loss_nontarget(prediction, target)
+    def forward(self, prediction: Tensor, target: Tensor) -> float:
+        self.calculate_loss_target(prediction, target)
+        self.calculate_loss_nontarget(prediction, target)
 
         # add losses
-        loss = loss_target + self.weight_nontarget * loss_nontarget
-        return loss, loss_target, loss_nontarget
+        self.loss = self.loss_target + self.weight_nontarget * self.loss_nontarget
+        return self.loss
 
 
 class BinaryPeakLoss(_Loss):
@@ -142,15 +145,18 @@ class BinaryPeakLoss(_Loss):
 
         :param max_interval: window size of loss function
         :param weight_nontarget: scaling factor of loss calculated from negative samples
-        :param target_threshold: target output signal of target neuron
+        :param target_output: target output signal of target neuron
         """
 
-        super().__init__(weight_nontarget=weight_nontarget)
+        super().__init__()
         self.max_interval = max_interval
         self.weight_nontarget = weight_nontarget
         self.target_output = target_output
         self.nontarget_output = nontarget_output
         self.mse = nn.MSELoss()
+        self.loss = 0
+        self.loss_target = 0
+        self.loss_nontarget = 0
 
     def log_params(self, parser) -> None:
         params = [
@@ -161,7 +167,7 @@ class BinaryPeakLoss(_Loss):
         for key, value in params:
             parser.add_argument("--" + key, type=type(value), default=value)
 
-    def loss_positives(self, prediction: Tensor, target: Tensor) -> Tensor:
+    def calculate_loss_positives(self, prediction: Tensor, target: Tensor) -> None:
         nr_time_steps = prediction.size()[1]
 
         if sum(target == 1) > 0:
@@ -188,27 +194,27 @@ class BinaryPeakLoss(_Loss):
                 )
 
             # target readout neuron should be active
-            return self.mse(
+            self.loss_positives = self.mse(
                 prediction_max_positives,
                 torch.ones_like(prediction_max_positives) * self.target_output,
             )
         else:
-            return 0
+            self.loss_positives = 0
 
-    def loss_negatives(self, prediction: Tensor, target: Tensor) -> Tensor:
+    def calculate_loss_negatives(self, prediction: Tensor, target: Tensor) -> None:
         # for negative samples the neuron should be silent
         if sum(target == 0) > 0:
             prediction_negatives = prediction[target == 0, :, 0]
-            return self.mse(
+            self.loss_negatives = self.mse(
                 prediction_negatives, torch.zeros_like(prediction_negatives)
             )
         else:
-            return 0
+            self.loss_negatives = 0
 
-    def forward(self, prediction: Tensor, target: Tensor) -> List[Tensor]:
-        loss_positives = self.loss_positives(prediction, target)
-        loss_negatives = self.loss_negatives(prediction, target)
+    def forward(self, prediction: Tensor, target: Tensor) -> float:
+        self.calculate_loss_positives(prediction, target)
+        self.calculate_loss_negatives(prediction, target)
 
         # add losses
-        loss = loss_positives + self.weight_nontarget * loss_negatives
-        return loss, loss_positives, loss_negatives
+        self.loss = self.loss_positives + self.weight_nontarget * self.loss_negatives
+        return self.loss

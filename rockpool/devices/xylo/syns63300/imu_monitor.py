@@ -45,6 +45,17 @@ class XyloIMUMonitor(Module):
     On evolution, :py:class:`.XyloIMUMonitor` returns a chunk of buffered processed time of a specified duration.
 
     Use :py:func:`~.devices.xylo.syns63300.config_from_specification` to build and validate a configuration for Xylo.
+
+    .. Warning::
+
+        :py:class:`.XyloIMUMonitor` blocks FPGA access to the IMU sensor on the Xylo HDK, if ``prerecorded_imu_input = False``, because it connects the IMU sensor directly to Xylo.
+        This means that other modules such as :py:class:`.IMUData` that attempt to connect to the IMU sensor may fail.
+
+        :py:class:`.XyloIMUMonitor` will reset the HDK on deletion, releasing the IMU sensor for use.
+
+        >>> mod = XyloIMUMonitor(hdk, ...)
+        >>> del mod
+
     """
 
     def __init__(
@@ -188,6 +199,13 @@ class XyloIMUMonitor(Module):
         # - Config the IMU interface and apply current configuration
         config.input_interface = IMUIFSim(**interface_params).export_config()
         self.config = config
+
+    def __del__(self):
+        """
+        Delete the XyloIMUMonitor object and reset the HDK
+        """
+        # - Reset the HDK to clean up
+        self._device.reset_board_soft()
 
     def evolve(
         self,
