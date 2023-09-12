@@ -131,7 +131,8 @@ class IMUIFSamna(Module):
     """
     A module wrapping the Xylo IMU IF on hardware, permitting recording
 
-    .. warning::
+    .. Warning::
+
         This module currently uses a work-around to record encoded IMU data as events.
         It is only capable of recording one event per time-step per channel from the IMU interface.
         However, the IMU interface is capable of producing multiple events per time-step per channel.
@@ -139,6 +140,15 @@ class IMUIFSamna(Module):
         You can alternatively use :py:class:`.IMUData` to record raw IMU data, and :py:class:`.IMUIFSim` to encode that data, supporting multiple events per time-step per channel.
         This may result in more accurate encoding of data.
 
+    .. Warning::
+
+        :py:class:`.IMUIFSamna` blocks FPGA access to the IMU sensor on the Xylo HDK, if ``prerecorded_imu_input = False``, because it connects the IMU sensor directly to Xylo.
+        This means that other modules such as :py:class:`.IMUData` that attempt to connect to the IMU sensor may fail.
+
+        :py:class:`.IMUIFSamna` will reset the HDK on deletion, releasing the IMU sensor for use.
+
+        >>> mod = IMUIFSamna(hdk, ...)
+        >>> del mod
     """
 
     def __init__(

@@ -43,6 +43,8 @@ All notable changes between Rockpool releases will be documented in this file.
 
 ### Fixed
 
+* Fixed bug in initialising access to MC3620 IMU sensor on Xylo IMU HDK, where it would fail with an error the on the second initialisation
+
 ### Deprecated
 
 ### Removed
@@ -84,6 +86,7 @@ All notable changes between Rockpool releases will be documented in this file.
 * Updated Samna version requirement to >=0.19.0
 * User explicitly defines Cuda device for LIFExodus, ExpDynExodus and LIFMembraneExodus
 * Improved error message when a backend is missing
+* Improved transient removal in `syns61201.AFESim`
 
 ### Fixed
 

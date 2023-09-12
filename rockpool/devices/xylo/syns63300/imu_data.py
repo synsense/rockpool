@@ -24,6 +24,13 @@ class IMUData(Module):
     This module uses ``samna`` to interface to the IMU hardware on a Xylo IMU HDK. It permits recording from the IMU sensor.
 
     To record from the module, use the :py:meth:`~.IMUData.evolve` method. You need to pass this method an empty matrix, with the desired number of time-steps. The time-step ``dt`` is specified at module instantiation.
+
+    .. Warning::
+
+        :py:class:`.IMUData` needs the FPGA to have access to the MC3632 IMU sensor on the Xylo HDK to operate correctly.
+        If the MC3632 sensor is already connected directly to Xylo, for example if :py:class:`.XyloIMUMonitor` or :py:class:`.IMUIFSamna` are being used, then initialising the :py:class:`.IMUData` module will fail with an error.
+        You must disconnect the IMU sensor from Xylo, or reset the HDK, to proceed.
+        You can delete the already-connected module to reset the HDK.
     """
 
     def __init__(
