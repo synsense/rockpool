@@ -134,3 +134,20 @@ def test_binary_peak_loss():
         )
     pl(vmem, targets)
     assert torch.allclose(pl.loss_negatives, pl.loss_positives)
+
+
+def test_mse_loss():
+    import torch
+    from rockpool.nn.losses import MSELoss
+
+    n_classes = 3
+    T = 35
+    batch_size = 5 * 3
+
+    mse = torch.nn.MSELoss()
+
+    mse_rockpool = MSELoss()
+    vmem = torch.rand((batch_size, T, n_classes))
+    # create random target signal
+    targets = torch.rand(size=vmem.size())
+    assert torch.allclose(mse(vmem, targets), mse_rockpool(vmem, targets))
