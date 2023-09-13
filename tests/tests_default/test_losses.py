@@ -146,12 +146,8 @@ def test_mse_loss():
 
     mse = torch.nn.MSELoss()
 
-    # create random target signal
-    targets = torch.randint(0, n_classes, (batch_size,))
-
-    ## check loss of target neuron
-
-    # pick event time such that the loss window fits within the sample
     mse_rockpool = MSELoss()
     vmem = torch.rand((batch_size, T, n_classes))
+    # create random target signal
+    targets = torch.rand(size=vmem.size())
     assert torch.allclose(mse(vmem, targets), mse_rockpool(vmem, targets))
