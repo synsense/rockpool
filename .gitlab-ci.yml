@@ -136,7 +136,7 @@ pages:
       - public
      
 metrics:
-  stage: test
+  stage: build
   needs: ["unit_tests_known_good", "docs_build"]
   script:
     - echo 'test_metric 10' > metrics.txt
