@@ -44,7 +44,15 @@ unit_tests_clean:
     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
 
   script:
-    - pytest -v tests/tests_default --random-order
+    - pytest --cov --cov-report term --cov-report xml:coverage_clean.xml -v tests/tests_default --random-order
+    
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    when: always
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage_clean.xml
 
 unit_tests_known_good:
   stage: test
