@@ -134,6 +134,15 @@ pages:
   artifacts:
     paths:
       - public
+     
+metrics:
+  stage: test
+  needs: ["unit_tests_known_good", "docs_build"]
+  script:
+    - echo 'test_metric 10' > metrics.txt
+  artifacts:
+    reports:
+      metrics: metrics.txt
 
 pypi_deploy:
   stage: deploy
