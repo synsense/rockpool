@@ -71,10 +71,9 @@ unit_tests_known_good:
       - test_report.xml
     reports:
       coverage_report:
-	coverage_format: cobertura
+        coverage_format: cobertura
         path: coverage.xml
       junit: test_report.xml
-
 
 documentation_linting:
   stage: docs
