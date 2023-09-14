@@ -42,6 +42,7 @@ unit_tests_clean:
     - python -c 'import samna'
     - pip install --upgrade sinabs-exodus --no-cache-dir || exit_code=$?
     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
+    - pip install pytest pytest-cov
 
   script:
     - pytest --cov --cov-report term --cov-report xml:coverage_clean.xml -v tests/tests_default --random-order
@@ -127,6 +128,15 @@ dist_build:
     paths:
       - dist
 
+metrics:
+  stage: build
+  needs: ["unit_tests_known_good", "docs_build"]
+  script:
+    - echo 'test_metric 10' > metrics.txt
+  artifacts:
+    reports:
+      metrics: metrics.txt
+
 pages:
   stage: docs_deploy
   only:
@@ -143,15 +153,6 @@ pages:
     paths:
       - public
      
-metrics:
-  stage: build
-  needs: ["unit_tests_known_good", "docs_build"]
-  script:
-    - echo 'test_metric 10' > metrics.txt
-  artifacts:
-    reports:
-      metrics: metrics.txt
-
 pypi_deploy:
   stage: deploy
   when: manual
