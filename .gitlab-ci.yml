@@ -8,7 +8,6 @@ stages:
   - docs_deploy
   - build
   - deploy
-  - analysis
 
 black-check:
   stage: preliminaries
@@ -75,6 +74,7 @@ unit_tests_known_good:
         coverage_format: cobertura
         path: coverage.xml
       junit: test_report.xml
+    expire_in: 1 day
 
 documentation_linting:
   stage: docs
@@ -119,19 +119,6 @@ dist_build:
   artifacts:
     paths:
       - dist
-
-metrics:
-  stage: analysis
-  script:
-    - echo 'code_coverage 96' > metrics.txt
-    - echo 'warning_tests_known_good 77' > metrics.txt
-    - echo 'skiped_tests_known_good 14' > metrics.txt
-    - echo 'warning_tests_clean 163' > metrics.txt
-    - echo 'skiped_tests_clean 14' > metrics.txt
-
-  artifacts:
-    reports:
-      metrics: metrics.txt
 
 pages:
   stage: docs_deploy
