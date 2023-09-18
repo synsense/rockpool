@@ -732,12 +732,11 @@ def set_xylo_core_clock_freq(device: XyloIMUHDK, desired_freq_MHz: float) -> flo
     Returns:
         (float): Actual frequency obtained, in MHz
     """
-    # - Determine wait period and actual obtianed clock frequency
-    wait_period = int(round(100 / desired_freq_MHz) / 2 - 1)
+    # - Determine wait period and actual obtained clock frequency
+    wait_period = int(np.ceil(round(100 / desired_freq_MHz) / 2 - 1))
     actual_freq = 100 / (2 * (wait_period + 1))
 
     # - Configure device
-    # device.get_io_module().write_config(0x0021, wait_period)
     device.get_io_module().set_main_clk_rate(int(actual_freq * 1e6))
 
     return actual_freq

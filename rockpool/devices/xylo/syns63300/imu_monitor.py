@@ -7,7 +7,7 @@ import samna
 from samna.xyloImu.configuration import XyloConfiguration
 
 from . import xylo_imu_devkit_utils as hdkutils
-from .xylo_imu_devkit_utils import XyloIMUHDK
+from .xylo_imu_devkit_utils import XyloIMUHDK, set_xylo_core_clock_freq
 from .imuif_sim import IMUIFSim
 
 import time
@@ -33,7 +33,7 @@ except ModuleNotFoundError:
 # - Configure exports
 __all__ = ["XyloIMUMonitor"]
 
-Default_Main_Clock_Rate = int(100e6)  # 100 MHz
+Default_Main_Clock_Rate = int(50)  # 50 MHz
 
 
 class XyloIMUMonitor(Module):
@@ -61,12 +61,13 @@ class XyloIMUMonitor(Module):
     def __init__(
         self,
         device: XyloIMUHDK,
-        config: XyloConfiguration = None,
+        config: Optional[XyloConfiguration] = None,
         output_mode: str = "Spike",
         prerecorded_imu_input: bool = False,
-        main_clk_rate: Optional[int] = Default_Main_Clock_Rate,
+        main_clk_rate: float = Default_Main_Clock_Rate,
         hibernation_mode: bool = False,
-        interface_params: Optional[dict] = dict(),
+        interface_params: dict = dict(),
+        power_frequency: Optional[float] = 5.0,
         *args,
         **kwargs,
     ):
@@ -78,9 +79,10 @@ class XyloIMUMonitor(Module):
             config (XyloConfiguraration): A Xylo configuration from `samna`
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Vmem"]``. Default: "Spike", return events from the output layer.
             prerecorded_imu_input (bool): If ``True``, use prerocorded imu data from PC as input. If ``False``, use the live IMU sensor on the HDK. Default: ``False``, use the IMU sensor.
-            main_clk_rate(int): The main clock rate of Xylo
+            main_clk_rate (float): The main clock rate of Xylo, in MHz
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
             interface_params(dict): The dictionary of Xylo interface parameters used for the `hdkutils.config_if_module` function, the keys of which must be "num_avg_bitshif", "select_iaf_output", "sampling_period", "filter_a1_list", "filter_a2_list", "scale_values", "Bb_list", "B_wf_list", "B_af_list", "iaf_threshold_values".
+            power_frequency (float): The frequency of power measurement. Default: 5.0
         """
 
         # - Check input arguments
@@ -141,9 +143,6 @@ class XyloIMUMonitor(Module):
         )  # Fixed computation step rate of 200Hz for Xylo IMU
         """ float: Simulation time-step of the module, in seconds """
 
-        # - Store the main clock rate
-        self._main_clk_rate = int(main_clk_rate)
-
         # - Store the io module
         self._io = self._device.get_io_module()
 
@@ -157,11 +156,15 @@ class XyloIMUMonitor(Module):
             self._device.enable_manual_input_acceleration(False)
 
         # - Set main clock rate
-        if self._main_clk_rate != Default_Main_Clock_Rate:
-            self._io.set_main_clk_rate(self._main_clk_rate)
+        self._main_clk_rate = set_xylo_core_clock_freq(self._device, main_clk_rate)
 
         # - Configure to auto mode
         self._enable_realtime_mode(interface_params)
+
+        # - Set power measurement module
+        self._power_buf, self.power = hdkutils.set_power_measure(
+            self._device, power_frequency
+        )
 
     @property
     def config(self):
