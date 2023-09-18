@@ -1,23 +1,23 @@
-"""Samna-backed bridge to Xylo dev kit for Xylo IMU."""
-
-import time
-
-# - Typing
-from typing import Callable, List, Optional, Tuple, Union
-from warnings import warn
-
-import numpy as np
+"""
+Samna-backed bridge to Xylo dev kit for Xylo IMU
+"""
 
 # - Samna imports
 import samna
 from samna.xyloImu.configuration import XyloConfiguration
 
+from . import xylo_imu_devkit_utils as hdkutils
+from .xylo_imu_devkit_utils import XyloIMUHDK
+from .imuif_sim import IMUIFSim
+
+import time
+import numpy as np
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 
-from . import xylo_imu_devkit_utils as hdkutils
-from .imuif_sim import IMUIFSim
-from .xylo_imu_devkit_utils import XyloIMUHDK
+# - Typing
+from typing import Optional, Union, Callable, List, Tuple
+from warnings import warn
 
 try:
     from tqdm.autonotebook import tqdm, trange
@@ -37,7 +37,8 @@ Default_Main_Clock_Rate = int(100e6)  # 100 MHz
 
 
 class XyloIMUMonitor(Module):
-    """A spiking neuron :py:class:`.Module` backed by the Xylo-IMU hardware, via `samna`.
+    """
+    A spiking neuron :py:class:`.Module` backed by the Xylo-IMU hardware, via `samna`.
 
     :py:class:`.XyloIMUMonitor` operates continuously in real-time, receiving and processing data from an IMU sensor with the deployed SNN. Results are continuously output from the HDK and buffered.
 
@@ -69,7 +70,8 @@ class XyloIMUMonitor(Module):
         *args,
         **kwargs,
     ):
-        """Instantiate a Module with Xylo dev-kit backend.
+        """
+        Instantiate a Module with Xylo dev-kit backend.
 
         Args:
             device (XyloIMUHDK): An opened `samna` device to a Xylo dev kit
@@ -186,7 +188,8 @@ class XyloIMUMonitor(Module):
         self._config = new_config
 
     def _enable_realtime_mode(self, interface_params: dict):
-        """Configure the Xylo HDK to use real-time mode.
+        """
+        Configure the Xylo HDK to use real-time mode.
 
         Args:
             interface_params (dict): specify the interface parameters
@@ -204,7 +207,9 @@ class XyloIMUMonitor(Module):
         self.config = config
 
     def __del__(self):
-        """Delete the XyloIMUMonitor object and reset the HDK."""
+        """
+        Delete the XyloIMUMonitor object and reset the HDK.
+        """
         # - Reset the HDK to clean up
         self._device.reset_board_soft()
 
@@ -215,7 +220,8 @@ class XyloIMUMonitor(Module):
         record_power: bool = False,
         read_timeout: Optional[float] = None,
     ) -> Tuple[np.ndarray, dict, dict]:
-        """Evolve a network on the Xylo HDK in Real-time mode.
+        """
+        Evolve a network on the Xylo HDK in Real-time mode.
 
         Args:
             input_data (np.ndarray): An array ``[T, 3]``, specifying the number of time-steps to record. If using external imu data input, the `input_data` is the external imu data. The first dimension is timesteps, and the last dimension is 3 channels of accelerations along x, y, z axes.
