@@ -155,8 +155,11 @@ class XyloIMUMonitor(Module):
         else:
             self._device.enable_manual_input_acceleration(False)
 
-        # - Set main clock rate
-        self._main_clk_rate = set_xylo_core_clock_freq(self._device, main_clk_rate)
+        # - Set main clock rate in MHz
+        self._main_clk_rate: float = set_xylo_core_clock_freq(
+            self._device, main_clk_rate
+        )
+        """ float: Xylo main clock frequency in MHz """
 
         # - Configure to auto mode
         self._enable_realtime_mode(interface_params)
@@ -196,7 +199,7 @@ class XyloIMUMonitor(Module):
         config = hdkutils.config_realtime_mode(
             self._config,
             self.dt,
-            self._main_clk_rate,
+            int(self._main_clk_rate * 1e6),
         )
 
         # - Config the IMU interface and apply current configuration

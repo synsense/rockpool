@@ -538,7 +538,7 @@ def config_realtime_mode(
     Args:
         config (XyloConfiguration): A configuration for Xylo IMU
         dt (float): The simulation time-step to use for this Module
-        main_clk_rate(int): The main clock rate of Xylo
+        main_clk_rate (int): The main clock rate of Xylo in Hz
 
     Return:
         updated Xylo configuration
@@ -552,7 +552,8 @@ def config_realtime_mode(
 
     # - Configure Xylo IMU clock rate
     config.time_resolution_wrap = int(dt * main_clk_rate)
-    config.debug.imu_if_clock_freq_div = 0x169
+    IMU_IF_clk_rate = 50_000  # IMU IF clock must be 50 kHz
+    config.debug.imu_if_clock_freq_div = int(main_clk_rate / IMU_IF_clk_rate - 1)
 
     # - No monitoring of internal state in realtime mode
     config.debug.monitor_neuron_v_mem = None
