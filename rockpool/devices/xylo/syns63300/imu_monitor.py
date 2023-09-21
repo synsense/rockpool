@@ -55,7 +55,6 @@ class XyloIMUMonitor(Module):
 
         >>> mod = XyloIMUMonitor(hdk, ...)
         >>> del mod
-
     """
 
     def __init__(
@@ -67,12 +66,12 @@ class XyloIMUMonitor(Module):
         main_clk_rate: float = Default_Main_Clock_Rate,
         hibernation_mode: bool = False,
         interface_params: dict = dict(),
-        power_frequency: Optional[float] = 5.0,
+        power_frequency: float = 5.0,
         *args,
         **kwargs,
     ):
         """
-        Instantiate a Module with Xylo dev-kit backend
+        Instantiate a Module with Xylo dev-kit backend.
 
         Args:
             device (XyloIMUHDK): An opened `samna` device to a Xylo dev kit
@@ -164,8 +163,11 @@ class XyloIMUMonitor(Module):
         # - Configure to auto mode
         self._enable_realtime_mode(interface_params)
 
+        self.power_monitor = None
+        """Power monitor for Xylo IMU"""
+
         # - Set power measurement module
-        self._power_buf, self.power = hdkutils.set_power_measure(
+        self._power_buf, self.power_monitor = hdkutils.set_power_measure(
             self._device, power_frequency
         )
 
@@ -189,7 +191,7 @@ class XyloIMUMonitor(Module):
 
     def _enable_realtime_mode(self, interface_params: dict):
         """
-        Configure the Xylo HDK to use real-time mode
+        Configure the Xylo HDK to use real-time mode.
 
         Args:
             interface_params (dict): specify the interface parameters
@@ -208,7 +210,7 @@ class XyloIMUMonitor(Module):
 
     def __del__(self):
         """
-        Delete the XyloIMUMonitor object and reset the HDK
+        Delete the XyloIMUMonitor object and reset the HDK.
         """
         # - Reset the HDK to clean up
         self._device.reset_board_soft()
@@ -217,15 +219,17 @@ class XyloIMUMonitor(Module):
         self,
         input_data: np.ndarray,
         record: bool = False,
+        record_power: bool = False,
         read_timeout: Optional[float] = None,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
-        Evolve a network on the Xylo HDK in Real-time mode
+        Evolve a network on the Xylo HDK in Real-time mode.
 
         Args:
             input_data (np.ndarray): An array ``[T, 3]``, specifying the number of time-steps to record. If using external imu data input, the `input_data` is the external imu data. The first dimension is timesteps, and the last dimension is 3 channels of accelerations along x, y, z axes.
             record (bool): ``False``, do not return a recording dictionary. Recording internal state is not supported by :py:class:`.XyloIMUMonitor`
-            timeout (float): A duration in seconds for a read timeout. Default: 2x the real-time duration of the evolution
+            record_power (bool): If ``True``, record the power consumption during each evolve.
+            read_timeout (float): A duration in seconds for a read timeout. Default: 2x the real-time duration of the evolution
 
         Returns:
             Tuple[np.ndarray, dict, dict] output_events, {}, rec_dict
@@ -273,6 +277,10 @@ class XyloIMUMonitor(Module):
             self._readout_buffer.get_events()
             self._write_buffer.write(imu_input)
 
+        # - Clear the power recording buffer, if recording power
+        if record_power:
+            self._power_buf.clear_events()
+
         # - Process in real-time mode for a desired number of time steps
         self._write_buffer.write(
             [samna.xyloImu.event.TriggerProcessing(target_timestep=end_timestep + 1)]
@@ -288,10 +296,29 @@ class XyloIMUMonitor(Module):
                 f"Reading events timeout after {read_timeout} seconds. Read {len(read_events)} events, expected {Nt}. Last event timestep: {read_events[-1].timestep if len(read_events) > 0 else 'None'}, waiting for timestep {end_timestep}."
             )
 
+        rec_dict = {}
+
+        if record_power:
+            # - Get all recent power events from the power measurement
+            ps = self._power_buf.get_events()
+
+            # - Separate out power meaurement events by channel
+            channels = samna.xyloImuBoards.MeasurementChannels
+            io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
+            core_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.Core)]
+            )
+            rec_dict.update(
+                {
+                    "io_power": io_power,
+                    "core_power": core_power,
+                }
+            )
+
         # - Decode data read from Xylo
         vmem_out_ts, spike_out_ts = hdkutils.decode_realtime_mode_data(
             read_events, self.size_out, start_timestep, end_timestep
         )
         out = vmem_out_ts if self._output_mode == "vmem" else spike_out_ts
 
-        return out, {}, {}
+        return out, {}, rec_dict
