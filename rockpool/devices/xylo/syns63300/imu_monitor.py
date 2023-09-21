@@ -33,7 +33,7 @@ except ModuleNotFoundError:
 # - Configure exports
 __all__ = ["XyloIMUMonitor"]
 
-Default_Main_Clock_Rate = int(50)  # 50 MHz
+Default_Main_Clock_Rate = 50.0  # 50 MHz
 
 
 class XyloIMUMonitor(Module):
