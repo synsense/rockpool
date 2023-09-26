@@ -40,7 +40,8 @@ import copy
 import rockpool.utilities.tree_utils as tu
 
 __all__ = [
-    "stochastic_rounding," "stochastic_channel_rounding",
+    "stochastic_rounding",
+    "stochastic_channel_rounding",
     "deterministic_rounding",
     "dropout",
     "make_param_T_config",
@@ -425,27 +426,24 @@ class TWrapper(TorchModule):
         self._spiking_input = mod.spiking_input
         self._spiking_output = mod.spiking_output
 
-        # - Generate null transformation config
-        attributes, _ = self._mod._get_attribute_registry()
-        T_config_null = {k: None for k in attributes.keys()}
-
         # - Default: null transformation config
-        T_config = {} if T_config is None else T_config
-
-        # - Update transformation config to cover all attributes
-        self._T_config = T_config_null
-        self._T_config.update(T_config)
+        self._T_config = {} if T_config is None else T_config
 
     def forward(self, *args, **kwargs):
         # - Get transformed attributes
         transformed_attrs = self._T()
 
+        if self._record and not self._has_torch_api:
+            kwargs["record"] = self._record
+
         # - Call module with torch functional API
         out = torch.nn.utils.stateless.functional_call(
-            self._mod, transformed_attrs, *args, **kwargs
+            self._mod, transformed_attrs, args, kwargs
         )
 
-        if hasattr(self._mod, "_record_dict"):
+        if not self._has_torch_api:
+            self._record_dict = out[2]
+        elif hasattr(self._mod, "_record_dict"):
             self._record_dict = self._mod._record_dict
 
         if not self._has_torch_api:

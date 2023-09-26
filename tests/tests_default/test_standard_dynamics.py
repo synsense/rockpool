@@ -1,28 +1,22 @@
-import pytest
-
-pytest.importorskip("jax")
-pytest.importorskip("torch")
-
-# - Set 64-bit mode
-from jax.config import config
-
-config.update("jax_enable_x64", True)
-
-import torch
-import numpy as np
-import jax
-from rockpool.utilities.jax_tree_utils import tree_find
-from jax.tree_util import tree_map
-
-from typing import List
-from rockpool.typehints import Tree
-
-
 class MismatchError(ValueError):
     pass
 
 
-def compare_value_tree(results: List[Tree], Classes: List[type], atol: float = 1e-4):
+# def compare_value_tree(results: List[Tree], Classes: List[type], atol: float = 1e-4):
+def compare_value_tree(results, Classes, atol: float = 1e-4):
+    import torch
+    import numpy as np
+    from rockpool.utilities.tree_utils import tree_find
+    from jax.tree_util import tree_map
+
+    # - Set 64-bit mode
+    from jax.config import config
+
+    config.update("jax_enable_x64", True)
+
+    from typing import List
+    from rockpool.typehints import Tree
+
     def to_numpy(x):
         if isinstance(x, torch.Tensor):
             return x.detach().numpy()
@@ -41,7 +35,7 @@ def compare_value_tree(results: List[Tree], Classes: List[type], atol: float = 1
                 results[class_index],
             )
 
-            mismatch = tree_find(mismatch_params)
+            mismatch = list(tree_find(mismatch_params))
 
             if len(mismatch) > 0:
                 raise MismatchError(
@@ -57,6 +51,8 @@ def compare_value_tree(results: List[Tree], Classes: List[type], atol: float = 1
 
 
 def get_torch_gradients(module, data):
+    import torch
+
     data = torch.as_tensor(data, dtype=torch.float)
     data.requires_grad = True
 
@@ -76,7 +72,13 @@ def get_torch_gradients(module, data):
 
 
 def get_jax_gradients(module, data):
+    import jax
     from jax.test_util import check_grads
+
+    # - Set 64-bit mode
+    from jax.config import config
+
+    config.update("jax_enable_x64", True)
 
     params, param_def = jax.tree_flatten(module.parameters())
 
@@ -96,7 +98,17 @@ def get_jax_gradients(module, data):
 
 
 def test_lif_defaults():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import LIF, LIFJax, LIFTorch
+
+    # - Set 64-bit mode
+    from jax.config import config
+
+    config.update("jax_enable_x64", True)
 
     Module_classes = [LIF, LIFJax, LIFTorch]
 
@@ -120,9 +132,19 @@ def test_lif_defaults():
 
 
 def test_lif_dynamics():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import LIF, LIFJax, LIFTorch, TorchModule, JaxModule
     import numpy as np
     import torch
+
+    # - Set 64-bit mode
+    from jax.config import config
+
+    config.update("jax_enable_x64", True)
 
     Module_classes = [LIF, LIFJax, LIFTorch]
 
@@ -184,6 +206,11 @@ def test_lif_dynamics():
 
 
 def test_linear_dynamics():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import (
         Linear,
         LinearJax,
@@ -192,6 +219,11 @@ def test_linear_dynamics():
     )
     import numpy as np
     import torch
+
+    # - Set 64-bit mode
+    from jax.config import config
+
+    config.update("jax_enable_x64", True)
 
     Module_classes = [Linear, LinearJax, LinearTorch]
 
@@ -226,8 +258,18 @@ def test_linear_dynamics():
 
 
 def test_linear_gradients():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import LinearJax, LinearTorch
     import numpy as np
+
+    # - Set 64-bit mode
+    from jax.config import config
+
+    config.update("jax_enable_x64", True)
 
     Nin = 20
     Nout = 100
@@ -250,7 +292,17 @@ def test_linear_gradients():
 
 
 def test_rate_defaults():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import Rate, RateJax, RateTorch
+
+    # - Set 64-bit mode
+    from jax.config import config
+
+    config.update("jax_enable_x64", True)
 
     Module_classes = [Rate, RateJax, RateTorch]
 
@@ -271,9 +323,19 @@ def test_rate_defaults():
 
 
 def test_rate_dynamics():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import Rate, RateJax, RateTorch, TorchModule
     import numpy as np
     import torch
+
+    # - Set 64-bit mode
+    from jax.config import config
+
+    config.update("jax_enable_x64", True)
 
     Module_classes = [Rate, RateJax, RateTorch]
 
@@ -313,7 +375,17 @@ def test_rate_dynamics():
 
 
 def test_expsyn_defaults():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import ExpSyn, ExpSynJax, ExpSynTorch
+
+    # - Set 64-bit mode
+    from jax.config import config
+
+    config.update("jax_enable_x64", True)
 
     Module_classes = [ExpSyn, ExpSynJax, ExpSynTorch]
 
@@ -334,9 +406,19 @@ def test_expsyn_defaults():
 
 
 def test_expsyn_dynamics():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import ExpSyn, ExpSynJax, ExpSynTorch, TorchModule
     import numpy as np
     import torch
+
+    # - Set 64-bit mode
+    from jax.config import config
+
+    config.update("jax_enable_x64", True)
 
     Module_classes = [ExpSyn, ExpSynJax, ExpSynTorch]
 
@@ -366,8 +448,19 @@ def test_expsyn_dynamics():
 
 
 def test_lif_gradients():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import LIFJax, LIFTorch
     import numpy as np
+    import torch
+
+    # - Set 64-bit mode
+    from jax.config import config
+
+    config.update("jax_enable_x64", True)
 
     Nin = 200
     Nout = 100
@@ -406,9 +499,20 @@ def test_lif_gradients():
 
 
 def test_linearlif_gradients():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import LIFJax, LIFTorch, LinearJax, LinearTorch
     from rockpool.nn.combinators import Sequential
     import numpy as np
+    import torch
+
+    # - Set 64-bit mode
+    from jax.config import config
+
+    config.update("jax_enable_x64", True)
 
     Nin = 2
     Nout = 4
@@ -486,8 +590,19 @@ def test_linearlif_gradients():
 
 
 def test_expsyn_gradients():
+    import pytest
+
+    pytest.importorskip("jax")
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules import ExpSynJax, ExpSynTorch
     import numpy as np
+    import torch
+
+    # - Set 64-bit mode
+    from jax.config import config
+
+    config.update("jax_enable_x64", True)
 
     Nin = 2
     batches = 3
@@ -517,7 +632,18 @@ def analytical_dSdt(x, t, window=0.5):
 
 
 def test_jax_surrogate():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.nn.modules.jax.lif_jax import step_pwl
+    import numpy as np
+    import jax
+
+    # - Set 64-bit mode
+    from jax.config import config
+
+    config.update("jax_enable_x64", True)
 
     x = np.arange(-1, 10, 0.009)
     test_thresh = [1.0, 1.5, 2.0]
@@ -556,7 +682,12 @@ def test_jax_surrogate():
 
 
 def test_torch_spike_surrogate():
+    import pytest
+
+    pytest.importorskip("torch")
+
     from rockpool.nn.modules.torch.lif_torch import StepPWL
+    import torch
 
     test_thresh = [1.0, 1.5, 2.0]
 

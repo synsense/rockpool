@@ -1,5 +1,8 @@
 """
 Quantisation methods for Xylo
+
+Defines the post-training quasntization methods :py:func:`.global_quantize` and :py:func:`.channel_quantize`.
+
 """
 
 import numpy as np
@@ -32,20 +35,24 @@ def global_quantize(
 
     The figure below illustrates the groups of weights which are considered for quantization. Under this global method, all weights in the network are considered together when scaling and quantizing weights and thresholds. Input and recurrent weights are considered together as a group; output weights are considered separately when quantizing. Dashes are rounded and cast to integer.
 
-                 target
-           -------------------
-    s   -------------------  -
-    o   -**- -**- -**- -**-  -
-    u   -**- -**- -**- -**-  -
-    r   -**- -**- -**- -**-  -
-    c   -**- -**- -**- -**-  -
-    e   -**- -**- -**- -**-  -
-        -------------------
+    ::
+
+                    target
+            -------------------
+        s   -------------------  -
+        o   -**- -**- -**- -**-  -
+        u   -**- -**- -**- -**-  -
+        r   -**- -**- -**- -**-  -
+        c   -**- -**- -**- -**-  -
+        e   -**- -**- -**- -**-  -
+            -------------------
 
     Examples:
-        specs = xylo.devices.mapper(net.as_graph(), weight_dtype="float", threshold_dtype="float")
-        specs.update(global_quantize(**specs, fuzzy_scaling = True))
-        xylo.devices.XyloSim.from_specifications(specs)
+        >>> specs = xylo.devices.mapper(net.as_graph(), weight_dtype="float", threshold_dtype="float")
+
+        >>> specs.update(global_quantize(**specs, fuzzy_scaling = True))
+
+        >>> xylo.devices.XyloSim.from_specifications(specs)
 
     Args:
         weights_in (np.ndarray): Input weight matrix
@@ -126,14 +133,14 @@ def global_quantize(
     if np.abs(np.max(threshold)) > max_th_quan:
         limited_scaling = max_th_quan / np.max(threshold)
         threshold = np.round(threshold * limited_scaling).astype(int)
-        weights_in = np.round(w_in * limited_scaling).astype(int)
-        weights_rec = np.round(w_rec * limited_scaling).astype(int)
+        weights_in = np.round(weights_in * limited_scaling).astype(int)
+        weights_rec = np.round(weights_rec * limited_scaling).astype(int)
 
     if np.abs(np.max(threshold_out)) > max_th_quan:
         limited_scaling = max_th_quan / np.max(threshold_out)
         threshold_out = np.round(threshold_out * limited_scaling).astype(int)
-        weights_out = np.round(w_out * limited_scaling).astype(int)
-        weights_rec = np.round(w_rec * limited_scaling).astype(int)
+        weights_out = np.round(weights_out * limited_scaling).astype(int)
+        weights_rec = np.round(weights_rec * limited_scaling).astype(int)
 
     # round and cast all dashes to integer
     dash_mem = np.round(dash_mem).astype(int)
@@ -186,20 +193,24 @@ def channel_quantize(
 
     The figure below illustrates the groups of weights which are considered for quantization. Under this per-channel method, all input weights to a single target neuron are considered together when scaling and quantizing weights and thresholds. Input and recurrent weights are considered together as a group; output weights are considered separately when quantizing. Dashes are rounded and cast to integer.
 
-                 target
-           -------------------
-    s   -------------------  -
-    o   -++- -**- -##- -oo-  -
-    u   -++- -**- -##- -oo-  -
-    r   -++- -**- -##- -oo-  -
-    c   -++- -**- -##- -oo-  -
-    e   -++- -**- -##- -oo-  -
-        -------------------
+    ::
+
+                    target
+            -------------------
+        s   -------------------  -
+        o   -++- -**- -##- -oo-  -
+        u   -++- -**- -##- -oo-  -
+        r   -++- -**- -##- -oo-  -
+        c   -++- -**- -##- -oo-  -
+        e   -++- -**- -##- -oo-  -
+            -------------------
 
     Examples:
-        specs = xylo.devices.mapper(net.as_graph(), weight_dtype="float", threshold_dtype="float")
-        specs.update(channel_quantize(**specs, bits_per_weight = 12))
-        xylo.devices.XyloSim.from_specifications(specs)
+        >>> specs = xylo.devices.mapper(net.as_graph(), weight_dtype="float", threshold_dtype="float")
+
+        >>> specs.update(channel_quantize(**specs, bits_per_weight = 12))
+
+        >>> xylo.devices.XyloSim.from_specifications(specs)
 
     Args:
         weights_in (np.ndarray): Input weight matrix
@@ -249,7 +260,7 @@ def channel_quantize(
                 if not bias is None:
                     bias[i] = np.round(bias[i] * scaling)
                 # if the threshold exceed boundary
-                if np.abs(threshold[i]) > max_th_quan:
+                if np.abs(threshold_quan[i]) > max_th_quan:
                     limited_scaling = max_th_quan / threshold[i]
                     threshold_quan[i] = np.round(threshold[i] * limited_scaling)
                     w_in_quan[:, i, :] = np.round(w_in[:, i, :] * limited_scaling)

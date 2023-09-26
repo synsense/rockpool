@@ -1,5 +1,5 @@
 """
-Package to support the Xylo HW SYNS65300 (Xylo-A1)
+Package to support the Xylo HW SYNS65300 (Xylo™ Audio 1)
 
 Defines the Rockpool module :py:class:`.AFESim`.
 

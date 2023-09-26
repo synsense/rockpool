@@ -1,5 +1,5 @@
 """
-Package to support the Xylo HW SYNS61201 (Xylo-A2)
+Package to support the Xylo HW SYNS61201 (Xylo™ Audio 2)
 
 Defines the Rockpool modules :py:class:`.XyloSim`, :py:class:`.AFESim`, :py:class:`.AFESamna`, :py:class:`.DivisiveNormalisation`, :py:class:`.DivisiveNormalisationNoLFSR`.  
 
@@ -18,6 +18,8 @@ from rockpool.utilities.backend_management import (
 
 from ..syns65300.afe_sim import *
 from .xylo_graph_modules import *
+
+from .afe_sim_empirical import *
 
 try:
     from .xylo_sim import *

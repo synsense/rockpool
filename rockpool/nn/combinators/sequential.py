@@ -6,8 +6,10 @@ from rockpool.nn.modules.module import Module, ModuleBase
 from rockpool import TSContinuous, TSEvent
 
 from copy import copy
-from typing import Tuple, Any
+from typing import Tuple, Any, Optional, Union
 from abc import ABC
+
+from collections import OrderedDict
 
 import rockpool.graph as rg
 
@@ -16,14 +18,13 @@ __all__ = ["Sequential"]
 
 class SequentialMixin(ABC):
     """
-    Base class for `Sequential` modules
+    Base class for :py:class:`.Sequential` modules
     """
 
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
+    def __init__(self, *args, **kwargs):
+        """
+        Initialise a :py:class:`.Sequential` module
+        """
         # - Check that `shape` wasn't provided as a keyword argument
         if "shape" in kwargs:
             raise ValueError(
@@ -40,56 +41,76 @@ class SequentialMixin(ABC):
                 "You may not provide a `spiking_output` argument when building a Sequential module."
             )
 
-        # - Collect the submodules
-        submods = []
-        submod_names = []
-        other_args = []
-        mod_index = 0
+        # - Extract OrderedDict modules from arguments list
+        if len(args) > 0 and isinstance(args[0], OrderedDict):
+            submods = args[0]
+            args = args[1:]
+            other_args = []
+            mod_index = 1
+        else:
+            submods = OrderedDict()
+            other_args = []
+            mod_index = 0
+
+        # - Extract additional modules from arguments list
         for item in args:
             if isinstance(item, ModuleBase):
                 # - Collect the module and define a name
-                submods.append(item)
-                submod_names.append(f"{mod_index}_{item.class_name}")
+                name = f"{mod_index}_{item.class_name}"
+                submods[name] = item
                 mod_index += 1
-
             else:
                 other_args.append(item)
 
-        # - Work out shape of each submodule
-        shape_in = [mod.size_in for mod in submods]
-        shape_out = [mod.size_out for mod in submods]
+        # - Call super-class initialisation
+        super().__init__(shape=(0, 0), *other_args, **kwargs)
 
-        # - Check that shapes are compatible
-        for mod_index in range(len(submods) - 1):
-            if (
-                shape_out[mod_index] is not None
-                and shape_in[mod_index + 1] is not None
-                and shape_out[mod_index] != shape_in[mod_index + 1]
-            ):
-                raise ValueError(
-                    f"The output of submodule {mod_index} "
-                    + f"({type(submods[mod_index]).__name__}) "
-                    + f"does not match the input shape of submodule "
-                    + f"{mod_index+1} ({type(submods[mod_index+1]).__name__}): "
-                    + f"{shape_out[mod_index]} ≠ {shape_in[mod_index+1]}"
-                )
+        # - Call `append` for each module
+        [self.append(mod, name) for name, mod in submods.items()]
 
-        # - Call superclass __init__
-        super().__init__(
-            shape=(shape_in[0], shape_out[-1]),
-            spiking_input=submods[0].spiking_input,
-            spiking_output=submods[-1].spiking_output,
-            *other_args,
-            **kwargs,
-        )
+    def append(self, mod: ModuleBase, name: Optional[str] = None) -> ModuleBase:
+        """
+        Append a module to the :py:class:`.Sequential` network stack
 
-        # - Assign modules as submodules
-        for mod_name, submod in zip(submod_names, submods):
-            setattr(
-                self,
-                mod_name,
-                submod,
+        Args:
+            mod (Module): A rockpool :py:class:`.Module` to append to this network stack. The input size of `mod` must match the output size of the existing network.
+            name (str): An optional name to assign to the new module. If ``None``, a name will automatically be generated.
+        """
+        # - Get a name and index for this module
+        mod_index = len(self._submodulenames)
+
+        if name is None:
+            name = f"{mod_index}_{mod.class_name}"
+
+        if name in self._submodulenames:
+            raise ValueError(
+                f'Submodule "{name}" already exists in Sequential network. Cannot append a module with the same name.'
             )
+
+        # - Check if the shapes are compatible
+        if len(self._submodulenames) == 0:
+            self._shape = mod.shape
+            self._spiking_input = mod._spiking_input
+            self._spiking_output = mod._spiking_output
+        elif (
+            self.size_out != mod.size_in
+            and self.size_out is not None
+            and mod.size_in is not None
+        ):
+            raise ValueError(
+                f"The output of submodule {mod_index-1} "
+                + f"({type(self[-1]).__name__}) "
+                + f"does not match the input shape of submodule "
+                + f"{mod_index} ({type(mod).__name__}): "
+                + f"{self[-1].size_out} ≠ {mod.size_in}"
+            )
+
+        # - Assign module
+        setattr(self, name, mod)
+
+        # - Fix shape and output type
+        self._shape = (self.size_in, mod.size_out)
+        self._spiking_output = mod.spiking_output
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
         # - Initialise state and record dictionaries
@@ -102,7 +123,6 @@ class SequentialMixin(ABC):
         for submod_name in self._submodulenames:
             # - Get this submodule
             mod = getattr(self, submod_name)
-
             # - Push data through submodule
             x, substate, subrec = mod(x, record=record)
             new_state_dict.update({submod_name: substate})
@@ -116,17 +136,20 @@ class SequentialMixin(ABC):
         # - Return output, state and record
         return x, new_state_dict, record_dict
 
-    def __getitem__(self, item: int) -> Module:
+    def __getitem__(self, item: Union[int, str]) -> Module:
         """
         Permit indexing into the sequence of modules
 
         Args:
-            item (int): The index of the module to return
+            item (Union[int, str]): The index of the module to return, or the name of the module to access
 
         Returns:
             Module: The ``item``th module in the sequence
         """
-        return self.modules()[self._submodulenames[item]]
+        if isinstance(item, str):
+            return self.modules()[item]
+        else:
+            return self.modules()[self._submodulenames[item]]
 
     def as_graph(self):
         mod_graphs = []
@@ -283,6 +306,10 @@ def Sequential(*args, **kwargs) -> ModuleBase:
 
     :py:class:`.Sequential` accepts any number of modules. The shapes of the modules must be compatible -- the output size :py:attr:`~.Module.size_out` of each module must match the input size :py:attr:`~.Module.size_in` of the following module.
 
+    When provided with a list of modules, :py:class:`.Sequential` will assign module names automatically to each module. If you would like more control over module names, you can provide an `OrderedDict` to construct the network. In that case, dictionary keys will be used as module names.
+
+    You can also append additional modules to a network with the :py:meth:`.Sequential.append` method. Module names can optionally be provided in this case as well.
+
     Examples:
 
         Build a :py:class:`.Sequential` stack will be returned a :py:class:`.Module`, containing ``mod0``, ``mod1`` and ``mod2``. When evolving this stack, signals will be passed through ``mod0``, then ``mod1``, then ``mod2``:
@@ -294,6 +321,17 @@ def Sequential(*args, **kwargs) -> ModuleBase:
         >>> mod = Sequential(mod0, mod1, mod2)
         >>> mod[0]
         A module with shape (xx, xx)
+
+        Build a :py:class:`.Sequential` stack from an `OrderedDict`:
+
+        >>> od = OrderedDict([('mod0', mod0), ('mod1', mod1)])
+        >>> seq = Sequential(od)
+
+        Build an empty :py:class:`.Sequential`, and use :py:meth:`.Sequential.append`:
+
+        >>> seq = Sequential()
+        >>> seq.append(mod0)
+        >>> seq.append(mod1, 'mod1)
 
     Args:
         *mods: Any number of modules to connect. The :py:attr:`~.Module.size_out` attribute of one module must match the :py:attr:`~.Module.size_in` attribute of the following module.

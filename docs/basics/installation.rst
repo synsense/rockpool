@@ -6,7 +6,7 @@ Installing |project| and contributing
 Base requirements
 -----------------
 
-|project| requires `Python 3.7`_, numpy_ and scipy_ to install. These requirements will be installed by ``pip`` when installing |project|. We recommend using anaconda_, miniconda_ or another environment manager to keep your Python dependencies clean.
+|project| requires `Python 3.8`_, numpy_ and scipy_ to install. These requirements will be installed by ``pip`` when installing |project|. We recommend using anaconda_, miniconda_ or another environment manager to keep your Python dependencies clean.
 
 Installation using ``pip``
 --------------------------
@@ -44,7 +44,6 @@ Dependencies
 
 * scipy_ for scipy_-backed modules
 * numba_ for numba_-backed modules
-* NEST_ for NEST_-backed modules
 * Jax_ and Jaxlib_ for Jax_-backed modules
 * PyTorch_ for Torch_-backed modules
 * Brian2_ for Brian_-backed modules
@@ -54,19 +53,20 @@ Dependencies
 * PyTest_ for running tests
 * Sphinx_, pandoc_, recommonmark_, NBSphinx_, sphinx-rtd-theme_ and Sphinx-autobuild_ for building documentation
 
-To automatically install most of the extra dependencies required by |project|, use the command
+|project| provides several convenience installation options to assist with dependency management. These will install the required dependencies for e.g. running the tests, building the docs, installing specific backends, etc.
+
+.. code-block:: bash
+
+    $ pip install "rockpool[numba, jax, torch, brian, sinabs, exodus, xylo, dynapse, tests, docs]"
+
+To automatically install all of the extra dependencies required by |project|, use the command
 
 .. code-block:: Bash
 
-    $ pip install rockpool[all]
+    $ pip install "rockpool[all]"
 
-or
 
-.. code-block:: zsh
-
-    $ pip install rockpool\[all\]
-
-if using zsh. Some dependencies, such as pandoc_ and NEST_, must be installed manually.
+Some dependencies, such as pandoc_, must be installed manually.
 
 To check which computational back-ends are available to |project|, use the :func:`.list_backends` function:
 
@@ -80,7 +80,7 @@ To check which computational back-ends are available to |project|, use the :func
 Building the documentation
 --------------------------
 
-The |project| documentation is based on sphinx, and all dependencies required for a local HTML version are installed with ``pip install rockpool[all]``.
+The |project| documentation is based on sphinx, and all dependencies required for a local HTML version are installed with ``pip install "rockpool[all]"``. You can install just the minimal dependencies to build the documentaion with ``pip install "rockpool[docs]"``, but note that you can only build documentation for the backends which are correctly installed and available for use by |project|.
 
 To build a live, locally-hosted HTML version of the docs, use the command
 
@@ -122,7 +122,7 @@ or
 
 .. code-block:: Bash
 
-    $ pip install -e .[all] --user
+    $ pip install -e ".[all]" --user
 
 
 The main branch is ``development``. You should commit your modifications to a new feature branch.
@@ -156,9 +156,12 @@ To run all the unit tests for |project|, use ``pytest``:
 
 .. code-block:: Bash
 
+    $ git clone https://github.org/synsense/rockpool.git
+    $ cd rockpool
+    $ pip install ".[tests]"
     $ pytest tests
 
-.. _Python 3.7: https://python.org
+.. _Python 3.8: https://python.org
 .. _numpy: https://www.numpy.org
 .. _scipy: https://www.scipy.org
 .. _numba: https://numba.pydata.org
@@ -166,7 +169,6 @@ To run all the unit tests for |project|, use ``pytest``:
 .. _Jaxlib: https://github.com/google/jax
 .. _PyTorch: https://pytorch.org/
 .. _Torch: https://pytorch.org/
-.. _NEST: https://www.nest-simulator.org
 .. _Brian: https://github.com/brian-team/brian2
 .. _Brian2: https://github.com/brian-team/brian2
 .. _Sinabs: https://pypi.org/project/sinabs/

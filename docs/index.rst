@@ -39,6 +39,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    in-depth/jax-training.ipynb
    in-depth/torch-api.ipynb
    in-depth/torch-training.ipynb
+   in-depth/howto-constrained-opt.ipynb
 
 .. toctree::
    :maxdepth: 1
@@ -61,17 +62,30 @@ and evaluating recurrent networks, which can operate both with continuous-time d
 
 .. toctree::
    :maxdepth: 1
-   :caption: Training and deploying to Xylo
+   :caption: Xylo™ inference processors
 
    devices/xylo-overview.ipynb
    devices/quick-xylo/deploy_to_xylo.ipynb
-   devices/quick-xylo/xylo-audio-2-intro.ipynb
    devices/torch-training-spiking-for-xylo.ipynb
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Xylo™ Audio
+
+   devices/quick-xylo/xylo-audio-2-intro.ipynb
    devices/analog-frontend-example.ipynb
 
 .. toctree::
    :maxdepth: 1
-   :caption: Training and deploying to SE2
+   :caption: Xylo™ IMU
+
+   devices/xylo-imu/xylo-imu-intro.ipynb
+   devices/xylo-imu/imu-if.ipynb
+   devices/xylo-imu/configure_preprocessing.ipynb
+
+.. toctree::
+   :maxdepth: 1
+   :caption: DYNAP-SE2 mixed-signal processor
 
    devices/DynapSE/dynapse-overview.ipynb
    devices/DynapSE/post-training.ipynb
@@ -85,6 +99,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    advanced/graph_overview.ipynb
    advanced/graph_mapping.ipynb
    reference/params_types.ipynb
+   reference/lif-benchmarks.ipynb
    reference/api
    advanced/CHANGELOG
 
