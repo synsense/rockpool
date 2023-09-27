@@ -92,7 +92,11 @@ class SequentialMixin(ABC):
             self._shape = mod.shape
             self._spiking_input = mod._spiking_input
             self._spiking_output = mod._spiking_output
-        elif self.size_out != mod.size_in:
+        elif (
+            self.size_out != mod.size_in
+            and self.size_out is not None
+            and mod.size_in is not None
+        ):
             raise ValueError(
                 f"The output of submodule {mod_index-1} "
                 + f"({type(self[-1]).__name__}) "
