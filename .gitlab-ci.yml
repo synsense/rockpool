@@ -130,8 +130,8 @@ pypi_deploy:
   stage: deploy
   when: manual
 
-  only:
-    - master
+#  only:
+#    - master
 
   dependencies:
     - dist_build
@@ -139,6 +139,7 @@ pypi_deploy:
   before_script:
     - pip install --upgrade pip
     - pip install -U twine
+    - pip install -U keyring keyrings.alt
 
   script:
     - python -m twine upload dist/*
