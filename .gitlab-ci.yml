@@ -139,7 +139,6 @@ pypi_deploy:
   before_script:
     - pip install --upgrade pip
     - pip install -U twine
-    - pip install -U keyring keyrings.alt
 
   script:
-    - python -m twine upload dist/*
+    - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME=gitlab-ci-token python -m twine upload dist/*
