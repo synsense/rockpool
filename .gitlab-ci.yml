@@ -141,4 +141,4 @@ pypi_deploy:
     - pip install -U twine
 
   script:
-    - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME=gitlab-ci-token python -m twine upload dist/*
+    - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME="__token__" python -m twine upload dist/*
