@@ -130,8 +130,8 @@ pypi_deploy:
   stage: deploy
   when: manual
 
- only:
-   - master
+  only:
+    - master
 
   dependencies:
     - dist_build
