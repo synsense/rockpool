@@ -140,5 +140,8 @@ pypi_deploy:
     - pip install --upgrade pip
     - pip install -U twine
 
+  variables:
+    TWINE_USERNAME: __token__
+    TWINE_PASSWORD: $PYPI_PASSWORD
   script:
-    - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME="__token__" python -m twine upload dist/*
+    - python -m twine upload dist/*
