@@ -6,6 +6,8 @@ All notable changes between Rockpool releases will be documented in this file.
 
 ### Added
 
+* Added simulation support for audio front-end for Xylo A3 (SYNS65302)
+
 ### Changed
 
 ### Fixed
@@ -16,11 +18,9 @@ All notable changes between Rockpool releases will be documented in this file.
 
 ### Security
 
-
 ## [v2.7] -- 2023-09-25
 
 ### Added
-
 
 * Dependency on `pytest-random-order` v1.1.0 for test order randomization.
 * New HowTo tutorial for performing constrained optimisation with torch and jax
@@ -41,6 +41,7 @@ All notable changes between Rockpool releases will be documented in this file.
   * Utility functions for network mapping to the Xylo IMU HDK, interfacing, and data processing.
   * Introductory documentation providing an overview of Xylo IMU and instructions on configuring preprocessing.
 * New losses, with structure similar to PyTorch.
+
   * PeakLoss which can be imported as `peak_loss = rockpool.nn.losses.PeakLoss()`.
   * MSELoss which can be imported as  `mse_loss = rockpool.nn.losses.MSELoss()`.
 
@@ -96,7 +97,6 @@ All notable changes between Rockpool releases will be documented in this file.
 * Added initial developer documentation
 * Added MNIST tutorial
 * Fixed notebook links to MyBinder.org
-
 
 ### Changed
 
