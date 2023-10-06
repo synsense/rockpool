@@ -32,7 +32,7 @@
 
 # required packages
 import numpy as np
-from rockpool.devices.xylo.syns65302.xylo_a3_sim.pdm_adc import AUDIO_SAMPLING_RATE
+from rockpool.devices.xylo.syns65302.xylo_a3_sim.pdm.pdm_adc import AUDIO_SAMPLING_RATE
 from rockpool.devices.xylo.syns65302.xylo_a3_sim.digital_filterbank import (
     NUM_FILETRS,
     type_check,
