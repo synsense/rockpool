@@ -2,7 +2,7 @@ import pytest
 
 
 def test_imports():
-    from rockpool.devices.xylo.xylo_a3 import (
+    from rockpool.devices.xylo.syns65302 import (
         ChipButterworth,
         PDM_ADC,
         DivisiveNormalization,
@@ -15,12 +15,12 @@ def test_filterbank():
     """
     import numpy as np
     from numpy.linalg import norm
-    from rockpool.devices.xylo.xylo_a3 import (
+    from rockpool.devices.xylo.syns65302 import (
         ChipButterworth,
         DivisiveNormalization,
         PDM_ADC,
     )
-    from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.digital_filterbank import NUM_FILETRS
+    from rockpool.devices.xylo.syns65302.xylo_a3_sim.digital_filterbank import NUM_FILETRS
 
     # just to extract the sampling rate
     pdm_adc = PDM_ADC()
