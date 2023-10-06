@@ -1,9 +1,8 @@
-import pytest
-
-pytest.importorskip("samna")
-
-
 def test_from_specification():
+    import pytest
+
+    pytest.importorskip("samna")
+
     from rockpool.devices.xylo import vA2
 
     # from rockpool.devices.xylo.syns61201 import config_from_specification
@@ -34,6 +33,10 @@ def test_from_specification():
 
 
 def test_save_load():
+    import pytest
+
+    pytest.importorskip("samna")
+
     from rockpool.devices.xylo.syns61201 import (
         config_from_specification,
         save_config,
@@ -114,6 +117,10 @@ def test_save_load():
 
 
 def test_XyloSamna():
+    import pytest
+
+    pytest.importorskip("samna")
+
     from rockpool.devices.xylo.syns61201 import XyloSamna, config_from_specification
     import rockpool.devices.xylo.syns61201.xa2_devkit_utils as putils
     import numpy as np
