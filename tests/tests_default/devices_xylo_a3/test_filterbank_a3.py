@@ -12,7 +12,7 @@ def test_filterbank():
     import numpy as np
     from numpy.linalg import norm
     from rockpool.devices.xylo.syns65302 import PDM_ADC, ChipButterworth
-    from rockpool.devices.xylo.syns65302.xylo_a3_sim.digital_filterbank import NUM_FILETRS
+    from rockpool.devices.xylo.syns65302.afe.digital_filterbank import NUM_FILETRS
 
     pdm_adc = PDM_ADC()
     fs = pdm_adc[0].fs
