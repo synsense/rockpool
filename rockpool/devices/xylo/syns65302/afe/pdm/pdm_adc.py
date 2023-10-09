@@ -1,48 +1,24 @@
-# ----------------------------------------------------------------------------------------------------------------------
-# This module contains the PDM-based ADC for sampling the input audion signal.
-# It consists of two main parts:
-#   (i)     a deltasigma based PDM microphone that converts the input analog audio into a PDM bit stream where the
-#           relative frequency of 1-vs-0 depends on the amplitude of the signal
-#   (ii)    a low-pass filter follows by decimation stage that processes the PDM bit stream and recovers the sampled
-#           audio upto a given bit precision.
-#
-#
-# In brief, PDM microphone with its internal deltasigma modulation followed by low-pass filtering + decimation
-# module implemented here yield an ADC for the input analog audio signal.
-#
-# The low-pass filtering is implemented as a **polyphase** filter structure to consume as less power as possible.
-#
-# ----------------------------------------------------------------------------------------------------------------------
+"""
+This module contains the PDM-based ADC for sampling the input audion signal.
+It consists of two main parts:
+  (i)     a deltasigma based PDM microphone that converts the input analog audio into a PDM bit stream where the
+          relative frequency of 1-vs-0 depends on the amplitude of the signal
+  (ii)    a low-pass filter follows by decimation stage that processes the PDM bit stream and recovers the sampled
+          audio upto a given bit precision.
 
+In brief, PDM microphone with its internal deltasigma modulation followed by low-pass filtering + decimation
+module implemented here yield an ADC for the input analog audio signal.
 
-# - Rockpool imports
-from multiprocessing.sharedctypes import Value
-from rockpool.nn.modules.module import Module
-from rockpool.parameters import SimulationParameter
+The low-pass filtering is implemented as a **polyphase** filter structure to consume as less power as possible.
+"""
+
 from rockpool.nn.combinators import Sequential
-from rockpool.timeseries import TSContinuous
 
-import numpy as np
-import scipy.signal as sp
-
-
-import warnings
-from logging import info
-
-from typing import Union, Tuple, Any
-from numbers import Number
-
-from rockpool.typehints import P_int, P_float
-from .delta_sigma import DeltaSigma
 from .microphone_pdm import MicrophonePDM
 from .poly_phase_fir import PolyPhaseFIR
 
-# list of modules exported
-__all__ = ["PDM_ADC", "PolyPhaseFIR"]
 
 from rockpool.devices.xylo.syns65302.afe.params import (
-    SYSTEM_CLOCK_RATE,
-    AUDIO_SAMPLING_RATE,
     AUDIO_CUTOFF_FREQUENCY,
     AUDIO_CUTOFF_FREQUENCY_WIDTH,
     PDM_FILTER_DECIMATION_FACTOR,
@@ -52,6 +28,8 @@ from rockpool.devices.xylo.syns65302.afe.params import (
     NUM_BITS_FILTER_Q,
     NUM_BITS_PDM_ADC,
 )
+
+__all__ = ["PDM_ADC"]
 
 
 def PDM_ADC(
