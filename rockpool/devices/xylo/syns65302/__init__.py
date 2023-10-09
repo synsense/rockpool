@@ -5,4 +5,4 @@ Provides the modules :py:class:`.Raster`, :py:class:`.PDM_Microphone`, :py:class
 
 """
 
-from .xylo_a3_sim import *
+from .afe import *

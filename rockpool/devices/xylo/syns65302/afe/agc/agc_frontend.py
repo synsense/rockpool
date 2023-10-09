@@ -5,14 +5,14 @@
 # ----------------------------------------------------------------------------------------------------------------------
 import numpy as np
 
-from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.amplifier import Amplifier
-from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.adc import ADC
-from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.envelope_controller import (
+from rockpool.devices.xylo.syns65302.afe.agc.amplifier import Amplifier
+from rockpool.devices.xylo.syns65302.afe.agc.adc import ADC
+from rockpool.devices.xylo.syns65302.afe.agc.envelope_controller import (
     EnvelopeController,
 )
-from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.gain_smoother import GainSmootherFPGA
+from rockpool.devices.xylo.syns65302.afe.agc.gain_smoother import GainSmootherFPGA
 
-from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.agc.xylo_a3_agc_specs import (
+from rockpool.devices.xylo.syns65302.afe.agc.xylo_a3_agc_specs import (
     AUDIO_SAMPLING_RATE,
 )
 

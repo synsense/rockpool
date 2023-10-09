@@ -3,7 +3,7 @@ import pytest
 
 
 def test_imports():
-    from rockpool.devices.xylo.xylo_a3 import DeltaSigma
+    from rockpool.devices.xylo.syns65302 import DeltaSigma
 
 
 def test_deltasigma_jax():
@@ -15,8 +15,10 @@ def test_deltasigma_jax():
 
     This test verifies that although the PDM signals may be different, the resulting recovered signals are still close.
     """
-    from rockpool.devices.xylo.xylo_a3 import DeltaSigma
-    from rockpool.devices.xylo.xylo_a3.xylo_a3_sim.pdm_adc import PDM_SAMPLING_RATE
+    from rockpool.devices.xylo.syns65302 import DeltaSigma
+    from rockpool.devices.xylo.syns65302.afe.pdm.pdm_adc import (
+        PDM_SAMPLING_RATE,
+    )
     import numpy as np
     from numpy.linalg import norm
     import time
