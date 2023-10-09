@@ -12,7 +12,7 @@ from rockpool.devices.xylo.syns65302.afe.agc.envelope_controller import (
 )
 from rockpool.devices.xylo.syns65302.afe.agc.gain_smoother import GainSmootherFPGA
 
-from rockpool.devices.xylo.syns65302.afe.xylo_a3_agc_specs import (
+from rockpool.devices.xylo.syns65302.afe.params import (
     AUDIO_SAMPLING_RATE,
 )
 
