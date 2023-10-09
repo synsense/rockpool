@@ -9,7 +9,7 @@ from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 
 # target audio sampling rate
-from rockpool.devices.xylo.syns65302.afe.pdm.pdm_adc import AUDIO_SAMPLING_RATE
+from rockpool.devices.xylo.syns65302.afe.params import AUDIO_SAMPLING_RATE
 
 import numpy as np
 
