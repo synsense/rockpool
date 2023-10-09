@@ -23,7 +23,7 @@ from typing import Any
 from rockpool.devices.xylo.syns65302.afe.xylo_a3_agc_specs import (
     EXP_PGA_GAIN_VEC,
     NUM_BITS_COMMAND,
-    NUM_BITS_ADC,
+    NUM_BITS_AGC_ADC,
 )
 
 # maximum number of bits devoted for implementing waiting times in the AGC controller algorithm
@@ -52,7 +52,7 @@ from rockpool.devices.xylo.syns65302.afe.xylo_a3_agc_specs import (
 class GainSmootherFPGA:
     def __init__(
         self,
-        num_bits: int = NUM_BITS_ADC,
+        num_bits: int = NUM_BITS_AGC_ADC,
         min_waiting_time: float = (2**MAX_WAITING_BITWIDTH - 1) / AUDIO_SAMPLING_RATE,
         num_bits_command: int = NUM_BITS_COMMAND,
         pga_gain_vec: np.ndarray = EXP_PGA_GAIN_VEC,

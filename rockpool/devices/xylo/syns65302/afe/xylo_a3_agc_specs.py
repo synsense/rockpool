@@ -34,7 +34,7 @@ AUDIO_SAMPLING_RATE = SYSTEM_CLOCK_RATE / (64 * 16)
 # ================================================
 # *               ADC parameters
 # ================================================
-NUM_BITS_ADC = 10
+NUM_BITS_AGC_ADC = 10
 
 
 # ================================================
@@ -95,7 +95,7 @@ FALL_TIME_CONSTANT = 300e-3
 #       (i)  when it is low, the system is more cautious and, when the signal becomes strong suddenly, goes outside saturation very fast.
 #       (ii) at the moment, we are using an oversampled ADC with decimation filter where as a result of processing, the quantized signal may not have full rail-to-rail dynamics
 #            due to some inner attenuation. If we use a very large saturation level, the weak signal after attenuation may indeed be in saturation but not get detected by EC.
-SATURATION_LEVEL = int(2 ** (NUM_BITS_ADC - 1) * 0.7)
+SATURATION_LEVEL = int(2 ** (NUM_BITS_AGC_ADC - 1) * 0.7)
 
 # * waiting times used for waiting before any gain switch
 # NOTE (1): in each region between thresholds we have a waiting time
@@ -114,7 +114,7 @@ MAX_WAITING_TIME_BEFORE_GAIN_CHANGE = np.max(WAITING_TIME_VEC)
 # * reliable hysteresis in detecting the maximum
 # NOTE: to make sure that waiting times are working well, we need to extend waiting times when the signal amplitude increase is significant
 # we measue this by a hysteresis parameter which should be typically around 2 ~ 10 for an ADC with 10 bits
-RELIABLE_MAX_HYSTERESIS = max([2, int(2 ** (NUM_BITS_ADC - 1) / 100)])
+RELIABLE_MAX_HYSTERESIS = max([2, int(2 ** (NUM_BITS_AGC_ADC - 1) / 100)])
 
 
 # * dynamics of the gain-change at each amplitude level

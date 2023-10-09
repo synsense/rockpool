@@ -13,7 +13,7 @@ import warnings
 # *    some constants defined according to Xylo-A3 specficiations
 # ===========================================================================
 from rockpool.devices.xylo.syns65302.afe.xylo_a3_agc_specs import (
-    NUM_BITS_ADC,
+    NUM_BITS_AGC_ADC,
     AUDIO_SAMPLING_RATE,
     AMPLITUDE_THRESHOLDS,
     NUM_BITS_COMMAND,
@@ -29,7 +29,7 @@ from rockpool.devices.xylo.syns65302.afe.xylo_a3_agc_specs import (
 class EnvelopeController:
     def __init__(
         self,
-        num_bits: int = NUM_BITS_ADC,
+        num_bits: int = NUM_BITS_AGC_ADC,
         amplitude_thresholds: np.ndarray = AMPLITUDE_THRESHOLDS,
         rise_time_constant: float = RISE_TIME_CONSTANT,
         fall_time_constant: float = FALL_TIME_CONSTANT,
