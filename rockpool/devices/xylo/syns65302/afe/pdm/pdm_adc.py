@@ -38,27 +38,18 @@ from rockpool.typehints import P_int, P_float
 # list of modules exported
 __all__ = ["PDM_ADC", "PDM_Microphone", "PolyPhaseFIR_DecimationFilter", "DeltaSigma"]
 
-
-##------------------------------------------------------##
-## design parameters currently used in the Xylo-A3 chip ##
-##------------------------------------------------------##
-SYSTEM_CLOCK_RATE = 50_000_000  # 50 MHz
-
-AUDIO_SAMPLING_RATE = SYSTEM_CLOCK_RATE / (64 * 16)
-AUDIO_CUTOFF_FREQUENCY = 20_000
-AUDIO_CUTOFF_FREQUENCY_WIDTH = 0.2 * AUDIO_CUTOFF_FREQUENCY
-
-PDM_FILTER_DECIMATION_FACTOR = 32
-PDM_SAMPLING_RATE = AUDIO_SAMPLING_RATE * PDM_FILTER_DECIMATION_FACTOR
-
-DELTA_SIGMA_ORDER = 4
-
-DECIMATION_FILTER_LENGTH = 256
-NUM_BITS_FILTER_Q = 16
-NUM_BITS_ADC = 14
-
-
-##---------------------------------------------------##
+from rockpool.devices.xylo.syns65302.afe.params import (
+    SYSTEM_CLOCK_RATE,
+    AUDIO_SAMPLING_RATE,
+    AUDIO_CUTOFF_FREQUENCY,
+    AUDIO_CUTOFF_FREQUENCY_WIDTH,
+    PDM_FILTER_DECIMATION_FACTOR,
+    PDM_SAMPLING_RATE,
+    DELTA_SIGMA_ORDER,
+    DECIMATION_FILTER_LENGTH,
+    NUM_BITS_FILTER_Q,
+    NUM_BITS_PDM_ADC,
+)
 
 
 class DeltaSigma:
@@ -515,7 +506,7 @@ class PolyPhaseFIR_DecimationFilter(Module):
         cutoff_width: float = AUDIO_CUTOFF_FREQUENCY_WIDTH,
         filt_length: int = DECIMATION_FILTER_LENGTH,
         num_bits_filter_Q: int = NUM_BITS_FILTER_Q,
-        num_bits_output: int = NUM_BITS_ADC,
+        num_bits_output: int = NUM_BITS_PDM_ADC,
         fs: float = PDM_SAMPLING_RATE,
     ):
         """
@@ -528,7 +519,7 @@ class PolyPhaseFIR_DecimationFilter(Module):
             filt_length (int, optional): length of the designed FIR filter. Defaults to DECIMATION_FILTER_LENGTH.
             num_bits_filter_Q (int, optional): number of bits used for quantizing the filter coefficients. Defaults to NUM_BITS_FILTER_Q bits.
             num_bits_output (int, optional): number of bits devoted to the final sampled audio obtained after low-pass filtering + decimation.
-                                            Officially this corresponds to number of quantization bits in a conventional SAR ADC. Defaults to NUM_BITS_ADC bits.
+                                            Officially this corresponds to number of quantization bits in a conventional SAR ADC. Defaults to NUM_BITS_PDM_ADC bits.
             fs (float, optional): sampling frequency or bit rate of PDM bit-stream. Defaults to PDM_SAMPLING_RATE.
         """
         super().__init__(shape=1, spiking_input=True, spiking_output=True)
@@ -868,7 +859,7 @@ def PDM_ADC(
     cutoff_width: float = AUDIO_CUTOFF_FREQUENCY_WIDTH,
     filt_length: int = DECIMATION_FILTER_LENGTH,
     num_bits_filter_Q: int = NUM_BITS_FILTER_Q,
-    num_bits_output: int = NUM_BITS_ADC,
+    num_bits_output: int = NUM_BITS_PDM_ADC,
 ):
     """
     Analog-to-Digital (ADC) module for Xylo-A3 chip consisting of
@@ -885,7 +876,7 @@ def PDM_ADC(
         filt_length (int, optional): length of the FIR low-pass filter. Defaults to DECIMATION_FILTER_LENGTH.
         num_bits_filter_Q (int, optional): number of bits used for quantizing the filter taps. Defaults to NUM_BITS_FILTER_Q.
         num_bits_output (int, optional): target number of bits in the final sampled audio obtained after low-pass filtering and decimation.
-        This is equivalent to the number of bits in the equivalent ADC. Defaults to NUM_BITS_ADC.
+        This is equivalent to the number of bits in the equivalent ADC. Defaults to NUM_BITS_PDM_ADC.
     """
     # two modules of equivalent ADC
     return Sequential(
