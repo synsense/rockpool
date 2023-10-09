@@ -8,3 +8,4 @@ from .pdm import PDM_ADC, PDM_Microphone, PolyPhaseFIR_DecimationFilter, DeltaSi
 from .digital_filterbank import ChipButterworth
 from .raster import Raster
 from .divisive_normalization import DivisiveNormalization
+from .params import *
