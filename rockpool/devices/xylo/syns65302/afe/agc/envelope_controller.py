@@ -12,7 +12,7 @@ import warnings
 # ===========================================================================
 # *    some constants defined according to Xylo-A3 specficiations
 # ===========================================================================
-from rockpool.devices.xylo.syns65302.afe.agc.xylo_a3_agc_specs import (
+from rockpool.devices.xylo.syns65302.afe.xylo_a3_agc_specs import (
     NUM_BITS_ADC,
     AUDIO_SAMPLING_RATE,
     AMPLITUDE_THRESHOLDS,
