@@ -28,6 +28,36 @@ AUDIO_SAMPLING_RATE = SYSTEM_CLOCK_RATE / (64 * 16)
 # - ADC parameters
 
 NUM_BITS_AGC_ADC = 10
+"""Number of bits allocated for AGC path's digital output"""
+
+
+# - PDM path parameters
+
+NUM_BITS_PDM_ADC = 14
+"""Number of bits devoted to the final sampled audio obtained after low-pass filtering + decimation.
+Officially this corresponds to number of quantization bits in a conventional SAR ADC"""
+
+AUDIO_CUTOFF_FREQUENCY = 20_000
+"""The upper limit for human audio spectrum 20 kHz"""
+
+AUDIO_CUTOFF_FREQUENCY_WIDTH = 0.2 * AUDIO_CUTOFF_FREQUENCY
+"""Used as transition widths, set to 20% of the cutoff frequency"""
+
+PDM_FILTER_DECIMATION_FACTOR = 32
+"""Oversampling factor, how much the signal needs to be decimated or subsampled"""
+
+PDM_SAMPLING_RATE = AUDIO_SAMPLING_RATE * PDM_FILTER_DECIMATION_FACTOR
+"""Sampling rate/clock rate of PDM module. ~1.5 MHz"""
+
+DELTA_SIGMA_ORDER = 4
+"""Order of the deltasigma modulator (conventional ones are 2 or 3)"""
+
+DECIMATION_FILTER_LENGTH = 256
+"""Length of the designed FIR filter"""
+
+NUM_BITS_FILTER_Q = 16
+"""Number of bits used for quantizing the filter coefficients"""
+
 
 # - PGA parameters
 
@@ -80,6 +110,7 @@ We have a fixed-gain mode for PGA where PGA ignores the gain-change commands it 
 NOTE: in this mode, we set the maximum gain for PGA as default.
 """
 
+
 # - Envelope Controller
 
 RISE_TIME_CONSTANT = 0.1e-3
@@ -123,7 +154,6 @@ Reliable hysteresis in detecting the maximum
 NOTE: to make sure that waiting times are working well, we need to extend waiting times when the signal amplitude increase is significant
 we measure this by a hysteresis parameter which should be typically around 2 ~ 10 for an ADC with 10 bits
 """
-
 
 PGA_GAIN_INDEX_VARIATION = np.ones(2**NUM_BITS_COMMAND + 1, dtype=np.int64)
 """
@@ -173,6 +203,7 @@ MAX_WAITING_BITWIDTH = 24
 NOTE: with a clock rate of 50K, and unsigned format for waiting times, this allows delaying PGA gain adjustment by 2^24/50K = 320 second
 this would be more than enough for all AGC applications in conventional audio and perhaps other closely-related applications
 """
+
 
 # - Gain Smoother
 
