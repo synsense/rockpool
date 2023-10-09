@@ -1,19 +1,7 @@
-# ----------------------------------------------------------------------------------------------------------------------
-# This module contains the PDM-based ADC for sampling the input audion signal.
-# It consists of two main parts:
-#   (i)     a deltasigma based PDM microphone that converts the input analog audio into a PDM bit stream where the
-#           relative frequency of 1-vs-0 depends on the amplitude of the signal
-#   (ii)    a low-pass filter follows by decimation stage that processes the PDM bit stream and recovers the sampled
-#           audio upto a given bit precision.
-#
-#
-# In brief, PDM microphone with its internal deltasigma modulation followed by low-pass filtering + decimation
-# module implemented here yield an ADC for the input analog audio signal.
-#
-# The low-pass filtering is implemented as a **polyphase** filter structure to consume as less power as possible.
-#
-# ----------------------------------------------------------------------------------------------------------------------
-
+"""
+A deltasigma based PDM microphone that converts the input analog audio into a PDM bit stream 
+where the relative frequency of 1-vs-0 depends on the amplitude of the signal
+"""
 
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
