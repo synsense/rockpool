@@ -34,6 +34,7 @@ from numbers import Number
 
 from rockpool.typehints import P_int, P_float
 from .delta_sigma import DeltaSigma
+from .microphone_pdm import MicrophonePDM
 
 # list of modules exported
 __all__ = ["PDM_ADC", "PolyPhaseFIR_DecimationFilter"]
