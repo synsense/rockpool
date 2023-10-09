@@ -15,14 +15,14 @@ from numbers import Number
 from rockpool.typehints import P_int, P_float
 from .delta_sigma import DeltaSigma
 
-__all__ = ["MicrophonePDM"]
-
 from rockpool.devices.xylo.syns65302.afe.params import (
     AUDIO_CUTOFF_FREQUENCY,
     PDM_FILTER_DECIMATION_FACTOR,
     PDM_SAMPLING_RATE,
     DELTA_SIGMA_ORDER,
 )
+
+__all__ = ["MicrophonePDM"]
 
 
 class MicrophonePDM(Module):
