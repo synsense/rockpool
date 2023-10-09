@@ -36,7 +36,7 @@ from rockpool.typehints import P_int, P_float
 from .delta_sigma import DeltaSigma
 
 # list of modules exported
-__all__ = ["PDM_ADC", "PDM_Microphone", "PolyPhaseFIR_DecimationFilter"]
+__all__ = ["PDM_ADC", "MicrophonePDM", "PolyPhaseFIR_DecimationFilter"]
 
 from rockpool.devices.xylo.syns65302.afe.params import (
     SYSTEM_CLOCK_RATE,
@@ -52,7 +52,7 @@ from rockpool.devices.xylo.syns65302.afe.params import (
 )
 
 
-class PDM_Microphone(Module):
+class MicrophonePDM(Module):
     """
     This class simulates a PDM microphone which applies deltasigma modulation on the input audio signal
 
@@ -68,7 +68,7 @@ class PDM_Microphone(Module):
         fs: float = PDM_SAMPLING_RATE,
     ):
         """
-        Initialise a PDM_Microphone module
+        Initialise a MicrophonePDM module
 
         Args:
             sdm_order (int): order of the deltasigma modulator (conventional ones are 2 or 3). Defaults to DELTA_SIGMA_ORDER.
@@ -629,7 +629,7 @@ def PDM_ADC(
     """
     # two modules of equivalent ADC
     return Sequential(
-        PDM_Microphone(
+        MicrophonePDM(
             sdm_order=sdm_order,
             sdm_OSR=sdm_OSR,
             bandwidth=cutoff,

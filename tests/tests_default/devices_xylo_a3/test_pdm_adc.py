@@ -2,7 +2,7 @@ import pytest
 
 
 def test_imports():
-    from rockpool.devices.xylo.syns65302 import PDM_ADC, PDM_Microphone
+    from rockpool.devices.xylo.syns65302 import PDM_ADC, MicrophonePDM
 
 
 def test_pdm_adc():
@@ -11,10 +11,10 @@ def test_pdm_adc():
     """
     import numpy as np
     from numpy.linalg import norm
-    from rockpool.devices.xylo.syns65302 import PDM_Microphone, PDM_ADC
+    from rockpool.devices.xylo.syns65302 import MicrophonePDM, PDM_ADC
 
     # pdm microphone: just to extract the default parameters
-    mic = PDM_Microphone()
+    mic = MicrophonePDM()
 
     # pdm ADC
     pdm_adc = PDM_ADC()

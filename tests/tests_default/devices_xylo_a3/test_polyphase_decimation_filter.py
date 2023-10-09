@@ -5,7 +5,7 @@ import pytest
 def test_imports():
     from rockpool.devices.xylo.syns65302 import (
         PolyPhaseFIR_DecimationFilter,
-        PDM_Microphone,
+        MicrophonePDM,
     )
 
 
@@ -16,12 +16,12 @@ def test_polyphase_decimation_filter():
     import numpy as np
     from numpy.linalg import norm
     from rockpool.devices.xylo.syns65302 import (
-        PDM_Microphone,
+        MicrophonePDM,
         PolyPhaseFIR_DecimationFilter,
     )
 
     # pdm microphone and decimation filter
-    mic = PDM_Microphone()
+    mic = MicrophonePDM()
     lp = PolyPhaseFIR_DecimationFilter()
 
     # produce a combination of sinusoid signals
