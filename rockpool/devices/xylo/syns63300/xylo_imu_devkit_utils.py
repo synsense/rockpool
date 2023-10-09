@@ -556,7 +556,7 @@ def config_realtime_mode(
     config.debug.imu_if_clock_freq_div = int(main_clk_rate / IMU_IF_clk_rate - 1)
 
     # - Set configuration timeout
-    config.input_interface.configuration_timeout = 20
+    config.input_interface.configuration_timeout = 20_000
 
     # - No monitoring of internal state in realtime mode
     config.debug.monitor_neuron_v_mem = None
