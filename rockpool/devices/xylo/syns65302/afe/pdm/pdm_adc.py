@@ -37,7 +37,7 @@ from .delta_sigma import DeltaSigma
 from .microphone_pdm import MicrophonePDM
 
 # list of modules exported
-__all__ = ["PDM_ADC", "PolyPhaseFIR_DecimationFilter"]
+__all__ = ["PDM_ADC", "PolyPhaseFIR"]
 
 from rockpool.devices.xylo.syns65302.afe.params import (
     SYSTEM_CLOCK_RATE,
@@ -53,7 +53,7 @@ from rockpool.devices.xylo.syns65302.afe.params import (
 )
 
 
-class PolyPhaseFIR_DecimationFilter(Module):
+class PolyPhaseFIR(Module):
     """
     This class implements the low-pass decimation filter for PDM binary data implemented based on polyphase FIR filters
 
@@ -78,7 +78,7 @@ class PolyPhaseFIR_DecimationFilter(Module):
         fs: float = PDM_SAMPLING_RATE,
     ):
         """
-        Initialise a PolyPhaseFIR_DecimationFilter module
+        Initialise a PolyPhaseFIR module
 
         Args:
             decimation_factor (int, optional): how much the signal needs to be decimated or subsampled. Defaults to PDM_FILTER_DECIMATION_FACTOR.
@@ -454,7 +454,7 @@ def PDM_ADC(
             bandwidth=cutoff,
             fs=fs,
         ),
-        PolyPhaseFIR_DecimationFilter(
+        PolyPhaseFIR(
             decimation_factor=sdm_OSR,
             cutoff=cutoff,
             cutoff_width=cutoff_width,
