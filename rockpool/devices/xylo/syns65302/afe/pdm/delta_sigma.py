@@ -4,17 +4,16 @@ This file contains the implementation of a custom deltasigma module implementati
 NOTE that the implementation is not 1-to-1 with the hardware implementation and is only used for simulation purposes.
 """
 
+from logging import info
+from typing import Any, Tuple
+
 import numpy as np
 import scipy.signal as sp
 
-from logging import info
-
-from typing import Tuple, Any
-
 from rockpool.devices.xylo.syns65302.afe.params import (
     AUDIO_CUTOFF_FREQUENCY,
-    PDM_SAMPLING_RATE,
     DELTA_SIGMA_ORDER,
+    PDM_SAMPLING_RATE,
 )
 
 __all__ = ["DeltaSigma"]

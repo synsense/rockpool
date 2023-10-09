@@ -3,26 +3,23 @@ A poly phase low-pass filter follows by decimation stage that processes the PDM 
 and recovers the sampled audio upto a given bit precision.
 """
 
-from rockpool.nn.modules.module import Module
-from rockpool.parameters import SimulationParameter
+from typing import Any, Tuple
 
 import numpy as np
 import scipy.signal as sp
 
-from typing import Tuple, Any
-
-from rockpool.typehints import P_int, P_float
-
-
 from rockpool.devices.xylo.syns65302.afe.params import (
     AUDIO_CUTOFF_FREQUENCY,
     AUDIO_CUTOFF_FREQUENCY_WIDTH,
-    PDM_FILTER_DECIMATION_FACTOR,
-    PDM_SAMPLING_RATE,
     DECIMATION_FILTER_LENGTH,
     NUM_BITS_FILTER_Q,
     NUM_BITS_PDM_ADC,
+    PDM_FILTER_DECIMATION_FACTOR,
+    PDM_SAMPLING_RATE,
 )
+from rockpool.nn.modules.module import Module
+from rockpool.parameters import SimulationParameter
+from rockpool.typehints import P_float, P_int
 
 __all__ = ["PolyPhaseFIR"]
 

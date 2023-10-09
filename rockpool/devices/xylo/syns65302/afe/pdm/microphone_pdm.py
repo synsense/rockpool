@@ -3,24 +3,23 @@ A deltasigma based PDM microphone that converts the input analog audio into a PD
 where the relative frequency of 1-vs-0 depends on the amplitude of the signal
 """
 
-from rockpool.nn.modules.module import Module
-from rockpool.parameters import SimulationParameter
+import warnings
+from numbers import Number
+from typing import Any, Tuple
 
 import numpy as np
-import warnings
-
-from typing import Tuple, Any
-from numbers import Number
-
-from rockpool.typehints import P_int, P_float
-from .delta_sigma import DeltaSigma
 
 from rockpool.devices.xylo.syns65302.afe.params import (
     AUDIO_CUTOFF_FREQUENCY,
+    DELTA_SIGMA_ORDER,
     PDM_FILTER_DECIMATION_FACTOR,
     PDM_SAMPLING_RATE,
-    DELTA_SIGMA_ORDER,
 )
+from rockpool.nn.modules.module import Module
+from rockpool.parameters import SimulationParameter
+from rockpool.typehints import P_float, P_int
+
+from .delta_sigma import DeltaSigma
 
 __all__ = ["MicrophonePDM"]
 

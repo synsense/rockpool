@@ -12,22 +12,20 @@ module implemented here yield an ADC for the input analog audio signal.
 The low-pass filtering is implemented as a **polyphase** filter structure to consume as less power as possible.
 """
 
+from rockpool.devices.xylo.syns65302.afe.params import (
+    AUDIO_CUTOFF_FREQUENCY,
+    AUDIO_CUTOFF_FREQUENCY_WIDTH,
+    DECIMATION_FILTER_LENGTH,
+    DELTA_SIGMA_ORDER,
+    NUM_BITS_FILTER_Q,
+    NUM_BITS_PDM_ADC,
+    PDM_FILTER_DECIMATION_FACTOR,
+    PDM_SAMPLING_RATE,
+)
 from rockpool.nn.combinators import Sequential
 
 from .microphone_pdm import MicrophonePDM
 from .poly_phase_fir import PolyPhaseFIR
-
-
-from rockpool.devices.xylo.syns65302.afe.params import (
-    AUDIO_CUTOFF_FREQUENCY,
-    AUDIO_CUTOFF_FREQUENCY_WIDTH,
-    PDM_FILTER_DECIMATION_FACTOR,
-    PDM_SAMPLING_RATE,
-    DELTA_SIGMA_ORDER,
-    DECIMATION_FILTER_LENGTH,
-    NUM_BITS_FILTER_Q,
-    NUM_BITS_PDM_ADC,
-)
 
 __all__ = ["PDM_ADC"]
 
