@@ -4,7 +4,7 @@ import pytest
 def test_imports():
     from rockpool.devices.xylo.syns65302 import (
         ChipButterworth,
-        PDM_ADC,
+        PDMADC,
         DivisiveNormalization,
     )
 
@@ -18,12 +18,12 @@ def test_filterbank():
     from rockpool.devices.xylo.syns65302 import (
         ChipButterworth,
         DivisiveNormalization,
-        PDM_ADC,
+        PDMADC,
     )
     from rockpool.devices.xylo.syns65302.afe.digital_filterbank import NUM_FILETRS
 
     # just to extract the sampling rate
-    pdm_adc = PDM_ADC()
+    pdm_adc = PDMADC()
     fs = pdm_adc[0].fs
     oversampling = pdm_adc[0].sdm_OSR
     num_bits_output = pdm_adc[1].num_bits_output

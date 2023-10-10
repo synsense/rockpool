@@ -2,7 +2,7 @@ import pytest
 
 
 def test_imports():
-    from rockpool.devices.xylo.syns65302 import PDM_ADC, MicrophonePDM
+    from rockpool.devices.xylo.syns65302 import PDMADC, MicrophonePDM
 
 
 def test_pdm_adc():
@@ -11,13 +11,13 @@ def test_pdm_adc():
     """
     import numpy as np
     from numpy.linalg import norm
-    from rockpool.devices.xylo.syns65302 import MicrophonePDM, PDM_ADC
+    from rockpool.devices.xylo.syns65302 import MicrophonePDM, PDMADC
 
     # pdm microphone: just to extract the default parameters
     mic = MicrophonePDM()
 
     # pdm ADC
-    pdm_adc = PDM_ADC()
+    pdm_adc = PDMADC()
 
     # produce a combination of sinusoid signals
     freq_min = 1_000
