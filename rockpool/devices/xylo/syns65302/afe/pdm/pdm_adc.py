@@ -12,10 +12,6 @@ module implemented here yield an ADC for the input analog audio signal.
 The low-pass filtering is implemented as a **polyphase** filter structure to consume as less power as possible.
 """
 
-from typing import Tuple
-
-import numpy as np
-
 from rockpool.devices.xylo.syns65302.afe.params import (
     AUDIO_CUTOFF_FREQUENCY,
     AUDIO_CUTOFF_FREQUENCY_WIDTH,
