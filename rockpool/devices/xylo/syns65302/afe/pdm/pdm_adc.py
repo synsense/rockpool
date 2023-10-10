@@ -26,8 +26,7 @@ from rockpool.devices.xylo.syns65302.afe.params import (
     PDM_FILTER_DECIMATION_FACTOR,
     PDM_SAMPLING_RATE,
 )
-from rockpool.nn.combinators import Sequential
-from rockpool.nn.modules.module import Module
+from rockpool.nn.combinators.sequential import ModSequential
 
 from .microphone_pdm import MicrophonePDM
 from .poly_phase_fir import PolyPhaseFIR
@@ -35,7 +34,7 @@ from .poly_phase_fir import PolyPhaseFIR
 __all__ = ["PDMADC"]
 
 
-class PDMADC(Module):
+class PDMADC(ModSequential):
     """
     Analog-to-Digital (ADC) module for Xylo-A3 chip consisting of
         (i)  PDM microphone converting the input analog audio signal into PDM bit-stream.
@@ -69,7 +68,7 @@ class PDMADC(Module):
             This is equivalent to the number of bits in the equivalent ADC. Defaults to NUM_BITS_PDM_ADC.
         """
 
-        self.model = Sequential(
+        super().__init__(
             MicrophonePDM(
                 sdm_order=sdm_order,
                 sdm_OSR=sdm_OSR,
@@ -86,24 +85,3 @@ class PDMADC(Module):
                 fs=fs,
             ),
         )
-
-    def evolve(
-        self,
-        input_data: Tuple[np.ndarray, float],
-        record: bool = False,
-        *args,
-        **kwargs,
-    ) -> np.ndarray:
-        """
-        Take the 1D raw analog signal and processes it to produce the 14-bit 48.8 Kbps sampled audio signal.
-
-        Args:
-            input_data (np.ndarray): the input signal (BxTx3)
-            record (bool, optional): record flag to match with the other rockpool modules.
-
-        Returns:
-            np.ndarray: Output signal after rotation removal (BxTx3)
-            Dict[str, Any]: state dictionary
-            Dict[str, Any]: record dictionary
-        """
-        return self.model.evolve(input_data, record=record, *args, **kwargs)
