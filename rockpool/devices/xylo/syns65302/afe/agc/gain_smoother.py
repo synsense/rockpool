@@ -10,7 +10,7 @@
 #
 # ----------------------------------------------------------------------------------------------------------------------
 
-from rockpool.devices.xylo.syns65302.afe.agc.xylo_a3_agc_specs import (
+from rockpool.devices.xylo.syns65302.afe.params import (
     AUDIO_SAMPLING_RATE,
 )
 import numpy as np
@@ -20,27 +20,27 @@ from typing import Any
 # *                        Some constants needed in the design
 # ===========================================================================
 # default setting used for envelope controller
-from rockpool.devices.xylo.syns65302.afe.agc.xylo_a3_agc_specs import (
+from rockpool.devices.xylo.syns65302.afe.params import (
     EXP_PGA_GAIN_VEC,
     NUM_BITS_COMMAND,
-    NUM_BITS_ADC,
+    NUM_BITS_AGC_ADC,
 )
 
 # maximum number of bits devoted for implementing waiting times in the AGC controller algorithm
 # NOTE: with a clock rate of 50K, this is around 1 min waiting time which would definitely be enough for all ranges of applications
 # MAX_WAITING_BITWIDTH is set 24 in default mode
-from rockpool.devices.xylo.syns65302.afe.agc.xylo_a3_agc_specs import (
+from rockpool.devices.xylo.syns65302.afe.params import (
     MAX_WAITING_BITWIDTH,
 )
 
 # how many time-constants is considered `INFINITY` in low-pass filter transient period
 # INIFINITY_OF_TRANSIENT_PHASE is set to 6 in default mode
-from rockpool.devices.xylo.syns65302.afe.agc.xylo_a3_agc_specs import (
+from rockpool.devices.xylo.syns65302.afe.params import (
     INIFINITY_OF_TRANSIENT_PHASE,
 )
 
 # how many bits are needed to quantize the gain ratio associated with the start and end of the jump
-from rockpool.devices.xylo.syns65302.afe.agc.xylo_a3_agc_specs import (
+from rockpool.devices.xylo.syns65302.afe.params import (
     NUM_BITS_GAIN_QUANTIZATION,
 )
 
@@ -52,7 +52,7 @@ from rockpool.devices.xylo.syns65302.afe.agc.xylo_a3_agc_specs import (
 class GainSmootherFPGA:
     def __init__(
         self,
-        num_bits: int = NUM_BITS_ADC,
+        num_bits: int = NUM_BITS_AGC_ADC,
         min_waiting_time: float = (2**MAX_WAITING_BITWIDTH - 1) / AUDIO_SAMPLING_RATE,
         num_bits_command: int = NUM_BITS_COMMAND,
         pga_gain_vec: np.ndarray = EXP_PGA_GAIN_VEC,

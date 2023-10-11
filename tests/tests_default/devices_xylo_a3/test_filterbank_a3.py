@@ -2,7 +2,7 @@ import pytest
 
 
 def test_imports():
-    from rockpool.devices.xylo.syns65302 import ChipButterworth, PDM_ADC
+    from rockpool.devices.xylo.syns65302 import ChipButterworth, PDMADC
 
 
 def test_filterbank():
@@ -11,10 +11,10 @@ def test_filterbank():
     """
     import numpy as np
     from numpy.linalg import norm
-    from rockpool.devices.xylo.syns65302 import PDM_ADC, ChipButterworth
+    from rockpool.devices.xylo.syns65302 import PDMADC, ChipButterworth
     from rockpool.devices.xylo.syns65302.afe.digital_filterbank import NUM_FILETRS
 
-    pdm_adc = PDM_ADC()
+    pdm_adc = PDMADC()
     fs = pdm_adc[0].fs
 
     # create a chirp signal
