@@ -20,12 +20,12 @@ def test_from_sequential_to_nir():
         ExpSynTorch(Nout, dt=dt),
     )
     graph = to_nir(net, torch.randn(1, 2))
-    assert len(graph.nodes) == 4
-    assert isinstance(graph.nodes[0], nir.Linear)
-    assert isinstance(graph.nodes[1], nir.LI)
-    assert isinstance(graph.nodes[2], nir.Linear)
-    assert isinstance(graph.nodes[3], nir.LI)
-    assert len(graph.edges) == 3
+    assert len(graph.nodes) == 6
+    assert isinstance(graph.nodes['0_LinearTorch'], nir.Linear)
+    assert isinstance(graph.nodes['1_ExpSynTorch'], nir.LI)
+    assert isinstance(graph.nodes['2_LinearTorch'], nir.Linear)
+    assert isinstance(graph.nodes['3_ExpSynTorch'], nir.LI)
+    assert len(graph.edges) == 5
 
 
 def test_from_sequential_to_nir_2():
@@ -62,9 +62,9 @@ def test_from_nir_to_sequential():
 
     orig_model = rockpool.nn.combinators.Sequential(
         LinearTorch(shape=(2, 4)),
-        ExpSynTorch(tau=10.0, shape=4),
+        ExpSynTorch(tau=np.ones((4)) * 10.0, shape=4),
         LinearTorch(shape=(4, 8)),
-        LIFTorch(tau_mem=10.0, shape=8),
+        LIFTorch(tau_mem=np.ones((8)) * 10.0, shape=8),
     )
     nir_graph = to_nir(orig_model, torch.randn(timesteps, 2))
 

@@ -61,7 +61,7 @@ node_conversion_functions = {
 }
 
 def from_nir(
-    source: Union[PathLike, nir.NIR], shape: Union[tuple, int]=None,
+    source: Union[PathLike, nir.NIRNode], shape: Union[tuple, int]=None,
 ):
     """Generates a rockpool model from a NIR representation.
 
@@ -83,6 +83,7 @@ def from_nir(
         elif type(node) in [nir.Linear, nir.Affine]:
             layer = node_conversion_functions[type(node)](node)
         store_node = node
+        print(layer)
         layers.append(layer)
 
     edge_array = torch.tensor(source.edges)
@@ -122,7 +123,7 @@ def _extract_rockpool_module(module) -> Optional[nir.NIRNode]:
 
 def to_nir(
     module: torch.nn.Module, sample_data: torch.Tensor, model_name: str = "rockpool"
-) -> nir.NIR:
+) -> nir.NIRNode:
     return extract_nir_graph(
         module, _extract_rockpool_module, sample_data, model_name=model_name
     )
