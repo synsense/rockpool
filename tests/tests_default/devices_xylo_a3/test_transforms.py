@@ -1,5 +1,4 @@
 def test_imports():
-
     from rockpool.devices.xylo.syns65302.transform import (
         AudioQuantizer,
         AmplitudeNormalizer,
@@ -7,7 +6,6 @@ def test_imports():
 
 
 def test_normalizer():
-
     from rockpool.devices.xylo.syns65302.transform import AmplitudeNormalizer
     import numpy as np
 
@@ -32,7 +30,6 @@ def test_normalizer():
 
 
 def test_quantizer():
-
     from rockpool.devices.xylo.syns65302.transform import (
         AudioQuantizer,
         AmplitudeNormalizer,
