@@ -255,7 +255,7 @@ class TorchModule(Module, nn.Module):
             self._register_attribute(key, value)
 
             # - Register as a torch `parameter`
-            super().register_parameter(key, nn.Parameter(value.data))
+            super().register_parameter(key, nn.Parameter(torch.tensor(value.data)))
             return
 
         if isinstance(value, rp.State):

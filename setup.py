@@ -32,6 +32,8 @@ setup_args = {
             "xylosim",
             "samna>=0.19.0.0",
             "bitstruct",
+            "nir",
+            "nirtorch"
         ]
     },
     "description": "A Python package for developing, simulating and training spiking neural networks, and deploying on neuromorphic hardware",

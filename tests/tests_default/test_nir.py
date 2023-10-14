@@ -1,6 +1,6 @@
 import nir
 import torch
-# from rockpool.nn.combinators import Sequential
+from rockpool.nn.combinators import Sequential
 import rockpool
 from rockpool.nn.modules import LinearTorch, ExpSynTorch, LIFTorch, to_nir, from_nir
 import snntorch as snn
@@ -53,35 +53,43 @@ def test_from_linear_to_nir():
     out_features = 3
     m = LinearTorch(shape=(in_features, out_features))
     graph = to_nir(m, torch.randn(1, in_features))
-    assert len(graph.nodes) == 1
-    assert graph.nodes[0].weight.shape == torch.Size([out_features, in_features])
+    assert len(graph.nodes) == 3
+    assert graph.nodes["rockpool"].weight.shape == torch.Size([out_features, in_features])
 
+
+def test_from_nir_to_linear():
+    in_features = 2
+    out_features = 3
+    m = LinearTorch(shape=(in_features, out_features))
+    graph = to_nir(m, torch.randn(1, in_features))
+    m2 = from_nir(graph)
+    assert m2.rockpool.weight.shape == torch.Size([out_features, in_features])
 
 def test_from_nir_to_sequential():
     timesteps=6
 
-    orig_model = rockpool.nn.combinators.Sequential(
+    orig_model = Sequential(
         LinearTorch(shape=(2, 4)),
-        ExpSynTorch(tau=np.ones((4)) * 10.0, shape=4),
+        ExpSynTorch(tau=torch.ones((4)) * 10.0, shape=4),
         LinearTorch(shape=(4, 8)),
-        LIFTorch(tau_mem=np.ones((8)) * 10.0, shape=8),
+        LIFTorch(tau_mem=torch.ones((8)) * 10.0, shape=8),
     )
     nir_graph = to_nir(orig_model, torch.randn(timesteps, 2))
 
     convert_model = from_nir(nir_graph)
 
-    for (key1, value1), (key2, value2) in zip(orig_model.modules().items(), convert_model.modules().items()):
+    for (key1, value1), (key2, value2) in zip(orig_model.modules().items(), dict(convert_model.named_children()).items()):
         assert key1 == key2
         assert value2 == value2
 
-    torch.testing.assert_allclose(orig_model[0].weight, convert_model[0].weight)
+    convert_children = list(convert_model.children())
+    torch.testing.assert_allclose(orig_model[0].weight, convert_children[0].weight)
     # torch.testing.assert_allclose(orig_model[0].bias, convert_model[0].bias)
-    assert type(orig_model[1]) == type(convert_model[1])
-    assert type(orig_model[2]) == type(convert_model[2])
-    torch.testing.assert_allclose(orig_model[2].weight, convert_model[2].weight)
-    # torch.testing.assert_allclose(orig_model[2].bias, convert_model[2].bias)
-    # TODO: bias is not working
-
+    assert type(orig_model[1]) == type(convert_children[1])
+    assert type(orig_model[2]) == type(convert_children[2])
+    torch.testing.assert_allclose(orig_model[2].weight, convert_children[2].weight)
+    # TODO: Bias not working
+    # torch.testing.assert_allclose(orig_model[2].bias, convert_children[2].bias)
 
 def test_comlex_net():
     num_in = 2
@@ -158,3 +166,6 @@ def test_snntorch_nir_rockpool():
     assert torch.sum(test2).detach().numpy() == num_hidden_1 * num_hidden_2
     assert torch.sum(test4).detach().numpy() == num_hidden_2 * num_out
 
+def test_import_rnn():
+    m = from_nir("tests/tests_default/nir_graphs/braille.nir")
+    m(torch.empty(1, 1, 12))

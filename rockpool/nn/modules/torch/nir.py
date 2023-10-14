@@ -1,122 +1,111 @@
+from numbers import Number
 from os import PathLike
 from typing import Optional, Union
 from rockpool.nn.modules.torch import LIFTorch, ExpSynTorch, LinearTorch
-from rockpool.nn.combinators import Sequential
 import torch
 import nir
-from nirtorch import extract_nir_graph
+from nirtorch import extract_nir_graph, load
 
 __all__ = ["to_nir", "from_nir"]
 
-def expsyntorch_from_nir(
-        node: nir.LI, shape: Union[tuple, int]=None,
-):
-    # if node.v_leak != 0:
-    #     raise ValueError("`v_leak` must be 0")
+def _to_tensor(x):
+    if isinstance(x, torch.Tensor):
+        return x.detach()
+    if isinstance(x, tuple):
+        return tuple(_to_tensor(y) for y in x)
+    if isinstance(x, Number):
+        return x
+    parsed = torch.from_numpy(x)
+    if parsed.numel() == 1:
+        return parsed.item()
+    return parsed
 
-    return ExpSynTorch(
-        shape=shape,
-        tau=node.tau,
-        dt=node.tau / (1+node.r),
-    )
+def _to_numpy(x):
+    return x.detach().numpy()
 
-def cubalif_from_nir(
-    node: nir.CubaLIF, shape: Union[tuple, int]=None,
-):
-    # if torch.sum(node.v_leak) != 0:
-    #     raise ValueError("`v_leak` must be 0")
+class RecurrentCubaLIF(torch.nn.Module):
+    def __init__(self, lif, lin):
+        super().__init__()
+        self.lif = lif
+        self.lin = lin
 
-    return LIFTorch(
-        shape=shape,
-        tau_mem=node.tau_mem,
-        tau_syn=node.tau_syn,
-        threshold=node.v_threshold,
-        dt=node.tau_mem / (1+node.r),
-    )
+    def forward(self, x, state = None):
+        if state is None:
+            state = torch.zeros_like(x)
+        x, _ = self.lif(x + state)
+        return x, self.lin(x)
 
+def _convert_nir_to_rockpool(node: nir.NIRNode) -> Optional[torch.nn.Module]:
+    if isinstance(node, nir.Input) or isinstance(node, nir.Output):
+        return None
+    if isinstance(node, nir.NIRGraph):
+        # Currently, just parse a recurrent recurrent Cuba LIF graph
+        types = {type(v): v for v in node.nodes.values()}
+        if len(node.nodes) == 4 and nir.CubaLIF in types and nir.Affine in types:
+            layer_lif = _convert_nir_to_rockpool(types[nir.CubaLIF])
+            layer_affine = _convert_nir_to_rockpool(types[nir.Affine])
+            return RecurrentCubaLIF(layer_lif, layer_affine)
+    if isinstance(node, nir.LI):
+        return ExpSynTorch(
+            shape=int(node.input_type["input"]),
+            tau=_to_tensor(node.tau).int(),
+            dt=_to_tensor(node.tau / (1+node.r)),
+        )
+    if isinstance(node, nir.CubaLIF):
+        return LIFTorch(
+            shape=_to_tensor(node.input_type["input"]),
+            tau_mem=_to_tensor(node.tau_mem),
+            tau_syn=_to_tensor(node.tau_syn),
+            threshold=_to_tensor(node.v_threshold),
+            dt=_to_tensor(node.tau_mem / (1+node.r)),
+        )
+    if isinstance(node, nir.Linear):
+        return LinearTorch(
+            shape=(int(node.weight.shape[1]), int(node.weight.shape[0])),
+            weight=_to_tensor(node.weight.T),
+        )
+    if isinstance(node, nir.Affine):
+        return LinearTorch(
+            shape=(int(node.weight.shape[1]), int(node.weight.shape[0])),
+            weight=_to_tensor(node.weight.T),
+            bias=_to_tensor(node.bias),
+        )
 
-def linear_from_nir(
-    node: nir.Linear,
-):
-    return LinearTorch(
-        shape=(node.weight.shape[1], node.weight.shape[0]),
-        weight=node.weight.T,
-    )
+    raise NotImplementedError(f"Cannot convert {type(node)} to rockpool module")
 
-def affline_from_nir(
-    node: nir.Affine,
-):
-
-    return LinearTorch(
-        shape=(node.weight.shape[1], node.weight.shape[0]),
-        weight=node.weight.T,
-        bias=node.bias,
-    )
-
-node_conversion_functions = {
-    nir.LI: expsyntorch_from_nir,
-    nir.CubaLIF: cubalif_from_nir,
-    nir.Linear: linear_from_nir,
-    nir.Affine: affline_from_nir,
-}
-
-def from_nir(
-    source: Union[PathLike, nir.NIRNode], shape: Union[tuple, int]=None,
-):
+def from_nir(source: Union[PathLike, nir.NIRNode]):
     """Generates a rockpool model from a NIR representation.
 
     Parameters:
         source: If string or Path will try to load from file. Otherwise should be NIR object
     """
-
-    # Convert nodes to rockpool layers
-    # layers = [
-    #     node_conversion_functions[type(node)](node)
-    #     for node in source.nodes
-    # ]
-    layers = []
-    for node in source.nodes:
-
-        if type(node) in [nir.LI, nir.CubaLIF]:
-            num_neuron = store_node.weight.shape[0]
-            layer = node_conversion_functions[type(node)](node, num_neuron)
-        elif type(node) in [nir.Linear, nir.Affine]:
-            layer = node_conversion_functions[type(node)](node)
-        store_node = node
-        print(layer)
-        layers.append(layer)
-
-    edge_array = torch.tensor(source.edges)
-    # subtract source edges and check if all edges are sequential
-    edge_array = edge_array - edge_array[:, :1]
-    if edge_array[:, 0].sum() == 0 and edge_array[:, 1].sum() == edge_array.shape[0]:
-        return Sequential(*layers)
-    else:
-        raise NotImplementedError("Only sequential models are supported at the moment")
-
+    if isinstance(source, PathLike):
+        source = nir.load(source)
+    
+    return load(source, _convert_nir_to_rockpool)
 
 def _extract_rockpool_module(module) -> Optional[nir.NIRNode]:
     if type(module) == ExpSynTorch:
         return nir.LI(
-            tau=module.tau.detach(),
+            tau=module.tau,
             v_leak=torch.zeros_like(module.tau).detach(),
             r=(module.tau * torch.exp(-module.dt/module.tau)/module.dt).detach(),
         )
 
     if type(module) == LIFTorch:
         return nir.CubaLIF(
-            tau_syn=module.tau_syn.detach(),
-            tau_mem=module.tau_mem.detach(),
-            r=(module.tau_mem * torch.exp(-module.dt / module.tau_mem) / module.dt).detach(),
-            v_leak=torch.zeros_like(module.tau_syn).detach(),
-            v_threshold=module.threshold,
+            tau_syn=_to_numpy(module.tau_syn.squeeze()), # TODO: Necessary to squeeze?
+            tau_mem=_to_numpy(module.tau_mem.squeeze()), # TODO: Necessary to squeeze?
+            r=_to_numpy(module.tau_mem * torch.exp(-module.dt / module.tau_mem) / module.dt),
+            v_leak=_to_numpy(torch.zeros_like(module.tau_syn).squeeze()), # TODO: Necessary to squeeze?
+            v_threshold=_to_numpy(module.threshold),
         )
 
     elif isinstance(module, LinearTorch):
         if module.bias is None:
-            return nir.Linear(module.weight.T.detach())
+            return nir.Linear(module.weight.detach().T)
         else:
-            return nir.Affine(module.weight.T.detach(), module.bias.detach())
+            return nir.Affine(module.weight.detach().T, module.bias.detach())
 
     return None
 
