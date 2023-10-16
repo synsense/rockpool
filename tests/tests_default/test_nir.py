@@ -40,12 +40,12 @@ def test_from_sequential_to_nir_2():
         LIFTorch(Nout, dt=dt),
     )
     graph = to_nir(net, torch.randn(1, 2))
-    assert len(graph.nodes) == 4
-    assert isinstance(graph.nodes[0], nir.Linear)
-    assert isinstance(graph.nodes[1], nir.CubaLIF)
-    assert isinstance(graph.nodes[2], nir.Linear)
-    assert isinstance(graph.nodes[3], nir.CubaLIF)
-    assert len(graph.edges) == 3
+    assert len(graph.nodes) == 6
+    assert isinstance(graph.nodes['0_LinearTorch'], nir.Linear)
+    assert isinstance(graph.nodes['1_LIFTorch'], nir.CubaLIF)
+    assert isinstance(graph.nodes['2_LinearTorch'], nir.Linear)
+    assert isinstance(graph.nodes['3_LIFTorch'], nir.CubaLIF)
+    assert len(graph.edges) == 5
 
 
 def test_from_linear_to_nir():
@@ -63,7 +63,7 @@ def test_from_nir_to_linear():
     m = LinearTorch(shape=(in_features, out_features))
     graph = to_nir(m, torch.randn(1, in_features))
     m2 = from_nir(graph)
-    assert m2.rockpool.weight.shape == torch.Size([out_features, in_features])
+    assert m2.rockpool.weight.shape == torch.Size([in_features, out_features])
 
 def test_from_nir_to_sequential():
     timesteps=6
@@ -91,7 +91,7 @@ def test_from_nir_to_sequential():
     # TODO: Bias not working
     # torch.testing.assert_allclose(orig_model[2].bias, convert_children[2].bias)
 
-def test_comlex_net():
+def test_complex_net():
     num_in = 2
     num_hidden_1 = 4
     num_hidden_2 = 6
@@ -167,5 +167,16 @@ def test_snntorch_nir_rockpool():
     assert torch.sum(test4).detach().numpy() == num_hidden_2 * num_out
 
 def test_import_rnn():
-    m = from_nir("tests/tests_default/nir_graphs/braille.nir")
+    m = from_nir("rockpool_nir/tests/tests_default/nir_graphs/braille.nir")
     m(torch.empty(1, 1, 12))
+
+
+if __name__ == '__main__':
+    test_from_linear_to_nir()
+    test_from_nir_to_linear()
+    test_from_nir_to_sequential()
+    test_from_sequential_to_nir()
+    test_from_sequential_to_nir_2()
+    test_import_rnn()
+    test_snntorch_nir_rockpool()
+    test_complex_net()
