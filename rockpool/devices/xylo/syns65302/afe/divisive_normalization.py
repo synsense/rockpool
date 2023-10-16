@@ -155,7 +155,7 @@ class DivisiveNormalization(Module):
 
         self.enable_DN_channel = SimulationParameter(
             shape=self.size_out,
-            init_func=lambda s: np.broadcast_to(np.array(False, dtype=bool), s),
+            init_func=lambda s: np.broadcast_to(np.array(True, dtype=bool), s),
         )
         """ ndarray[bool]: Enable divisive normalisation threshold for each channel ``(N,)`` """
 
