@@ -106,9 +106,6 @@ class BlockDiagram:
     B_af: int
     """ bits needed for encoding the fractional parts of taps"""
 
-    B_wf: int
-    """ bits needed for fractional part of the filter output"""
-
     B_w: int
     """ total number of bits devoted to storing the values computed by the AR-filter. It should be equal to `B_in + B_worst_case + B_wf`"""
 
@@ -129,6 +126,9 @@ class BlockDiagram:
 
     B_a: int = 16
     """ total number of bits devoted to storing filter a-taps"""
+
+    B_wf: int = 8
+    """ bits needed for fractional part of the filter output"""
 
     b: tuple = (1, 0, -1)
     """ [1, 0 , -1] : special case for normalized Butterworth filters"""
@@ -158,7 +158,6 @@ class ChipButterworth(Module):
             B_worst_case=7,
             B_b=8,
             B_af=6,
-            B_wf=8,
             a1=-32694,
             a2=16313,
             scale_out=0.5573,
@@ -169,7 +168,6 @@ class ChipButterworth(Module):
             B_worst_case=6,
             B_b=8,
             B_af=6,
-            B_wf=8,
             a1=-32663,
             a2=16284,
             scale_out=0.7810,
@@ -180,7 +178,6 @@ class ChipButterworth(Module):
             B_worst_case=6,
             B_b=7,
             B_af=7,
-            B_wf=8,
             a1=-32617,
             a2=16244,
             scale_out=0.5470,
@@ -191,7 +188,6 @@ class ChipButterworth(Module):
             B_worst_case=5,
             B_b=7,
             B_af=7,
-            B_wf=8,
             a1=-32551,
             a2=16188,
             scale_out=0.7660,
@@ -202,7 +198,6 @@ class ChipButterworth(Module):
             B_worst_case=5,
             B_b=6,
             B_af=8,
-            B_wf=8,
             a1=-32453,
             a2=16110,
             scale_out=0.5359,
@@ -213,7 +208,6 @@ class ChipButterworth(Module):
             B_worst_case=4,
             B_b=6,
             B_af=8,
-            B_wf=8,
             a1=-32305,
             a2=16000,
             scale_out=0.7492,
@@ -224,7 +218,6 @@ class ChipButterworth(Module):
             B_worst_case=4,
             B_b=5,
             B_af=9,
-            B_wf=8,
             a1=-32077,
             a2=15848,
             scale_out=0.5230,
@@ -235,7 +228,6 @@ class ChipButterworth(Module):
             B_worst_case=3,
             B_b=5,
             B_af=9,
-            B_wf=8,
             a1=-31718,
             a2=15638,
             scale_out=0.7288,
@@ -246,7 +238,6 @@ class ChipButterworth(Module):
             B_worst_case=3,
             B_b=4,
             B_af=10,
-            B_wf=8,
             a1=-31139,
             a2=15347,
             scale_out=0.5065,
@@ -257,7 +248,6 @@ class ChipButterworth(Module):
             B_worst_case=2,
             B_b=4,
             B_af=10,
-            B_wf=8,
             a1=-30185,
             a2=14947,
             scale_out=0.7018,
@@ -268,7 +258,6 @@ class ChipButterworth(Module):
             B_worst_case=2,
             B_b=4,
             B_af=10,
-            B_wf=8,
             a1=-28582,
             a2=14402,
             scale_out=0.9679,
@@ -279,7 +268,6 @@ class ChipButterworth(Module):
             B_worst_case=2,
             B_b=3,
             B_af=11,
-            B_wf=8,
             a1=-25862,
             a2=13666,
             scale_out=0.6635,
@@ -290,7 +278,6 @@ class ChipButterworth(Module):
             B_worst_case=2,
             B_b=3,
             B_af=11,
-            B_wf=8,
             a1=-21262,
             a2=12687,
             scale_out=0.9026,
@@ -301,7 +288,6 @@ class ChipButterworth(Module):
             B_worst_case=2,
             B_b=2,
             B_af=13,
-            B_wf=8,
             a1=-27375,
             a2=22803,
             scale_out=0.6082,
@@ -312,7 +298,6 @@ class ChipButterworth(Module):
             B_worst_case=2,
             B_b=2,
             B_af=13,
-            B_wf=8,
             a1=-4180,
             a2=19488,
             scale_out=0.8105,
@@ -323,7 +308,6 @@ class ChipButterworth(Module):
             B_worst_case=2,
             B_b=1,
             B_af=14,
-            B_wf=8,
             a1=25566,
             a2=15280,
             scale_out=0.5337,
