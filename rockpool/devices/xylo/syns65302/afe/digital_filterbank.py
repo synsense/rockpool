@@ -5,22 +5,18 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-# required packages
-from typing import Optional
-import numpy as np
 from concurrent.futures import ProcessPoolExecutor
-
-from functools import wraps
-
-from rockpool.nn.modules.module import Module
-from rockpool.parameters import SimulationParameter, ParameterBase
-
-from functools import partial
-from logging import info, debug
-
-from typing import Union, Tuple, List, Dict
-from rockpool.devices.xylo.syns65302.afe.params import NUM_FILTERS
 from dataclasses import dataclass
+from functools import partial, wraps
+from logging import debug, info
+
+from typing import Dict, List, Optional, Tuple, Union
+
+import numpy as np
+
+from rockpool.devices.xylo.syns65302.afe.params import NUM_FILTERS
+from rockpool.nn.modules.module import Module
+from rockpool.parameters import ParameterBase, SimulationParameter
 
 P_int = Union[int, ParameterBase]
 P_float = Union[float, ParameterBase]
@@ -145,12 +141,23 @@ class ChipButterworth(Module):
     Implement a simulation module for a digital Butterworth filterbank.
     """
 
-    def __init__(self, shape: Union[int, Tuple[int]] = NUM_FILTERS):
+    def __init__(
+        self,
+        select_filters: Optional[Tuple[int]] = None,
+    ):
         """
         This class builds the block-diagram version of the filters, which is exactly as it is done in FPGA.
         The proposed filters are candidates that may be chosen for preprocessing of the audio data.
         """
-        super().__init__(shape=shape)
+        if select_filters is None:
+            select_filters = tuple(range(NUM_FILTERS))
+        if self.validate_filter_selection(select_filters):
+            self.__select_filters = select_filters
+        else:
+            raise ValueError("Invalid filter selection.")
+
+        shape = (1, len(self.__select_filters))
+        super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
         # Create block diagram for each filter
 
@@ -316,7 +323,7 @@ class ChipButterworth(Module):
 
         # list of block-diagram representations corresponding to the filters
 
-        self.bd_list = [
+        __full_list = [
             bd_filter_0,
             bd_filter_1,
             bd_filter_2,
@@ -334,6 +341,42 @@ class ChipButterworth(Module):
             bd_filter_14,
             bd_filter_15,
         ]
+
+        self.bd_list = [__full_list[i] for i in self.__select_filters]
+
+    @staticmethod
+    def validate_filter_selection(select_filters: Tuple[int]) -> bool:
+        """
+        Validate the filter selection, check if the range and the values are valid.
+
+        Args:
+            select_filters (Tuple[int]): The indices of the filters to be used in the filter bank.
+
+        Raises:
+            TypeError: select_filters must be of type tuple.
+            TypeError: Filter index is not an integer.
+            ValueError: Filter index is out of range. Valid indices are between 0 and 15.
+            ValueError: All filter indices in select_filters must be unique.
+
+        Returns:
+            bool: True if the filter selection is valid.
+        """
+        if not isinstance(select_filters, tuple):
+            raise TypeError("select_filters must be of type tuple.")
+
+        # Check if all elements are integers and are within the allowed range
+        for filter_index in select_filters:
+            if not isinstance(filter_index, int):
+                raise TypeError(f"Filter index {filter_index} is not an integer.")
+            if filter_index < 0 or filter_index > 15:
+                raise ValueError(
+                    f"Filter index {filter_index} is out of range. Valid indices are between 0 and 15."
+                )
+
+        if len(select_filters) != len(set(select_filters)):
+            raise ValueError("All filter indices in select_filters must be unique.")
+
+        return True
 
     @type_check
     def _filter_AR(self, bd: BlockDiagram, sig_in: np.ndarray) -> np.ndarray:
