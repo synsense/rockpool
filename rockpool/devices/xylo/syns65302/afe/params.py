@@ -40,6 +40,7 @@ __all__ = [
     "MAX_WAITING_BITWIDTH",
     "INIFINITY_OF_TRANSIENT_PHASE",
     "NUM_BITS_GAIN_QUANTIZATION",
+    "NUM_FILTERS",
 ]
 
 
@@ -250,3 +251,6 @@ how many time-constants is considered `INFINITY` in the low-pass filter used for
 """
 NUM_BITS_GAIN_QUANTIZATION = 10
 """number of bits used for quantizing the gain ratio"""
+
+NUM_FILTERS = 16
+"""Total number of filters in the filter bank"""

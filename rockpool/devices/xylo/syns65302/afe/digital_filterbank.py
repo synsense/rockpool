@@ -18,6 +18,7 @@ from functools import partial
 from logging import info, debug
 
 from typing import Union, Tuple, List, Dict
+from rockpool.devices.xylo.syns65302.afe.params import NUM_FILTERS
 
 P_int = Union[int, ParameterBase]
 P_float = Union[float, ParameterBase]
@@ -25,11 +26,7 @@ P_array = Union[np.array, ParameterBase]
 
 
 # list of modules exported
-__all__ = ["ChipButterworth", "NUM_FILTERS"]
-
-
-# number of filters in Xylo-A3
-NUM_FILTERS = 16
+__all__ = ["ChipButterworth"]
 
 
 # a simple decorator to make sure that the input to the filters has type `int` or `np.int64`

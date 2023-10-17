@@ -20,7 +20,7 @@ def test_filterbank():
         DivisiveNormalization,
         PDMADC,
     )
-    from rockpool.devices.xylo.syns65302.afe.digital_filterbank import NUM_FILTERS
+    from rockpool.devices.xylo.syns65302.afe.params import NUM_FILTERS
 
     # just to extract the sampling rate
     pdm_adc = PDMADC()

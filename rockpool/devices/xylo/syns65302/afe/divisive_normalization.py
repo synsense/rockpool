@@ -32,9 +32,8 @@
 
 # required packages
 import numpy as np
-from rockpool.devices.xylo.syns65302.afe.params import AUDIO_SAMPLING_RATE
+from rockpool.devices.xylo.syns65302.afe.params import AUDIO_SAMPLING_RATE, NUM_FILTERS
 from rockpool.devices.xylo.syns65302.afe.digital_filterbank import (
-    NUM_FILTERS,
     type_check,
 )
 
