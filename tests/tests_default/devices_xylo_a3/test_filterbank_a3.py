@@ -12,7 +12,7 @@ def test_filterbank():
     import numpy as np
     from numpy.linalg import norm
     from rockpool.devices.xylo.syns65302 import PDMADC, ChipButterworth
-    from rockpool.devices.xylo.syns65302.afe.digital_filterbank import NUM_FILETRS
+    from rockpool.devices.xylo.syns65302.afe.digital_filterbank import NUM_FILTERS
 
     pdm_adc = PDMADC()
     fs = pdm_adc[0].fs
@@ -37,5 +37,5 @@ def test_filterbank():
 
     sig_filtered, _, _ = fb(sig_out)
 
-    assert sig_filtered.shape[1] == NUM_FILETRS
+    assert sig_filtered.shape[1] == NUM_FILTERS
     assert sig_filtered.shape[0] == len(sig_out)

@@ -20,7 +20,7 @@ def test_filterbank():
         DivisiveNormalization,
         PDMADC,
     )
-    from rockpool.devices.xylo.syns65302.afe.digital_filterbank import NUM_FILETRS
+    from rockpool.devices.xylo.syns65302.afe.digital_filterbank import NUM_FILTERS
 
     # just to extract the sampling rate
     pdm_adc = PDMADC()
@@ -52,7 +52,7 @@ def test_filterbank():
 
     sig_filtered, _, _ = fb(sig_in)
 
-    assert sig_filtered.shape[1] == NUM_FILETRS
+    assert sig_filtered.shape[1] == NUM_FILTERS
 
     # aplly divisive normalization and spike generation
     dn = DivisiveNormalization()

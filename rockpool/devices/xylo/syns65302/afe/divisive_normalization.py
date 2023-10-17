@@ -34,7 +34,7 @@
 import numpy as np
 from rockpool.devices.xylo.syns65302.afe.params import AUDIO_SAMPLING_RATE
 from rockpool.devices.xylo.syns65302.afe.digital_filterbank import (
-    NUM_FILETRS,
+    NUM_FILTERS,
     type_check,
 )
 
@@ -62,7 +62,7 @@ class DivisiveNormalization(Module):
 
     def __init__(
         self,
-        shape: Tuple[Tuple[int], int] = NUM_FILETRS,
+        shape: Tuple[Tuple[int], int] = NUM_FILTERS,
         spike_rate_scale_bitshift1: int = 6,
         spike_rate_scale_bitshift2: int = 0,
         low_pass_bitshift: int = 12,

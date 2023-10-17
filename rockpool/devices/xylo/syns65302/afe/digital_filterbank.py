@@ -25,11 +25,11 @@ P_array = Union[np.array, ParameterBase]
 
 
 # list of modules exported
-__all__ = ["ChipButterworth", "NUM_FILETRS"]
+__all__ = ["ChipButterworth", "NUM_FILTERS"]
 
 
 # number of filters in Xylo-A3
-NUM_FILETRS = 16
+NUM_FILTERS = 16
 
 
 # a simple decorator to make sure that the input to the filters has type `int` or `np.int64`
@@ -116,7 +116,7 @@ class ChipButterworth(Module):
     Implement a simulation module for a digital Butterworth filterbank.
     """
 
-    def __init__(self, shape: Union[int, Tuple[int]] = NUM_FILETRS):
+    def __init__(self, shape: Union[int, Tuple[int]] = NUM_FILTERS):
         """
         This class builds the block-diagram version of the filters, which is exactly as it is done in FPGA.
         The proposed filters are candidates that may be chosen for preprocessing of the audio data.
