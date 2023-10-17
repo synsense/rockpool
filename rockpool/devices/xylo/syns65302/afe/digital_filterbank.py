@@ -135,215 +135,231 @@ class ChipButterworth(Module):
         # Create block diagram for each filter
         # ========================================#
         # Filter 1
-        bd_filter_1 = BlockDiagram()
-        bd_filter_1.B_worst_case = 7
-        bd_filter_1.B_in = 14
-        bd_filter_1.B_b = 8
-        bd_filter_1.B_a = 16
-        bd_filter_1.B_af = 6
-        bd_filter_1.B_wf = 8
-        bd_filter_1.a1 = -32694
-        bd_filter_1.a2 = 16313
-        bd_filter_1.b = [1, 0, -1]
-        bd_filter_1.scale_out = 0.5573
+        bd_filter_1 = BlockDiagram(
+            B_worst_case=7,
+            B_in=14,
+            B_b=8,
+            B_a=16,
+            B_af=6,
+            B_wf=8,
+            a1=-32694,
+            a2=16313,
+            b=[1, 0, -1],
+            scale_out=0.5573,
+        )
 
         # Filter 2
-        bd_filter_2 = BlockDiagram()
-        bd_filter_2.B_worst_case = 6
-        bd_filter_2.B_in = 14
-        bd_filter_2.B_b = 8
-        bd_filter_2.B_a = 16
-        bd_filter_2.B_af = 6
-        bd_filter_2.B_wf = 8
-        bd_filter_2.a1 = -32663
-        bd_filter_2.a2 = 16284
-        bd_filter_2.b = [1, 0, -1]
-        bd_filter_2.scale_out = 0.7810
+        bd_filter_2 = BlockDiagram(
+            B_worst_case=6,
+            B_in=14,
+            B_b=8,
+            B_a=16,
+            B_af=6,
+            B_wf=8,
+            a1=-32663,
+            a2=16284,
+            b=[1, 0, -1],
+            scale_out=0.7810,
+        )
 
         # Filter 3
-        bd_filter_3 = BlockDiagram()
-        bd_filter_3.B_worst_case = 6
-        bd_filter_3.B_in = 14
-        bd_filter_3.B_b = 7
-        bd_filter_3.B_a = 16
-        bd_filter_3.B_af = 7
-        bd_filter_3.B_wf = 8
-        bd_filter_3.a1 = -32617
-        bd_filter_3.a2 = 16244
-        bd_filter_3.b = [1, 0, -1]
-        bd_filter_3.scale_out = 0.5470
+        bd_filter_3 = BlockDiagram(
+            B_worst_case=6,
+            B_in=14,
+            B_b=7,
+            B_a=16,
+            B_af=7,
+            B_wf=8,
+            a1=-32617,
+            a2=16244,
+            b=[1, 0, -1],
+            scale_out=0.5470,
+        )
 
         # Filter 4
-        bd_filter_4 = BlockDiagram()
-        bd_filter_4.B_worst_case = 5
-        bd_filter_4.B_in = 14
-        bd_filter_4.B_b = 7
-        bd_filter_4.B_a = 16
-        bd_filter_4.B_af = 7
-        bd_filter_4.B_wf = 8
-        bd_filter_4.a1 = -32551
-        bd_filter_4.a2 = 16188
-        bd_filter_4.b = [1, 0, -1]
-        bd_filter_4.scale_out = 0.7660
+        bd_filter_4 = BlockDiagram(
+            B_worst_case=5,
+            B_in=14,
+            B_b=7,
+            B_a=16,
+            B_af=7,
+            B_wf=8,
+            a1=-32551,
+            a2=16188,
+            b=[1, 0, -1],
+            scale_out=0.7660,
+        )
 
         # Filter 5
-        bd_filter_5 = BlockDiagram()
-        bd_filter_5.B_worst_case = 5
-        bd_filter_5.B_in = 14
-        bd_filter_5.B_b = 6
-        bd_filter_5.B_a = 16
-        bd_filter_5.B_af = 8
-        bd_filter_5.B_wf = 8
-        bd_filter_5.a1 = -32453
-        bd_filter_5.a2 = 16110
-        bd_filter_5.b = [1, 0, -1]
-        bd_filter_5.scale_out = 0.5359
+        bd_filter_5 = BlockDiagram(
+            B_worst_case=5,
+            B_in=14,
+            B_b=6,
+            B_a=16,
+            B_af=8,
+            B_wf=8,
+            a1=-32453,
+            a2=16110,
+            b=[1, 0, -1],
+            scale_out=0.5359,
+        )
 
         # Filter 6
-        bd_filter_6 = BlockDiagram()
-        bd_filter_6.B_worst_case = 4
-        bd_filter_6.B_in = 14
-        bd_filter_6.B_b = 6
-        bd_filter_6.B_a = 16
-        bd_filter_6.B_af = 8
-        bd_filter_6.B_wf = 8
-        bd_filter_6.a1 = -32305
-        bd_filter_6.a2 = 16000
-        bd_filter_6.b = [1, 0, -1]
-        bd_filter_6.scale_out = 0.7492
+        bd_filter_6 = BlockDiagram(
+            B_worst_case=4,
+            B_in=14,
+            B_b=6,
+            B_a=16,
+            B_af=8,
+            B_wf=8,
+            a1=-32305,
+            a2=16000,
+            b=[1, 0, -1],
+            scale_out=0.7492,
+        )
 
         # Filter 7
-        bd_filter_7 = BlockDiagram()
-        bd_filter_7.B_worst_case = 4
-        bd_filter_7.B_in = 14
-        bd_filter_7.B_b = 5
-        bd_filter_7.B_a = 16
-        bd_filter_7.B_af = 9
-        bd_filter_7.B_wf = 8
-        bd_filter_7.a1 = -32077
-        bd_filter_7.a2 = 15848
-        bd_filter_7.b = [1, 0, -1]
-        bd_filter_7.scale_out = 0.5230
+        bd_filter_7 = BlockDiagram(
+            B_worst_case=4,
+            B_in=14,
+            B_b=5,
+            B_a=16,
+            B_af=9,
+            B_wf=8,
+            a1=-32077,
+            a2=15848,
+            b=[1, 0, -1],
+            scale_out=0.5230,
+        )
 
         # Filter 8
-        bd_filter_8 = BlockDiagram()
-        bd_filter_8.B_worst_case = 3
-        bd_filter_8.B_in = 14
-        bd_filter_8.B_b = 5
-        bd_filter_8.B_a = 16
-        bd_filter_8.B_af = 9
-        bd_filter_8.B_wf = 8
-        bd_filter_8.a1 = -31718
-        bd_filter_8.a2 = 15638
-        bd_filter_8.b = [1, 0, -1]
-        bd_filter_8.scale_out = 0.7288
+        bd_filter_8 = BlockDiagram(
+            B_worst_case=3,
+            B_in=14,
+            B_b=5,
+            B_a=16,
+            B_af=9,
+            B_wf=8,
+            a1=-31718,
+            a2=15638,
+            b=[1, 0, -1],
+            scale_out=0.7288,
+        )
 
         # Filter 9
-        bd_filter_9 = BlockDiagram()
-        bd_filter_9.B_worst_case = 3
-        bd_filter_9.B_in = 14
-        bd_filter_9.B_b = 4
-        bd_filter_9.B_a = 16
-        bd_filter_9.B_af = 10
-        bd_filter_9.B_wf = 8
-        bd_filter_9.a1 = -31139
-        bd_filter_9.a2 = 15347
-        bd_filter_9.b = [1, 0, -1]
-        bd_filter_9.scale_out = 0.5065
+        bd_filter_9 = BlockDiagram(
+            B_worst_case=3,
+            B_in=14,
+            B_b=4,
+            B_a=16,
+            B_af=10,
+            B_wf=8,
+            a1=-31139,
+            a2=15347,
+            b=[1, 0, -1],
+            scale_out=0.5065,
+        )
 
         # Filter 10
-        bd_filter_10 = BlockDiagram()
-        bd_filter_10.B_worst_case = 2
-        bd_filter_10.B_in = 14
-        bd_filter_10.B_b = 4
-        bd_filter_10.B_a = 16
-        bd_filter_10.B_af = 10
-        bd_filter_10.B_wf = 8
-        bd_filter_10.a1 = -30185
-        bd_filter_10.a2 = 14947
-        bd_filter_10.b = [1, 0, -1]
-        bd_filter_10.scale_out = 0.7018
+        bd_filter_10 = BlockDiagram(
+            B_worst_case=2,
+            B_in=14,
+            B_b=4,
+            B_a=16,
+            B_af=10,
+            B_wf=8,
+            a1=-30185,
+            a2=14947,
+            b=[1, 0, -1],
+            scale_out=0.7018,
+        )
 
         # Filter 11
-        bd_filter_11 = BlockDiagram()
-        bd_filter_11.B_worst_case = 2
-        bd_filter_11.B_in = 14
-        bd_filter_11.B_b = 4
-        bd_filter_11.B_a = 16
-        bd_filter_11.B_af = 10
-        bd_filter_11.B_wf = 8
-        bd_filter_11.a1 = -28582
-        bd_filter_11.a2 = 14402
-        bd_filter_11.b = [1, 0, -1]
-        bd_filter_11.scale_out = 0.9679
+        bd_filter_11 = BlockDiagram(
+            B_worst_case=2,
+            B_in=14,
+            B_b=4,
+            B_a=16,
+            B_af=10,
+            B_wf=8,
+            a1=-28582,
+            a2=14402,
+            b=[1, 0, -1],
+            scale_out=0.9679,
+        )
 
         # Filter 12
-        bd_filter_12 = BlockDiagram()
-        bd_filter_12.B_worst_case = 2
-        bd_filter_12.B_in = 14
-        bd_filter_12.B_b = 3
-        bd_filter_12.B_a = 16
-        bd_filter_12.B_af = 11
-        bd_filter_12.B_wf = 8
-        bd_filter_12.a1 = -25862
-        bd_filter_12.a2 = 13666
-        bd_filter_12.b = [1, 0, -1]
-        bd_filter_12.scale_out = 0.6635
+        bd_filter_12 = BlockDiagram(
+            B_worst_case=2,
+            B_in=14,
+            B_b=3,
+            B_a=16,
+            B_af=11,
+            B_wf=8,
+            a1=-25862,
+            a2=13666,
+            b=[1, 0, -1],
+            scale_out=0.6635,
+        )
 
         # Filter 13
-        bd_filter_13 = BlockDiagram()
-        bd_filter_13.B_worst_case = 2
-        bd_filter_13.B_in = 14
-        bd_filter_13.B_b = 3
-        bd_filter_13.B_a = 16
-        bd_filter_13.B_af = 11
-        bd_filter_13.B_wf = 8
-        bd_filter_13.a1 = -21262
-        bd_filter_13.a2 = 12687
-        bd_filter_13.b = [1, 0, -1]
-        bd_filter_13.scale_out = 0.9026
+        bd_filter_13 = BlockDiagram(
+            B_worst_case=2,
+            B_in=14,
+            B_b=3,
+            B_a=16,
+            B_af=11,
+            B_wf=8,
+            a1=-21262,
+            a2=12687,
+            b=[1, 0, -1],
+            scale_out=0.9026,
+        )
 
         # Filter 14
-        bd_filter_14 = BlockDiagram()
-        bd_filter_14.B_worst_case = 2
-        bd_filter_14.B_in = 14
-        bd_filter_14.B_b = 2
-        bd_filter_14.B_a = 16
-        bd_filter_14.B_af = 13
-        bd_filter_14.B_wf = 8
-        bd_filter_14.a1 = -27375
-        bd_filter_14.a2 = 22803
-        bd_filter_14.b = [1, 0, -1]
-        bd_filter_14.scale_out = 0.6082
+        bd_filter_14 = BlockDiagram(
+            B_worst_case=2,
+            B_in=14,
+            B_b=2,
+            B_a=16,
+            B_af=13,
+            B_wf=8,
+            a1=-27375,
+            a2=22803,
+            b=[1, 0, -1],
+            scale_out=0.6082,
+        )
 
         # Filter 15
-        bd_filter_15 = BlockDiagram()
-        bd_filter_15.B_worst_case = 2
-        bd_filter_15.B_in = 14
-        bd_filter_15.B_b = 2
-        bd_filter_15.B_a = 16
-        bd_filter_15.B_af = 13
-        bd_filter_15.B_wf = 8
-        bd_filter_15.a1 = -4180
-        bd_filter_15.a2 = 19488
-        bd_filter_15.b = [1, 0, -1]
-        bd_filter_15.scale_out = 0.8105
+        bd_filter_15 = BlockDiagram(
+            B_worst_case=2,
+            B_in=14,
+            B_b=2,
+            B_a=16,
+            B_af=13,
+            B_wf=8,
+            a1=-4180,
+            a2=19488,
+            b=[1, 0, -1],
+            scale_out=0.8105,
+        )
 
         # Filter 16
-        bd_filter_16 = BlockDiagram()
-        bd_filter_16.B_worst_case = 2
-        bd_filter_16.B_in = 14
-        bd_filter_16.B_b = 1
-        bd_filter_16.B_a = 16
-        bd_filter_16.B_af = 14
-        bd_filter_16.B_wf = 8
-        bd_filter_16.a1 = 25566
-        bd_filter_16.a2 = 15280
-        bd_filter_16.b = [1, 0, -1]
-        bd_filter_16.scale_out = 0.5337
+        bd_filter_16 = BlockDiagram(
+            B_worst_case=2,
+            B_in=14,
+            B_b=1,
+            B_a=16,
+            B_af=14,
+            B_wf=8,
+            a1=25566,
+            a2=15280,
+            b=[1, 0, -1],
+            scale_out=0.5337,
+        )
 
         # list of block-diagram representations corresponding to the filters
-        
+
         self.bd_list = [
             bd_filter_1,
             bd_filter_2,
