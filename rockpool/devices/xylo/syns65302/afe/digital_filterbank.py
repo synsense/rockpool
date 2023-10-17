@@ -106,7 +106,9 @@ class BlockDiagram:
     B_w: Optional[
         int
     ] = None  # total number of bits devoted to storing the values computed by the AR-filter. It should be equal to `B_in + B_worst_case + B_wf`
-    B_out: int  # total number of bits needed for storing the values computed by the WHOLE filter.
+    B_out: Optional[
+        int
+    ] = None  # total number of bits needed for storing the values computed by the WHOLE filter.
     a1: int  # integer representation of a1 tap
     a2: int  # integer representation of a2 tap
     b: list  # [1, 0 , -1] : special case for normalized Butterworth filters
@@ -114,6 +116,7 @@ class BlockDiagram:
 
     def __post_init__(self) -> None:
         self.B_w = self.B_in + self.B_worst_case + self.B_wf
+        self.B_out = self.B_in + self.B_worst_case + self.B_wf
 
 
 class ChipButterworth(Module):
@@ -142,9 +145,6 @@ class ChipButterworth(Module):
         bd_filter_1.B_a = 16
         bd_filter_1.B_af = 6
         bd_filter_1.B_wf = 8
-        bd_filter_1.B_out = (
-            bd_filter_1.B_in + bd_filter_1.B_worst_case + bd_filter_1.B_wf
-        )  # NOTE: these additional 8 bits were added in the final version.
         bd_filter_1.a1 = -32694
         bd_filter_1.a2 = 16313
         bd_filter_1.b = [1, 0, -1]
@@ -159,9 +159,6 @@ class ChipButterworth(Module):
         bd_filter_2.B_a = 16
         bd_filter_2.B_af = 6
         bd_filter_2.B_wf = 8
-        bd_filter_2.B_out = (
-            bd_filter_2.B_in + bd_filter_2.B_worst_case + bd_filter_2.B_wf
-        )  # NOTE: these additional 8 bits were added in the final version.
         bd_filter_2.a1 = -32663
         bd_filter_2.a2 = 16284
         bd_filter_2.b = [1, 0, -1]
@@ -176,9 +173,6 @@ class ChipButterworth(Module):
         bd_filter_3.B_a = 16
         bd_filter_3.B_af = 7
         bd_filter_3.B_wf = 8
-        bd_filter_3.B_out = (
-            bd_filter_3.B_in + bd_filter_3.B_worst_case + bd_filter_3.B_wf
-        )  # NOTE: these additional 8 bits were added in the final version.
         bd_filter_3.a1 = -32617
         bd_filter_3.a2 = 16244
         bd_filter_3.b = [1, 0, -1]
@@ -193,9 +187,6 @@ class ChipButterworth(Module):
         bd_filter_4.B_a = 16
         bd_filter_4.B_af = 7
         bd_filter_4.B_wf = 8
-        bd_filter_4.B_out = (
-            bd_filter_4.B_in + bd_filter_4.B_worst_case + bd_filter_4.B_wf
-        )  # NOTE: these additional 8 bits were added in the final version.
         bd_filter_4.a1 = -32551
         bd_filter_4.a2 = 16188
         bd_filter_4.b = [1, 0, -1]
@@ -210,9 +201,6 @@ class ChipButterworth(Module):
         bd_filter_5.B_a = 16
         bd_filter_5.B_af = 8
         bd_filter_5.B_wf = 8
-        bd_filter_5.B_out = (
-            bd_filter_5.B_in + bd_filter_5.B_worst_case + bd_filter_5.B_wf
-        )  # NOTE: these additional 8 bits were added in the final version.
         bd_filter_5.a1 = -32453
         bd_filter_5.a2 = 16110
         bd_filter_5.b = [1, 0, -1]
@@ -227,9 +215,6 @@ class ChipButterworth(Module):
         bd_filter_6.B_a = 16
         bd_filter_6.B_af = 8
         bd_filter_6.B_wf = 8
-        bd_filter_6.B_out = (
-            bd_filter_6.B_in + bd_filter_6.B_worst_case + bd_filter_6.B_wf
-        )  # NOTE: these additional 8 bits were added in the final version.
         bd_filter_6.a1 = -32305
         bd_filter_6.a2 = 16000
         bd_filter_6.b = [1, 0, -1]
@@ -244,9 +229,6 @@ class ChipButterworth(Module):
         bd_filter_7.B_a = 16
         bd_filter_7.B_af = 9
         bd_filter_7.B_wf = 8
-        bd_filter_7.B_out = (
-            bd_filter_7.B_in + bd_filter_7.B_worst_case + bd_filter_7.B_wf
-        )  # NOTE: these additional 8 bits were added in the final version.
         bd_filter_7.a1 = -32077
         bd_filter_7.a2 = 15848
         bd_filter_7.b = [1, 0, -1]
@@ -261,9 +243,6 @@ class ChipButterworth(Module):
         bd_filter_8.B_a = 16
         bd_filter_8.B_af = 9
         bd_filter_8.B_wf = 8
-        bd_filter_8.B_out = (
-            bd_filter_8.B_in + bd_filter_8.B_worst_case + bd_filter_8.B_wf
-        )  # NOTE: these additional 8 bits were added in the final version.
         bd_filter_8.a1 = -31718
         bd_filter_8.a2 = 15638
         bd_filter_8.b = [1, 0, -1]
@@ -278,9 +257,6 @@ class ChipButterworth(Module):
         bd_filter_9.B_a = 16
         bd_filter_9.B_af = 10
         bd_filter_9.B_wf = 8
-        bd_filter_9.B_out = (
-            bd_filter_9.B_in + bd_filter_9.B_worst_case + bd_filter_9.B_wf
-        )  # NOTE: these additional 8 bits were added in the final version.
         bd_filter_9.a1 = -31139
         bd_filter_9.a2 = 15347
         bd_filter_9.b = [1, 0, -1]
@@ -295,9 +271,6 @@ class ChipButterworth(Module):
         bd_filter_10.B_a = 16
         bd_filter_10.B_af = 10
         bd_filter_10.B_wf = 8
-        bd_filter_10.B_out = (
-            bd_filter_10.B_in + bd_filter_10.B_worst_case + bd_filter_10.B_wf
-        )  # NOTE: these additional 8 bits were added in the final version.
         bd_filter_10.a1 = -30185
         bd_filter_10.a2 = 14947
         bd_filter_10.b = [1, 0, -1]
@@ -312,9 +285,6 @@ class ChipButterworth(Module):
         bd_filter_11.B_a = 16
         bd_filter_11.B_af = 10
         bd_filter_11.B_wf = 8
-        bd_filter_11.B_out = (
-            bd_filter_11.B_in + bd_filter_11.B_worst_case + bd_filter_11.B_wf
-        )  # NOTE: these additional 8 bits were added in the final version.
         bd_filter_11.a1 = -28582
         bd_filter_11.a2 = 14402
         bd_filter_11.b = [1, 0, -1]
@@ -329,9 +299,6 @@ class ChipButterworth(Module):
         bd_filter_12.B_a = 16
         bd_filter_12.B_af = 11
         bd_filter_12.B_wf = 8
-        bd_filter_12.B_out = (
-            bd_filter_12.B_in + bd_filter_12.B_worst_case + bd_filter_12.B_wf
-        )  # NOTE: these additional 8 bits were added in the final version.
         bd_filter_12.a1 = -25862
         bd_filter_12.a2 = 13666
         bd_filter_12.b = [1, 0, -1]
@@ -346,9 +313,6 @@ class ChipButterworth(Module):
         bd_filter_13.B_a = 16
         bd_filter_13.B_af = 11
         bd_filter_13.B_wf = 8
-        bd_filter_13.B_out = (
-            bd_filter_13.B_in + bd_filter_13.B_worst_case + bd_filter_13.B_wf
-        )  # NOTE: these additional 8 bits were added in the final version.
         bd_filter_13.a1 = -21262
         bd_filter_13.a2 = 12687
         bd_filter_13.b = [1, 0, -1]
@@ -363,9 +327,6 @@ class ChipButterworth(Module):
         bd_filter_14.B_a = 16
         bd_filter_14.B_af = 13
         bd_filter_14.B_wf = 8
-        bd_filter_14.B_out = (
-            bd_filter_14.B_in + bd_filter_14.B_worst_case + bd_filter_14.B_wf
-        )  # NOTE: these additional 8 bits were added in the final version.
         bd_filter_14.a1 = -27375
         bd_filter_14.a2 = 22803
         bd_filter_14.b = [1, 0, -1]
@@ -380,9 +341,6 @@ class ChipButterworth(Module):
         bd_filter_15.B_a = 16
         bd_filter_15.B_af = 13
         bd_filter_15.B_wf = 8
-        bd_filter_15.B_out = (
-            bd_filter_15.B_in + bd_filter_15.B_worst_case + bd_filter_15.B_wf
-        )  # NOTE: these additional 8 bits were added in the final version.
         bd_filter_15.a1 = -4180
         bd_filter_15.a2 = 19488
         bd_filter_15.b = [1, 0, -1]
@@ -397,9 +355,6 @@ class ChipButterworth(Module):
         bd_filter_16.B_a = 16
         bd_filter_16.B_af = 14
         bd_filter_16.B_wf = 8
-        bd_filter_16.B_out = (
-            bd_filter_16.B_in + bd_filter_16.B_worst_case + bd_filter_16.B_wf
-        )  # NOTE: these additional 8 bits were added in the final version.
         bd_filter_16.a1 = 25566
         bd_filter_16.a2 = 15280
         bd_filter_16.b = [1, 0, -1]
