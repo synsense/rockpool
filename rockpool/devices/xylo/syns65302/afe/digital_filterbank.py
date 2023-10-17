@@ -127,11 +127,11 @@ class BlockDiagram:
     a2: int
     """ integer representation of a2 tap"""
 
-    b: list
-    """ [1, 0 , -1] : special case for normalized Butterworth filters"""
-
     scale_out: int
     """ surplus scaling due to `b` normalizationsurplus scaling due to `b` normalization. It is always in the range [0.5, 1.0]"""
+
+    b: tuple = (1, 0, -1)
+    """ [1, 0 , -1] : special case for normalized Butterworth filters"""
 
     def __post_init__(self) -> None:
         self.B_w = self.B_in + self.B_worst_case + self.B_wf
@@ -163,7 +163,6 @@ class ChipButterworth(Module):
             B_wf=8,
             a1=-32694,
             a2=16313,
-            b=[1, 0, -1],
             scale_out=0.5573,
         )
 
@@ -177,7 +176,6 @@ class ChipButterworth(Module):
             B_wf=8,
             a1=-32663,
             a2=16284,
-            b=[1, 0, -1],
             scale_out=0.7810,
         )
 
@@ -191,7 +189,6 @@ class ChipButterworth(Module):
             B_wf=8,
             a1=-32617,
             a2=16244,
-            b=[1, 0, -1],
             scale_out=0.5470,
         )
 
@@ -205,7 +202,6 @@ class ChipButterworth(Module):
             B_wf=8,
             a1=-32551,
             a2=16188,
-            b=[1, 0, -1],
             scale_out=0.7660,
         )
 
@@ -219,7 +215,6 @@ class ChipButterworth(Module):
             B_wf=8,
             a1=-32453,
             a2=16110,
-            b=[1, 0, -1],
             scale_out=0.5359,
         )
 
@@ -233,7 +228,6 @@ class ChipButterworth(Module):
             B_wf=8,
             a1=-32305,
             a2=16000,
-            b=[1, 0, -1],
             scale_out=0.7492,
         )
 
@@ -247,7 +241,6 @@ class ChipButterworth(Module):
             B_wf=8,
             a1=-32077,
             a2=15848,
-            b=[1, 0, -1],
             scale_out=0.5230,
         )
 
@@ -261,7 +254,6 @@ class ChipButterworth(Module):
             B_wf=8,
             a1=-31718,
             a2=15638,
-            b=[1, 0, -1],
             scale_out=0.7288,
         )
 
@@ -275,7 +267,6 @@ class ChipButterworth(Module):
             B_wf=8,
             a1=-31139,
             a2=15347,
-            b=[1, 0, -1],
             scale_out=0.5065,
         )
 
@@ -289,7 +280,6 @@ class ChipButterworth(Module):
             B_wf=8,
             a1=-30185,
             a2=14947,
-            b=[1, 0, -1],
             scale_out=0.7018,
         )
 
@@ -303,7 +293,6 @@ class ChipButterworth(Module):
             B_wf=8,
             a1=-28582,
             a2=14402,
-            b=[1, 0, -1],
             scale_out=0.9679,
         )
 
@@ -317,7 +306,6 @@ class ChipButterworth(Module):
             B_wf=8,
             a1=-25862,
             a2=13666,
-            b=[1, 0, -1],
             scale_out=0.6635,
         )
 
@@ -331,7 +319,6 @@ class ChipButterworth(Module):
             B_wf=8,
             a1=-21262,
             a2=12687,
-            b=[1, 0, -1],
             scale_out=0.9026,
         )
 
@@ -345,7 +332,6 @@ class ChipButterworth(Module):
             B_wf=8,
             a1=-27375,
             a2=22803,
-            b=[1, 0, -1],
             scale_out=0.6082,
         )
 
@@ -359,7 +345,6 @@ class ChipButterworth(Module):
             B_wf=8,
             a1=-4180,
             a2=19488,
-            b=[1, 0, -1],
             scale_out=0.8105,
         )
 
@@ -373,7 +358,6 @@ class ChipButterworth(Module):
             B_wf=8,
             a1=25566,
             a2=15280,
-            b=[1, 0, -1],
             scale_out=0.5337,
         )
 
