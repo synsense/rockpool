@@ -131,9 +131,6 @@ class ChipButterworth(Module):
         """
         super().__init__(shape=shape)
 
-        # list of block-diagram representations corresponding to the filters
-        self.bd_list = []
-
         # ========================================#
         # Create block diagram for each filter
         # ========================================#
@@ -149,7 +146,6 @@ class ChipButterworth(Module):
         bd_filter_1.a2 = 16313
         bd_filter_1.b = [1, 0, -1]
         bd_filter_1.scale_out = 0.5573
-        self.bd_list.append(bd_filter_1)
 
         # Filter 2
         bd_filter_2 = BlockDiagram()
@@ -163,7 +159,6 @@ class ChipButterworth(Module):
         bd_filter_2.a2 = 16284
         bd_filter_2.b = [1, 0, -1]
         bd_filter_2.scale_out = 0.7810
-        self.bd_list.append(bd_filter_2)
 
         # Filter 3
         bd_filter_3 = BlockDiagram()
@@ -177,7 +172,6 @@ class ChipButterworth(Module):
         bd_filter_3.a2 = 16244
         bd_filter_3.b = [1, 0, -1]
         bd_filter_3.scale_out = 0.5470
-        self.bd_list.append(bd_filter_3)
 
         # Filter 4
         bd_filter_4 = BlockDiagram()
@@ -191,7 +185,6 @@ class ChipButterworth(Module):
         bd_filter_4.a2 = 16188
         bd_filter_4.b = [1, 0, -1]
         bd_filter_4.scale_out = 0.7660
-        self.bd_list.append(bd_filter_4)
 
         # Filter 5
         bd_filter_5 = BlockDiagram()
@@ -205,7 +198,6 @@ class ChipButterworth(Module):
         bd_filter_5.a2 = 16110
         bd_filter_5.b = [1, 0, -1]
         bd_filter_5.scale_out = 0.5359
-        self.bd_list.append(bd_filter_5)
 
         # Filter 6
         bd_filter_6 = BlockDiagram()
@@ -219,7 +211,6 @@ class ChipButterworth(Module):
         bd_filter_6.a2 = 16000
         bd_filter_6.b = [1, 0, -1]
         bd_filter_6.scale_out = 0.7492
-        self.bd_list.append(bd_filter_6)
 
         # Filter 7
         bd_filter_7 = BlockDiagram()
@@ -233,7 +224,6 @@ class ChipButterworth(Module):
         bd_filter_7.a2 = 15848
         bd_filter_7.b = [1, 0, -1]
         bd_filter_7.scale_out = 0.5230
-        self.bd_list.append(bd_filter_7)
 
         # Filter 8
         bd_filter_8 = BlockDiagram()
@@ -247,7 +237,6 @@ class ChipButterworth(Module):
         bd_filter_8.a2 = 15638
         bd_filter_8.b = [1, 0, -1]
         bd_filter_8.scale_out = 0.7288
-        self.bd_list.append(bd_filter_8)
 
         # Filter 9
         bd_filter_9 = BlockDiagram()
@@ -261,7 +250,6 @@ class ChipButterworth(Module):
         bd_filter_9.a2 = 15347
         bd_filter_9.b = [1, 0, -1]
         bd_filter_9.scale_out = 0.5065
-        self.bd_list.append(bd_filter_9)
 
         # Filter 10
         bd_filter_10 = BlockDiagram()
@@ -275,7 +263,6 @@ class ChipButterworth(Module):
         bd_filter_10.a2 = 14947
         bd_filter_10.b = [1, 0, -1]
         bd_filter_10.scale_out = 0.7018
-        self.bd_list.append(bd_filter_10)
 
         # Filter 11
         bd_filter_11 = BlockDiagram()
@@ -289,7 +276,6 @@ class ChipButterworth(Module):
         bd_filter_11.a2 = 14402
         bd_filter_11.b = [1, 0, -1]
         bd_filter_11.scale_out = 0.9679
-        self.bd_list.append(bd_filter_11)
 
         # Filter 12
         bd_filter_12 = BlockDiagram()
@@ -303,7 +289,6 @@ class ChipButterworth(Module):
         bd_filter_12.a2 = 13666
         bd_filter_12.b = [1, 0, -1]
         bd_filter_12.scale_out = 0.6635
-        self.bd_list.append(bd_filter_12)
 
         # Filter 13
         bd_filter_13 = BlockDiagram()
@@ -317,7 +302,6 @@ class ChipButterworth(Module):
         bd_filter_13.a2 = 12687
         bd_filter_13.b = [1, 0, -1]
         bd_filter_13.scale_out = 0.9026
-        self.bd_list.append(bd_filter_13)
 
         # Filter 14
         bd_filter_14 = BlockDiagram()
@@ -331,7 +315,6 @@ class ChipButterworth(Module):
         bd_filter_14.a2 = 22803
         bd_filter_14.b = [1, 0, -1]
         bd_filter_14.scale_out = 0.6082
-        self.bd_list.append(bd_filter_14)
 
         # Filter 15
         bd_filter_15 = BlockDiagram()
@@ -345,7 +328,6 @@ class ChipButterworth(Module):
         bd_filter_15.a2 = 19488
         bd_filter_15.b = [1, 0, -1]
         bd_filter_15.scale_out = 0.8105
-        self.bd_list.append(bd_filter_15)
 
         # Filter 16
         bd_filter_16 = BlockDiagram()
@@ -359,9 +341,27 @@ class ChipButterworth(Module):
         bd_filter_16.a2 = 15280
         bd_filter_16.b = [1, 0, -1]
         bd_filter_16.scale_out = 0.5337
-        self.bd_list.append(bd_filter_16)
 
-        self.bd_list: P_array = SimulationParameter(self.bd_list)
+        # list of block-diagram representations corresponding to the filters
+        
+        self.bd_list = [
+            bd_filter_1,
+            bd_filter_2,
+            bd_filter_3,
+            bd_filter_4,
+            bd_filter_5,
+            bd_filter_6,
+            bd_filter_7,
+            bd_filter_8,
+            bd_filter_9,
+            bd_filter_10,
+            bd_filter_11,
+            bd_filter_12,
+            bd_filter_13,
+            bd_filter_14,
+            bd_filter_15,
+            bd_filter_16,
+        ]
 
     @type_check
     def _filter_AR(self, bd: BlockDiagram, sig_in: np.ndarray) -> np.ndarray:
