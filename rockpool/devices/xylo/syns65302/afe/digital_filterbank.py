@@ -148,6 +148,11 @@ class ChipButterworth(Module):
         """
         This class builds the block-diagram version of the filters, which is exactly as it is done in FPGA.
         The proposed filters are candidates that may be chosen for preprocessing of the audio data.
+
+        Args:
+            select_filters (Optional[Tuple[int]], optional): The indices of the filters to be used in the filter bank. Defaults to None: use all filters.
+                i.e. select_filters = (0,2,4,8,15) will use Filter 0, Filter 2, Filter 4, Filter 8, and Filter 15.
+
         """
         if select_filters is None:
             select_filters = tuple(range(NUM_FILTERS))
