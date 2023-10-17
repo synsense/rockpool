@@ -97,22 +97,41 @@ class OverflowError(Exception):
 
 @dataclass
 class BlockDiagram:
-    B_worst_case: int  # number of additional bits devoted to storing filter taps such that no over- and under-flow can happen
-    B_in: int  # number of input bits that can be processed with the block diagram
-    B_b: int  # bits needed for scaling b0
-    B_a: int  # total number of bits devoted to storing filter a-taps
-    B_af: int  # bits needed for encoding the fractional parts of taps
-    B_wf: int  # bits needed for fractional part of the filter output
-    B_w: Optional[
-        int
-    ] = None  # total number of bits devoted to storing the values computed by the AR-filter. It should be equal to `B_in + B_worst_case + B_wf`
-    B_out: Optional[
-        int
-    ] = None  # total number of bits needed for storing the values computed by the WHOLE filter.
-    a1: int  # integer representation of a1 tap
-    a2: int  # integer representation of a2 tap
-    b: list  # [1, 0 , -1] : special case for normalized Butterworth filters
-    scale_out: int  # surplus scaling due to `b` normalizationsurplus scaling due to `b` normalization. It is always in the range [0.5, 1.0]
+    B_worst_case: int
+    """ number of additional bits devoted to storing filter taps such that no over- and under-flow can happen"""
+
+    B_in: int
+    """ number of input bits that can be processed with the block diagram"""
+
+    B_b: int
+    """ bits needed for scaling b0"""
+
+    B_a: int
+    """ total number of bits devoted to storing filter a-taps"""
+
+    B_af: int
+    """ bits needed for encoding the fractional parts of taps"""
+
+    B_wf: int
+    """ bits needed for fractional part of the filter output"""
+
+    B_w: int
+    """ total number of bits devoted to storing the values computed by the AR-filter. It should be equal to `B_in + B_worst_case + B_wf`"""
+
+    B_out: int
+    """ total number of bits needed for storing the values computed by the WHOLE filter."""
+
+    a1: int
+    """ integer representation of a1 tap"""
+
+    a2: int
+    """ integer representation of a2 tap"""
+
+    b: list
+    """ [1, 0 , -1] : special case for normalized Butterworth filters"""
+
+    scale_out: int
+    """ surplus scaling due to `b` normalizationsurplus scaling due to `b` normalization. It is always in the range [0.5, 1.0]"""
 
     def __post_init__(self) -> None:
         self.B_w = self.B_in + self.B_worst_case + self.B_wf
