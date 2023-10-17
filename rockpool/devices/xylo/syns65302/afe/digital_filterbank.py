@@ -103,9 +103,6 @@ class BlockDiagram:
     B_b: int
     """ bits needed for scaling b0"""
 
-    B_a: int
-    """ total number of bits devoted to storing filter a-taps"""
-
     B_af: int
     """ bits needed for encoding the fractional parts of taps"""
 
@@ -129,6 +126,9 @@ class BlockDiagram:
 
     B_in: int = 14
     """ number of input bits that can be processed with the block diagram"""
+
+    B_a: int = 16
+    """ total number of bits devoted to storing filter a-taps"""
 
     b: tuple = (1, 0, -1)
     """ [1, 0 , -1] : special case for normalized Butterworth filters"""
@@ -157,7 +157,6 @@ class ChipButterworth(Module):
         bd_filter_1 = BlockDiagram(
             B_worst_case=7,
             B_b=8,
-            B_a=16,
             B_af=6,
             B_wf=8,
             a1=-32694,
@@ -169,7 +168,6 @@ class ChipButterworth(Module):
         bd_filter_2 = BlockDiagram(
             B_worst_case=6,
             B_b=8,
-            B_a=16,
             B_af=6,
             B_wf=8,
             a1=-32663,
@@ -181,7 +179,6 @@ class ChipButterworth(Module):
         bd_filter_3 = BlockDiagram(
             B_worst_case=6,
             B_b=7,
-            B_a=16,
             B_af=7,
             B_wf=8,
             a1=-32617,
@@ -193,7 +190,6 @@ class ChipButterworth(Module):
         bd_filter_4 = BlockDiagram(
             B_worst_case=5,
             B_b=7,
-            B_a=16,
             B_af=7,
             B_wf=8,
             a1=-32551,
@@ -205,7 +201,6 @@ class ChipButterworth(Module):
         bd_filter_5 = BlockDiagram(
             B_worst_case=5,
             B_b=6,
-            B_a=16,
             B_af=8,
             B_wf=8,
             a1=-32453,
@@ -217,7 +212,6 @@ class ChipButterworth(Module):
         bd_filter_6 = BlockDiagram(
             B_worst_case=4,
             B_b=6,
-            B_a=16,
             B_af=8,
             B_wf=8,
             a1=-32305,
@@ -229,7 +223,6 @@ class ChipButterworth(Module):
         bd_filter_7 = BlockDiagram(
             B_worst_case=4,
             B_b=5,
-            B_a=16,
             B_af=9,
             B_wf=8,
             a1=-32077,
@@ -241,7 +234,6 @@ class ChipButterworth(Module):
         bd_filter_8 = BlockDiagram(
             B_worst_case=3,
             B_b=5,
-            B_a=16,
             B_af=9,
             B_wf=8,
             a1=-31718,
@@ -253,7 +245,6 @@ class ChipButterworth(Module):
         bd_filter_9 = BlockDiagram(
             B_worst_case=3,
             B_b=4,
-            B_a=16,
             B_af=10,
             B_wf=8,
             a1=-31139,
@@ -265,7 +256,6 @@ class ChipButterworth(Module):
         bd_filter_10 = BlockDiagram(
             B_worst_case=2,
             B_b=4,
-            B_a=16,
             B_af=10,
             B_wf=8,
             a1=-30185,
@@ -277,7 +267,6 @@ class ChipButterworth(Module):
         bd_filter_11 = BlockDiagram(
             B_worst_case=2,
             B_b=4,
-            B_a=16,
             B_af=10,
             B_wf=8,
             a1=-28582,
@@ -289,7 +278,6 @@ class ChipButterworth(Module):
         bd_filter_12 = BlockDiagram(
             B_worst_case=2,
             B_b=3,
-            B_a=16,
             B_af=11,
             B_wf=8,
             a1=-25862,
@@ -301,7 +289,6 @@ class ChipButterworth(Module):
         bd_filter_13 = BlockDiagram(
             B_worst_case=2,
             B_b=3,
-            B_a=16,
             B_af=11,
             B_wf=8,
             a1=-21262,
@@ -313,7 +300,6 @@ class ChipButterworth(Module):
         bd_filter_14 = BlockDiagram(
             B_worst_case=2,
             B_b=2,
-            B_a=16,
             B_af=13,
             B_wf=8,
             a1=-27375,
@@ -325,7 +311,6 @@ class ChipButterworth(Module):
         bd_filter_15 = BlockDiagram(
             B_worst_case=2,
             B_b=2,
-            B_a=16,
             B_af=13,
             B_wf=8,
             a1=-4180,
@@ -337,7 +322,6 @@ class ChipButterworth(Module):
         bd_filter_16 = BlockDiagram(
             B_worst_case=2,
             B_b=1,
-            B_a=16,
             B_af=14,
             B_wf=8,
             a1=25566,
