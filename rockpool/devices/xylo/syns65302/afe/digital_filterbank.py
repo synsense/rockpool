@@ -100,9 +100,6 @@ class BlockDiagram:
     B_worst_case: int
     """ number of additional bits devoted to storing filter taps such that no over- and under-flow can happen"""
 
-    B_in: int
-    """ number of input bits that can be processed with the block diagram"""
-
     B_b: int
     """ bits needed for scaling b0"""
 
@@ -130,6 +127,9 @@ class BlockDiagram:
     scale_out: int
     """ surplus scaling due to `b` normalizationsurplus scaling due to `b` normalization. It is always in the range [0.5, 1.0]"""
 
+    B_in: int = 14
+    """ number of input bits that can be processed with the block diagram"""
+
     b: tuple = (1, 0, -1)
     """ [1, 0 , -1] : special case for normalized Butterworth filters"""
 
@@ -156,7 +156,6 @@ class ChipButterworth(Module):
         # Filter 1
         bd_filter_1 = BlockDiagram(
             B_worst_case=7,
-            B_in=14,
             B_b=8,
             B_a=16,
             B_af=6,
@@ -169,7 +168,6 @@ class ChipButterworth(Module):
         # Filter 2
         bd_filter_2 = BlockDiagram(
             B_worst_case=6,
-            B_in=14,
             B_b=8,
             B_a=16,
             B_af=6,
@@ -182,7 +180,6 @@ class ChipButterworth(Module):
         # Filter 3
         bd_filter_3 = BlockDiagram(
             B_worst_case=6,
-            B_in=14,
             B_b=7,
             B_a=16,
             B_af=7,
@@ -195,7 +192,6 @@ class ChipButterworth(Module):
         # Filter 4
         bd_filter_4 = BlockDiagram(
             B_worst_case=5,
-            B_in=14,
             B_b=7,
             B_a=16,
             B_af=7,
@@ -208,7 +204,6 @@ class ChipButterworth(Module):
         # Filter 5
         bd_filter_5 = BlockDiagram(
             B_worst_case=5,
-            B_in=14,
             B_b=6,
             B_a=16,
             B_af=8,
@@ -221,7 +216,6 @@ class ChipButterworth(Module):
         # Filter 6
         bd_filter_6 = BlockDiagram(
             B_worst_case=4,
-            B_in=14,
             B_b=6,
             B_a=16,
             B_af=8,
@@ -234,7 +228,6 @@ class ChipButterworth(Module):
         # Filter 7
         bd_filter_7 = BlockDiagram(
             B_worst_case=4,
-            B_in=14,
             B_b=5,
             B_a=16,
             B_af=9,
@@ -247,7 +240,6 @@ class ChipButterworth(Module):
         # Filter 8
         bd_filter_8 = BlockDiagram(
             B_worst_case=3,
-            B_in=14,
             B_b=5,
             B_a=16,
             B_af=9,
@@ -260,7 +252,6 @@ class ChipButterworth(Module):
         # Filter 9
         bd_filter_9 = BlockDiagram(
             B_worst_case=3,
-            B_in=14,
             B_b=4,
             B_a=16,
             B_af=10,
@@ -273,7 +264,6 @@ class ChipButterworth(Module):
         # Filter 10
         bd_filter_10 = BlockDiagram(
             B_worst_case=2,
-            B_in=14,
             B_b=4,
             B_a=16,
             B_af=10,
@@ -286,7 +276,6 @@ class ChipButterworth(Module):
         # Filter 11
         bd_filter_11 = BlockDiagram(
             B_worst_case=2,
-            B_in=14,
             B_b=4,
             B_a=16,
             B_af=10,
@@ -299,7 +288,6 @@ class ChipButterworth(Module):
         # Filter 12
         bd_filter_12 = BlockDiagram(
             B_worst_case=2,
-            B_in=14,
             B_b=3,
             B_a=16,
             B_af=11,
@@ -312,7 +300,6 @@ class ChipButterworth(Module):
         # Filter 13
         bd_filter_13 = BlockDiagram(
             B_worst_case=2,
-            B_in=14,
             B_b=3,
             B_a=16,
             B_af=11,
@@ -325,7 +312,6 @@ class ChipButterworth(Module):
         # Filter 14
         bd_filter_14 = BlockDiagram(
             B_worst_case=2,
-            B_in=14,
             B_b=2,
             B_a=16,
             B_af=13,
@@ -338,7 +324,6 @@ class ChipButterworth(Module):
         # Filter 15
         bd_filter_15 = BlockDiagram(
             B_worst_case=2,
-            B_in=14,
             B_b=2,
             B_a=16,
             B_af=13,
@@ -351,7 +336,6 @@ class ChipButterworth(Module):
         # Filter 16
         bd_filter_16 = BlockDiagram(
             B_worst_case=2,
-            B_in=14,
             B_b=1,
             B_a=16,
             B_af=14,
