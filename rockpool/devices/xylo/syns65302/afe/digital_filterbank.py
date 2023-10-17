@@ -106,12 +106,6 @@ class BlockDiagram:
     B_af: int
     """ bits needed for encoding the fractional parts of taps"""
 
-    B_w: int
-    """ total number of bits devoted to storing the values computed by the AR-filter. It should be equal to `B_in + B_worst_case + B_wf`"""
-
-    B_out: int
-    """ total number of bits needed for storing the values computed by the WHOLE filter."""
-
     a1: int
     """ integer representation of a1 tap"""
 
@@ -133,9 +127,17 @@ class BlockDiagram:
     b: tuple = (1, 0, -1)
     """ [1, 0 , -1] : special case for normalized Butterworth filters"""
 
+    B_w: Optional[int] = None
+    """ total number of bits devoted to storing the values computed by the AR-filter. It should be equal to `B_in + B_worst_case + B_wf`"""
+
+    B_out: Optional[int] = None
+    """ total number of bits needed for storing the values computed by the WHOLE filter."""
+
     def __post_init__(self) -> None:
-        self.B_w = self.B_in + self.B_worst_case + self.B_wf
-        self.B_out = self.B_in + self.B_worst_case + self.B_wf
+        if self.B_w is None:
+            self.B_w = self.B_in + self.B_worst_case + self.B_wf
+        if self.B_out is None:
+            self.B_out = self.B_in + self.B_worst_case + self.B_wf
 
 
 class ChipButterworth(Module):
