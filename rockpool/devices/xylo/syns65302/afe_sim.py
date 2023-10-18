@@ -93,6 +93,12 @@ class AFESim(Module):
                 Resulting dt = 0.001024
         """
 
+        __filter_bank = ChipButterworth(select_filters=select_filters)
+
+        super().__init__(
+            shape=__filter_bank.shape, spiking_input=False, spiking_output=True
+        )
+
         if spike_gen_mode not in ["divisive_norm", "threshold"]:
             raise ValueError(
                 f"Invalid spike_gen_mode: {spike_gen_mode}. Valid options are: 'divisive_norm' and 'threshold'"
@@ -101,14 +107,9 @@ class AFESim(Module):
         else:
             enable_DN_channel = True if spike_gen_mode == "divisive_norm" else False
 
-        __filter_bank = ChipButterworth(select_filters=select_filters)
-
-        super().__init__(
-            shape=__filter_bank.shape, spiking_input=False, spiking_output=True
-        )
-
         __sub_shape = (__filter_bank.size_out, __filter_bank.size_out)
 
+        # - Sub-modules
         self.filter_bank = __filter_bank
 
         self.divisive_norm = DivisiveNormalization(
@@ -135,6 +136,19 @@ class AFESim(Module):
     def evolve(
         self, input_data: np.ndarray, record: bool = False
     ) -> Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
+        """
+        Evolves the AFE state over input data
+
+        Args:
+            input_data (np.ndarray): Single dimensional input data to the AFE.
+            record (bool, optional): If ``True``, the module should record internal state during evolution and return the record. If ``False``, no recording is required. Default: ``False``.
+
+        Returns:
+            Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
+                ``output``: The output spike train
+                ``state``: The state dictionary after evolution.
+                ``record``: The record dictionary during evolution. Empty if ``record=False``.
+        """
         __out, __state, __rec = self.model.evolve(input_data, record=record)
 
         return __out, __state, __rec
