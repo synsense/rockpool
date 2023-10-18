@@ -41,6 +41,7 @@ __all__ = [
     "INIFINITY_OF_TRANSIENT_PHASE",
     "NUM_BITS_GAIN_QUANTIZATION",
     "NUM_FILTERS",
+    "MAX_SPIKES_INPUT",
 ]
 
 
@@ -254,3 +255,6 @@ NUM_BITS_GAIN_QUANTIZATION = 10
 
 NUM_FILTERS = 16
 """Total number of filters in the filter bank"""
+
+MAX_SPIKES_INPUT = 15
+"""Maximum number of spikes that input neurons can handle"""
