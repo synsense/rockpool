@@ -1685,10 +1685,10 @@ def config_lna_amplification(
 
     assert level in ["low", "mid", "high"]
     if level == "mid":
-        config.analog_top.lna.ci_tune = 0x0
+        config.analog_top.lna.ci_tune = 0x7
         config.analog_top.lna.cf_tune = 0xF
     elif level == "high":
-        config.analog_top.lna.ci_tune = 0x5
+        config.analog_top.lna.ci_tune = 0x0
         config.analog_top.lna.cf_tune = 0xF
     return config
 
