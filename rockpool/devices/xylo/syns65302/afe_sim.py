@@ -139,11 +139,11 @@ class AFESim(ModSequential):
         dn_rate_scale_bitshift: Optional[Tuple[int]] = None,
         rate_scale_factor: Optional[float] = 63,
         dn_low_pass_bitshift: Optional[int] = None,
-        low_pass_averaging_window: Optional[float] = 80e-3,
+        low_pass_averaging_window: Optional[float] = 84e-3,
         dn_EPS: Union[int, Tuple[int]] = 1,
         fixed_threshold_vec: Union[int, Tuple[int]] = 2**27,
         down_sampling_factor: Optional[int] = None,
-        dt: Optional[float] = 1024e-3,
+        dt: Optional[float] = 1024e-6,
         **kwargs,
     ) -> AFESim:
         logger = logging.getLogger()
@@ -209,6 +209,7 @@ class AFESim(ModSequential):
     def get_dn_rate_scale_bitshift_from_rate_scale_factor(
         rate_scale_factor: float,
     ) -> Tuple[int]:
+        # Write unit tests
         if rate_scale_factor is None:
             raise ValueError(
                 "`rate_scale_factor` should be provided to obtain `dn_rate_scale_bitshift`!"
@@ -292,12 +293,38 @@ class AFESim(ModSequential):
         )
 
     @staticmethod
-    def get_down_sampling_factor_from_dt(dt: float) -> int:
+    def get_down_sampling_factor_from_dt(dt: float, decimal: int = 6) -> int:
+        # Write unit tests
         if dt is None:
             raise ValueError(
                 "`dt` should be provided to obtain `down_sampling_factor`!"
             )
-        return -1
+
+        candidate_1 = int(dt * AUDIO_SAMPLING_RATE)
+        candidate_2 = candidate_1 + 1
+
+        diff_1 = abs(dt - (candidate_1 / AUDIO_SAMPLING_RATE))
+        diff_2 = abs(dt - (candidate_2 / AUDIO_SAMPLING_RATE))
+
+        if diff_1 < diff_2:
+            if diff_1 < 10 ** (-decimal):
+                return candidate_1
+            else:
+                candidate = candidate_1
+                diff = diff_1
+
+        else:
+            if diff_2 < 10 ** (-decimal):
+                return candidate_2
+            else:
+                candidate = candidate_2
+                diff = diff_2
+
+        raise ValueError(
+            f"Closest we can get to `dt` = "
+            f"{dt:.6f} is {candidate / AUDIO_SAMPLING_RATE:.6f}"
+            f" with `down_sampling_factor` = {candidate}, diff = {diff:.6f}"
+        )
 
     def export_config(self) -> Any:
         raise NotImplementedError("To be implemented following `samna` support")
