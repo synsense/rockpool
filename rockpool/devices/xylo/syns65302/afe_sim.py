@@ -158,10 +158,95 @@ class AFESim(Module):
         raise NotImplementedError("To be implemented following `samna` support")
 
     @classmethod
-    def from_specification(cls, *args, **kwargs) -> AFESim:
-        raise NotImplementedError(
-            "Here we do not have any high-level specification that's different than __init__ parameters."
+    def from_specification(
+        cls,
+        select_filters: Optional[Tuple[int]] = None,
+        spike_gen_mode: str = "divisive_norm",
+        dn_rate_scale_bitshift: Optional[Tuple[int]] = None,
+        rate_scale_factor: Optional[float] = 1 / 64,
+        dn_low_pass_bitshift: Optional[int] = None,
+        low_pass_averaging_window: Optional[float] = 80e-3,
+        dn_EPS: Union[int, Tuple[int]] = 1,
+        fixed_threshold_vec: Union[int, Tuple[int]] = 2**27,
+        down_sampling_factor: Optional[int] = None,
+        dt: Optional[float] = 1024e-3,
+        **kwargs,
+    ) -> AFESim:
+        def complain_if_both(p1: Any, p2: Any, name1: str, name2: str) -> None:
+            if (p1 is not None and p2 is not None) or (p1 is None and p2 is None):
+                raise ValueError(
+                    f"Either `{name1}` or `{name2}` should be provided, but not both!"
+                )
+
+        complain_if_both(
+            dn_rate_scale_bitshift,
+            rate_scale_factor,
+            "dn_rate_scale_bitshift",
+            "rate_scale_factor",
         )
+
+        if dn_rate_scale_bitshift is None:
+            # Find dn_rate_scale_bitshift from rate_scale_factor
+            dn_rate_scale_bitshift = (
+                cls.get_dn_rate_scale_bitshift_from_rate_scale_factor(rate_scale_factor)
+            )
+
+        complain_if_both(
+            dn_low_pass_bitshift,
+            low_pass_averaging_window,
+            "dn_low_pass_bitshift",
+            "low_pass_averaging_window",
+        )
+
+        if dn_low_pass_bitshift is None:
+            dn_low_pass_bitshift = (
+                cls.get_dn_low_pass_bitshift_from_low_pass_averaging_window(
+                    low_pass_averaging_window
+                )
+            )
+
+        complain_if_both(down_sampling_factor, dt, "down_sampling_factor", "dt")
+
+        if down_sampling_factor is None:
+            down_sampling_factor = cls.get_down_sampling_factor_from_dt(dt)
+
+        return cls(
+            select_filters=select_filters,
+            spike_gen_mode=spike_gen_mode,
+            dn_rate_scale_bitshift=dn_rate_scale_bitshift,
+            dn_low_pass_bitshift=dn_low_pass_bitshift,
+            dn_EPS=dn_EPS,
+            fixed_threshold_vec=fixed_threshold_vec,
+            down_sampling_factor=down_sampling_factor,
+        )
+
+    @staticmethod
+    def get_dn_rate_scale_bitshift_from_rate_scale_factor(
+        rate_scale_factor: float,
+    ) -> Tuple[int]:
+        if rate_scale_factor is None:
+            raise ValueError(
+                "`rate_scale_factor` should be provided to obtain `dn_rate_scale_bitshift`!"
+            )
+        return ()
+
+    @staticmethod
+    def get_dn_low_pass_bitshift_from_low_pass_averaging_window(
+        low_pass_averaging_window: float,
+    ) -> int:
+        if low_pass_averaging_window is None:
+            raise ValueError(
+                "`low_pass_averaging_window` should be provided to obtain `dn_low_pass_bitshift`!"
+            )
+        return -1
+
+    @staticmethod
+    def get_down_sampling_factor_from_dt(dt: float) -> int:
+        if dt is None:
+            raise ValueError(
+                "`dt` should be provided to obtain `down_sampling_factor`!"
+            )
+        return -1
 
     def export_config(self) -> Any:
         raise NotImplementedError("To be implemented following `samna` support")
