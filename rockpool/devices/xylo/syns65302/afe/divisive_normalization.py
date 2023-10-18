@@ -62,6 +62,7 @@ class DivisiveNormalization(Module):
     def __init__(
         self,
         shape: Tuple[Tuple[int], int] = NUM_FILTERS,
+        enable_DN_channel: bool = True,
         spike_rate_scale_bitshift1: int = 6,
         spike_rate_scale_bitshift2: int = 0,
         low_pass_bitshift: int = 12,
@@ -74,6 +75,7 @@ class DivisiveNormalization(Module):
 
         Args:
             shape (int): number of channels (here filters) in the divisive normalization module. Defaults to NUM_FILTERS (16 in Xylo-A3).
+            enable_DN_channel (bool): if True, divisive normalization is applied to the channel. Defaults to True.
             spike_rate_scale_bitshift1 ( int ): how much the spike rate should be scaled compared with the sampling rate of the input audio. Defaults to 6.
             spike_rate_scale_bitshift2 ( int ): how much the spike rate should be scaled compared with the sampling rate of the input audio. Defaults to 0.
             NOTE #1: A bitshift of size 0 results in a spike rate around the sampling rate of the audio, thus very large.
@@ -154,7 +156,9 @@ class DivisiveNormalization(Module):
 
         self.enable_DN_channel = SimulationParameter(
             shape=self.size_out,
-            init_func=lambda s: np.broadcast_to(np.array(True, dtype=bool), s),
+            init_func=lambda s: np.broadcast_to(
+                np.array(enable_DN_channel, dtype=bool), s
+            ),
         )
         """ ndarray[bool]: Enable divisive normalisation threshold for each channel ``(N,)`` """
 
