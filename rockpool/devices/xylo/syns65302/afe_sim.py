@@ -163,7 +163,7 @@ class AFESim(Module):
         select_filters: Optional[Tuple[int]] = None,
         spike_gen_mode: str = "divisive_norm",
         dn_rate_scale_bitshift: Optional[Tuple[int]] = None,
-        rate_scale_factor: Optional[float] = 1 / 64,
+        rate_scale_factor: Optional[float] = 64,
         dn_low_pass_bitshift: Optional[int] = None,
         low_pass_averaging_window: Optional[float] = 80e-3,
         dn_EPS: Union[int, Tuple[int]] = 1,
@@ -228,7 +228,42 @@ class AFESim(Module):
             raise ValueError(
                 "`rate_scale_factor` should be provided to obtain `dn_rate_scale_bitshift`!"
             )
-        return ()
+        best_neg_diff = -np.inf
+        best_neg_candidate = ()
+        best_pos_diff = np.inf
+        best_pos_candidate = ()
+
+        b1 = rate_scale_factor.bit_length()
+        b2 = 0
+
+        # Check if the result satisfies the condition
+        if 2**b1 - 2**b2 == rate_scale_factor:
+            return (b1, b2)
+
+        for b2 in range(1, b1):
+            if 2**b1 - 2**b2 == rate_scale_factor:
+                return (b1, b2)
+            else:
+                candidate = (b1, b2)
+                candidate_diff = 2**b1 - 2**b2 - rate_scale_factor
+                if candidate_diff < 0 and candidate_diff > best_neg_diff:
+                    best_neg_diff = candidate_diff
+                    best_neg_candidate = candidate
+                elif candidate_diff > 0 and candidate_diff < best_pos_diff:
+                    best_pos_diff = candidate_diff
+                    best_pos_candidate = candidate
+
+        b1_pos, b2_pos = best_pos_candidate
+        b1_neg, b2_neg = best_neg_candidate
+
+        __err_message = (
+            f"`rate_scale_factor` = {rate_scale_factor} is not possible to implement!"
+            + f"\n\t `rate_scale_factor` = {2**b1_pos - 2**b2_pos} is possible with (b1, b2) = ({b1_pos}, {b2_pos})"
+            + f"\n\t `rate_scale_factor` = {2**b1_neg - 2**b2_neg} is possible with (b1, b2) = ({b1_neg}, {b2_neg})"
+            + f"\nPick one of them!"
+        )
+
+        raise ValueError(__err_message)
 
     @staticmethod
     def get_dn_low_pass_bitshift_from_low_pass_averaging_window(
