@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
+import logging
 
 from rockpool.devices.xylo.syns65302.afe.digital_filterbank import ChipButterworth
 from rockpool.devices.xylo.syns65302.afe.divisive_normalization import (
@@ -136,7 +137,7 @@ class AFESim(ModSequential):
         select_filters: Optional[Tuple[int]] = None,
         spike_gen_mode: str = "divisive_norm",
         dn_rate_scale_bitshift: Optional[Tuple[int]] = None,
-        rate_scale_factor: Optional[float] = 64,
+        rate_scale_factor: Optional[float] = 63,
         dn_low_pass_bitshift: Optional[int] = None,
         low_pass_averaging_window: Optional[float] = 80e-3,
         dn_EPS: Union[int, Tuple[int]] = 1,
@@ -162,6 +163,9 @@ class AFESim(ModSequential):
             # Find dn_rate_scale_bitshift from rate_scale_factor
             dn_rate_scale_bitshift = (
                 cls.get_dn_rate_scale_bitshift_from_rate_scale_factor(rate_scale_factor)
+            )
+            logging.info(
+                f"`dn_rate_scale_bitshift` = {dn_rate_scale_bitshift} is obtained given the target `rate_scale_factor` = {rate_scale_factor}"
             )
 
         complain_if_both(
