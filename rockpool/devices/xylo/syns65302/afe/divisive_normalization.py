@@ -99,7 +99,7 @@ class DivisiveNormalization(Module):
             For a target rate of around 1K. e.g., 1 spike every 50 clock period for an audio of sampling rate 50K, then we need to choose a threshold as large as
             `50 x 2^22 ~ 2^27`.
         """
-        super().__init__(shape=shape, spiking_output=True)
+        super().__init__(shape=shape, spiking_input=False, spiking_output=True)
 
         # how much spike rate should be reduced compared with the sampling rate of the audio
         # bitshift 1
