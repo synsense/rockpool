@@ -20,10 +20,9 @@ from rockpool.devices.xylo.syns65302.afe.params import (
     MAX_SPIKES_INPUT,
 )
 from rockpool.devices.xylo.syns65302.afe.raster import Raster
-from rockpool.nn.modules.module import Module
+from rockpool.nn.combinators.sequential import ModSequential
 from rockpool.utilities.backend_management import backend_available
 from rockpool.parameters import SimulationParameter
-from rockpool.nn.combinators import Sequential
 
 if backend_available("samna"):
     print("from samna.xyloA3.configuration import InputInterfaceConfig")
@@ -33,7 +32,7 @@ else:
 __all__ = ["AFESim"]
 
 
-class AFESim(Module):
+class AFESim(ModSequential):
     """
     A :py:class:`.Module` that simulates the audio signal preprocessing on Xylo A3 chip.
 
@@ -95,10 +94,6 @@ class AFESim(Module):
 
         __filter_bank = ChipButterworth(select_filters=select_filters)
 
-        super().__init__(
-            shape=__filter_bank.shape, spiking_input=False, spiking_output=True
-        )
-
         if spike_gen_mode not in ["divisive_norm", "threshold"]:
             raise ValueError(
                 f"Invalid spike_gen_mode: {spike_gen_mode}. Valid options are: 'divisive_norm' and 'threshold'"
@@ -110,9 +105,7 @@ class AFESim(Module):
         __sub_shape = (__filter_bank.size_out, __filter_bank.size_out)
 
         # - Sub-modules
-        self.filter_bank = __filter_bank
-
-        self.divisive_norm = DivisiveNormalization(
+        __divisive_norm = DivisiveNormalization(
             shape=__sub_shape,
             enable_DN_channel=enable_DN_channel,
             spike_rate_scale_bitshift1=dn_rate_scale_bitshift[0],
@@ -122,36 +115,16 @@ class AFESim(Module):
             fixed_threshold_vec=fixed_threshold_vec,
             fs=AUDIO_SAMPLING_RATE,
         )
-        self.raster = Raster(
+        __raster = Raster(
             shape=__sub_shape,
             rate_downsample_factor=down_sampling_factor,
             max_num_spikes=MAX_SPIKES_INPUT,
             fs=AUDIO_SAMPLING_RATE,
         )
 
-        self.model = Sequential(self.filter_bank, self.divisive_norm, self.raster)
+        super().__init__(__filter_bank, __divisive_norm, __raster)
         self.dt = SimulationParameter((down_sampling_factor) / AUDIO_SAMPLING_RATE)
         self.spike_gen_mode = spike_gen_mode
-
-    def evolve(
-        self, input_data: np.ndarray, record: bool = False
-    ) -> Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
-        """
-        Evolves the AFE state over input data
-
-        Args:
-            input_data (np.ndarray): Single dimensional input data to the AFE.
-            record (bool, optional): If ``True``, the module should record internal state during evolution and return the record. If ``False``, no recording is required. Default: ``False``.
-
-        Returns:
-            Tuple[np.ndarray, Dict[str, Any], Dict[str, Any]]:
-                ``output``: The output spike train
-                ``state``: The state dictionary after evolution.
-                ``record``: The record dictionary during evolution. Empty if ``record=False``.
-        """
-        __out, __state, __rec = self.model.evolve(input_data, record=record)
-
-        return __out, __state, __rec
 
     @classmethod
     def from_config(cls, config: Any) -> AFESim:
