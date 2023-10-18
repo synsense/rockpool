@@ -15,6 +15,10 @@ from rockpool.devices.xylo.syns65302.afe.digital_filterbank import ChipButterwor
 from rockpool.devices.xylo.syns65302.afe.divisive_normalization import (
     DivisiveNormalization,
 )
+from rockpool.devices.xylo.syns65302.afe.params import (
+    AUDIO_SAMPLING_RATE,
+    MAX_SPIKES_INPUT,
+)
 from rockpool.devices.xylo.syns65302.afe.raster import Raster
 from rockpool.nn.modules.module import Module
 from rockpool.utilities.backend_management import backend_available
@@ -41,6 +45,12 @@ class AFESim(Module):
     def __init__(
         self,
         select_filters: Optional[Tuple[int]] = None,
+        spike_rate_scale_bitshift1: int = 6,
+        spike_rate_scale_bitshift2: int = 0,
+        low_pass_bitshift: int = 12,
+        EPS_vec: Union[int, np.ndarray] = 1,
+        fixed_threshold_vec: Union[int, np.ndarray] = 2 ** (14 - 1 + 8 + 6),
+        down_sampling_factor: int = 6,
     ) -> None:
         """
         AFESim constructor
@@ -56,13 +66,27 @@ class AFESim(Module):
             shape=__filter_bank.shape, spiking_input=False, spiking_output=True
         )
 
+        __sub_shape = (__filter_bank.size_out, __filter_bank.size_out)
+
         self.filter_bank = __filter_bank
-        self.divisive_norm = DivisiveNormalization()
+        self.divisive_norm = DivisiveNormalization(
+            shape=__sub_shape,
+            spike_rate_scale_bitshift1=spike_rate_scale_bitshift1,
+            spike_rate_scale_bitshift2=spike_rate_scale_bitshift2,
+            low_pass_bitshift=low_pass_bitshift,
+            EPS_vec=EPS_vec,
+            fixed_threshold_vec=fixed_threshold_vec,
+            fs=AUDIO_SAMPLING_RATE,
+        )
         self.raster = Raster(
-            shape=(self.filter_bank.size_out, self.filter_bank.size_out)
+            shape=__sub_shape,
+            rate_downsample_factor=2**down_sampling_factor,
+            max_num_spikes=MAX_SPIKES_INPUT,
+            fs=AUDIO_SAMPLING_RATE,
         )
 
         self.model = Sequential(self.filter_bank, self.divisive_norm, self.raster)
+        self.dt = SimulationParameter((2**down_sampling_factor) / AUDIO_SAMPLING_RATE)
 
     def evolve(
         self, input_data: np.ndarray, record: bool = False
