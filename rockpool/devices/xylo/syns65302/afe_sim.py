@@ -252,13 +252,44 @@ class AFESim(ModSequential):
 
     @staticmethod
     def get_dn_low_pass_bitshift_from_low_pass_averaging_window(
-        low_pass_averaging_window: float,
+        low_pass_averaging_window: float, decimal: int = 3
     ) -> int:
+        # Write unit tests
+
         if low_pass_averaging_window is None:
             raise ValueError(
                 "`low_pass_averaging_window` should be provided to obtain `dn_low_pass_bitshift`!"
             )
-        return -1
+
+        # low_pass_averaging_window
+        candidate_1 = int(np.log2(AUDIO_SAMPLING_RATE * low_pass_averaging_window))
+        candidate_2 = candidate_1 + 1
+
+        diff_1 = abs(
+            low_pass_averaging_window - ((2**candidate_1) / AUDIO_SAMPLING_RATE)
+        )
+        diff_2 = abs(
+            low_pass_averaging_window - ((2**candidate_2) / AUDIO_SAMPLING_RATE)
+        )
+
+        if diff_1 < diff_2:
+            if diff_1 < 10 ** (-decimal):
+                return candidate_1
+            else:
+                candidate = candidate_1
+                diff = diff_1
+        else:
+            if diff_2 < 10 ** (-decimal):
+                return candidate_2
+            else:
+                candidate = candidate_2
+                diff = diff_2
+
+        raise ValueError(
+            f"Closest we can get to `low_pass_averaging_window `= "
+            f"{low_pass_averaging_window:.3f} is {(2**candidate) / AUDIO_SAMPLING_RATE:.3f}"
+            f" with `dn_low_pass_bitshift` = {candidate}, diff = {diff:.3f}"
+        )
 
     @staticmethod
     def get_down_sampling_factor_from_dt(dt: float) -> int:
