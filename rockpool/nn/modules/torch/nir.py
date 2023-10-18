@@ -55,7 +55,7 @@ def _convert_nir_to_rockpool(node: nir.NIRNode) -> Optional[TorchModule]:
                 tau_mem=_to_tensor(lif_node.tau_mem),
                 tau_syn=_to_tensor(lif_node.tau_syn),
                 threshold=_to_tensor(lif_node.v_threshold),
-                dt=torch.min(_to_tensor(lif_node.tau_mem / (1+lif_node.r))),
+                dt=torch.min(torch.tensor(_to_tensor(lif_node.tau_mem / (1+lif_node.r)))).item(),
                 has_rec=True,
                 w_rec=_to_tensor(affine_node.weight.T),
                 bias=_to_tensor(lif_node.v_leak),
@@ -70,16 +70,17 @@ def _convert_nir_to_rockpool(node: nir.NIRNode) -> Optional[TorchModule]:
         return ExpSynTorch(
             shape=_to_tensor(node.input_type["input"]),
             tau=_to_tensor(node.tau).int(),
-            dt=torch.min(_to_tensor(node.tau / (1+node.r))),
+            dt=torch.min(torch.tensor(_to_tensor(node.tau / (1+node.r)))).item(),
         )
     
     if isinstance(node, nir.CubaLIF):
+        print(f'Shape {node.input_type["input"]}')
         return LIFTorch(
             shape=_to_tensor(node.input_type["input"]),
             tau_mem=_to_tensor(node.tau_mem),
             tau_syn=_to_tensor(node.tau_syn),
             threshold=_to_tensor(node.v_threshold),
-            dt=torch.min(_to_tensor(node.tau_mem / (1+node.r))),
+            dt=torch.min(torch.tensor(_to_tensor(node.tau_mem / (1+node.r)))).item(),
             bias=_to_tensor(node.v_leak),
         )
     
