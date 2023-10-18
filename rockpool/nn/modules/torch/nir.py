@@ -74,7 +74,6 @@ def _convert_nir_to_rockpool(node: nir.NIRNode) -> Optional[TorchModule]:
         )
     
     if isinstance(node, nir.CubaLIF):
-        print(f'Shape {node.input_type["input"]}')
         return LIFTorch(
             shape=_to_tensor(node.input_type["input"]),
             tau_mem=_to_tensor(node.tau_mem),
