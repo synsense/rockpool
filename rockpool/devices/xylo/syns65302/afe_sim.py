@@ -146,6 +146,8 @@ class AFESim(ModSequential):
         dt: Optional[float] = 1024e-3,
         **kwargs,
     ) -> AFESim:
+        logger = logging.getLogger()
+
         def complain_if_both(p1: Any, p2: Any, name1: str, name2: str) -> None:
             if (p1 is not None and p2 is not None) or (p1 is None and p2 is None):
                 raise ValueError(
@@ -164,7 +166,7 @@ class AFESim(ModSequential):
             dn_rate_scale_bitshift = (
                 cls.get_dn_rate_scale_bitshift_from_rate_scale_factor(rate_scale_factor)
             )
-            logging.info(
+            logger.warning(
                 f"`dn_rate_scale_bitshift` = {dn_rate_scale_bitshift} is obtained given the target `rate_scale_factor` = {rate_scale_factor}"
             )
 
@@ -181,11 +183,17 @@ class AFESim(ModSequential):
                     low_pass_averaging_window
                 )
             )
+            logger.warning(
+                f"`dn_low_pass_bitshift` = {dn_low_pass_bitshift} is obtained given the target `low_pass_averaging_window` = {low_pass_averaging_window}"
+            )
 
         complain_if_both(down_sampling_factor, dt, "down_sampling_factor", "dt")
 
         if down_sampling_factor is None:
             down_sampling_factor = cls.get_down_sampling_factor_from_dt(dt)
+            logger.warning(
+                f"`down_sampling_factor` = {down_sampling_factor} is obtained given the target `dt` = {dt}"
+            )
 
         return cls(
             select_filters=select_filters,
