@@ -330,5 +330,17 @@ class AFESim(ModSequential):
             f" with `down_sampling_factor` = {candidate}, diff = {diff:.6f}"
         )
 
+    @property
+    def low_pass_averaging_window(self) -> float:
+        return (2**self.dn_low_pass_bitshift) / AUDIO_SAMPLING_RATE
+
+    @property
+    def dt(self):
+        return self.down_sampling_factor / AUDIO_SAMPLING_RATE
+
+    @property
+    def rate_scale_factor(self) -> float:
+        return 2 ** self.dn_rate_scale_bitshift[0] - 2 ** self.dn_rate_scale_bitshift[1]
+
     def export_config(self) -> Any:
         raise NotImplementedError("To be implemented following `samna` support")
