@@ -124,8 +124,12 @@ class AFESim(ModSequential):
         )
 
         super().__init__(__filter_bank, __divisive_norm, __raster)
-        self.dt = SimulationParameter((down_sampling_factor) / AUDIO_SAMPLING_RATE)
         self.spike_gen_mode = spike_gen_mode
+        self.dn_rate_scale_bitshift = SimulationParameter(dn_rate_scale_bitshift)
+        self.dn_low_pass_bitshift = SimulationParameter(dn_low_pass_bitshift)
+        self.dn_EPS = SimulationParameter(dn_EPS)
+        self.fixed_threshold_vec = SimulationParameter(fixed_threshold_vec)
+        self.down_sampling_factor = SimulationParameter(down_sampling_factor)
 
     @classmethod
     def from_config(cls, config: Any) -> AFESim:
