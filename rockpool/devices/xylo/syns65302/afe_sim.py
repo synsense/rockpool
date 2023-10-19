@@ -140,66 +140,25 @@ class AFESim(ModSequential):
         cls,
         select_filters: Optional[Tuple[int]] = None,
         spike_gen_mode: str = "divisive_norm",
-        dn_rate_scale_bitshift: Optional[Tuple[int]] = None,
         rate_scale_factor: Optional[float] = 63,
-        dn_low_pass_bitshift: Optional[int] = None,
         low_pass_averaging_window: Optional[float] = 84e-3,
         dn_EPS: Union[int, Tuple[int]] = 1,
         fixed_threshold_vec: Union[int, Tuple[int]] = 2**27,
-        down_sampling_factor: Optional[int] = None,
         dt: Optional[float] = 1024e-6,
         **kwargs,
     ) -> AFESim:
         logger = logging.getLogger()
 
-        def complain_if_both(p1: Any, p2: Any, name1: str, name2: str) -> None:
-            if (p1 is not None and p2 is not None) or (p1 is None and p2 is None):
-                raise ValueError(
-                    f"Either `{name1}` or `{name2}` should be provided, but not both!"
-                )
+        # -  Obtain dn_rate_scale_bitshift from rate_scale_factor
+        dn_rate_scale_bitshift = cls.get_dn_rate_scale_bitshift(rate_scale_factor)
 
-        complain_if_both(
-            dn_rate_scale_bitshift,
-            rate_scale_factor,
-            "dn_rate_scale_bitshift",
-            "rate_scale_factor",
-        )
+        # - Obtain dn_low_pass_bitshift from low_pass_averaging_window
+        dn_low_pass_bitshift = cls.get_dn_low_pass_bitshift(low_pass_averaging_window)
 
-        if dn_rate_scale_bitshift is None:
-            # Find dn_rate_scale_bitshift from rate_scale_factor
-            dn_rate_scale_bitshift = (
-                cls.get_dn_rate_scale_bitshift_from_rate_scale_factor(rate_scale_factor)
-            )
-            logger.warning(
-                f"`dn_rate_scale_bitshift` = {dn_rate_scale_bitshift} is obtained given the target `rate_scale_factor` = {rate_scale_factor}"
-            )
+        # - Obtain down_sampling_factor from dt
+        down_sampling_factor = cls.get_down_sampling_factor(dt)
 
-        complain_if_both(
-            dn_low_pass_bitshift,
-            low_pass_averaging_window,
-            "dn_low_pass_bitshift",
-            "low_pass_averaging_window",
-        )
-
-        if dn_low_pass_bitshift is None:
-            dn_low_pass_bitshift = (
-                cls.get_dn_low_pass_bitshift_from_low_pass_averaging_window(
-                    low_pass_averaging_window
-                )
-            )
-            logger.warning(
-                f"`dn_low_pass_bitshift` = {dn_low_pass_bitshift} is obtained given the target `low_pass_averaging_window` = {low_pass_averaging_window}"
-            )
-
-        complain_if_both(down_sampling_factor, dt, "down_sampling_factor", "dt")
-
-        if down_sampling_factor is None:
-            down_sampling_factor = cls.get_down_sampling_factor_from_dt(dt)
-            logger.warning(
-                f"`down_sampling_factor` = {down_sampling_factor} is obtained given the target `dt` = {dt}"
-            )
-
-        return cls(
+        __obj = cls(
             select_filters=select_filters,
             spike_gen_mode=spike_gen_mode,
             dn_rate_scale_bitshift=dn_rate_scale_bitshift,
@@ -209,8 +168,22 @@ class AFESim(ModSequential):
             down_sampling_factor=down_sampling_factor,
         )
 
+        def __report(
+            arg_name: str, param: str, locals_dict: Dict[str, Any] = locals()
+        ) -> None:
+            diff = locals_dict[param] - __obj.__getattribute__(param)
+            logger.warning(
+                f"`{arg_name}` = {locals_dict[arg_name]} is obtained given the target `{param}` = {locals_dict[param]}, with diff = {diff:.6e}"
+            )
+
+        __report("dn_rate_scale_bitshift", "rate_scale_factor")
+        __report("dn_low_pass_bitshift", "low_pass_averaging_window")
+        __report("down_sampling_factor", "dt")
+
+        return __obj
+
     @staticmethod
-    def get_dn_rate_scale_bitshift_from_rate_scale_factor(
+    def get_dn_rate_scale_bitshift(
         rate_scale_factor: float,
     ) -> Tuple[int]:
         # Write unit tests
@@ -256,7 +229,7 @@ class AFESim(ModSequential):
         raise ValueError(__err_message)
 
     @staticmethod
-    def get_dn_low_pass_bitshift_from_low_pass_averaging_window(
+    def get_dn_low_pass_bitshift(
         low_pass_averaging_window: float, decimal: int = 3
     ) -> int:
         # Write unit tests
@@ -297,7 +270,7 @@ class AFESim(ModSequential):
         )
 
     @staticmethod
-    def get_down_sampling_factor_from_dt(dt: float, decimal: int = 6) -> int:
+    def get_down_sampling_factor(dt: float, decimal: int = 6) -> int:
         # Write unit tests
         if dt is None:
             raise ValueError(
