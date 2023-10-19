@@ -35,7 +35,7 @@ __all__ = ["AFESim"]
 
 class AFESim(ModSequential):
     """
-    A :py:class:`.Module` that simulates the audio signal preprocessing on Xylo A3 chip.
+    A :py:class:`.ModSequential` that simulates the audio signal preprocessing on Xylo A3 chip.
 
 
     See Also:
@@ -89,7 +89,7 @@ class AFESim(ModSequential):
                     For a target rate of around 1K. e.g., 1 spike every 50 clock period for an audio of sampling rate 50K, then we need to choose a threshold as large as
                     `50 x 2^22 ~ 2^27`.
 
-            down_sampling_factor (int): The down-sampling factor of the raster module. Determines how many time-steps will be accumulated into a single time-step. Defaults to 50.
+            down_sampling_factor (int): Determines how many time-steps will be accumulated into a single time-step before feeding the data to the SNN core. Defaults to 50.
                 Resulting dt = 0.001024
         """
 
@@ -147,25 +147,44 @@ class AFESim(ModSequential):
         dt: Optional[float] = 1024e-6,
         **kwargs,
     ) -> AFESim:
+        """
+        Create an instance of AFESim by specifying higher level parameters for AFESim.
+
+        Args:
+            select_filters (Optional[Tuple[int]], optional): Check :py:class:`.AFESim`. Defaults to None.
+            spike_gen_mode (str, optional): Check :py:class:`.AFESim`. Defaults to "divisive_norm".
+            rate_scale_factor (Optional[float], optional): Target `rate_scale_factor` for the `DivisiveNormalization` module. Defaults to 63.
+                Depended upon the dn_rate_scale_bitshift. ``rate_scale_factor = 2**dn_rate_scale_bitshift[0] - 2**dn_rate_scale_bitshift[1]``
+                Not always possible to obtain the exact value of `rate_scale_factor` due to the hardware constraints.
+                In such cases, the closest possible value is reported with an error message.
+            low_pass_averaging_window (Optional[float], optional): Target `low_pass_averaging_window` for the `DivisiveNormalization` module. Defaults to 84e-3.
+                Depended upon the dn_low_pass_bitshift. ``low_pass_averaging_window = 2**dn_low_pass_bitshift / AUDIO_SAMPLING_RATE``
+                Not always possible to obtain the exact value of `low_pass_averaging_window` due to the hardware constraints.
+                In such cases, the closest possible value is reported with an error message.
+                Note that a value within 3 decimal precision is accepted as equal.
+            dn_EPS (Union[int, Tuple[int]], optional): Check :py:class:`.AFESim`. Defaults to 1.
+            fixed_threshold_vec (Union[int, Tuple[int]], optional): Check :py:class:`.AFESim`. Defaults to 2**27.
+            dt (Optional[float], optional): Target `dt` value for the SNN core. Defaults to 1024e-6.
+                Depended upon the down_sampling_factor. ``dt = down_sampling_factor / AUDIO_SAMPLING_RATE``
+                Not always possible to obtain the exact value of `dt` due to the hardware constraints.
+                In such cases, the closest possible value is reported with an error message.
+                Note that a value within 6 decimal precision is accepted as equal.
+
+        Returns:
+            AFESim: A AFESim instance constructed by specifying higher level parameters.
+        """
         logger = logging.getLogger()
-
-        # -  Obtain dn_rate_scale_bitshift from rate_scale_factor
-        dn_rate_scale_bitshift = cls.get_dn_rate_scale_bitshift(rate_scale_factor)
-
-        # - Obtain dn_low_pass_bitshift from low_pass_averaging_window
-        dn_low_pass_bitshift = cls.get_dn_low_pass_bitshift(low_pass_averaging_window)
-
-        # - Obtain down_sampling_factor from dt
-        down_sampling_factor = cls.get_down_sampling_factor(dt)
 
         __obj = cls(
             select_filters=select_filters,
             spike_gen_mode=spike_gen_mode,
-            dn_rate_scale_bitshift=dn_rate_scale_bitshift,
-            dn_low_pass_bitshift=dn_low_pass_bitshift,
+            dn_rate_scale_bitshift=cls.get_dn_rate_scale_bitshift(rate_scale_factor),
+            dn_low_pass_bitshift=cls.get_dn_low_pass_bitshift(
+                low_pass_averaging_window
+            ),
             dn_EPS=dn_EPS,
             fixed_threshold_vec=fixed_threshold_vec,
-            down_sampling_factor=down_sampling_factor,
+            down_sampling_factor=cls.get_down_sampling_factor(dt),
         )
 
         def __report(
