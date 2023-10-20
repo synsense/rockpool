@@ -177,16 +177,19 @@ class AFESim(ModSequential):
         """
         logger = logging.getLogger()
 
+        # - Make reporting possible
+        dn_rate_scale_bitshift = cls.get_dn_rate_scale_bitshift(rate_scale_factor)
+        dn_low_pass_bitshift = cls.get_dn_low_pass_bitshift(low_pass_averaging_window)
+        down_sampling_factor = cls.get_down_sampling_factor(dt)
+
         __obj = cls(
             select_filters=select_filters,
             spike_gen_mode=spike_gen_mode,
-            dn_rate_scale_bitshift=cls.get_dn_rate_scale_bitshift(rate_scale_factor),
-            dn_low_pass_bitshift=cls.get_dn_low_pass_bitshift(
-                low_pass_averaging_window
-            ),
+            dn_rate_scale_bitshift=dn_rate_scale_bitshift,
+            dn_low_pass_bitshift=dn_low_pass_bitshift,
             dn_EPS=dn_EPS,
             fixed_threshold_vec=fixed_threshold_vec,
-            down_sampling_factor=cls.get_down_sampling_factor(dt),
+            down_sampling_factor=down_sampling_factor,
         )
 
         def __report(
