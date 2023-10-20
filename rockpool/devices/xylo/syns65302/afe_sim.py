@@ -91,6 +91,7 @@ class AFESim(ModSequential):
 
             down_sampling_factor (int): Determines how many time-steps will be accumulated into a single time-step before feeding the data to the SNN core. Defaults to 50.
                 Resulting dt = 0.001024
+                Use `.from_specification()` method to perform a parameter search for down_sampling_factor value given the target dt.
         """
 
         __filter_bank = ChipButterworth(select_filters=select_filters)
@@ -124,6 +125,7 @@ class AFESim(ModSequential):
         )
 
         super().__init__(__filter_bank, __divisive_norm, __raster)
+
         self.spike_gen_mode = spike_gen_mode
         self.dn_rate_scale_bitshift = SimulationParameter(dn_rate_scale_bitshift)
         self.dn_low_pass_bitshift = SimulationParameter(dn_low_pass_bitshift)
@@ -190,6 +192,14 @@ class AFESim(ModSequential):
         def __report(
             arg_name: str, param: str, locals_dict: Dict[str, Any] = locals()
         ) -> None:
+            """
+            Report the value of the parameter that is obtained given the target value with the deviation.
+
+            Args:
+                arg_name (str): The name of the object constructor argument
+                param (str): The name of the higher level parameter
+                locals_dict (Dict[str, Any], optional): The variable segment of `from_specification`. Defaults to locals().
+            """
             diff = locals_dict[param] - __obj.__getattribute__(param)
             logger.warning(
                 f"`{arg_name}` = {locals_dict[arg_name]} is obtained given the target `{param}` = {locals_dict[param]}, with diff = {diff:.6e}"
@@ -202,9 +212,21 @@ class AFESim(ModSequential):
         return __obj
 
     @staticmethod
-    def get_dn_rate_scale_bitshift(
-        rate_scale_factor: float,
-    ) -> Tuple[int]:
+    def get_dn_rate_scale_bitshift(rate_scale_factor: float) -> Tuple[int]:
+        """
+        Get the bitshift values `dn_rate_scale_bitshift` which determine how much the spike rate should be scaled compared with the sampling rate of the input audio.
+        Used as a utility function in `from_specification()` method.
+        Raises an error if the target `rate_scale_factor` cannot be obtained within the specified decimal precision.
+        Can be independently used to obtain the bitshift values given the target `rate_scale_factor`.
+
+        Args:
+            rate_scale_factor (float): Target `rate_scale_factor` for the `DivisiveNormalization` module.
+                Depended upon the dn_rate_scale_bitshift. ``rate_scale_factor = 2**dn_rate_scale_bitshift[0] - 2**dn_rate_scale_bitshift[1]``
+
+        Returns:
+            Tuple[int]: A tuple containing two bitshift values that determine how much the spike rate should be scaled compared with the sampling rate of the input audio. The first value is `b1` and the second is `b2`.
+                fs' = fs/(2^b1 - 2^b2) where fs is the sampling rate of the input audio.
+        """
         # Write unit tests
         if rate_scale_factor is None:
             raise ValueError(
@@ -251,6 +273,20 @@ class AFESim(ModSequential):
     def get_dn_low_pass_bitshift(
         low_pass_averaging_window: float, decimal: int = 3
     ) -> int:
+        """
+        Get the bitshift value `dn_low_pass_bitshift` which determines the averaging window length of the low-pass filter.
+        Used as a utility function in `from_specification()` method.
+        Raises an error if the target `low_pass_averaging_window` cannot be obtained within the specified decimal precision.
+        Can be independently used to obtain the bitshift value given the target `low_pass_averaging_window`.
+
+        Args:
+            low_pass_averaging_window (float): Target `low_pass_averaging_window` for the `DivisiveNormalization` module.
+                Depended upon the dn_low_pass_bitshift. ``low_pass_averaging_window = 2**dn_low_pass_bitshift / AUDIO_SAMPLING_RATE``
+            decimal (int, optional): The number of decimal points to be considered when comparing the target `low_pass_averaging_window` with the obtained value. Defaults to 3.
+
+        Returns:
+            int: The bitshift value that determines the averaging window length of the low-pass filter.
+        """
         # Write unit tests
 
         if low_pass_averaging_window is None:
@@ -290,7 +326,19 @@ class AFESim(ModSequential):
 
     @staticmethod
     def get_down_sampling_factor(dt: float, decimal: int = 6) -> int:
-        # Write unit tests
+        """
+        Get the down_sampling_factor which determines how many time-steps will be accumulated into a single time-step before feeding the data to the SNN core.
+        Used as a utility function in `from_specification()` method.
+        Raises an error if the target `dt` cannot be obtained within the specified decimal precision.
+        Can be independently used to obtain the down_sampling_factor given the target `dt`.
+
+        Args:
+            dt (float): Target `dt` value for the SNN core.
+            decimal (int, optional): The number of decimal points to be considered when comparing the target `dt` with the obtained value. Defaults to 6.
+
+        Returns:
+            int: The down_sampling_factor which determines how many time-steps will be accumulated into a single time-step before feeding the data to the SNN core.
+        """
         if dt is None:
             raise ValueError(
                 "`dt` should be provided to obtain `down_sampling_factor`!"
@@ -324,14 +372,17 @@ class AFESim(ModSequential):
 
     @property
     def low_pass_averaging_window(self) -> float:
+        """Averaging window length in seconds depended on the `dn_low_pass_bitshift` parameter. Defines the averaging window length of the low-pass filter"""
         return (2**self.dn_low_pass_bitshift) / AUDIO_SAMPLING_RATE
 
     @property
-    def dt(self):
+    def dt(self) -> float:
+        """Time-step length in seconds depended on the `down_sampling_factor` parameter"""
         return self.down_sampling_factor / AUDIO_SAMPLING_RATE
 
     @property
     def rate_scale_factor(self) -> float:
+        """Rate scaling factor depended on the `dn_rate_scale_bitshift` parameter. Defines how much the spike rate should be scaled compared with the sampling rate of the input audio"""
         return 2 ** self.dn_rate_scale_bitshift[0] - 2 ** self.dn_rate_scale_bitshift[1]
 
     def export_config(self) -> Any:
