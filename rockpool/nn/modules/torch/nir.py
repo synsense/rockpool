@@ -1,7 +1,7 @@
 from numbers import Number
 from os import PathLike
 from typing import Optional, Union
-from rockpool.nn.modules.torch import LIFTorch, ExpSynTorch, LinearTorch, TorchModule
+from rockpool.nn.modules.torch import LIFTorch, ExpSynTorch, LinearTorch, TorchModule, LIFNeuronTorch
 import torch
 import nir
 from nirtorch import extract_nir_graph, load
@@ -73,6 +73,15 @@ def _convert_nir_to_rockpool(node: nir.NIRNode) -> Optional[TorchModule]:
             dt=torch.min(torch.tensor(_to_tensor(node.tau / (1+node.r)))).item(),
         )
     
+    if isinstance(node, nir.LIF):
+        return LIFNeuronTorch(
+            shape = _to_tensor(node.input_type['input']),
+            tau_mem=_to_tensor(node.tau_mem),
+            threshold=_to_tensor(node.v_threshold),
+            bias = _to_tensor(node.v_leak),
+            dt = torch.min(torch.tensor(_to_tensor(node.tau_mem / (1+node.r)))).item(),
+        )
+
     if isinstance(node, nir.CubaLIF):
         return LIFTorch(
             shape=_to_tensor(node.input_type["input"]),
@@ -171,10 +180,10 @@ def _extract_rockpool_module(module) -> Optional[nir.NIRNode]:
             raise NotImplementedError('Multiple synaptc states are not yet supported for export')
         
         return nir.CubaLIF(
-            tau_syn=np.broadcast_to(_to_numpy(module.tau_syn.squeeze()), module.size_out), # TODO: Necessary to squeeze?
-            tau_mem=np.broadcast_to(_to_numpy(module.tau_mem.squeeze()), module.size_out), # TODO: Necessary to squeeze?
+            tau_syn=np.broadcast_to(_to_numpy(module.tau_syn.squeeze()), module.size_out),
+            tau_mem=np.broadcast_to(_to_numpy(module.tau_mem.squeeze()), module.size_out),
             r=np.broadcast_to(_to_numpy(module.tau_mem * torch.exp(-module.dt / module.tau_mem) / module.dt), module.size_out),
-            v_leak=np.broadcast_to(_to_numpy(torch.zeros_like(module.tau_syn).squeeze()), module.size_out), # TODO: Necessary to squeeze?
+            v_leak=np.broadcast_to(_to_numpy(torch.zeros_like(module.bias).squeeze()), module.size_out),
             v_threshold=np.broadcast_to(_to_numpy(module.threshold), module.size_out),
         )
 
@@ -183,6 +192,14 @@ def _extract_rockpool_module(module) -> Optional[nir.NIRNode]:
             return nir.Linear(module.weight.detach().T)
         else:
             return nir.Affine(module.weight.detach().T, module.bias.detach())
+
+    elif isinstance(module, LIFNeuronTorch):
+        return nir.LIF(
+            tau = np.broadcast_to(_to_numpy(module.tau_mem.squeeze()), module.size_out),
+            r = np.broadcast_to(_to_numpy(module.tau_mem * torch.exp(-module.dt / module.tau_mem) / module.dt), module.size_out),
+            v_leak = np.broadcast_to(_to_numpy(torch.zeros_like(module.bias).squeeze()), module.size_out),
+            v_threshold = np.broadcast_to(_to_numpy(module.threshold), module.size_out),
+        )
 
     return None
 
