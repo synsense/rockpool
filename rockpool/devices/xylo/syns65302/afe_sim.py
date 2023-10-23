@@ -294,11 +294,14 @@ class AFESim(ModSequential):
         Returns:
             int: The bitshift value that determines the averaging window length of the low-pass filter.
         """
-        # Write unit tests
-
-        if low_pass_averaging_window is None:
+        if not isinstance(low_pass_averaging_window, float):
             raise ValueError(
-                "`low_pass_averaging_window` should be provided to obtain `dn_low_pass_bitshift`!"
+                f"`low_pass_averaging_window` should be a float!, type = {type(low_pass_averaging_window)}"
+            )
+
+        if low_pass_averaging_window <= 1 / AUDIO_SAMPLING_RATE:
+            raise ValueError(
+                f"`low_pass_averaging_window` should be greater than `1/AUDIO_SAMPLING_RATE = {1/AUDIO_SAMPLING_RATE:.6f}`!, low_pass_averaging_window = {low_pass_averaging_window:.6f}"
             )
 
         # low_pass_averaging_window
@@ -394,11 +397,3 @@ class AFESim(ModSequential):
 
     def export_config(self) -> Any:
         raise NotImplementedError("To be implemented following `samna` support")
-
-
-if __name__ == "__main__":
-    for i in range(1, 65):
-        try:
-            print(i, AFESim.get_dn_rate_scale_bitshift(i))
-        except Exception as e:
-            print(e)
