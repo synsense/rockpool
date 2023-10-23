@@ -142,7 +142,7 @@ class AFESim(ModSequential):
         cls,
         select_filters: Optional[Tuple[int]] = None,
         spike_gen_mode: str = "divisive_norm",
-        rate_scale_factor: Optional[float] = 63,
+        rate_scale_factor: Optional[int] = 63,
         low_pass_averaging_window: Optional[float] = 84e-3,
         dn_EPS: Union[int, Tuple[int]] = 1,
         fixed_threshold_vec: Union[int, Tuple[int]] = 2**27,
@@ -155,7 +155,7 @@ class AFESim(ModSequential):
         Args:
             select_filters (Optional[Tuple[int]], optional): Check :py:class:`.AFESim`. Defaults to None.
             spike_gen_mode (str, optional): Check :py:class:`.AFESim`. Defaults to "divisive_norm".
-            rate_scale_factor (Optional[float], optional): Target `rate_scale_factor` for the `DivisiveNormalization` module. Defaults to 63.
+            rate_scale_factor (Optional[int], optional): Target `rate_scale_factor` for the `DivisiveNormalization` module. Defaults to 63.
                 Depended upon the dn_rate_scale_bitshift. ``rate_scale_factor = 2**dn_rate_scale_bitshift[0] - 2**dn_rate_scale_bitshift[1]``
                 Not always possible to obtain the exact value of `rate_scale_factor` due to the hardware constraints.
                 In such cases, the closest possible value is reported with an error message.
@@ -215,7 +215,7 @@ class AFESim(ModSequential):
         return __obj
 
     @staticmethod
-    def get_dn_rate_scale_bitshift(rate_scale_factor: float) -> Tuple[int]:
+    def get_dn_rate_scale_bitshift(rate_scale_factor: int) -> Tuple[int]:
         """
         Get the bitshift values `dn_rate_scale_bitshift` which determine how much the spike rate should be scaled compared with the sampling rate of the input audio.
         Used as a utility function in `from_specification()` method.
@@ -223,16 +223,16 @@ class AFESim(ModSequential):
         Can be independently used to obtain the bitshift values given the target `rate_scale_factor`.
 
         Args:
-            rate_scale_factor (float): Target `rate_scale_factor` for the `DivisiveNormalization` module.
+            rate_scale_factor (int): Target `rate_scale_factor` for the `DivisiveNormalization` module.
                 Depended upon the dn_rate_scale_bitshift. ``rate_scale_factor = 2**dn_rate_scale_bitshift[0] - 2**dn_rate_scale_bitshift[1]``
 
         Returns:
             Tuple[int]: A tuple containing two bitshift values that determine how much the spike rate should be scaled compared with the sampling rate of the input audio. The first value is `b1` and the second is `b2`.
                 fs' = fs/(2^b1 - 2^b2) where fs is the sampling rate of the input audio.
         """
-        if not isinstance(rate_scale_factor, (int, float)):
+        if not isinstance(rate_scale_factor, int):
             raise ValueError(
-                f"`rate_scale_factor` should be an int or a float!, type = {type(rate_scale_factor)}"
+                f"`rate_scale_factor` should be an int!, type = {type(rate_scale_factor)}"
             )
         if rate_scale_factor <= 0:
             raise ValueError(
@@ -388,7 +388,7 @@ class AFESim(ModSequential):
         return self.down_sampling_factor / AUDIO_SAMPLING_RATE
 
     @property
-    def rate_scale_factor(self) -> float:
+    def rate_scale_factor(self) -> int:
         """Rate scaling factor depended on the `dn_rate_scale_bitshift` parameter. Defines how much the spike rate should be scaled compared with the sampling rate of the input audio"""
         return 2 ** self.dn_rate_scale_bitshift[0] - 2 ** self.dn_rate_scale_bitshift[1]
 
