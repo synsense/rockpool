@@ -230,11 +230,15 @@ class AFESim(ModSequential):
             Tuple[int]: A tuple containing two bitshift values that determine how much the spike rate should be scaled compared with the sampling rate of the input audio. The first value is `b1` and the second is `b2`.
                 fs' = fs/(2^b1 - 2^b2) where fs is the sampling rate of the input audio.
         """
-        # Write unit tests
-        if rate_scale_factor is None:
+        if not isinstance(rate_scale_factor, (int, float)):
             raise ValueError(
-                "`rate_scale_factor` should be provided to obtain `dn_rate_scale_bitshift`!"
+                f"`rate_scale_factor` should be an int or a float!, type = {type(rate_scale_factor)}"
             )
+        if rate_scale_factor <= 0:
+            raise ValueError(
+                f"`rate_scale_factor` should be a positive number!, rate_scale_factor = {rate_scale_factor}"
+            )
+
         best_neg_diff = -np.inf
         best_neg_candidate = ()
         best_pos_diff = np.inf
@@ -390,3 +394,11 @@ class AFESim(ModSequential):
 
     def export_config(self) -> Any:
         raise NotImplementedError("To be implemented following `samna` support")
+
+
+if __name__ == "__main__":
+    for i in range(1, 65):
+        try:
+            print(i, AFESim.get_dn_rate_scale_bitshift(i))
+        except Exception as e:
+            print(e)
