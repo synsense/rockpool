@@ -1,7 +1,7 @@
 import pytest
 
 
-def test_import():
+def test_import() -> None:
     """Test that the AFESim module can be imported"""
 
     pytest.importorskip("samna")
@@ -32,7 +32,7 @@ def test_dn_rate_scale_bitshift_known_feasible(
 
 
 @pytest.mark.parametrize("rate_scale_factor", [-10, "a", 0, 5, 61])
-def test_dn_rate_scale_bitshift_known_raising_error(rate_scale_factor: int):
+def test_dn_rate_scale_bitshift_known_raising_error(rate_scale_factor: int) -> None:
     """
     Test that the `get_dn_rate_scale_bitshift` raises a `ValueError` for known infeasible values
 
@@ -50,7 +50,9 @@ def test_dn_rate_scale_bitshift_known_raising_error(rate_scale_factor: int):
     "low_pass_averaging_window,low_pass_bitshift",
     [(4e-5, 1), (1e-3, 6), (20e-3, 10), (84e-3, 12)],
 )
-def test_dn_low_pass_bitshift(low_pass_averaging_window: float, low_pass_bitshift: int):
+def test_dn_low_pass_bitshift_known_feasible(
+    low_pass_averaging_window: float, low_pass_bitshift: int
+) -> None:
     """
     Test that the `dn_low_pass_bitshift` is computed correctly for known feasible values
 
@@ -68,7 +70,9 @@ def test_dn_low_pass_bitshift(low_pass_averaging_window: float, low_pass_bitshif
 
 
 @pytest.mark.parametrize("low_pass_averaging_window", [-10, 1e-6, "a", 85e-3])
-def test_dn_low_pass_bitshift_known_raising_error(low_pass_averaging_window: int):
+def test_dn_low_pass_bitshift_known_raising_error(
+    low_pass_averaging_window: int,
+) -> None:
     """
     Test that the `get_dn_low_pass_bitshift` raises a `ValueError` for known infeasible values
 
@@ -82,3 +86,38 @@ def test_dn_low_pass_bitshift_known_raising_error(low_pass_averaging_window: int
         AFESim.get_dn_low_pass_bitshift(
             low_pass_averaging_window=low_pass_averaging_window
         )
+
+
+@pytest.mark.parametrize(
+    "dt,down_sampling_factor", [(205e-7, 1), (1024e-6, 50), (64 / 48828, 64)]
+)
+def test_down_sampling_factor_known_feasible(
+    dt: float, down_sampling_factor: int
+) -> None:
+    """
+    Test that the `down_sampling_factor` is computed correctly for known feasible `dt` values
+
+    Args:
+        dt (float): Sampling period of the audio signal.
+        down_sampling_factor (int): Expected `down_sampling_factor` calculated given the target `dt`.
+    """
+    pytest.importorskip("samna")
+    from rockpool.devices.xylo.syns65302 import AFESim
+
+    factor = AFESim.get_down_sampling_factor(dt=dt)
+    assert factor == down_sampling_factor
+
+
+@pytest.mark.parametrize("dt", [-10, 1e-6, "a", 1e-3])
+def test_down_sampling_factor_known_raising_error(dt: float) -> None:
+    """
+    Test that the `get_down_sampling_factor` raises a `ValueError` for known infeasible values
+
+    Args:
+        dt (float): Sampling period of the audio signal.
+    """
+    pytest.importorskip("samna")
+    from rockpool.devices.xylo.syns65302 import AFESim
+
+    with pytest.raises(ValueError):
+        AFESim.get_down_sampling_factor(dt=dt)
