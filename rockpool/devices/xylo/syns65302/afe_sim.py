@@ -299,7 +299,7 @@ class AFESim(ModSequential):
                 f"`low_pass_averaging_window` should be a float!, type = {type(low_pass_averaging_window)}"
             )
 
-        if low_pass_averaging_window <= 1 / AUDIO_SAMPLING_RATE:
+        if low_pass_averaging_window < 1 / AUDIO_SAMPLING_RATE:
             raise ValueError(
                 f"`low_pass_averaging_window` should be greater than `1/AUDIO_SAMPLING_RATE = {1/AUDIO_SAMPLING_RATE:.6f}`!, low_pass_averaging_window = {low_pass_averaging_window:.6f}"
             )
@@ -349,9 +349,12 @@ class AFESim(ModSequential):
         Returns:
             int: The down_sampling_factor which determines how many time-steps will be accumulated into a single time-step before feeding the data to the SNN core.
         """
-        if dt is None:
+        if not isinstance(dt, float):
+            raise ValueError(f"`dt` should be a float!, type = {type(dt)}")
+
+        if dt < 1 / AUDIO_SAMPLING_RATE:
             raise ValueError(
-                "`dt` should be provided to obtain `down_sampling_factor`!"
+                f"`dt` should be greater than `1/AUDIO_SAMPLING_RATE = {1/AUDIO_SAMPLING_RATE:.7f}`!, dt = {dt:.7f}"
             )
 
         candidate_1 = int(dt * AUDIO_SAMPLING_RATE)
