@@ -64,19 +64,23 @@ class AFESim(ModSequential):
                 When "threshold" is selected, fixed thresholds apply, and `fixed_threshold_vec` parameter is used.
                 For detailed information, please check `DivisiveNormalization` module
 
-            dn_rate_scale_bitshift (Optional[Tuple[int]], optional):  A tuple containing two bitshift values that determine how much the spike rate should be scaled compared with the sampling rate of the input audio. The first value is `b1` and the second is `b2`. Defaults to (6, 0).
+            dn_rate_scale_bitshift (Optional[Tuple[int]], optional): Used only when `spike_gen_mode = "divisive_norm"`.
+                A tuple containing two bitshift values that determine how much the spike rate should be scaled compared with the sampling rate of the input audio. The first value is `b1` and the second is `b2`. Defaults to (6, 0).
                 A bitshift of size specified by the tuple as `(b1, b2)` yields a spike rate scaling of fs/(2^b1 - 2^b2) where fs is the sampling rate of the input audio.
                 A default value of (6, 0) yields an average of 1 (slightly larger than 1) spike per 2^6 - 1 (=63) clock periods. With a clock rate of around 50K -> around 800 ~ 1K spikes/sec per channel.
                 Use `.from_specification()` method to perform a parameter search for (b1,b2) values given the target scaling ratio.
 
-            dn_low_pass_bitshift (Optional[int]): number of bitshifts used in low-pass filter implementation. A bitshift of size `b` implies an averaging window of `2^b` clock periods. Defaults to 12.
+            dn_low_pass_bitshift (Optional[int]): Used only when `spike_gen_mode = "divisive_norm"`.
+                Number of bitshifts used in low-pass filter implementation. A bitshift of size `b` implies an averaging window of `2^b` clock periods. Defaults to 12.
                 The default value of 12, implies an averaging window of size 4096 clock periods. For an audio of clock rate 50K, this yields an averaging window of size 80 ms.
                 Use `.from_specification()` method to perform a parameter search for b values given the target averaging window size.
 
-            dn_EPS (Optional[Union[int, Tuple[int]]]): lower bound on spike generation threshold. Defaults to 1.
+            dn_EPS (Optional[Union[int, Tuple[int]]]): Used only when `spike_gen_mode = "divisive_norm"`.
+                Lower bound on spike generation threshold. Defaults to 1.
                 Using this parameter we can control the noise level in the sense that if average power in a channel is less than EPS, the spike rate of that channel is somehow diminished during spike generation.
 
-            fixed_threshold_vec (Optional[Union[int, Tuple[int]]]): A tuple containing threshold values per channel which determine the spike generation threshold. Defaults to 2 ** (27) = 2 ** (14 - 1 + 8 + 6).
+            fixed_threshold_vec (Optional[Union[int, Tuple[int]]]): Used only when `spike_gen_mode = "threshold"`.
+                A tuple containing threshold values per channel which determine the spike generation threshold. Defaults to 2 ** (27) = 2 ** (14 - 1 + 8 + 6).
                 Thresholds of size `size_out`, in case of a singular value, broadcasted. These thresholds are used only when the `spike_gen_mode = "threshold"`.
                 The default value 2**27 ensures a spike rate of around 1K for an input sinusoid signal quantized to 14 bits.
 
