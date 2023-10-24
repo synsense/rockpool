@@ -18,7 +18,7 @@ def generate_chirp(
 ) -> Tuple[np.ndarray, float]:
     """
     Generate a frequency sweep signal and save it to a WAV file.
-    Increase the frequency during the first half of the duration, then decrease it during the second half.
+    Increase the frequency from `start_freq` to `end_freq` over `duration` seconds.
 
     Args:
         filename (Optional[str], optional): Name of the WAV file, it does not save as a `.wav` if None. Defaults to "freq_sweep.wav".
@@ -33,12 +33,10 @@ def generate_chirp(
             fs (float): The sampling rate of the audio.
     """
     # - Use the half duration, because we will concatenate the signal with its reverse
-    duration = duration / 2.0
     t = np.linspace(0, duration, int(duration * fs), endpoint=False)  # time variable
     freq_sweep = np.linspace(start_freq, end_freq, int(duration * fs), endpoint=False)
 
     # - Concatenate the signal with its reverse
-    freq_sweep = np.concatenate((freq_sweep, freq_sweep[::-1]))
     phi_inst = 2 * np.pi * np.cumsum(freq_sweep) * (1 / fs)
     signal = np.sin(phi_inst)
 
@@ -48,5 +46,5 @@ def generate_chirp(
     if filename is not None:
         filename = os.path.join(file_path, filename)
         scipy.io.wavfile.write(filename, int(fs), audio)
-
+        np.save(filename.replace(".wav", ".npy"), freq_sweep)
     return audio, fs
