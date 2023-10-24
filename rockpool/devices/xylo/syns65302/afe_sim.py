@@ -46,10 +46,10 @@ class AFESim(ModSequential):
         self,
         select_filters: Optional[Tuple[int]] = None,
         spike_gen_mode: str = "divisive_norm",
-        dn_rate_scale_bitshift: Tuple[int] = (6, 0),
-        dn_low_pass_bitshift: int = 12,
-        dn_EPS: Union[int, Tuple[int]] = 1,
-        fixed_threshold_vec: Union[int, Tuple[int]] = 2**27,
+        dn_rate_scale_bitshift: Optional[Tuple[int]] = (6, 0),
+        dn_low_pass_bitshift: Optional[int] = 12,
+        dn_EPS: Optional[Union[int, Tuple[int]]] = 1,
+        fixed_threshold_vec: Optional[Union[int, Tuple[int]]] = 2**27,
         down_sampling_factor: int = 50,
     ) -> None:
         """
@@ -64,21 +64,21 @@ class AFESim(ModSequential):
                 When "threshold" is selected, fixed thresholds apply, and `fixed_threshold_vec` parameter is used.
                 For detailed information, please check `DivisiveNormalization` module
 
-            dn_rate_scale_bitshift (Tuple[int], optional):  A tuple containing two bitshift values that determine how much the spike rate should be scaled compared with the sampling rate of the input audio. The first value is `b1` and the second is `b2`. Defaults to (6, 0).
+            dn_rate_scale_bitshift (Optional[Tuple[int]], optional):  A tuple containing two bitshift values that determine how much the spike rate should be scaled compared with the sampling rate of the input audio. The first value is `b1` and the second is `b2`. Defaults to (6, 0).
                 A bitshift of size specified by the tuple as `(b1, b2)` yields a spike rate scaling of fs/(2^b1 - 2^b2) where fs is the sampling rate of the input audio.
                 A default value of (6, 0) yields an average of 1 (slightly larger than 1) spike per 2^6 - 1 (=63) clock periods. With a clock rate of around 50K -> around 800 ~ 1K spikes/sec per channel.
                 Use `.from_specification()` method to perform a parameter search for (b1,b2) values given the target scaling ratio.
 
-            dn_low_pass_bitshift (int): number of bitshifts used in low-pass filter implementation. A bitshift of size `b` implies an averaging window of `2^b` clock periods. Defaults to 12.
+            dn_low_pass_bitshift (Optional[int]): number of bitshifts used in low-pass filter implementation. A bitshift of size `b` implies an averaging window of `2^b` clock periods. Defaults to 12.
                 The default value of 12, implies an averaging window of size 4096 clock periods. For an audio of clock rate 50K, this yields an averaging window of size 80 ms.
                 Use `.from_specification()` method to perform a parameter search for b values given the target averaging window size.
 
-            dn_EPS (Union[int, Tuple[int]]): lower bound on spike generation threshold. Defaults to 1.
+            dn_EPS (Optional[Union[int, Tuple[int]]]): lower bound on spike generation threshold. Defaults to 1.
                 Using this parameter we can control the noise level in the sense that if average power in a channel is less than EPS, the spike rate of that channel is somehow diminished during spike generation.
 
-            fixed_threshold_vec (Union[int, Tuple[int]]): A tuple containing threshold values per channel which determine the spike generation threshold. Defaults to 2 ** (27) = 2 ** (14 - 1 + 8 + 6).
+            fixed_threshold_vec (Optional[Union[int, Tuple[int]]]): A tuple containing threshold values per channel which determine the spike generation threshold. Defaults to 2 ** (27) = 2 ** (14 - 1 + 8 + 6).
                 Thresholds of size `size_out`, in case of a singular value, broadcasted. These thresholds are used only when the `spike_gen_mode = "threshold"`.
-                The default value 2**27 is to ensure a spike rate of around 1K for an input sinusoid signal quantized to 14 bits.
+                The default value 2**27 ensures a spike rate of around 1K for an input sinusoid signal quantized to 14 bits.
 
                 .. seealso::
                     How to set the value of threshold for a target spike rate?
@@ -95,6 +95,7 @@ class AFESim(ModSequential):
         """
 
         __filter_bank = ChipButterworth(select_filters=select_filters)
+        logger = logging.getLogger()
 
         if spike_gen_mode not in ["divisive_norm", "threshold"]:
             raise ValueError(
@@ -102,7 +103,39 @@ class AFESim(ModSequential):
             )
 
         else:
-            enable_DN_channel = True if spike_gen_mode == "divisive_norm" else False
+            if spike_gen_mode == "divisive_norm":
+                enable_DN_channel = True
+                if fixed_threshold_vec is not None:
+                    logger.warning(
+                        "Divisive Normalization is enabled! Fixed thresholds `fixed_threshold_vec` is ignored!"
+                    )
+
+            else:
+                enable_DN_channel = False
+                if dn_rate_scale_bitshift is not None:
+                    logger.warning(
+                        "Threshold is enabled! Adaptive threshold parameter `dn_rate_scale_bitshift` is ignored!"
+                    )
+                if dn_low_pass_bitshift is not None:
+                    logger.warning(
+                        "Threshold is enabled! Adaptive threshold parameter `dn_low_pass_bitshift` is ignored!"
+                    )
+                if dn_EPS is not None:
+                    logger.warning(
+                        "Threshold is enabled! Adaptive threshold parameter `dn_EPS` is ignored!"
+                    )
+
+        dn_rate_scale_bitshift = self.handle_none_dn_rate_scale_bitshift(
+            spike_gen_mode, dn_rate_scale_bitshift
+        )
+        dn_low_pass_bitshift = self.handle_none_dn_low_pass_bitshift(
+            spike_gen_mode, dn_low_pass_bitshift
+        )
+        dn_EPS = self.handle_none_dn_EPS(spike_gen_mode, dn_EPS)
+
+        fixed_threshold_vec = self.handle_none_fixed_threshold_vec(
+            spike_gen_mode, fixed_threshold_vec
+        )
 
         __sub_shape = (__filter_bank.size_out, __filter_bank.size_out)
 
@@ -133,6 +166,74 @@ class AFESim(ModSequential):
         self.fixed_threshold_vec = SimulationParameter(fixed_threshold_vec)
         self.down_sampling_factor = SimulationParameter(down_sampling_factor)
 
+    @staticmethod
+    def handle_none_dn_rate_scale_bitshift(
+        spike_gen_mode: str, dn_rate_scale_bitshift: Optional[Tuple[int]]
+    ) -> Tuple[int]:
+        """
+        Handle the case when `dn_rate_scale_bitshift` is None.
+        """
+        if spike_gen_mode == "divisive_norm":
+            if dn_rate_scale_bitshift is None:
+                raise ValueError(
+                    f"`dn_rate_scale_bitshift` should be specified when `spike_gen_mode = 'divisive_norm'`"
+                )
+            else:
+                return dn_rate_scale_bitshift
+        else:
+            return (1, 0)
+
+    @staticmethod
+    def handle_none_dn_low_pass_bitshift(
+        spike_gen_mode: str, dn_low_pass_bitshift: Optional[int]
+    ) -> int:
+        """
+        Handle the case when `dn_low_pass_bitshift` is None.
+        """
+        if spike_gen_mode == "divisive_norm":
+            if dn_low_pass_bitshift is None:
+                raise ValueError(
+                    f"`dn_low_pass_bitshift` should be specified when `spike_gen_mode = 'divisive_norm'`"
+                )
+            else:
+                return dn_low_pass_bitshift
+        else:
+            return 0
+
+    @staticmethod
+    def handle_none_dn_EPS(
+        spike_gen_mode: str, dn_EPS: Optional[Union[int, Tuple[int]]]
+    ) -> Union[int, Tuple[int]]:
+        """
+        Handle the case when `dn_EPS` is None.
+        """
+        if spike_gen_mode == "divisive_norm":
+            if dn_EPS is None:
+                raise ValueError(
+                    f"`dn_EPS` should be specified when `spike_gen_mode = 'divisive_norm'`"
+                )
+            else:
+                return dn_EPS
+        else:
+            return 1
+
+    @staticmethod
+    def handle_none_fixed_threshold_vec(
+        spike_gen_mode: str, fixed_threshold_vec: Optional[Union[int, Tuple[int]]]
+    ) -> Union[int, Tuple[int]]:
+        """
+        Handle the case when `fixed_threshold_vec` is None.
+        """
+        if spike_gen_mode == "threshold":
+            if fixed_threshold_vec is None:
+                raise ValueError(
+                    f"`fixed_threshold_vec` should be specified when `spike_gen_mode = 'threshold'`"
+                )
+            else:
+                return fixed_threshold_vec
+        else:
+            return 0
+
     @classmethod
     def from_config(cls, config: Any) -> AFESim:
         raise NotImplementedError("To be implemented following `samna` support")
@@ -144,8 +245,8 @@ class AFESim(ModSequential):
         spike_gen_mode: str = "divisive_norm",
         rate_scale_factor: Optional[int] = 63,
         low_pass_averaging_window: Optional[float] = 84e-3,
-        dn_EPS: Union[int, Tuple[int]] = 1,
-        fixed_threshold_vec: Union[int, Tuple[int]] = 2**27,
+        dn_EPS: Optional[Union[int, Tuple[int]]] = 1,
+        fixed_threshold_vec: Optional[Union[int, Tuple[int]]] = None,
         dt: Optional[float] = 1024e-6,
         **kwargs,
     ) -> AFESim:
@@ -165,7 +266,7 @@ class AFESim(ModSequential):
                 In such cases, the closest possible value is reported with an error message.
                 Note that a value within 3 decimal precision is accepted as equal.
             dn_EPS (Union[int, Tuple[int]], optional): Check :py:class:`.AFESim`. Defaults to 1.
-            fixed_threshold_vec (Union[int, Tuple[int]], optional): Check :py:class:`.AFESim`. Defaults to 2**27.
+            fixed_threshold_vec (Union[int, Tuple[int]], optional): Check :py:class:`.AFESim`. Defaults to None.
             dt (Optional[float], optional): Target `dt` value for the SNN core. Defaults to 1024e-6.
                 Depended upon the down_sampling_factor. ``dt = down_sampling_factor / AUDIO_SAMPLING_RATE``
                 Not always possible to obtain the exact value of `dt` due to the hardware constraints.
@@ -178,8 +279,16 @@ class AFESim(ModSequential):
         logger = logging.getLogger()
 
         # - Make reporting possible
-        dn_rate_scale_bitshift = cls.get_dn_rate_scale_bitshift(rate_scale_factor)
-        dn_low_pass_bitshift = cls.get_dn_low_pass_bitshift(low_pass_averaging_window)
+        dn_rate_scale_bitshift = (
+            cls.get_dn_rate_scale_bitshift(rate_scale_factor)
+            if rate_scale_factor is not None
+            else None
+        )
+        dn_low_pass_bitshift = (
+            cls.get_dn_low_pass_bitshift(low_pass_averaging_window)
+            if low_pass_averaging_window is not None
+            else None
+        )
         down_sampling_factor = cls.get_down_sampling_factor(dt)
 
         __obj = cls(
@@ -203,10 +312,11 @@ class AFESim(ModSequential):
                 param (str): The name of the higher level parameter
                 locals_dict (Dict[str, Any], optional): The variable segment of `from_specification`. Defaults to locals().
             """
-            diff = locals_dict[param] - __obj.__getattribute__(param)
-            logger.warning(
-                f"`{arg_name}` = {locals_dict[arg_name]} is obtained given the target `{param}` = {locals_dict[param]}, with diff = {diff:.6e}"
-            )
+            if locals_dict[arg_name] is not None:
+                diff = locals_dict[param] - __obj.__getattribute__(param)
+                logger.warning(
+                    f"`{arg_name}` = {locals_dict[arg_name]} is obtained given the target `{param}` = {locals_dict[param]}, with diff = {diff:.6e}"
+                )
 
         __report("dn_rate_scale_bitshift", "rate_scale_factor")
         __report("dn_low_pass_bitshift", "low_pass_averaging_window")
