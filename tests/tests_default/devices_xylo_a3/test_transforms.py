@@ -4,8 +4,15 @@ def test_imports():
         AmplitudeNormalizer,
     )
 
+    assert AudioQuantizer is not None
+    assert AmplitudeNormalizer is not None
+
 
 def test_normalizer():
+    """
+    this module tests AmplitudeNormalizer transform which used to normalize the input signal's amplitude into
+    [-1.0, 1.0].
+    """
     from rockpool.devices.xylo.syns65302.transform import AmplitudeNormalizer
     import numpy as np
 
@@ -30,6 +37,10 @@ def test_normalizer():
 
 
 def test_quantizer():
+    """
+    this module tests Audio Amplitude Quantizer which used to quantize the digital audio signal to specific number of
+    bits integer data.
+    """
     from rockpool.devices.xylo.syns65302.transform import (
         AudioQuantizer,
         AmplitudeNormalizer,
