@@ -1,5 +1,6 @@
 from typing import Optional, Tuple, Union
 from rockpool.devices.xylo.syns63300.transform import Quantizer
+from rockpool.devices.xylo.syns65302.afe.params import NUM_BITS_PDM_ADC
 
 __all__ = ["AudioQuantizer"]
 
@@ -15,7 +16,7 @@ class AudioQuantizer(Quantizer):
         self,
         shape: Optional[Union[Tuple, int]] = (1,),
         scale: float = 1.0,
-        num_bits: int = 14,
+        num_bits: int = NUM_BITS_PDM_ADC,
     ) -> None:
         """
 

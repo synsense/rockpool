@@ -20,11 +20,18 @@ class AmplitudeNormalizer(Module):
     def __init__(
         self,
         shape: Optional[Union[Tuple, int]] = (1,),
-        outlier_ratio: float = 0.01,
+        p: float = 0.01,
     ) -> None:
+        """Object constructor
+
+        Args:
+            shape (Optional[Union[Tuple, int]]): Network shape. Defaults to (1, ).
+            p (float): The outlier sample ratio of the signal. Defaults to 0.01.
+
+        """
         super().__init__(shape=shape, spiking_input=False, spiking_output=False)
 
-        self.outlier_ratio = SimulationParameter(outlier_ratio, shape=(1,))
+        self.outlier_ratio = SimulationParameter(p, shape=(1,))
         """The percentage of the outlier sample in the input signal"""
 
     def evolve(
@@ -46,20 +53,29 @@ class AmplitudeNormalizer(Module):
 
         input_data, _ = self._auto_batch(input_data)
         robust_amp = self._get_robust_amplitude(input_data)
-        # clamp the input signal
+
+        if robust_amp == 0.0:
+            raise ValueError(f"Got 0 as robust amplitude!")
+
         input_data.setflags(write=True)
         input_data[input_data >= robust_amp] = robust_amp
         input_data[input_data <= -robust_amp] = -robust_amp
-        # normalize
+        """ clamp the input signal """
+
         normalized_input_data = input_data / robust_amp
+        """ normalize the amplitude """
 
         return normalized_input_data, {}, {}
 
     def _get_robust_amplitude(self, input_data: np.ndarray) -> float:
         """
         Get the robust amplitude of the given signal.
-        :param input_data(np.ndarray): in shape [B x T x 1]
-        :return: robust_amplitude (float)
+
+        Args:
+            input_data(np.ndarray): in shape [B x T x 1]
+
+        Returns:
+            robust_amplitude (float)
         """
         sorted_amp = np.sort(np.abs(input_data), axis=1).squeeze()
         robust_amplitude = sorted_amp[
