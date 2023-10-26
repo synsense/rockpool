@@ -179,6 +179,7 @@ def read_afe2_register(
     rrv_ev.address = address
 
     # - Request read
+    read_buffer.get_events()
     write_buffer.write([rrv_ev])
 
     # - Wait for data and read it
@@ -189,7 +190,7 @@ def read_afe2_register(
         events = read_buffer.get_events()
 
         # - Filter returned events for the desired address
-        ev_filt = [e for e in events if hasattr(e, "address") and e.address == address]
+        ev_filt = [e for e in events if hasattr(e, "address") and e.address == address and isinstance(e, samna.afe2.event.RegisterValue)]
 
         # - Should we continue the read?
         continue_read &= len(ev_filt) == 0
@@ -199,7 +200,7 @@ def read_afe2_register(
     if len(ev_filt) == 0:
         raise TimeoutError(f"Timeout after {timeout}s when reading register {address}.")
 
-    # - Return adta
+    # - Return data
     return [e.data for e in ev_filt]
 
 
