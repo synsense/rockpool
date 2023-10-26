@@ -185,6 +185,7 @@ class AFESim(ModSequential):
         super().__init__(*__submod_list)
 
         self.spike_gen_mode = spike_gen_mode
+        self.input_mode = input_mode
         self.dn_rate_scale_bitshift = SimulationParameter(dn_rate_scale_bitshift)
         self.dn_low_pass_bitshift = SimulationParameter(dn_low_pass_bitshift)
         self.dn_EPS = SimulationParameter(dn_EPS)
@@ -268,6 +269,7 @@ class AFESim(ModSequential):
         cls,
         select_filters: Optional[Tuple[int]] = None,
         spike_gen_mode: str = "divisive_norm",
+        input_mode: str = "bypass",
         rate_scale_factor: Optional[int] = 63,
         low_pass_averaging_window: Optional[float] = 84e-3,
         dn_EPS: Optional[Union[int, Tuple[int]]] = 1,
@@ -281,6 +283,7 @@ class AFESim(ModSequential):
         Args:
             select_filters (Optional[Tuple[int]], optional): Check :py:class:`.AFESim`. Defaults to None.
             spike_gen_mode (str, optional): Check :py:class:`.AFESim`. Defaults to "divisive_norm".
+            input_mode (str, optional): Check :py:class:`.AFESim`. Defaults to "bypass".
             rate_scale_factor (Optional[int], optional): Target `rate_scale_factor` for the `DivisiveNormalization` module. Defaults to 63.
                 Depended upon the dn_rate_scale_bitshift. ``rate_scale_factor = 2**dn_rate_scale_bitshift[0] - 2**dn_rate_scale_bitshift[1]``
                 Not always possible to obtain the exact value of `rate_scale_factor` due to the hardware constraints.
@@ -319,6 +322,7 @@ class AFESim(ModSequential):
         __obj = cls(
             select_filters=select_filters,
             spike_gen_mode=spike_gen_mode,
+            input_mode=input_mode,
             dn_rate_scale_bitshift=dn_rate_scale_bitshift,
             dn_low_pass_bitshift=dn_low_pass_bitshift,
             dn_EPS=dn_EPS,
