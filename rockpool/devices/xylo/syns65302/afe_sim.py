@@ -13,6 +13,7 @@ import numpy as np
 import logging
 
 from rockpool.devices.xylo.syns65302.afe.digital_filterbank import ChipButterworth
+from rockpool.devices.xylo.syns65302.afe.pdm.pdm_adc import PDMADC
 from rockpool.devices.xylo.syns65302.afe.divisive_normalization import (
     DivisiveNormalization,
 )
@@ -112,9 +113,6 @@ class AFESim(ModSequential):
                 f"Invalid input_mode: {input_mode}. Valid options are: 'bypass', 'analog', 'pdm'"
             )
 
-        if input_mode == "analog":
-            raise NotImplementedError("Analog input mode is not supported yet!")
-
         if spike_gen_mode not in ["divisive_norm", "threshold"]:
             raise ValueError(
                 f"Invalid spike_gen_mode: {spike_gen_mode}. Valid options are: 'divisive_norm' and 'threshold'"
@@ -175,7 +173,16 @@ class AFESim(ModSequential):
             fs=AUDIO_SAMPLING_RATE,
         )
 
-        super().__init__(__filter_bank, __divisive_norm, __raster)
+        # - Selective input path configuration
+        if input_mode == "bypass":
+            __submod_list = [__filter_bank, __divisive_norm, __raster]
+        elif input_mode == "pdm":
+            __pdm_mic = PDMADC()
+            __submod_list = [__pdm_mic, __filter_bank, __divisive_norm, __raster]
+        elif input_mode == "analog":
+            raise NotImplementedError("Analog input mode is not supported yet!")
+
+        super().__init__(*__submod_list)
 
         self.spike_gen_mode = spike_gen_mode
         self.dn_rate_scale_bitshift = SimulationParameter(dn_rate_scale_bitshift)
