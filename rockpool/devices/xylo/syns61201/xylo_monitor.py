@@ -316,7 +316,7 @@ class XyloMonitor(Module):
 
             if output[0]:
                 self._state_buffer.reset()
-                count += 1
+                count += len(output)
                 out.append([sub[-1] for sub in output])
 
         rec_dict = {}
@@ -339,3 +339,6 @@ class XyloMonitor(Module):
             )
 
         return out, {}, rec_dict
+    
+    def reset_state(*args, **kwargs):
+        raise NotImplementedError('Reset state is not permitted for Xylo Audio in real-time mode')
