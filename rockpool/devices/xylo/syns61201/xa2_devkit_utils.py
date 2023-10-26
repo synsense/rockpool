@@ -190,7 +190,13 @@ def read_afe2_register(
         events = read_buffer.get_events()
 
         # - Filter returned events for the desired address
-        ev_filt = [e for e in events if hasattr(e, "address") and e.address == address and isinstance(e, samna.afe2.event.RegisterValue)]
+        ev_filt = [
+            e
+            for e in events
+            if hasattr(e, "address")
+            and e.address == address
+            and isinstance(e, samna.afe2.event.RegisterValue)
+        ]
 
         # - Should we continue the read?
         continue_read &= len(ev_filt) == 0
