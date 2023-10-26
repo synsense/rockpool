@@ -53,6 +53,7 @@ class AmplitudeNormalizer(Module):
 
         input_data, _ = self._auto_batch(input_data)
         robust_amp = self._get_robust_amplitude(input_data)
+        """ Robust amplitude protects normalization from potential precision loss caused by the outlier(extreme large sample) """
 
         if robust_amp == 0.0:
             raise ValueError(f"Got 0 as robust amplitude!")
