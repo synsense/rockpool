@@ -46,6 +46,7 @@ class AFESim(ModSequential):
         self,
         select_filters: Optional[Tuple[int]] = None,
         spike_gen_mode: str = "divisive_norm",
+        input_mode: str = "bypass",
         dn_rate_scale_bitshift: Optional[Tuple[int]] = (6, 0),
         dn_low_pass_bitshift: Optional[int] = 12,
         dn_EPS: Optional[Union[int, Tuple[int]]] = 1,
@@ -63,6 +64,11 @@ class AFESim(ModSequential):
                 When "divisive_norm" is selected, adaptive thresholds apply, and `dn_rate_scale_bitshift`, `dn_low_pass_bitshift`, `dn_EPS` parameters are used.
                 When "threshold" is selected, fixed thresholds apply, and `fixed_threshold_vec` parameter is used.
                 For detailed information, please check `DivisiveNormalization` module
+
+            input_mode (str, optional): The input mode of the AFE. There are three ways to input audio, "bypass", "analog", "pdm". Defaults to "external".
+                When "bypass" is selected, one can feed the audio signal directly from the filter bank. It requires 14-bit QUANTIZED signal.
+                When "pdm" is selected, the PDM microphone path is simulated. It's used to convert the audio signal into 14-bit quantized signal.
+                When "analog" is selected, analog microphone and AGC are simulated. It's used to convert the audio signal into 14-bit quantized signal.
 
             dn_rate_scale_bitshift (Optional[Tuple[int]], optional): Used only when `spike_gen_mode = "divisive_norm"`.
                 A tuple containing two bitshift values that determine how much the spike rate should be scaled compared with the sampling rate of the input audio. The first value is `b1` and the second is `b2`. Defaults to (6, 0).
@@ -100,6 +106,14 @@ class AFESim(ModSequential):
 
         __filter_bank = ChipButterworth(select_filters=select_filters)
         logger = logging.getLogger()
+
+        if input_mode not in ["bypass", "analog", "pdm"]:
+            raise ValueError(
+                f"Invalid input_mode: {input_mode}. Valid options are: 'bypass', 'analog', 'pdm'"
+            )
+
+        if input_mode == "analog":
+            raise NotImplementedError("Analog input mode is not supported yet!")
 
         if spike_gen_mode not in ["divisive_norm", "threshold"]:
             raise ValueError(
