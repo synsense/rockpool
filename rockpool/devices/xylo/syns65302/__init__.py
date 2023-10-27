@@ -6,3 +6,4 @@ Provides the modules :py:class:`.Raster`, :py:class:`.MicrophonePDM`, :py:class:
 """
 
 from .afe import *
+from .afe_sim import *
