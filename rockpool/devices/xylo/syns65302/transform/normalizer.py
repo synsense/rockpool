@@ -53,7 +53,6 @@ class AmplitudeNormalizer(Module):
 
         input_data, _ = self._auto_batch(input_data)
         robust_amp = self._get_robust_amplitude(input_data)
-        """ Robust amplitude protects normalization from potential precision loss caused by the outlier(extreme large sample) """
 
         if robust_amp == 0.0:
             raise ValueError(f"Got 0 as robust amplitude!")
@@ -71,7 +70,14 @@ class AmplitudeNormalizer(Module):
     def _get_robust_amplitude(self, input_data: np.ndarray) -> float:
         """
         Get the robust amplitude of the given signal.
+        Robust amplitude protects normalization from potential precision loss caused by the outlier(extreme large sample)
 
+        it first sort the absolute value of the signal:
+            X_sorted[0] <= X_sorted[1] <= ... <= X_sorted[N -1].
+        And we assume the percentage of the outlier p:
+            0.0 <= p_outlier <= 0.5
+        Then the robust amplitude is defined as:
+            amp_robust = X_sorted[(N-1)(1-p_outlier)]
         Args:
             input_data(np.ndarray): in shape [B x T x 1]
 
