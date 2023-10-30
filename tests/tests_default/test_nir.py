@@ -8,6 +8,7 @@ import torch.nn as nn
 from snntorch import export
 import numpy as np
 
+
 def test_from_sequential_to_nir():
     Nin = 2
     Nhidden = 4
@@ -21,10 +22,10 @@ def test_from_sequential_to_nir():
     )
     graph = to_nir(net, torch.randn(1, 2))
     assert len(graph.nodes) == 6
-    assert isinstance(graph.nodes['0_LinearTorch'], nir.Linear)
-    assert isinstance(graph.nodes['1_ExpSynTorch'], nir.LI)
-    assert isinstance(graph.nodes['2_LinearTorch'], nir.Linear)
-    assert isinstance(graph.nodes['3_ExpSynTorch'], nir.LI)
+    assert isinstance(graph.nodes["0_LinearTorch"], nir.Linear)
+    assert isinstance(graph.nodes["1_ExpSynTorch"], nir.LI)
+    assert isinstance(graph.nodes["2_LinearTorch"], nir.Linear)
+    assert isinstance(graph.nodes["3_ExpSynTorch"], nir.LI)
     assert len(graph.edges) == 5
 
 
@@ -41,10 +42,10 @@ def test_from_sequential_to_nir_2():
     )
     graph = to_nir(net, torch.randn(1, 2))
     assert len(graph.nodes) == 6
-    assert isinstance(graph.nodes['0_LinearTorch'], nir.Linear)
-    assert isinstance(graph.nodes['1_LIFTorch'], nir.CubaLIF)
-    assert isinstance(graph.nodes['2_LinearTorch'], nir.Linear)
-    assert isinstance(graph.nodes['3_LIFTorch'], nir.CubaLIF)
+    assert isinstance(graph.nodes["0_LinearTorch"], nir.Linear)
+    assert isinstance(graph.nodes["1_LIFTorch"], nir.CubaLIF)
+    assert isinstance(graph.nodes["2_LinearTorch"], nir.Linear)
+    assert isinstance(graph.nodes["3_LIFTorch"], nir.CubaLIF)
     assert len(graph.edges) == 5
 
 
@@ -54,7 +55,9 @@ def test_from_linear_to_nir():
     m = LinearTorch(shape=(in_features, out_features))
     graph = to_nir(m, torch.randn(1, in_features))
     assert len(graph.nodes) == 3
-    assert graph.nodes["rockpool"].weight.shape == torch.Size([out_features, in_features])
+    assert graph.nodes["rockpool"].weight.shape == torch.Size(
+        [out_features, in_features]
+    )
 
 
 def test_from_nir_to_linear():
@@ -65,8 +68,9 @@ def test_from_nir_to_linear():
     m2 = from_nir(graph)
     assert m2.rockpool.weight.shape == torch.Size([in_features, out_features])
 
+
 def test_from_nir_to_sequential():
-    timesteps=6
+    timesteps = 6
 
     orig_model = Sequential(
         LinearTorch(shape=(2, 4)),
@@ -78,7 +82,9 @@ def test_from_nir_to_sequential():
 
     convert_model = from_nir(nir_graph)
 
-    for (key1, value1), (key2, value2) in zip(orig_model.modules().items(), dict(convert_model.named_children()).items()):
+    for (key1, value1), (key2, value2) in zip(
+        orig_model.modules().items(), dict(convert_model.named_children()).items()
+    ):
         assert key1 == key2
         assert value2 == value2
 
@@ -90,6 +96,7 @@ def test_from_nir_to_sequential():
     torch.testing.assert_allclose(orig_model[2].weight, convert_children[2].weight)
     # TODO: Bias not working
     # torch.testing.assert_allclose(orig_model[2].bias, convert_children[2].bias)
+
 
 def test_complex_net():
     num_in = 2
@@ -146,12 +153,14 @@ def test_snntorch_nir_rockpool():
     num_hidden_2 = 6
     num_out = 8
 
-    net_snntorch = nn.Sequential(nn.Linear(num_in, num_hidden_1),
-                                 snn.Synaptic(alpha=alpha, beta=beta, init_hidden=True),
-                                 nn.Linear(num_hidden_1, num_hidden_2),
-                                 snn.Synaptic(alpha=alpha, beta=beta, init_hidden=True),
-                                 nn.Linear(num_hidden_2, num_out),
-                                 snn.Synaptic(alpha=alpha, beta=beta, init_hidden=True))
+    net_snntorch = nn.Sequential(
+        nn.Linear(num_in, num_hidden_1),
+        snn.Synaptic(alpha=alpha, beta=beta, init_hidden=True),
+        nn.Linear(num_hidden_1, num_hidden_2),
+        snn.Synaptic(alpha=alpha, beta=beta, init_hidden=True),
+        nn.Linear(num_hidden_2, num_out),
+        snn.Synaptic(alpha=alpha, beta=beta, init_hidden=True),
+    )
 
     x = torch.zeros(2)
 
@@ -159,19 +168,29 @@ def test_snntorch_nir_rockpool():
 
     net_rockpool = from_nir(net_nir)
 
-    test0 = (net_snntorch[0].weight.data.T == net_rockpool.modules().get('0_LinearTorch').weight.data)
-    test2 = (net_snntorch[2].weight.data.T == net_rockpool.modules().get('2_LinearTorch').weight.data)
-    test4 = (net_snntorch[4].weight.data.T == net_rockpool.modules().get('4_LinearTorch').weight.data)
+    test0 = (
+        net_snntorch[0].weight.data.T
+        == net_rockpool.modules().get("0_LinearTorch").weight.data
+    )
+    test2 = (
+        net_snntorch[2].weight.data.T
+        == net_rockpool.modules().get("2_LinearTorch").weight.data
+    )
+    test4 = (
+        net_snntorch[4].weight.data.T
+        == net_rockpool.modules().get("4_LinearTorch").weight.data
+    )
     assert torch.sum(test0).detach().numpy() == num_in * num_hidden_1
     assert torch.sum(test2).detach().numpy() == num_hidden_1 * num_hidden_2
     assert torch.sum(test4).detach().numpy() == num_hidden_2 * num_out
+
 
 def test_import_rnn():
     m = from_nir("rockpool_nir/tests/tests_default/nir_graphs/braille.nir")
     m(torch.empty(1, 1, 12))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_from_linear_to_nir()
     test_from_nir_to_linear()
     test_from_nir_to_sequential()
