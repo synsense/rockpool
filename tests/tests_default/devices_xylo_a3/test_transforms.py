@@ -29,7 +29,7 @@ def test_normalizer():
     sig_in[sample_index] += 10
 
     # init normalizer
-    normalizer = AmplitudeNormalizer(outlier_ratio=0.002)
+    normalizer = AmplitudeNormalizer(p=0.002)
 
     sig_out, _, _ = normalizer(sig_in)
     assert sig_out.shape[1] == time_vec.shape[0]
@@ -60,7 +60,7 @@ def test_quantizer():
     sig_in[sample_index] += 10
 
     # init normalizer quantizer
-    normalizer = AmplitudeNormalizer(outlier_ratio=0.002)
+    normalizer = AmplitudeNormalizer(p=0.002)
     quantizer = AudioQuantizer()
     num_bits = quantizer.num_bits
 
