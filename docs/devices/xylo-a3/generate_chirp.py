@@ -28,7 +28,7 @@ def generate_chirp(
         start_freq (float, optional): The starting frequency of the sweep. Defaults to 20.
         end_freq (float, optional): The end frequency of the sweep. Defaults to 20000.
         duration (float, optional): the total duration of the audio. Defaults to 4.0.
-        fs (float, optional): The sampling rate of the audio. Defaults to AUDIO_SAMPLING_RATE ~= 48.8k.
+        fs (float, optional): The sampling rate of the audio. Defaults to AUDIO_SAMPLING_RATE * PDM_FILTER_DECIMATION_FACTOR ~= 1.56 MHz.
 
     Returns:
         Tuple[np.ndarray, float]:
