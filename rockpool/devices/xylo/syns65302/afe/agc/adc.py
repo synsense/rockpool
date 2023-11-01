@@ -29,6 +29,7 @@ __all__ = ["ADC"]
 from rockpool.devices.xylo.syns65302.afe.params import (
     XYLO_MAX_AMP,
     AUDIO_SAMPLING_RATE,
+    NUM_BITS_AGC_ADC,
 )
 
 
@@ -267,7 +268,7 @@ class AntiAliasingDecimationFilter:
 class ADC:
     def __init__(
         self,
-        num_bits: int = 10,
+        num_bits: int = NUM_BITS_AGC_ADC,
         max_audio_amplitude: float = XYLO_MAX_AMP,
         oversampling_factor: int = 1,
         fs: float = AUDIO_SAMPLING_RATE,
