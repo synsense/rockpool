@@ -71,6 +71,9 @@ class AFESim(ModSequential):
                 When "pdm" is selected, the PDM microphone path is simulated. It's used to convert the audio signal into 14-bit quantized signal.
                 When "analog" is selected, analog microphone and AGC are simulated. It's used to convert the audio signal into 14-bit quantized signal.
 
+                NOTE : Selecting "pdm" or "analog" mode, one needs to provide a Tuple[np.ndarray, int] containing the signal and its sampling rate together.
+                    With "external" mode, only the signal is required.
+
             dn_rate_scale_bitshift (Optional[Tuple[int]], optional): Used only when `spike_gen_mode = "divisive_norm"`.
                 A tuple containing two bitshift values that determine how much the spike rate should be scaled compared with the sampling rate of the input audio. The first value is `b1` and the second is `b2`. Defaults to (6, 0).
                 A bitshift of size specified by the tuple as `(b1, b2)` yields a spike rate scaling of fs/(2^b1 - 2^b2) where fs is the sampling rate of the input audio.
