@@ -25,6 +25,8 @@ from rockpool.devices.xylo.syns65302.afe.params import (
     DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE,
 )
 
+__all__ = ["Amplifier"]
+
 
 class Amplifier:
     def __init__(
