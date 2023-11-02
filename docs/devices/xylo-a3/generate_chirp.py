@@ -4,7 +4,10 @@ from typing import Optional, Tuple
 import numpy as np
 import scipy.io.wavfile
 
-from rockpool.devices.xylo.syns65302.afe import AUDIO_SAMPLING_RATE
+from rockpool.devices.xylo.syns65302.afe import (
+    AUDIO_SAMPLING_RATE,
+    PDM_FILTER_DECIMATION_FACTOR,
+)
 
 file_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -14,7 +17,7 @@ def generate_chirp(
     start_freq: float = 20,
     end_freq: float = 20000,
     duration: float = 4.0,
-    fs: float = AUDIO_SAMPLING_RATE,
+    fs: float = AUDIO_SAMPLING_RATE * PDM_FILTER_DECIMATION_FACTOR,
 ) -> Tuple[np.ndarray, float]:
     """
     Generate a frequency sweep signal and save it to a WAV file.
@@ -25,7 +28,7 @@ def generate_chirp(
         start_freq (float, optional): The starting frequency of the sweep. Defaults to 20.
         end_freq (float, optional): The end frequency of the sweep. Defaults to 20000.
         duration (float, optional): the total duration of the audio. Defaults to 4.0.
-        fs (float, optional): The sampling rate of the audio. Defaults to AUDIO_SAMPLING_RATE ~= 48.8k.
+        fs (float, optional): The sampling rate of the audio. Defaults to AUDIO_SAMPLING_RATE * PDM_FILTER_DECIMATION_FACTOR ~= 1.56 MHz.
 
     Returns:
         Tuple[np.ndarray, float]:
@@ -48,3 +51,7 @@ def generate_chirp(
         scipy.io.wavfile.write(filename, int(fs), audio)
         np.save(filename.replace(".wav", ".npy"), freq_sweep)
     return audio, fs
+
+
+if __name__ == "__main__":
+    generate_chirp()

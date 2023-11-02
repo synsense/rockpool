@@ -13,6 +13,7 @@ import numpy as np
 import logging
 
 from rockpool.devices.xylo.syns65302.afe.digital_filterbank import ChipButterworth
+from rockpool.devices.xylo.syns65302.afe.pdm.pdm_adc import PDMADC
 from rockpool.devices.xylo.syns65302.afe.divisive_normalization import (
     DivisiveNormalization,
 )
@@ -46,6 +47,7 @@ class AFESim(ModSequential):
         self,
         select_filters: Optional[Tuple[int]] = None,
         spike_gen_mode: str = "divisive_norm",
+        input_mode: str = "external",
         dn_rate_scale_bitshift: Optional[Tuple[int]] = (6, 0),
         dn_low_pass_bitshift: Optional[int] = 12,
         dn_EPS: Optional[Union[int, Tuple[int]]] = 1,
@@ -63,6 +65,14 @@ class AFESim(ModSequential):
                 When "divisive_norm" is selected, adaptive thresholds apply, and `dn_rate_scale_bitshift`, `dn_low_pass_bitshift`, `dn_EPS` parameters are used.
                 When "threshold" is selected, fixed thresholds apply, and `fixed_threshold_vec` parameter is used.
                 For detailed information, please check `DivisiveNormalization` module
+
+            input_mode (str, optional): The input mode of the AFE. There are three ways to input audio, "external", "analog", "pdm". Defaults to "external".
+                When "external" is selected, one can feed the audio signal directly from the filter bank. It requires 14-bit QUANTIZED signal.
+                When "pdm" is selected, the PDM microphone path is simulated. It's used to convert the audio signal into 14-bit quantized signal.
+                When "analog" is selected, analog microphone and AGC are simulated. It's used to convert the audio signal into 14-bit quantized signal.
+
+                NOTE : Selecting "pdm" or "analog" mode, one needs to provide a Tuple[np.ndarray, int] containing the signal and its sampling rate together.
+                    With "external" mode, only the signal is required.
 
             dn_rate_scale_bitshift (Optional[Tuple[int]], optional): Used only when `spike_gen_mode = "divisive_norm"`.
                 A tuple containing two bitshift values that determine how much the spike rate should be scaled compared with the sampling rate of the input audio. The first value is `b1` and the second is `b2`. Defaults to (6, 0).
@@ -100,6 +110,11 @@ class AFESim(ModSequential):
 
         __filter_bank = ChipButterworth(select_filters=select_filters)
         logger = logging.getLogger()
+
+        if input_mode not in ["external", "analog", "pdm"]:
+            raise ValueError(
+                f"Invalid input_mode: {input_mode}. Valid options are: 'external', 'analog', 'pdm'"
+            )
 
         if spike_gen_mode not in ["divisive_norm", "threshold"]:
             raise ValueError(
@@ -161,9 +176,19 @@ class AFESim(ModSequential):
             fs=AUDIO_SAMPLING_RATE,
         )
 
-        super().__init__(__filter_bank, __divisive_norm, __raster)
+        # - Selective input path configuration
+        if input_mode == "external":
+            __submod_list = [__filter_bank, __divisive_norm, __raster]
+        elif input_mode == "pdm":
+            __pdm_mic = PDMADC()
+            __submod_list = [__pdm_mic, __filter_bank, __divisive_norm, __raster]
+        elif input_mode == "analog":
+            raise NotImplementedError("Analog input mode is not supported yet!")
+
+        super().__init__(*__submod_list)
 
         self.spike_gen_mode = spike_gen_mode
+        self.input_mode = input_mode
         self.dn_rate_scale_bitshift = SimulationParameter(dn_rate_scale_bitshift)
         self.dn_low_pass_bitshift = SimulationParameter(dn_low_pass_bitshift)
         self.dn_EPS = SimulationParameter(dn_EPS)
@@ -247,6 +272,7 @@ class AFESim(ModSequential):
         cls,
         select_filters: Optional[Tuple[int]] = None,
         spike_gen_mode: str = "divisive_norm",
+        input_mode: str = "external",
         rate_scale_factor: Optional[int] = 63,
         low_pass_averaging_window: Optional[float] = 84e-3,
         dn_EPS: Optional[Union[int, Tuple[int]]] = 1,
@@ -260,6 +286,7 @@ class AFESim(ModSequential):
         Args:
             select_filters (Optional[Tuple[int]], optional): Check :py:class:`.AFESim`. Defaults to None.
             spike_gen_mode (str, optional): Check :py:class:`.AFESim`. Defaults to "divisive_norm".
+            input_mode (str, optional): Check :py:class:`.AFESim`. Defaults to "external".
             rate_scale_factor (Optional[int], optional): Target `rate_scale_factor` for the `DivisiveNormalization` module. Defaults to 63.
                 Depended upon the dn_rate_scale_bitshift. ``rate_scale_factor = 2**dn_rate_scale_bitshift[0] - 2**dn_rate_scale_bitshift[1]``
                 Not always possible to obtain the exact value of `rate_scale_factor` due to the hardware constraints.
@@ -298,6 +325,7 @@ class AFESim(ModSequential):
         __obj = cls(
             select_filters=select_filters,
             spike_gen_mode=spike_gen_mode,
+            input_mode=input_mode,
             dn_rate_scale_bitshift=dn_rate_scale_bitshift,
             dn_low_pass_bitshift=dn_low_pass_bitshift,
             dn_EPS=dn_EPS,
