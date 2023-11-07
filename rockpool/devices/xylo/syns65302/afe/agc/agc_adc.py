@@ -11,6 +11,10 @@ from rockpool.devices.xylo.syns65302.afe.agc.gain_smoother import GainSmootherFP
 from rockpool.devices.xylo.syns65302.afe.params import (
     DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE,
     AMPLITUDE_THRESHOLDS,
+    RELIABLE_MAX_HYSTERESIS,
+    WAITING_TIME_VEC,
+    PGA_GAIN_INDEX_VARIATION,
+    NUM_BITS_GAIN_QUANTIZATION,
 )
 
 
@@ -19,11 +23,15 @@ class AGCADC(Module):
         self,
         fixed_pga_gain_index: Optional[float] = None,
         oversampling_factor: int = 1,
-        amplitude_thresholds=AMPLITUDE_THRESHOLDS,
+        ec_amplitude_thresholds: Optional[np.ndarray] = None,
+        ec_waiting_time_vec: Optional[np.ndarray] = None,
+        ec_rise_avg_bitshift: int = -1,
+        ec_fall_avg_bitshift: int = -1,
+        ec_reliable_max_hysteresis: int = RELIABLE_MAX_HYSTERESIS,
+        pga_gain_index_variation: Optional[np.ndarray] = None,
+        num_bits_gain_quantization=NUM_BITS_GAIN_QUANTIZATION,
     ) -> None:
         super().__init__(shape=(1, 1), spiking_input=False, spiking_output=False)
-
-        # amplifier: Amplifier,
 
         if fixed_pga_gain_index is None:
             fixed_gain_for_PGA_mode = False
@@ -34,6 +42,7 @@ class AGCADC(Module):
             fixed_gain_for_PGA_mode = True
             pga_command_in_fixed_gain_for_PGA_mode = fixed_pga_gain_index
 
+        ## - Amplifier
         __amplifier = Amplifier(
             fixed_gain_for_PGA_mode=fixed_gain_for_PGA_mode,
             # PGA_GAIN_BYPASS
@@ -41,35 +50,43 @@ class AGCADC(Module):
             # PGA_GAIN_IDX_CFG # [0-15] -> [1-32]
         )
 
-        # adc: ADC
+        ## - ADC
         __adc = ADC(oversampling_factor=oversampling_factor)
-        # AGC_CTRL1.AAF_OS_MODE 0 - bypass
-        # [1-2]
+        # AGC_CTRL1.AAF_OS_MODE (2**N)
+        # [1-2-4]
 
-        # envelope_controller: EnvelopeController
+        ## - Envelope Controller
+        if ec_amplitude_thresholds is None:
+            ec_amplitude_thresholds = AMPLITUDE_THRESHOLDS
+        if ec_waiting_time_vec is None:
+            ec_waiting_time_vec = WAITING_TIME_VEC
+        if pga_gain_index_variation is None:
+            pga_gain_index_variation = PGA_GAIN_INDEX_VARIATION
+
         __envelope_ctrl = EnvelopeController(
-            amplitude_thresholds=amplitude_thresholds,
+            amplitude_thresholds=ec_amplitude_thresholds,
             # AGC_AT_REG0 - AGC_AT_REG7 [10 bit each]
             # rise_time_constant = ,
             # RISE_AVG_BITSHIFT 5 bits
-            rise_bitshift=x,
+            rise_avg_bitshift=ec_rise_avg_bitshift,
             # fall_time_constant = ,
             # FALL_AVG_BITSHIFT 5 bits
-            fall_bitshift=x,
-            reliable_max_hysteresis=x,
+            fall_avg_bitshift=ec_fall_avg_bitshift,
+            reliable_max_hysteresis=ec_reliable_max_hysteresis,
             # AGC_CTRL2.RELI_MAX_HYSTR
-            waiting_time_vec=x,
+            waiting_time_vec=ec_waiting_time_vec,
             # AGC_WT0 - AGC_WT15
-            max_waiting_time_before_gain_chang=x,
+            max_waiting_time_before_gain_change=max(ec_waiting_time_vec),
             # AGC_CTRL3.MAX_NUM_SAMPLE
-            pga_gain_index_variation=x,
+            pga_gain_index_variation=pga_gain_index_variation,
             # AGC_PGIV_REG0 + AGC_PGIV_REG1 + AGC_CTRL3
             # 3 bits (signed or unsigned?)
         )
 
         # gain_smoother: GainSmootherFPGA
         __gain_smoother = GainSmootherFPGA(
-            min_waiting_time=min(waiting_time_vec), num_bits_gain_quantization=x
+            min_waiting_time=min(ec_waiting_time_vec),
+            num_bits_gain_quantization=num_bits_gain_quantization,
         )
         # AGC_CTRL2.AVG_BITSHIFT
         # AGC_CTRL2.NUM_BITS_GAIN_FRACTION
