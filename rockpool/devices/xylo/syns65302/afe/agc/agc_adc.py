@@ -15,7 +15,14 @@ from rockpool.devices.xylo.syns65302.afe.params import (
     WAITING_TIME_VEC,
     PGA_GAIN_INDEX_VARIATION,
     NUM_BITS_GAIN_QUANTIZATION,
+    RISE_TIME_CONSTANT,
+    FALL_TIME_CONSTANT,
+    XYLO_MAX_AMP,
+    EXP_PGA_GAIN_VEC,
+    AUDIO_SAMPLING_RATE,
 )
+
+__all__ = ["AGCADC"]
 
 
 class AGCADC(Module):
@@ -106,6 +113,32 @@ class AGCADC(Module):
         # AGC_CTRL2.NUM_BITS_GAIN_FRACTION
 
         __submod_list = []
+        # reset all the modules
+        self.reset()
+
+    def reset(self) -> None:
+        self.amplifier.reset()
+        self.adc.reset()
+        self.envelope_controller.reset()
+
+        # it may happen that we use or not use any gain smoothing
+        if self.gain_smoother is not None:
+            self.gain_smoother.reset()
+
+    @property
+    def state(self) -> Dict[str, dict]:
+        # accumulate all the states from all modules and return it
+        modules_inner_state = {
+            "amplifier": self.amplifier.state,
+            "adc": self.adc.state,
+            "envelope_controller": self.envelope_controller.state,
+        }
+
+        # check if there is any gain smoother
+        if self.gain_smoother is not None:
+            modules_inner_state["gain_smoother"] = self.gain_smoother.state
+
+        return modules_inner_state
 
     def evolve(
         self, audio_in: Tuple[np.ndarray, float], record: bool = False
