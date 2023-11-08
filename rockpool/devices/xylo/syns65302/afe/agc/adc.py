@@ -60,12 +60,6 @@ class BlockDiagram:
     # clock rate with which the block-diagram should be simulated to be matched with other modules
     fs: float
 
-    # number of bits in the input
-    B_in: int
-
-    # bitwidth of the AR output w[n]
-    B_w: int
-
     # filter AR taps
     a_taps: np.ndarray
 
@@ -78,17 +72,23 @@ class BlockDiagram:
     # filter MA taps
     b_taps: np.ndarray
 
-    # number of bits devoted to b-tap
-    B_b: int
-
     # number of bits devoted to the output of MA part
     B_out: int
 
     # surplus factor for adjusting the gain for clipping
     surplus: int
 
+    # number of bits devoted to b-tap
+    B_b: int = 8
+
+    # number of bits in the input
+    B_in: int = 10
+
+    # bitwidth of the AR output w[n]
+    B_w: int = 17
+
     # number of bits devoted to surplus factor
-    B_sur: int
+    B_sur: int = 8
 
 
 # ===========================================================================
@@ -100,33 +100,25 @@ bd_oversampling_0 = None
 # note for oversampling 1, we use just a dummy filter (it passes the signal without any filtering)
 # this would be simply equivalent to an ordinary ADC without additional aliasing reduction via oversampling
 bd_oversampling_1 = BlockDiagram(
-    adc_oversampling_factor=2,
+    adc_oversampling_factor=1,
     fs=1 * AUDIO_SAMPLING_RATE,
-    B_in=10,
-    B_w=17,
     a_taps=np.asarray([65536, 0, 0, 0, 0], dtype=np.int64),
     B_a=17,
     B_af=16,
     b_taps=np.asarray([256, 0, 0, 0, 0], dtype=np.int64),
-    B_b=8,
     B_out=16,
     surplus=256,
-    B_sur=8,
 )
 
 bd_oversampling_2 = BlockDiagram(
     adc_oversampling_factor=2,
     fs=2 * AUDIO_SAMPLING_RATE,
-    B_in=10,
-    B_w=17,
     a_taps=np.asarray([65536, -76101, 93600, -46155, 15598], dtype=np.int64),
     B_a=18,
     B_af=16,
     b_taps=np.asarray([45, 63, 96, 63, 45], dtype=np.int64),
-    B_b=8,
     B_out=22,
     surplus=163,
-    B_sur=8,
 )
 
 bd_oversampling_3 = None
@@ -134,16 +126,12 @@ bd_oversampling_3 = None
 bd_oversampling_4 = BlockDiagram(
     adc_oversampling_factor=4,
     fs=4 * AUDIO_SAMPLING_RATE,
-    B_in=10,
-    B_w=17,
     a_taps=np.asarray([32768, -93468, 113014, -65651, 15547], dtype=np.int64),
     B_a=18,
     B_af=15,
     b_taps=np.asarray([46, -62, 96, -62, 46], dtype=np.int64),
-    B_b=8,
     B_out=22,
     surplus=33,
-    B_sur=8,
 )
 
 
