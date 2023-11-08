@@ -140,21 +140,6 @@ class Amplifier(Module):
         if self.fixed_gain_for_PGA_mode:
             pga_command = self.pga_command_in_fixed_gain_for_PGA_mode
 
-        # check the start of the simulation and set the gain values in PGA
-        if self.num_processed_samples == 0:
-            if record:
-                self.state = {
-                    "num_processed_samples": [],
-                    "time_in": [],
-                    "audio_in": [],
-                    "fixed_amp_output": [],
-                    "pga_output": [],
-                    "pga_gain": [],
-                    "pga_gain_index": [],
-                }
-            else:
-                self.state = {}
-
         # increase the number of processed samples
         self.num_processed_samples += 1
 
@@ -214,18 +199,15 @@ class Amplifier(Module):
             else None
         )
 
-        if pga_output is None:
-            # return immediately: do not record the state in the unstable phase.
-            return pga_output
-
         # record the state
         if record:
-            self.state["num_processed_samples"].append(self.num_processed_samples)
-            self.state["time_in"].append(time_in)
-            self.state["audio_in"].append(audio)
-            self.state["fixed_amp_output"].append(fixed_amp_output)
-            self.state["pga_output"].append(pga_output)
-            self.state["pga_gain"].append(pga_gain)
-            self.state["pga_gain_index"].append(pga_command)
+            __rec = {
+                "time_in": time_in,
+                "fixed_amp_output": fixed_amp_output,
+                "pga_gain": pga_gain,
+                "pga_gain_index": pga_command,
+            }
+        else:
+            __rec = {}
 
-        return pga_output
+        return pga_output, self.state(), __rec
