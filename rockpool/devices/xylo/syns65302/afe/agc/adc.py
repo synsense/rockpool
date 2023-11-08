@@ -37,7 +37,7 @@ class FilterOverflowError(Exception):
 
 @dataclass
 class BlockDiagram:
-    adc_oversampling_factor: int
+    oversampling_factor: int
     """oversampling factor: the block works corresponds to how much ADC oversampling"""
 
     fs: float
@@ -81,7 +81,7 @@ bd_oversampling_0 = None
 # note for oversampling 1, we use just a dummy filter (it passes the signal without any filtering)
 # this would be simply equivalent to an ordinary ADC without additional aliasing reduction via oversampling
 bd_oversampling_1 = BlockDiagram(
-    adc_oversampling_factor=1,
+    oversampling_factor=1,
     fs=1 * AUDIO_SAMPLING_RATE,
     a_taps=np.asarray([65536, 0, 0, 0, 0], dtype=np.int64),
     B_a=17,
@@ -92,7 +92,7 @@ bd_oversampling_1 = BlockDiagram(
 )
 
 bd_oversampling_2 = BlockDiagram(
-    adc_oversampling_factor=2,
+    oversampling_factor=2,
     fs=2 * AUDIO_SAMPLING_RATE,
     a_taps=np.asarray([65536, -76101, 93600, -46155, 15598], dtype=np.int64),
     B_a=18,
@@ -105,7 +105,7 @@ bd_oversampling_2 = BlockDiagram(
 bd_oversampling_3 = None
 
 bd_oversampling_4 = BlockDiagram(
-    adc_oversampling_factor=4,
+    oversampling_factor=4,
     fs=4 * AUDIO_SAMPLING_RATE,
     a_taps=np.asarray([32768, -93468, 113014, -65651, 15547], dtype=np.int64),
     B_a=18,
@@ -130,18 +130,18 @@ class AntiAliasingDecimationFilter(Module):
     Simulate the block-diagram model of the decimation anti-aliasing filter
     """
 
-    def __init__(self, adc_oversampling_factor: int = 2) -> None:
+    def __init__(self, oversampling_factor: int = 2) -> None:
         """
         Args:
-            adc_oversampling_factor (int, optional): oversampling factor of ADC. Defaults to 2.
+            oversampling_factor (int, optional): oversampling factor of ADC. Defaults to 2.
         """
-        if adc_oversampling_factor not in [1, 2, 4]:
+        if oversampling_factor not in [1, 2, 4]:
             raise NotImplementedError(
-                f"decimation filter in block-diagram format is not yet implemented for oversampling factor {self.adc_oversampling_factor}!"
+                f"decimation filter in block-diagram format is not yet implemented for oversampling factor {self.oversampling_factor}!"
             )
 
-        self.adc_oversampling_factor = adc_oversampling_factor
-        self.bd: BlockDiagram = bd_list[self.adc_oversampling_factor]
+        self.oversampling_factor = oversampling_factor
+        self.bd: BlockDiagram = bd_list[self.oversampling_factor]
         self.sample_rate = SimulationParameter(self.bd.fs, shape=())
         self.op_state = State(
             np.zeros(len(self.bd.a_taps), dtype=np.int64),
@@ -230,13 +230,6 @@ class AntiAliasingDecimationFilter(Module):
         return sig_out, self.state(), __rec
 
 
-# ================================================================================================================
-# ================================================================================================================
-# *       PART 2:  Equivalent ADC: consisting of oversampled ADC + anti-aliasing decimation filter
-# ================================================================================================================
-# ================================================================================================================
-
-
 class ADC:
     """
     Equivalent ADC: consisting of oversampled ADC + anti-aliasing decimation filter
@@ -277,7 +270,7 @@ class ADC:
 
         # build the decimation anti-aliasing filter
         self.anti_aliasing_filter = AntiAliasingDecimationFilter(
-            adc_oversampling_factor=oversampling_factor
+            oversampling_factor=oversampling_factor
         )
 
         if self.anti_aliasing_filter.bd.fs != self.oversampled_fs:
