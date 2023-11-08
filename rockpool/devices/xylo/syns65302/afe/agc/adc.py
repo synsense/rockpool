@@ -140,7 +140,7 @@ class AntiAliasingDecimationFilter(Module):
                 f"decimation filter in block-diagram format is not yet implemented for oversampling factor {self.oversampling_factor}!"
             )
 
-        super().__init__(spiking_input=False, spiking_output=False)
+        super().__init__(shape=(1, 1), spiking_input=False, spiking_output=False)
 
         self.oversampling_factor = oversampling_factor
         self.bd: BlockDiagram = bd_list[self.oversampling_factor]
@@ -257,7 +257,7 @@ class ADC(Module):
             oversampling_factor (int, optional): oversampling factor of the high-rate ADC used in the implementation of ADC. Defaults to 1.
             fs (float, optional): target sampling rate of the equivalent ADC (sampling rate of the audio). Defaults to AUDIO_SAMPLING_RATE.
         """
-
+        super().__init__(shape=(1, 1), spiking_input=False, spiking_output=False)
         self.num_bits = SimulationParameter(num_bits, shape=())
         self.max_audio_amplitude = SimulationParameter(max_audio_amplitude, shape=())
 
