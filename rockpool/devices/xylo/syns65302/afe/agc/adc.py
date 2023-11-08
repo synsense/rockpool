@@ -140,6 +140,8 @@ class AntiAliasingDecimationFilter(Module):
                 f"decimation filter in block-diagram format is not yet implemented for oversampling factor {self.oversampling_factor}!"
             )
 
+        super().__init__(spiking_input=False, spiking_output=False)
+
         self.oversampling_factor = oversampling_factor
         self.bd: BlockDiagram = bd_list[self.oversampling_factor]
         self.sample_rate = SimulationParameter(self.bd.fs, shape=())
@@ -226,6 +228,8 @@ class AntiAliasingDecimationFilter(Module):
                 np.max([np.abs(sig_out), np.abs(sig_out_surplus)]) + EPS
             )
             __rec = {"rel_distortion": rel_distortion}
+        else:
+            __rec = False
 
         return sig_out, self.state(), __rec
 
@@ -283,7 +287,7 @@ class ADC:
         self.reset()
 
     def reset(self):
-        self.anti_aliasing_filter.reset()
+        self.anti_aliasing_filter.reset_state()
 
         self.time_stamp = 0
         self.sample = 0
@@ -356,8 +360,9 @@ class ADC:
             # process this sample with the anti-aliasing + decimation filter
             (
                 anti_aliasing_filter_out,
+                _,
                 anti_aliasing_filter_rel_distortion,
-            ) = self.anti_aliasing_filter.evolve_onestep(sig_in=sample_return)
+            ) = self.anti_aliasing_filter.evolve(sig_in=sample_return)
 
             # record the state: returned sample
             if record:
