@@ -238,6 +238,14 @@ class AntiAliasingDecimationFilter(Module):
 
 
 class ADC:
+    """
+    Equivalent ADC: consisting of oversampled ADC + anti-aliasing decimation filter
+
+    NOTE: In hardware, ADC is implemented in two stages:
+        - a simple high-rate ADC that quantizes the output of an analog low-pass filter
+        - an anti-aliasing and decimation filter that removes the aliasing and reduces the sampling rate back to target audio sampling rate.
+    """
+
     def __init__(
         self,
         num_bits: int = NUM_BITS_AGC_ADC,
@@ -245,10 +253,7 @@ class ADC:
         oversampling_factor: int = 1,
         fs: float = AUDIO_SAMPLING_RATE,
     ):
-        """this module implements ADC as a state machine.
-        NOTE: In hardware, ADC is implemented in two stages:
-            - a simple high-rate ADC that quantizes the output of an alaong low-pass filter
-            - an anti-aliasing and decimation filter that removes the aliasing and reduces the samping rate back to target audio sampling rate.
+        """
 
         Args:
             num_bits (int, optional): number of bits in ADC. Defaults to 10 in current Xylo-A3 hardware.
