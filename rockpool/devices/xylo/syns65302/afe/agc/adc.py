@@ -262,7 +262,7 @@ class ADC:
         self.num_bits = num_bits
         self.max_audio_amplitude = max_audio_amplitude
 
-        if not isinstance(oversampling_factor, int):
+        if oversampling_factor not in [1, 2, 4]:
             raise ValueError(
                 "oversampling factor of the ADC should be an integer (1, 2, or 4 in the current implementation)!"
             )
