@@ -5,10 +5,8 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 from typing import Any
-import warnings
 
 
 # ===========================================================================
@@ -38,7 +36,6 @@ class Amplifier:
         settling_time: float = SETTLING_TIME_PGA,
         fixed_gain_for_PGA_mode: bool = False,
         pga_command_in_fixed_gain_for_PGA_mode: int = DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE,
-        fs: float = AUDIO_SAMPLING_RATE,
     ):
         """this class simulates the effect of amplifier on the audio signal when there is an abrupt gain change.
         NOTE: We assume that amplifier is like a high-pass module due to AC coupling.
@@ -50,52 +47,14 @@ class Amplifier:
             settling_time (float, opt): how much time does it take for PGA gain to settle to its final value after the gain change command is received.
             fixed_gain_for_PGA_mode (bool, optional): flag showing if the gain of pga needs to be frozen. Defaults to False in AGC mode.
             pga_command_in_fixed_gain_for_PGA_mode (int, optional): which gain index should be used as the default one in the fixed gain mode of PGA.
-            fs (float): sampling rate of the audio signal.
         """
-        # make sure that the simulation rate of the analog filter part of the amplifier is correct
-        if fs < 4.0 * AUDIO_SAMPLING_RATE:
-            warnings.warn(
-                "\n\n"
-                + " WARNING ".center(100, "+")
-                + "\n"
-                + "The fixed amplifier within the amplifier module uses a 2nd order ODE to model the high-pass AC coupling and low-pass anti-aliasing filtering.\n"
-                + "To make sure that this simulation is done precisely, the sampling rate (here, the simulation rate), should be at least 4 times\n"
-                + "larger than the audio sampling rate that is fed into the amplifier.\n\n"
-                + f"The target audio sampling rate is {AUDIO_SAMPLING_RATE} sample/sec.\n\n"
-                + "If you are using the amplifier module for another signal with less sampling rate such that `fs > 4 x signal sample rate`, `fs` is sufficient enough\n"
-                + "and the simulation will be done quite precisely.\n"
-                + "So, in such cases, you can ignore this warning!\n"
-                + "".center(100, "+")
-                + "\n\n"
-            )
 
         self.high_pass_corner = high_pass_corner
         self.low_pass_corner = low_pass_corner
         self.max_audio_amplitude = max_audio_amplitude
         self.settling_time = settling_time
-        self.fs = fs
 
         # NOTE: for precision reason it is always better to run the amplifier with a higher clock rate
-        EPS = 0.000001
-        oversampling_factor = fs / AUDIO_SAMPLING_RATE
-
-        if (
-            np.abs(oversampling_factor - np.round(oversampling_factor))
-            / np.min([oversampling_factor, np.round(oversampling_factor)])
-            > EPS
-        ):
-            warnings.warn(
-                """
-                The oversampling factor (ratio between simulation clock and Xylo-A3 audio sampling rate) of the amplifier is better to be an integer factor!
-                
-                NOTE: This is not obligatory and the amplifier module may be run with an arbitrary clock as user wishes! 
-                But then the user should be careful to match the clock rate between various modules. 
-                Otherwise, the signal may go under frequency scaling (e.g., higher frequencies shifted to lower ones and vice versa) while passing through the
-                modules.
-                """
-            )
-
-        self.oversampling_factor = np.round(oversampling_factor)
 
         self.pga_gain_vec = np.copy(pga_gain_vec)
 
@@ -276,9 +235,7 @@ class Amplifier:
             "+" * 100
             + "\n"
             + "Amplifier module consisting of fixed and programmable amplifier (PGA):\n"
-            + f"simulation clock rate: {self.fs}\n"
             + f"target audio sample rate: {AUDIO_SAMPLING_RATE} Hz\n"
-            + f"over sampling factor used for more precise simulation: {self.oversampling_factor}\n"
             + f"fixed amplifier with normalized gain 1 and bandwidth: [{self.high_pass_corner}, {self.low_pass_corner}] Hz\n"
             + f"PGA with gain vector:\n{self.pga_gain_vec}\n"
         )
