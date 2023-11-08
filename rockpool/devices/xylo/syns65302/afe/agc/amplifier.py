@@ -1,17 +1,13 @@
-# ----------------------------------------------------------------------------------------------------------------------
-# This module implements a simple model of the amplifier as a high-pass module
-# with possibility to switch the amplitudes abruptly if its gain changes.
-#
-# ----------------------------------------------------------------------------------------------------------------------
+"""
+This module implements a simple model of the amplifier as a high-pass module with possibility 
+to switch the amplitudes abruptly if its gain changes.
+"""
 
 import numpy as np
-
 from typing import Any
+from rockpool.nn.modules import Module
+from rockpool.parameters import State, SimulationParameter
 
-
-# ===========================================================================
-# *    some constants defined according to Xylo-A3 specifications
-# ===========================================================================s
 from rockpool.devices.xylo.syns65302.afe.params import (
     AUDIO_SAMPLING_RATE,
     XYLO_MAX_AMP,
@@ -27,18 +23,39 @@ __all__ = ["Amplifier"]
 
 
 class Amplifier:
+    """
+    Simulate the effect of amplifier on the audio signal when there is an abrupt gain change.
+    NOTE: We assume that amplifier is like a high-pass module due to AC coupling.
+
+    A simple filter model of the amplifier:
+    low-pass module followed by the high-pass one
+    
+                   `low-pass cutoff`    `high-pass AC coupling`
+    
+                                                 | |
+      input audio --------/\/\/\-----------------| |-----------   amplifier output
+                                    |            | |          |
+                                    |                         |
+                                  -----                       \
+                                  -----                       /
+                                    |                         \
+                                    |                         /
+                                    |                         |
+                                   ---                       ---
+                                    -                         -
+    """
+
     def __init__(
         self,
         high_pass_corner: float = HIGH_PASS_CORNER,
         low_pass_corner: float = LOW_PASS_CORNER,
         max_audio_amplitude: float = XYLO_MAX_AMP,
-        pga_gain_vec: np.ndarray = EXP_PGA_GAIN_VEC,
+        pga_gain_vec: np.ndarray = None,
         settling_time: float = SETTLING_TIME_PGA,
         fixed_gain_for_PGA_mode: bool = False,
         pga_command_in_fixed_gain_for_PGA_mode: int = DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE,
-    ):
-        """this class simulates the effect of amplifier on the audio signal when there is an abrupt gain change.
-        NOTE: We assume that amplifier is like a high-pass module due to AC coupling.
+    ) -> None:
+        """
         Args:
             high_pass_corner (float, optional): the corner frequency of the high-pass DC coupling.
             low_pass_corner (float, optional): the corner frequency of the low-pass response of the amplifier.
@@ -55,10 +72,12 @@ class Amplifier:
         self.settling_time = settling_time
 
         # NOTE: for precision reason it is always better to run the amplifier with a higher clock rate
+        if pga_gain_vec is None:
+            self.pga_gain_vec = EXP_PGA_GAIN_VEC
+        else:
+            self.pga_gain_vec = pga_gain_vec
 
-        self.pga_gain_vec = np.copy(pga_gain_vec)
-
-        # * see if PGA gain is frozen
+        # See if PGA gain is frozen
         self.fixed_gain_for_PGA_mode = fixed_gain_for_PGA_mode
 
         # check the validity of the command in fixed-gain mode
@@ -72,25 +91,6 @@ class Amplifier:
         self.pga_command_in_fixed_gain_for_PGA_mode = (
             pga_command_in_fixed_gain_for_PGA_mode
         )
-
-        # ==================================================
-        # * build a simple filter model of the amplifier:
-        #   low-pass module followed by the high-pass one
-        # ==================================================
-        #
-        #               `low-pass cutoff`    `high-pass AC coupling`
-        #
-        #                                             | |
-        #  input audio --------/\/\/\-----------------| |-----------   amplifier output
-        #                                |            | |          |
-        #                                |                         |
-        #                              -----                       \
-        #                              -----                       /
-        #                                |                         \
-        #                                |                         /
-        #                                |                         |
-        #                               ---                       ---
-        #                                -                         -
 
         # low-pass and high-pass filter resistors
         self.r_low = 1
