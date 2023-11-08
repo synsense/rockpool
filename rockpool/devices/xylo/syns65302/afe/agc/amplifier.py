@@ -108,23 +108,14 @@ class Amplifier(Module):
             1 / (2 * np.pi * self.r_low * self.low_pass_corner), shape=()
         )
 
-        # reset to initialize the state variables
-        self.reset()
-
-    def reset(self):
-        self.v_c_low = 0.0
-        self.v_c_high = 0.0
-
-        # adjust the timing and initialize the module
-        self.time_stamp = 0.0
-        self.last_pga_command = 0
-        self.last_gain_switch_time = -self.settling_time
-
-        # reset the simulation state
-        self.state = {}
-
-        # number of input samples recieved since the last reset
-        self.num_processed_samples = 0
+        self.v_c_low = State(0.0, init_func=lambda: 0.0, shape=())
+        self.v_c_high = State(0.0, init_func=lambda: 0.0, shape=())
+        self.time_stamp = State(0.0, init_func=lambda: 0.0, shape=())
+        self.last_pga_command = State(0, init_func=lambda: 0, shape=())
+        self.last_gain_switch_time = State(
+            -self.settling_time, init_func=lambda: -self.settling_time, shape=()
+        )
+        self.num_processed_samples = State(0, init_func=lambda: 0, shape=())
 
     def evolve(
         self, audio: float, time_in: float, pga_command: int = 0, record: bool = False
@@ -231,22 +222,3 @@ class Amplifier(Module):
             self.state["pga_gain_index"].append(pga_command)
 
         return pga_output
-
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        """
-        this function is the same as evolve.
-        """
-        return self.evolve(*args, **kwargs)
-
-    def __repr__(self) -> str:
-        # string representation of the amplifier module
-        string = (
-            "+" * 100
-            + "\n"
-            + "Amplifier module consisting of fixed and programmable amplifier (PGA):\n"
-            + f"target audio sample rate: {AUDIO_SAMPLING_RATE} Hz\n"
-            + f"fixed amplifier with normalized gain 1 and bandwidth: [{self.high_pass_corner}, {self.low_pass_corner}] Hz\n"
-            + f"PGA with gain vector:\n{self.pga_gain_vec}\n"
-        )
-
-        return string
