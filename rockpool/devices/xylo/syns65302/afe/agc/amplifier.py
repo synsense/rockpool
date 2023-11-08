@@ -4,7 +4,7 @@ to switch the amplitudes abruptly if its gain changes.
 """
 
 import numpy as np
-from typing import Any
+from typing import Tuple
 from rockpool.nn.modules import Module
 from rockpool.parameters import State, SimulationParameter
 
@@ -116,13 +116,20 @@ class Amplifier(Module):
         self.last_pga_command = State(0, init_func=lambda: 0, shape=())
         self.num_processed_samples = State(0, init_func=lambda: 0, shape=())
 
-    def evolve(self, audio: float, pga_command: int = 0, record: bool = False):
+    def evolve(
+        self, audio: float, pga_command: int = 0, record: bool = False
+    ) -> Tuple[float, dict, dict]:
         """this module takes the input auido signal and also signal from AGC and simulates the behavior of amplifier.
 
         Args:
             audio (float): input audio sample.
             pga_command (int, optional): command for adjusting the gain.
             record (bool, optional): record the state during the simulation. Defaults to False.
+
+        Returns:
+            pga_output (float): amplified signal
+            state (dict): current state of the module
+            rec (dict): record dictionary
         """
 
         # check if PGA is in frozen-gain mode and if yes ignore the command received from envelope-controller module.
