@@ -17,12 +17,13 @@ from rockpool.devices.xylo.syns65302.afe.params import (
     LOW_PASS_CORNER,
     EXP_PGA_GAIN_VEC,
     DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE,
+    NUM_BITS_COMMAND,
 )
 
 __all__ = ["Amplifier"]
 
 
-class Amplifier:
+class Amplifier(Module):
     """
     Simulate the effect of amplifier on the audio signal when there is an abrupt gain change.
     NOTE: We assume that amplifier is like a high-pass module due to AC coupling.
@@ -66,16 +67,18 @@ class Amplifier:
             pga_command_in_fixed_gain_for_PGA_mode (int, optional): which gain index should be used as the default one in the fixed gain mode of PGA.
         """
 
-        self.high_pass_corner = high_pass_corner
-        self.low_pass_corner = low_pass_corner
-        self.max_audio_amplitude = max_audio_amplitude
-        self.settling_time = settling_time
+        self.high_pass_corner = SimulationParameter(high_pass_corner, shape=())
+        self.low_pass_corner = SimulationParameter(low_pass_corner, shape=())
+        self.max_audio_amplitude = SimulationParameter(max_audio_amplitude, shape=())
+        self.settling_time = SimulationParameter(settling_time, shape=())
 
         # NOTE: for precision reason it is always better to run the amplifier with a higher clock rate
         if pga_gain_vec is None:
             self.pga_gain_vec = EXP_PGA_GAIN_VEC
         else:
-            self.pga_gain_vec = pga_gain_vec
+            self.pga_gain_vec = SimulationParameter(
+                pga_gain_vec, shape=(2**NUM_BITS_COMMAND,)
+            )
 
         # See if PGA gain is frozen
         self.fixed_gain_for_PGA_mode = fixed_gain_for_PGA_mode
@@ -88,16 +91,22 @@ class Amplifier:
                 f"Invalid PGA command in the fixed-gain mode: it should be in the range [0, {len(self.pga_gain_vec)-1}]!"
             )
 
-        self.pga_command_in_fixed_gain_for_PGA_mode = (
-            pga_command_in_fixed_gain_for_PGA_mode
+        self.pga_command_in_fixed_gain_for_PGA_mode = SimulationParameter(
+            pga_command_in_fixed_gain_for_PGA_mode, shape=()
         )
 
         # low-pass and high-pass filter resistors
-        self.r_low = 1
-        self.r_high = self.r_low * self.low_pass_corner / self.high_pass_corner
+        self.r_low = SimulationParameter(1, shape=())
+        self.r_high = SimulationParameter(
+            self.r_low * self.low_pass_corner / self.high_pass_corner, shape=()
+        )
 
-        self.c_high = 1 / (2 * np.pi * self.r_high * self.high_pass_corner)
-        self.c_low = 1 / (2 * np.pi * self.r_low * self.low_pass_corner)
+        self.c_high = SimulationParameter(
+            1 / (2 * np.pi * self.r_high * self.high_pass_corner), shape=()
+        )
+        self.c_low = SimulationParameter(
+            1 / (2 * np.pi * self.r_low * self.low_pass_corner), shape=()
+        )
 
         # reset to initialize the state variables
         self.reset()
