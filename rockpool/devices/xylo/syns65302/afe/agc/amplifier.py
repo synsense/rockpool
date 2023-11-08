@@ -66,6 +66,8 @@ class Amplifier(Module):
             fs (float, optional): target sampling rate of the equivalent ADC (sampling rate of the audio). Defaults to AUDIO_SAMPLING_RATE.
         """
 
+        super().__init__(shape=(1, 1), spiking_input=False, spiking_output=False)
+
         self.high_pass_corner = SimulationParameter(high_pass_corner, shape=())
         self.low_pass_corner = SimulationParameter(low_pass_corner, shape=())
         self.max_audio_amplitude = SimulationParameter(max_audio_amplitude, shape=())
@@ -110,11 +112,11 @@ class Amplifier(Module):
 
         # - State Parameters
 
-        self.v_c_low = State(0.0, init_func=lambda: 0.0, shape=())
-        self.v_c_high = State(0.0, init_func=lambda: 0.0, shape=())
-        self.time_stamp = State(0.0, init_func=lambda: 0.0, shape=())
-        self.last_pga_command = State(0, init_func=lambda: 0, shape=())
-        self.num_processed_samples = State(0, init_func=lambda: 0, shape=())
+        self.v_c_low = State(0.0, init_func=lambda _: 0.0, shape=())
+        self.v_c_high = State(0.0, init_func=lambda _: 0.0, shape=())
+        self.time_stamp = State(0.0, init_func=lambda _: 0.0, shape=())
+        self.last_pga_command = State(0, init_func=lambda _: 0, shape=())
+        self.num_processed_samples = State(0, init_func=lambda _: 0, shape=())
 
     def evolve(
         self, audio: float, pga_command: int = 0, record: bool = False
