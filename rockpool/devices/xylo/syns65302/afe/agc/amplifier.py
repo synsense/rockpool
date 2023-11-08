@@ -11,8 +11,6 @@ from rockpool.parameters import State, SimulationParameter
 from rockpool.devices.xylo.syns65302.afe.params import (
     AUDIO_SAMPLING_RATE,
     XYLO_MAX_AMP,
-    AUDIO_SAMPLING_RATE,
-    SETTLING_TIME_PGA,
     HIGH_PASS_CORNER,
     LOW_PASS_CORNER,
     EXP_PGA_GAIN_VEC,
@@ -52,9 +50,9 @@ class Amplifier(Module):
         low_pass_corner: float = LOW_PASS_CORNER,
         max_audio_amplitude: float = XYLO_MAX_AMP,
         pga_gain_vec: np.ndarray = None,
-        settling_time: float = SETTLING_TIME_PGA,
         fixed_gain_for_PGA_mode: bool = False,
         pga_command_in_fixed_gain_for_PGA_mode: int = DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE,
+        fs: float = AUDIO_SAMPLING_RATE,
     ) -> None:
         """
         Args:
@@ -65,12 +63,12 @@ class Amplifier(Module):
             settling_time (float, opt): how much time does it take for PGA gain to settle to its final value after the gain change command is received.
             fixed_gain_for_PGA_mode (bool, optional): flag showing if the gain of pga needs to be frozen. Defaults to False in AGC mode.
             pga_command_in_fixed_gain_for_PGA_mode (int, optional): which gain index should be used as the default one in the fixed gain mode of PGA.
+            fs (float, optional): target sampling rate of the equivalent ADC (sampling rate of the audio). Defaults to AUDIO_SAMPLING_RATE.
         """
 
         self.high_pass_corner = SimulationParameter(high_pass_corner, shape=())
         self.low_pass_corner = SimulationParameter(low_pass_corner, shape=())
         self.max_audio_amplitude = SimulationParameter(max_audio_amplitude, shape=())
-        self.settling_time = SimulationParameter(settling_time, shape=())
 
         # NOTE: for precision reason it is always better to run the amplifier with a higher clock rate
         if pga_gain_vec is None:
@@ -95,6 +93,8 @@ class Amplifier(Module):
             pga_command_in_fixed_gain_for_PGA_mode, shape=()
         )
 
+        self.dt = SimulationParameter(1 / fs, shape=())
+
         # low-pass and high-pass filter resistors
         self.r_low = SimulationParameter(1, shape=())
         self.r_high = SimulationParameter(
@@ -108,23 +108,19 @@ class Amplifier(Module):
             1 / (2 * np.pi * self.r_low * self.low_pass_corner), shape=()
         )
 
+        # - State Parameters
+
         self.v_c_low = State(0.0, init_func=lambda: 0.0, shape=())
         self.v_c_high = State(0.0, init_func=lambda: 0.0, shape=())
         self.time_stamp = State(0.0, init_func=lambda: 0.0, shape=())
         self.last_pga_command = State(0, init_func=lambda: 0, shape=())
-        self.last_gain_switch_time = State(
-            -self.settling_time, init_func=lambda: -self.settling_time, shape=()
-        )
         self.num_processed_samples = State(0, init_func=lambda: 0, shape=())
 
-    def evolve(
-        self, audio: float, time_in: float, pga_command: int = 0, record: bool = False
-    ):
+    def evolve(self, audio: float, pga_command: int = 0, record: bool = False):
         """this module takes the input auido signal and also signal from AGC and simulates the behavior of amplifier.
 
         Args:
             audio (float): input audio sample.
-            time_in (float): time instant of the input audio.
             pga_command (int, optional): command for adjusting the gain.
             record (bool, optional): record the state during the simulation. Defaults to False.
         """
@@ -133,38 +129,17 @@ class Amplifier(Module):
         if self.fixed_gain_for_PGA_mode:
             pga_command = self.pga_command_in_fixed_gain_for_PGA_mode
 
-        # check the start of the simulation and set the gain values in PGA
-        if self.num_processed_samples == 0:
-            if record:
-                self.state = {
-                    "num_processed_samples": [],
-                    "time_in": [],
-                    "audio_in": [],
-                    "fixed_amp_output": [],
-                    "pga_output": [],
-                    "pga_gain": [],
-                    "pga_gain_index": [],
-                }
-            else:
-                self.state = {}
-
         # increase the number of processed samples
         self.num_processed_samples += 1
-
-        # register the times
-        dt, self.time_stamp = time_in - self.time_stamp, time_in
 
         # check if any gain variation has happened
         if pga_command != self.last_pga_command:
             self.last_pga_command = pga_command
-            self.last_gain_switch_time = time_in
 
-        # ================================================
-        # *      simulate the first/fixed amplifier
-        # ================================================
-        # change the order of two circuits
-        q_low_res = (audio - self.v_c_low) / self.r_low * dt
-        q_high_res = (self.v_c_low - self.v_c_high) / self.r_high * dt
+        # - Simulate the first/fixed amplifier
+        ## - change the order of two circuits
+        q_low_res = (audio - self.v_c_low) / self.r_low * self.dt
+        q_high_res = (self.v_c_low - self.v_c_high) / self.r_high * self.dt
 
         # variation in voltage due to charge variation
         dv_c_high = q_high_res / self.c_high
@@ -187,11 +162,8 @@ class Amplifier(Module):
             else np.sign(fixed_amp_output) * self.max_audio_amplitude
         )
 
-        # ================================================
-        # *  simulate the effect of PGA and gain switch
-        # ================================================
-
-        # check the saturation due to power supply voltage at the output of PGA
+        # - Simulate the effect of PGA and gain switch
+        ## check the saturation due to power supply voltage at the output of PGA
         pga_gain = self.pga_gain_vec[self.last_pga_command]
         pga_output = pga_gain * fixed_amp_output
         pga_output = (
@@ -200,25 +172,14 @@ class Amplifier(Module):
             else np.sign(pga_output) * self.max_audio_amplitude
         )
 
-        # return None if still in the transition mode and not settled down
-        pga_output = (
-            pga_output
-            if (time_in - self.last_gain_switch_time) >= self.settling_time
-            else None
-        )
-
-        if pga_output is None:
-            # return immediately: do not record the state in the unstable phase.
-            return pga_output
-
         # record the state
         if record:
-            self.state["num_processed_samples"].append(self.num_processed_samples)
-            self.state["time_in"].append(time_in)
-            self.state["audio_in"].append(audio)
-            self.state["fixed_amp_output"].append(fixed_amp_output)
-            self.state["pga_output"].append(pga_output)
-            self.state["pga_gain"].append(pga_gain)
-            self.state["pga_gain_index"].append(pga_command)
+            __rec = {
+                "fixed_amp_output": fixed_amp_output,
+                "pga_gain": pga_gain,
+                "pga_gain_index": pga_command,
+            }
+        else:
+            __rec = {}
 
-        return pga_output
+        return pga_output, self.state(), __rec
