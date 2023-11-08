@@ -234,7 +234,7 @@ class AntiAliasingDecimationFilter(Module):
         return sig_out, self.state(), __rec
 
 
-class ADC:
+class ADC(Module):
     """
     Equivalent ADC: consisting of oversampled ADC + anti-aliasing decimation filter
 
@@ -249,9 +249,8 @@ class ADC:
         max_audio_amplitude: float = XYLO_MAX_AMP,
         oversampling_factor: int = 1,
         fs: float = AUDIO_SAMPLING_RATE,
-    ):
+    ) -> None:
         """
-
         Args:
             num_bits (int, optional): number of bits in ADC. Defaults to 10 in current Xylo-A3 hardware.
             max_audio_amplitude (float, optional): maximum audio amplitude that can be handled within the chip. Defaults to XYLO_MAX_AMP.
@@ -259,18 +258,20 @@ class ADC:
             fs (float, optional): target sampling rate of the equivalent ADC (sampling rate of the audio). Defaults to AUDIO_SAMPLING_RATE.
         """
 
-        self.num_bits = num_bits
-        self.max_audio_amplitude = max_audio_amplitude
+        self.num_bits = SimulationParameter(num_bits, shape=())
+        self.max_audio_amplitude = SimulationParameter(max_audio_amplitude, shape=())
 
         if oversampling_factor not in [1, 2, 4]:
             raise ValueError(
                 "oversampling factor of the ADC should be an integer (1, 2, or 4 in the current implementation)!"
             )
-        self.oversampling_factor = oversampling_factor
+        self.oversampling_factor = SimulationParameter(oversampling_factor, shape=())
 
-        self.fs = fs
+        self.fs = SimulationParameter(fs, shape=())
 
-        self.oversampled_fs = self.fs * self.oversampling_factor
+        self.oversampled_fs = SimulationParameter(
+            self.fs * self.oversampling_factor, shape=()
+        )
 
         # build the decimation anti-aliasing filter
         self.anti_aliasing_filter = AntiAliasingDecimationFilter(
@@ -283,36 +284,32 @@ class ADC:
                 + "otherwise the filter specification (passband and bandwidth) may be different than the target design value!"
             )
 
-        # reset the ADC and also the inner anti-aliasing decimation filter
-        self.reset()
+        self.stable_sig_in = State(0.0, init_func=lambda _: 0.0, shape=())
+        self.num_processed_samples = State(0, init_func=lambda _: 0, shape=())
 
-    def reset(self):
+        self.time_stamp = State(0, init_func=lambda _: 0, shape=())
+        self.sample = State(0, init_func=lambda _: 0, shape=())
+        self.decimation_filter_out = State(0, init_func=lambda _: 0, shape=())
+
+    def reset_state(self) -> None:
+        super().reset_state()
         self.anti_aliasing_filter.reset_state()
 
-        self.time_stamp = 0
-        self.sample = 0
-        self.stable_sig_in = 0
-
-        self.decimation_filter_out = 0
-
-        # number of samples receieved
-        self.num_processed_samples = 0
-
-        # reset the state as well
-        self.op_state = {}
-
-    def evolve(self, sig_in: float, time_in: float, record: bool = False):
+    def evolve(
+        self, sig_in: float, time_in: float, record: bool = False
+    ) -> Tuple[float, dict, dict]:
         """this function processes the input timed-sample and updates the state of ADC.
+
+        NOTE: if PGA is not settled after gain change, its output signal will be unstable.
+        In such a case, we model the output of PGA by None.
+        When this happens, we assume that there is a buffer that keeps the stable value of ADC and avoid accepting new samples from ADC until
+        PGA returns to the stable mode. During this unstable period, the buffer keeps sending the last stable sample it received from ADC.
 
         Args:
             sig_in (float): input signal sample.
             time_in (float): time stamp of the signal sample.
             record (bool, optional): record simulation state. Defaults to False.
         """
-        # NOTE: if PGA is not settled after gain change, its output signal will be unstable.
-        # In such a case, we model the output of PGA by None.
-        # When this happens, we assume that there is a buffer that keeps the stable value of ADC and avoid accepting new samples from ADC until
-        # PGA returns to the stable mode. During this unstable period, the buffer keeps sending the last stable sample it received from ADC.
 
         if sig_in is None:
             # just repeat the previous sample since the input received from the amplifier is invalid
@@ -321,32 +318,11 @@ class ADC:
             # if stable record the sample for the next time instants
             self.stable_sig_in = sig_in
 
-        # check the start of the simulation and set the gain values in PGA
-        if self.num_processed_samples == 0:
-            if record:
-                self.op_state = {
-                    "num_processed_samples": [],
-                    "time_in": [],
-                    "adc_in": [],
-                    "adc_oversampled_out": [],
-                    "anti_aliasing_filter_out": [],
-                    "anti_aliasing_filter_rel_distortion": [],
-                }
-            else:
-                self.op_state = {}
-
-        # increase the number of processed samples
         self.num_processed_samples += 1
-
-        # record the state if needed
-        if record:
-            self.op_state["num_processed_samples"].append(self.num_processed_samples)
-            self.op_state["time_in"].append(time_in)
-            self.op_state["adc_in"].append(sig_in)
 
         if time_in >= self.time_stamp / self.oversampled_fs:
             # * it is time to get the quantized version of the sample
-            # NOTE: this sampling is done with the oversampled ADC -> then processed with anti-aliasing + deicmation filter
+            # NOTE: this sampling is done with the oversampled ADC -> then processed with anti-aliasing + decimation filter
             EPS = 0.00001
             sig_in_norm = sig_in / (XYLO_MAX_AMP * (1 + EPS))
 
@@ -364,16 +340,6 @@ class ADC:
                 anti_aliasing_filter_rel_distortion,
             ) = self.anti_aliasing_filter.evolve(sig_in=sample_return)
 
-            # record the state: returned sample
-            if record:
-                self.op_state["adc_oversampled_out"].append(sample_return)
-                self.op_state["anti_aliasing_filter_out"].append(
-                    anti_aliasing_filter_out
-                )
-                self.op_state["anti_aliasing_filter_rel_distortion"].append(
-                    anti_aliasing_filter_rel_distortion
-                )
-
         else:
             # * otherwise: ignore those incoming signals
             # NOTE: we do this since the input to ADC comes from the amplifier which may need to be simulated with a much higher sampling rate.
@@ -384,26 +350,14 @@ class ADC:
         if self.time_stamp % self.oversampling_factor == 1:
             self.decimation_filter_out = anti_aliasing_filter_out
 
-        return self.decimation_filter_out
+        if record:
+            __rec = {
+                "time_in": time_in,
+                "adc_oversampled_out": sample_return,
+                "anti_aliasing_filter_out": anti_aliasing_filter_out,
+                "anti_aliasing_filter_rel_distortion": anti_aliasing_filter_rel_distortion,
+            }
+        else:
+            __rec = {}
 
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        """
-        this is the same as `evolve` function.
-        """
-        return self.evolve(*args, **kwargs)
-
-    def __repr__(self) -> str:
-        # string representation of the ADC module
-        string = (
-            "+" * 100
-            + "\n"
-            + "ADC module:\n"
-            + f"clock rate: {self.fs}\n"
-            + f"clock rate of the inner oversampled ADC: {self.oversampled_fs}\n"
-            + f"specification of the anti-aliasing decimation filter:\n"
-            + f"{self.anti_aliasing_filter}"
-            + f"maximum amplitude: {self.max_audio_amplitude}\n"
-            + f"number of bits used for signed quantization: {self.num_bits}\n"
-        )
-
-        return string
+        return self.decimation_filter_out, self.state(), __rec
