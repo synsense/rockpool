@@ -18,7 +18,7 @@ https://spinystellate.office.synsense.ai/saeid.haghighatshoar/anti-aliasing-filt
 __all__ = ["ADC"]
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Tuple
 
 import numpy as np
 
@@ -27,6 +27,8 @@ from rockpool.devices.xylo.syns65302.afe.params import (
     NUM_BITS_AGC_ADC,
     XYLO_MAX_AMP,
 )
+from rockpool.nn.modules import Module
+from rockpool.parameters import SimulationParameter, State
 
 
 class FilterOverflowError(Exception):
@@ -123,7 +125,7 @@ bd_list = [
 ]
 
 
-class AntiAliasingDecimationFilter:
+class AntiAliasingDecimationFilter(Module):
     """
     Simulate the block-diagram model of the decimation anti-aliasing filter
     """
@@ -140,22 +142,32 @@ class AntiAliasingDecimationFilter:
 
         self.adc_oversampling_factor = adc_oversampling_factor
         self.bd: BlockDiagram = bd_list[self.adc_oversampling_factor]
+        self.sample_rate = SimulationParameter(self.bd.fs, shape=())
+        self.op_state = State(
+            np.zeros(len(self.bd.a_taps), dtype=np.int64),
+            shape=(len(self.bd.a_taps)),
+            init_func=lambda s: np.zeros(s, dtype=np.int64),
+        )
+        """
+        Number of bit registers in AR part
+        NOTE: we use an additional dummy register so that the computation of MA part is simplified.
+        This is not needed in the ordinary computation.
+        """
 
-        # =================================================================================
-        #  parameters needed for one-step simulation of the filter (as a state machine)
-        # =================================================================================
-        self.sample_rate = self.bd.fs
+    def evolve(self, sig_in: float, record: bool = False) -> Tuple[float, dict, dict]:
+        """
+        Simulate for one step
 
-        self.reset()
+        Args:
+            sig_in (float): one time step signal
+            record (bool, optional): Record the internal states. Defaults to False.
 
-    def reset(self):
-        """reset the states of the filter in one-step simulation"""
-        # initialize the internal state of the filter: number of bit registers in AR part
-        # NOTE: we use an additional dummy register so that the computation of MA part is simplified.
-        # This is not needed in the ordinary computation.
-        self.state = np.zeros(len(self.bd.a_taps) - 1 + 1, dtype=np.int64)
-
-    def evolve_onestep(self, sig_in: float):
+        Returns:
+            Tuple[float, dict, dict]:
+                out: decimation filter output
+                state: the current state of the module
+                rec: extra recordings
+        """
         # * check the range of input
         if np.max(sig_in) >= 2 ** (self.bd.B_in - 1) or np.min(sig_in) < -(
             2 ** (self.bd.B_in - 1)
@@ -166,7 +178,9 @@ class AntiAliasingDecimationFilter:
 
         # * compute AR part
         # compute the feedback part: each branch individually
-        feedback_branches_out = (-self.state[:-1] * self.bd.a_taps[1:]) >> self.bd.B_af
+        feedback_branches_out = (
+            -self.op_state[:-1] * self.bd.a_taps[1:]
+        ) >> self.bd.B_af
 
         # add all branches
         feedback_out = np.sum(feedback_branches_out)
@@ -175,11 +189,11 @@ class AntiAliasingDecimationFilter:
         next_w_sample = sig_in + feedback_out
 
         # update w
-        self.state[1:] = self.state[:-1]
-        self.state[0] = next_w_sample
+        self.op_state[1:] = self.op_state[:-1]
+        self.op_state[0] = next_w_sample
 
         # * compute the MA part
-        sig_out_MA = np.sum(self.state * self.bd.b_taps)
+        sig_out_MA = np.sum(self.op_state * self.bd.b_taps)
 
         # check the overflow in MA part of the filter
         if np.max(sig_out_MA) >= 2 ** (self.bd.B_out - 1) or np.min(sig_out_MA) < -(
@@ -188,7 +202,6 @@ class AntiAliasingDecimationFilter:
             raise FilterOverflowError(
                 f"Overflow in the MA branch of the filter! the output of MA should fit in {self.bd.B_out} signed bits!"
             )
-            # warn(f"Overflow in the MA branch of the filter! the output of MA should fit in {self.bd.B_out} signed bits!")
 
         # * compute the output after surplus scaling
         sig_out_surplus = (sig_out_MA * self.bd.surplus) >> self.bd.B_af
@@ -205,26 +218,16 @@ class AntiAliasingDecimationFilter:
         if sig_out < min_neg_amplitude:
             sig_out = min_neg_amplitude
 
-        # compute the ralative truncation distortion
-        EPS = 0.000000001
-        rel_distortion = np.abs(sig_out - sig_out_surplus) / (
-            np.max([np.abs(sig_out), np.abs(sig_out_surplus)]) + EPS
-        )
-
         # final output sample and its distortion
-        return sig_out, rel_distortion
+        if record:
+            # compute the relative truncation distortion
+            EPS = 0.000000001
+            rel_distortion = np.abs(sig_out - sig_out_surplus) / (
+                np.max([np.abs(sig_out), np.abs(sig_out_surplus)]) + EPS
+            )
+            __rec = {"rel_distortion": rel_distortion}
 
-    def __repr__(self) -> str:
-        """string representation of the module"""
-
-        string = (
-            "block-diagram representation of the IIR filter:\n"
-            + f"ADC oversampling factor: {self.adc_oversampling_factor}\n"
-            + "Block-diagram representation info:\n"
-            + str(self.bd)
-        )
-
-        return string
+        return sig_out, self.state(), __rec
 
 
 # ================================================================================================================
@@ -294,7 +297,7 @@ class ADC:
         self.num_processed_samples = 0
 
         # reset the state as well
-        self.state = {}
+        self.op_state = {}
 
     def evolve(self, sig_in: float, time_in: float, record: bool = False):
         """this function processes the input timed-sample and updates the state of ADC.
@@ -319,7 +322,7 @@ class ADC:
         # check the start of the simulation and set the gain values in PGA
         if self.num_processed_samples == 0:
             if record:
-                self.state = {
+                self.op_state = {
                     "num_processed_samples": [],
                     "time_in": [],
                     "adc_in": [],
@@ -328,16 +331,16 @@ class ADC:
                     "anti_aliasing_filter_rel_distortion": [],
                 }
             else:
-                self.state = {}
+                self.op_state = {}
 
         # increase the number of processed samples
         self.num_processed_samples += 1
 
         # record the state if needed
         if record:
-            self.state["num_processed_samples"].append(self.num_processed_samples)
-            self.state["time_in"].append(time_in)
-            self.state["adc_in"].append(sig_in)
+            self.op_state["num_processed_samples"].append(self.num_processed_samples)
+            self.op_state["time_in"].append(time_in)
+            self.op_state["adc_in"].append(sig_in)
 
         if time_in >= self.time_stamp / self.oversampled_fs:
             # * it is time to get the quantized version of the sample
@@ -360,9 +363,11 @@ class ADC:
 
             # record the state: returned sample
             if record:
-                self.state["adc_oversampled_out"].append(sample_return)
-                self.state["anti_aliasing_filter_out"].append(anti_aliasing_filter_out)
-                self.state["anti_aliasing_filter_rel_distortion"].append(
+                self.op_state["adc_oversampled_out"].append(sample_return)
+                self.op_state["anti_aliasing_filter_out"].append(
+                    anti_aliasing_filter_out
+                )
+                self.op_state["anti_aliasing_filter_rel_distortion"].append(
                     anti_aliasing_filter_rel_distortion
                 )
 
