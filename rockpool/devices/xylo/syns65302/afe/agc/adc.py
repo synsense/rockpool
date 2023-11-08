@@ -1,99 +1,78 @@
-# ----------------------------------------------------------------------------------------------------------------------------------------------
-# This module implements the ADC as a state machine.
-#
-#
-# NOTE: this modules consists of a possibly oversampled ADC followed by an anti-aliasing and decimation filter implemented in the digital domain.
-#
-# The anti-aliaisng filter is implemented as an IIR low-pass filter + decimation via some fine-tuning and optimization.
-#
-# NOTE: This module contains the block-diagram implementation of the filter to make sure that it is compatible with Hardware.
-#       To design this filter, we apply optimization to reduce the aliasing noise due to sampling as much as possible.
-#       We use the class of IIR Elliptic filters to get the sharpest transition and smallest aliasing noise.
-#       Also we use an optimized truncation method so that:
-#           - the dynamic range of the ADC does not drop due to worst-case vs. average case amplitude gain of the filter.
-#           - only a slight nonlinearity is introduced (truncation) only when the signal amplitude is quite large.
-#
-#       For further details on the implementation of this filter and its performance evaluation, please refer to the original design repo
-#       https://spinystellate.office.synsense.ai/saeid.haghighatshoar/anti-aliasing-filter-for-xylo-a2
-#
-# ----------------------------------------------------------------------------------------------------------------------------------------------
+"""
+This module implements the ADC as a state machine.
 
+NOTE: this modules consists of a possibly oversampled ADC followed by an anti-aliasing and decimation filter implemented in the digital domain.
+The anti-aliasing filter is implemented as an IIR low-pass filter + decimation via some fine-tuning and optimization.
 
-# list of modules exported
+NOTE: This module contains the block-diagram implementation of the filter to make sure that it is compatible with Hardware.
+      To design this filter, we apply optimization to reduce the aliasing noise due to sampling as much as possible.
+      We use the class of IIR Elliptic filters to get the sharpest transition and smallest aliasing noise.
+      Also we use an optimized truncation method so that:
+          - the dynamic range of the ADC does not drop due to worst-case vs. average case amplitude gain of the filter.
+          - only a slight nonlinearity is introduced (truncation) only when the signal amplitude is quite large.
+
+For further details on the implementation of this filter and its performance evaluation, please refer to the original design repo
+https://spinystellate.office.synsense.ai/saeid.haghighatshoar/anti-aliasing-filter-for-xylo-a2
+"""
+
 __all__ = ["ADC"]
 
-
-# ===========================================================================
-# *    some constants defined according to Xylo-A3 specifications
-# ===========================================================================
-from rockpool.devices.xylo.syns65302.afe.params import (
-    XYLO_MAX_AMP,
-    AUDIO_SAMPLING_RATE,
-    NUM_BITS_AGC_ADC,
-)
-
-
-import numpy as np
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
 
-# ===========================================================================
-# ===========================================================================
-# *                PART 1:  Anti-Aliasing + Decimation Filter
-# ===========================================================================
-# ===========================================================================
+from rockpool.devices.xylo.syns65302.afe.params import (
+    AUDIO_SAMPLING_RATE,
+    NUM_BITS_AGC_ADC,
+    XYLO_MAX_AMP,
+)
 
 
 class FilterOverflowError(Exception):
     pass
 
 
-# ================================================
-# *               Block-Diagram Model
-# ================================================
 @dataclass
 class BlockDiagram:
-    # oversampling factor: the block works corresponds to how much ADC oversampling
     adc_oversampling_factor: int
+    """oversampling factor: the block works corresponds to how much ADC oversampling"""
 
-    # clock rate with which the block-diagram should be simulated to be matched with other modules
     fs: float
+    """clock rate with which the block-diagram should be simulated to be matched with other modules"""
 
-    # filter AR taps
     a_taps: np.ndarray
+    """filter AR taps"""
 
-    # number of bits devoted to the AR taps
     B_a: int
+    """number of bits devoted to the AR taps"""
 
-    # number of bits devoted to the fractional part of AR taps
     B_af: int
+    """number of bits devoted to the fractional part of AR taps"""
 
-    # filter MA taps
     b_taps: np.ndarray
+    """filter MA taps"""
 
-    # number of bits devoted to the output of MA part
     B_out: int
+    """number of bits devoted to the output of MA part"""
 
-    # surplus factor for adjusting the gain for clipping
     surplus: int
+    """surplus factor for adjusting the gain for clipping"""
 
-    # number of bits devoted to b-tap
     B_b: int = 8
+    """number of bits devoted to b-tap"""
 
-    # number of bits in the input
     B_in: int = 10
+    """number of bits in the input"""
 
-    # bitwidth of the AR output w[n]
     B_w: int = 17
+    """bitwidth of the AR output w[n]"""
 
-    # number of bits devoted to surplus factor
     B_sur: int = 8
+    """number of bits devoted to surplus factor"""
 
 
-# ===========================================================================
-# *         block diagram used for oversampling factor 2 and 4
-# ===========================================================================
+# - Block diagram used for oversampling factor 2 and 4
 #! Note: we have no implementation for other oversampling factors
 bd_oversampling_0 = None
 
@@ -145,20 +124,22 @@ bd_list = [
 
 
 class AntiAliasingDecimationFilter:
-    def __init__(self, adc_oversampling_factor: int = 2):
-        """this class simulates the block-diagram model of the decimation anti-aliasing filter
-        adc_oversampling_factor (int, optional): oversampling factor of ADC. Defaults to 2.
-        """
-        self.adc_oversampling_factor = adc_oversampling_factor
+    """
+    Simulate the block-diagram model of the decimation anti-aliasing filter
+    """
 
-        try:
-            self.bd = bd_list[self.adc_oversampling_factor]
-            if self.bd is None:
-                raise Exception
-        except:
+    def __init__(self, adc_oversampling_factor: int = 2) -> None:
+        """
+        Args:
+            adc_oversampling_factor (int, optional): oversampling factor of ADC. Defaults to 2.
+        """
+        if adc_oversampling_factor not in [1, 2, 4]:
             raise NotImplementedError(
                 f"decimation filter in block-diagram format is not yet implemented for oversampling factor {self.adc_oversampling_factor}!"
             )
+
+        self.adc_oversampling_factor = adc_oversampling_factor
+        self.bd: BlockDiagram = bd_list[self.adc_oversampling_factor]
 
         # =================================================================================
         #  parameters needed for one-step simulation of the filter (as a state machine)
