@@ -57,6 +57,7 @@ class EnvelopeController(Module):
             num_bits_command (int, optional): number of bits used for sending commands to PGA. This also sets number of various gains.
             fs (float): sampling or clock rate of the module.
         """
+        super().__init__(shape=(1, 1), spiking_input=False, spiking_output=False)
         # number of bits in the input signal and also the command sent to PGA
         self.num_bits = SimulationParameter(num_bits, shape=())
         self.num_bits_command = SimulationParameter(num_bits_command, shape=())
