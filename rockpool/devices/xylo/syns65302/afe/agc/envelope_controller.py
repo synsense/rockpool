@@ -244,27 +244,6 @@ class EnvelopeController(Module):
                 "this should not happen as the ADC should repeat the samples when a None is received from the amplifier in an unstable mode!"
             )
 
-        # check if it is the start of the simulation and set the state
-        if self.num_processed_samples == 0:
-            if record:
-                self.state_op = {
-                    "num_processed_samples": [],
-                    "time_in": [],
-                    "sig_in": [],
-                    "sig_in_high_res": [],
-                    "high_res_envelope": [],
-                    "envelope": [],
-                    "max_envelope": [],
-                    "max_envelope_index": [],
-                    "registered_max_envelope": [],
-                    "registered_max_envelope_index": [],
-                    "waiting_time": [],
-                    "total_waiting_after_latest_change": [],
-                    "pga_gain_index": [],
-                }
-            else:
-                self.state_op = {}
-
         # add to the number of processed sampled
         self.num_processed_samples += 1
 
@@ -321,33 +300,21 @@ class EnvelopeController(Module):
         # ===========================================================================
         # *                            record the state
         # ===========================================================================
-        # regiser the state if needed:
+        # register the state if needed:
         # NOTE: that we register the state one-clock earlier since the new states with be calculated in this clock
         # and will appear in the next clock
         if record:
-            self.state_op["num_processed_samples"].append(self.num_processed_samples)
-            self.state_op["time_in"].append(time_in)
-            self.state_op["sig_in"].append(sig_in)
-            self.state_op["sig_in_high_res"].append(sig_in_high_res)
-            self.state_op["high_res_envelope"].append(self.high_res_envelope)
-            self.state_op["envelope"].append(self.envelope)
-            self.state_op["max_envelope"].append(self.max_envelope)
-            self.state_op["max_envelope_index"].append(max_envelope_index)
-            self.state_op["registered_max_envelope"].append(
-                self.registered_max_envelope
-            )
-            self.state_op["registered_max_envelope_index"].append(
-                np.sum(self.amp_thresholds <= self.registered_max_envelope)
-            )
-            self.state_op["waiting_time"].append(self.waiting_time)
-            self.state_op["total_waiting_after_latest_change"].append(
-                self.num_samples_in_waiting_time
-            )
-
-            # record the gain at this clock
-            # NOTE: if there is any change to gain, it will be applied in the next clock after latch to make sure that a clean
-            # gain-index goes to the PGA
-            self.state_op["pga_gain_index"].append(self.pga_gain_index)
+            __rec = {
+                "time_in": time_in,
+                "sig_in": sig_in,
+                "sig_in_high_res": sig_in_high_res,
+                "envelope": self.envelope,
+                "registered_max_envelope_index": np.sum(
+                    self.amp_thresholds <= self.registered_max_envelope
+                ),
+            }
+        else:
+            __rec = {}
 
         # * because of the one-clock delay to the output we record the past gain and gain index values
         pga_gain_index_to_be_sent_out = self.pga_gain_index
@@ -409,10 +376,7 @@ class EnvelopeController(Module):
             self.num_samples_in_waiting_time = 0
 
             # send the gain command to the PGA
-            return (
-                pga_gain_index_to_be_sent_out,
-                self.envelope,
-            )
+            return pga_gain_index_to_be_sent_out, self.state(), __rec
 
         # ===========================================================================
         # *                               Otherwise:
@@ -477,30 +441,4 @@ class EnvelopeController(Module):
             self.registered_max_envelope = 0
 
         # send the gain command to the PGA
-        return (pga_gain_index_to_be_sent_out, self.envelope)
-
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        """
-        this is the same as `evolve` function.
-        """
-        return self.evolve(*args, **kwargs)
-
-    def __repr__(self) -> str:
-        # string representation of the envelope controller module
-        string = (
-            "+" * 100
-            + "\n"
-            + "Envelope Controller module:\n"
-            + f"clock rate: {self.fs}\n"
-            + f"number of bits in the input coming from ADC: {self.num_bits}\n"
-            + f"number of bits used for sending gain-change command to PGA: {self.num_bits_command}\n"
-            + f"rise time-constant: {self.rise_time_constant}\n"
-            + f"number of samples in rise time-constant: {self.num_rise_samples}\n"
-            + f"fall time-constant: {self.fall_time_constant}\n"
-            + f"number of samples in fall time-constant: {self.num_fall_samples}\n"
-            + f"amplitude thresholds: {self.amp_thresholds}\n"
-            + f"waiting times in various amplitude levels: {self.waiting_time_length_vec}\n"
-            + f"maximum waiting time: {self.max_num_samples_in_waiting_time}\n"
-        )
-
-        return string
+        return pga_gain_index_to_be_sent_out, self.state(), __rec
