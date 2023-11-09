@@ -195,35 +195,34 @@ class EnvelopeController(Module):
         # ===========================================================================
         #                 create and initialize state variables
         # ===========================================================================
-        self.reset()
 
-    def reset(self):
         # envelope estimation parameters
-        self.high_res_envelope = 0
-        self.envelope = 0
-        self.num_processed_samples = 0
+        self.high_res_envelope = State(0, init_func=lambda _: 0, shape=())
+        self.envelope = State(0, init_func=lambda _: 0, shape=())
+        self.num_processed_samples = State(0, init_func=lambda _: 0, shape=())
 
         # maximum envelope values
-        self.max_envelope = 0
-        self.registered_max_envelope = 0
+        self.max_envelope = State(0, init_func=lambda _: 0, shape=())
+        self.registered_max_envelope = State(0, init_func=lambda _: 0, shape=())
 
         # parameters of the command transferred to PGA
         # NOTE: we use the same name `pga_gain_index == command` since sometimes pga_gain_index is easy to recall
-        self.pga_gain_index = 0
+        self.pga_gain_index = State(0, init_func=lambda _: 0, shape=())
         self.command = self.pga_gain_index
 
         # amplitude level of the envelope signal
-        self.amp_index = 0
+        self.amp_index = State(0, init_func=lambda _: 0, shape=())
 
         # waiting time until the next gain adjustment
-        self.waiting_time = self.waiting_time_length_vec[0]
+        self.waiting_time = State(
+            self.waiting_time_length_vec[0],
+            init_func=lambda _: self.waiting_time_length_vec[0],
+            shape=(),
+        )
 
         # number of samples processed during a waiting time
         # NOTE: this is needed since the waiting time may keep extending
-        self.num_samples_in_waiting_time = 0
-
-        # reset the state
-        self.state_op = {}
+        self.num_samples_in_waiting_time = State(0, init_func=lambda _: 0, shape=())
 
     def evolve(self, sig_in: int, time_in: float, record: bool = False):
         """this module updates the state of envelope estimator based on the input signal.
