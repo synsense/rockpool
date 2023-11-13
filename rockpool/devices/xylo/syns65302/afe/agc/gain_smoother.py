@@ -147,23 +147,31 @@ class GainSmootherFPGA(Module):
         )
         """vector containing the quantized gain ratios case 2: when gain decreases"""
 
-        self.reset()
+        # - States
 
-    def reset(self):
-        # number of samples received
-        # NOTE: by resetting the number of samples to 0, pga_gain value will be taken and initialized from the first
-        # data received in the input
-        self.num_processed_samples = 0
+        self.num_processed_samples = State(0, shape=(), init_func=lambda _: 0)
+        """number of samples received
+        NOTE: by resetting the number of samples to 0, pga_gain value will be taken and initialized from the first data received in the input
+        """
 
-        self.pga_current_gain_index = 0
+        self.pga_current_gain_index = State(0, shape=(), init_func=lambda _: 0)
 
-        # set the high and low resolution gain values
-        self.gain_high_res = 1 << (self.avg_bitshift + self.num_bits_gain_fraction)
-        self.gain = self.gain_high_res >> self.avg_bitshift
-        self.float_gain = self.gain / (2**self.num_bits_gain_fraction)
+        def __gain_high_res_init(s: tuple) -> int:
+            return 1 << (self.avg_bitshift + self.num_bits_gain_fraction)
 
-        # reset the state
-        self.state = {}
+        def __gain_init(s: tuple) -> int:
+            return __gain_high_res_init(s) >> self.avg_bitshift
+
+        def __float_gain_init(s: tuple) -> int:
+            return __gain_init(s) / (2**self.num_bits_gain_fraction)
+
+        self.gain_high_res = State(
+            __gain_high_res_init(None), shape=(), init_func=__gain_high_res_init
+        )
+        self.gain = State(__gain_init(None), shape=(), init_func=__gain_init)
+        self.float_gain = State(
+            __float_gain_init(None), shape=(), init_func=__float_gain_init
+        )
 
     def evolve(
         self,
@@ -212,7 +220,7 @@ class GainSmootherFPGA(Module):
             #   create the state during the initialization
             # ================================================
             if record:
-                self.state = {
+                self.state_op = {
                     "time_in": [],
                     "num_processed_samples": [],
                     "audio_in": [],
@@ -223,7 +231,7 @@ class GainSmootherFPGA(Module):
                     "pga_gain_index": [],
                 }
             else:
-                self.state = {}
+                self.state_op = {}
 
         # increase number of received samples
         self.num_processed_samples += 1
@@ -293,14 +301,14 @@ class GainSmootherFPGA(Module):
         #      record the state if needed
         # ================================================
         if record:
-            self.state["time_in"].append(time_in)
-            self.state["num_processed_samples"].append(self.num_processed_samples)
-            self.state["audio_in"].append(audio)
-            self.state["audio_out"].append(audio_out)
-            self.state["gain_high_res"].append(self.gain_high_res)
-            self.state["gain"].append(self.gain)
-            self.state["float_gain"].append(self.float_gain)
-            self.state["pga_gain_index"].append(pga_gain_index)
+            self.state_op["time_in"].append(time_in)
+            self.state_op["num_processed_samples"].append(self.num_processed_samples)
+            self.state_op["audio_in"].append(audio)
+            self.state_op["audio_out"].append(audio_out)
+            self.state_op["gain_high_res"].append(self.gain_high_res)
+            self.state_op["gain"].append(self.gain)
+            self.state_op["float_gain"].append(self.float_gain)
+            self.state_op["pga_gain_index"].append(pga_gain_index)
 
         return audio_out
 
