@@ -295,9 +295,7 @@ class ADC(Module):
         super().reset_state()
         self.anti_aliasing_filter.reset_state()
 
-    def evolve(
-        self, sig_in: float, time_in: float, record: bool = False
-    ) -> Tuple[float, dict, dict]:
+    def evolve(self, sig_in: float, record: bool = False) -> Tuple[float, dict, dict]:
         """this function processes the input timed-sample and updates the state of ADC.
 
         NOTE: if PGA is not settled after gain change, its output signal will be unstable.
@@ -307,7 +305,6 @@ class ADC(Module):
 
         Args:
             sig_in (float): input signal sample.
-            time_in (float): time stamp of the signal sample.
             record (bool, optional): record simulation state. Defaults to False.
         """
 
@@ -320,31 +317,24 @@ class ADC(Module):
 
         self.num_processed_samples += 1
 
-        if time_in >= self.time_stamp / self.oversampled_fs:
-            # * it is time to get the quantized version of the sample
-            # NOTE: this sampling is done with the oversampled ADC -> then processed with anti-aliasing + decimation filter
-            EPS = 0.00001
-            sig_in_norm = sig_in / (XYLO_MAX_AMP * (1 + EPS))
+        # * it is time to get the quantized version of the sample
+        # NOTE: this sampling is done with the oversampled ADC -> then processed with anti-aliasing + decimation filter
+        EPS = 0.00001
+        sig_in_norm = sig_in / (XYLO_MAX_AMP * (1 + EPS))
 
-            # add a one unit of clock delay to the returned sample
-            sample_return, self.sample = self.sample, int(
-                np.fix(2 ** (self.num_bits - 1) * sig_in_norm)
-            )
+        # add a one unit of clock delay to the returned sample
+        sample_return, self.sample = self.sample, int(
+            np.fix(2 ** (self.num_bits - 1) * sig_in_norm)
+        )
 
-            self.time_stamp += 1
+        self.time_stamp += 1
 
-            # process this sample with the anti-aliasing + decimation filter
-            (
-                anti_aliasing_filter_out,
-                _,
-                anti_aliasing_filter_rel_distortion,
-            ) = self.anti_aliasing_filter.evolve(sig_in=sample_return)
-
-        else:
-            # * otherwise: ignore those incoming signals
-            # NOTE: we do this since the input to ADC comes from the amplifier which may need to be simulated with a much higher sampling rate.
-            # So those extra samples are needed for the precision of amplifier simulation and are ignored by the ADC.
-            pass
+        # process this sample with the anti-aliasing + decimation filter
+        (
+            anti_aliasing_filter_out,
+            _,
+            anti_aliasing_filter_rel_distortion,
+        ) = self.anti_aliasing_filter.evolve(sig_in=sample_return)
 
         # compute the output of decimation filter
         if self.time_stamp % self.oversampling_factor == 1:
@@ -352,7 +342,6 @@ class ADC(Module):
 
         if record:
             __rec = {
-                "time_in": time_in,
                 "adc_oversampled_out": sample_return,
                 "anti_aliasing_filter_out": anti_aliasing_filter_out,
                 "anti_aliasing_filter_rel_distortion": anti_aliasing_filter_rel_distortion,
