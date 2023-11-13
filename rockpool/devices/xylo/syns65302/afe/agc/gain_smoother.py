@@ -180,7 +180,12 @@ class GainSmootherFPGA(Module):
         pga_gain_index: int,
         record: bool = False,
     ):
-        """this module process the signal coming from the AGC and tries to smooth it out to avoid gain jumps.
+        """Process the signal coming from the AGC and tries to smooth it out to avoid gain jumps.
+        NOTE: if PGA is not settled after gain change, its output signal will be unstable.
+        In such a case, we model the output of PGA by None.
+        ADC and other modules should stop working until a valid sample arrives.
+        We model this by generating None for the ADC output so that the next layers also skip this unstable period.
+        In this mode, we just return None and do not update the gain and gain-smoothed signal after PGA goes back to stable mode.
 
         Args:
             audio (int): quantized audio signal received from AGC.
@@ -189,11 +194,6 @@ class GainSmootherFPGA(Module):
             pga_gain_index (int): index of the PGA gain vector for this sample of the signal.
             record (bool, optional): record the state during simulation.
         """
-        # NOTE: if PGA is not settled after gain change, its output signal will be unstable.
-        # In such a case, we model the output of PGA by None.
-        # ADC and other modules should stop working until a valid sample arrives.
-        # We model this by generating None for the ADC output so that the next layers also skip this unstable period.
-        # In this mode, we just return None and do not update the gain and gain-smoothed signal after PGA goes back to stable mode.
 
         if audio is None:
             raise ValueError(
@@ -311,32 +311,3 @@ class GainSmootherFPGA(Module):
             self.state_op["pga_gain_index"].append(pga_gain_index)
 
         return audio_out
-
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        """
-        this function is the same as `evolve` function.
-        """
-        self.evolve(*args, **kwargs)
-
-    def __repr__(self) -> str:
-        # a simple string representation of the gain smoother
-        string = (
-            "+" * 100
-            + "\n"
-            + "Gain smoother module:\n"
-            + f"clock rate:{self.fs}\n"
-            + f"designed for PGA gain vector:\n{self.pga_gain_vec}\n"
-            + f"number of bits in input signal coming from ADC: {self.num_bits}\n"
-            + f"designed for minimum waiting time: {self.min_waiting_time} sec with {self.min_waiting_num_samples} samples\n"
-            + f"number of bits used in quantizing the gain ratio at the transition time\n"
-            + f"\ttotal number of bits used for gain quantization: {self.num_bits_gain_quantization}\n"
-            + f"\tfractional bits: {self.num_bits_gain_fraction}\n"
-            + f"\tinteger bits: {self.num_bits_gain_integer}\n"
-            + f"number of bits used in gain smoothing filter: {self.avg_bitshift}\n"
-            + f"up-gain ratio vector before quantization:\n{self.up_gain_ratio_float}\n"
-            + f"up-gain ratio vector after quantization:\n{self.up_gain_ratio}\n"
-            + f"down-gain ratio vector before quantization:\n{self.down_gain_ratio_float}\n"
-            + f"down-gain ratio vector after quantization:\n{self.down_gain_ratio}\n"
-        )
-
-        return string
