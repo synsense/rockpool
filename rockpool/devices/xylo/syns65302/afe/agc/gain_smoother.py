@@ -283,5 +283,7 @@ class GainSmootherFPGA(Module):
                 "time_in": time_in,
                 "pga_gain_index": pga_gain_index,
             }
+        else:
+            __rec = {}
 
         return audio_out, self.state(), __rec
