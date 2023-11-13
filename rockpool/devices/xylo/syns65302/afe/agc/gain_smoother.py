@@ -7,7 +7,7 @@ In practice, we can activate and deactivate this module to see if it has a major
 of the filters and in case not (since filters themselves may suppress this gain jump) we can deactivate it.
 """
 
-from typing import Any, Optional
+from typing import Optional, Tuple
 
 import numpy as np
 
@@ -179,7 +179,7 @@ class GainSmootherFPGA(Module):
         time_in: float,
         pga_gain_index: int,
         record: bool = False,
-    ):
+    ) -> Tuple[float, dict, dict]:
         """Process the signal coming from the AGC and tries to smooth it out to avoid gain jumps.
         NOTE: if PGA is not settled after gain change, its output signal will be unstable.
         In such a case, we model the output of PGA by None.
@@ -193,6 +193,11 @@ class GainSmootherFPGA(Module):
             pga_gain (float): gain of the PGA used for this sample of the signal.
             pga_gain_index (int): index of the PGA gain vector for this sample of the signal.
             record (bool, optional): record the state during simulation.
+
+        Returns:
+            audio_out (float): processed signal
+            state (dict): state dictionary
+            rec (dict): record dictionary
         """
 
         if audio is None:
@@ -205,26 +210,6 @@ class GainSmootherFPGA(Module):
             raise ValueError(
                 "the input to gain smoother module coming from ADC should be in integer format!"
             )
-
-        # check the start of the simulation and set the gain values in PGA
-        if self.num_processed_samples == 0:
-
-            # ================================================
-            #   create the state during the initialization
-            # ================================================
-            if record:
-                self.state_op = {
-                    "time_in": [],
-                    "num_processed_samples": [],
-                    "audio_in": [],
-                    "audio_out": [],
-                    "gain_high_res": [],
-                    "gain": [],
-                    "float_gain": [],
-                    "pga_gain_index": [],
-                }
-            else:
-                self.state_op = {}
 
         # increase number of received samples
         self.num_processed_samples += 1
@@ -294,13 +279,9 @@ class GainSmootherFPGA(Module):
         #      record the state if needed
         # ================================================
         if record:
-            self.state_op["time_in"].append(time_in)
-            self.state_op["num_processed_samples"].append(self.num_processed_samples)
-            self.state_op["audio_in"].append(audio)
-            self.state_op["audio_out"].append(audio_out)
-            self.state_op["gain_high_res"].append(self.gain_high_res)
-            self.state_op["gain"].append(self.gain)
-            self.state_op["float_gain"].append(self.float_gain)
-            self.state_op["pga_gain_index"].append(pga_gain_index)
+            __rec = {
+                "time_in": time_in,
+                "pga_gain_index": pga_gain_index,
+            }
 
-        return audio_out
+        return audio_out, self.state(), __rec
