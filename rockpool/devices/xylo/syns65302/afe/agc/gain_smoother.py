@@ -208,13 +208,6 @@ class GainSmootherFPGA(Module):
 
         # check the start of the simulation and set the gain values in PGA
         if self.num_processed_samples == 0:
-            # integer gain to be used
-            self.gain_high_res = 1 << (self.avg_bitshift + self.num_bits_gain_fraction)
-            self.gain = self.gain_high_res >> self.avg_bitshift
-            self.float_gain = self.gain / (2**self.num_bits_gain_fraction)
-
-            # set the gain index
-            self.pga_current_gain_index = 0
 
             # ================================================
             #   create the state during the initialization
