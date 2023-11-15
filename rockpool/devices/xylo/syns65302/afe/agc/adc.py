@@ -267,8 +267,7 @@ class ADC(Module):
             )
         self.oversampling_factor = SimulationParameter(oversampling_factor, shape=())
 
-        self.fs = SimulationParameter(fs, shape=())
-
+        self.fs = fs
         self.oversampled_fs = SimulationParameter(
             self.fs * self.oversampling_factor, shape=()
         )
