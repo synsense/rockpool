@@ -9,6 +9,7 @@ from rockpool.devices.xylo.syns65302.afe.agc.envelope_controller import (
 from rockpool.devices.xylo.syns65302.afe.agc.gain_smoother import GainSmootherFPGA
 
 from rockpool.devices.xylo.syns65302.afe.params import (
+    AUDIO_SAMPLING_RATE,
     DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE,
     AMPLITUDE_THRESHOLDS,
     RELIABLE_MAX_HYSTERESIS,
@@ -19,7 +20,6 @@ from rockpool.devices.xylo.syns65302.afe.params import (
     FALL_TIME_CONSTANT,
     XYLO_MAX_AMP,
     EXP_PGA_GAIN_VEC,
-    AUDIO_SAMPLING_RATE,
 )
 
 __all__ = ["AGCADC"]
@@ -28,7 +28,7 @@ __all__ = ["AGCADC"]
 class AGCADC(Module):
     def __init__(
         self,
-        oversampling_factor: int = 1,
+        oversampling_factor: int = 2,
         enable_gain_smoother: bool = True,
         fixed_pga_gain_index: Optional[float] = None,
         pga_gain_index_variation: Optional[np.ndarray] = None,
@@ -38,6 +38,7 @@ class AGCADC(Module):
         ec_fall_time_constant: int = FALL_TIME_CONSTANT,
         ec_reliable_max_hysteresis: int = RELIABLE_MAX_HYSTERESIS,
         num_bits_gain_quantization=NUM_BITS_GAIN_QUANTIZATION,
+        target_fs: float = AUDIO_SAMPLING_RATE,
     ) -> None:
         super().__init__(shape=(1, 1), spiking_input=False, spiking_output=False)
 
@@ -58,7 +59,7 @@ class AGCADC(Module):
             # PGA_GAIN_IDX_CFG # [0-15] -> [1-32]
             max_audio_amplitude=XYLO_MAX_AMP,
             pga_gain_vec=EXP_PGA_GAIN_VEC,
-            fs=AUDIO_SAMPLING_RATE,
+            fs=target_fs * oversampling_factor,
         )
 
         ## - ADC
@@ -112,33 +113,40 @@ class AGCADC(Module):
         # AGC_CTRL2.AVG_BITSHIFT
         # AGC_CTRL2.NUM_BITS_GAIN_FRACTION
 
-        __submod_list = []
-        # reset all the modules
-        self.reset()
+        # modules = [self.adc, self.envelope_controller]
+        # if self.gain_smoother is not None:
+        #     modules.append(self.gain_smoother)
 
-    def reset(self) -> None:
-        self.amplifier.reset()
-        self.adc.reset()
-        self.envelope_controller.reset()
+        # oversampling_factors = np.asarray(
+        #     [module.fs / AUDIO_SAMPLING_RATE for module in modules]
+        # )
+
+        # self.amplifier_simulation_oversampling = self.amplifier.oversampling_factor / (
+        #     np.mean(oversampling_factors) * self.adc.oversampling_factor
+        # )
+
+    def reset_state(self) -> None:
+        self.amplifier.reset_state()
+        self.adc.reset_state()
+        self.envelope_controller.reset_state()
 
         # it may happen that we use or not use any gain smoothing
         if self.gain_smoother is not None:
-            self.gain_smoother.reset()
+            self.gain_smoother.reset_state()
 
-    @property
     def state(self) -> Dict[str, dict]:
         # accumulate all the states from all modules and return it
-        modules_inner_state = {
-            "amplifier": self.amplifier.state,
-            "adc": self.adc.state,
-            "envelope_controller": self.envelope_controller.state,
+        __state = {
+            "amplifier": self.amplifier.state(),
+            "adc": self.adc.state(),
+            "envelope_controller": self.envelope_controller.state(),
         }
 
         # check if there is any gain smoother
         if self.gain_smoother is not None:
-            modules_inner_state["gain_smoother"] = self.gain_smoother.state
+            __state["gain_smoother"] = self.gain_smoother.state()
 
-        return modules_inner_state
+        return __state
 
     def evolve(
         self, audio_in: Tuple[np.ndarray, float], record: bool = False
@@ -172,21 +180,17 @@ class AGCADC(Module):
         envelope = 0
         gain_smoother_out = 0
 
-        iterator = enumerate(audio)
-
         # flag for running the amplifier module faster than other modules
         num_samples_fed_to_amplifier = 0
         num_samples_received_from_adc = 0
 
-        for time_idx, sig_in in iterator:
+        for sig_in in audio:
             # input time instant
-            time_in = time_idx / sample_rate
 
             # produce amplifier output
             # NOTE: the old value of agc_pga_command computed in the past clock is used to produce amplifier output and ADC output
-            amplifier_out = self.amplifier.evolve(
+            amplifier_out, _, _ = self.amplifier.evolve(
                 audio=sig_in,
-                time_in=time_in,
                 pga_command=agc_pga_command,
                 record=record,
             )
@@ -194,18 +198,14 @@ class AGCADC(Module):
             # NOTE: since amplifier can have a higher clock (for better precision), it should be `self.amplifier_simulation_oversampling` times faster
             num_samples_fed_to_amplifier += 1
 
-            if (
-                num_samples_fed_to_amplifier % self.amplifier_simulation_oversampling
-            ) > 0:
-                # do not run the other modules since they have a smaller sampling rate, i.e., they should be run with a slower clock
-                continue
+            # if (
+            #     num_samples_fed_to_amplifier % self.amplifier_simulation_oversampling
+            # ) > 0:
+            #     # do not run the other modules since they have a smaller sampling rate, i.e., they should be run with a slower clock
+            #     continue
 
             # produce the ADC output and register the PGA gain used while ADC was quantizing the signal
-            adc_out = self.adc.evolve(
-                sig_in=amplifier_out,
-                time_in=time_in,
-                record=record,
-            )
+            adc_out, _, _ = self.adc.evolve(sig_in=amplifier_out, record=record)
 
             num_samples_received_from_adc += 1
 
@@ -223,9 +223,10 @@ class AGCADC(Module):
 
             # * run envelope controller
             # NOTE: PGA command is updated and sets the PGA gain value which will appear in the next clock
-            agc_pga_command, envelope = self.envelope_controller.evolve(
-                sig_in=adc_out, time_in=time_in, record=record
+            agc_pga_command, __state, __rec = self.envelope_controller.evolve(
+                sig_in=adc_out, record=record
             )
+            envelope = __state["envelope"]
 
             # compute/update the pga gain value as soon as the rising edge of the clock comes
             # NOTE: this new gain will be used in this clock and its effect will appear on ADC signal in the next clock
@@ -234,9 +235,8 @@ class AGCADC(Module):
 
             # use the ADC out and the command generated by PGA in gain smoother
             if self.gain_smoother is not None:
-                gain_smoother_out = self.gain_smoother.evolve(
+                gain_smoother_out, _, _ = self.gain_smoother.evolve(
                     audio=adc_out,
-                    time_in=time_in,
                     pga_gain_index=agc_pga_gain_index_used_in_adc,
                     record=record,
                 )
