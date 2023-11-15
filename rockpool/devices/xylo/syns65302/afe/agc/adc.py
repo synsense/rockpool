@@ -338,6 +338,8 @@ class ADC(Module):
         # compute the output of decimation filter
         if self.time_stamp % self.oversampling_factor == 0:
             self.decimation_filter_out = anti_aliasing_filter_out
+        else:
+            self.decimation_filter_out = None
 
         if record:
             __rec = {
