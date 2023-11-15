@@ -195,15 +195,6 @@ class AGCADC(Module):
                 record=record,
             )
 
-            # NOTE: since amplifier can have a higher clock (for better precision), it should be `self.amplifier_simulation_oversampling` times faster
-            num_samples_fed_to_amplifier += 1
-
-            # if (
-            #     num_samples_fed_to_amplifier % self.amplifier_simulation_oversampling
-            # ) > 0:
-            #     # do not run the other modules since they have a smaller sampling rate, i.e., they should be run with a slower clock
-            #     continue
-
             # produce the ADC output and register the PGA gain used while ADC was quantizing the signal
             adc_out, _, _ = self.adc.evolve(sig_in=amplifier_out, record=record)
 
