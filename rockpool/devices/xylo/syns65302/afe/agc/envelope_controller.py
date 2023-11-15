@@ -225,12 +225,11 @@ class EnvelopeController(Module):
         # NOTE: this is needed since the waiting time may keep extending
         self.num_samples_in_waiting_time = State(0, init_func=lambda _: 0, shape=())
 
-    def evolve(self, sig_in: int, time_in: float, record: bool = False):
+    def evolve(self, sig_in: int, record: bool = False):
         """this module updates the state of envelope estimator based on the input signal.
 
         Args:
             sig_in (int): input signal.
-            time_in (float): time of the input signal.
             record (bool, optional): record the state during the simulation. Defaults to False.
         """
 
@@ -305,15 +304,7 @@ class EnvelopeController(Module):
         # NOTE: that we register the state one-clock earlier since the new states with be calculated in this clock
         # and will appear in the next clock
         if record:
-            __rec = {
-                "time_in": time_in,
-                "sig_in": sig_in,
-                "sig_in_high_res": sig_in_high_res,
-                "envelope": self.envelope,
-                "registered_max_envelope_index": np.sum(
-                    self.amp_thresholds <= self.registered_max_envelope
-                ),
-            }
+            __rec = {"sig_in_high_res": sig_in_high_res}
         else:
             __rec = {}
 
