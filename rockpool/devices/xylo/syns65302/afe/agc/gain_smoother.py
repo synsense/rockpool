@@ -60,14 +60,9 @@ class GainSmootherFPGA(Module):
         self.num_bits = SimulationParameter(num_bits, shape=())
         """number of bits in the input signal"""
 
-        self.min_waiting_time = SimulationParameter(min_waiting_time, shape=())
-        """minimum waiting time in AGC design"""
-
-        self.fs = SimulationParameter(fs, shape=())
-        """clock rate of the module"""
-
         # - compute the bitshift level needed for implementing the gain smoothing low-pass filter
-        min_waiting_num_samples = int(self.min_waiting_time * self.fs)
+        self.fs = fs
+        min_waiting_num_samples = int(min_waiting_time * self.fs)
 
         # closest power of two smaller than this value
         min_waiting_num_samples = 2 ** (int(np.log2(min_waiting_num_samples)))
@@ -84,7 +79,7 @@ class GainSmootherFPGA(Module):
         """
 
         # number of bits used for sending the command from AGC to PGA
-        self.num_bits_command = SimulationParameter(num_bits_command, shape=())
+        self.num_bits_command = num_bits_command
 
         # check the gain ratios
         if pga_gain_vec is None:
@@ -106,9 +101,6 @@ class GainSmootherFPGA(Module):
         max_gain_ratio = np.max(self.pga_gain_vec[1:] / self.pga_gain_vec[:-1])
         num_bits_gain_integer = int(np.ceil(np.log2(max_gain_ratio)))
 
-        self.num_bits_gain_integer = SimulationParameter(
-            num_bits_gain_integer, shape=()
-        )
         """how many bits are needed for storing the integer part of this ratio"""
 
         self.num_bits_gain_quantization = SimulationParameter(
@@ -116,9 +108,7 @@ class GainSmootherFPGA(Module):
         )
         """total number of bits used for quantization"""
 
-        num_bits_gain_fraction = (
-            self.num_bits_gain_quantization - self.num_bits_gain_integer
-        )
+        num_bits_gain_fraction = self.num_bits_gain_quantization - num_bits_gain_integer
 
         self.num_bits_gain_fraction = SimulationParameter(
             num_bits_gain_fraction, shape=()
@@ -176,7 +166,6 @@ class GainSmootherFPGA(Module):
     def evolve(
         self,
         audio: int,
-        time_in: float,
         pga_gain_index: int,
         record: bool = False,
     ) -> Tuple[float, dict, dict]:
@@ -189,21 +178,14 @@ class GainSmootherFPGA(Module):
 
         Args:
             audio (int): quantized audio signal received from AGC.
-            time_in (float): time of the incoming signal.
-            pga_gain (float): gain of the PGA used for this sample of the signal.
             pga_gain_index (int): index of the PGA gain vector for this sample of the signal.
-            record (bool, optional): record the state during simulation.
+            record (bool, optional): dummy variable, to fit the rockpool module conventions
 
         Returns:
             audio_out (float): processed signal
             state (dict): state dictionary
-            rec (dict): record dictionary
+            rec (dict): empty dictionary
         """
-
-        if audio is None:
-            raise ValueError(
-                "the signal received from the ADC should be always valid! If PGA is in transient mode, ADC should keep repeating the last valid sample!"
-            )
 
         # check that the input type is indeed an integer
         if not isinstance(audio, (int, np.int64)):
@@ -275,15 +257,4 @@ class GainSmootherFPGA(Module):
         if audio_out < -maximum_amplitude_negative:
             audio_out = -maximum_amplitude_negative
 
-        # ================================================
-        #      record the state if needed
-        # ================================================
-        if record:
-            __rec = {
-                "time_in": time_in,
-                "pga_gain_index": pga_gain_index,
-            }
-        else:
-            __rec = {}
-
-        return audio_out, self.state(), __rec
+        return audio_out, self.state(), {}
