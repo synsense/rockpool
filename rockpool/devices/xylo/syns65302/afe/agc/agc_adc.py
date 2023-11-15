@@ -180,10 +180,6 @@ class AGCADC(Module):
         envelope = 0
         gain_smoother_out = 0
 
-        # flag for running the amplifier module faster than other modules
-        num_samples_fed_to_amplifier = 0
-        num_samples_received_from_adc = 0
-
         for sig_in in audio:
             # input time instant
 
@@ -197,12 +193,6 @@ class AGCADC(Module):
 
             # produce the ADC output and register the PGA gain used while ADC was quantizing the signal
             adc_out, _, _ = self.adc.evolve(sig_in=amplifier_out, record=record)
-
-            num_samples_received_from_adc += 1
-
-            # if adc is in oversampled mode, run the next modules with a lower clock
-            if num_samples_received_from_adc % self.adc.oversampling_factor > 0:
-                continue
 
             # * record the gain and the gain index that was used at this time slot
             # Note: that as soon as the new clock comes, gain index is updated by envelope controller but that gain index will be used for the current clock
