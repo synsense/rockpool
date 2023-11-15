@@ -85,8 +85,8 @@ bd_oversampling_1 = BlockDiagram(
     fs=1 * AUDIO_SAMPLING_RATE,
     a_taps=np.asarray([65536, 0, 0, 0, 0], dtype=np.int64),
     B_a=17,
-    B_af=16,
-    b_taps=np.asarray([256, 0, 0, 0, 0], dtype=np.int64),
+    B_af=14,
+    b_taps=np.asarray([64, 0, 0, 0, 0], dtype=np.int64),
     B_out=16,
     surplus=256,
 )
@@ -337,7 +337,7 @@ class ADC(Module):
         ) = self.anti_aliasing_filter.evolve(sig_in=sample_return)
 
         # compute the output of decimation filter
-        if self.time_stamp % self.oversampling_factor == 1:
+        if self.time_stamp % self.oversampling_factor == 0:
             self.decimation_filter_out = anti_aliasing_filter_out
 
         if record:
