@@ -2,6 +2,7 @@ from rockpool.nn.modules import Module
 from typing import Tuple, Dict, Optional
 import numpy as np
 from copy import copy
+import warnings
 from rockpool.devices.xylo.syns65302.afe.agc.amplifier import Amplifier
 from rockpool.devices.xylo.syns65302.afe.agc.adc import ADC
 from rockpool.devices.xylo.syns65302.afe.agc.envelope_controller import (
@@ -23,7 +24,7 @@ from rockpool.devices.xylo.syns65302.afe.params import (
     EXP_PGA_GAIN_VEC,
 )
 
-from rockpool.parameters import State
+from rockpool.parameters import SimulationParameter, State
 
 __all__ = ["AGCADC"]
 
@@ -45,6 +46,8 @@ class AGCADC(Module):
     ) -> None:
         super().__init__(shape=(1, 1), spiking_input=False, spiking_output=False)
 
+        self.fs = target_fs
+
         if fixed_pga_gain_index is None:
             fixed_gain_for_PGA_mode = False
             pga_command_in_fixed_gain_for_PGA_mode = (
@@ -54,6 +57,15 @@ class AGCADC(Module):
             fixed_gain_for_PGA_mode = True
             pga_command_in_fixed_gain_for_PGA_mode = fixed_pga_gain_index
 
+        ## - ADC
+        self.adc = ADC(
+            oversampling_factor=oversampling_factor,
+            max_audio_amplitude=XYLO_MAX_AMP,
+            fs=self.fs,
+        )
+
+        self.oversampled_fs = SimulationParameter(self.adc.oversampled_fs, shape=())
+
         ## - Amplifier
         self.amplifier = Amplifier(
             fixed_gain_for_PGA_mode=fixed_gain_for_PGA_mode,
@@ -62,15 +74,9 @@ class AGCADC(Module):
             # PGA_GAIN_IDX_CFG # [0-15] -> [1-32]
             max_audio_amplitude=XYLO_MAX_AMP,
             pga_gain_vec=EXP_PGA_GAIN_VEC,
-            fs=target_fs * oversampling_factor,
+            fs=self.adc.oversampled_fs,
         )
 
-        ## - ADC
-        self.adc = ADC(
-            oversampling_factor=oversampling_factor,
-            max_audio_amplitude=XYLO_MAX_AMP,
-            fs=AUDIO_SAMPLING_RATE,
-        )
         # AGC_CTRL1.AAF_OS_MODE (2**N)
         # [1-2-4]
 
@@ -100,7 +106,7 @@ class AGCADC(Module):
             pga_gain_index_variation=pga_gain_index_variation,
             # AGC_PGIV_REG0 + AGC_PGIV_REG1 + AGC_CTRL3
             # 3 bits (signed or unsigned?)
-            fs=AUDIO_SAMPLING_RATE,
+            fs=self.fs,
         )
 
         # gain_smoother: GainSmootherFPGA
@@ -109,7 +115,7 @@ class AGCADC(Module):
                 min_waiting_time=min(ec_waiting_time_vec),
                 num_bits_gain_quantization=num_bits_gain_quantization,
                 pga_gain_vec=EXP_PGA_GAIN_VEC,
-                fs=AUDIO_SAMPLING_RATE,
+                fs=self.fs,
             )
         else:
             self.gain_smoother = None
@@ -157,20 +163,33 @@ class AGCADC(Module):
     def evolve(
         self, audio_in: Tuple[np.ndarray, float], record: bool = False
     ) -> Tuple[np.ndarray, Dict, Dict]:
-        try:
-            audio, sample_rate = audio_in
+        audio, sample_rate = audio_in
+        # try:
+        #     audio, sample_rate = audio_in
 
-            if isinstance(audio, np.ndarray) and isinstance(sample_rate, (int, float)):
-                pass
-        except:
-            raise TypeError(
-                "`audio_in` should be a tuple consisting of a numpy array containing the audio and its sample rate!"
-            )
+        #     if isinstance(audio, np.ndarray) and isinstance(sample_rate, (int, float)):
+        #         pass
+        # except:
+        #     raise TypeError(
+        #         "`audio_in` should be a tuple consisting of a numpy array containing the audio and its sample rate!"
+        #     )
 
-        if audio.ndim != 1:
-            raise ValueError(
-                "only single-channel audio signals can be processed by the deltasigma modulator in PDM microphone!"
+        # if audio.ndim != 1:
+        #     raise ValueError(
+        #         "only single-channel audio signals can be processed by the deltasigma modulator in PDM microphone!"
+        #     )
+
+        if sample_rate != self.oversampled_fs:
+            warnings.warn(
+                f"Resampling! Sample rate given = {sample_rate}, sample rate required = {self.oversampled_fs}"
             )
+            time_in = np.arange(len(audio)) / sample_rate
+            duration = (len(audio) - 1) / sample_rate
+            time_target = np.arange(0, duration, step=1 / self.oversampled_fs)
+            audio_resampled = np.interp(time_target, time_in, audio)
+
+            # replace the original signal
+            audio = audio_resampled
 
         if record:
             __rec = {
@@ -198,6 +217,8 @@ class AGCADC(Module):
 
             # produce the ADC output and register the PGA gain used while ADC was quantizing the signal
             __out, adc_state, _ = self.adc.evolve(sig_in=__out, record=record)
+            if __out is None:
+                continue
             if record:
                 __rec["adc"].append(copy(__out))
 
