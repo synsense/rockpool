@@ -13,12 +13,12 @@ This file implements the analog input path for Xylo-A3, which starts from an ana
         To solve this issue, we have added the gain smoother module, which makes sure that the gain transition from $g_i$ to $g_j$ happens smoothly in time so that the transient effect is not problematic.
 
 """
+import logging
 import warnings
 from copy import copy
 from typing import Dict, Optional, Tuple
 
 import numpy as np
-import logging
 
 from rockpool.devices.xylo.syns65302.afe.agc.adc import ADC
 from rockpool.devices.xylo.syns65302.afe.agc.amplifier import Amplifier
@@ -32,16 +32,16 @@ from rockpool.devices.xylo.syns65302.afe.params import (
     DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE,
     EXP_PGA_GAIN_VEC,
     FALL_TIME_CONSTANT,
+    HIGH_PASS_CORNER,
+    LOW_PASS_CORNER,
+    NUM_BITS_AGC_ADC,
+    NUM_BITS_COMMAND,
     NUM_BITS_GAIN_QUANTIZATION,
     PGA_GAIN_INDEX_VARIATION,
     RELIABLE_MAX_HYSTERESIS,
     RISE_TIME_CONSTANT,
     WAITING_TIME_VEC,
     XYLO_MAX_AMP,
-    NUM_BITS_AGC_ADC,
-    HIGH_PASS_CORNER,
-    LOW_PASS_CORNER,
-    NUM_BITS_COMMAND,
 )
 from rockpool.nn.modules import Module
 from rockpool.parameters import SimulationParameter, State
