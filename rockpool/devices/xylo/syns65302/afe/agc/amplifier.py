@@ -4,18 +4,18 @@ to switch the amplitudes abruptly if its gain changes.
 """
 
 import numpy as np
-from rockpool.nn.modules import Module
-from rockpool.parameters import State, SimulationParameter
 
 from rockpool.devices.xylo.syns65302.afe.params import (
     AUDIO_SAMPLING_RATE,
-    XYLO_MAX_AMP,
+    DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE,
+    EXP_PGA_GAIN_VEC,
     HIGH_PASS_CORNER,
     LOW_PASS_CORNER,
-    EXP_PGA_GAIN_VEC,
-    DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE,
     NUM_BITS_COMMAND,
+    XYLO_MAX_AMP,
 )
+from rockpool.nn.modules import Module
+from rockpool.parameters import SimulationParameter, State
 
 __all__ = ["Amplifier"]
 
