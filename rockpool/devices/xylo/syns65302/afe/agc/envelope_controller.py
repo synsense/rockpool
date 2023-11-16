@@ -3,25 +3,25 @@ This module implements a new controller for adjusting the gain based on the enve
 """
 
 
-import numpy as np
-from typing import Any, Optional
 import warnings
+from typing import Any, Optional
 
-from rockpool.nn.modules import Module
-from rockpool.parameters import SimulationParameter, State
+import numpy as np
 
 from rockpool.devices.xylo.syns65302.afe.params import (
-    NUM_BITS_AGC_ADC,
-    AUDIO_SAMPLING_RATE,
     AMPLITUDE_THRESHOLDS,
-    NUM_BITS_COMMAND,
-    RISE_TIME_CONSTANT,
+    AUDIO_SAMPLING_RATE,
     FALL_TIME_CONSTANT,
-    WAITING_TIME_VEC,
-    RELIABLE_MAX_HYSTERESIS,
-    PGA_GAIN_INDEX_VARIATION,
     MAX_WAITING_TIME_BEFORE_GAIN_CHANGE,
+    NUM_BITS_AGC_ADC,
+    NUM_BITS_COMMAND,
+    PGA_GAIN_INDEX_VARIATION,
+    RELIABLE_MAX_HYSTERESIS,
+    RISE_TIME_CONSTANT,
+    WAITING_TIME_VEC,
 )
+from rockpool.nn.modules import Module
+from rockpool.parameters import SimulationParameter, State
 
 
 class EnvelopeController(Module):
