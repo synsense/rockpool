@@ -1,35 +1,59 @@
-from rockpool.nn.modules import Module
-from typing import Tuple, Dict, Optional
-import numpy as np
-from copy import copy
+"""
+This file implements the analog input path for Xylo-A3, which starts from an analog microphone and consists of several preprocessing modules.
+
+    - `PGA (programmable gain amplifier)`: This gain of the amplifier can be controlled by the 4-bit command sent from `envelope controller` module. 
+        So using PGA we can have one of the following gains $g_1, g_2, \dots, g_{16}$. In our design, we set $g_1=1$ and $g_{16}=64$ giving a total maximum gain of 36 dB. 
+    - `ADC (anaolg to digital converter)`: this module takes the signal amplified with PGA and quantizes it into `num_bits = 10` bits. 
+        So the signed output can be in the range $-2^{\text{num-bits - 1}} = -512, \dots, 2^\text{num-bits - 1}-1 = 511$. 
+    - `EC (envelope controller)`: This module observes the `num-bits=10` bit quantized signal from ADC and makes processing as we explain in a moment to decide if the gain needs to be increased or decreased and how it should happen. 
+        The output of this module is a 4-bit command that informs PGA and other modules of what is the best gain that should be selected for the next time steps.
+    - `GS (gain smoother)`: One of the problems with AGC is that the PGA part has to be implemented in the analog domain. 
+        As a result, we cannot vary the desired gain very smoothly. In particular, when the gain changes from some $g_i$ to some $g_j$ the output undergoes a jump of size $\frac{g_j}{g_i} - 1$. 
+        This sudden jump in gain may create transient effects in the filters in the filterbank following AGC. 
+        To solve this issue, we have added the gain smoother module, which makes sure that the gain transition from $g_i$ to $g_j$ happens smoothly in time so that the transient effect is not problematic.
+
+"""
 import warnings
-from rockpool.devices.xylo.syns65302.afe.agc.amplifier import Amplifier
+from copy import copy
+from typing import Dict, Optional, Tuple
+
+import numpy as np
+
 from rockpool.devices.xylo.syns65302.afe.agc.adc import ADC
+from rockpool.devices.xylo.syns65302.afe.agc.amplifier import Amplifier
 from rockpool.devices.xylo.syns65302.afe.agc.envelope_controller import (
     EnvelopeController,
 )
 from rockpool.devices.xylo.syns65302.afe.agc.gain_smoother import GainSmootherFPGA
-
 from rockpool.devices.xylo.syns65302.afe.params import (
+    AMPLITUDE_THRESHOLDS,
     AUDIO_SAMPLING_RATE,
     DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE,
-    AMPLITUDE_THRESHOLDS,
-    RELIABLE_MAX_HYSTERESIS,
-    WAITING_TIME_VEC,
-    PGA_GAIN_INDEX_VARIATION,
-    NUM_BITS_GAIN_QUANTIZATION,
-    RISE_TIME_CONSTANT,
-    FALL_TIME_CONSTANT,
-    XYLO_MAX_AMP,
     EXP_PGA_GAIN_VEC,
+    FALL_TIME_CONSTANT,
+    NUM_BITS_GAIN_QUANTIZATION,
+    PGA_GAIN_INDEX_VARIATION,
+    RELIABLE_MAX_HYSTERESIS,
+    RISE_TIME_CONSTANT,
+    WAITING_TIME_VEC,
+    XYLO_MAX_AMP,
 )
-
+from rockpool.nn.modules import Module
 from rockpool.parameters import SimulationParameter, State
 
 __all__ = ["AGCADC"]
 
 
 class AGCADC(Module):
+    """
+    Automatic Gain Controller Analog-to-Digital (ADC) module for Xylo-A3 chip consisting of
+
+        (i)   Programmable gain amplifier (PGA), used for signal amplification.
+        (ii)  ADC module, used for quantizing the PGA output.
+        (iii) EnvelopeController module, used for detecting the envelope of the signal and adjusting it based on the gain-commands. It sends to PGA to adjust the gain.
+        (iv)  GainSmootherFPGA, optional module, used to smooth out the gain to avoid gain jumps
+    """
+
     def __init__(
         self,
         oversampling_factor: int = 2,
