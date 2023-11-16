@@ -202,6 +202,19 @@ class AGCADC(Module):
     def evolve(
         self, audio_in: Tuple[np.ndarray, float], record: bool = False
     ) -> Tuple[np.ndarray, Dict, Dict]:
+        """
+        Takes a input audio signal and simulates the behavior of the analog input path of Xylo-A3 chip.
+
+        Args:
+            audio_in (Tuple[np.ndarray, float]): A tuple containing the input audio signal and its sampling rate.
+            record (bool, optional): A flag to record the intermediate results of the sub-modules. Defaults to False.
+
+        Returns:
+            Tuple[np.ndarray, Dict, Dict]:
+                output audio signal,
+                current state of the module,
+                record dictionary containing the intermediate results of the sub-modules.
+        """
         try:
             audio, sample_rate = audio_in
 
