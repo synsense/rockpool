@@ -65,9 +65,26 @@ class AGCADC(Module):
         ec_rise_time_constant: int = RISE_TIME_CONSTANT,
         ec_fall_time_constant: int = FALL_TIME_CONSTANT,
         ec_reliable_max_hysteresis: int = RELIABLE_MAX_HYSTERESIS,
-        num_bits_gain_quantization=NUM_BITS_GAIN_QUANTIZATION,
+        num_bits_gain_quantization: int = NUM_BITS_GAIN_QUANTIZATION,
         target_fs: float = AUDIO_SAMPLING_RATE,
     ) -> None:
+        """
+        Args:
+            oversampling_factor (int, optional): oversampling factor of the high-rate ADC. Defaults to 2.
+                Warning! Only `1`, `2` and `4` are feasible values regarding the current implementation.
+            enable_gain_smoother (bool, optional): Enables the gain smoother. Defaults to True.
+            fixed_pga_gain_index (Optional[float], optional): When it's not None, it effectively by-passes `Envelope Controller` and provides a fixed gain command to the amplifier. Defaults to None.
+                Warning! Values between [0-15] (inclusive) are feasible regarding the current implementation.
+            pga_gain_index_variation (Optional[np.ndarray], optional): Sets how much the `pga_gain_index` should be varied (increases, decreased, kept fixed) to track the signal amplitude.
+                Defaults to -1: saturation, 0,0: 2 levels below saturation, +1: remaining regions, check PGA_GAIN_INDEX_VARIATION. Defaults to PGA_GAIN_INDEX_VARIATION.
+            ec_amplitude_thresholds (Optional[np.ndarray], optional): sequence of amplitude thresholds specifying the amplitude regions of the signal envelope in the `Envelope Controller`. Defaults to AMPLITUDE_THRESHOLDS.
+            ec_waiting_time_vec (Optional[np.ndarray], optional): Specify how much waiting time (in seconds) is needed before varying the gain. Defaults to a square-root pattern with higher gains/amplitudes having larger waiting times. Defaults to WAITING_TIME_VEC.
+            ec_rise_time_constant (int, optional): Reaction time-constant of the envelope detection when the signal is rising. Defaults to RISE_TIME_CONSTANT = 0.1e-3.
+            ec_fall_time_constant (int, optional): Reaction time-constant of the envelope detection when the signal is falling. Defaults to FALL_TIME_CONSTANT = 300e-3.
+            ec_reliable_max_hysteresis (int, optional): Specify how much rise in maximum envelope is needed before a new maximum (thus, a new context) is identified.. Defaults to RELIABLE_MAX_HYSTERESIS.
+            num_bits_gain_quantization (int, optional): Number of bits used for quantizing the gain ratios, effective only when `enable_gain_smoother = True`. Defaults to NUM_BITS_GAIN_QUANTIZATION.
+            target_fs (float, optional): Target output sampling or clock rate of the module. Defaults to AUDIO_SAMPLING_RATE.
+        """
         super().__init__(shape=(1, 1), spiking_input=False, spiking_output=False)
 
         self.fs = target_fs
