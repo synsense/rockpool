@@ -24,7 +24,7 @@ from rockpool.nn.modules import Module
 from rockpool.parameters import SimulationParameter, State
 
 
-class GainSmootherFPGA(Module):
+class GainSmoother(Module):
     """
     Applies gain smoothing so that there is no jump in signal amplitude when gain is switched.
 
