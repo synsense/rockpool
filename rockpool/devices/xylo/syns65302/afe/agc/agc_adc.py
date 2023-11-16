@@ -24,7 +24,7 @@ from rockpool.devices.xylo.syns65302.afe.agc.amplifier import Amplifier
 from rockpool.devices.xylo.syns65302.afe.agc.envelope_controller import (
     EnvelopeController,
 )
-from rockpool.devices.xylo.syns65302.afe.agc.gain_smoother import GainSmootherFPGA
+from rockpool.devices.xylo.syns65302.afe.agc.gain_smoother import GainSmoother
 from rockpool.devices.xylo.syns65302.afe.params import (
     AMPLITUDE_THRESHOLDS,
     AUDIO_SAMPLING_RATE,
@@ -37,6 +37,10 @@ from rockpool.devices.xylo.syns65302.afe.params import (
     RISE_TIME_CONSTANT,
     WAITING_TIME_VEC,
     XYLO_MAX_AMP,
+    NUM_BITS_AGC_ADC,
+    HIGH_PASS_CORNER,
+    LOW_PASS_CORNER,
+    NUM_BITS_COMMAND,
 )
 from rockpool.nn.modules import Module
 from rockpool.parameters import SimulationParameter, State
@@ -51,14 +55,15 @@ class AGCADC(Module):
         (i)   Programmable gain amplifier (PGA), used for signal amplification.
         (ii)  ADC module, used for quantizing the PGA output.
         (iii) EnvelopeController module, used for detecting the envelope of the signal and adjusting it based on the gain-commands. It sends to PGA to adjust the gain.
-        (iv)  GainSmootherFPGA, optional module, used to smooth out the gain to avoid gain jumps
+        (iv)  GainSmoother, optional module, used to smooth out the gain to avoid gain jumps
     """
 
     def __init__(
         self,
         oversampling_factor: int = 2,
         enable_gain_smoother: bool = True,
-        fixed_pga_gain_index: Optional[float] = None,
+        fixed_gain_for_PGA_mode: bool = False,
+        fixed_pga_gain_index: int = DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE,
         pga_gain_index_variation: Optional[np.ndarray] = None,
         ec_amplitude_thresholds: Optional[np.ndarray] = None,
         ec_waiting_time_vec: Optional[np.ndarray] = None,
@@ -66,62 +71,44 @@ class AGCADC(Module):
         ec_fall_time_constant: int = FALL_TIME_CONSTANT,
         ec_reliable_max_hysteresis: int = RELIABLE_MAX_HYSTERESIS,
         num_bits_gain_quantization: int = NUM_BITS_GAIN_QUANTIZATION,
-        target_fs: float = AUDIO_SAMPLING_RATE,
+        fs: float = AUDIO_SAMPLING_RATE,
     ) -> None:
         """
         Args:
             oversampling_factor (int, optional): oversampling factor of the high-rate ADC. Defaults to 2.
                 Warning! Only `1`, `2` and `4` are feasible values regarding the current implementation.
+                Sets `AGC_CTRL1.AAF_OS_MODE` register (2**N)
             enable_gain_smoother (bool, optional): Enables the gain smoother. Defaults to True.
-            fixed_pga_gain_index (Optional[float], optional): When it's not None, it effectively by-passes `Envelope Controller` and provides a fixed gain command to the amplifier. Defaults to None.
+                Sets `AGC_CTRL1.GS_DIACT` bit
+            fixed_gain_for_PGA_mode (bool, optional): When it's True, it effectively by-passes `Envelope Controller` and provides a fixed gain command to the amplifier. Defaults to False.
+                Sets `AGC_CTRL1.PGA_GAIN_BYPASS` register
+            fixed_pga_gain_index (int, optional): Which gain index should be used as the default one in the fixed gain mode of PGA, effective when `fixed_gain_for_PGA_mode=True`. Defaults to None.
                 Warning! Values between [0-15] (inclusive) are feasible regarding the current implementation.
+                Sets `AGC_CTRL1.PGA_GAIN_IDX_CFG` register
             pga_gain_index_variation (Optional[np.ndarray], optional): Sets how much the `pga_gain_index` should be varied (increases, decreased, kept fixed) to track the signal amplitude.
                 Defaults to -1: saturation, 0,0: 2 levels below saturation, +1: remaining regions, check PGA_GAIN_INDEX_VARIATION. Defaults to PGA_GAIN_INDEX_VARIATION.
+                Sets AGC_PGIV_REG0 + AGC_PGIV_REG1 + AGC_CTRL2.PGIV16 (3 bits each,signed) registers
             ec_amplitude_thresholds (Optional[np.ndarray], optional): sequence of amplitude thresholds specifying the amplitude regions of the signal envelope in the `Envelope Controller`. Defaults to AMPLITUDE_THRESHOLDS.
+                Sets `AGC_AT_REG0 - AGC_AT_REG7` [10 bit x2 each]. Two thresholds fit in one register§
             ec_waiting_time_vec (Optional[np.ndarray], optional): Specify how much waiting time (in seconds) is needed before varying the gain. Defaults to a square-root pattern with higher gains/amplitudes having larger waiting times. Defaults to WAITING_TIME_VEC.
+                Sets `AGC_WT0 - AGC_WT15` registers, 24 bits each.
+                Indirectly sets 24 bits `AGC_CTRL3.MAX_NUM_SAMPLE` since `max_waiting_time_before_gain_change = max(ec_waiting_time_vec)`
+                Indirectly sets `AGC_CTRL2.AVG_BITSHIFT` since `gain_smoother.min_waiting_time=min(ec_waiting_time_vec)`
             ec_rise_time_constant (int, optional): Reaction time-constant of the envelope detection when the signal is rising. Defaults to RISE_TIME_CONSTANT = 0.1e-3.
+                Sets `AGC_CTRL1.RISE_AVG_BITSHIFT` register, 5 bits
             ec_fall_time_constant (int, optional): Reaction time-constant of the envelope detection when the signal is falling. Defaults to FALL_TIME_CONSTANT = 300e-3.
+                Sets `AGC_CTRL1.FALL_AVG_BITSHIFT` register, 5 bits
             ec_reliable_max_hysteresis (int, optional): Specify how much rise in maximum envelope is needed before a new maximum (thus, a new context) is identified.. Defaults to RELIABLE_MAX_HYSTERESIS.
+                Sets `AGC_CTRL2.RELI_MAX_HYSTR` register, 10 bits
             num_bits_gain_quantization (int, optional): Number of bits used for quantizing the gain ratios, effective only when `enable_gain_smoother = True`. Defaults to NUM_BITS_GAIN_QUANTIZATION.
-            target_fs (float, optional): Target output sampling or clock rate of the module. Defaults to AUDIO_SAMPLING_RATE.
+                Sets `AGC_CTRL2.NUM_BITS_GAIN_FRACTION` (4 bits)
+            fs (float, optional): Target output sampling or clock rate of the module. Defaults to AUDIO_SAMPLING_RATE.
         """
         super().__init__(shape=(1, 1), spiking_input=False, spiking_output=False)
 
-        self.fs = target_fs
+        self.fs = fs
 
-        if fixed_pga_gain_index is None:
-            fixed_gain_for_PGA_mode = False
-            pga_command_in_fixed_gain_for_PGA_mode = (
-                DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE
-            )
-        else:
-            fixed_gain_for_PGA_mode = True
-            pga_command_in_fixed_gain_for_PGA_mode = fixed_pga_gain_index
-
-        ## - ADC
-        self.adc = ADC(
-            oversampling_factor=oversampling_factor,
-            max_audio_amplitude=XYLO_MAX_AMP,
-            fs=self.fs,
-        )
-
-        self.oversampled_fs = SimulationParameter(self.adc.oversampled_fs, shape=())
-
-        ## - Amplifier
-        self.amplifier = Amplifier(
-            fixed_gain_for_PGA_mode=fixed_gain_for_PGA_mode,
-            # PGA_GAIN_BYPASS
-            pga_command_in_fixed_gain_for_PGA_mode=pga_command_in_fixed_gain_for_PGA_mode,
-            # PGA_GAIN_IDX_CFG # [0-15] -> [1-32]
-            max_audio_amplitude=XYLO_MAX_AMP,
-            pga_gain_vec=EXP_PGA_GAIN_VEC,
-            fs=self.adc.oversampled_fs,
-        )
-
-        # AGC_CTRL1.AAF_OS_MODE (2**N)
-        # [1-2-4]
-
-        ## - Envelope Controller
+        ## - Set default arrays
         if ec_amplitude_thresholds is None:
             ec_amplitude_thresholds = AMPLITUDE_THRESHOLDS
         if ec_waiting_time_vec is None:
@@ -129,61 +116,63 @@ class AGCADC(Module):
         if pga_gain_index_variation is None:
             pga_gain_index_variation = PGA_GAIN_INDEX_VARIATION
 
-        self.envelope_controller = EnvelopeController(
-            amplitude_thresholds=ec_amplitude_thresholds,
-            # AGC_AT_REG0 - AGC_AT_REG7 [10 bit each]
-            # rise_time_constant = ,
-            # RISE_AVG_BITSHIFT 5 bits
-            rise_time_constant=ec_rise_time_constant,
-            # fall_time_constant = ,
-            # FALL_AVG_BITSHIFT 5 bits
-            fall_time_constant=ec_fall_time_constant,
-            reliable_max_hysteresis=ec_reliable_max_hysteresis,
-            # AGC_CTRL2.RELI_MAX_HYSTR
-            waiting_time_vec=ec_waiting_time_vec,
-            # AGC_WT0 - AGC_WT15
-            max_waiting_time_before_gain_change=max(ec_waiting_time_vec),
-            # AGC_CTRL3.MAX_NUM_SAMPLE
-            pga_gain_index_variation=pga_gain_index_variation,
-            # AGC_PGIV_REG0 + AGC_PGIV_REG1 + AGC_CTRL3
-            # 3 bits (signed or unsigned?)
+        # (ii) ADC
+        self.adc = ADC(
+            num_bits=NUM_BITS_AGC_ADC,
+            max_audio_amplitude=XYLO_MAX_AMP,
+            oversampling_factor=oversampling_factor,
             fs=self.fs,
         )
 
-        # gain_smoother: GainSmootherFPGA
+        self.oversampled_fs = SimulationParameter(self.adc.oversampled_fs, shape=())
+        """Sampling rate for the ADC front and the Amplifier"""
+
+        # (i) Amplifier
+        self.amplifier = Amplifier(
+            high_pass_corner=HIGH_PASS_CORNER,
+            low_pass_corner=LOW_PASS_CORNER,
+            max_audio_amplitude=XYLO_MAX_AMP,
+            pga_gain_vec=EXP_PGA_GAIN_VEC,
+            fixed_gain_for_PGA_mode=fixed_gain_for_PGA_mode,
+            pga_command_in_fixed_gain_for_PGA_mode=fixed_pga_gain_index,
+            fs=self.adc.oversampled_fs,
+        )
+
+        # (iii) Envelope Controller
+        self.envelope_controller = EnvelopeController(
+            num_bits=NUM_BITS_AGC_ADC,
+            amplitude_thresholds=ec_amplitude_thresholds,
+            rise_time_constant=ec_rise_time_constant,
+            fall_time_constant=ec_fall_time_constant,
+            reliable_max_hysteresis=ec_reliable_max_hysteresis,
+            waiting_time_vec=ec_waiting_time_vec,
+            max_waiting_time_before_gain_change=max(ec_waiting_time_vec),
+            pga_gain_index_variation=pga_gain_index_variation,
+            num_bits_command=NUM_BITS_COMMAND,
+            fs=self.fs,
+        )
+
+        # (iv) GainSmoother
         if enable_gain_smoother:
-            self.gain_smoother = GainSmootherFPGA(
+            self.gain_smoother = GainSmoother(
+                num_bits=NUM_BITS_AGC_ADC,
                 min_waiting_time=min(ec_waiting_time_vec),
-                num_bits_gain_quantization=num_bits_gain_quantization,
+                num_bits_command=NUM_BITS_COMMAND,
                 pga_gain_vec=EXP_PGA_GAIN_VEC,
+                num_bits_gain_quantization=num_bits_gain_quantization,
                 fs=self.fs,
             )
         else:
             self.gain_smoother = None
 
-        # State variables
+        # - State variables
         self.agc_pga_command = State(0, init_func=lambda _: 0, shape=())
-        # AGC_CTRL2.AVG_BITSHIFT
-        # AGC_CTRL2.NUM_BITS_GAIN_FRACTION
-
-        # modules = [self.adc, self.envelope_controller]
-        # if self.gain_smoother is not None:
-        #     modules.append(self.gain_smoother)
-
-        # oversampling_factors = np.asarray(
-        #     [module.fs / AUDIO_SAMPLING_RATE for module in modules]
-        # )
-
-        # self.amplifier_simulation_oversampling = self.amplifier.oversampling_factor / (
-        #     np.mean(oversampling_factors) * self.adc.oversampling_factor
-        # )
 
     def reset_state(self) -> None:
         self.amplifier.reset_state()
         self.adc.reset_state()
         self.envelope_controller.reset_state()
 
-        # it may happen that we use or not use any gain smoothing
         if self.gain_smoother is not None:
             self.gain_smoother.reset_state()
 
