@@ -189,6 +189,13 @@ class EnvelopeController(Module):
                 f"`pga_gain_index_variation` is not a valid jump vector between amplitude regions since it may trigger jumps to an invalid amplitude index (valid range: [0, {len(pga_gain_index_variation)})!"
             )
 
+        if np.any(np.abs(pga_gain_index_variation) > 3):
+            idx = np.where(np.abs(pga_gain_index_variation) > 3)
+            raise ValueError(
+                f"3 bits (signed) are allocated for each `pga_gain_index_variation` element! "
+                + f"idx = {idx[0]} is out of limits! pga_gain_index_variation[{idx[0]}] = {pga_gain_index_variation[idx]} "
+            )
+
         self.pga_gain_index_variation = SimulationParameter(
             pga_gain_index_variation, shape=(2**self.num_bits_command + 1,)
         )
