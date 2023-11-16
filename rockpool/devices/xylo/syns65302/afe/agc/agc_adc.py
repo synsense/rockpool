@@ -169,6 +169,10 @@ class AGCADC(Module):
         self.agc_pga_command = State(0, init_func=lambda _: 0, shape=())
 
     def reset_state(self) -> None:
+        """
+        Overrides the module state reset method to reset the states of all the sub-modules
+        """
+        super().reset_state()
         self.amplifier.reset_state()
         self.adc.reset_state()
         self.envelope_controller.reset_state()
@@ -177,8 +181,12 @@ class AGCADC(Module):
             self.gain_smoother.reset_state()
 
     def state(self) -> Dict[str, dict]:
+        """
+        Override the module state to include the states of all the sub-modules
+        """
         # accumulate all the states from all modules and return it
         __state = {
+            "self": super().state(),
             "amplifier": self.amplifier.state(),
             "adc": self.adc.state(),
             "envelope_controller": self.envelope_controller.state(),
