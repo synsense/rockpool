@@ -103,6 +103,11 @@ class GainSmootherFPGA(Module):
 
         """how many bits are needed for storing the integer part of this ratio"""
 
+        if num_bits_gain_quantization > 15:
+            raise ValueError(
+                "Number of bits for quantizing gain ratio should be <= 15!"
+            )
+
         self.num_bits_gain_quantization = SimulationParameter(
             num_bits_gain_quantization, shape=()
         )
