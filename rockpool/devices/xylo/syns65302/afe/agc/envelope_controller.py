@@ -10,7 +10,7 @@ import numpy as np
 
 from rockpool.devices.xylo.syns65302.afe.params import (
     AMPLITUDE_THRESHOLDS,
-    AUDIO_SAMPLING_RATE,
+    AUDIO_SAMPLING_RATE_AGC,
     FALL_TIME_CONSTANT,
     MAX_WAITING_TIME_BEFORE_GAIN_CHANGE,
     NUM_BITS_AGC_ADC,
@@ -40,7 +40,7 @@ class EnvelopeController(Module):
         max_waiting_time_before_gain_change: float = MAX_WAITING_TIME_BEFORE_GAIN_CHANGE,
         pga_gain_index_variation: Optional[np.ndarray] = None,
         num_bits_command: int = NUM_BITS_COMMAND,
-        fs: float = AUDIO_SAMPLING_RATE,
+        fs: float = AUDIO_SAMPLING_RATE_AGC,
     ):
         """
         Args:
