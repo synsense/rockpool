@@ -4,15 +4,12 @@ Please note that this module is NOT implemented in hardware as it is.
 Instead, the input spike registers of the SNN core `ISPKREG` accumulates spikes in the same way as this module does.
 It's important to use the same dt that this module generates to make sure to have a valid simulation!
 
-``dt = rate_downsample_factor / AUDIO_SAMPLING_RATE``
+``dt = rate_downsample_factor / AUDIO_SAMPLING_RATE_PDM``
 """
 
 # - Rockpool imports
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
-
-# target audio sampling rate
-from rockpool.devices.xylo.syns65302.afe.params import AUDIO_SAMPLING_RATE
 
 import numpy as np
 
@@ -29,17 +26,18 @@ class Raster(Module):
     def __init__(
         self,
         shape: Union[int, Tuple[int]],
+        fs: float,
         rate_downsample_factor: int = 2**6,
         max_num_spikes: int = 15,
-        fs: float = AUDIO_SAMPLING_RATE,
     ):
         """this class rasters the high clock-rate spikes produced by the spike generation module into a signal
         with a lower clock rate.
 
         Args:
+            shape (Union[int, Tuple[int]]): shape of the input spikes. If the input is a single channel, then the shape is an integer. Otherwise, it is a tuple of integers.
+            fs (float, optional): clock rate of the input spikes (around 48K ~ 50K).
             rate_downsample (int, optional): How much the spike rate is going to be reduced. Defaults to 2**6 (i.e. moving from around 50K down to around 800)
             max_num_spikes (int, optional): Maximum number of spikes transferred to the core SNN. Defaults to 15.
-            fs (float, optional): clock rate of the input spikes. Defaults to AUDIO_SAMPLING_RATE (around 48K ~ 50K).
 
         """
         super().__init__(shape=shape)
