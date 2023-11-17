@@ -8,7 +8,7 @@ See Also:
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
 import logging
 
@@ -38,7 +38,7 @@ if backend_available("samna"):
 else:
     InputInterfaceConfig = Any
 
-__all__ = ["AFESim", "AFESimExternal", "AFESimAGC", "AFESimPDM"]
+__all__ = ["AFESimExternal", "AFESimAGC", "AFESimPDM"]
 
 
 class RiskyInitializationError(Exception):
@@ -57,21 +57,22 @@ class AFESim(ModSequential):
     def __init__(
         self,
         input_mode: str,
-        select_filters: Optional[Tuple[int]] = None,
-        spike_gen_mode: str = "divisive_norm",
-        dn_rate_scale_bitshift: Optional[Tuple[int]] = (6, 0),
-        dn_low_pass_bitshift: Optional[int] = 12,
-        dn_EPS: Optional[Union[int, Tuple[int]]] = 1,
-        fixed_threshold_vec: Optional[Union[int, Tuple[int]]] = 2**27,
-        down_sampling_factor: int = 50,
-        audio_sampling_rate: float = AUDIO_SAMPLING_RATE_PDM,
+        select_filters: Optional[Tuple[int]],
+        spike_gen_mode: str,
+        dn_rate_scale_bitshift: Optional[Tuple[int]],
+        dn_low_pass_bitshift: Optional[int],
+        dn_EPS: Optional[Union[int, Tuple[int]]],
+        fixed_threshold_vec: Optional[Union[int, Tuple[int]]],
+        down_sampling_factor: int,
+        audio_sampling_rate: float,
         **kwargs,
     ) -> None:
         """
-        AFESim constructor
+        AFESim constructor, which is not supposed to be used directly. Use `AFESimExternal`, `AFESimAGC`, or `AFESimPDM` modules instead.
+        Raises `RiskyInitializationError` if the constructor is called directly.
 
         Args:
-            input_mode (str, optional): The input mode of the AFE. There are three ways to input audio, "external", "analog", "pdm". Defaults to "external".
+            input_mode (str): The input mode of the AFE. There are three ways to input audio, "external", "analog", "pdm".
                 When "external" is selected, one can feed the audio signal directly from the filter bank. It requires 14-bit QUANTIZED signal.
                 When "pdm" is selected, the PDM microphone path is simulated. It's used to convert the audio signal into 14-bit quantized signal.
                 When "analog" is selected, analog microphone and AGC are simulated. It's used to convert the audio signal into 14-bit quantized signal.
@@ -79,31 +80,31 @@ class AFESim(ModSequential):
                 NOTE : Selecting "pdm" or "analog" mode, one needs to provide a Tuple[np.ndarray, int] containing the signal and its sampling rate together.
                     With "external" mode, only the signal is required.
 
-            select_filters (Optional[Tuple[int]], optional): The indices of the filters to be used in the filter bank. Defaults to None: use all filters.
+            select_filters (Optional[Tuple[int]]): The indices of the filters to be used in the filter bank.
                 i.e. select_filters = (0,2,4,8,15) will use Filter 0, Filter 2, Filter 4, Filter 8, and Filter 15.
 
-            spike_gen_mode (str, optional): The spike generation mode of the AFE. There are two ways to generate spikes, "divisive_norm" and "threshold". Defaults to "divisive_norm".
+            spike_gen_mode (str): The spike generation mode of the AFE. There are two ways to generate spikes, "divisive_norm" and "threshold".
                 When "divisive_norm" is selected, adaptive thresholds apply, and `dn_rate_scale_bitshift`, `dn_low_pass_bitshift`, `dn_EPS` parameters are used.
                 When "threshold" is selected, fixed thresholds apply, and `fixed_threshold_vec` parameter is used.
                 For detailed information, please check `DivisiveNormalization` module
 
-            dn_rate_scale_bitshift (Optional[Tuple[int]], optional): Used only when `spike_gen_mode = "divisive_norm"`.
-                A tuple containing two bitshift values that determine how much the spike rate should be scaled compared with the sampling rate of the input audio. The first value is `b1` and the second is `b2`. Defaults to (6, 0).
+            dn_rate_scale_bitshift (Optional[Tuple[int]]): Used only when `spike_gen_mode = "divisive_norm"`.
+                A tuple containing two bitshift values that determine how much the spike rate should be scaled compared with the sampling rate of the input audio. The first value is `b1` and the second is `b2`.
                 A bitshift of size specified by the tuple as `(b1, b2)` yields a spike rate scaling of audio_sampling_rate/(2^b1 - 2^b2) where audio_sampling_rate is the sampling rate of the input audio.
                 A default value of (6, 0) yields an average of 1 (slightly larger than 1) spike per 2^6 - 1 (=63) clock periods. With a clock rate of around 50K -> around 800 ~ 1K spikes/sec per channel.
                 Use `.from_specification()` method to perform a parameter search for (b1,b2) values given the target scaling ratio.
 
             dn_low_pass_bitshift (Optional[int]): Used only when `spike_gen_mode = "divisive_norm"`.
-                Number of bitshifts used in low-pass filter implementation. A bitshift of size `b` implies an averaging window of `2^b` clock periods. Defaults to 12.
+                Number of bitshifts used in low-pass filter implementation. A bitshift of size `b` implies an averaging window of `2^b` clock periods.
                 The default value of 12, implies an averaging window of size 4096 clock periods. For an audio of clock rate 50K, this yields an averaging window of size 80 ms.
                 Use `.from_specification()` method to perform a parameter search for b values given the target averaging window size.
 
             dn_EPS (Optional[Union[int, Tuple[int]]]): Used only when `spike_gen_mode = "divisive_norm"`.
-                Lower bound on spike generation threshold. Defaults to 1.
+                Lower bound on spike generation threshold.
                 Using this parameter we can control the noise level in the sense that if average power in a channel is less than EPS, the spike rate of that channel is somehow diminished during spike generation.
 
             fixed_threshold_vec (Optional[Union[int, Tuple[int]]]): Used only when `spike_gen_mode = "threshold"`.
-                A tuple containing threshold values per channel which determine the spike generation threshold. Defaults to 2 ** (27) = 2 ** (14 - 1 + 8 + 6).
+                A tuple containing threshold values per channel which determine the spike generation threshold.
                 Thresholds of size `size_out`, in case of a singular value, broadcasted. These thresholds are used only when the `spike_gen_mode = "threshold"`.
                 The default value 2**27 ensures a spike rate of around 1K for an input sinusoid signal quantized to 14 bits.
 
@@ -116,11 +117,11 @@ class AFESim(ModSequential):
                     For a target rate of around 1K. e.g., 1 spike every 50 clock period for an audio of sampling rate 50K, then we need to choose a threshold as large as
                     `50 x 2^22 ~ 2^27`.
 
-            down_sampling_factor (int): Determines how many time-steps will be accumulated into a single time-step before feeding the data to the SNN core. Defaults to 50.
+            down_sampling_factor (int): Determines how many time-steps will be accumulated into a single time-step before feeding the data to the SNN core.
                 Resulting dt = 0.001024
                 Use `.from_specification()` method to perform a parameter search for down_sampling_factor value given the target dt.
 
-            audio_sampling_rate (float, optional): Sampling rate of the input audio. Defaults to AUDIO_SAMPLING_RATE_PDM.
+            audio_sampling_rate (float): Sampling rate of the input audio.
         """
         if self.__class__ is AFESim:
             raise RiskyInitializationError(
@@ -199,10 +200,10 @@ class AFESim(ModSequential):
         if input_mode == "external":
             __submod_list = [__filter_bank, __divisive_norm, __raster]
         elif input_mode == "pdm":
-            __pdm_mic = PDMADC(**kwargs)
+            __pdm_mic = PDMADC()
             __submod_list = [__pdm_mic, __filter_bank, __divisive_norm, __raster]
         elif input_mode == "analog":
-            __agc_mic = AGCADC(**kwargs)
+            __agc_mic = AGCADC(**kwargs, fs=audio_sampling_rate)
             __submod_list = [__agc_mic, __filter_bank, __divisive_norm, __raster]
 
         super().__init__(*__submod_list)
@@ -291,21 +292,21 @@ class AFESim(ModSequential):
     @classmethod
     def from_specification(
         cls,
+        audio_sampling_rate: float,
         select_filters: Optional[Tuple[int]] = None,
         spike_gen_mode: str = "divisive_norm",
-        input_mode: str = "external",
         rate_scale_factor: Optional[int] = 63,
         low_pass_averaging_window: Optional[float] = 84e-3,
         dn_EPS: Optional[Union[int, Tuple[int]]] = 1,
         fixed_threshold_vec: Optional[Union[int, Tuple[int]]] = None,
         dt: Optional[float] = 1024e-6,
-        audio_sampling_rate: float = AUDIO_SAMPLING_RATE_PDM,
         **kwargs,
     ) -> AFESim:
         """
         Create an instance of AFESim by specifying higher level parameters for AFESim.
 
         Args:
+            audio_sampling_rate (float): Check :py:class:`.AFESim.
             select_filters (Optional[Tuple[int]], optional): Check :py:class:`.AFESim`. Defaults to None.
             spike_gen_mode (str, optional): Check :py:class:`.AFESim`. Defaults to "divisive_norm".
             input_mode (str, optional): Check :py:class:`.AFESim`. Defaults to "external".
@@ -325,11 +326,11 @@ class AFESim(ModSequential):
                 Not always possible to obtain the exact value of `dt` due to the hardware constraints.
                 In such cases, the closest possible value is reported with an error message.
                 Note that a value within 6 decimal precision is accepted as equal.
-            audio_sampling_rate (float, optional): Check :py:class:`.AFESim`. Defaults to AUDIO_SAMPLING_RATE_PDM.
 
         Returns:
             AFESim: A AFESim instance constructed by specifying higher level parameters.
         """
+
         logger = logging.getLogger()
 
         # - Make reporting possible
@@ -339,7 +340,7 @@ class AFESim(ModSequential):
             else None
         )
         dn_low_pass_bitshift = (
-            cls.get_dn_low_pass_bitshift(low_pass_averaging_window)
+            cls.get_dn_low_pass_bitshift(audio_sampling_rate, low_pass_averaging_window)
             if low_pass_averaging_window is not None
             else None
         )
@@ -348,13 +349,11 @@ class AFESim(ModSequential):
         __obj = cls(
             select_filters=select_filters,
             spike_gen_mode=spike_gen_mode,
-            input_mode=input_mode,
             dn_rate_scale_bitshift=dn_rate_scale_bitshift,
             dn_low_pass_bitshift=dn_low_pass_bitshift,
             dn_EPS=dn_EPS,
             fixed_threshold_vec=fixed_threshold_vec,
             down_sampling_factor=down_sampling_factor,
-            audio_sampling_rate=audio_sampling_rate,
             **kwargs,
         )
 
@@ -573,9 +572,10 @@ class AFESim(ModSequential):
         raise NotImplementedError("To be implemented following `samna` support")
 
 
-class AFESimExternal(AFESim):
+class __AFESimCommon(AFESim):
     def __init__(
         self,
+        input_mode: str,
         select_filters: Optional[Tuple[int]] = None,
         spike_gen_mode: str = "divisive_norm",
         dn_rate_scale_bitshift: Optional[Tuple[int]] = (6, 0),
@@ -584,8 +584,51 @@ class AFESimExternal(AFESim):
         fixed_threshold_vec: Optional[Union[int, Tuple[int]]] = 2**27,
         down_sampling_factor: int = 50,
     ) -> None:
+        """
+        Args:
+            select_filters (Optional[Tuple[int]], optional): The indices of the filters to be used in the filter bank. Defaults to None: use all filters.
+                i.e. select_filters = (0,2,4,8,15) will use Filter 0, Filter 2, Filter 4, Filter 8, and Filter 15.
+
+            spike_gen_mode (str, optional): The spike generation mode of the AFE. There are two ways to generate spikes, "divisive_norm" and "threshold". Defaults to "divisive_norm".
+                When "divisive_norm" is selected, adaptive thresholds apply, and `dn_rate_scale_bitshift`, `dn_low_pass_bitshift`, `dn_EPS` parameters are used.
+                When "threshold" is selected, fixed thresholds apply, and `fixed_threshold_vec` parameter is used.
+                For detailed information, please check `DivisiveNormalization` module
+
+            dn_rate_scale_bitshift (Optional[Tuple[int]], optional): Used only when `spike_gen_mode = "divisive_norm"`.
+                A tuple containing two bitshift values that determine how much the spike rate should be scaled compared with the sampling rate of the input audio. The first value is `b1` and the second is `b2`. Defaults to (6, 0).
+                A bitshift of size specified by the tuple as `(b1, b2)` yields a spike rate scaling of audio_sampling_rate/(2^b1 - 2^b2) where audio_sampling_rate is the sampling rate of the input audio.
+                A default value of (6, 0) yields an average of 1 (slightly larger than 1) spike per 2^6 - 1 (=63) clock periods. With a clock rate of around 50K -> around 800 ~ 1K spikes/sec per channel.
+                Use `.from_specification()` method to perform a parameter search for (b1,b2) values given the target scaling ratio.
+
+            dn_low_pass_bitshift (Optional[int]): Used only when `spike_gen_mode = "divisive_norm"`.
+                Number of bitshifts used in low-pass filter implementation. A bitshift of size `b` implies an averaging window of `2^b` clock periods. Defaults to 12.
+                The default value of 12, implies an averaging window of size 4096 clock periods. For an audio of clock rate 50K, this yields an averaging window of size 80 ms.
+                Use `.from_specification()` method to perform a parameter search for b values given the target averaging window size.
+
+            dn_EPS (Optional[Union[int, Tuple[int]]]): Used only when `spike_gen_mode = "divisive_norm"`.
+                Lower bound on spike generation threshold. Defaults to 1.
+                Using this parameter we can control the noise level in the sense that if average power in a channel is less than EPS, the spike rate of that channel is somehow diminished during spike generation.
+
+            fixed_threshold_vec (Optional[Union[int, Tuple[int]]]): Used only when `spike_gen_mode = "threshold"`.
+                A tuple containing threshold values per channel which determine the spike generation threshold. Defaults to 2 ** (27) = 2 ** (14 - 1 + 8 + 6).
+                Thresholds of size `size_out`, in case of a singular value, broadcasted. These thresholds are used only when the `spike_gen_mode = "threshold"`.
+                The default value 2**27 ensures a spike rate of around 1K for an input sinusoid signal quantized to 14 bits.
+
+                .. seealso::
+                    How to set the value of threshold for a target spike rate?
+
+                    In the current implementation, input audio to filters has 14 bits which is further left-bit-shifted by 8 bits to improve numerical precision, thus, 22 bits.
+                    This implies that the output signal may have a maximum amplitude of at most `2^21 - 1 ~ 2^22`, for example, when fed by a sinusoid signal
+                    within the passband of the filter.
+                    For a target rate of around 1K. e.g., 1 spike every 50 clock period for an audio of sampling rate 50K, then we need to choose a threshold as large as
+                    `50 x 2^22 ~ 2^27`.
+
+            down_sampling_factor (int): Determines how many time-steps will be accumulated into a single time-step before feeding the data to the SNN core. Defaults to 50.
+                Resulting dt = 0.001024
+                Use `.from_specification()` method to perform a parameter search for down_sampling_factor value given the target dt.
+        """
         super().__init__(
-            input_mode="external",
+            input_mode=input_mode,
             select_filters=select_filters,
             spike_gen_mode=spike_gen_mode,
             dn_rate_scale_bitshift=dn_rate_scale_bitshift,
@@ -595,6 +638,44 @@ class AFESimExternal(AFESim):
             down_sampling_factor=down_sampling_factor,
             audio_sampling_rate=AUDIO_SAMPLING_RATE_PDM,
         )
+
+    @classmethod
+    def from_specification(
+        cls,
+        select_filters: Optional[Tuple[int]] = None,
+        spike_gen_mode: str = "divisive_norm",
+        rate_scale_factor: Optional[int] = 63,
+        low_pass_averaging_window: Optional[float] = 84e-3,
+        dn_EPS: Optional[Union[int, Tuple[int]]] = 1,
+        fixed_threshold_vec: Optional[Union[int, Tuple[int]]] = None,
+        dt: Optional[float] = 1024e-6,
+    ) -> __AFESimCommon:
+        return super().from_specification(
+            audio_sampling_rate=AUDIO_SAMPLING_RATE_PDM,
+            select_filters=select_filters,
+            spike_gen_mode=spike_gen_mode,
+            rate_scale_factor=rate_scale_factor,
+            low_pass_averaging_window=low_pass_averaging_window,
+            dn_EPS=dn_EPS,
+            fixed_threshold_vec=fixed_threshold_vec,
+            dt=dt,
+        )
+
+
+class AFESimExternal(__AFESimCommon):
+    """
+    AFESim module that simulates the audio signal preprocessing on Xylo A3 chip, processing an EXTERNAL signal.
+    It's mostly used for debugging purposes and it requires 14-bit QUANTIZED signal.
+    Bypasses the microphone paths. Uses neither the PDM microphone nor the analog microphone.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(input_mode="external", **kwargs)
+
+
+class AFESimPDM(__AFESimCommon):
+    def __init__(self, **kwargs):
+        super().__init__(input_mode="pdm", **kwargs)
 
 
 class AFESimAGC(AFESim):
@@ -641,27 +722,137 @@ class AFESimAGC(AFESim):
             num_bits_gain_quantization=num_bits_gain_quantization,
             audio_sampling_rate=AUDIO_SAMPLING_RATE_AGC,
         )
+        """
+        Args:
+            input_mode (str, optional): The input mode of the AFE. There are three ways to input audio, "external", "analog", "pdm". Defaults to "external".
+                When "external" is selected, one can feed the audio signal directly from the filter bank. It requires 14-bit QUANTIZED signal.
+                When "pdm" is selected, the PDM microphone path is simulated. It's used to convert the audio signal into 14-bit quantized signal.
+                When "analog" is selected, analog microphone and AGC are simulated. It's used to convert the audio signal into 14-bit quantized signal.
 
+                NOTE : Selecting "pdm" or "analog" mode, one needs to provide a Tuple[np.ndarray, int] containing the signal and its sampling rate together.
+                    With "external" mode, only the signal is required.
 
-class AFESimPDM(AFESim):
-    def __init__(
-        self,
+            select_filters (Optional[Tuple[int]], optional): The indices of the filters to be used in the filter bank. Defaults to None: use all filters.
+                i.e. select_filters = (0,2,4,8,15) will use Filter 0, Filter 2, Filter 4, Filter 8, and Filter 15.
+
+            spike_gen_mode (str, optional): The spike generation mode of the AFE. There are two ways to generate spikes, "divisive_norm" and "threshold". Defaults to "divisive_norm".
+                When "divisive_norm" is selected, adaptive thresholds apply, and `dn_rate_scale_bitshift`, `dn_low_pass_bitshift`, `dn_EPS` parameters are used.
+                When "threshold" is selected, fixed thresholds apply, and `fixed_threshold_vec` parameter is used.
+                For detailed information, please check `DivisiveNormalization` module
+
+            dn_rate_scale_bitshift (Optional[Tuple[int]], optional): Used only when `spike_gen_mode = "divisive_norm"`.
+                A tuple containing two bitshift values that determine how much the spike rate should be scaled compared with the sampling rate of the input audio. The first value is `b1` and the second is `b2`. Defaults to (6, 0).
+                A bitshift of size specified by the tuple as `(b1, b2)` yields a spike rate scaling of audio_sampling_rate/(2^b1 - 2^b2) where audio_sampling_rate is the sampling rate of the input audio.
+                A default value of (6, 0) yields an average of 1 (slightly larger than 1) spike per 2^6 - 1 (=63) clock periods. With a clock rate of around 50K -> around 800 ~ 1K spikes/sec per channel.
+                Use `.from_specification()` method to perform a parameter search for (b1,b2) values given the target scaling ratio.
+
+            dn_low_pass_bitshift (Optional[int]): Used only when `spike_gen_mode = "divisive_norm"`.
+                Number of bitshifts used in low-pass filter implementation. A bitshift of size `b` implies an averaging window of `2^b` clock periods. Defaults to 12.
+                The default value of 12, implies an averaging window of size 4096 clock periods. For an audio of clock rate 50K, this yields an averaging window of size 80 ms.
+                Use `.from_specification()` method to perform a parameter search for b values given the target averaging window size.
+
+            dn_EPS (Optional[Union[int, Tuple[int]]]): Used only when `spike_gen_mode = "divisive_norm"`.
+                Lower bound on spike generation threshold. Defaults to 1.
+                Using this parameter we can control the noise level in the sense that if average power in a channel is less than EPS, the spike rate of that channel is somehow diminished during spike generation.
+
+            fixed_threshold_vec (Optional[Union[int, Tuple[int]]]): Used only when `spike_gen_mode = "threshold"`.
+                A tuple containing threshold values per channel which determine the spike generation threshold. Defaults to 2 ** (27) = 2 ** (14 - 1 + 8 + 6).
+                Thresholds of size `size_out`, in case of a singular value, broadcasted. These thresholds are used only when the `spike_gen_mode = "threshold"`.
+                The default value 2**27 ensures a spike rate of around 1K for an input sinusoid signal quantized to 14 bits.
+
+                .. seealso::
+                    How to set the value of threshold for a target spike rate?
+
+                    In the current implementation, input audio to filters has 14 bits which is further left-bit-shifted by 8 bits to improve numerical precision, thus, 22 bits.
+                    This implies that the output signal may have a maximum amplitude of at most `2^21 - 1 ~ 2^22`, for example, when fed by a sinusoid signal
+                    within the passband of the filter.
+                    For a target rate of around 1K. e.g., 1 spike every 50 clock period for an audio of sampling rate 50K, then we need to choose a threshold as large as
+                    `50 x 2^22 ~ 2^27`.
+
+            down_sampling_factor (int): Determines how many time-steps will be accumulated into a single time-step before feeding the data to the SNN core. Defaults to 50.
+                Resulting dt = 0.001024
+                Use `.from_specification()` method to perform a parameter search for down_sampling_factor value given the target dt.
+
+            oversampling_factor (int, optional): oversampling factor of the high-rate ADC. Defaults to 2.
+                Warning! Only `1`, `2` and `4` are feasible values regarding the current implementation.
+                Sets `AGC_CTRL1.AAF_OS_MODE` register (2**N)
+
+            enable_gain_smoother (bool, optional): Enables the gain smoother. Defaults to True.
+                Sets `AGC_CTRL1.GS_DIACT` bit
+
+            fixed_gain_for_PGA_mode (bool, optional): When it's True, it effectively by-passes `Envelope Controller` and provides a fixed gain command to the amplifier. Defaults to False.
+                Sets `AGC_CTRL1.PGA_GAIN_BYPASS` register
+
+            fixed_pga_gain_index (int, optional): Which gain index should be used as the default one in the fixed gain mode of PGA, effective when `fixed_gain_for_PGA_mode=True`. Defaults to None.
+                Warning! Values between [0-15] (inclusive) are feasible regarding the current implementation.
+                Sets `AGC_CTRL1.PGA_GAIN_IDX_CFG` register
+
+            pga_gain_index_variation (Optional[np.ndarray], optional): Sets how much the `pga_gain_index` should be varied (increases, decreased, kept fixed) to track the signal amplitude.
+                Defaults to -1: saturation, 0,0: 2 levels below saturation, +1: remaining regions, check PGA_GAIN_INDEX_VARIATION. Defaults to PGA_GAIN_INDEX_VARIATION.
+                Sets AGC_PGIV_REG0 + AGC_PGIV_REG1 + AGC_CTRL2.PGIV16 (3 bits each,signed) registers
+
+            ec_amplitude_thresholds (Optional[np.ndarray], optional): sequence of amplitude thresholds specifying the amplitude regions of the signal envelope in the `Envelope Controller`. Defaults to AMPLITUDE_THRESHOLDS.
+                Sets `AGC_AT_REG0 - AGC_AT_REG7` [10 bit x2 each]. Two thresholds fit in one register§
+
+            ec_waiting_time_vec (Optional[np.ndarray], optional): Specify how much waiting time (in seconds) is needed before varying the gain. Defaults to a square-root pattern with higher gains/amplitudes having larger waiting times. Defaults to WAITING_TIME_VEC.
+                Sets `AGC_WT0 - AGC_WT15` registers, 24 bits each.
+                Indirectly sets 24 bits `AGC_CTRL3.MAX_NUM_SAMPLE` since `max_waiting_time_before_gain_change = max(ec_waiting_time_vec)`
+                Indirectly sets `AGC_CTRL2.AVG_BITSHIFT` since `gain_smoother.min_waiting_time=min(ec_waiting_time_vec)`
+
+            ec_rise_time_constant (int, optional): Reaction time-constant of the envelope detection when the signal is rising. Defaults to RISE_TIME_CONSTANT = 0.1e-3.
+                Sets `AGC_CTRL1.RISE_AVG_BITSHIFT` register, 5 bits
+
+            ec_fall_time_constant (int, optional): Reaction time-constant of the envelope detection when the signal is falling. Defaults to FALL_TIME_CONSTANT = 300e-3.
+                Sets `AGC_CTRL1.FALL_AVG_BITSHIFT` register, 5 bits
+
+            ec_reliable_max_hysteresis (int, optional): Specify how much rise in maximum envelope is needed before a new maximum (thus, a new context) is identified.. Defaults to RELIABLE_MAX_HYSTERESIS.
+                Sets `AGC_CTRL2.RELI_MAX_HYSTR` register, 10 bits
+
+            num_bits_gain_quantization (int, optional): Number of bits used for quantizing the gain ratios, effective only when `enable_gain_smoother = True`. Defaults to NUM_BITS_GAIN_QUANTIZATION.
+                Sets `AGC_CTRL2.NUM_BITS_GAIN_FRACTION` (4 bits)
+            
+        """
+
+    @classmethod
+    def from_specification(
+        cls,
         select_filters: Optional[Tuple[int]] = None,
         spike_gen_mode: str = "divisive_norm",
-        dn_rate_scale_bitshift: Optional[Tuple[int]] = (6, 0),
-        dn_low_pass_bitshift: Optional[int] = 12,
+        rate_scale_factor: Optional[int] = 63,
+        low_pass_averaging_window: Optional[float] = 84e-3,
         dn_EPS: Optional[Union[int, Tuple[int]]] = 1,
-        fixed_threshold_vec: Optional[Union[int, Tuple[int]]] = 2**27,
-        down_sampling_factor: int = 50,
-    ) -> None:
-        super().__init__(
-            input_mode="pdm",
+        fixed_threshold_vec: Optional[Union[int, Tuple[int]]] = None,
+        dt: Optional[float] = 1024e-6,
+        oversampling_factor: int = 2,
+        enable_gain_smoother: bool = True,
+        fixed_gain_for_PGA_mode: bool = False,
+        fixed_pga_gain_index: int = DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE,
+        pga_gain_index_variation: Optional[np.ndarray] = None,
+        ec_amplitude_thresholds: Optional[np.ndarray] = None,
+        ec_waiting_time_vec: Optional[np.ndarray] = None,
+        ec_rise_time_constant: int = RISE_TIME_CONSTANT,
+        ec_fall_time_constant: int = FALL_TIME_CONSTANT,
+        ec_reliable_max_hysteresis: int = RELIABLE_MAX_HYSTERESIS,
+        num_bits_gain_quantization: int = NUM_BITS_GAIN_QUANTIZATION,
+    ) -> AFESimAGC:
+        return super().from_specification(
+            audio_sampling_rate=AUDIO_SAMPLING_RATE_AGC,
             select_filters=select_filters,
             spike_gen_mode=spike_gen_mode,
-            dn_rate_scale_bitshift=dn_rate_scale_bitshift,
-            dn_low_pass_bitshift=dn_low_pass_bitshift,
+            rate_scale_factor=rate_scale_factor,
+            low_pass_averaging_window=low_pass_averaging_window,
             dn_EPS=dn_EPS,
             fixed_threshold_vec=fixed_threshold_vec,
-            down_sampling_factor=down_sampling_factor,
-            audio_sampling_rate=AUDIO_SAMPLING_RATE_PDM,
+            dt=dt,
+            oversampling_factor=oversampling_factor,
+            enable_gain_smoother=enable_gain_smoother,
+            fixed_gain_for_PGA_mode=fixed_gain_for_PGA_mode,
+            fixed_pga_gain_index=fixed_pga_gain_index,
+            pga_gain_index_variation=pga_gain_index_variation,
+            ec_amplitude_thresholds=ec_amplitude_thresholds,
+            ec_waiting_time_vec=ec_waiting_time_vec,
+            ec_rise_time_constant=ec_rise_time_constant,
+            ec_fall_time_constant=ec_fall_time_constant,
+            ec_reliable_max_hysteresis=ec_reliable_max_hysteresis,
+            num_bits_gain_quantization=num_bits_gain_quantization,
         )
