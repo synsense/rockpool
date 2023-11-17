@@ -6,7 +6,7 @@ to switch the amplitudes abruptly if its gain changes.
 import numpy as np
 
 from rockpool.devices.xylo.syns65302.afe.params import (
-    AUDIO_SAMPLING_RATE,
+    AUDIO_SAMPLING_RATE_AGC,
     DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE,
     EXP_PGA_GAIN_VEC,
     HIGH_PASS_CORNER,
@@ -51,7 +51,7 @@ class Amplifier(Module):
         pga_gain_vec: np.ndarray = None,
         fixed_gain_for_PGA_mode: bool = False,
         pga_command_in_fixed_gain_for_PGA_mode: int = DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE,
-        fs: float = AUDIO_SAMPLING_RATE,
+        fs: float = AUDIO_SAMPLING_RATE_AGC,
     ) -> None:
         """
         Args:
