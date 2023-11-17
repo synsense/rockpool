@@ -23,7 +23,7 @@ from typing import Any, Tuple
 import numpy as np
 
 from rockpool.devices.xylo.syns65302.afe.params import (
-    AUDIO_SAMPLING_RATE,
+    AUDIO_SAMPLING_RATE_AGC,
     NUM_BITS_AGC_ADC,
     XYLO_MAX_AMP,
 )
@@ -82,7 +82,7 @@ bd_oversampling_0 = None
 # this would be simply equivalent to an ordinary ADC without additional aliasing reduction via oversampling
 bd_oversampling_1 = BlockDiagram(
     oversampling_factor=1,
-    fs=1 * AUDIO_SAMPLING_RATE,
+    fs=1 * AUDIO_SAMPLING_RATE_AGC,
     a_taps=np.asarray([65536, 0, 0, 0, 0], dtype=np.int64),
     B_a=17,
     B_af=14,
@@ -93,7 +93,7 @@ bd_oversampling_1 = BlockDiagram(
 
 bd_oversampling_2 = BlockDiagram(
     oversampling_factor=2,
-    fs=2 * AUDIO_SAMPLING_RATE,
+    fs=2 * AUDIO_SAMPLING_RATE_AGC,
     a_taps=np.asarray([65536, -76101, 93600, -46155, 15598], dtype=np.int64),
     B_a=18,
     B_af=16,
@@ -106,7 +106,7 @@ bd_oversampling_3 = None
 
 bd_oversampling_4 = BlockDiagram(
     oversampling_factor=4,
-    fs=4 * AUDIO_SAMPLING_RATE,
+    fs=4 * AUDIO_SAMPLING_RATE_AGC,
     a_taps=np.asarray([32768, -93468, 113014, -65651, 15547], dtype=np.int64),
     B_a=18,
     B_af=15,
@@ -248,14 +248,14 @@ class ADC(Module):
         num_bits: int = NUM_BITS_AGC_ADC,
         max_audio_amplitude: float = XYLO_MAX_AMP,
         oversampling_factor: int = 1,
-        fs: float = AUDIO_SAMPLING_RATE,
+        fs: float = AUDIO_SAMPLING_RATE_AGC,
     ) -> None:
         """
         Args:
             num_bits (int, optional): number of bits in ADC. Defaults to 10 in current Xylo-A3 hardware.
             max_audio_amplitude (float, optional): maximum audio amplitude that can be handled within the chip. Defaults to XYLO_MAX_AMP.
             oversampling_factor (int, optional): oversampling factor of the high-rate ADC used in the implementation of ADC. Defaults to 1.
-            fs (float, optional): target sampling rate of the equivalent ADC (sampling rate of the audio). Defaults to AUDIO_SAMPLING_RATE.
+            fs (float, optional): target sampling rate of the equivalent ADC (sampling rate of the audio). Defaults to AUDIO_SAMPLING_RATE_AGC.
         """
         super().__init__(shape=(1, 1), spiking_input=False, spiking_output=False)
         self.num_bits = SimulationParameter(num_bits, shape=())
