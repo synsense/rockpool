@@ -17,6 +17,7 @@ from rockpool.devices.xylo.syns65302.afe.pdm.pdm_adc import PDMADC
 from rockpool.devices.xylo.syns65302.afe.divisive_normalization import (
     DivisiveNormalization,
 )
+from rockpool.devices.xylo.syns65302.afe.agc.agc_adc import AGCADC
 from rockpool.devices.xylo.syns65302.afe.params import (
     AUDIO_SAMPLING_RATE,
     MAX_SPIKES_INPUT,
@@ -31,7 +32,11 @@ if backend_available("samna"):
 else:
     InputInterfaceConfig = Any
 
-__all__ = ["AFESim"]
+__all__ = ["AFESim", "AFESimExternal", "AFESimAGC", "AFESimPDM"]
+
+
+class RiskyInitializationError(Exception):
+    pass
 
 
 class AFESim(ModSequential):
@@ -45,27 +50,20 @@ class AFESim(ModSequential):
 
     def __init__(
         self,
+        input_mode: str,
         select_filters: Optional[Tuple[int]] = None,
         spike_gen_mode: str = "divisive_norm",
-        input_mode: str = "external",
         dn_rate_scale_bitshift: Optional[Tuple[int]] = (6, 0),
         dn_low_pass_bitshift: Optional[int] = 12,
         dn_EPS: Optional[Union[int, Tuple[int]]] = 1,
         fixed_threshold_vec: Optional[Union[int, Tuple[int]]] = 2**27,
         down_sampling_factor: int = 50,
+        **kwargs,
     ) -> None:
         """
         AFESim constructor
 
         Args:
-            select_filters (Optional[Tuple[int]], optional): The indices of the filters to be used in the filter bank. Defaults to None: use all filters.
-                i.e. select_filters = (0,2,4,8,15) will use Filter 0, Filter 2, Filter 4, Filter 8, and Filter 15.
-
-            spike_gen_mode (str, optional): The spike generation mode of the AFE. There are two ways to generate spikes, "divisive_norm" and "threshold". Defaults to "divisive_norm".
-                When "divisive_norm" is selected, adaptive thresholds apply, and `dn_rate_scale_bitshift`, `dn_low_pass_bitshift`, `dn_EPS` parameters are used.
-                When "threshold" is selected, fixed thresholds apply, and `fixed_threshold_vec` parameter is used.
-                For detailed information, please check `DivisiveNormalization` module
-
             input_mode (str, optional): The input mode of the AFE. There are three ways to input audio, "external", "analog", "pdm". Defaults to "external".
                 When "external" is selected, one can feed the audio signal directly from the filter bank. It requires 14-bit QUANTIZED signal.
                 When "pdm" is selected, the PDM microphone path is simulated. It's used to convert the audio signal into 14-bit quantized signal.
@@ -73,6 +71,14 @@ class AFESim(ModSequential):
 
                 NOTE : Selecting "pdm" or "analog" mode, one needs to provide a Tuple[np.ndarray, int] containing the signal and its sampling rate together.
                     With "external" mode, only the signal is required.
+
+            select_filters (Optional[Tuple[int]], optional): The indices of the filters to be used in the filter bank. Defaults to None: use all filters.
+                i.e. select_filters = (0,2,4,8,15) will use Filter 0, Filter 2, Filter 4, Filter 8, and Filter 15.
+
+            spike_gen_mode (str, optional): The spike generation mode of the AFE. There are two ways to generate spikes, "divisive_norm" and "threshold". Defaults to "divisive_norm".
+                When "divisive_norm" is selected, adaptive thresholds apply, and `dn_rate_scale_bitshift`, `dn_low_pass_bitshift`, `dn_EPS` parameters are used.
+                When "threshold" is selected, fixed thresholds apply, and `fixed_threshold_vec` parameter is used.
+                For detailed information, please check `DivisiveNormalization` module
 
             dn_rate_scale_bitshift (Optional[Tuple[int]], optional): Used only when `spike_gen_mode = "divisive_norm"`.
                 A tuple containing two bitshift values that determine how much the spike rate should be scaled compared with the sampling rate of the input audio. The first value is `b1` and the second is `b2`. Defaults to (6, 0).
@@ -107,6 +113,10 @@ class AFESim(ModSequential):
                 Resulting dt = 0.001024
                 Use `.from_specification()` method to perform a parameter search for down_sampling_factor value given the target dt.
         """
+        if self.__class__ is AFESim:
+            raise RiskyInitializationError(
+                "It's not allowed to initialize AFESim directly! Use `AFESimAGC`, or `AFESimPDM` modules instead."
+            )
 
         __filter_bank = ChipButterworth(select_filters=select_filters)
         logger = logging.getLogger()
@@ -180,10 +190,11 @@ class AFESim(ModSequential):
         if input_mode == "external":
             __submod_list = [__filter_bank, __divisive_norm, __raster]
         elif input_mode == "pdm":
-            __pdm_mic = PDMADC()
+            __pdm_mic = PDMADC(**kwargs)
             __submod_list = [__pdm_mic, __filter_bank, __divisive_norm, __raster]
         elif input_mode == "analog":
-            raise NotImplementedError("Analog input mode is not supported yet!")
+            __agc_mic = AGCADC(**kwargs)
+            __submod_list = [__agc_mic, __filter_bank, __divisive_norm, __raster]
 
         super().__init__(*__submod_list)
 
@@ -331,6 +342,7 @@ class AFESim(ModSequential):
             dn_EPS=dn_EPS,
             fixed_threshold_vec=fixed_threshold_vec,
             down_sampling_factor=down_sampling_factor,
+            **kwargs,
         )
 
         def __report(
@@ -542,3 +554,76 @@ class AFESim(ModSequential):
 
     def export_config(self) -> Any:
         raise NotImplementedError("To be implemented following `samna` support")
+
+
+class AFESimExternal(AFESim):
+    def __init__(
+        self,
+        select_filters: Optional[Tuple[int]] = None,
+        spike_gen_mode: str = "divisive_norm",
+        dn_rate_scale_bitshift: Optional[Tuple[int]] = (6, 0),
+        dn_low_pass_bitshift: Optional[int] = 12,
+        dn_EPS: Optional[Union[int, Tuple[int]]] = 1,
+        fixed_threshold_vec: Optional[Union[int, Tuple[int]]] = 2**27,
+        down_sampling_factor: int = 50,
+    ) -> None:
+        super().__init__(
+            input_mode="external",
+            select_filters=select_filters,
+            spike_gen_mode=spike_gen_mode,
+            dn_rate_scale_bitshift=dn_rate_scale_bitshift,
+            dn_low_pass_bitshift=dn_low_pass_bitshift,
+            dn_EPS=dn_EPS,
+            fixed_threshold_vec=fixed_threshold_vec,
+            down_sampling_factor=down_sampling_factor,
+        )
+
+
+class AFESimAGC(AFESim):
+    def __init__(
+        self,
+        select_filters: Optional[Tuple[int]] = None,
+        spike_gen_mode: str = "divisive_norm",
+        dn_rate_scale_bitshift: Optional[Tuple[int]] = (6, 0),
+        dn_low_pass_bitshift: Optional[int] = 12,
+        dn_EPS: Optional[Union[int, Tuple[int]]] = 1,
+        fixed_threshold_vec: Optional[Union[int, Tuple[int]]] = 2**27,
+        down_sampling_factor: int = 50,
+        **kwargs,
+    ) -> None:
+        super().__init__(
+            input_mode="analog",
+            select_filters=select_filters,
+            spike_gen_mode=spike_gen_mode,
+            dn_rate_scale_bitshift=dn_rate_scale_bitshift,
+            dn_low_pass_bitshift=dn_low_pass_bitshift,
+            dn_EPS=dn_EPS,
+            fixed_threshold_vec=fixed_threshold_vec,
+            down_sampling_factor=down_sampling_factor,
+            **kwargs,
+        )
+
+
+class AFESimPDM(AFESim):
+    def __init__(
+        self,
+        select_filters: Optional[Tuple[int]] = None,
+        spike_gen_mode: str = "divisive_norm",
+        dn_rate_scale_bitshift: Optional[Tuple[int]] = (6, 0),
+        dn_low_pass_bitshift: Optional[int] = 12,
+        dn_EPS: Optional[Union[int, Tuple[int]]] = 1,
+        fixed_threshold_vec: Optional[Union[int, Tuple[int]]] = 2**27,
+        down_sampling_factor: int = 50,
+        **kwargs,
+    ) -> None:
+        super().__init__(
+            input_mode="pdm",
+            select_filters=select_filters,
+            spike_gen_mode=spike_gen_mode,
+            dn_rate_scale_bitshift=dn_rate_scale_bitshift,
+            dn_low_pass_bitshift=dn_low_pass_bitshift,
+            dn_EPS=dn_EPS,
+            fixed_threshold_vec=fixed_threshold_vec,
+            down_sampling_factor=down_sampling_factor,
+            **kwargs,
+        )
