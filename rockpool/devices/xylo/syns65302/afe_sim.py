@@ -19,8 +19,14 @@ from rockpool.devices.xylo.syns65302.afe.divisive_normalization import (
 )
 from rockpool.devices.xylo.syns65302.afe.agc.agc_adc import AGCADC
 from rockpool.devices.xylo.syns65302.afe.params import (
-    AUDIO_SAMPLING_RATE,
+    AUDIO_SAMPLING_RATE_PDM,
+    AUDIO_SAMPLING_RATE_AGC,
     MAX_SPIKES_INPUT,
+    DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE,
+    RISE_TIME_CONSTANT,
+    FALL_TIME_CONSTANT,
+    RELIABLE_MAX_HYSTERESIS,
+    NUM_BITS_GAIN_QUANTIZATION,
 )
 from rockpool.devices.xylo.syns65302.afe.raster import Raster
 from rockpool.nn.combinators.sequential import ModSequential
@@ -58,6 +64,7 @@ class AFESim(ModSequential):
         dn_EPS: Optional[Union[int, Tuple[int]]] = 1,
         fixed_threshold_vec: Optional[Union[int, Tuple[int]]] = 2**27,
         down_sampling_factor: int = 50,
+        audio_sampling_rate: float = AUDIO_SAMPLING_RATE_PDM,
         **kwargs,
     ) -> None:
         """
@@ -82,7 +89,7 @@ class AFESim(ModSequential):
 
             dn_rate_scale_bitshift (Optional[Tuple[int]], optional): Used only when `spike_gen_mode = "divisive_norm"`.
                 A tuple containing two bitshift values that determine how much the spike rate should be scaled compared with the sampling rate of the input audio. The first value is `b1` and the second is `b2`. Defaults to (6, 0).
-                A bitshift of size specified by the tuple as `(b1, b2)` yields a spike rate scaling of fs/(2^b1 - 2^b2) where fs is the sampling rate of the input audio.
+                A bitshift of size specified by the tuple as `(b1, b2)` yields a spike rate scaling of audio_sampling_rate/(2^b1 - 2^b2) where audio_sampling_rate is the sampling rate of the input audio.
                 A default value of (6, 0) yields an average of 1 (slightly larger than 1) spike per 2^6 - 1 (=63) clock periods. With a clock rate of around 50K -> around 800 ~ 1K spikes/sec per channel.
                 Use `.from_specification()` method to perform a parameter search for (b1,b2) values given the target scaling ratio.
 
@@ -112,10 +119,12 @@ class AFESim(ModSequential):
             down_sampling_factor (int): Determines how many time-steps will be accumulated into a single time-step before feeding the data to the SNN core. Defaults to 50.
                 Resulting dt = 0.001024
                 Use `.from_specification()` method to perform a parameter search for down_sampling_factor value given the target dt.
+
+            audio_sampling_rate (float, optional): Sampling rate of the input audio. Defaults to AUDIO_SAMPLING_RATE_PDM.
         """
         if self.__class__ is AFESim:
             raise RiskyInitializationError(
-                "It's not allowed to initialize AFESim directly! Use `AFESimAGC`, or `AFESimPDM` modules instead."
+                "It's not allowed to initialize AFESim directly! Use `AFESimExternal`, `AFESimAGC`, or `AFESimPDM` modules instead."
             )
 
         __filter_bank = ChipButterworth(select_filters=select_filters)
@@ -177,13 +186,13 @@ class AFESim(ModSequential):
             low_pass_bitshift=dn_low_pass_bitshift,
             EPS_vec=dn_EPS,
             fixed_threshold_vec=fixed_threshold_vec,
-            fs=AUDIO_SAMPLING_RATE,
+            fs=audio_sampling_rate,
         )
         __raster = Raster(
             shape=__sub_shape,
             rate_downsample_factor=down_sampling_factor,
             max_num_spikes=MAX_SPIKES_INPUT,
-            fs=AUDIO_SAMPLING_RATE,
+            fs=audio_sampling_rate,
         )
 
         # - Selective input path configuration
@@ -205,6 +214,7 @@ class AFESim(ModSequential):
         self.dn_EPS = SimulationParameter(dn_EPS)
         self.fixed_threshold_vec = SimulationParameter(fixed_threshold_vec)
         self.down_sampling_factor = SimulationParameter(down_sampling_factor)
+        self.audio_sampling_rate = SimulationParameter(audio_sampling_rate)
 
     @staticmethod
     def handle_none_dn_rate_scale_bitshift(
@@ -289,6 +299,7 @@ class AFESim(ModSequential):
         dn_EPS: Optional[Union[int, Tuple[int]]] = 1,
         fixed_threshold_vec: Optional[Union[int, Tuple[int]]] = None,
         dt: Optional[float] = 1024e-6,
+        audio_sampling_rate: float = AUDIO_SAMPLING_RATE_PDM,
         **kwargs,
     ) -> AFESim:
         """
@@ -303,17 +314,18 @@ class AFESim(ModSequential):
                 Not always possible to obtain the exact value of `rate_scale_factor` due to the hardware constraints.
                 In such cases, the closest possible value is reported with an error message.
             low_pass_averaging_window (Optional[float], optional): Target `low_pass_averaging_window` for the `DivisiveNormalization` module. Defaults to 84e-3.
-                Depended upon the dn_low_pass_bitshift. ``low_pass_averaging_window = 2**dn_low_pass_bitshift / AUDIO_SAMPLING_RATE``
+                Depended upon the dn_low_pass_bitshift. ``low_pass_averaging_window = 2**dn_low_pass_bitshift / audio_sampling_rate``
                 Not always possible to obtain the exact value of `low_pass_averaging_window` due to the hardware constraints.
                 In such cases, the closest possible value is reported with an error message.
                 Note that a value within 3 decimal precision is accepted as equal.
             dn_EPS (Union[int, Tuple[int]], optional): Check :py:class:`.AFESim`. Defaults to 1.
             fixed_threshold_vec (Union[int, Tuple[int]], optional): Check :py:class:`.AFESim`. Defaults to None.
             dt (Optional[float], optional): Target `dt` value for the SNN core. Defaults to 1024e-6.
-                Depended upon the down_sampling_factor. ``dt = down_sampling_factor / AUDIO_SAMPLING_RATE``
+                Depended upon the down_sampling_factor. ``dt = down_sampling_factor / audio_sampling_rate``
                 Not always possible to obtain the exact value of `dt` due to the hardware constraints.
                 In such cases, the closest possible value is reported with an error message.
                 Note that a value within 6 decimal precision is accepted as equal.
+            audio_sampling_rate (float, optional): Check :py:class:`.AFESim`. Defaults to AUDIO_SAMPLING_RATE_PDM.
 
         Returns:
             AFESim: A AFESim instance constructed by specifying higher level parameters.
@@ -331,7 +343,7 @@ class AFESim(ModSequential):
             if low_pass_averaging_window is not None
             else None
         )
-        down_sampling_factor = cls.get_down_sampling_factor(dt)
+        down_sampling_factor = cls.get_down_sampling_factor(audio_sampling_rate, dt)
 
         __obj = cls(
             select_filters=select_filters,
@@ -342,6 +354,7 @@ class AFESim(ModSequential):
             dn_EPS=dn_EPS,
             fixed_threshold_vec=fixed_threshold_vec,
             down_sampling_factor=down_sampling_factor,
+            audio_sampling_rate=audio_sampling_rate,
             **kwargs,
         )
 
@@ -382,7 +395,7 @@ class AFESim(ModSequential):
 
         Returns:
             Tuple[int]: A tuple containing two bitshift values that determine how much the spike rate should be scaled compared with the sampling rate of the input audio. The first value is `b1` and the second is `b2`.
-                fs' = fs/(2^b1 - 2^b2) where fs is the sampling rate of the input audio.
+                audio_sampling_rate' = audio_sampling_rate/(2^b1 - 2^b2) where audio_sampling_rate is the sampling rate of the input audio.
         """
         if not isinstance(rate_scale_factor, int):
             raise ValueError(
@@ -432,7 +445,7 @@ class AFESim(ModSequential):
 
     @staticmethod
     def get_dn_low_pass_bitshift(
-        low_pass_averaging_window: float, decimal: int = 3
+        audio_sampling_rate: float, low_pass_averaging_window: float, decimal: int = 3
     ) -> int:
         """
         Get the bitshift value `dn_low_pass_bitshift` which determines the averaging window length of the low-pass filter.
@@ -441,8 +454,9 @@ class AFESim(ModSequential):
         Can be independently used to obtain the bitshift value given the target `low_pass_averaging_window`.
 
         Args:
+            audio_sampling_rate (float): Sampling rate of the input audio.
             low_pass_averaging_window (float): Target `low_pass_averaging_window` for the `DivisiveNormalization` module.
-                Depended upon the dn_low_pass_bitshift. ``low_pass_averaging_window = 2**dn_low_pass_bitshift / AUDIO_SAMPLING_RATE``
+                Depended upon the dn_low_pass_bitshift. ``low_pass_averaging_window = 2**dn_low_pass_bitshift / audio_sampling_rate``
             decimal (int, optional): The number of decimal points to be considered when comparing the target `low_pass_averaging_window` with the obtained value. Defaults to 3.
 
         Returns:
@@ -453,20 +467,20 @@ class AFESim(ModSequential):
                 f"`low_pass_averaging_window` should be a float!, type = {type(low_pass_averaging_window)}"
             )
 
-        if low_pass_averaging_window < 1 / AUDIO_SAMPLING_RATE:
+        if low_pass_averaging_window < 1 / audio_sampling_rate:
             raise ValueError(
-                f"`low_pass_averaging_window` should be greater than `1/AUDIO_SAMPLING_RATE = {1/AUDIO_SAMPLING_RATE:.6f}`!, low_pass_averaging_window = {low_pass_averaging_window:.6f}"
+                f"`low_pass_averaging_window` should be greater than `1/audio_sampling_rate = {1/audio_sampling_rate:.6f}`!, low_pass_averaging_window = {low_pass_averaging_window:.6f}"
             )
 
         # low_pass_averaging_window
-        candidate_1 = int(np.log2(AUDIO_SAMPLING_RATE * low_pass_averaging_window))
+        candidate_1 = int(np.log2(audio_sampling_rate * low_pass_averaging_window))
         candidate_2 = candidate_1 + 1
 
         diff_1 = abs(
-            low_pass_averaging_window - ((2**candidate_1) / AUDIO_SAMPLING_RATE)
+            low_pass_averaging_window - ((2**candidate_1) / audio_sampling_rate)
         )
         diff_2 = abs(
-            low_pass_averaging_window - ((2**candidate_2) / AUDIO_SAMPLING_RATE)
+            low_pass_averaging_window - ((2**candidate_2) / audio_sampling_rate)
         )
 
         if diff_1 < diff_2:
@@ -484,12 +498,14 @@ class AFESim(ModSequential):
 
         raise ValueError(
             f"Closest we can get to `low_pass_averaging_window `= "
-            f"{low_pass_averaging_window:.3f} is {(2**candidate) / AUDIO_SAMPLING_RATE:.3f}"
+            f"{low_pass_averaging_window:.3f} is {(2**candidate) / audio_sampling_rate:.3f}"
             f" with `dn_low_pass_bitshift` = {candidate}, diff = {diff:.3f}"
         )
 
     @staticmethod
-    def get_down_sampling_factor(dt: float, decimal: int = 6) -> int:
+    def get_down_sampling_factor(
+        audio_sampling_rate: float, dt: float, decimal: int = 6
+    ) -> int:
         """
         Get the down_sampling_factor which determines how many time-steps will be accumulated into a single time-step before feeding the data to the SNN core.
         Used as a utility function in `from_specification()` method.
@@ -497,6 +513,7 @@ class AFESim(ModSequential):
         Can be independently used to obtain the down_sampling_factor given the target `dt`.
 
         Args:
+            audio_sampling_rate (float): Sampling rate of the input audio.
             dt (float): Target `dt` value for the SNN core.
             decimal (int, optional): The number of decimal points to be considered when comparing the target `dt` with the obtained value. Defaults to 6.
 
@@ -506,16 +523,16 @@ class AFESim(ModSequential):
         if not isinstance(dt, float):
             raise ValueError(f"`dt` should be a float!, type = {type(dt)}")
 
-        if dt < 1 / AUDIO_SAMPLING_RATE:
+        if dt < 1 / audio_sampling_rate:
             raise ValueError(
-                f"`dt` should be greater than `1/AUDIO_SAMPLING_RATE = {1/AUDIO_SAMPLING_RATE:.7f}`!, dt = {dt:.7f}"
+                f"`dt` should be greater than `1/audio_sampling_rate = {1/audio_sampling_rate:.7f}`!, dt = {dt:.7f}"
             )
 
-        candidate_1 = int(dt * AUDIO_SAMPLING_RATE)
+        candidate_1 = int(dt * audio_sampling_rate)
         candidate_2 = candidate_1 + 1
 
-        diff_1 = abs(dt - (candidate_1 / AUDIO_SAMPLING_RATE))
-        diff_2 = abs(dt - (candidate_2 / AUDIO_SAMPLING_RATE))
+        diff_1 = abs(dt - (candidate_1 / audio_sampling_rate))
+        diff_2 = abs(dt - (candidate_2 / audio_sampling_rate))
 
         if diff_1 < diff_2:
             if diff_1 < 10 ** (-decimal):
@@ -533,19 +550,19 @@ class AFESim(ModSequential):
 
         raise ValueError(
             f"Closest we can get to `dt` = "
-            f"{dt:.6f} is {candidate / AUDIO_SAMPLING_RATE:.6f}"
+            f"{dt:.6f} is {candidate / audio_sampling_rate:.6f}"
             f" with `down_sampling_factor` = {candidate}, diff = {diff:.6f}"
         )
 
     @property
     def low_pass_averaging_window(self) -> float:
         """Averaging window length in seconds depended on the `dn_low_pass_bitshift` parameter. Defines the averaging window length of the low-pass filter"""
-        return (2**self.dn_low_pass_bitshift) / AUDIO_SAMPLING_RATE
+        return (2**self.dn_low_pass_bitshift) / self.audio_sampling_rate
 
     @property
     def dt(self) -> float:
         """Time-step length in seconds depended on the `down_sampling_factor` parameter"""
-        return self.down_sampling_factor / AUDIO_SAMPLING_RATE
+        return self.down_sampling_factor / self.audio_sampling_rate
 
     @property
     def rate_scale_factor(self) -> int:
@@ -576,6 +593,7 @@ class AFESimExternal(AFESim):
             dn_EPS=dn_EPS,
             fixed_threshold_vec=fixed_threshold_vec,
             down_sampling_factor=down_sampling_factor,
+            audio_sampling_rate=AUDIO_SAMPLING_RATE_PDM,
         )
 
 
@@ -589,7 +607,17 @@ class AFESimAGC(AFESim):
         dn_EPS: Optional[Union[int, Tuple[int]]] = 1,
         fixed_threshold_vec: Optional[Union[int, Tuple[int]]] = 2**27,
         down_sampling_factor: int = 50,
-        **kwargs,
+        oversampling_factor: int = 2,
+        enable_gain_smoother: bool = True,
+        fixed_gain_for_PGA_mode: bool = False,
+        fixed_pga_gain_index: int = DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE,
+        pga_gain_index_variation: Optional[np.ndarray] = None,
+        ec_amplitude_thresholds: Optional[np.ndarray] = None,
+        ec_waiting_time_vec: Optional[np.ndarray] = None,
+        ec_rise_time_constant: int = RISE_TIME_CONSTANT,
+        ec_fall_time_constant: int = FALL_TIME_CONSTANT,
+        ec_reliable_max_hysteresis: int = RELIABLE_MAX_HYSTERESIS,
+        num_bits_gain_quantization: int = NUM_BITS_GAIN_QUANTIZATION,
     ) -> None:
         super().__init__(
             input_mode="analog",
@@ -600,7 +628,18 @@ class AFESimAGC(AFESim):
             dn_EPS=dn_EPS,
             fixed_threshold_vec=fixed_threshold_vec,
             down_sampling_factor=down_sampling_factor,
-            **kwargs,
+            oversampling_factor=oversampling_factor,
+            enable_gain_smoother=enable_gain_smoother,
+            fixed_gain_for_PGA_mode=fixed_gain_for_PGA_mode,
+            fixed_pga_gain_index=fixed_pga_gain_index,
+            pga_gain_index_variation=pga_gain_index_variation,
+            ec_amplitude_thresholds=ec_amplitude_thresholds,
+            ec_waiting_time_vec=ec_waiting_time_vec,
+            ec_rise_time_constant=ec_rise_time_constant,
+            ec_fall_time_constant=ec_fall_time_constant,
+            ec_reliable_max_hysteresis=ec_reliable_max_hysteresis,
+            num_bits_gain_quantization=num_bits_gain_quantization,
+            audio_sampling_rate=AUDIO_SAMPLING_RATE_AGC,
         )
 
 
@@ -614,7 +653,6 @@ class AFESimPDM(AFESim):
         dn_EPS: Optional[Union[int, Tuple[int]]] = 1,
         fixed_threshold_vec: Optional[Union[int, Tuple[int]]] = 2**27,
         down_sampling_factor: int = 50,
-        **kwargs,
     ) -> None:
         super().__init__(
             input_mode="pdm",
@@ -625,5 +663,5 @@ class AFESimPDM(AFESim):
             dn_EPS=dn_EPS,
             fixed_threshold_vec=fixed_threshold_vec,
             down_sampling_factor=down_sampling_factor,
-            **kwargs,
+            audio_sampling_rate=AUDIO_SAMPLING_RATE_PDM,
         )
