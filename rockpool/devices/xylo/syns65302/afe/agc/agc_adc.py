@@ -28,7 +28,7 @@ from rockpool.devices.xylo.syns65302.afe.agc.envelope_controller import (
 from rockpool.devices.xylo.syns65302.afe.agc.gain_smoother import GainSmoother
 from rockpool.devices.xylo.syns65302.afe.params import (
     AMPLITUDE_THRESHOLDS,
-    AUDIO_SAMPLING_RATE,
+    AUDIO_SAMPLING_RATE_AGC,
     DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE,
     EXP_PGA_GAIN_VEC,
     FALL_TIME_CONSTANT,
@@ -72,7 +72,7 @@ class AGCADC(Module):
         ec_fall_time_constant: int = FALL_TIME_CONSTANT,
         ec_reliable_max_hysteresis: int = RELIABLE_MAX_HYSTERESIS,
         num_bits_gain_quantization: int = NUM_BITS_GAIN_QUANTIZATION,
-        fs: float = AUDIO_SAMPLING_RATE,
+        fs: float = AUDIO_SAMPLING_RATE_AGC,
     ) -> None:
         """
         Args:
@@ -103,7 +103,7 @@ class AGCADC(Module):
                 Sets `AGC_CTRL2.RELI_MAX_HYSTR` register, 10 bits
             num_bits_gain_quantization (int, optional): Number of bits used for quantizing the gain ratios, effective only when `enable_gain_smoother = True`. Defaults to NUM_BITS_GAIN_QUANTIZATION.
                 Sets `AGC_CTRL2.NUM_BITS_GAIN_FRACTION` (4 bits)
-            fs (float, optional): Target output sampling or clock rate of the module. Defaults to AUDIO_SAMPLING_RATE.
+            fs (float, optional): Target output sampling or clock rate of the module. Defaults to AUDIO_SAMPLING_RATE_AGC.
         """
         super().__init__(shape=(1, 1), spiking_input=False, spiking_output=False)
 
