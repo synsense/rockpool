@@ -12,7 +12,8 @@ __all__ = [
     "XYLO_MAX_AMP_UNIPOLAR",
     "XYLO_MAX_AMP",
     "SYSTEM_CLOCK_RATE",
-    "AUDIO_SAMPLING_RATE",
+    "AUDIO_SAMPLING_RATE_PDM",
+    "AUDIO_SAMPLING_RATE_AGC",
     "NUM_BITS_AGC_ADC",
     "NUM_BITS_PDM_ADC",
     "AUDIO_CUTOFF_FREQUENCY",
@@ -58,8 +59,11 @@ XYLO_MAX_AMP = XYLO_VCC
 SYSTEM_CLOCK_RATE = 50_000_000  # 50 MHz
 """The system clock"""
 
-AUDIO_SAMPLING_RATE = SYSTEM_CLOCK_RATE / (64 * 16)
+AUDIO_SAMPLING_RATE_PDM = SYSTEM_CLOCK_RATE / (64 * 16)
 """Audio sampling rate of ~48.8 kHz"""
+
+AUDIO_SAMPLING_RATE_AGC = SYSTEM_CLOCK_RATE / 1000
+"""Audio sampling rate of ~50.0 kHz"""
 
 
 # - ADC parameters
@@ -83,7 +87,7 @@ AUDIO_CUTOFF_FREQUENCY_WIDTH = 0.2 * AUDIO_CUTOFF_FREQUENCY
 PDM_FILTER_DECIMATION_FACTOR = 32
 """Oversampling factor, how much the signal needs to be decimated or subsampled"""
 
-PDM_SAMPLING_RATE = AUDIO_SAMPLING_RATE * PDM_FILTER_DECIMATION_FACTOR
+PDM_SAMPLING_RATE = AUDIO_SAMPLING_RATE_PDM * PDM_FILTER_DECIMATION_FACTOR
 """Sampling rate/clock rate of PDM module. ~1.5 MHz"""
 
 DELTA_SIGMA_ORDER = 4
@@ -117,7 +121,7 @@ HIGH_PASS_CORNER = 50
 LOW_PASS_CORNER = 20_000
 """low-pass corner due to frequency response or low-pass filtering (e.g., anti-aliasing low-pass filter)"""
 
-if LOW_PASS_CORNER > AUDIO_SAMPLING_RATE / 2.0:
+if LOW_PASS_CORNER > AUDIO_SAMPLING_RATE_AGC / 2.0:
     raise ValueError(
         "low-pass corner should be smaller than half the sampling rate of the audio!"
     )
