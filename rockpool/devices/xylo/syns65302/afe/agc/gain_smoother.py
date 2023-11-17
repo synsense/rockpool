@@ -12,7 +12,7 @@ from typing import Optional, Tuple
 import numpy as np
 
 from rockpool.devices.xylo.syns65302.afe.params import (
-    AUDIO_SAMPLING_RATE,
+    AUDIO_SAMPLING_RATE_AGC,
     EXP_PGA_GAIN_VEC,
     INIFINITY_OF_TRANSIENT_PHASE,
     MAX_WAITING_BITWIDTH,
@@ -40,11 +40,12 @@ class GainSmoother(Module):
     def __init__(
         self,
         num_bits: int = NUM_BITS_AGC_ADC,
-        min_waiting_time: float = (2**MAX_WAITING_BITWIDTH - 1) / AUDIO_SAMPLING_RATE,
+        min_waiting_time: float = (2**MAX_WAITING_BITWIDTH - 1)
+        / AUDIO_SAMPLING_RATE_AGC,
         num_bits_command: int = NUM_BITS_COMMAND,
         pga_gain_vec: Optional[np.ndarray] = None,
         num_bits_gain_quantization: int = NUM_BITS_GAIN_QUANTIZATION,
-        fs: float = AUDIO_SAMPLING_RATE,
+        fs: float = AUDIO_SAMPLING_RATE_AGC,
     ):
         """
         Args:
