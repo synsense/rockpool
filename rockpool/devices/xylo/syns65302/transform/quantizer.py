@@ -1,8 +1,10 @@
 from typing import Tuple
-from rockpool.devices.xylo.syns65302.afe.params import NUM_BITS_PDM_ADC
-from rockpool.parameters import SimulationParameter
-from rockpool.nn.modules import Module
+
 import numpy as np
+
+from rockpool.devices.xylo.syns65302.afe.params import NUM_BITS_PDM_ADC
+from rockpool.nn.modules import Module
+from rockpool.parameters import SimulationParameter
 
 __all__ = ["AudioQuantizer"]
 
