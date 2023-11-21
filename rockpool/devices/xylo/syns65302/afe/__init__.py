@@ -9,3 +9,4 @@ from .digital_filterbank import ChipButterworth
 from .raster import Raster
 from .divisive_normalization import DivisiveNormalization
 from .params import *
+from .external import *
