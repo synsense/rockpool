@@ -13,13 +13,12 @@ This file implements the analog input path for Xylo-A3, which starts from an ana
         To solve this issue, we have added the gain smoother module, which makes sure that the gain transition from $g_i$ to $g_j$ happens smoothly in time so that the transient effect is not problematic.
 
 """
-import logging
-import warnings
 from copy import copy
 from typing import Dict, Optional, Tuple
 
 import numpy as np
 
+from rockpool.devices.xylo.syns65302.transform.resample import ResampleAudio
 from rockpool.devices.xylo.syns65302.afe.agc.adc import ADC
 from rockpool.devices.xylo.syns65302.afe.agc.amplifier import Amplifier
 from rockpool.devices.xylo.syns65302.afe.agc.envelope_controller import (
@@ -128,6 +127,9 @@ class AGCADC(Module):
         self.oversampled_fs = SimulationParameter(self.adc.oversampled_fs, shape=())
         """Sampling rate for the ADC front and the Amplifier"""
 
+        # (0) Resampling
+        self.resample = ResampleAudio(fs_target=self.oversampled_fs)
+
         # (i) Amplifier
         self.amplifier = Amplifier(
             high_pass_corner=HIGH_PASS_CORNER,
@@ -215,33 +217,7 @@ class AGCADC(Module):
                 current state of the module,
                 record dictionary containing the intermediate results of the sub-modules.
         """
-        try:
-            audio, sample_rate = audio_in
-
-        except:
-            raise TypeError(
-                "`audio_in` should be a tuple consisting of a numpy array containing the audio and its sample rate!"
-            )
-
-        if not isinstance(audio, np.ndarray):
-            raise TypeError("The given input audio is not a numpy array!")
-        if not isinstance(sample_rate, (int, float)):
-            raise TypeError("The given sample rate is not a number!")
-        if audio.ndim != 1:
-            raise ValueError(
-                "only single-channel audio signals can be processed by this module!"
-            )
-
-        if sample_rate != self.oversampled_fs:
-            warnings.warn(
-                f"Resampling the signal!"
-                + f"\nSample rate given = {sample_rate}, sample rate required = {self.oversampled_fs}"
-            )
-            duration = (len(audio) - 1) / sample_rate
-            time_in = np.arange(len(audio)) / sample_rate
-            time_target = np.arange(0, duration, step=1 / self.oversampled_fs)
-            audio = np.interp(time_target, time_in, audio)
-            logging.info("Resampling done!")
+        audio, _, _ = self.resample(audio_in)
 
         # Prepare the record dictionary
         if record:
@@ -296,5 +272,9 @@ class AGCADC(Module):
 
         # Convert the output list to numpy array
         sig_out = np.asarray(sig_out)
+
+        # Add resampled signal if rec is true
+        if record:
+            __rec["resampled_signal"] = audio
 
         return sig_out, self.state(), __rec
