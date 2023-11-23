@@ -33,6 +33,7 @@ def generate_chirp(
     """
     Generate a frequency sweep signal and save it to a WAV file.
     Increase the frequency from `start_freq` to `end_freq` over `duration` seconds.
+    Also saves the parameters used to generate the signal as a JSON file.
 
     Args:
         filename (Optional[str], optional): Name of the WAV file, it does not save as a `.wav` if None. Defaults to "freq_sweep.wav".
@@ -46,6 +47,16 @@ def generate_chirp(
             audio (np.ndarray): The audio signal as a numpy array.
             fs (float): The sampling rate of the audio.
     """
+    if filename is not None:
+        if not filename.endswith(".wav"):
+            filename = filename + ".wav"
+        args = {
+            "start_freq": start_freq,
+            "end_freq": end_freq,
+            "duration": duration,
+            "fs": fs,
+        }
+
     if fs < 2 * max(start_freq, end_freq):
         raise ValueError("Sampling rate must be at least twice the maximum frequency")
 
@@ -63,15 +74,8 @@ def generate_chirp(
     if filename is not None:
         filename = os.path.join(file_path, filename)
         scipy.io.wavfile.write(filename, int(fs), audio)
-        json.dump(
-            {
-                "start_freq": start_freq,
-                "end_freq": end_freq,
-                "duration": duration,
-                "fs": fs,
-            },
-            open(filename.replace(".wav", ".json"), "w"),
-        )
+        with open(filename.replace(".wav", ".json"), "w") as f:
+            json.dump(args, f)
     return audio, fs
 
 
