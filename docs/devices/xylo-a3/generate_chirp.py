@@ -35,6 +35,9 @@ def generate_chirp(
             audio (np.ndarray): The audio signal as a numpy array.
             fs (float): The sampling rate of the audio.
     """
+    if fs < 2 * max(start_freq, end_freq):
+        raise ValueError("Sampling rate must be at least twice the maximum frequency")
+
     # - Use the half duration, because we will concatenate the signal with its reverse
     t = np.linspace(0, duration, int(duration * fs), endpoint=False)  # time variable
     freq_sweep = np.linspace(start_freq, end_freq, int(duration * fs), endpoint=False)
