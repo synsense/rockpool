@@ -130,8 +130,8 @@ def plot_chirp_signal(
 def plot_filter_bank_output(
     filtered_signal: np.ndarray,
     sr: float,
-    start_frequency: float = 20,
-    end_frequency: float = 20_000,
+    start_freq: float = 20,
+    end_freq: float = 20_000,
     stagger: float = 1e7,
 ) -> Figure:
     """
@@ -159,7 +159,7 @@ def plot_filter_bank_output(
 
     # - Get the current time ticks and convert them to frequency
     time_ticks = ax.get_xticks()
-    frequency_ticks = np.linspace(start_frequency, end_frequency, len(time_ticks))
+    frequency_ticks = np.linspace(start_freq, end_freq, len(time_ticks))
 
     # - Apply the converted frequency ticks to the frequency axis
     ax_twin.set_xticks(time_ticks)
@@ -176,8 +176,8 @@ def plot_filter_bank_output(
 def plot_divisive_normalization_output(
     spike_out: np.ndarray,
     sr: float,
-    start_frequency: float = 20,
-    end_frequency: float = 20_000,
+    start_freq: float = 20,
+    end_freq: float = 20_000,
 ) -> Figure:
     """
     Plots multi-channel spike train read from divisive normalization module
@@ -201,7 +201,7 @@ def plot_divisive_normalization_output(
 
     # - Get the current time ticks and convert them to frequency
     time_ticks = ax.get_xticks()
-    frequency_ticks = np.linspace(start_frequency, end_frequency, len(time_ticks))
+    frequency_ticks = np.linspace(start_freq, end_freq, len(time_ticks))
 
     # - Apply the converted frequency ticks to the frequency axis
     ax_twin.set_xticks(time_ticks)
@@ -226,11 +226,11 @@ def plot_raster_output(out: np.ndarray, dt: float) -> Figure:
 
     Returns:
         Figure: generated figure
-    """    
+    """
     fig, (ax_top, ax_bottom) = plt.subplots(2, 1, figsize=(16, 12))
 
     # - Plot the raster
-    plt.sca(ax_top])
+    plt.sca(ax_top)
     TSEvent.from_raster(out, dt=dt).plot()
 
     # - Plot the 3D image of the raster, color encoding the number of spikes
