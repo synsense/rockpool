@@ -146,7 +146,7 @@ def plot_filter_bank_output(
         stagger (float, optional): Amplitude shift to separate each channel from each other. Defaults to 1e7.
 
     Returns:
-        Figure: _description_
+        Figure: Generated figure
     """
     fig, ax = plt.subplots(figsize=(16, 12))
 
@@ -179,6 +179,18 @@ def plot_divisive_normalization_output(
     start_frequency: float = 20,
     end_frequency: float = 20_000,
 ) -> Figure:
+    """
+    Plots multi-channel spike train read from divisive normalization module
+
+    Args:
+        spike_out (np.ndarray): The output spike train read from `AFESim.DivisiveNormalization` module
+        sr (float): the sampling rate of the audio
+        start_freq (float, optional): The starting frequency of the sweep. Defaults to 20.
+        end_freq (float, optional): The end frequency of the sweep. Defaults to 20000.
+
+    Returns:
+        Figure: Generated figure
+    """
     fig, ax = plt.subplots(figsize=(16, 6))
 
     TSEvent.from_raster(spike_out, dt=1 / sr).plot()
