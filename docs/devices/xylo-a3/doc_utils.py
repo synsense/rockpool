@@ -27,9 +27,9 @@ __all__ = [
 def generate_chirp(
     filename: Optional[str] = "freq_sweep.wav",
     start_freq: float = 20,
-    end_freq: float = 20000,
+    end_freq: float = 20_000,
     duration: float = 4.0,
-    fs: float = AUDIO_SAMPLING_RATE_PDM * PDM_FILTER_DECIMATION_FACTOR,
+    sr: float = AUDIO_SAMPLING_RATE_PDM * PDM_FILTER_DECIMATION_FACTOR,
 ) -> Tuple[np.ndarray, float]:
     """
     Generate a frequency sweep signal and save it to a WAV file.
@@ -41,12 +41,12 @@ def generate_chirp(
         start_freq (float, optional): The starting frequency of the sweep. Defaults to 20.
         end_freq (float, optional): The end frequency of the sweep. Defaults to 20000.
         duration (float, optional): the total duration of the audio. Defaults to 4.0.
-        fs (float, optional): The sampling rate of the audio. Defaults to AUDIO_SAMPLING_RATE_PDM * PDM_FILTER_DECIMATION_FACTOR ~= 1.56 MHz.
+        sr (float, optional): The sampling rate of the audio. Defaults to AUDIO_SAMPLING_RATE_PDM * PDM_FILTER_DECIMATION_FACTOR ~= 1.56 MHz.
 
     Returns:
         Tuple[np.ndarray, float]:
             audio (np.ndarray): The audio signal as a numpy array.
-            fs (float): The sampling rate of the audio.
+            sr (float): The sampling rate of the audio.
     """
     if filename is not None:
         if not filename.endswith(".wav"):
@@ -55,18 +55,18 @@ def generate_chirp(
             "start_freq": start_freq,
             "end_freq": end_freq,
             "duration": duration,
-            "fs": fs,
+            "sr": sr,
         }
 
-    if fs < 2 * max(start_freq, end_freq):
+    if sr < 2 * max(start_freq, end_freq):
         raise ValueError("Sampling rate must be at least twice the maximum frequency")
 
     # - Use the half duration, because we will concatenate the signal with its reverse
-    t = np.linspace(0, duration, int(duration * fs), endpoint=False)  # time variable
-    freq_sweep = np.linspace(start_freq, end_freq, int(duration * fs), endpoint=False)
+    t = np.linspace(0, duration, int(duration * sr), endpoint=False)  # time variable
+    freq_sweep = np.linspace(start_freq, end_freq, int(duration * sr), endpoint=False)
 
     # - Concatenate the signal with its reverse
-    phi_inst = 2 * np.pi * np.cumsum(freq_sweep) * (1 / fs)
+    phi_inst = 2 * np.pi * np.cumsum(freq_sweep) * (1 / sr)
     signal = np.sin(phi_inst)
 
     # - Ensure that highest values are in 16-bit range
@@ -74,10 +74,10 @@ def generate_chirp(
 
     if filename is not None:
         filename = os.path.join(file_path, filename)
-        scipy.io.wavfile.write(filename, int(fs), audio)
+        scipy.io.wavfile.write(filename, int(sr), audio)
         with open(filename.replace(".wav", ".json"), "w") as f:
             json.dump(args, f)
-    return audio, fs
+    return audio, sr
 
 
 def plot_chirp_signal(
