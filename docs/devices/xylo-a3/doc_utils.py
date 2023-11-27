@@ -85,7 +85,7 @@ def plot_chirp_signal(
     sr: float,
     t_cut: Optional[float] = 0.1,
     start_freq: float = 20,
-    end_freq: float = 20000,
+    end_freq: float = 20_000,
 ) -> Figure:
     """
     Plots the chirp signal with time and frequency axes.
@@ -98,7 +98,7 @@ def plot_chirp_signal(
         end_freq (float, optional): The end frequency of the sweep. Defaults to 20000.
 
     Returns:
-        Figure: _description_
+        Figure: Generated figure
     """
     # - Get the cut index
     if t_cut is None:
@@ -120,27 +120,18 @@ def plot_chirp_signal(
     ax_twin.plot(__freq_sw[:T], signal[:T], alpha=0)
     ax_twin.set_xlabel("Frequency (Hz)")
 
+    # - Plot
     plt.title("Chirp Signal")
     plt.tight_layout()
     return fig
 
 
-def time_to_frequency(
-    time_ticks: list, start_frequency=20, end_frequency=20_000
-) -> np.ndarray:
-    """
-    Convert time ticks to frequency ticks
-    """
-    freq_sw = np.linspace(start_frequency, end_frequency, len(time_ticks))
-    return freq_sw
-
-
 def plot_filter_bank_output(
     filtered_signal: np.ndarray,
     __sr: float,
-    start_frequency=20,
-    end_frequency=20000,
-) -> None:
+    start_frequency: float = 20,
+    end_frequency: float = 20_000,
+) -> Figure:
     fig, ax = plt.subplots(figsize=(16, 12))
 
     TSContinuous.from_clocked(filtered_signal, dt=1 / __sr).plot(stagger=1e7)
@@ -149,11 +140,11 @@ def plot_filter_bank_output(
     ax_twin = ax.twiny()
     ax_twin.set_xlim(ax.get_xlim())
 
-    # Get the current time ticks and convert them to frequency
+    # - Get the current time ticks and convert them to frequency
     time_ticks = ax.get_xticks()
-    frequency_ticks = time_to_frequency(time_ticks)
+    frequency_ticks = np.linspace(start_frequency, end_frequency, len(time_ticks))
 
-    # Apply the converted frequency ticks to the frequency axis
+    # - Apply the converted frequency ticks to the frequency axis
     ax_twin.set_xticks(time_ticks)
     ax_twin.set_xticklabels([f"{f:.1f}" for f in frequency_ticks])
     ax_twin.set_xlabel("Frequency (Hz)")
@@ -162,10 +153,15 @@ def plot_filter_bank_output(
     plt.title("Filter Bank Output")
     plt.tight_layout()
     plt.grid()
-    plt.show()
+    return fig
 
 
-def plot_divisive_normalization_output(spike_out: np.ndarray, sr: float) -> None:
+def plot_divisive_normalization_output(
+    spike_out: np.ndarray,
+    sr: float,
+    start_frequency: float = 20,
+    end_frequency: float = 20_000,
+) -> Figure:
     fig, ax = plt.subplots(figsize=(16, 6))
 
     TSEvent.from_raster(spike_out, dt=1 / sr).plot()
@@ -176,7 +172,7 @@ def plot_divisive_normalization_output(spike_out: np.ndarray, sr: float) -> None
 
     # - Get the current time ticks and convert them to frequency
     time_ticks = ax.get_xticks()
-    frequency_ticks = time_to_frequency(time_ticks)
+    frequency_ticks = np.linspace(start_frequency, end_frequency, len(time_ticks))
 
     # - Apply the converted frequency ticks to the frequency axis
     ax_twin.set_xticks(time_ticks)
@@ -187,10 +183,10 @@ def plot_divisive_normalization_output(spike_out: np.ndarray, sr: float) -> None
     plt.title("Divisive Normalization Output")
     plt.tight_layout()
     plt.grid()
-    plt.show()
+    return fig
 
 
-def plot_raster_output(out: np.ndarray, dt: float) -> None:
+def plot_raster_output(out: np.ndarray, dt: float) -> Figure:
     fig, axs = plt.subplots(2, 1, figsize=(16, 12))
 
     # - Plot the raster
@@ -204,8 +200,4 @@ def plot_raster_output(out: np.ndarray, dt: float) -> None:
 
     plt.title("Accumulated Spike Output")
     plt.tight_layout()
-    plt.show()
-
-
-if __name__ == "__main__":
-    generate_chirp()
+    return fig
