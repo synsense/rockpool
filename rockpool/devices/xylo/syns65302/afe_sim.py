@@ -822,7 +822,7 @@ class AFESimAGC(AFESim):
         select_filters: Optional[Tuple[int]] = None,
         spike_gen_mode: str = "divisive_norm",
         rate_scale_factor: Optional[int] = 63,
-        low_pass_averaging_window: Optional[float] = 84e-3,
+        low_pass_averaging_window: Optional[float] = 82e-3,
         dn_EPS: Optional[Union[int, Tuple[int]]] = 1,
         fixed_threshold_vec: Optional[Union[int, Tuple[int]]] = None,
         dt: Optional[float] = 1024e-6,
