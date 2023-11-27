@@ -216,17 +216,29 @@ def plot_divisive_normalization_output(
 
 
 def plot_raster_output(out: np.ndarray, dt: float) -> Figure:
-    fig, axs = plt.subplots(2, 1, figsize=(16, 12))
+    """
+    Plot the accumulated spikes in two figures, one regular 2D raster, one color coded raster to
+    encode number of spikes per time-step
+
+    Args:
+        out (np.ndarray): the output spike train coming from the full AFESim module
+        dt (float): The output dt of the `AFESim` module, or the dt of the SNN core.
+
+    Returns:
+        Figure: generated figure
+    """    
+    fig, (ax_top, ax_bottom) = plt.subplots(2, 1, figsize=(16, 12))
 
     # - Plot the raster
-    plt.sca(axs[0])
+    plt.sca(ax_top])
     TSEvent.from_raster(out, dt=dt).plot()
 
     # - Plot the 3D image of the raster, color encoding the number of spikes
-    axs[1].imshow(out.T, aspect="auto", origin="lower")
-    axs[1].set_xlabel("Sample")
-    axs[1].set_title("3D Spike Raster")
+    ax_bottom.imshow(out.T, aspect="auto", origin="lower")
+    ax_bottom.set_xlabel("Sample")
+    ax_bottom.set_title("3D Spike Raster")
 
+    # - Plot
     plt.title("Accumulated Spike Output")
     plt.tight_layout()
     return fig
