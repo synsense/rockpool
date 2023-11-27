@@ -72,6 +72,7 @@ def generate_chirp(
     # - Ensure that highest values are in 16-bit range
     audio = np.int16(signal / np.max(np.abs(signal)) * np.int16(2**15 - 1))
 
+    # - Save
     if filename is not None:
         filename = os.path.join(file_path, filename)
         scipy.io.wavfile.write(filename, int(sr), audio)
@@ -128,13 +129,29 @@ def plot_chirp_signal(
 
 def plot_filter_bank_output(
     filtered_signal: np.ndarray,
-    __sr: float,
+    sr: float,
     start_frequency: float = 20,
     end_frequency: float = 20_000,
+    stagger: float = 1e7,
 ) -> Figure:
+    """
+    Plots `AFESim.FilterBank` output on given chirp signal showing each channel's response in a different amplitude band.
+
+    Args:
+        filtered_signal (np.ndarray): The filtered signal output, read from the record dictionary.
+            i.e. `rec["1_ChipButterworth_output"]`
+        sr (float): the sampling rate of the audio
+        start_freq (float, optional): The starting frequency of the sweep. Defaults to 20.
+        end_freq (float, optional): The end frequency of the sweep. Defaults to 20000.
+        stagger (float, optional): Amplitude shift to separate each channel from each other. Defaults to 1e7.
+
+    Returns:
+        Figure: _description_
+    """
     fig, ax = plt.subplots(figsize=(16, 12))
 
-    TSContinuous.from_clocked(filtered_signal, dt=1 / __sr).plot(stagger=1e7)
+    plt.sca(ax)
+    TSContinuous.from_clocked(filtered_signal, dt=1 / sr).plot(stagger=stagger)
 
     # - Annotate the frequency sweep
     ax_twin = ax.twiny()
