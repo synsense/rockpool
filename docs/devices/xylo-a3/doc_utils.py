@@ -5,6 +5,7 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.io.wavfile
+from matplotlib.figure import Figure
 
 from rockpool.devices.xylo.syns65302.afe import (
     AUDIO_SAMPLING_RATE_PDM,
@@ -79,26 +80,49 @@ def generate_chirp(
     return audio, fs
 
 
-def plot_input_signal(signal, sr, t=0.1, start_freq=20, end_freq=20000):
-    T = int(t * sr)
-    fig, ax1 = plt.subplots(figsize=(16, 6))
-    __freq_sw = np.linspace(start_freq, end_freq, len(signal))
+def plot_chirp_signal(
+    signal: np.ndarray,
+    sr: float,
+    t_cut: Optional[float] = 0.1,
+    start_freq: float = 20,
+    end_freq: float = 20000,
+) -> Figure:
+    """
+    Plots the chirp signal with time and frequency axes.
 
-    # - Plot the audio recording
-    ax1.plot(__freq_sw[:T], signal[:T], alpha=0)
-    ax1.xaxis.tick_bottom()
-    ax1.set_xlabel("Freq (Hz)")
-    ax1.xaxis.set_label_position("bottom")
+    Args:
+        signal (np.ndarray): the audio signal, most probably a `librosa.load` output.
+        sr (float): the sampling rate of the audio
+        t_cut (Optional[float], optional): first `t_cut` seconds of the signal is being processed. If None, the full signal is being plotted. Defaults to 0.1.
+        start_freq (float, optional): The starting frequency of the sweep. Defaults to 20.
+        end_freq (float, optional): The end frequency of the sweep. Defaults to 20000.
+
+    Returns:
+        Figure: _description_
+    """
+    # - Get the cut index
+    if t_cut is None:
+        t_cut = len(signal) / sr
+
+    T = int(t_cut * sr)
+
+    # - Set the plot and x-axis ticks
+    fig, ax = plt.subplots(figsize=(16, 6))
+    __freq_sw = np.linspace(start_freq, end_freq, len(signal))[:T]
+    __time_sw = np.linspace(0, t_cut, T)
 
     # - Plot the time axis
-    ax2 = ax1.twiny()
-    ax2.plot(np.arange(0, t, 1 / sr)[:T], signal[:T])
-    ax2.xaxis.tick_top()
-    ax2.set_xlabel("Time (s)")
-    ax2.xaxis.set_label_position("top")
+    ax.plot(__time_sw, signal[:T])
+    ax.set_xlabel("Time (s)")
 
+    # - Plot the frequency axis
+    ax_twin = ax.twiny()
+    ax_twin.plot(__freq_sw[:T], signal[:T], alpha=0)
+    ax_twin.set_xlabel("Frequency (Hz)")
+
+    plt.title("Chirp Signal")
     plt.tight_layout()
-    plt.show()
+    return fig
 
 
 def time_to_frequency(
@@ -181,3 +205,7 @@ def plot_raster_output(out: np.ndarray, dt: float) -> None:
     plt.title("Accumulated Spike Output")
     plt.tight_layout()
     plt.show()
+
+
+if __name__ == "__main__":
+    generate_chirp()
