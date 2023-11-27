@@ -1,7 +1,7 @@
+import json
 import os
 from typing import Optional, Tuple
 
-import json
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.io.wavfile
