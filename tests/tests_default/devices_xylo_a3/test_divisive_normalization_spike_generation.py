@@ -8,6 +8,10 @@ def test_imports():
         DivisiveNormalization,
     )
 
+    assert ChipButterworth is not None
+    assert PDMADC is not None
+    assert DivisiveNormalization is not None
+
 
 def test_filterbank():
     """
@@ -20,7 +24,10 @@ def test_filterbank():
         DivisiveNormalization,
         PDMADC,
     )
-    from rockpool.devices.xylo.syns65302.afe.params import NUM_FILTERS
+    from rockpool.devices.xylo.syns65302.afe.params import (
+        NUM_FILTERS,
+        AUDIO_SAMPLING_RATE_PDM,
+    )
 
     # just to extract the sampling rate
     pdm_adc = PDMADC()
@@ -55,7 +62,7 @@ def test_filterbank():
     assert sig_filtered.shape[1] == NUM_FILTERS
 
     # aplly divisive normalization and spike generation
-    dn = DivisiveNormalization()
+    dn = DivisiveNormalization(fs=AUDIO_SAMPLING_RATE_PDM)
     spikes, _, _ = dn(sig_filtered)
 
     sample_rate = fs / oversampling
