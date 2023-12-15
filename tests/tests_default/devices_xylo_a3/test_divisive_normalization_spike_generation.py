@@ -2,7 +2,7 @@ import pytest
 
 
 def test_imports():
-    from rockpool.devices.xylo.syns65302 import (
+    from rockpool.devices.xylo.syns65302.afe import (
         ChipButterworth,
         PDMADC,
         DivisiveNormalization,
@@ -19,7 +19,7 @@ def test_filterbank():
     """
     import numpy as np
     from numpy.linalg import norm
-    from rockpool.devices.xylo.syns65302 import (
+    from rockpool.devices.xylo.syns65302.afe import (
         ChipButterworth,
         DivisiveNormalization,
         PDMADC,

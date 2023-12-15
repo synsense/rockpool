@@ -1,9 +1,8 @@
 """
-Simulation, interfacing and deployment modules for Xylo-Audio v3
+Package to support the Xylo HW SYNS65302 (Xylo™ Audio v3)
+Includes simulation, interfacing and deployment modules.
 
-Provides the modules :py:class:`.Raster`, :py:class:`.MicrophonePDM`, :py:class:`.PolyPhaseFIR`, :py:class:.`PDMADC`, :py:class:`.DivisiveNormalization`, :py:class:`.ChipButterworth`.
-
+Provides the modules :py:class:`.AFESimExternal`, :py:class:`.AFESimAGC`, and :py:class:`.AFESimPDM`.
 """
-
-from .afe import *
+from .afe.params import *
 from .afe_sim import *
