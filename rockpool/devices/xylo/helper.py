@@ -77,6 +77,23 @@ def find_xylo_hdks() -> Tuple[List["XyloHDK"], List[ModuleType], List[str]]:
             xylo_support_modules.append(imu)
             xylo_versions.append("syns63300")
 
+        elif d.device_type_name == "XyloA3TestBoard":
+            dev = samna.device.open_device(d)
+
+            if not check_firmware_versions(dev, "0.11.5", "1.1.3"):
+                raise ValueError(
+                    "The firmware of the connected Xylo HDK is unsupported, and must be upgraded."
+                )
+
+            print(
+                "The connected Xylo HDK contains a Xylo A3. Importing `rockpool.devices.xylo.syns65302`"
+            )
+            import rockpool.devices.xylo.syns65302 as a3
+
+            xylo_hdks.append(dev)
+            xylo_support_modules.append(a3)
+            xylo_versions.append("syns65302")
+
     return xylo_hdks, xylo_support_modules, xylo_versions
 
 
