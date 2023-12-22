@@ -223,11 +223,12 @@ class AGCADC(Module):
         if record:
             __rec = {
                 "amplifier": [],
-                "adc": [],
+                "pga_gain": [],
                 "envelope_controller": [],
+                "envelope": [],
             }
             if self.gain_smoother is not None:
-                __rec["gain_smoother"] = []
+                __rec["adc"] = []
 
         else:
             __rec = {}
@@ -236,7 +237,7 @@ class AGCADC(Module):
 
         for sig_in in audio:
             # The old value of agc_pga_command computed in the past clock is used to produce amplifier output and ADC output
-            __out_amp, _, _ = self.amplifier.evolve(
+            __out_amp, _, __rec_amp = self.amplifier.evolve(
                 audio=sig_in,
                 pga_command=self.agc_pga_command,
                 record=record,
@@ -250,13 +251,15 @@ class AGCADC(Module):
                 # Oversampling == 2 : ADC generates output every other clock
                 # Oversampling == 4 : ADC generates output every 4th clock
 
-            self.agc_pga_command, _, _ = self.envelope_controller.evolve(
+            self.agc_pga_command, __state_envelope, _ = self.envelope_controller.evolve(
                 sig_in=__out, record=record
             )
 
             if record:
                 __rec["amplifier"].append(copy(__out_amp))
+                __rec["pga_gain"].append(copy(__rec_amp["pga_gain"]))
                 __rec["envelope_controller"].append(copy(self.agc_pga_command))
+                __rec["envelope"].append(copy(__state_envelope["envelope"]))
 
             if self.gain_smoother is not None:
                 if record:
