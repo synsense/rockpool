@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.io.wavfile
 from matplotlib.figure import Figure
+from matplotlib.gridspec import GridSpec
 
 from rockpool.devices.xylo.syns65302.afe import (
     AUDIO_SAMPLING_RATE_PDM,
@@ -150,8 +151,14 @@ def plot_filter_bank_output(
     """
     fig, ax = plt.subplots(figsize=(16, 12))
 
+    num_ch = filtered_signal.shape[1]
+    yticks = np.arange(0, stagger * num_ch, stagger)
+
     plt.sca(ax)
     TSContinuous.from_clocked(filtered_signal, dt=1 / sr).plot(stagger=stagger)
+    ax.set_ylabel("Channel")
+    ax.set_yticks(yticks)
+    ax.set_yticklabels([f"CH {i}" for i in range(num_ch)])
 
     # - Annotate the frequency sweep
     ax_twin = ax.twiny()
@@ -227,18 +234,28 @@ def plot_raster_output(out: np.ndarray, dt: float) -> Figure:
     Returns:
         Figure: generated figure
     """
-    fig, (ax_top, ax_bottom) = plt.subplots(2, 1, figsize=(16, 12))
+    fig = plt.figure(figsize=(16, 12))
+    gs = GridSpec(2, 2, width_ratios=[10, 1], height_ratios=[1, 1])
 
-    # - Plot the raster
+    ax_top = fig.add_subplot(gs[0, 0])
+    ax_bottom = fig.add_subplot(gs[1, 0])
+    ax_cbar = fig.add_subplot(gs[1, 1])
+
     plt.sca(ax_top)
     TSEvent.from_raster(out, dt=dt).plot()
 
     # - Plot the 3D image of the raster, color encoding the number of spikes
-    ax_bottom.imshow(out.T, aspect="auto", origin="lower")
+    im = ax_bottom.imshow(out.T, aspect="auto", origin="lower")
     ax_bottom.set_xlabel("Sample")
     ax_bottom.set_title("3D Spike Raster")
+    ax_bottom.set_ylabel("Channel")
 
     # - Plot
-    plt.title("Accumulated Spike Output")
+    ax_cbar.axis("off")
+    cbar = fig.colorbar(im, ax=ax_cbar)
+    cbar.set_label("Number of Spikes")
+
+    # Overall title for both subplots
+    plt.suptitle("Accumulated Spike Output")
     plt.tight_layout()
     return fig
