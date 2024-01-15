@@ -3,7 +3,7 @@ import pytest
 
 
 def test_imports():
-    from rockpool.devices.xylo.syns65302 import (
+    from rockpool.devices.xylo.syns65302.afe.pdm import (
         PolyPhaseFIR,
         MicrophonePDM,
     )
@@ -15,7 +15,7 @@ def test_polyphase_decimation_filter():
     """
     import numpy as np
     from numpy.linalg import norm
-    from rockpool.devices.xylo.syns65302 import (
+    from rockpool.devices.xylo.syns65302.afe.pdm import (
         MicrophonePDM,
         PolyPhaseFIR,
     )

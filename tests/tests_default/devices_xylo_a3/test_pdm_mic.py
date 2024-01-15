@@ -2,7 +2,7 @@ import pytest
 
 
 def test_imports():
-    from rockpool.devices.xylo.syns65302 import DeltaSigma, MicrophonePDM
+    from rockpool.devices.xylo.syns65302.afe.pdm import DeltaSigma, MicrophonePDM
 
 
 def test_deltasigma():
@@ -10,7 +10,7 @@ def test_deltasigma():
     this module tests the deltasigma module implemented for converting an analog signal into a pulse-density-modulated {+1,-1} bitstream.
     """
     import numpy as np
-    from rockpool.devices.xylo.syns65302 import DeltaSigma
+    from rockpool.devices.xylo.syns65302.afe.pdm import DeltaSigma
 
     # * produce a sinusoid signal
     freq = 1000
@@ -81,7 +81,7 @@ def test_deltasigma():
 
 def test_pdm_mic():
     """this module verifies the default PDM microphone setting in Xylo-A3."""
-    from rockpool.devices.xylo.syns65302 import MicrophonePDM
+    from rockpool.devices.xylo.syns65302.afe.pdm import MicrophonePDM
     import numpy as np
 
     mic = MicrophonePDM()

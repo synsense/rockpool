@@ -223,6 +223,7 @@ Support modules
     devices.xylo.syns61300
     devices.xylo.syns61201
     devices.xylo.syns65300
+    devices.xylo.syns65302
     devices.xylo.syns63300
 
 .. autosummary::
@@ -255,6 +256,17 @@ Xylo Audio support
     devices.xylo.syns61201.DivisiveNormalisation
     devices.xylo.syns61201.Xylo2HiddenNeurons
     devices.xylo.syns61201.Xylo2OutputNeurons
+
+
+Xylo Audio v3 Support
+~~~~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+    :toctree: _autosummary
+
+    devices.xylo.syns65302.AFESimExternal
+    devices.xylo.syns65302.AFESimPDM
+    devices.xylo.syns65302.AFESimAGC
 
 
 Xylo IMU support

@@ -5,6 +5,8 @@ import numpy as np
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 
+__all__ = ["AmplitudeNormalizer"]
+
 
 class AmplitudeNormalizer(Module):
     """

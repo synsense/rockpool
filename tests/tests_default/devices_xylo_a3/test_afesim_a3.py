@@ -2,12 +2,14 @@ import pytest
 
 
 def test_import() -> None:
-    """Test that the AFESim module can be imported"""
+    """Test that the AFESim modules can be imported"""
 
     pytest.importorskip("samna")
-    from rockpool.devices.xylo.syns65302 import AFESim
+    from rockpool.devices.xylo.syns65302 import AFESimAGC, AFESimPDM, AFESimExternal
 
-    assert AFESim is not None
+    assert AFESimAGC is not None
+    assert AFESimPDM is not None
+    assert AFESimExternal is not None
 
 
 @pytest.mark.parametrize(
@@ -25,9 +27,11 @@ def test_dn_rate_scale_bitshift_known_feasible(
         rate_scale_bitshift (tuple): Expected `rate_scale_bitshift` calculated given the target `rate_scale_factor`.
     """
     pytest.importorskip("samna")
-    from rockpool.devices.xylo.syns65302 import AFESim
+    from rockpool.devices.xylo.syns65302 import AFESimExternal
 
-    bitshift = AFESim.get_dn_rate_scale_bitshift(rate_scale_factor=rate_scale_factor)
+    bitshift = AFESimExternal.get_dn_rate_scale_bitshift(
+        rate_scale_factor=rate_scale_factor
+    )
     assert bitshift == rate_scale_bitshift
 
 
@@ -40,10 +44,10 @@ def test_dn_rate_scale_bitshift_known_raising_error(rate_scale_factor: int) -> N
         rate_scale_factor (int): Target `rate_scale_factor` for the `DivisiveNormalization` module.
     """
     pytest.importorskip("samna")
-    from rockpool.devices.xylo.syns65302 import AFESim
+    from rockpool.devices.xylo.syns65302 import AFESimExternal
 
     with pytest.raises(ValueError):
-        AFESim.get_dn_rate_scale_bitshift(rate_scale_factor=rate_scale_factor)
+        AFESimExternal.get_dn_rate_scale_bitshift(rate_scale_factor=rate_scale_factor)
 
 
 @pytest.mark.parametrize(
@@ -61,10 +65,11 @@ def test_dn_low_pass_bitshift_known_feasible(
         low_pass_bitshift (int): Expected `low_pass_bitshift` calculated given the target `low_pass_averaging_window`.
     """
     pytest.importorskip("samna")
-    from rockpool.devices.xylo.syns65302 import AFESim
+    from rockpool.devices.xylo.syns65302 import AFESimExternal, AUDIO_SAMPLING_RATE_PDM
 
-    bitshift = AFESim.get_dn_low_pass_bitshift(
-        low_pass_averaging_window=low_pass_averaging_window
+    bitshift = AFESimExternal.get_dn_low_pass_bitshift(
+        audio_sampling_rate=AUDIO_SAMPLING_RATE_PDM,
+        low_pass_averaging_window=low_pass_averaging_window,
     )
     assert bitshift == low_pass_bitshift
 
@@ -80,11 +85,12 @@ def test_dn_low_pass_bitshift_known_raising_error(
         low_pass_averaging_window (int): Target `low_pass_averaging_window` for the `DivisiveNormalization` module.
     """
     pytest.importorskip("samna")
-    from rockpool.devices.xylo.syns65302 import AFESim
+    from rockpool.devices.xylo.syns65302 import AFESimExternal, AUDIO_SAMPLING_RATE_PDM
 
     with pytest.raises(ValueError):
-        AFESim.get_dn_low_pass_bitshift(
-            low_pass_averaging_window=low_pass_averaging_window
+        AFESimExternal.get_dn_low_pass_bitshift(
+            audio_sampling_rate=AUDIO_SAMPLING_RATE_PDM,
+            low_pass_averaging_window=low_pass_averaging_window,
         )
 
 
@@ -102,9 +108,11 @@ def test_down_sampling_factor_known_feasible(
         down_sampling_factor (int): Expected `down_sampling_factor` calculated given the target `dt`.
     """
     pytest.importorskip("samna")
-    from rockpool.devices.xylo.syns65302 import AFESim
+    from rockpool.devices.xylo.syns65302 import AFESimExternal, AUDIO_SAMPLING_RATE_PDM
 
-    factor = AFESim.get_down_sampling_factor(dt=dt)
+    factor = AFESimExternal.get_down_sampling_factor(
+        audio_sampling_rate=AUDIO_SAMPLING_RATE_PDM, dt=dt
+    )
     assert factor == down_sampling_factor
 
 
@@ -117,7 +125,9 @@ def test_down_sampling_factor_known_raising_error(dt: float) -> None:
         dt (float): Sampling period of the audio signal.
     """
     pytest.importorskip("samna")
-    from rockpool.devices.xylo.syns65302 import AFESim
+    from rockpool.devices.xylo.syns65302 import AFESimExternal, AUDIO_SAMPLING_RATE_PDM
 
     with pytest.raises(ValueError):
-        AFESim.get_down_sampling_factor(dt=dt)
+        AFESimExternal.get_down_sampling_factor(
+            audio_sampling_rate=AUDIO_SAMPLING_RATE_PDM, dt=dt
+        )

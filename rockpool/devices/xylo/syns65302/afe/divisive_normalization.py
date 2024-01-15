@@ -1,54 +1,40 @@
-# ----------------------------------------------------------------------------------------------------------------------
-# This module implements the divisive normalization (DN) algorithm to balance the spike rate.
-#
-# NOTE: In the previous version Xylo-A2, DN module was after the spike generation because spikes
-# were produced asynchronously within the analog part (analog filter + leaky IF spike generator).
-#
-# In the current version Xylo-A3 since the output of the filters (here digital filters) is directly
-# available, one does not need to do (i) spike generation followed by (ii) DN on the generated spikes.
-#
-# Instead, we merge these two so that DN is applied directly to the filter output to normalize its
-# power, which yields a better performance than DN applied to spikes.
-#
-# NOTE: There is of course an option to NOT apply DN where in that case, spikes are produced using
-# ordinary IAF with given/fixed thresholds rather than adaptive ones computed and used in DN.
-#
-# For further details on how DN is implemented and how its parameters should be selected, we refer
-# to the following repo and documentation:
-# https://spinystellate.office.synsense.ai/research/auditoryprocessing/synchronous-divisive-normalization
-#
-# ----------------------------------------------------------------------------------------------------------------------
+""" 
+This module implements the divisive normalization (DN) algorithm to balance the spike rate.
 
-# Important Remarks:
-#
-# (i) don't forget to activate the jax flag again otherwise DN will always use python vresion.
-#
-# (ii) In the current version of DN, we have a scaling of threshold which is a power of two. This implies that the threshold of DN
-# thus the spike rate moves in steps of power of 2:
-# we replaced this by the difference of two bit-shifts so that we can cover a more flexible range of spike rates.
-#
-# (iii) the surplus scaling of the filters is not added in the filterbank. This simply means that they should be added in thresholds we use for DN.
+NOTE: In the previous version Xylo-A2, DN module was after the spike generation because spikes were produced asynchronously within the analog part (analog filter + leaky IF spike generator).
+In the current version Xylo-A3 since the output of the filters (here digital filters) is directly available, one does not need to do (i) spike generation followed by (ii) DN on the generated spikes.
+Instead, we merge these two so that DN is applied directly to the filter output to normalize its power, which yields a better performance than DN applied to spikes.
+
+NOTE: There is of course an option to NOT apply DN where in that case, spikes are produced using ordinary IAF with given/fixed thresholds rather than adaptive ones computed and used in DN.
+
+For further details on how DN is implemented and how its parameters should be selected, we refer to the following repo and documentation:
+https://spinystellate.office.synsense.ai/research/auditoryprocessing/synchronous-divisive-normalization
+
+Important Remarks:
+
+(i) don't forget to activate the jax flag again otherwise DN will always use python vresion.
+
+(ii) In the current version of DN, we have a scaling of threshold which is a power of two. This implies that the threshold of DN thus the spike rate moves in steps of power of 2:
+we replaced this by the difference of two bit-shifts so that we can cover a more flexible range of spike rates.
+
+(iii) the surplus scaling of the filters is not added in the filterbank. This simply means that they should be added in thresholds we use for DN.
+"""
 
 
 # required packages
 import numpy as np
-from rockpool.devices.xylo.syns65302.afe.params import AUDIO_SAMPLING_RATE, NUM_FILTERS
-from rockpool.devices.xylo.syns65302.afe.digital_filterbank import (
-    type_check,
-)
+from rockpool.devices.xylo.syns65302.afe.params import NUM_FILTERS
+from rockpool.devices.xylo.syns65302.afe.digital_filterbank import type_check
 
 from functools import partial
 
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 
-from numbers import Number
-import warnings
-
-from logging import debug, info
+from logging import info
 
 from typing import Union, Tuple, List, Dict
-from rockpool.typehints import P_int, P_ndarray, P_float
+from rockpool.typehints import P_ndarray, P_float
 
 # exported modules
 __all__ = ["DivisiveNormalization", "jax_spike_gen", "fjax_spike_gen", "py_spike_gen"]
@@ -61,6 +47,7 @@ class DivisiveNormalization(Module):
 
     def __init__(
         self,
+        fs: float,
         shape: Tuple[Tuple[int], int] = NUM_FILTERS,
         enable_DN_channel: bool = True,
         spike_rate_scale_bitshift1: int = 6,
@@ -68,12 +55,12 @@ class DivisiveNormalization(Module):
         low_pass_bitshift: int = 12,
         EPS_vec: Union[int, np.ndarray] = 1,
         fixed_threshold_vec: Union[int, np.ndarray] = 2 ** (14 - 1 + 8 + 6),
-        fs: float = AUDIO_SAMPLING_RATE,
     ):
         """
         Initialise a divisive normalisation module
 
         Args:
+            fs (float): sampling frequency of the input audio in Hz (e.g., 48.8 or 50K).
             shape (int): number of channels (here filters) in the divisive normalization module. Defaults to NUM_FILTERS (16 in Xylo-A3).
             enable_DN_channel (bool): if True, divisive normalization is applied to the channel. Defaults to True.
             spike_rate_scale_bitshift1 ( int ): how much the spike rate should be scaled compared with the sampling rate of the input audio. Defaults to 6.

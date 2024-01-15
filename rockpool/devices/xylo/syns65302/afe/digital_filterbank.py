@@ -1,14 +1,13 @@
-# ----------------------------------------------------------------------------------------------------------------------
-# This module implements the digital filterbank in Xylo-A3 chip.
-# This is the first version of Xylo chip in which the analog filters have been replaced with the digital ones.
-#
-# ----------------------------------------------------------------------------------------------------------------------
+"""
+This module implements the digital filterbank in Xylo-A3 chip.
+This is the first version of Xylo chip in which the analog filters have been replaced with the digital ones.
+"""
 
 
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from functools import partial, wraps
-from logging import debug, info
+from logging import info
 
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -16,7 +15,7 @@ import numpy as np
 
 from rockpool.devices.xylo.syns65302.afe.params import NUM_FILTERS
 from rockpool.nn.modules.module import Module
-from rockpool.parameters import ParameterBase, SimulationParameter
+from rockpool.parameters import ParameterBase
 
 P_int = Union[int, ParameterBase]
 P_float = Union[float, ParameterBase]

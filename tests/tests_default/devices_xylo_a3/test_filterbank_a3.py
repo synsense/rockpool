@@ -2,7 +2,7 @@ import pytest
 
 
 def test_imports():
-    from rockpool.devices.xylo.syns65302 import ChipButterworth, PDMADC
+    from rockpool.devices.xylo.syns65302.afe import ChipButterworth, PDMADC
 
 
 def test_filterbank():
@@ -11,8 +11,7 @@ def test_filterbank():
     """
     import numpy as np
     from numpy.linalg import norm
-    from rockpool.devices.xylo.syns65302 import PDMADC, ChipButterworth
-    from rockpool.devices.xylo.syns65302.afe.params import NUM_FILTERS
+    from rockpool.devices.xylo.syns65302.afe import PDMADC, ChipButterworth, NUM_FILTERS
 
     pdm_adc = PDMADC()
     fs = pdm_adc[0].fs
@@ -56,7 +55,7 @@ def test_valid_filters(select_filters: tuple):
     Args:
         select_filters (tuple): The indices of the filters to be used in the filter bank
     """
-    from rockpool.devices.xylo.syns65302 import ChipButterworth
+    from rockpool.devices.xylo.syns65302.afe import ChipButterworth
 
     _ch = ChipButterworth(select_filters=select_filters)
     assert _ch.size_out == len(select_filters)
@@ -72,7 +71,7 @@ def test_invalid_filters_value_error(select_filters: tuple):
     Args:
         select_filters (tuple): The indices of the filters to be used in the filter bank
     """
-    from rockpool.devices.xylo.syns65302 import ChipButterworth
+    from rockpool.devices.xylo.syns65302.afe import ChipButterworth
 
     with pytest.raises(ValueError):
         _ch = ChipButterworth(select_filters=select_filters)
@@ -86,7 +85,7 @@ def test_invalid_filters_type_error(select_filters: tuple):
     Args:
         select_filters (tuple): The indices of the filters to be used in the filter bank
     """
-    from rockpool.devices.xylo.syns65302 import ChipButterworth
+    from rockpool.devices.xylo.syns65302.afe import ChipButterworth
 
     with pytest.raises(TypeError):
         _ch = ChipButterworth(select_filters=select_filters)

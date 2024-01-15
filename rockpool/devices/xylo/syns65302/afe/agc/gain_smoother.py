@@ -1,228 +1,203 @@
-# ----------------------------------------------------------------------------------------------------------------------
-# This module checks the output of the AGC and if there is any abrupt jump in amplitude
-# smoothes it out to avoid distortion due to signal jumps propagating to the next layers (filters, etc.).
-#
-# This module can be seen as the digital correction and smoothing of the quantized gain values in AGC
-# obtained via analog implementation.
-#
-# In practice, we can activate and deactivate this module to see if it has a major effect on the transient
-# of the filters and in case not (since filters themselves may suppress this gain jump) we can deactivate it.
-#
-# ----------------------------------------------------------------------------------------------------------------------
+"""
+This module checks the output of the AGC and if there is any abrupt jump in amplitude
+smooths it out to avoid distortion due to signal jumps propagating to the next layers (filters, etc.).
+This module can be seen as the digital correction and smoothing of the quantized gain values in AGC
+obtained via analog implementation.
+In practice, we can activate and deactivate this module to see if it has a major effect on the transient
+of the filters and in case not (since filters themselves may suppress this gain jump) we can deactivate it.
+"""
 
-from rockpool.devices.xylo.syns65302.afe.params import (
-    AUDIO_SAMPLING_RATE,
-)
+from typing import Optional, Tuple
+
 import numpy as np
-from typing import Any
 
-# ===========================================================================
-# *                        Some constants needed in the design
-# ===========================================================================
-# default setting used for envelope controller
 from rockpool.devices.xylo.syns65302.afe.params import (
+    AUDIO_SAMPLING_RATE_AGC,
     EXP_PGA_GAIN_VEC,
-    NUM_BITS_COMMAND,
-    NUM_BITS_AGC_ADC,
-)
-
-# maximum number of bits devoted for implementing waiting times in the AGC controller algorithm
-# NOTE: with a clock rate of 50K, this is around 1 min waiting time which would definitely be enough for all ranges of applications
-# MAX_WAITING_BITWIDTH is set 24 in default mode
-from rockpool.devices.xylo.syns65302.afe.params import (
-    MAX_WAITING_BITWIDTH,
-)
-
-# how many time-constants is considered `INFINITY` in low-pass filter transient period
-# INIFINITY_OF_TRANSIENT_PHASE is set to 6 in default mode
-from rockpool.devices.xylo.syns65302.afe.params import (
     INIFINITY_OF_TRANSIENT_PHASE,
-)
-
-# how many bits are needed to quantize the gain ratio associated with the start and end of the jump
-from rockpool.devices.xylo.syns65302.afe.params import (
+    MAX_WAITING_BITWIDTH,
+    NUM_BITS_AGC_ADC,
+    NUM_BITS_COMMAND,
     NUM_BITS_GAIN_QUANTIZATION,
 )
+from rockpool.nn.modules import Module
+from rockpool.parameters import SimulationParameter, State
 
 
-# ===========================================================================
-# *  A simple quantized version better suited for implementation on FPGA
-#    NOTE: A floating-point version is available in the old design
-# ===========================================================================
-class GainSmootherFPGA:
+class GainSmoother(Module):
+    """
+    Applies gain smoothing so that there is no jump in signal amplitude when gain is switched.
+
+    NOTE:
+    Here we are using a bitshift implementation where the averaging parameter `gamma` in gain smoothing equation
+
+                    ``beta[t+1] = (1-gamma) beta[t] + gamma x 1``
+
+    which should be around `(INIFINITY_OF_TRANSIENT_PHASE=> 6)/min-waiting-time` is of the form `(INIFINITY_OF_TRANSIENT_PHASE => 4) / 2^num_waiting_bitshift`.
+
+    """
+
     def __init__(
         self,
         num_bits: int = NUM_BITS_AGC_ADC,
-        min_waiting_time: float = (2**MAX_WAITING_BITWIDTH - 1) / AUDIO_SAMPLING_RATE,
+        min_waiting_time: float = (2**MAX_WAITING_BITWIDTH - 1)
+        / AUDIO_SAMPLING_RATE_AGC,
         num_bits_command: int = NUM_BITS_COMMAND,
-        pga_gain_vec: np.ndarray = EXP_PGA_GAIN_VEC,
+        pga_gain_vec: Optional[np.ndarray] = None,
         num_bits_gain_quantization: int = NUM_BITS_GAIN_QUANTIZATION,
-        fs: float = AUDIO_SAMPLING_RATE,
+        fs: float = AUDIO_SAMPLING_RATE_AGC,
     ):
-        """this calss applies gain smoothing so that there is no jump in signal amplitude when gain is switched.
-
-        NOTE:
-        Here we are using a bitshift implementation where the averaging parameter `gamma` in gain smoothing equation
-
-                        ``beta[t+1] = (1-gamma) beta[t] + gamma x 1``
-
-        which should be around `(INIFINITY_OF_TRANSIENT_PHASE=> 6)/min-waiting-time` is of the form `(INIFINITY_OF_TRANSIENT_PHASE => 4) / 2^num_waiting_bitshift`.
-
+        """
         Args:
             num_bits (int, optional): number of bits in the input siganl. Defaults to 14.
             min_waiting_time (float, optional): minimum waiting time used for AGC implementation.
             num_bits_command (int, optional): numnber of bits used to send gain-change commands from AGC to PGA module.
-            pga_gain_vec (Union[float, np.ndarray], optional): a vector containing gain sequence in PGA.
+            pga_gain_vec (Optional[np.ndarray], optional): a vector containing gain sequence in PGA.
             num_bits_gain_quantization (int, optional): number of bits used for quantizing the gain ratios.
             fs (float, optional): clock rate of the module.
         """
-        # number of bits in the input signal
-        self.num_bits = num_bits
+        super().__init__(shape=(1, 1), spiking_input=False, spiking_output=False)
 
-        # minimum waiting time in AGC design
-        self.min_waiting_time = min_waiting_time
-
-        # clock rate of the module
-        self.fs = fs
+        self.num_bits = SimulationParameter(num_bits, shape=())
+        """number of bits in the input signal"""
 
         # - compute the bitshift level needed for implementing the gain smoothing low-pass filter
-        min_waiting_num_samples = int(self.min_waiting_time * self.fs)
+        self.fs = fs
+        min_waiting_num_samples = int(min_waiting_time * self.fs)
 
         # closest power of two smaller than this value
-        self.min_waiting_num_samples = 2 ** (int(np.log2(min_waiting_num_samples)))
-
-        # * set the settling time such that `(INIFINITY_OF_TRANSIENT_PHASE => 4) x settling time` is equal to minimum waiting time
-        # ! NOTE (1): we set the bitshift such that even for the minimum waiting time, the gain of the gain smoother obtained from low-pass filter reaches its steady state.
-        # ! NOTE (2): In theory, we could use various bitshifts with various settling time for different signal amplitude levels but for simplicity we don't do that!
-        # INIFINITY_OF_TRANSIENT_PHASE -> set to 6 in default setting -> 6 time-constant of the filter == Infinity time
-        self.avg_bitshift = int(
-            np.fix(np.log2(self.min_waiting_num_samples / INIFINITY_OF_TRANSIENT_PHASE))
+        min_waiting_num_samples = 2 ** (int(np.log2(min_waiting_num_samples)))
+        avg_bitshift = int(
+            np.fix(np.log2(min_waiting_num_samples / INIFINITY_OF_TRANSIENT_PHASE))
         )
+
+        self.avg_bitshift = SimulationParameter(avg_bitshift, shape=())
+        """
+        * set the settling time such that `(INIFINITY_OF_TRANSIENT_PHASE => 4) x settling time` is equal to minimum waiting time
+        ! NOTE (1): we set the bitshift such that even for the minimum waiting time, the gain of the gain smoother obtained from low-pass filter reaches its steady state.
+        ! NOTE (2): In theory, we could use various bitshifts with various settling time for different signal amplitude levels but for simplicity we don't do that!
+        INIFINITY_OF_TRANSIENT_PHASE -> set to 6 in default setting -> 6 time-constant of the filter == Infinity time
+        """
 
         # number of bits used for sending the command from AGC to PGA
         self.num_bits_command = num_bits_command
 
         # check the gain ratios
-        try:
-            if len(pga_gain_vec) != 2**num_bits_command:
-                raise ValueError(
-                    "number of PGA gains should be the same as number of commands that can be sent from AGC to PGA!"
-                )
-        except:
-            raise ValueError("PGA gains should be a list or an array!")
+        if pga_gain_vec is None:
+            pga_gain_vec = EXP_PGA_GAIN_VEC
 
-        self.pga_gain_vec = np.asarray(pga_gain_vec, np.float64)
-
-        if np.any(self.pga_gain_vec[1:] / self.pga_gain_vec[:-1] <= 1.0):
+        pga_gain_vec = np.asarray(pga_gain_vec, np.float64)
+        if np.any(pga_gain_vec[1:] / pga_gain_vec[:-1] <= 1.0):
             raise ValueError(
                 "the ratio between consecutive gains should be always larger than 1.0 (as the gains are an increasing sequence)!"
             )
 
+        self.pga_gain_vec = SimulationParameter(
+            pga_gain_vec, shape=(2**self.num_bits_command)
+        )
+        """a vector containing gain sequence in PGA"""
+
         # - quantize the gain vectors
         # maximum ratio between consecutive gain values
         max_gain_ratio = np.max(self.pga_gain_vec[1:] / self.pga_gain_vec[:-1])
+        num_bits_gain_integer = int(np.ceil(np.log2(max_gain_ratio)))
 
-        # how many bits are needed for storing the integer part of this ratio
-        self.num_bits_gain_integer = int(np.ceil(np.log2(max_gain_ratio)))
+        """how many bits are needed for storing the integer part of this ratio"""
 
-        # how many bits are needed for the fractional part
-        self.num_bits_gain_fraction = (
-            num_bits_gain_quantization - self.num_bits_gain_integer
+        if num_bits_gain_quantization > 15:
+            raise ValueError(
+                "Number of bits for quantizing gain ratio should be <= 15!"
+            )
+
+        self.num_bits_gain_quantization = SimulationParameter(
+            num_bits_gain_quantization, shape=()
         )
+        """total number of bits used for quantization"""
 
-        # total number of bits used for quantization
-        self.num_bits_gain_quantization = num_bits_gain_quantization
+        num_bits_gain_fraction = self.num_bits_gain_quantization - num_bits_gain_integer
 
-        # * vector containing the quantized gain ratios
-        # case 1: when gain increases
-        self.up_gain_ratio_float = self.pga_gain_vec[1:] / self.pga_gain_vec[:-1]
-        self.up_gain_ratio = np.fix(
-            self.up_gain_ratio_float * 2**self.num_bits_gain_fraction
+        self.num_bits_gain_fraction = SimulationParameter(
+            num_bits_gain_fraction, shape=()
+        )
+        """how many bits are needed for the fractional part"""
+
+        # - Up gain ratio
+        up_gain_ratio_float = self.pga_gain_vec[1:] / self.pga_gain_vec[:-1]
+        up_gain_ratio = np.fix(
+            up_gain_ratio_float * 2**self.num_bits_gain_fraction
         ).astype(np.int64)
 
-        # case 2: when gain decreases
-        self.down_gain_ratio_float = self.pga_gain_vec[:-1] / self.pga_gain_vec[1:]
-        self.down_gain_ratio = np.fix(
-            self.down_gain_ratio_float * 2**self.num_bits_gain_fraction
+        self.up_gain_ratio = SimulationParameter(
+            up_gain_ratio, shape=(2**self.num_bits_command - 1)
+        )
+        """vector containing the quantized gain ratios case 1: when gain increases"""
+
+        # - Down gain ratio
+        down_gain_ratio_float = self.pga_gain_vec[:-1] / self.pga_gain_vec[1:]
+        down_gain_ratio = np.fix(
+            down_gain_ratio_float * 2**self.num_bits_gain_fraction
         ).astype(np.int64)
 
-        self.reset()
+        self.down_gain_ratio = SimulationParameter(
+            down_gain_ratio, shape=(2**self.num_bits_command - 1)
+        )
+        """vector containing the quantized gain ratios case 2: when gain decreases"""
 
-    def reset(self):
-        # number of samples received
-        # NOTE: by resetting the number of samples to 0, pga_gain value will be taken and initialized from the first
-        # data received in the input
-        self.num_processed_samples = 0
+        # - States
 
-        self.pga_current_gain_index = 0
+        self.num_processed_samples = State(0, shape=(), init_func=lambda _: 0)
+        """number of samples received
+        NOTE: by resetting the number of samples to 0, pga_gain value will be taken and initialized from the first data received in the input
+        """
 
-        # set the high and low resolution gain values
-        self.gain_high_res = 1 << (self.avg_bitshift + self.num_bits_gain_fraction)
-        self.gain = self.gain_high_res >> self.avg_bitshift
-        self.float_gain = self.gain / (2**self.num_bits_gain_fraction)
+        self.pga_current_gain_index = State(0, shape=(), init_func=lambda _: 0)
 
-        # reset the state
-        self.state = {}
+        def __gain_high_res_init(s: tuple) -> int:
+            return 1 << (self.avg_bitshift + self.num_bits_gain_fraction)
+
+        def __gain_init(s: tuple) -> int:
+            return __gain_high_res_init(s) >> self.avg_bitshift
+
+        def __float_gain_init(s: tuple) -> int:
+            return __gain_init(s) / (2**self.num_bits_gain_fraction)
+
+        self.gain_high_res = State(
+            __gain_high_res_init(None), shape=(), init_func=__gain_high_res_init
+        )
+        self.gain = State(__gain_init(None), shape=(), init_func=__gain_init)
+        self.float_gain = State(
+            __float_gain_init(None), shape=(), init_func=__float_gain_init
+        )
 
     def evolve(
         self,
         audio: int,
-        time_in: float,
         pga_gain_index: int,
         record: bool = False,
-    ):
-        """this module process the signal coming from the AGC and tries to smooth it out to avoid gain jumps.
+    ) -> Tuple[float, dict, dict]:
+        """Process the signal coming from the AGC and tries to smooth it out to avoid gain jumps.
+        NOTE: if PGA is not settled after gain change, its output signal will be unstable.
+        In such a case, we model the output of PGA by None.
+        ADC and other modules should stop working until a valid sample arrives.
+        We model this by generating None for the ADC output so that the next layers also skip this unstable period.
+        In this mode, we just return None and do not update the gain and gain-smoothed signal after PGA goes back to stable mode.
 
         Args:
             audio (int): quantized audio signal received from AGC.
-            time_in (float): time of the incoming signal.
-            pga_gain (float): gain of the PGA used for this sample of the signal.
             pga_gain_index (int): index of the PGA gain vector for this sample of the signal.
-            record (bool, optional): record the state during simulation.
-        """
-        # NOTE: if PGA is not settled after gain change, its output signal will be unstable.
-        # In such a case, we model the output of PGA by None.
-        # ADC and other modules should stop working until a valid sample arrives.
-        # We model this by generating None for the ADC output so that the next layers also skip this unstable period.
-        # In this mode, we just return None and do not update the gain and gain-smoothed signal after PGA goes back to stable mode.
+            record (bool, optional): dummy variable, to fit the rockpool module conventions
 
-        if audio is None:
-            raise ValueError(
-                "the signal received from the ADC should be always valid! If PGA is in transient mode, ADC should keep repeating the last valid sample!"
-            )
+        Returns:
+            audio_out (float): processed signal
+            state (dict): state dictionary
+            rec (dict): empty dictionary
+        """
 
         # check that the input type is indeed an integer
         if not isinstance(audio, (int, np.int64)):
             raise ValueError(
                 "the input to gain smoother module coming from ADC should be in integer format!"
             )
-
-        # check the start of the simulation and set the gain values in PGA
-        if self.num_processed_samples == 0:
-            # integer gain to be used
-            self.gain_high_res = 1 << (self.avg_bitshift + self.num_bits_gain_fraction)
-            self.gain = self.gain_high_res >> self.avg_bitshift
-            self.float_gain = self.gain / (2**self.num_bits_gain_fraction)
-
-            # set the gain index
-            self.pga_current_gain_index = 0
-
-            # ================================================
-            #   create the state during the initialization
-            # ================================================
-            if record:
-                self.state = {
-                    "time_in": [],
-                    "num_processed_samples": [],
-                    "audio_in": [],
-                    "audio_out": [],
-                    "gain_high_res": [],
-                    "gain": [],
-                    "float_gain": [],
-                    "pga_gain_index": [],
-                }
-            else:
-                self.state = {}
 
         # increase number of received samples
         self.num_processed_samples += 1
@@ -288,46 +263,4 @@ class GainSmootherFPGA:
         if audio_out < -maximum_amplitude_negative:
             audio_out = -maximum_amplitude_negative
 
-        # ================================================
-        #      record the state if needed
-        # ================================================
-        if record:
-            self.state["time_in"].append(time_in)
-            self.state["num_processed_samples"].append(self.num_processed_samples)
-            self.state["audio_in"].append(audio)
-            self.state["audio_out"].append(audio_out)
-            self.state["gain_high_res"].append(self.gain_high_res)
-            self.state["gain"].append(self.gain)
-            self.state["float_gain"].append(self.float_gain)
-            self.state["pga_gain_index"].append(pga_gain_index)
-
-        return audio_out
-
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        """
-        this function is the same as `evolve` function.
-        """
-        self.evolve(*args, **kwargs)
-
-    def __repr__(self) -> str:
-        # a simple string representation of the gain smoother
-        string = (
-            "+" * 100
-            + "\n"
-            + "Gain smoother module:\n"
-            + f"clock rate:{self.fs}\n"
-            + f"designed for PGA gain vector:\n{self.pga_gain_vec}\n"
-            + f"number of bits in input signal coming from ADC: {self.num_bits}\n"
-            + f"designed for minimum waiting time: {self.min_waiting_time} sec with {self.min_waiting_num_samples} samples\n"
-            + f"number of bits used in quantizing the gain ratio at the transition time\n"
-            + f"\ttotal number of bits used for gain quantization: {self.num_bits_gain_quantization}\n"
-            + f"\tfractional bits: {self.num_bits_gain_fraction}\n"
-            + f"\tinteger bits: {self.num_bits_gain_integer}\n"
-            + f"number of bits used in gain smoothing filter: {self.avg_bitshift}\n"
-            + f"up-gain ratio vector before quantization:\n{self.up_gain_ratio_float}\n"
-            + f"up-gain ratio vector after quantization:\n{self.up_gain_ratio}\n"
-            + f"down-gain ratio vector before quantization:\n{self.down_gain_ratio_float}\n"
-            + f"down-gain ratio vector after quantization:\n{self.down_gain_ratio}\n"
-        )
-
-        return string
+        return audio_out, self.state(), {}

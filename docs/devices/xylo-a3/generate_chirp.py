@@ -5,7 +5,7 @@ import numpy as np
 import scipy.io.wavfile
 
 from rockpool.devices.xylo.syns65302.afe import (
-    AUDIO_SAMPLING_RATE,
+    AUDIO_SAMPLING_RATE_PDM,
     PDM_FILTER_DECIMATION_FACTOR,
 )
 
@@ -17,7 +17,7 @@ def generate_chirp(
     start_freq: float = 20,
     end_freq: float = 20000,
     duration: float = 4.0,
-    fs: float = AUDIO_SAMPLING_RATE * PDM_FILTER_DECIMATION_FACTOR,
+    fs: float = AUDIO_SAMPLING_RATE_PDM * PDM_FILTER_DECIMATION_FACTOR,
 ) -> Tuple[np.ndarray, float]:
     """
     Generate a frequency sweep signal and save it to a WAV file.
@@ -28,13 +28,16 @@ def generate_chirp(
         start_freq (float, optional): The starting frequency of the sweep. Defaults to 20.
         end_freq (float, optional): The end frequency of the sweep. Defaults to 20000.
         duration (float, optional): the total duration of the audio. Defaults to 4.0.
-        fs (float, optional): The sampling rate of the audio. Defaults to AUDIO_SAMPLING_RATE * PDM_FILTER_DECIMATION_FACTOR ~= 1.56 MHz.
+        fs (float, optional): The sampling rate of the audio. Defaults to AUDIO_SAMPLING_RATE_PDM * PDM_FILTER_DECIMATION_FACTOR ~= 1.56 MHz.
 
     Returns:
         Tuple[np.ndarray, float]:
             audio (np.ndarray): The audio signal as a numpy array.
             fs (float): The sampling rate of the audio.
     """
+    if fs < 2 * max(start_freq, end_freq):
+        raise ValueError("Sampling rate must be at least twice the maximum frequency")
+
     # - Use the half duration, because we will concatenate the signal with its reverse
     t = np.linspace(0, duration, int(duration * fs), endpoint=False)  # time variable
     freq_sweep = np.linspace(start_freq, end_freq, int(duration * fs), endpoint=False)

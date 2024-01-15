@@ -1,80 +1,82 @@
-# ----------------------------------------------------------------------------------------------------------------------
-# This module implements a new controller for adjusting the gain based on the envelope detection of the input signal.
-#
-# ----------------------------------------------------------------------------------------------------------------------
+"""
+This module implements a new controller for adjusting the gain based on the envelope detection of the input signal.
+"""
 
+
+import warnings
+from typing import Any, Optional
 
 import numpy as np
-from typing import Any
-import warnings
 
-
-# ===========================================================================
-# *    some constants defined according to Xylo-A3 specficiations
-# ===========================================================================
 from rockpool.devices.xylo.syns65302.afe.params import (
-    NUM_BITS_AGC_ADC,
-    AUDIO_SAMPLING_RATE,
     AMPLITUDE_THRESHOLDS,
-    NUM_BITS_COMMAND,
-    RISE_TIME_CONSTANT,
+    AUDIO_SAMPLING_RATE_AGC,
     FALL_TIME_CONSTANT,
-    WAITING_TIME_VEC,
-    RELIABLE_MAX_HYSTERESIS,
-    PGA_GAIN_INDEX_VARIATION,
     MAX_WAITING_TIME_BEFORE_GAIN_CHANGE,
+    NUM_BITS_AGC_ADC,
+    NUM_BITS_COMMAND,
+    PGA_GAIN_INDEX_VARIATION,
+    RELIABLE_MAX_HYSTERESIS,
+    RISE_TIME_CONSTANT,
+    WAITING_TIME_VEC,
 )
+from rockpool.nn.modules import Module
+from rockpool.parameters import SimulationParameter, State
 
 
-class EnvelopeController:
+class EnvelopeController(Module):
+    """
+    Estimate the envelope of the input signal and uses it to send gain-change commands to PGA.
+    """
+
     def __init__(
         self,
         num_bits: int = NUM_BITS_AGC_ADC,
-        amplitude_thresholds: np.ndarray = AMPLITUDE_THRESHOLDS,
+        amplitude_thresholds: Optional[np.ndarray] = None,
         rise_time_constant: float = RISE_TIME_CONSTANT,
         fall_time_constant: float = FALL_TIME_CONSTANT,
         reliable_max_hysteresis: int = RELIABLE_MAX_HYSTERESIS,
-        waiting_time_vec: np.ndarray = WAITING_TIME_VEC,
-        max_waiting_time_before_gain_change=MAX_WAITING_TIME_BEFORE_GAIN_CHANGE,
-        pga_gain_index_variation: np.ndarray = PGA_GAIN_INDEX_VARIATION,
+        waiting_time_vec: Optional[np.ndarray] = None,
+        max_waiting_time_before_gain_change: float = MAX_WAITING_TIME_BEFORE_GAIN_CHANGE,
+        pga_gain_index_variation: Optional[np.ndarray] = None,
         num_bits_command: int = NUM_BITS_COMMAND,
-        fs: float = AUDIO_SAMPLING_RATE,
+        fs: float = AUDIO_SAMPLING_RATE_AGC,
     ):
-        """this module estimates the envelope of the input signal and uses it to send gain-change commands to PGA.
-
+        """
         Args:
             num_bits (int): number of bits in the input signal (input signal should be in signed format). Defaults to 14.
-            amplitude_thresholds (np.ndarray, optional): sequence of amplitude thresholds specifying the amplitude regions of the signal envelope.
+            amplitude_thresholds (np.ndarray, optional): sequence of amplitude thresholds specifying the amplitude regions of the signal envelope. Defaults to AMPLITUDE_THRESHOLDS
 
             rise_time_constant (float, optional): reaction time-constant of the envelope detection when the signal is rising. Defaults to RISE_TIME_CONSTANT = 0.1e-3.
             fall_time_constant (float, optional): reaction time-constant of the envelope detection when the signal is falling. Defaults to FALL_TIME_CONSTANT = 300e-3.
             NOTE: a rise time-constant of `T = 0.1e-3` means that the rise bandwidth is `1/(2 pi x T) = 1600 Hz`. Please pay attention to factor `2 pi` in this equation.
 
             reliable_max_hysteresis (int, optional): this parameter specify how much rise in maximum envelope is needed before a new maximum (thus, a new context) is identified.
-            waiting_time_vec (np.ndarray, oprional): this parameter specifies how much waiting time (in seconds) is needed before varying the gain. Defaults to a square-root pattern with higher gains/amplitudes having larger waiting times.
-            pga_gain_index_variation (np.ndarray, optional): how much the pga_gain_index should be varied (increases, decreased, kept fixed) to track the signal amplitude. Defaults to -1: saturation, 0,0: 2 levels below saturation, +1: remaining regions.
+            waiting_time_vec (np.ndarray, optional): this parameter specifies how much waiting time (in seconds) is needed before varying the gain. Defaults to a square-root pattern with higher gains/amplitudes having larger waiting times. Defaults to WAITING_TIME_VEC
+            pga_gain_index_variation (np.ndarray, optional): how much the pga_gain_index should be varied (increases, decreased, kept fixed) to track the signal amplitude. Defaults to -1: saturation, 0,0: 2 levels below saturation, +1: remaining regions. Defaults to PGA_GAIN_INDEX_VARIATION
             num_bits_command (int, optional): number of bits used for sending commands to PGA. This also sets number of various gains.
             fs (float): sampling or clock rate of the module.
         """
+        super().__init__(shape=(1, 1), spiking_input=False, spiking_output=False)
         # number of bits in the input signal and also the command sent to PGA
-        self.num_bits = num_bits
-        self.num_bits_command = num_bits_command
+        self.num_bits = SimulationParameter(num_bits, shape=())
+        self.num_bits_command = SimulationParameter(num_bits_command, shape=())
 
         # * set the amplitude levels
         # largest one   -> saturation level
         # smallest one  -> noise level
 
         # check the validity
-        amplitude_thresholds = np.asarray(amplitude_thresholds)
+        if amplitude_thresholds is None:
+            amplitude_thresholds = np.asarray(AMPLITUDE_THRESHOLDS)
 
         if amplitude_thresholds.dtype != np.int64:
             raise ValueError(
-                "all the elements of the amplitude thresholds should be integers!"
+                "all the elements of the amplitude thresholds should be `np.int64` integers!"
             )
 
         if (
-            len(amplitude_thresholds) != 2**num_bits_command
-            or np.any(amplitude_thresholds[1:] - amplitude_thresholds[:-1] <= 0)
+            np.any(amplitude_thresholds[1:] - amplitude_thresholds[:-1] <= 0)
             or np.any(amplitude_thresholds < 0)
             or np.any(amplitude_thresholds >= 2 ** (self.num_bits - 1))
         ):
@@ -82,10 +84,12 @@ class EnvelopeController:
                 f"Amplitude thresholds should be an increasing sequence of length {2**num_bits_command} with elements in the range [0, {2**(self.num_bits-1)-1}]!"
             )
 
-        self.amp_thresholds = amplitude_thresholds
+        self.amp_thresholds = SimulationParameter(
+            amplitude_thresholds, shape=(2**num_bits_command,)
+        )
 
         # clock rate
-        self.fs = fs
+        self.fs = SimulationParameter(fs, shape=())
 
         # * set the rise and fall time constants of the envelope estimator
         # validity check
@@ -102,16 +106,19 @@ class EnvelopeController:
         self.num_rise_samples = int(2 ** np.ceil(np.log2(num_rise_samples)))
 
         self.rise_time_constant = self.num_rise_samples / fs
-        self.rise_avg_bitshift = int(np.log2(self.num_rise_samples))
+        self.rise_avg_bitshift = SimulationParameter(
+            int(np.log2(self.num_rise_samples)), shape=()
+        )
 
         # number of signal samples received during fall period -> quantize it into a power of two
         # NOTE: we changed this so that the number of fall samples does not change with gain ratio
         # num_fall_samples = fall_time_constant * fs * np.log(gain_ratio)
         num_fall_samples = fall_time_constant * fs
         self.num_fall_samples = int(2 ** np.ceil(np.log2(num_fall_samples)))
-
         self.fall_time_constant = self.num_fall_samples / fs
-        self.fall_avg_bitshift = int(np.log2(self.num_fall_samples))
+        self.fall_avg_bitshift = SimulationParameter(
+            int(np.log2(self.num_fall_samples)), shape=()
+        )
 
         warnings.warn(
             "\n\n"
@@ -133,29 +140,23 @@ class EnvelopeController:
         self.deadzone_bitshift = max([self.fall_avg_bitshift, self.rise_avg_bitshift])
 
         # how much rise in maximum is needed before a new envelope sample is announced as the maximum
-        self.reliable_max_hysteresis = reliable_max_hysteresis
-
-        # ===========================================================================
-        #           specify the waiting times at various gain levels
-        # ===========================================================================
-        # * check the validity
-        if len(waiting_time_vec) != 2**self.num_bits_command:
-            raise ValueError(
-                f"length of the waiting-time sequence should be {2**self.num_bits_command}!\nNOTE: in saturation amplitude level, we have no waiting time."
-                + "So there are {2**self.num_bits_command} amplitude levels left!"
-            )
+        self.reliable_max_hysteresis = SimulationParameter(
+            reliable_max_hysteresis, shape=()
+        )
 
         # waiting times in sec
-        self.waiting_time_vec = waiting_time_vec
+        if waiting_time_vec is None:
+            waiting_time_vec = WAITING_TIME_VEC
 
         # waiting times in terms of number of samples
-        self.waiting_time_length_vec = (self.waiting_time_vec * self.fs).astype(
-            np.int64
+        self.waiting_time_length_vec = SimulationParameter(
+            np.array(waiting_time_vec * self.fs, dtype=np.int64),
+            shape=(2**self.num_bits_command,),
         )
 
         # maximum waiting time before gain change
-        self.max_num_samples_in_waiting_time = int(
-            max_waiting_time_before_gain_change * self.fs
+        self.max_num_samples_in_waiting_time = SimulationParameter(
+            int(max_waiting_time_before_gain_change * self.fs), shape=()
         )
 
         # ===========================================================================
@@ -166,18 +167,14 @@ class EnvelopeController:
         # In such a case, if the signal is in saturation mode, we may request a gain decrease by setting `pga_gain_index_variation = -1` but this is not
         # of course fulfilled since the gain is already in its lowest level.
         # * check the validity
-        if len(pga_gain_index_variation) != 2**self.num_bits_command + 1:
-            raise ValueError(
-                f"Since there are {2**self.num_bits_command + 1} amplitude level regions (including the saturation region), {2**self.num_bits_command + 1} PGA gain index variations are needed!\n"
-                + "Note that these parameters specify the jump pattern between various amplitude regions!\n"
-                + "For example, the defaults mode [+1, +1, ..., 0, 0, -1] implies that in saturation mode the region should go down by 1 step whereas in low-amplitude regions it should go up by 1.\n"
-                + "Also, we set 0 for the two amplitude regions below the saturation to stop signal entering the saturation immediately after it starts increasing!"
-            )
+
+        if pga_gain_index_variation is None:
+            pga_gain_index_variation = PGA_GAIN_INDEX_VARIATION
 
         # * check the validity: in the saturation mode we should definitely decrease the gain so the last component should be negative
         if pga_gain_index_variation[-1] >= 0:
             raise ValueError(
-                "the last component of the `pga_gain_index_variation` which shows the jump policy betweeb amplitude regions belong to the saturation region\n"
+                "the last component of the `pga_gain_index_variation` which shows the jump policy between amplitude regions belong to the saturation region\n"
                 + "So it should be always negative to decrease the gain immediately!"
             )
 
@@ -189,50 +186,57 @@ class EnvelopeController:
             pga_gain_index_variation
         ):
             raise ValueError(
-                f"`pga_gain_index_variation` is not a valid jump vector beteween amplitude regions since it may trigger jumps to an invalid amplitude index (valid range: [0, {len(pga_gain_index_variation)})!"
+                f"`pga_gain_index_variation` is not a valid jump vector between amplitude regions since it may trigger jumps to an invalid amplitude index (valid range: [0, {len(pga_gain_index_variation)})!"
             )
 
-        self.pga_gain_index_variation = np.copy(pga_gain_index_variation)
+        if np.any(np.abs(pga_gain_index_variation) > 3):
+            idx = np.where(np.abs(pga_gain_index_variation) > 3)
+            raise ValueError(
+                f"3 bits (signed) are allocated for each `pga_gain_index_variation` element! "
+                + f"idx = {idx[0]} is out of limits! pga_gain_index_variation[{idx[0]}] = {pga_gain_index_variation[idx]} "
+            )
+
+        self.pga_gain_index_variation = SimulationParameter(
+            pga_gain_index_variation, shape=(2**self.num_bits_command + 1,)
+        )
 
         # ===========================================================================
-        #                 create and initialize simulation variables
+        #                 create and initialize state variables
         # ===========================================================================
-        self.reset()
 
-    def reset(self):
         # envelope estimation parameters
-        self.high_res_envelope = 0
-        self.envelope = 0
-        self.num_processed_samples = 0
+        self.high_res_envelope = State(0, init_func=lambda _: 0, shape=())
+        self.envelope = State(0, init_func=lambda _: 0, shape=())
+        self.num_processed_samples = State(0, init_func=lambda _: 0, shape=())
 
         # maximum envelope values
-        self.max_envelope = 0
-        self.registered_max_envelope = 0
+        self.max_envelope = State(0, init_func=lambda _: 0, shape=())
+        self.registered_max_envelope = State(0, init_func=lambda _: 0, shape=())
 
         # parameters of the command transferred to PGA
         # NOTE: we use the same name `pga_gain_index == command` since sometimes pga_gain_index is easy to recall
-        self.pga_gain_index = 0
+        self.pga_gain_index = State(0, init_func=lambda _: 0, shape=())
         self.command = self.pga_gain_index
 
         # amplitude level of the envelope signal
-        self.amp_index = 0
+        self.amp_index = State(0, init_func=lambda _: 0, shape=())
 
         # waiting time until the next gain adjustment
-        self.waiting_time = self.waiting_time_length_vec[0]
+        self.waiting_time = State(
+            self.waiting_time_length_vec[0],
+            init_func=lambda _: self.waiting_time_length_vec[0],
+            shape=(),
+        )
 
         # number of samples processed during a waiting time
         # NOTE: this is needed since the waiting time may keep extending
-        self.num_samples_in_waiting_time = 0
+        self.num_samples_in_waiting_time = State(0, init_func=lambda _: 0, shape=())
 
-        # reset the state
-        self.state = {}
-
-    def evolve(self, sig_in: int, time_in: float, record: bool = False):
+    def evolve(self, sig_in: int, record: bool = False):
         """this module updates the state of envelope estimator based on the input signal.
 
         Args:
             sig_in (int): input signal.
-            time_in (float): time of the input signal.
             record (bool, optional): record the state during the simulation. Defaults to False.
         """
 
@@ -246,27 +250,6 @@ class EnvelopeController:
             raise ValueError(
                 "this should not happen as the ADC should repeat the samples when a None is received from the amplifier in an unstable mode!"
             )
-
-        # check if it is the start of the simulation and set the state
-        if self.num_processed_samples == 0:
-            if record:
-                self.state = {
-                    "num_processed_samples": [],
-                    "time_in": [],
-                    "sig_in": [],
-                    "sig_in_high_res": [],
-                    "high_res_envelope": [],
-                    "envelope": [],
-                    "max_envelope": [],
-                    "max_envelope_index": [],
-                    "registered_max_envelope": [],
-                    "registered_max_envelope_index": [],
-                    "waiting_time": [],
-                    "total_waiting_after_latest_change": [],
-                    "pga_gain_index": [],
-                }
-            else:
-                self.state = {}
 
         # add to the number of processed sampled
         self.num_processed_samples += 1
@@ -324,31 +307,13 @@ class EnvelopeController:
         # ===========================================================================
         # *                            record the state
         # ===========================================================================
-        # regiser the state if needed:
+        # register the state if needed:
         # NOTE: that we register the state one-clock earlier since the new states with be calculated in this clock
         # and will appear in the next clock
         if record:
-            self.state["num_processed_samples"].append(self.num_processed_samples)
-            self.state["time_in"].append(time_in)
-            self.state["sig_in"].append(sig_in)
-            self.state["sig_in_high_res"].append(sig_in_high_res)
-            self.state["high_res_envelope"].append(self.high_res_envelope)
-            self.state["envelope"].append(self.envelope)
-            self.state["max_envelope"].append(self.max_envelope)
-            self.state["max_envelope_index"].append(max_envelope_index)
-            self.state["registered_max_envelope"].append(self.registered_max_envelope)
-            self.state["registered_max_envelope_index"].append(
-                np.sum(self.amp_thresholds <= self.registered_max_envelope)
-            )
-            self.state["waiting_time"].append(self.waiting_time)
-            self.state["total_waiting_after_latest_change"].append(
-                self.num_samples_in_waiting_time
-            )
-
-            # record the gain at this clock
-            # NOTE: if there is any change to gain, it will be applied in the next clock after latch to make sure that a clean
-            # gain-index goes to the PGA
-            self.state["pga_gain_index"].append(self.pga_gain_index)
+            __rec = {"sig_in_high_res": sig_in_high_res}
+        else:
+            __rec = {}
 
         # * because of the one-clock delay to the output we record the past gain and gain index values
         pga_gain_index_to_be_sent_out = self.pga_gain_index
@@ -410,10 +375,7 @@ class EnvelopeController:
             self.num_samples_in_waiting_time = 0
 
             # send the gain command to the PGA
-            return (
-                pga_gain_index_to_be_sent_out,
-                self.envelope,
-            )
+            return pga_gain_index_to_be_sent_out, self.state(), __rec
 
         # ===========================================================================
         # *                               Otherwise:
@@ -478,30 +440,4 @@ class EnvelopeController:
             self.registered_max_envelope = 0
 
         # send the gain command to the PGA
-        return (pga_gain_index_to_be_sent_out, self.envelope)
-
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        """
-        this is the same as `evolve` function.
-        """
-        return self.evolve(*args, **kwargs)
-
-    def __repr__(self) -> str:
-        # string representation of the envelope controller module
-        string = (
-            "+" * 100
-            + "\n"
-            + "Envelope Controller module:\n"
-            + f"clock rate: {self.fs}\n"
-            + f"number of bits in the input coming from ADC: {self.num_bits}\n"
-            + f"number of bits used for sending gain-change command to PGA: {self.num_bits_command}\n"
-            + f"rise time-constant: {self.rise_time_constant}\n"
-            + f"number of samples in rise time-constant: {self.num_rise_samples}\n"
-            + f"fall time-constant: {self.fall_time_constant}\n"
-            + f"number of samples in fall time-constant: {self.num_fall_samples}\n"
-            + f"amplitude thresholds: {self.amp_thresholds}\n"
-            + f"waiting times in various amplitude levels: {self.waiting_time_length_vec}\n"
-            + f"maximum waiting time: {self.max_num_samples_in_waiting_time}\n"
-        )
-
-        return string
+        return pga_gain_index_to_be_sent_out, self.state(), __rec

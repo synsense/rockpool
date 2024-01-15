@@ -1,2 +1,3 @@
-from .normalizer import AmplitudeNormalizer
-from .quantizer import AudioQuantizer
+from .normalizer import *
+from .quantizer import *
+from .resample import *
