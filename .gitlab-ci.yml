@@ -1,5 +1,5 @@
 default:
-  image: "registry.gitlab.com/synsense/rockpool/known_good:latest"
+  image: "registry.gitlab.com/synsense/rockpool/clean:latest"
 
 stages:
   - preliminaries
@@ -11,6 +11,7 @@ stages:
 
 black-check:
   stage: preliminaries
+  needs: []
   image: "registry.gitlab.com/synsense/rockpool/clean:latest"
   before_script:
     - pip install --upgrade pip
@@ -47,27 +48,38 @@ unit_tests_clean:
 
 unit_tests_known_good:
   stage: test
+  needs: []
   image: "registry.gitlab.com/synsense/rockpool/known_good:latest"
   tags:
     - cuda
-  parallel: 4
+  # parallel: 4
 
   before_script:
     - pip install --upgrade pip
     - pip install --upgrade ".[all]" --no-cache-dir
-    - python -c 'import samna'
     - pip install --upgrade sinabs-exodus --no-cache-dir || exit_code=$?
+    - pip install pytest pytest-cov
     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
 
   script:
-    # - pytest -v tests/tests_default --random-order
-    - pytest -v tests/tests_default --test-group-count $CI_NODE_TOTAL --test-group=$CI_NODE_INDEX
+    - pytest --cov --cov-report term --cov-report xml:coverage.xml -v tests/tests_default --random-order --junitxml="test_report.xml" #--test-group-count $CI_NODE_TOTAL --test-group=$CI_NODE_INDEX 
 
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    when: always
+    paths:
+      - test_report.xml
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+      junit: test_report.xml
+    expire_in: 1 day
 
 documentation_linting:
   stage: docs
   allow_failure: true
-
+  needs: []
   before_script:
     - pip install --upgrade pip
     - pip install --upgrade ".[all]" --no-cache-dir
@@ -95,9 +107,7 @@ docs_build:
 
 dist_build:
   stage: build
-  dependencies:
-    - unit_tests_known_good
-    - unit_tests_clean
+  needs: ["unit_tests_known_good", "unit_tests_clean"]
 
   before_script:
     - pip install --upgrade pip
@@ -125,7 +135,7 @@ pages:
   artifacts:
     paths:
       - public
-
+     
 pypi_deploy:
   stage: deploy
   when: manual
