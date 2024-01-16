@@ -77,7 +77,7 @@ def find_xylo_hdks() -> Tuple[List["XyloHDK"], List[ModuleType], List[str]]:
             xylo_support_modules.append(imu)
             xylo_versions.append("syns63300")
 
-        elif d.device_type_name == "XyloA3TestBoard":
+        elif d.device_type_name == "XyloAudio3TestBoard":
             dev = samna.device.open_device(d)
 
             if not check_firmware_versions(dev, "0.11.5", "1.1.3"):
