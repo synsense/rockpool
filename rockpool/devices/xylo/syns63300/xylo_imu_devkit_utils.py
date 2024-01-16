@@ -538,7 +538,7 @@ def config_realtime_mode(
     Args:
         config (XyloConfiguration): A configuration for Xylo IMU
         dt (float): The simulation time-step to use for this Module
-        main_clk_rate(int): The main clock rate of Xylo
+        main_clk_rate (int): The main clock rate of Xylo in Hz
 
     Return:
         updated Xylo configuration
@@ -552,7 +552,11 @@ def config_realtime_mode(
 
     # - Configure Xylo IMU clock rate
     config.time_resolution_wrap = int(dt * main_clk_rate)
-    config.debug.imu_if_clock_freq_div = 0x169
+    IMU_IF_clk_rate = 50_000  # IMU IF clock must be 50 kHz
+    config.debug.imu_if_clock_freq_div = int(main_clk_rate / IMU_IF_clk_rate - 1)
+
+    # - Set configuration timeout
+    config.input_interface.configuration_timeout = 20_000
 
     # - No monitoring of internal state in realtime mode
     config.debug.monitor_neuron_v_mem = None
@@ -732,12 +736,11 @@ def set_xylo_core_clock_freq(device: XyloIMUHDK, desired_freq_MHz: float) -> flo
     Returns:
         (float): Actual frequency obtained, in MHz
     """
-    # - Determine wait period and actual obtianed clock frequency
-    wait_period = int(round(100 / desired_freq_MHz) / 2 - 1)
+    # - Determine wait period and actual obtained clock frequency
+    wait_period = int(np.ceil(round(100 / desired_freq_MHz) / 2 - 1))
     actual_freq = 100 / (2 * (wait_period + 1))
 
     # - Configure device
-    # device.get_io_module().write_config(0x0021, wait_period)
     device.get_io_module().set_main_clk_rate(int(actual_freq * 1e6))
 
     return actual_freq

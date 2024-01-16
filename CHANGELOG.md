@@ -22,27 +22,27 @@ All notable changes between Rockpool releases will be documented in this file.
 ### Added
 
 
-* Dependency on `pytest-random-order` v1.1.0 for test order randomization.
+* Dependency on `pytest-random-order` v1.1.0 for test order randomization
 * New HowTo tutorial for performing constrained optimisation with torch and jax
 * Xylo IMU application software support:
 
   * `mapper`, `config_from_specification` and graph mapping support
-  * `XyloSim` module: SNN core simulation for Xylo IMU.
+  * `XyloSim` module: SNN core simulation for Xylo IMU
   * `IMUIFSim` module: Simulation of the input encoding interface with sub-modules:
     * `BandPassFilter`
     * `FilterBank`
     * `RotationRemoval`
     * `IAFSpikeEncoder`
     * `ScaleSpikeEncoder`
-  * `XyloIMUMonitor` module: Real-time hardware monitoring for Xylo IMU.
-  * `XyloSamna` module: Interface to the SNN core.
-  * `IMUIFSamna` module: Interface to `IMUIF`, utilizing neurons in the SNN core.
-  * `IMUData` module: Collection of sensor data from the onboard IMU sensor.
-  * Utility functions for network mapping to the Xylo IMU HDK, interfacing, and data processing.
-  * Introductory documentation providing an overview of Xylo IMU and instructions on configuring preprocessing.
-* New losses, with structure similar to PyTorch.
-  * PeakLoss which can be imported as `peak_loss = rockpool.nn.losses.PeakLoss()`.
-  * MSELoss which can be imported as  `mse_loss = rockpool.nn.losses.MSELoss()`.
+  * `XyloIMUMonitor` module: Real-time hardware monitoring for Xylo IMU
+  * `XyloSamna` module: Interface to the SNN core
+  * `IMUIFSamna` module: Interface to `IMUIF`, utilizing neurons in the SNN core
+  * `IMUData` module: Collection of sensor data from the onboard IMU sensor
+  * Utility functions for network mapping to the Xylo IMU HDK, interfacing, and data processing
+  * Introductory documentation providing an overview of Xylo IMU and instructions on configuring preprocessing
+* New losses, with structure similar to PyTorch
+  * PeakLoss which can be imported as `peak_loss = rockpool.nn.losses.PeakLoss()`
+  * MSELoss which can be imported as  `mse_loss = rockpool.nn.losses.MSELoss()`
 
 ### Changed
 
