@@ -28,7 +28,7 @@ All notable changes between Rockpool releases will be documented in this file.
 * Xylo IMU application software support:
 
   * `mapper`, `config_from_specification` and graph mapping support
-  * `XyloSim` module: SNN core simulation for Xylo IMU.
+  * `XyloSim` module: SNN core simulation for Xylo IMU
   * `IMUIFSim` module: Simulation of the input encoding interface with sub-modules:
     * `BandPassFilter`
     * `FilterBank`
