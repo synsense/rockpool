@@ -3,7 +3,7 @@ Low-level device kit utilities for the Xylo-IMU HDK
 """
 
 import samna
-from samna.xyloImu.configuration import XyloConfiguration
+from samna.xyloAudio3.configuration import XyloConfiguration
 
 # - Other imports
 import time
@@ -12,25 +12,25 @@ import numpy as np
 # - Typing and useful proxy types
 from typing import List, Optional, NamedTuple, Tuple
 
-XyloIMUReadBuffer = samna.BasicSinkNode_xylo_imu_event_output_event
-XyloIMUWriteBuffer = samna.BasicSourceNode_xylo_imu_event_input_event
-IMUSensorReadBuffer = samna.DeviceSinkNode_unifirm_modules_mc3632_input_event
-IMUSensorWriteBuffer = samna.DeviceSourceNode_unifirm_modules_mc3632_output_event
+XyloAudio3ReadBuffer = samna.BasicSinkNode_xylo_audio3_event_output_event
+XyloAudio3WriteBuffer = samna.BasicSourceNode_xylo_imu_event_input_event
+# IMUSensorReadBuffer = samna.DeviceSinkNode_unifirm_modules_mc3632_input_event
+# IMUSensorWriteBuffer = samna.DeviceSourceNode_unifirm_modules_mc3632_output_event
 
-ReadoutEvent = samna.xyloImu.event.Readout
+ReadoutEvent = samna.xyloAudio3.event.Readout
 
-XyloIMUHDK = samna.xyloImuBoards.XyloImuTestBoard
-IMUSensorHDK = samna.unifirm.modules.mc3632.Mc3632
+XyloAudio3HDK = samna.xyloAudio3Boards.XyloAudio3TestBoard
+# IMUSensorHDK = samna.unifirm.modules.mc3632.Mc3632
 
 
-def find_xylo_imu_boards() -> List[XyloIMUHDK]:
+def find_xylo_imu_boards() -> List[XyloAudio3HDK]:
     """
     Search for and return a list of Xylo IMU HDKs
 
     Iterate over devices and search for Xylo IMU HDK nodes. Return a list of available IMU HDKs, or an empty list if none are found.
 
     Returns:
-        List[XyloIMUHDK]: A (possibly empty) list of Xylo IMU HDK nodes.
+        List[XyloAudio3HDK]: A (possibly empty) list of Xylo IMU HDK nodes.
     """
 
     # - Get a list of devices
@@ -40,135 +40,135 @@ def find_xylo_imu_boards() -> List[XyloIMUHDK]:
     imu_hdk_list = [
         samna.device.open_device(d)
         for d in device_list
-        if d.device_type_name == "XyloImuTestBoard"
+        if d.device_type_name == "XyloAudio3TestBoard"
     ]
 
     return imu_hdk_list
 
 
 def new_xylo_read_buffer(
-    hdk: XyloIMUHDK,
-) -> XyloIMUReadBuffer:
+    hdk: XyloAudio3HDK,
+) -> XyloAudio3ReadBuffer:
     """
     Create and connect a new buffer to read from a Xylo HDK
 
     Args:
-        hdk (XyloIMUHDK): A Xylo HDK to create a new buffer for
+        hdk (XyloAudio3HDK): A Xylo HDK to create a new buffer for
 
     Returns:
-        XyloIMUReadBuffer: A connected event read buffer
+        XyloAudio3ReadBuffer: A connected event read buffer
     """
     return samna.graph.sink_from(hdk.get_model_source_node())
 
 
-def new_xylo_write_buffer(hdk: XyloIMUHDK) -> XyloIMUWriteBuffer:
+def new_xylo_write_buffer(hdk: XyloAudio3HDK) -> XyloAudio3WriteBuffer:
     """
     Create a new buffer for writing events to a Xylo HDK
 
     Args:
-        hdk (XyloIMUHDK): A Xylo HDK to create a new buffer for
+        hdk (XyloAudio3HDK): A Xylo HDK to create a new buffer for
 
     Returns:
-        XyloIMUWriteBuffer: A connected event write buffer
+        XyloAudio3WriteBuffer: A connected event write buffer
     """
     return samna.graph.source_to(hdk.get_model_sink_node())
 
 
-def initialise_imu_sensor(
-    hdk: XyloIMUHDK, frequency: int = 200
-) -> Tuple[
-    IMUSensorReadBuffer,
-    IMUSensorWriteBuffer,
-    IMUSensorReadBuffer,
-    IMUSensorHDK,
-    samna.graph.EventFilterGraph,
-]:
-    """
-    Initialise the MC3632 IMU sensor HDK
+# def initialise_imu_sensor(
+#     hdk: XyloAudio3HDK, frequency: int = 200
+# ) -> Tuple[
+#     IMUSensorReadBuffer,
+#     IMUSensorWriteBuffer,
+#     IMUSensorReadBuffer,
+#     IMUSensorHDK,
+#     samna.graph.EventFilterGraph,
+# ]:
+#     """
+#     Initialise the MC3632 IMU sensor HDK
 
-    Args:
-        hdk (XyloIMUHDK): A Xylo IMU device containing an IMU sensor to initialise
-    """
+#     Args:
+#         hdk (XyloAudio3HDK): A Xylo IMU device containing an IMU sensor to initialise
+#     """
 
-    # - set XyloIMUHDK to read data mode and get IMU sensor device
-    hdk.get_stop_watch().set_enable_value(True)
-    time.sleep(0.1)
-    mc = hdk.get_mc3632()
+#     # - set XyloAudio3HDK to read data mode and get IMU sensor device
+#     hdk.get_stop_watch().set_enable_value(True)
+#     time.sleep(0.1)
+#     mc = hdk.get_mc3632()
 
-    # - Register read buffer to read data from IMU sensor
-    read_buffer = samna.graph.sink_from(mc.get_source_node())
-    write_buffer = samna.graph.source_to(mc.get_sink_node())
+#     # - Register read buffer to read data from IMU sensor
+#     read_buffer = samna.graph.sink_from(mc.get_source_node())
+#     write_buffer = samna.graph.source_to(mc.get_sink_node())
 
-    # - Build an acceleration event filter
-    graph = samna.graph.EventFilterGraph()
-    _, etf0, accel_buf = graph.sequential(
-        [mc.get_source_node(), "Mc3632OutputEventTypeFilter", samna.graph.JitSink()]
-    )
-    etf0.set_desired_type("events::Acceleration")
-    graph.start()
+#     # - Build an acceleration event filter
+#     graph = samna.graph.EventFilterGraph()
+#     _, etf0, accel_buf = graph.sequential(
+#         [mc.get_source_node(), "Mc3632OutputEventTypeFilter", samna.graph.JitSink()]
+#     )
+#     etf0.set_desired_type("events::Acceleration")
+#     graph.start()
 
-    # - Configure the imu densor device
-    mc.auto_read_enable(False)
-    if not mc.setup():
-        raise ConnectionError("Could not connect to the MC3632 device.")
+#     # - Configure the imu densor device
+#     mc.auto_read_enable(False)
+#     if not mc.setup():
+#         raise ConnectionError("Could not connect to the MC3632 device.")
 
-    # - Initialise auto reading of sensor values
-    mc.set_auto_read_freq(int(frequency))
-    mc.auto_read_enable(True)
+#     # - Initialise auto reading of sensor values
+#     mc.set_auto_read_freq(int(frequency))
+#     mc.auto_read_enable(True)
 
-    # - Return the buffer and the IMU sensor
-    return read_buffer, write_buffer, accel_buf, mc, graph
+#     # - Return the buffer and the IMU sensor
+#     return read_buffer, write_buffer, accel_buf, mc, graph
 
 
-def initialise_xylo_hdk(write_buffer: XyloIMUWriteBuffer) -> None:
+def initialise_xylo_hdk(write_buffer: XyloAudio3WriteBuffer) -> None:
     """
     Initialise the Xylo IMU HDK
 
     Args:
-        write_buffer (XyloIMUWriteBuffer): A write buffer connected to a Xylo HDK to initialise
+        write_buffer (XyloAudio3WriteBuffer): A write buffer connected to a Xylo HDK to initialise
     """
     # - Always need to advance one time-step to initialise
     advance_time_step(write_buffer)
 
 
-def advance_time_step(write_buffer: XyloIMUWriteBuffer) -> None:
+def advance_time_step(write_buffer: XyloAudio3WriteBuffer) -> None:
     """
     Take a single manual time-step on a Xylo HDK
 
     Args:
-        write_buffer (XyloIMUWriteBuffer): A write buffer connected to the Xylo HDK
+        write_buffer (XyloAudio3WriteBuffer): A write buffer connected to the Xylo HDK
     """
-    e = samna.xyloImu.event.TriggerProcessing()
+    e = samna.xyloAudio3.event.TriggerProcessing()
     write_buffer.write([e])
 
 
-def set_power_measure(
-    hdk: XyloIMUHDK,
-    frequency: Optional[float] = 5.0,
-) -> Tuple[
-    samna.BasicSinkNode_unifirm_modules_events_measurement,
-    samna.boards.common.power.PowerMonitor,
-]:
-    """
-    Initialize power consumption measure on a hdk
+# def set_power_measure(
+#     hdk: XyloAudio3HDK,
+#     frequency: Optional[float] = 5.0,
+# ) -> Tuple[
+#     samna.BasicSinkNode_unifirm_modules_events_measurement,
+#     samna.boards.common.power.PowerMonitor,
+# ]:
+#     """
+#     Initialize power consumption measure on a hdk
 
-    Args:
-        hdk (XyloIMUHDK): The Xylo HDK to be measured
-        frequency (float): The frequency of power measurement. Default: 5.0
+#     Args:
+#         hdk (XyloAudio3HDK): The Xylo HDK to be measured
+#         frequency (float): The frequency of power measurement. Default: 5.0
 
-    Returns:
-        power_buf: Event buffer to read power monitoring events from
-        power_monitor: The power monitoring object
-    """
-    power_monitor = hdk.get_power_monitor()
-    power_source = power_monitor.get_source_node()
-    power_buf = samna.graph.sink_from(power_source)
-    power_monitor.start_auto_power_measurement(frequency)
-    return power_buf, power_monitor
+#     Returns:
+#         power_buf: Event buffer to read power monitoring events from
+#         power_monitor: The power monitoring object
+#     """
+#     power_monitor = hdk.get_power_monitor()
+#     power_source = power_monitor.get_source_node()
+#     power_buf = samna.graph.sink_from(power_source)
+#     power_monitor.start_auto_power_measurement(frequency)
+#     return power_buf, power_monitor
 
 
 def apply_configuration(
-    hdk: XyloIMUHDK,
+    hdk: XyloAudio3HDK,
     config: XyloConfiguration,
     *_,
     **__,
@@ -177,7 +177,7 @@ def apply_configuration(
     Apply a configuration to the Xylo HDK
 
     Args:
-        hdk (XyloIMUHDK): The Xylo HDK to write the configuration to
+        hdk (XyloAudio3HDK): The Xylo HDK to write the configuration to
         config (XyloConfiguration): A configuration for Xylo
     """
     # - Ideal -- just write the configuration using samna
@@ -218,7 +218,7 @@ class XyloState(NamedTuple):
 
 
 def configure_accel_time_mode(
-    hdk: XyloIMUHDK,
+    hdk: XyloAudio3HDK,
     config: XyloConfiguration,
     Nout: int = 0,
     monitor_Nhidden: int = 0,
@@ -250,8 +250,8 @@ def configure_accel_time_mode(
     assert readout in ["Vmem", "Spike", "Isyn"], f"{readout} is not supported."
 
     # - Select accelerated time mode, and general configuration
-    config.operation_mode = samna.xyloImu.OperationMode.AcceleratedTime
-    config.imu_if_input_enable = False
+    config.operation_mode = samna.xyloAudio3.OperationMode.AcceleratedTime
+    # config.imu_if_input_enable = False
     config.debug.always_update_omp_stat = True
 
     # Configurations set for state memory reading
@@ -265,24 +265,28 @@ def configure_accel_time_mode(
     config.debug.monitor_neuron_v_mem = None
 
     if record:
-        config.debug.monitor_neuron_spike = samna.xyloImu.configuration.NeuronRange(
+        config.debug.monitor_neuron_spike = samna.xyloAudio3.configuration.NeuronRange(
             0, monitor_Nhidden
         )
-        config.debug.monitor_neuron_v_mem = samna.xyloImu.configuration.NeuronRange(
+        config.debug.monitor_neuron_v_mem = samna.xyloAudio3.configuration.NeuronRange(
             0, monitor_Nhidden + monitor_Noutput
         )
-        config.debug.monitor_neuron_i_syn = samna.xyloImu.configuration.NeuronRange(
+        config.debug.monitor_neuron_i_syn = samna.xyloAudio3.configuration.NeuronRange(
             0, monitor_Nhidden + monitor_Noutput
         )
 
     else:
         if readout == "Isyn":
-            config.debug.monitor_neuron_i_syn = samna.xyloImu.configuration.NeuronRange(
-                monitor_Nhidden, monitor_Nhidden + Nout
+            config.debug.monitor_neuron_i_syn = (
+                samna.xyloAudio3.configuration.NeuronRange(
+                    monitor_Nhidden, monitor_Nhidden + Nout
+                )
             )
         elif readout == "Vmem":
-            config.debug.monitor_neuron_v_mem = samna.xyloImu.configuration.NeuronRange(
-                monitor_Nhidden, monitor_Nhidden + Nout
+            config.debug.monitor_neuron_v_mem = (
+                samna.xyloAudio3.configuration.NeuronRange(
+                    monitor_Nhidden, monitor_Nhidden + Nout
+                )
             )
 
     # - Return the configuration and buffer
@@ -290,7 +294,7 @@ def configure_accel_time_mode(
 
 
 def blocking_read(
-    read_buffer: XyloIMUReadBuffer,
+    read_buffer: XyloAudio3ReadBuffer,
     target_timestep: Optional[int] = None,
     count: Optional[int] = None,
     timeout: Optional[float] = None,
@@ -460,7 +464,7 @@ def gen_clear_input_registers_events() -> List:
     """
     events = []
     for addr in [0x47, 0x48, 0x49, 0x4A]:
-        event = samna.xyloImu.event.WriteRegisterValue()
+        event = samna.xyloAudio3.event.WriteRegisterValue()
         event.address = addr
         events.append(event)
 
@@ -481,16 +485,16 @@ def config_hibernation_mode(
 
 
 def get_current_timestep(
-    read_buffer: XyloIMUReadBuffer,
-    write_buffer: XyloIMUWriteBuffer,
+    read_buffer: XyloAudio3ReadBuffer,
+    write_buffer: XyloAudio3WriteBuffer,
     timeout: float = 3.0,
 ) -> int:
     """
     Retrieve the current timestep on a Xylo HDK
 
     Args:
-        read_buffer (XyloIMUReadBuffer): A connected read buffer for the xylo HDK
-        write_buffer (XyloIMUWriteBuffer): A connected write buffer for the Xylo HDK
+        read_buffer (XyloAudio3ReadBuffer): A connected read buffer for the xylo HDK
+        write_buffer (XyloAudio3WriteBuffer): A connected write buffer for the Xylo HDK
         timeout (float): A timeout for reading
 
     Returns:
@@ -501,7 +505,7 @@ def get_current_timestep(
     read_buffer.get_events()
 
     # - Trigger a readout event on Xylo
-    e = samna.xyloImu.event.TriggerReadout()
+    e = samna.xyloAudio3.event.TriggerReadout()
     write_buffer.write([e])
 
     # - Wait for the readout event to be sent back, and extract the timestep
@@ -511,7 +515,7 @@ def get_current_timestep(
     while continue_read:
         readout_events = read_buffer.get_events()
         ev_filt = [
-            e for e in readout_events if isinstance(e, samna.xyloImu.event.Readout)
+            e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Readout)
         ]
         if ev_filt:
             timestep = ev_filt[0].timestep
@@ -544,7 +548,7 @@ def config_realtime_mode(
         updated Xylo configuration
     """
     # - Select real-time operation mode
-    config.operation_mode = samna.xyloImu.OperationMode.RealTime
+    config.operation_mode = samna.xyloAudio3.OperationMode.RealTime
 
     config.debug.always_update_omp_stat = True
     config.imu_if_input_enable = True
@@ -662,8 +666,8 @@ def config_if_module(
 
 
 def read_imu_register(
-    read_buffer: XyloIMUReadBuffer,
-    write_buffer: XyloIMUWriteBuffer,
+    read_buffer: XyloAudio3ReadBuffer,
+    write_buffer: XyloAudio3WriteBuffer,
     address: int,
     timeout: float = 2.0,
 ) -> List[int]:
@@ -671,8 +675,8 @@ def read_imu_register(
     Read the contents of a register
 
     Args:
-        read_buffer (XyloIMUReadBuffer): A connected read buffer to the XYlo HDK
-        write_buffer (XyloIMUWriteBuffer): A connected write buffer to the Xylo HDK
+        read_buffer (XyloAudio3ReadBuffer): A connected read buffer to the XYlo HDK
+        write_buffer (XyloAudio3WriteBuffer): A connected write buffer to the Xylo HDK
         address (int): The register address to read
         timeout (float): A timeout in seconds
 
@@ -680,7 +684,7 @@ def read_imu_register(
         List[int]: A list of events returned from the read
     """
     # - Set up a register read
-    rrv_ev = samna.xyloImu.event.ReadRegisterValue()
+    rrv_ev = samna.xyloAudio3.event.ReadRegisterValue()
     rrv_ev.address = address
 
     # - Request read
@@ -709,28 +713,28 @@ def read_imu_register(
 
 
 def write_imu_register(
-    write_buffer: XyloIMUWriteBuffer, register: int, data: int = 0
+    write_buffer: XyloAudio3WriteBuffer, register: int, data: int = 0
 ) -> None:
     """
     Write data to a register on a Xylo IMU HDK
 
     Args:
-        write_buffer (XyloIMUWriteBuffer): A connected write buffer to the destination Xylo IMU HDK
+        write_buffer (XyloAudio3WriteBuffer): A connected write buffer to the destination Xylo IMU HDK
         register (int): The address of the register to write to
         data (int): The data to write. Default: 0x0
     """
-    wwv_ev = samna.xyloImu.event.WriteRegisterValue()
+    wwv_ev = samna.xyloAudio3.event.WriteRegisterValue()
     wwv_ev.address = register
     wwv_ev.data = data
     write_buffer.write([wwv_ev])
 
 
-def set_xylo_core_clock_freq(device: XyloIMUHDK, desired_freq_MHz: float) -> float:
+def set_xylo_core_clock_freq(device: XyloAudio3HDK, desired_freq_MHz: float) -> float:
     """
     Set the inference core clock frequency used by Xylo
 
     Args:
-        device (XyloIMUHDK): A Xylo device to configure
+        device (XyloAudio3HDK): A Xylo device to configure
         desired_freq_MHz (float): The desired Xylo core clock frequency in MHz
 
     Returns:
@@ -746,7 +750,7 @@ def set_xylo_core_clock_freq(device: XyloIMUHDK, desired_freq_MHz: float) -> flo
     return actual_freq
 
 
-def enable_ram_access(device: XyloIMUHDK, enabled: bool) -> None:
+def enable_ram_access(device: XyloAudio3HDK, enabled: bool) -> None:
     if enabled:
         device.get_model().open_ram_access()
     else:
