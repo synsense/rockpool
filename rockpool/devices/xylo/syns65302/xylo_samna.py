@@ -6,22 +6,17 @@ Utilities for producing a samna HW configuration for Xylo IMU devices
 import numpy as np
 import samna
 
-from samna.xyloImu.configuration import XyloConfiguration, InputInterfaceConfig
+from samna.xyloAudio3.configuration import XyloConfiguration, InputInterfaceConfig
 
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 from . import xylo_imu_devkit_utils as hdkutils
-from .xylo_imu_devkit_utils import XyloIMUHDK
+
+XyloAudio3HDK = samna.xyloAudio3Boards.XyloAudio3TestBoard
 
 # - Typing
-from typing import Optional, Union, Callable, List, Tuple
+from typing import Optional, Union, List, Tuple
 from warnings import warn
-
-
-try:
-    from rich import print
-except:
-    pass
 
 # - Configure exports
 __all__ = [
@@ -204,10 +199,10 @@ def config_from_specification(
         aliases = [np.round(a).astype("int") for a in aliases]
 
     # - Build the configuration
-    config = samna.xyloImu.configuration.XyloConfiguration()
+    config = samna.xyloAudio3.configuration.XyloConfiguration()
 
     # general
-    config.imu_if_input_enable = False
+    # config.imu_if_input_enable = False
     config.debug.always_update_omp_stat = True
 
     if bias_hidden is not None or bias_out is not None:
@@ -235,7 +230,7 @@ def config_from_specification(
 
     hidden_neurons = []
     for i in range(len(weights_rec)):
-        neuron = samna.xyloImu.configuration.HiddenNeuron()
+        neuron = samna.xyloAudio3.configuration.HiddenNeuron()
         if aliases is not None and len(aliases[i]) > 0:
             neuron.alias_target = aliases[i][0]
 
@@ -250,7 +245,7 @@ def config_from_specification(
 
     readout_neurons = []
     for i in range(np.shape(weights_out)[1]):
-        neuron = samna.xyloImu.configuration.OutputNeuron()
+        neuron = samna.xyloAudio3.configuration.OutputNeuron()
         neuron.i_syn_decay = dash_syn_out[i]
         neuron.v_mem_decay = dash_mem_out[i]
         neuron.threshold = threshold_out[i]
@@ -261,7 +256,7 @@ def config_from_specification(
     config.readout.neurons = readout_neurons
 
     # - Validate the configuration and return
-    is_valid, message = samna.xyloImu.validate_configuration(config)
+    is_valid, message = samna.xyloAudio3.validate_configuration(config)
     return config, is_valid, message
 
 
@@ -312,7 +307,7 @@ class XyloSamna(Module):
 
     def __init__(
         self,
-        device: XyloIMUHDK,
+        device: XyloAudio3HDK,
         config: XyloConfiguration = None,
         dt: float = 1e-3,
         output_mode: str = "Spike",
@@ -344,7 +339,7 @@ class XyloSamna(Module):
 
         # - Get a default configuration
         if config is None:
-            config = samna.xyloImu.configuration.XyloConfiguration()
+            config = samna.xyloAudio3.configuration.XyloConfiguration()
 
         # - Get the network shape
         Nin, Nhidden = np.shape(config.input.weights)
@@ -356,7 +351,7 @@ class XyloSamna(Module):
         )
 
         # - Store the device
-        self._device: XyloIMUHDK = device
+        self._device: XyloAudio3HDK = device
         """ `.XyloHDK`: The Xylo HDK used by this module """
 
         # - Register buffers to read and write events
@@ -384,10 +379,10 @@ class XyloSamna(Module):
         self.dt: Union[float, SimulationParameter] = dt
         """ float: Simulation time-step of the module, in seconds """
 
-        # - Set power measurement module
-        self._power_buf, self.power = hdkutils.set_power_measure(
-            self._device, power_frequency
-        )
+        # # - Set power measurement module
+        # self._power_buf, self.power = hdkutils.set_power_measure(
+        #     self._device, power_frequency
+        # )
 
     @property
     def config(self):
@@ -397,7 +392,7 @@ class XyloSamna(Module):
     @config.setter
     def config(self, new_config):
         # - Test for a valid configuration
-        is_valid, msg = samna.xyloImu.validate_configuration(new_config)
+        is_valid, msg = samna.xyloAudio3.validate_configuration(new_config)
         if not is_valid:
             raise ValueError(f"Invalid configuration for the Xylo HDK: {msg}")
 
@@ -492,13 +487,13 @@ class XyloSamna(Module):
         # - Generate input events
         for timestep, channel, count in zip(spikes[:, 0], spikes[:, 1], counts):
             for _ in range(count):
-                event = samna.xyloImu.event.Spike(
+                event = samna.xyloAudio3.event.Spike(
                     neuron_id=channel, timestep=start_timestep + timestep
                 )
                 input_events_list.append(event)
 
         # - Add a `TriggerProcessing` event to ensure all time-steps are processed
-        event = samna.xyloImu.event.TriggerProcessing(
+        event = samna.xyloAudio3.event.TriggerProcessing(
             target_timestep=final_timestep + 1
         )
         input_events_list.append(event)
@@ -548,7 +543,7 @@ class XyloSamna(Module):
             ps = self._power_buf.get_events()
 
             # - Separate out power meaurement events by channel
-            channels = samna.xyloImuBoards.MeasurementChannels
+            channels = samna.xyloAudio3Boards.MeasurementChannels
             io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
             core_power = np.array(
                 [e.value for e in ps if e.channel == int(channels.Core)]
