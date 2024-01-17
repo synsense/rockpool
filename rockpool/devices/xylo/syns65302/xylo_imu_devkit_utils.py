@@ -13,7 +13,7 @@ import numpy as np
 from typing import List, Optional, NamedTuple, Tuple
 
 XyloAudio3ReadBuffer = samna.BasicSinkNode_xylo_audio3_event_output_event
-XyloAudio3WriteBuffer = samna.BasicSourceNode_xylo_imu_event_input_event
+XyloAudio3WriteBuffer = samna.BasicSourceNode_xylo_audio3_event_input_event
 # IMUSensorReadBuffer = samna.DeviceSinkNode_unifirm_modules_mc3632_input_event
 # IMUSensorWriteBuffer = samna.DeviceSourceNode_unifirm_modules_mc3632_output_event
 
