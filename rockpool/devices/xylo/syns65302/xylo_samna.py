@@ -97,7 +97,8 @@ def config_from_specification(
 
     # - Get network shape
     Nin, Nin_res, Nsyn = weights_in.shape
-    Nhidden, Nout = weights_out.shape
+    Nhidden, _, _ = weights_rec.shape
+    Nout_res, Nout = weights_out.shape
 
     # - Check number of input synapses
     if Nsyn > 1:
@@ -117,13 +118,7 @@ def config_from_specification(
     # - Check `weights_rec`
     if weights_rec.ndim != 3 or weights_rec.shape[0] != weights_rec.shape[1]:
         raise ValueError(
-            "Recurrent weights must be of shape `(Nhidden, Nhidden [, 1])`"
-        )
-
-    if Nhidden != weights_rec.shape[0]:
-        raise ValueError(
-            "Input weights must be consistent with recurrent weights.\n"
-            f"`weights_in`: {weights_in.shape}; `weights_rec`: {weights_rec.shape}"
+            "Recurrent weights must be of shape `(Nhidden, Nhidden, Nsyn)`"
         )
 
     # - Check aliases
