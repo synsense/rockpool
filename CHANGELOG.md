@@ -19,6 +19,12 @@ All notable changes between Rockpool releases will be documented in this file.
 
 ### Security
 
+## [v.2.7.1 hotfix] -- 2024-01-19
+
+### Fixed
+
+* Bug in Xylo IMU mapper, where networks with more than 128 hidden neurons could not be mapped
+
 ## [v2.7] -- 2023-09-25
 
 ### Added
