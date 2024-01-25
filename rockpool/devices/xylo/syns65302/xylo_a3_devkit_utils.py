@@ -449,39 +449,6 @@ def apply_configuration(
     hdk.get_model().apply_configuration(config)
 
 
-class XyloState(NamedTuple):
-    """
-    `.NamedTuple` that encapsulates a recorded Xylo HDK state
-    """
-
-    Nin: int
-    """ int: The number of input-layer neurons """
-
-    Nhidden: int
-    """ int: The number of hidden-layer neurons """
-
-    Nout: int
-    """ int: The number of output layer neurons """
-
-    V_mem_hid: np.ndarray
-    """ np.ndarray: Membrane potential of hidden neurons ``(Nhidden,)``"""
-
-    I_syn_hid: np.ndarray
-    """ np.ndarray: Synaptic current 1 of hidden neurons ``(Nhidden,)``"""
-
-    V_mem_out: np.ndarray
-    """ np.ndarray: Membrane potential of output neurons ``(Nhidden,)``"""
-
-    I_syn_out: np.ndarray
-    """ np.ndarray: Synaptic current of output neurons ``(Nout,)``"""
-
-    Spikes_hid: np.ndarray
-    """ np.ndarray: Spikes from hidden layer neurons ``(Nhidden,)``"""
-
-    Spikes_out: np.ndarray
-    """ np.ndarray: Spikes from output layer neurons ``(Nout,)``"""
-
-
 def configure_single_step_time_mode(
     config: XyloConfiguration,
 ) -> XyloConfiguration:
@@ -538,7 +505,6 @@ def read_output_events(
     # - Read the status register
     status = read_register(read_buffer, write_buffer, reg.stat1)
     status.extend(read_register(read_buffer, write_buffer, reg.stat2))
-    print(status)
 
     # - Convert to neuron events and return
     string = format(int(status[0]), "0>32b")[-8:] + format(int(status[1]), "0>32b")[-8:]

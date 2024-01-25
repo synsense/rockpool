@@ -81,9 +81,14 @@ def config_from_specification(
         ``message`` will be an empty string if the configuration is valid, or a message indicating why the configuration is invalid.
     """
     # - Check input weights
-    if weights_in.ndim < 2:
+    if weights_in.ndim != 3:
         raise ValueError(
-            f"Input weights must be at least 2 dimensional `(Nin, Nin_res [, 1])`. Found {weights_in.shape}"
+            f"Input weights must be 3 dimensional `(Nin, Nin_res, Nsyn)`. Found {weights_in.shape}"
+        )
+
+    if weights_rec.ndim != 3:
+        raise ValueError(
+            f"Recurrent weights must be 3 dimensional `(Nin_res, Nin_res, Nsyn)`. Found {weights_rec.shape}"
         )
 
     # - Check output weights
@@ -208,7 +213,6 @@ def config_from_specification(
     config = samna.xyloAudio3.configuration.XyloConfiguration()
 
     # general
-    # config.imu_if_input_enable = False
     config.debug.always_update_omp_stat = True
 
     if bias_hidden is not None or bias_out is not None:
@@ -370,6 +374,11 @@ class XyloSamna(Module):
         # - Store the timestep
         self.dt: Union[float, SimulationParameter] = dt
         """ float: Simulation time-step of the module, in seconds """
+
+        # - Initialise the HDK
+        hdkutils.initialise_xylo_hdk(
+            self._device, self._read_buffer, self._write_buffer
+        )
 
         # - Store the configuration (and apply it)
         self.config: Union[
@@ -545,7 +554,7 @@ class XyloSamna(Module):
                 "Spikes": np.array(spikes_ts),
                 "Vmem_out": np.array(vmem_out_ts),
                 "Isyn_out": np.array(isyn_out_ts),
-                "times": np.arange(start_timestep, final_timestep + 1),
+                # "times": np.arange(start_timestep, final_timestep + 1),
             }
         else:
             rec_dict = {}
