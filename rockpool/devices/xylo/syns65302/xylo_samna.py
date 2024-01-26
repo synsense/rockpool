@@ -101,9 +101,9 @@ def config_from_specification(
     Nout_res, Nout = weights_out.shape
 
     # - Check number of input synapses
-    if Nsyn > 1:
+    if Nsyn > 2:
         raise ValueError(
-            f"Only 1 input synapse is supported on Xylo-IMU. Found {Nsyn}."
+            f"Max of 2 input synapses are supported on Xylo A3. Found {Nsyn}."
         )
 
     # - Check input and hidden weight sizes

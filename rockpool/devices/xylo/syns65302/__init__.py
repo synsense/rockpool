@@ -8,3 +8,4 @@ Provides the modules :py:class:`.AFESimExternal`, :py:class:`.AFESimAGC`, and :p
 from .afe.params import *
 from .afe_sim import *
 from .xylo_samna import *
+from .xylo_mapper import *
