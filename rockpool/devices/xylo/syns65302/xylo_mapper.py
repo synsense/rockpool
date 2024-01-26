@@ -359,8 +359,14 @@ def mapper(
         these_indices = n.hw_ids
         dash_mem[these_indices] = n.dash_mem
 
-        for i, index in enumerate(these_indices):
-            dash_syn[index] = n.dash_syn[i]
+        if len(n.input_nodes) > len(n.output_nodes):
+            dash_syn_reshape = np.array(n.dash_syn).reshape((-1, 2))
+            for i, index in enumerate(these_indices):
+                dash_syn[index] = dash_syn_reshape[i][0]
+                dash_syn_2[index] = dash_syn_reshape[i][1]
+        else:
+            for i, index in enumerate(these_indices):
+                dash_syn[index] = n.dash_syn[i]
 
         threshold[these_indices] = n.threshold
         bias[these_indices] = n.bias
