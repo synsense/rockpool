@@ -192,10 +192,14 @@ def mapper(
             nid for ids in allocated_hidden_neurons for nid in ids
         ]
 
-        allocated_oens = [
-            assign_ids_to_module(m, available_hidden_neuron_ids) for m in list_oens_mods
-        ]
-        allocated_oens = [nid for ids in allocated_oens for nid in ids]
+        # - Assign HW IDs to OEN hidden modules, if they have not already been allocated
+        #   They could have been already allocated if there is overlap between IENs and OENs (e.g. one single hidden layer)
+        for m in list_oens_mods:
+            if len(m.hw_ids) == 0:
+                assign_ids_to_module(m, available_hidden_neuron_ids)
+
+        # - Get all the allocated OEN HW IDs
+        allocated_oens = [id for m in list_oens_mods for id in m.hw_ids]
 
         all_allocated_hidden_neurons = (
             allocated_iens + allocated_hidden_neurons + allocated_oens
@@ -359,14 +363,8 @@ def mapper(
         these_indices = n.hw_ids
         dash_mem[these_indices] = n.dash_mem
 
-        if len(n.input_nodes) > len(n.output_nodes):
-            dash_syn_reshape = np.array(n.dash_syn).reshape((-1, 2))
-            for i, index in enumerate(these_indices):
-                dash_syn[index] = dash_syn_reshape[i][0]
-                dash_syn_2[index] = dash_syn_reshape[i][1]
-        else:
-            for i, index in enumerate(these_indices):
-                dash_syn[index] = n.dash_syn[i]
+        for i, index in enumerate(these_indices):
+            dash_syn[index] = n.dash_syn[i]
 
         threshold[these_indices] = n.threshold
         bias[these_indices] = n.bias

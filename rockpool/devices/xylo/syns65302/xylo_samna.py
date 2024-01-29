@@ -40,7 +40,6 @@ def config_from_specification(
     dash_mem: Optional[np.ndarray] = None,
     dash_mem_out: Optional[np.ndarray] = None,
     dash_syn: Optional[np.ndarray] = None,
-    dash_syn_2: Optional[np.ndarray] = None,
     dash_syn_out: Optional[np.ndarray] = None,
     threshold: Optional[np.ndarray] = None,
     threshold_out: Optional[np.ndarray] = None,
@@ -82,18 +81,10 @@ def config_from_specification(
         ``message`` will be an empty string if the configuration is valid, or a message indicating why the configuration is invalid.
     """
     # - Check input weights
-    if weights_in.ndim < 2:
+    if weights_in.ndim != 3:
         raise ValueError(
-            f"Input weights must be at least 2 dimensional `(Nin, Nin_res (, Nsyn))`. Found {weights_in.shape}"
+            f"Input weights must be 3 dimensional `(Nin, Nin_res, Nsyn)`. Found {weights_in.shape}"
         )
-
-    enable_isyn2 = True
-    if weights_in.ndim < 3:
-        weights_in = np.expand_dims(weights_in, -1)
-
-    Nin, Nin_res, Nsyn = weights_in.shape
-    if Nsyn < 2:
-        enable_isyn2 = False
 
     if weights_rec.ndim != 3:
         raise ValueError(
@@ -105,6 +96,7 @@ def config_from_specification(
         raise ValueError("Output weights must be 2 dimensional `(Nhidden, Nout)`")
 
     # - Get network shape
+    Nin, Nin_res, Nsyn = weights_in.shape
     Nhidden, _, _ = weights_rec.shape
     Nout_res, Nout = weights_out.shape
 
@@ -120,16 +112,10 @@ def config_from_specification(
 
     # - Provide default `weights_rec`
     weights_rec = (
-        np.zeros((Nhidden, Nhidden, 1 + enable_isyn2), "int")
-        if weights_rec is None
-        else weights_rec
+        np.zeros((Nhidden, Nhidden, 1), "int") if weights_rec is None else weights_rec
     )
 
     # - Check `weights_rec`
-    if weights_rec.ndim == 2:
-        enable_isyn2 = False
-        weights_rec = np.reshape(weights_rec, [*weights_rec.shape, 1])
-
     if weights_rec.ndim != 3 or weights_rec.shape[0] != weights_rec.shape[1]:
         raise ValueError(
             "Recurrent weights must be of shape `(Nhidden, Nhidden, Nsyn)`"
@@ -144,20 +130,14 @@ def config_from_specification(
     # - Check bitshift TCs, assign defaults
     dash_mem = np.ones(Nhidden, "int") if dash_mem is None else np.array(dash_mem)
     dash_syn = np.ones(Nhidden, "int") if dash_syn is None else np.array(dash_syn)
-    dash_syn_2 = np.ones(Nhidden, "int") if dash_syn_2 is None else np.array(dash_syn_2)
-
     if bias_hidden is not None:
         bias_hidden = np.round(np.array(bias_hidden)).astype("int")
     if bias_out is not None:
         bias_out = np.round(np.array(bias_out)).astype("int")
 
-    if (
-        np.size(dash_mem) != Nhidden
-        or np.size(dash_syn) != Nhidden
-        or np.size(dash_syn_2) != Nhidden
-    ):
+    if np.size(dash_mem) != Nhidden or np.size(dash_syn) != Nhidden:
         raise ValueError(
-            f"`dash_mem`, `dash_syn` and `dash_syn2` need `Nhidden` entries (`Nhidden` = {Nhidden})"
+            f"`dash_mem`, `dash_syn` need `Nhidden` entries (`Nhidden` = {Nhidden})"
             + f" found {np.size(dash_mem)}, {np.size(dash_syn)}"
         )
 
@@ -200,7 +180,6 @@ def config_from_specification(
     if (
         threshold.dtype.kind not in "ui"
         or dash_syn.dtype.kind not in "ui"
-        or dash_syn_2.dtype.kind not in "ui"
         or dash_syn_out.dtype.kind not in "ui"
         or dash_mem.dtype.kind not in "ui"
         or dash_mem_out.dtype.kind not in "ui"
@@ -216,7 +195,6 @@ def config_from_specification(
     dash_mem = np.round(dash_mem).astype("int8")
     dash_mem_out = np.round(dash_mem_out).astype("int8")
     dash_syn = np.round(dash_syn).astype("int8")
-    dash_syn_2 = np.round(dash_syn_2).astype("int")
     dash_syn_out = np.round(dash_syn_out).astype("int8")
     threshold = np.round(threshold).astype("int")
     threshold_out = np.round(threshold_out).astype("int")
@@ -235,10 +213,6 @@ def config_from_specification(
     if bias_hidden is not None or bias_out is not None:
         config.bias_enable = True
 
-    if enable_isyn2:
-        raise NotImplementedError("SYN2 not yet implemented in samna for XA3")
-
-    # config.synapse2_enable = enable_isyn2
     config.hidden.aliasing = aliases is not None
     config.input.weight_bit_shift = weight_shift_in
     config.hidden.weight_bit_shift = weight_shift_rec
@@ -259,10 +233,6 @@ def config_from_specification(
     else:
         config.readout.weights = weights_out
 
-    if enable_isyn2:
-        config.input.syn2_weights = weights_in[:, :, 1]
-        config.reservoir.syn2_weights = weights_rec[:, :, 1]
-
     hidden_neurons = []
     for i in range(len(weights_rec)):
         neuron = samna.xyloAudio3.configuration.HiddenNeuron()
@@ -270,7 +240,6 @@ def config_from_specification(
             neuron.alias_target = aliases[i][0]
 
         neuron.i_syn_decay = dash_syn[i]
-        # neuron.i_syn2_decay = dash_syn_2[i]
         neuron.v_mem_decay = dash_mem[i]
         neuron.threshold = threshold[i]
         if bias_hidden is not None:
@@ -401,12 +370,18 @@ class XyloSamna(Module):
         self.dt: Union[float, SimulationParameter] = dt
         """ float: Simulation time-step of the module, in seconds """
 
+        # - Sleep time post sending spikes on each time-step, in manual mode
+        self._sleep_time = 5e-3
+        """ float: Post-stimulation sleep time in seconds """
+
         # - Initialise the HDK
-        hdkutils.initialise_xylo_hdk(
-            self._device, self._read_buffer, self._write_buffer
-        )
+        # hdkutils.initialise_xylo_hdk(
+        #     self._device, self._read_buffer, self._write_buffer
+        # )
 
         # - Store the configuration (and apply it)
+        time.sleep(self._sleep_time)
+        config = hdkutils.configure_single_step_time_mode(config)
         self.config: Union[
             XyloConfiguration, SimulationParameter
         ] = SimulationParameter(shape=(), init_func=lambda _: config)
@@ -416,6 +391,10 @@ class XyloSamna(Module):
         hdkutils.initialise_xylo_hdk(
             self._device, self._read_buffer, self._write_buffer
         )
+        time.sleep(self._sleep_time)
+        hdkutils.enable_saer_i(self._device, self._read_buffer, self._write_buffer)
+        time.sleep(self._sleep_time)
+        hdkutils.enable_ram_access(self._device, True)
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
         self._last_record_mode: Optional[bool] = None
@@ -424,10 +403,6 @@ class XyloSamna(Module):
         # - Store the timestep
         self.dt: Union[float, SimulationParameter] = dt
         """ float: Simulation time-step of the module, in seconds """
-
-        # - Sleep time post sending spikes on each time-step, in manual mode
-        self._sleep_time = 5e-3
-        """ float: Post-stimulation sleep time in seconds """
 
     @property
     def config(self):
@@ -443,6 +418,7 @@ class XyloSamna(Module):
 
         # - Write the configuration to the device
         hdkutils.apply_configuration(self._device, new_config)
+        time.sleep(self._sleep_time)
         self._config = new_config
 
     def evolve(
