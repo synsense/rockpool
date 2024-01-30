@@ -451,6 +451,7 @@ def reset_input_spikes(write_buffer: XyloAudio3WriteBuffer) -> None:
 def send_immediate_input_spikes(
     write_buffer: XyloAudio3WriteBuffer,
     spike_counts: Iterable[int],
+    sleep_time: float = 5e-3,
 ) -> None:
     """
     Send a list of immediate input events to a Xylo A3 HDK in manual mode
@@ -464,9 +465,11 @@ def send_immediate_input_spikes(
     for input_channel, event in enumerate(spike_counts):
         if event:
             for _ in range(int(event)):
-                s_event = samna.xyloAudio3.event.Spike()
-                s_event.neuron_id = input_channel
-                events_list.append(s_event)
+                # events_list.append(samna.xyloAudio3.event.Spike(neuron_id = input_channel))
+                write_buffer.write(
+                    [samna.xyloAudio3.event.Spike(neuron_id=input_channel)]
+                )
+                time.sleep(sleep_time)
 
     # - Send input spikes for this time-step
     write_buffer.write(events_list)
@@ -681,6 +684,63 @@ def read_memory(
         and e.address >= start_address
         and e.address < start_address + length
     ]
+
+
+def read_neuron_synapse_state(
+    read_buffer,
+    write_buffer,
+    Nin,
+    Nhidden,
+    Nout,
+):
+    """
+    Read and return the current neuron and synaptic state of neurons
+
+    Args:
+        read_buffer (XyloReadBuffer): A read buffer connected to the Xylo HDK
+        write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK
+        Nhidden (int): Number of hidden neurons to read. Default: ``1000`` (all neurons).
+        Nout (int): Number of output neurons to read. Default: ``8`` (all neurons).
+
+    Returns:
+        :py:class:`.XyloState`: The recorded state as a ``NamedTuple``. Contains keys ``V_mem_hid``,  ``V_mem_out``, ``I_syn_hid``, ``I_syn_out``, ``I_syn2_hid``, ``Nhidden``, ``Nout``. This state has **no time axis**; the first axis is the neuron ID.
+
+    """
+    # - Read synaptic currents
+    Isyn = read_memory(
+        read_buffer,
+        write_buffer,
+        ram.NSCRAM,
+        Nhidden + Nout,
+    )
+
+    # - Read synaptic currents 2
+    Isyn2 = read_memory(read_buffer, write_buffer, ram.HSC2RAM, Nhidden)
+
+    # - Read membrane potential
+    Vmem = read_memory(
+        read_buffer,
+        write_buffer,
+        ram.NMPRAM,
+        Nhidden + Nout,
+    )
+
+    # - Read reservoir spikes
+    Spikes = read_memory(read_buffer, write_buffer, ram.HSPKRAM, Nhidden)
+
+    # - Return the state
+    return XyloState(
+        Nin,
+        Nhidden,
+        Nout,
+        np.array(Vmem[:Nhidden], "int16"),
+        np.array(Isyn[:Nhidden], "int16"),
+        np.array(Vmem[-Nout:], "int16"),
+        np.array(Isyn[-Nout:], "int16"),
+        np.array(Isyn2, "int16"),
+        np.array(Spikes, "bool"),
+        read_output_events(read_buffer, write_buffer)[:Nout],
+    )
 
 
 def enable_ram_access(device: XyloAudio3HDK, enabled: bool) -> None:
