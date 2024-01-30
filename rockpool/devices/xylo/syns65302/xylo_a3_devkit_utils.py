@@ -451,7 +451,6 @@ def reset_input_spikes(write_buffer: XyloAudio3WriteBuffer) -> None:
 def send_immediate_input_spikes(
     write_buffer: XyloAudio3WriteBuffer,
     spike_counts: Iterable[int],
-    sleep_time: float = 5e-3,
 ) -> None:
     """
     Send a list of immediate input events to a Xylo A3 HDK in manual mode
@@ -465,11 +464,9 @@ def send_immediate_input_spikes(
     for input_channel, event in enumerate(spike_counts):
         if event:
             for _ in range(int(event)):
-                # events_list.append(samna.xyloAudio3.event.Spike(neuron_id = input_channel))
-                write_buffer.write(
-                    [samna.xyloAudio3.event.Spike(neuron_id=input_channel)]
+                events_list.append(
+                    samna.xyloAudio3.event.Spike(neuron_id=input_channel)
                 )
-                time.sleep(sleep_time)
 
     # - Send input spikes for this time-step
     write_buffer.write(events_list)
