@@ -375,9 +375,9 @@ class XyloSamna(Module):
         """ float: Post-stimulation sleep time in seconds """
 
         # - Initialise the HDK
-        # hdkutils.initialise_xylo_hdk(
-        #     self._device, self._read_buffer, self._write_buffer
-        # )
+        hdkutils.initialise_xylo_hdk(
+            self._device, self._read_buffer, self._write_buffer
+        )
 
         # - Store the configuration (and apply it)
         time.sleep(self._sleep_time)
@@ -387,13 +387,12 @@ class XyloSamna(Module):
         ] = SimulationParameter(shape=(), init_func=lambda _: config)
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
-        # - Initialise the HDK (once more for good luck)
-        hdkutils.initialise_xylo_hdk(
-            self._device, self._read_buffer, self._write_buffer
-        )
+        # - Enable the SAER interface
         time.sleep(self._sleep_time)
         hdkutils.enable_saer_i(self._device, self._read_buffer, self._write_buffer)
         time.sleep(self._sleep_time)
+
+        # - Enable RAM access
         hdkutils.enable_ram_access(self._device, True)
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
@@ -419,6 +418,10 @@ class XyloSamna(Module):
         # - Write the configuration to the device
         hdkutils.apply_configuration(self._device, new_config)
         time.sleep(self._sleep_time)
+
+        # - WORK-AROUND to fix clock divider being reset when applying config
+        hdkutils.write_register(self._write_buffer, hdkutils.reg.clk_div, 0)
+
         self._config = new_config
 
     def evolve(
@@ -450,7 +453,7 @@ class XyloSamna(Module):
         """
 
         # - Get some information about the network size
-        _, Nhidden, Nout = self.shape
+        Nin, Nhidden, Nout = self.shape
 
         # - Select single-step simulation mode
         # - Applies the configuration via `self.config`
@@ -462,11 +465,11 @@ class XyloSamna(Module):
         # - Advance one time-step
         hdkutils.advance_time_step(self._write_buffer)
 
-        # # - Wait until xylo is ready
-        # t_start = time.time()
-        # while not hdkutils.is_xylo_ready(self._read_buffer, self._write_buffer):
-        #     if time.time() - t_start > read_timeout:
-        #         raise TimeoutError("Timed out waiting for Xylo to be ready.")
+        # - Wait until xylo is ready
+        t_start = time.time()
+        while not hdkutils.is_xylo_ready(self._read_buffer, self._write_buffer):
+            if time.time() - t_start > read_timeout:
+                raise TimeoutError("Timed out waiting for Xylo to be ready.")
 
         # # - Get current timestamp
         # start_timestep = hdkutils.get_current_timestamp(
@@ -490,7 +493,6 @@ class XyloSamna(Module):
         for timestep in tqdm(range(len(input))):
             # - Send input events for this time-step
             hdkutils.send_immediate_input_spikes(self._write_buffer, input[timestep])
-            time.sleep(self._sleep_time)
 
             # - Evolve one time-step on Xylo
             hdkutils.advance_time_step(self._write_buffer)
@@ -510,7 +512,7 @@ class XyloSamna(Module):
             # - Read all synapse and neuron states for this time step
             if record:
                 this_state = hdkutils.read_neuron_synapse_state(
-                    self._read_buffer, self._write_buffer, Nhidden, Nout
+                    self._read_buffer, self._write_buffer, Nin, Nhidden, Nout
                 )
                 vmem_ts.append(this_state.V_mem_hid)
                 isyn_ts.append(this_state.I_syn_hid)
