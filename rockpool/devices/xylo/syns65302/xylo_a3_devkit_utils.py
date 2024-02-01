@@ -488,10 +488,9 @@ def read_output_events(
     """
     # - Read the status register
     status = read_register(read_buffer, write_buffer, reg.stat1)
-    status.extend(read_register(read_buffer, write_buffer, reg.stat2))
 
     # - Convert to neuron events and return
-    string = format(int(status[0]), "0>32b")[-8:] + format(int(status[1]), "0>32b")[-8:]
+    string = format(int(status[0]), "0>32b")
     return np.array([bool(int(e)) for e in string[::-1]], "bool")
 
 
