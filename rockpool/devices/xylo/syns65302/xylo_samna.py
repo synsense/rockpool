@@ -371,7 +371,7 @@ class XyloSamna(Module):
         """ float: Simulation time-step of the module, in seconds """
 
         # - Sleep time post sending spikes on each time-step, in manual mode
-        self._sleep_time = 5e-3
+        self._sleep_time = 0e-3
         """ float: Post-stimulation sleep time in seconds """
 
         # - Initialise the HDK
