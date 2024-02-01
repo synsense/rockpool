@@ -225,7 +225,7 @@ def config_from_specification(
     else:
         config.input.weights = weights_in[:, :, 0]
     config.hidden.weights = weights_rec[:, :, 0]
-    if weights_out.shape[1] > 128:
+    if weights_out.shape[0] > 128:
         warn(
             "More than 128 output expansion neurons (OEN) detected. Only the last 128 will be used."
         )
@@ -524,7 +524,7 @@ class XyloSamna(Module):
             # - Read the output event register
             output_events = hdkutils.read_output_events(
                 self._read_buffer, self._write_buffer
-            )
+            )[:Nout]
             output_ts.append(output_events)
 
         if record:
