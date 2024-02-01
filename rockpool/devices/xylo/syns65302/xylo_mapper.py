@@ -201,8 +201,8 @@ def mapper(
         # - Get all the allocated OEN HW IDs
         allocated_oens = [id for m in list_oens_mods for id in m.hw_ids]
 
-        all_allocated_hidden_neurons = (
-            allocated_iens + allocated_hidden_neurons + allocated_oens
+        all_allocated_hidden_neurons = list(
+            set(allocated_iens + allocated_hidden_neurons + allocated_oens)
         )
 
     except Exception as e:
