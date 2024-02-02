@@ -12,7 +12,7 @@ try:
 except:
     tqdm = lambda x: x
 
-from samna.xyloAudio3.configuration import XyloConfiguration, InputInterfaceConfig
+from samna.xyloAudio3.configuration import XyloConfiguration
 
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
@@ -389,7 +389,7 @@ class XyloSamna(Module):
 
         # - Enable the SAER interface
         time.sleep(self._sleep_time)
-        hdkutils.enable_saer_i(self._device, self._read_buffer, self._write_buffer)
+        hdkutils.enable_saer_input(self._device, self._read_buffer, self._write_buffer)
         time.sleep(self._sleep_time)
 
         # - Enable RAM access
@@ -460,7 +460,7 @@ class XyloSamna(Module):
         self.config = hdkutils.configure_single_step_time_mode(self.config)
 
         # - Enable SAER interface
-        hdkutils.enable_saer_i(self._device, self._read_buffer, self._write_buffer)
+        hdkutils.enable_saer_input(self._device, self._read_buffer, self._write_buffer)
 
         # - Advance one time-step
         hdkutils.advance_time_step(self._write_buffer)

@@ -109,7 +109,10 @@ def new_xylo_write_buffer(hdk: XyloAudio3HDK) -> XyloAudio3WriteBuffer:
     return samna.graph.source_to(hdk.get_model_sink_node())
 
 
-def config_pdm_h_regs(write_buffer):
+def config_standard_pdm_lpf(write_buffer: XyloAudio3WriteBuffer) -> None:
+    """
+    Configure a standard low-pass-filter for the Xylo A3 PDM input chain
+    """
     # copied from dig_full_path_test_pdm_external_rise_sample_with_nn/dfe_full_path_test.sysint.stim
     write_register(write_buffer, reg.pdm_h_reg0, 0x0229_FF8D)
     write_register(write_buffer, reg.pdm_h_reg1, 0x0F4C_F856)
@@ -257,7 +260,110 @@ def config_pdm_h_regs(write_buffer):
     write_register(write_buffer, reg.pdm_h_reg143, 0x01FE_F973)
 
 
-def update_register_field(read_buffer, write_buffer, addr, lsb_pos, msb_pos, val):
+def config_standard_bpf_set(write_buffer: XyloAudio3WriteBuffer) -> None:
+    # copied from dig_full_path_test_pdm_external_rise_sample_with_nn/spi_ori.sysint.stim
+    write_register(write_buffer, reg.bpf_bb_reg0, 0x5566_7788)
+    write_register(write_buffer, reg.bpf_bb_reg1, 0x1223_3444)
+    write_register(write_buffer, reg.bpf_bwf_reg0, 0x8888_8888)
+    write_register(write_buffer, reg.bpf_bwf_reg1, 0x8888_8888)
+    write_register(write_buffer, reg.bpf_baf_reg0, 0x9988_7766)
+    write_register(write_buffer, reg.bpf_baf_reg1, 0xEDDB_BAAA)
+    write_register(write_buffer, reg.bpf_a1_reg0, 0x8069_804A)
+    write_register(write_buffer, reg.bpf_a1_reg1, 0x80D9_8097)
+    write_register(write_buffer, reg.bpf_a1_reg2, 0x81CF_813B)
+    write_register(write_buffer, reg.bpf_a1_reg3, 0x841A_82B3)
+    write_register(write_buffer, reg.bpf_a1_reg4, 0x8A17_865D)
+    write_register(write_buffer, reg.bpf_a1_reg5, 0x9AFA_905A)
+    write_register(write_buffer, reg.bpf_a1_reg6, 0x9511_ACF2)
+    write_register(write_buffer, reg.bpf_a1_reg7, 0x63DE_EFAC)
+    write_register(write_buffer, reg.bpf_a2_reg0, 0x3F9C_3FB9)
+    write_register(write_buffer, reg.bpf_a2_reg1, 0x3F3C_3F74)
+    write_register(write_buffer, reg.bpf_a2_reg2, 0x3E80_3EEE)
+    write_register(write_buffer, reg.bpf_a2_reg3, 0x3D16_3DE8)
+    write_register(write_buffer, reg.bpf_a2_reg4, 0x3A63_3BF3)
+    write_register(write_buffer, reg.bpf_a2_reg5, 0x3562_3842)
+    write_register(write_buffer, reg.bpf_a2_reg6, 0x5913_318F)
+    write_register(write_buffer, reg.bpf_a2_reg7, 0x3BB0_4C20)
+    write_register(write_buffer, reg.iaf_thr0_l, 0x0200_0000)
+    write_register(write_buffer, reg.iaf_thr0_h, 0x0000_0000)
+    write_register(write_buffer, reg.iaf_thr1_l, 0x0200_0000)
+    write_register(write_buffer, reg.iaf_thr1_h, 0x0000_0000)
+    write_register(write_buffer, reg.iaf_thr2_l, 0x0200_0000)
+    write_register(write_buffer, reg.iaf_thr2_h, 0x0000_0000)
+    write_register(write_buffer, reg.iaf_thr3_l, 0x0200_0000)
+    write_register(write_buffer, reg.iaf_thr3_h, 0x0000_0000)
+    write_register(write_buffer, reg.iaf_thr4_l, 0x0200_0000)
+    write_register(write_buffer, reg.iaf_thr4_h, 0x0000_0000)
+    write_register(write_buffer, reg.iaf_thr5_l, 0x0200_0000)
+    write_register(write_buffer, reg.iaf_thr5_h, 0x0000_0000)
+    write_register(write_buffer, reg.iaf_thr6_l, 0x0200_0000)
+    write_register(write_buffer, reg.iaf_thr6_h, 0x0000_0000)
+    write_register(write_buffer, reg.iaf_thr7_l, 0x0200_0000)
+    write_register(write_buffer, reg.iaf_thr7_h, 0x0000_0000)
+    write_register(write_buffer, reg.iaf_thr8_l, 0x0200_0000)
+    write_register(write_buffer, reg.iaf_thr8_h, 0x0000_0000)
+    write_register(write_buffer, reg.iaf_thr9_l, 0x0200_0000)
+    write_register(write_buffer, reg.iaf_thr9_h, 0x0000_0000)
+    write_register(write_buffer, reg.iaf_thr10_l, 0x0200_0000)
+    write_register(write_buffer, reg.iaf_thr10_h, 0x0000_0000)
+    write_register(write_buffer, reg.iaf_thr11_l, 0x0200_0000)
+    write_register(write_buffer, reg.iaf_thr11_h, 0x0000_0000)
+    write_register(write_buffer, reg.iaf_thr12_l, 0x0200_0000)
+    write_register(write_buffer, reg.iaf_thr12_h, 0x0000_0000)
+    write_register(write_buffer, reg.iaf_thr13_l, 0x0200_0000)
+    write_register(write_buffer, reg.iaf_thr13_h, 0x0000_0000)
+    write_register(write_buffer, reg.iaf_thr14_l, 0x0200_0000)
+    write_register(write_buffer, reg.iaf_thr14_h, 0x0000_0000)
+    write_register(write_buffer, reg.iaf_thr15_l, 0x0200_0000)
+    write_register(write_buffer, reg.iaf_thr15_h, 0x0000_0000)
+    write_register(write_buffer, reg.dn_eps_reg0, 0x0020_0020)
+    write_register(write_buffer, reg.dn_eps_reg1, 0x0020_0020)
+    write_register(write_buffer, reg.dn_eps_reg2, 0x0020_0020)
+    write_register(write_buffer, reg.dn_eps_reg3, 0x0020_0020)
+    write_register(write_buffer, reg.dn_eps_reg4, 0x0020_0020)
+    write_register(write_buffer, reg.dn_eps_reg5, 0x0020_0020)
+    write_register(write_buffer, reg.dn_eps_reg6, 0x0020_0020)
+    write_register(write_buffer, reg.dn_eps_reg7, 0x0020_0020)
+    write_register(write_buffer, reg.dn_b_reg0, 0x000A_000A)
+    write_register(write_buffer, reg.dn_b_reg1, 0x000A_000A)
+    write_register(write_buffer, reg.dn_b_reg2, 0x000A_000A)
+    write_register(write_buffer, reg.dn_b_reg3, 0x000A_000A)
+    write_register(write_buffer, reg.dn_b_reg4, 0x000A_000A)
+    write_register(write_buffer, reg.dn_b_reg5, 0x000A_000A)
+    write_register(write_buffer, reg.dn_b_reg6, 0x000A_000A)
+    write_register(write_buffer, reg.dn_b_reg7, 0x000A_000A)
+    write_register(write_buffer, reg.dn_k1_reg0, 0x0008_0008)
+    write_register(write_buffer, reg.dn_k1_reg1, 0x0008_0008)
+    write_register(write_buffer, reg.dn_k1_reg2, 0x0008_0008)
+    write_register(write_buffer, reg.dn_k1_reg3, 0x0008_0008)
+    write_register(write_buffer, reg.dn_k1_reg4, 0x0008_0008)
+    write_register(write_buffer, reg.dn_k1_reg5, 0x0008_0008)
+    write_register(write_buffer, reg.dn_k1_reg6, 0x0008_0008)
+    write_register(write_buffer, reg.dn_k1_reg7, 0x0008_0008)
+    write_register(write_buffer, reg.dn_k2_reg0, 0x0000_0000)
+    write_register(write_buffer, reg.dn_k2_reg1, 0x0000_0000)
+    write_register(write_buffer, reg.dn_k2_reg2, 0x0000_0000)
+    write_register(write_buffer, reg.dn_k2_reg3, 0x0000_0000)
+    write_register(write_buffer, reg.dn_k2_reg4, 0x0000_0000)
+    write_register(write_buffer, reg.dn_k2_reg5, 0x0000_0000)
+    write_register(write_buffer, reg.dn_k2_reg6, 0x0000_0000)
+    write_register(write_buffer, reg.dn_k2_reg7, 0x0000_0000)
+
+
+def update_register_field(
+    read_buffer: XyloAudio3ReadBuffer,
+    write_buffer: XyloAudio3WriteBuffer,
+    addr: int,
+    lsb_pos: int,
+    msb_pos: int,
+    val: int,
+):
+    """
+    Update a register field
+
+    Args:
+        write_buffer (XyloAudio3WriteBuffer): A write buffer connected to a Xylo HDK
+    """
     data = read_register(read_buffer, write_buffer, addr)[0]
     data_h = data >> (msb_pos + 1)
     data_l = data & (2**lsb_pos - 1)
@@ -265,7 +371,18 @@ def update_register_field(read_buffer, write_buffer, addr, lsb_pos, msb_pos, val
     write_register(write_buffer, addr, data)
 
 
-def config_pdm_clk(read_buffer, write_buffer, clk_div=1, debug=0):
+def config_pdm_clk(
+    read_buffer: XyloAudio3ReadBuffer,
+    write_buffer: XyloAudio3WriteBuffer,
+    clk_div: int = 1,
+    debug: bool = False,
+) -> None:
+    """
+    Configure the PDM clock registers on the Xylo XA3 HDK
+
+    Args:
+        write_buffer (XyloAudio3WriteBuffer): A write buffer connected to a Xylo HDK
+    """
     update_register_field(
         read_buffer,
         write_buffer,
@@ -302,6 +419,7 @@ def initialise_xylo_hdk(
     Initialise the Xylo IMU HDK
 
     Args:
+        hdk (XyloAudio3HDK): A connected Xylo HDK
         write_buffer (XyloAudio3WriteBuffer): A write buffer connected to a Xylo HDK to initialise
     """
     ioc = hdk.get_io_control_module()
@@ -321,11 +439,110 @@ def enable_pdm_input(
     hdk: XyloAudio3HDK,
     read_buffer: XyloAudio3ReadBuffer,
     write_buffer: XyloAudio3WriteBuffer,
+    pdm_clock_edge: bool = True,
+    pdm_driving_direction: bool = True,
 ) -> None:
-    raise NotImplementedError
+    """
+    Configure the PDM input interface on a Xylo A3 HDK
+
+    This function configures the FPGA to generate the PDM clock, and configures the FPGA and Xylo A3 chip with a common setup for PDM clock edge triggering and driving direction.
+
+    Args:
+        hdk (XyloAudio3HDK): A connected Xylo Audio 3 HDK
+        read_buffer (XyloAudio3ReadBuffer):
+        write_bufer (XyloAudio3WriteBuffer):
+        pdm_clock_edge (bool): Which edge of the PDM clock to use to trigger Xylo clock. ``False``: rising edge; ``True`` (falling edge, default).
+        pdm_driving_direction (bool): Which direction is the PDM clock pin? ``False``: PDM_CLK driven by Xylo A3 chip; ``True``: PDM_CLK pin in slave mode, driven externally (default).
+    """
+    io = hdk.get_io_module()
+
+    # set PDM clock
+    io.write_config(0x0027, 0)  # pdm clock msw
+    io.write_config(0x0028, 19)  # pdm clock lsw
+    io.write_config(0x0029, 1)  # pdm clock enable
+    io.write_config(0x0026, 2)  # select: use pdm interface
+
+    # bit 1: PDM_CLK dir  (0: FPGA->Xylo, 1: Xylo->FPGA)
+    # bit 0: PDM_CLK edge (0: FPGA drives PDM_DATA at falling edge, 1: FPGA drives PDM_DATA at rising edge)
+    pdm_config = pdm_clock_edge + pdm_driving_direction << 1
+    io.write_config(0x002A, pdm_config)
+
+    # FPGA drive PDM_DATA
+    io.write_config(0x0012, 1)
+    # PDM port write enable
+    io.write_config(0x0013, 1)
+
+    # - Configure Xylo A3 registers to use PDM input
+    # CTRL0–1: Pad config to use PDM bus
+    update_register_field(
+        read_buffer,
+        write_buffer,
+        reg.pad_ctrl,
+        reg.pad_ctrl__ctrl0__pos_lsb,
+        reg.pad_ctrl__ctrl0__pos_msb,
+        0,
+    )
+    update_register_field(
+        read_buffer,
+        write_buffer,
+        reg.pad_ctrl,
+        reg.pad_ctrl__ctrl1__pos_lsb,
+        reg.pad_ctrl__ctrl1__pos_msb,
+        0,
+    )
+
+    # DFE_CTRL: PDM clock direction and edge, bandpass filter enable
+    write_register(write_buffer, reg.dfe_ctrl, 0x3FFF_0017)
+    update_register_field(
+        read_buffer,
+        write_buffer,
+        reg.dfe_ctrl,
+        reg.dfe_ctrl__pdm_clk_dir_en__pos,
+        reg.dfe_ctrl__pdm_clk_dir_en__pos,
+        pdm_driving_direction,
+    )
+    update_register_field(
+        read_buffer,
+        write_buffer,
+        reg.dfe_ctrl,
+        reg.dfe_ctrl__pdm_clk_edge_en__pos,
+        reg.dfe_ctrl__pdm_clk_edge_en__pos,
+        pdm_clock_edge,
+    )
+    update_register_field(
+        read_buffer,
+        write_buffer,
+        reg.dfe_ctrl,
+        reg.dfe_ctrl__bfi_en__pos,
+        reg.dfe_ctrl__bfi_en__pos,
+        True,
+    )
 
 
-def enable_saer_i(
+def pdm_clk_enable(hdk: XyloAudio3HDK) -> None:
+    io = hdk.get_io_module()
+    io.write_config(0x0029, 1)  # pdm clock enable
+
+
+def pdm_clk_disable(hdk: XyloAudio3HDK) -> None:
+    io = hdk.get_io_module()
+    io.write_config(0x0029, 0)  # pdm clock disable
+
+
+def send_pdm_datas(datas, debug=0):
+    # read_important_register()
+    print(f"send pdm datas: {datas}") if debug >= 2 else None
+    events = []
+    for n in datas:
+        n = n.strip()
+        # print(f"n: \${n}\$") if debug>=1 else None
+        ev = samna.xyloAudio3.event.AFESample()
+        ev.data = int(n)
+        events.append(ev)
+    source.write(events)
+
+
+def enable_saer_input(
     hdk: XyloAudio3HDK,
     read_buffer: XyloAudio3ReadBuffer,
     write_buffer: XyloAudio3WriteBuffer,
