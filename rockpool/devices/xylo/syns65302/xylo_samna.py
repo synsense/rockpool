@@ -2,7 +2,6 @@
 Utilities for producing a samna HW configuration for Xylo IMU devices
 """
 
-
 import numpy as np
 import samna
 import time
@@ -207,7 +206,7 @@ def config_from_specification(
     # - Build the configuration
     config = samna.xyloAudio3.configuration.XyloConfiguration()
 
-    # general
+    # - General config
     config.debug.always_update_omp_stat = True
 
     if bias_hidden is not None or bias_out is not None:
@@ -382,9 +381,9 @@ class XyloSamna(Module):
         # - Store the configuration (and apply it)
         time.sleep(self._sleep_time)
         config = hdkutils.configure_single_step_time_mode(config)
-        self.config: Union[
-            XyloConfiguration, SimulationParameter
-        ] = SimulationParameter(shape=(), init_func=lambda _: config)
+        self.config: Union[XyloConfiguration, SimulationParameter] = (
+            SimulationParameter(shape=(), init_func=lambda _: config)
+        )
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Enable the SAER interface

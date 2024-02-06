@@ -5,9 +5,11 @@ Includes simulation, interfacing and deployment modules.
 
 Provides the modules :py:class:`.AFESimExternal`, :py:class:`.AFESimAGC`, and :py:class:`.AFESimPDM`.
 """
+
 from .afe.params import *
 from .afe_sim import *
 from .xylo_samna import *
 from .xylo_mapper import *
+from .xylo_samna_pdm import *
 
 from ..syns63300 import XyloSim

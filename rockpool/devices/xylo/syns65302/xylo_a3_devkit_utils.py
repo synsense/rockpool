@@ -371,14 +371,14 @@ def update_register_field(
     write_register(write_buffer, addr, data)
 
 
-def config_pdm_clk(
+def xylo_config_clk(
     read_buffer: XyloAudio3ReadBuffer,
     write_buffer: XyloAudio3WriteBuffer,
     clk_div: int = 1,
     debug: bool = False,
 ) -> None:
     """
-    Configure the PDM clock registers on the Xylo XA3 HDK
+    Configure the clock divider registers on the Xylo XA3 HDK
 
     Args:
         write_buffer (XyloAudio3WriteBuffer): A write buffer connected to a Xylo HDK
@@ -391,9 +391,11 @@ def config_pdm_clk(
         reg.clk_div__sdm__pos_msb,
         max((clk_div >> 1) - 1, 0),
     )
-    print(
-        "clk_div:  0x" + format(read_register(reg.clk_div), "_X")
-    ) if debug >= 1 else None
+    (
+        print("clk_div:  0x" + format(read_register(reg.clk_div), "_X"))
+        if debug >= 1
+        else None
+    )
     update_register_field(
         read_buffer,
         write_buffer,
@@ -402,9 +404,11 @@ def config_pdm_clk(
         reg.clk_ctrl__sdm__pos,
         1,
     )
-    print(
-        "clk_ctrl: 0x" + format(read_register(reg.clk_ctrl), "_X")
-    ) if debug >= 1 else None
+    (
+        print("clk_ctrl: 0x" + format(read_register(reg.clk_ctrl), "_X"))
+        if debug >= 1
+        else None
+    )
 
 
 def initialise_xylo_hdk(
@@ -435,10 +439,8 @@ def initialise_xylo_hdk(
     time.sleep(sleep_time)
 
 
-def enable_pdm_input(
+def fpga_enable_pdm_interface(
     hdk: XyloAudio3HDK,
-    read_buffer: XyloAudio3ReadBuffer,
-    write_buffer: XyloAudio3WriteBuffer,
     pdm_clock_edge: bool = True,
     pdm_driving_direction: bool = True,
 ) -> None:
@@ -472,6 +474,13 @@ def enable_pdm_input(
     # PDM port write enable
     io.write_config(0x0013, 1)
 
+
+def xylo_enable_pdm_interface(
+    read_buffer: XyloAudio3ReadBuffer,
+    write_buffer: XyloAudio3WriteBuffer,
+    pdm_clock_edge: bool = True,
+    pdm_driving_direction: bool = True,
+) -> None:
     # - Configure Xylo A3 registers to use PDM input
     # CTRL0–1: Pad config to use PDM bus
     update_register_field(
@@ -519,17 +528,17 @@ def enable_pdm_input(
     )
 
 
-def pdm_clk_enable(hdk: XyloAudio3HDK) -> None:
+def fpga_pdm_clk_enable(hdk: XyloAudio3HDK) -> None:
     io = hdk.get_io_module()
     io.write_config(0x0029, 1)  # pdm clock enable
 
 
-def pdm_clk_disable(hdk: XyloAudio3HDK) -> None:
+def fpga_pdm_clk_disable(hdk: XyloAudio3HDK) -> None:
     io = hdk.get_io_module()
     io.write_config(0x0029, 0)  # pdm clock disable
 
 
-def send_pdm_datas(datas, debug=0):
+def send_pdm_datas(write_buffer: XyloAudio3WriteBuffer, datas, debug=0) -> None:
     # read_important_register()
     print(f"send pdm datas: {datas}") if debug >= 2 else None
     events = []
@@ -539,7 +548,7 @@ def send_pdm_datas(datas, debug=0):
         ev = samna.xyloAudio3.event.AFESample()
         ev.data = int(n)
         events.append(ev)
-    source.write(events)
+    write_buffer.write(events)
 
 
 def enable_saer_input(
@@ -899,13 +908,23 @@ def read_memory(
     ]
 
 
+def read_ispkreg(
+    read_buffer: XyloAudio3ReadBuffer, write_buffer: XyloAudio3WriteBuffer, Nin: int
+) -> np.array:
+
+    print("ispkreg0l: 0x" + format(read_register(reg.ispkreg0l), "_X"))
+    print("ispkreg0h: 0x" + format(read_register(reg.ispkreg0h), "_X"))
+    print("ispkreg1l: 0x" + format(read_register(reg.ispkreg1l), "_X"))
+    print("ispkreg1h: 0x" + format(read_register(reg.ispkreg1h), "_X"))
+
+
 def read_neuron_synapse_state(
-    read_buffer,
-    write_buffer,
-    Nin,
-    Nhidden,
-    Nout,
-):
+    read_buffer: XyloAudio3ReadBuffer,
+    write_buffer: XyloAudio3WriteBuffer,
+    Nin: int,
+    Nhidden: int,
+    Nout: int,
+) -> XyloState:
     """
     Read and return the current neuron and synaptic state of neurons
 
