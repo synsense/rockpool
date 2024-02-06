@@ -221,6 +221,17 @@ class XyloSamnaPDM(Module):
             input[: num_dt * PDM_samples_per_dt], [-1, PDM_samples_per_dt]
         )
 
+        if record:
+            # - Switch on reporting of input spike register pointer value
+            hdkutils.update_register_field(
+                self._read_buffer,
+                self._write_buffer,
+                hdkutils.reg.dbg_ctrl1,
+                hdkutils.reg.dbg_ctrl1__dbg_sta_upd_en__pos,
+                hdkutils.reg.dbg_ctrl1__dbg_sta_upd_en__pos,
+                True,
+            )
+
         # - Initialise lists for recording state
         input_spikes = []
         vmem_ts = []
@@ -256,9 +267,9 @@ class XyloSamnaPDM(Module):
             # - Read all synapse and neuron states for this time step
             if record:
                 input_spikes.append(
-                    hdkutils.read_input_spikes(
-                        self._read_buffer, self._write_buffer, Nin
-                    )
+                    hdkutils.read_input_spikes(self._read_buffer, self._write_buffer)[
+                        :Nin
+                    ]
                 )
                 this_state = hdkutils.read_neuron_synapse_state(
                     self._read_buffer, self._write_buffer, Nin, Nhidden, Nout
@@ -279,6 +290,7 @@ class XyloSamnaPDM(Module):
         if record:
             # - Build a recorded state dictionary
             rec_dict = {
+                "Spikes_in": np.array(input_spikes),
                 "Vmem": np.array(vmem_ts),
                 "Isyn": np.array(isyn_ts),
                 "Isyn2": np.array(isyn2_ts),

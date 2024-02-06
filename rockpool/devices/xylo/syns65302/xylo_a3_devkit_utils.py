@@ -908,14 +908,25 @@ def read_memory(
     ]
 
 
-def read_ispkreg(
-    read_buffer: XyloAudio3ReadBuffer, write_buffer: XyloAudio3WriteBuffer, Nin: int
+def read_input_spikes(
+    read_buffer: XyloAudio3ReadBuffer, write_buffer: XyloAudio3WriteBuffer
 ) -> np.array:
+    # - Read input spike register pointer
+    dbg_stat1 = read_register(read_buffer, write_buffer, reg.dbg_stat1)[0]
+    ispk_reg_ptr = bool((dbg_stat1 & 0b1000000000000000) >> 15)
 
-    print("ispkreg0l: 0x" + format(read_register(reg.ispkreg0l), "_X"))
-    print("ispkreg0h: 0x" + format(read_register(reg.ispkreg0h), "_X"))
-    print("ispkreg1l: 0x" + format(read_register(reg.ispkreg1l), "_X"))
-    print("ispkreg1h: 0x" + format(read_register(reg.ispkreg1h), "_X"))
+    # - Read correct input spike register
+    if not ispk_reg_ptr:
+        ispkreg = format(
+            read_register(read_buffer, write_buffer, reg.ispkreg0h)[0], "0>4X"
+        ) + format(read_register(read_buffer, write_buffer, reg.ispkreg0l)[0], "0>4X")
+    else:
+        ispkreg = format(
+            read_register(read_buffer, write_buffer, reg.ispkreg1h)[0], "0>4X"
+        ) + format(read_register(read_buffer, write_buffer, reg.ispkreg1l)[0], "0>4X")
+
+    # - Return input event counts as integer array
+    return np.array([int(e, 16) for e in ispkreg[::-1]])
 
 
 def read_neuron_synapse_state(
