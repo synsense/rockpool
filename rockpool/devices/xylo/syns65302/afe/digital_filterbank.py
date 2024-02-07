@@ -3,7 +3,6 @@ This module implements the digital filterbank in Xylo-A3 chip.
 This is the first version of Xylo chip in which the analog filters have been replaced with the digital ones.
 """
 
-
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from functools import partial, wraps
@@ -623,6 +622,116 @@ class ChipButterworth(Module):
 
         return string
 
+    def register_config_XA3(self) -> dict:
+        register_config = {}
+
+        if self.size_out > 16:
+            raise ValueError(
+                f"This filterbank specifes {self.size_out} filters; only 16 are supported."
+            )
+
+        # - Get list of Bb values
+        Bb = np.array([bd.B_b for bd in self.bd_list], int)
+
+        # - Check Bb values
+        if np.any(Bb > 15):
+            raise ValueError(f"`Bb` must be 0..15. Found {np.max(Bb)}.")
+        Bb = np.clip(Bb, 0, 15)
+
+        # - Encode Bb register values
+        register_config["bpf_bb_reg0"] = np.sum(
+            [b << 4 * n for n, b in enumerate(Bb[:8])]
+        )
+        register_config["bpf_bb_reg1"] = np.sum(
+            [b << 4 * n for n, b in enumerate(Bb[8:])]
+        )
+
+        # - Get list of Bwf values
+        Bwf = np.array([bd.B_wf for bd in self.bd_list], int)
+        Bwf.resize(16)
+
+        # - Check Bwf values
+        if np.any(Bwf > 15):
+            raise ValueError(f"`Bwf` must be 0..15. Found {np.max(Bwf)}.")
+        Bwf = np.clip(Bwf, 0, 15)
+
+        # - Encode Bwf register values
+        register_config["bpf_bwp_reg0"] = np.sum(
+            [b << 4 * n for n, b in enumerate(Bwf[:8])]
+        )
+        register_config["bpf_bwp_reg1"] = np.sum(
+            [b << 4 * n for n, b in enumerate(Bwf[8:])]
+        )
+
+        # - Get list of Baf values
+        Baf = np.array([bd.B_af for bd in self.bd_list], int)
+        Baf.resize(16)
+
+        # - Check Baf values
+        if np.any(Baf > 15):
+            raise ValueError(f"`Baf` must be 0..15. Found {np.max(Baf)}.")
+        Baf = np.clip(Baf, 0, 15)
+
+        # - Encode Baf values
+        register_config["bpf_baf_reg0"] = np.sum(
+            [b << 4 * n for n, b in enumerate(Baf[:8])]
+        )
+        register_config["bpf_baf_reg1"] = np.sum(
+            [b << 4 * n for n, b in enumerate(Baf[8:])]
+        )
+
+        # - Get list of A1 values
+        A1 = [bd.a1 for bd in self.bd_list]
+
+        # - Convert to 2s complement positive representation
+        A1 = [
+            int.from_bytes(int.to_bytes(a, 2, "big", signed=True), "big", signed=False)
+            for a in A1
+        ]
+
+        A1 = np.array(A1, int)
+        A1.resize(16)
+
+        # - Check A1 values
+        if np.any(A1 > 2**16):
+            raise ValueError(
+                f"`A1` values must fit in 16 bits. Found 2s complement of {np.max(A1)}."
+            )
+
+        # - Encode A1 values
+        A1 = np.reshape(A1, (-1, 2))
+        for n, A1s in enumerate(A1):
+            reg_name = f"bpf_a1_reg{n}"
+            reg_value = np.sum([a << 16 * n for n, a in enumerate(A1s)])
+            register_config[reg_name] = reg_value
+
+        # - Get list of A2 values
+        A2 = [bd.a2 for bd in self.bd_list]
+
+        # - Convert to 2s complement positive representation
+        A2 = [
+            int.from_bytes(int.to_bytes(a, 2, "big", signed=True), "big", signed=False)
+            for a in A2
+        ]
+
+        A2 = np.array(A2, int)
+        A2.resize(16)
+
+        # - Check A2 values
+        if np.any(A2 > 2**16):
+            raise ValueError(
+                f"`A2` values must fit in 16 bits. Found 2s complement of {np.max(A2)}."
+            )
+
+        # - Encode A2 values
+        A2 = np.reshape(A2, (-1, 2))
+        for n, A2s in enumerate(A2):
+            reg_name = f"bpf_a2_reg{n}"
+            reg_value = np.sum([a << 16 * n for n, a in enumerate(A2s)])
+            register_config[reg_name] = reg_value
+
+        return register_config
+
 
 # implement the jax version as well
 try:
@@ -692,9 +801,7 @@ try:
 
             def forward(state_in, input):
                 # compute the feedback part in AR part of the filters
-                ar_feedback = (
-                    -jnp.sum(state_in[:, 0:-1] * a_list, axis=1) / 2**Baf_list
-                )
+                ar_feedback = -jnp.sum(state_in[:, 0:-1] * a_list, axis=1) / 2**Baf_list
 
                 # combine scaled input (to avoid dead zone) with feedback coming from AR part
                 merged_input = input * 2**Bwf_list + ar_feedback
