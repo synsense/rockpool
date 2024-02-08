@@ -9,6 +9,8 @@ from samna.xyloAudio3.configuration import XyloConfiguration
 import time
 import numpy as np
 
+from warnings import warn
+
 # - Useful constants for XA3
 from . import ram, reg, constants
 
@@ -284,6 +286,7 @@ def config_standard_bpf_set(write_buffer: XyloAudio3WriteBuffer) -> None:
     write_register(write_buffer, reg.bpf_a2_reg5, 0x3562_3842)
     write_register(write_buffer, reg.bpf_a2_reg6, 0x5913_318F)
     write_register(write_buffer, reg.bpf_a2_reg7, 0x3BB0_4C20)
+
     write_register(write_buffer, reg.iaf_thr0_l, 0x0200_0000)
     write_register(write_buffer, reg.iaf_thr0_h, 0x0000_0000)
     write_register(write_buffer, reg.iaf_thr1_l, 0x0200_0000)
@@ -316,6 +319,7 @@ def config_standard_bpf_set(write_buffer: XyloAudio3WriteBuffer) -> None:
     write_register(write_buffer, reg.iaf_thr14_h, 0x0000_0000)
     write_register(write_buffer, reg.iaf_thr15_l, 0x0200_0000)
     write_register(write_buffer, reg.iaf_thr15_h, 0x0000_0000)
+
     write_register(write_buffer, reg.dn_eps_reg0, 0x0020_0020)
     write_register(write_buffer, reg.dn_eps_reg1, 0x0020_0020)
     write_register(write_buffer, reg.dn_eps_reg2, 0x0020_0020)
@@ -324,6 +328,7 @@ def config_standard_bpf_set(write_buffer: XyloAudio3WriteBuffer) -> None:
     write_register(write_buffer, reg.dn_eps_reg5, 0x0020_0020)
     write_register(write_buffer, reg.dn_eps_reg6, 0x0020_0020)
     write_register(write_buffer, reg.dn_eps_reg7, 0x0020_0020)
+
     write_register(write_buffer, reg.dn_b_reg0, 0x000A_000A)
     write_register(write_buffer, reg.dn_b_reg1, 0x000A_000A)
     write_register(write_buffer, reg.dn_b_reg2, 0x000A_000A)
@@ -332,6 +337,7 @@ def config_standard_bpf_set(write_buffer: XyloAudio3WriteBuffer) -> None:
     write_register(write_buffer, reg.dn_b_reg5, 0x000A_000A)
     write_register(write_buffer, reg.dn_b_reg6, 0x000A_000A)
     write_register(write_buffer, reg.dn_b_reg7, 0x000A_000A)
+
     write_register(write_buffer, reg.dn_k1_reg0, 0x0008_0008)
     write_register(write_buffer, reg.dn_k1_reg1, 0x0008_0008)
     write_register(write_buffer, reg.dn_k1_reg2, 0x0008_0008)
@@ -340,6 +346,7 @@ def config_standard_bpf_set(write_buffer: XyloAudio3WriteBuffer) -> None:
     write_register(write_buffer, reg.dn_k1_reg5, 0x0008_0008)
     write_register(write_buffer, reg.dn_k1_reg6, 0x0008_0008)
     write_register(write_buffer, reg.dn_k1_reg7, 0x0008_0008)
+
     write_register(write_buffer, reg.dn_k2_reg0, 0x0000_0000)
     write_register(write_buffer, reg.dn_k2_reg1, 0x0000_0000)
     write_register(write_buffer, reg.dn_k2_reg2, 0x0000_0000)
@@ -348,6 +355,16 @@ def config_standard_bpf_set(write_buffer: XyloAudio3WriteBuffer) -> None:
     write_register(write_buffer, reg.dn_k2_reg5, 0x0000_0000)
     write_register(write_buffer, reg.dn_k2_reg6, 0x0000_0000)
     write_register(write_buffer, reg.dn_k2_reg7, 0x0000_0000)
+
+
+def write_register_dict(write_buffer: XyloAudio3WriteBuffer, register_config) -> None:
+    for register, data in register_config.items():
+        if hasattr(reg, register):
+            write_register(write_buffer, getattr(reg, register), data)
+        else:
+            raise ValueError(
+                f"Register `{register}` not found for Xylo A3. Skipping this register."
+            )
 
 
 def update_register_field(
@@ -441,8 +458,8 @@ def initialise_xylo_hdk(
 
 def fpga_enable_pdm_interface(
     hdk: XyloAudio3HDK,
-    pdm_clock_edge: bool = True,
-    pdm_driving_direction: bool = True,
+    pdm_clock_edge: bool = False,
+    pdm_driving_direction: bool = False,
 ) -> None:
     """
     Configure the PDM input interface on a Xylo A3 HDK
@@ -454,18 +471,21 @@ def fpga_enable_pdm_interface(
         read_buffer (XyloAudio3ReadBuffer):
         write_bufer (XyloAudio3WriteBuffer):
         pdm_clock_edge (bool): Which edge of the PDM clock to use to trigger Xylo clock. ``False``: rising edge; ``True`` (falling edge, default).
-        pdm_driving_direction (bool): Which direction is the PDM clock pin? ``False``: PDM_CLK driven by Xylo A3 chip; ``True``: PDM_CLK pin in slave mode, driven externally (default).
+        pdm_driving_direction (bool): Which direction is the Xylo PDM clock pin? ``False``: Xylo PDM_CLK pin in slave mode, driven externally (default); ``True``: PDM_CLK driven by Xylo A3 chip.
     """
     io = hdk.get_io_module()
 
     # set PDM clock
     io.write_config(0x0027, 0)  # pdm clock msw
     io.write_config(0x0028, 19)  # pdm clock lsw
-    io.write_config(0x0029, 1)  # pdm clock enable
+    if pdm_driving_direction:
+        io.write_config(0x0029, 0)  # FPGA pdm clock generation disabled
+    else:
+        io.write_config(0x0029, 1)  # FPGA pdm clock generation enabled
     io.write_config(0x0026, 2)  # select: use pdm interface
 
-    # bit 1: PDM_CLK dir  (0: FPGA->Xylo, 1: Xylo->FPGA)
     # bit 0: PDM_CLK edge (0: FPGA drives PDM_DATA at falling edge, 1: FPGA drives PDM_DATA at rising edge)
+    # bit 1: PDM_CLK dir  (0: FPGA->Xylo, 1: Xylo->FPGA)
     pdm_config = pdm_clock_edge + pdm_driving_direction << 1
     io.write_config(0x002A, pdm_config)
 
@@ -478,8 +498,8 @@ def fpga_enable_pdm_interface(
 def xylo_enable_pdm_interface(
     read_buffer: XyloAudio3ReadBuffer,
     write_buffer: XyloAudio3WriteBuffer,
-    pdm_clock_edge: bool = True,
-    pdm_driving_direction: bool = True,
+    pdm_clock_edge: bool = False,
+    pdm_driving_direction: bool = False,
 ) -> None:
     # - Configure Xylo A3 registers to use PDM input
     # CTRL0–1: Pad config to use PDM bus
@@ -913,17 +933,20 @@ def read_input_spikes(
 ) -> np.array:
     # - Read input spike register pointer
     dbg_stat1 = read_register(read_buffer, write_buffer, reg.dbg_stat1)[0]
-    ispk_reg_ptr = bool((dbg_stat1 & 0b1000000000000000) >> 15)
+    print("dbg_stat1", format(dbg_stat1, "_b"))
+    ispk_reg_ptr = bool((dbg_stat1 & 0b10000000000000000) >> 15)
 
     # - Read correct input spike register
-    if not ispk_reg_ptr:
-        ispkreg = format(
-            read_register(read_buffer, write_buffer, reg.ispkreg0h)[0], "0>4X"
-        ) + format(read_register(read_buffer, write_buffer, reg.ispkreg0l)[0], "0>4X")
-    else:
-        ispkreg = format(
-            read_register(read_buffer, write_buffer, reg.ispkreg1h)[0], "0>4X"
-        ) + format(read_register(read_buffer, write_buffer, reg.ispkreg1l)[0], "0>4X")
+    # if not ispk_reg_ptr:
+    ispkreg = format(
+        read_register(read_buffer, write_buffer, reg.ispkreg0h)[0], "0>4X"
+    ) + format(read_register(read_buffer, write_buffer, reg.ispkreg0l)[0], "0>4X")
+    print(ispkreg)
+    # else:
+    ispkreg = format(
+        read_register(read_buffer, write_buffer, reg.ispkreg1h)[0], "0>4X"
+    ) + format(read_register(read_buffer, write_buffer, reg.ispkreg1l)[0], "0>4X")
+    print(ispkreg)
 
     # - Return input event counts as integer array
     return np.array([int(e, 16) for e in ispkreg[::-1]])

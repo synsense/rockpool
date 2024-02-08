@@ -20,7 +20,6 @@ we replaced this by the difference of two bit-shifts so that we can cover a more
 (iii) the surplus scaling of the filters is not added in the filterbank. This simply means that they should be added in thresholds we use for DN.
 """
 
-
 # required packages
 import numpy as np
 from rockpool.devices.xylo.syns65302.afe.params import NUM_FILTERS
@@ -271,6 +270,68 @@ class DivisiveNormalization(Module):
         )
 
         return string
+
+    def register_config_XA3(self) -> dict:
+        register_config = {}
+
+        # - Check size of DN block
+        if self.size_out > 16:
+            raise ValueError(
+                f"This divisive normalisation block specifes {self.size_out} channels; only 16 are supported."
+            )
+
+        # - Check threshold values
+        IAF_th = self.fixed_threshold_vec
+        if np.any(IAF_th > 2**42):
+            raise ValueError(f"`IAF_th` must be 0..2**42. Found {np.max(IAF_th)}.")
+        IAF_th = np.clip(IAF_th, 0, 2**42 - 1)
+
+        # - Encode IAF_th values
+        for n, this_IAF_th in enumerate(IAF_th):
+            register_config[f"iaf_thr{n}_l"] = this_IAF_th & 0xFFFF_FFFF
+            register_config[f"iaf_thr{n}_h"] = this_IAF_th >> 32
+
+        # - Check EPS values
+        if np.any(self.EPS_vec > 2**16 - 1):
+            raise ValueError(f"`EPS` must be 0..2**16. Found {np.max(self.EPS_vec)}.")
+
+        # - Encode EPS values
+        EPS_vec = self.EPS_vec
+        EPS_vec.resize(16)
+        EPS_vec = np.reshape(EPS_vec, (-1, 2))
+        for n, this_eps in enumerate(EPS_vec):
+            register_config[f"dn_eps_reg{n}"] = np.sum(
+                [eps << 16 * n for n, eps in enumerate(this_eps)]
+            )
+
+        # - Encode B values (low pass bitshift)
+        B_vec = self.low_pass_bitshift
+        B_vec.resize(16)
+        B_vec = np.reshape(B_vec, (-1, 2))
+        for n, this_B in enumerate(B_vec):
+            register_config[f"dn_b_reg{n}"] = np.sum(
+                [b << 16 * n for n, b in enumerate(this_B)]
+            )
+
+        # - Encode K1 values (spike rate scale bitshift 1)
+        K1_vec = self.spike_rate_scale_bitshift1
+        K1_vec.resize(16)
+        K1_vec = np.reshape(K1_vec, (-1, 2))
+        for n, this_k1 in enumerate(K1_vec):
+            register_config[f"dn_k1_reg{n}"] = np.sum(
+                [k1 << 16 * n for n, k1 in enumerate(this_k1)]
+            )
+
+        # - Encode K2 values (spike rate scale bitshift 2)
+        K2_vec = self.spike_rate_scale_bitshift2
+        K2_vec.resize(16)
+        K2_vec = np.reshape(K2_vec, (-1, 2))
+        for n, this_k2 in enumerate(K2_vec):
+            register_config[f"dn_k2_reg{n}"] = np.sum(
+                [k2 << 16 * n for n, k2 in enumerate(this_k2)]
+            )
+
+        return register_config
 
 
 # jit version of divisive normalization and spike generation

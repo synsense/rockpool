@@ -44,6 +44,7 @@ class XyloSamnaPDM(Module):
         snn_config: XyloConfiguration = None,
         pdm_config: PdmPreprocessingConfig = None,
         dfe_config: DFEConfiguration = None,
+        register_config: dict = None,
         dt: float = 1024e-6,
         output_mode: str = "Spike",
         power_frequency: Optional[float] = 5.0,
@@ -114,8 +115,11 @@ class XyloSamnaPDM(Module):
         hdkutils.xylo_config_clk(self._read_buffer, self._write_buffer, 1)
 
         # - Apply standard PDM and DFE configuration --- TO BE UPDATED WITH PROPER CONFIG
-        hdkutils.config_standard_bpf_set(self._write_buffer)
-        hdkutils.config_standard_pdm_lpf(self._write_buffer)
+        if register_config is not None:
+            hdkutils.write_register_dict(self._write_buffer, register_config)
+        else:
+            hdkutils.config_standard_bpf_set(self._write_buffer)
+            hdkutils.config_standard_pdm_lpf(self._write_buffer)
 
         # - Enable PDM interface on Xylo and turn on FPGA PDM clock generation
         hdkutils.xylo_enable_pdm_interface(self._read_buffer, self._write_buffer)
@@ -249,6 +253,15 @@ class XyloSamnaPDM(Module):
                 samna.xyloAudio3.event.AFESample(data=int(i)) for i in input_sample
             ]
             self._write_buffer.write(pdm_events)
+            time.sleep(0.5)
+
+            # - Read input spikes
+            if record:
+                input_spikes.append(
+                    hdkutils.read_input_spikes(self._read_buffer, self._write_buffer)[
+                        :Nin
+                    ]
+                )
 
             # - Trigger processing
             hdkutils.advance_time_step(self._write_buffer)
@@ -266,11 +279,6 @@ class XyloSamnaPDM(Module):
 
             # - Read all synapse and neuron states for this time step
             if record:
-                input_spikes.append(
-                    hdkutils.read_input_spikes(self._read_buffer, self._write_buffer)[
-                        :Nin
-                    ]
-                )
                 this_state = hdkutils.read_neuron_synapse_state(
                     self._read_buffer, self._write_buffer, Nin, Nhidden, Nout
                 )

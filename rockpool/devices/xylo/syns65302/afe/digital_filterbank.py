@@ -656,10 +656,10 @@ class ChipButterworth(Module):
         Bwf = np.clip(Bwf, 0, 15)
 
         # - Encode Bwf register values
-        register_config["bpf_bwp_reg0"] = np.sum(
+        register_config["bpf_bwf_reg0"] = np.sum(
             [b << 4 * n for n, b in enumerate(Bwf[:8])]
         )
-        register_config["bpf_bwp_reg1"] = np.sum(
+        register_config["bpf_bwf_reg1"] = np.sum(
             [b << 4 * n for n, b in enumerate(Bwf[8:])]
         )
 
