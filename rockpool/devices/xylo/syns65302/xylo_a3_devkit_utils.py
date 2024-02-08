@@ -933,20 +933,30 @@ def read_input_spikes(
 ) -> np.array:
     # - Read input spike register pointer
     dbg_stat1 = read_register(read_buffer, write_buffer, reg.dbg_stat1)[0]
-    print("dbg_stat1", format(dbg_stat1, "_b"))
+    # print("dbg_stat1", format(dbg_stat1, "_b"))
     ispk_reg_ptr = bool((dbg_stat1 & 0b10000000000000000) >> 15)
+    # print("isp_ptr", ispk_reg_ptr)
 
     # - Read correct input spike register
-    # if not ispk_reg_ptr:
-    ispkreg = format(
-        read_register(read_buffer, write_buffer, reg.ispkreg0h)[0], "0>4X"
-    ) + format(read_register(read_buffer, write_buffer, reg.ispkreg0l)[0], "0>4X")
-    print(ispkreg)
-    # else:
-    ispkreg = format(
-        read_register(read_buffer, write_buffer, reg.ispkreg1h)[0], "0>4X"
-    ) + format(read_register(read_buffer, write_buffer, reg.ispkreg1l)[0], "0>4X")
-    print(ispkreg)
+    if not ispk_reg_ptr:
+        ispkreg = read_register(
+            read_buffer, write_buffer, reg.ispkreg0h
+        ) + read_register(read_buffer, write_buffer, reg.ispkreg0l)
+
+        print("ISPKREG0", ispkreg)
+        ispkreg = format(
+            read_register(read_buffer, write_buffer, reg.ispkreg0h)[0], "0>4X"
+        ) + format(read_register(read_buffer, write_buffer, reg.ispkreg0l)[0], "0>4X")
+    else:
+        ispkreg = read_register(
+            read_buffer, write_buffer, reg.ispkreg1h
+        ) + read_register(read_buffer, write_buffer, reg.ispkreg1l)
+
+        print("ISPKREG1", ispkreg)
+
+        ispkreg = format(
+            read_register(read_buffer, write_buffer, reg.ispkreg1h)[0], "0>4X"
+        ) + format(read_register(read_buffer, write_buffer, reg.ispkreg1l)[0], "0>4X")
 
     # - Return input event counts as integer array
     return np.array([int(e, 16) for e in ispkreg[::-1]])
