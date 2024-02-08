@@ -207,7 +207,7 @@ def config_from_specification(
     config = samna.xyloAudio3.configuration.XyloConfiguration()
 
     # - General config
-    config.debug.always_update_omp_stat = True
+    # config.debug.always_update_omp_stat = True
 
     if bias_hidden is not None or bias_out is not None:
         config.bias_enable = True
