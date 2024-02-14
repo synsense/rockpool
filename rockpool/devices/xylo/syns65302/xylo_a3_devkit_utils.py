@@ -421,11 +421,8 @@ def xylo_config_clk(
         reg.clk_ctrl__sdm__pos,
         1,
     )
-    (
+    if debug:
         print("clk_ctrl: 0x" + format(read_register(reg.clk_ctrl), "_X"))
-        if debug >= 1
-        else None
-    )
 
 
 def initialise_xylo_hdk(
@@ -929,13 +926,13 @@ def read_memory(
 
 
 def read_input_spikes(
-    read_buffer: XyloAudio3ReadBuffer, write_buffer: XyloAudio3WriteBuffer
+    read_buffer: XyloAudio3ReadBuffer,
+    write_buffer: XyloAudio3WriteBuffer,
+    debug: bool = False,
 ) -> np.array:
     # - Read input spike register pointer
     dbg_stat1 = read_register(read_buffer, write_buffer, reg.dbg_stat1)[0]
-    # print("dbg_stat1", format(dbg_stat1, "_b"))
     ispk_reg_ptr = bool((dbg_stat1 & 0b10000000000000000) >> 15)
-    # print("isp_ptr", ispk_reg_ptr)
 
     # - Read correct input spike register
     if not ispk_reg_ptr:
@@ -943,20 +940,20 @@ def read_input_spikes(
             read_buffer, write_buffer, reg.ispkreg0h
         ) + read_register(read_buffer, write_buffer, reg.ispkreg0l)
 
-        print("ISPKREG0", ispkreg)
+        print("ISPKREG0", ispkreg) if debug else None
         ispkreg = format(
-            read_register(read_buffer, write_buffer, reg.ispkreg0h)[0], "0>4X"
-        ) + format(read_register(read_buffer, write_buffer, reg.ispkreg0l)[0], "0>4X")
+            read_register(read_buffer, write_buffer, reg.ispkreg0h)[0], "0>8X"
+        ) + format(read_register(read_buffer, write_buffer, reg.ispkreg0l)[0], "0>8X")
     else:
         ispkreg = read_register(
             read_buffer, write_buffer, reg.ispkreg1h
         ) + read_register(read_buffer, write_buffer, reg.ispkreg1l)
 
-        print("ISPKREG1", ispkreg)
+        print("ISPKREG1", ispkreg) if debug else None
 
         ispkreg = format(
-            read_register(read_buffer, write_buffer, reg.ispkreg1h)[0], "0>4X"
-        ) + format(read_register(read_buffer, write_buffer, reg.ispkreg1l)[0], "0>4X")
+            read_register(read_buffer, write_buffer, reg.ispkreg1h)[0], "0>8X"
+        ) + format(read_register(read_buffer, write_buffer, reg.ispkreg1l)[0], "0>8X")
 
     # - Return input event counts as integer array
     return np.array([int(e, 16) for e in ispkreg[::-1]])
@@ -1024,3 +1021,107 @@ def enable_ram_access(device: XyloAudio3HDK, enabled: bool) -> None:
         device.get_model().open_ram_access()
     else:
         device.get_model().close_ram_access()
+
+
+def decode_ctrl1(value: int) -> dict:
+    return {
+        "ram_wu_st": (value >> 28) & 0b1111,
+        "i2c_noise_filter_cyc": (value >> 24) & 0b111,
+        "hm_en": bool((value >> reg.ctrl1__hm_en__pos) & 0b1),
+        "always_update_omp_stat": bool(
+            (value >> reg.ctrl1__always_update_omp_stat__pos) & 0b1
+        ),
+        "keep_int": bool((value >> reg.ctrl1__keep_int__pos) & 0b1),
+        "ram_active": bool((value >> reg.ctrl1__ram_active__pos) & 0b1),
+        "mem_clk_on": bool((value >> reg.ctrl1__mem_clk_on__pos) & 0b1),
+        "owbs": (value >> reg.ctrl1__owbs__pos) & 0b111,
+        "hwbs": (value >> reg.ctrl1__hwbs__pos) & 0b111,
+        "iwbs": (value >> reg.ctrl1__iwbs__pos) & 0b111,
+        "bias_en": bool((value >> reg.ctrl1__bias_en__pos) & 0b1),
+        "alias_en": bool((value >> reg.ctrl1__alias_en__pos) & 0b1),
+        "isyn2_en": bool((value >> reg.ctrl1__isyn2_en__pos) & 0b1),
+        "man": bool((value >> reg.ctrl1__man__pos) & 0b1),
+    }
+
+
+def decode_dbg_ctrl1(value: int) -> dict:
+    return {
+        "dbg_en": bool((value >> 31) & 0b1),
+        "mon_en": bool((value >> reg.dbg_ctrl1__mon_en__pos) & 0b1),
+        "dbg_sta_upd_en": bool((value >> reg.dbg_ctrl1__dbg_sta_upd_en__pos) & 0b1),
+        "spk2saer_en": bool((value >> 26) & 0b1),
+        "cntr_stat_src_sel": (value >> 25) & 0b1,
+        "all_ram_on": bool((value >> 24) & 0b1),
+        "ds": (value >> 23) & 0b1,
+        "ls": (value >> 22) & 0b1,
+        "ram_auto_slp_ctrl": (value >> 21) & 0b1,
+        "ram_man_slp_ctrl": (value >> 20) & 0b1,
+        "stif_sel": (value >> 19) & 0b1,
+        "spk_src_sel": (value >> 18) & 0b1,
+        "ispkreg_sel_rd": (value >> 17) & 0b1,
+        "ispkreg_sel_wr": (value >> 16) & 0b1,
+        "monsig_reg": (value >> 8) & 0xF,
+        "hm_clk_on": (value >> 4) & 0b1,
+        "bias_clk_on": (value >> 3) & 0b1,
+        "alias_clk_on": (value >> 2) & 0b1,
+        "isyn2_clk_on": (value >> 1) & 0b1,
+        "isyn_clk_on": bool((value >> 0) & 0b1),
+    }
+
+
+def decode_adc_ctrl(value: int) -> dict:
+    return {
+        "en": bool((value >> 0) & 0b1),
+        "convert": bool((value >> 1) & 0b1),
+        "en_data_p": bool((value >> 2) & 0b1),
+        "en_data_s": bool((value >> 3) & 0b1),
+        "speed": (value >> 4) & 0b11,
+    }
+
+
+def decode_dfe_ctrl(value: int) -> dict:
+    return {
+        "bpf_en": bool((value >> 0) & 0b1),
+        "iaf_en": bool((value >> 1) & 0b1),
+        "dn_en": bool((value >> 2) & 0b1),
+        "hm_en": bool((value >> 3) & 0b1),
+        "mic_if_sel": bool((value >> 4) & 0b1),
+        "global_thr": bool((value >> 5) & 0b1),
+        "pdm_clk_dir": bool((value >> 8) & 0b1),
+        "pdm_clk_edge": bool((value >> 9) & 0b1),
+        "bfi_en": bool((value >> 10) & 0b1),
+        "adc_bit_en": (value >> 16) & 0b11_1111_1111_1111,
+    }
+
+
+def decode_agc_ctrl1(value: int) -> dict:
+    return {
+        "gs_diact": (value >> 0) & 0b1,
+        "pga_gain_bypass": (value >> 1) & 0b1,
+        "aaf_os_mode": (value >> 4) & 0b11,
+        "pga_gain_idx_cfg": (value >> 8) & 0b1_1111,
+        "rise_avg_bitshift": (value >> 16) & 0b1_1111,
+        "fall_avg_bitshift": (value >> 24) & 0b1_1111,
+    }
+
+
+def decode_agc_ctrl2(value: int) -> dict:
+    return {
+        "reli_max_hystr": (value >> 0) & 0b11_1111_1111,
+        "avg_bitshift": (value >> 16) & 0b1_1111,
+        "num_bits_gain_fraction": (value >> 24) & 0b1111,
+        "pgiv16": (value >> 28) & 0b111,
+    }
+
+
+def decode_agc_ctrl3(value: int) -> dict:
+    return {
+        "max_num_sample": (value >> 0) & 0xFF_FFFF,
+        "ghri_h": (value >> 28) & 0b11,
+    }
+
+
+def read_all_register(read_buffer, write_buffer):
+    for address in range(reg.cntr_stat + 1):
+        data = read_register(read_buffer, write_buffer, address)[0]
+        print("read register ", address, hex(data))

@@ -114,13 +114,6 @@ class XyloSamnaPDM(Module):
         hdkutils.fpga_enable_pdm_interface(self._device)
         hdkutils.xylo_config_clk(self._read_buffer, self._write_buffer, 1)
 
-        # - Apply standard PDM and DFE configuration --- TO BE UPDATED WITH PROPER CONFIG
-        if register_config is not None:
-            hdkutils.write_register_dict(self._write_buffer, register_config)
-        else:
-            hdkutils.config_standard_bpf_set(self._write_buffer)
-            hdkutils.config_standard_pdm_lpf(self._write_buffer)
-
         # - Enable PDM interface on Xylo and turn on FPGA PDM clock generation
         hdkutils.xylo_enable_pdm_interface(self._read_buffer, self._write_buffer)
         hdkutils.fpga_pdm_clk_enable(self._device)
@@ -132,6 +125,14 @@ class XyloSamnaPDM(Module):
             SimulationParameter(shape=(), init_func=lambda _: snn_config)
         )
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
+
+        # - Apply standard PDM and DFE configuration --- TO BE UPDATED WITH PROPER CONFIG
+        if register_config is not None:
+            hdkutils.write_register_dict(self._write_buffer, register_config)
+        else:
+            hdkutils.config_standard_bpf_set(self._write_buffer)
+            hdkutils.config_standard_pdm_lpf(self._write_buffer)
+            warn("Configured standard BPF and PDM")
 
         # - Enable RAM access
         hdkutils.enable_ram_access(self._device, True)
@@ -236,6 +237,10 @@ class XyloSamnaPDM(Module):
                 True,
             )
 
+        # - Enable PDM interface on Xylo and turn on FPGA PDM clock generation
+        hdkutils.xylo_enable_pdm_interface(self._read_buffer, self._write_buffer)
+        hdkutils.fpga_pdm_clk_enable(self._device)
+
         # - Initialise lists for recording state
         input_spikes = []
         vmem_ts = []
@@ -298,7 +303,7 @@ class XyloSamnaPDM(Module):
         if record:
             # - Build a recorded state dictionary
             rec_dict = {
-                "Spikes_in": np.array(input_spikes),
+                "Spikes_in": np.stack(input_spikes),
                 "Vmem": np.array(vmem_ts),
                 "Isyn": np.array(isyn_ts),
                 "Isyn2": np.array(isyn2_ts),
