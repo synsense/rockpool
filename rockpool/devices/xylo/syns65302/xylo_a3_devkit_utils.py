@@ -519,7 +519,9 @@ def xylo_enable_pdm_interface(
     )
 
     # DFE_CTRL: PDM clock direction and edge, bandpass filter enable
-    write_register(write_buffer, reg.dfe_ctrl, 0x3FFF_0017)
+    # write_register(write_buffer, reg.dfe_ctrl, 0x3FFF_0017)
+    write_register(write_buffer, reg.dfe_ctrl, 0x3FFF_0037)
+
     update_register_field(
         read_buffer,
         write_buffer,
