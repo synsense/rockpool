@@ -78,7 +78,9 @@ class XyloSamnaPDM(Module):
             snn_config = samna.xyloAudio3.configuration.XyloConfiguration()
 
         # - Get the network shape
-        Nin, Nhidden = np.shape(snn_config.input.weights)
+        Nin, _ = np.shape(snn_config.input.weights)
+        Nhidden, _ = np.shape(snn_config.hidden.weights)
+
         _, Nout = np.shape(snn_config.readout.weights)
 
         # - Initialise the superclass
