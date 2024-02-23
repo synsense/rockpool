@@ -48,6 +48,7 @@ class XyloSamnaPDM(Module):
         dt: float = 1024e-6,
         output_mode: str = "Spike",
         power_frequency: Optional[float] = 5.0,
+        dn_active : bool = True,
         *args,
         **kwargs,
     ):
@@ -117,7 +118,7 @@ class XyloSamnaPDM(Module):
         hdkutils.xylo_config_clk(self._read_buffer, self._write_buffer, 1)
 
         # - Enable PDM interface on Xylo and turn on FPGA PDM clock generation
-        hdkutils.xylo_enable_pdm_interface(self._read_buffer, self._write_buffer)
+        hdkutils.xylo_enable_pdm_interface(self._read_buffer, self._write_buffer, dn_active=dn_active)
         hdkutils.fpga_pdm_clk_enable(self._device)
 
         # - Store the SNN core configuration (and apply it)
