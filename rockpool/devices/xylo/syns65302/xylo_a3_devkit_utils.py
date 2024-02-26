@@ -338,7 +338,6 @@ def config_standard_bpf_set(write_buffer: XyloAudio3WriteBuffer) -> None:
     write_register(write_buffer, reg.dn_b_reg6, 0x000C_000C)
     write_register(write_buffer, reg.dn_b_reg7, 0x000C_000C)
 
-
     write_register(write_buffer, reg.dn_k1_reg0, 0x0006_0006)
     write_register(write_buffer, reg.dn_k1_reg1, 0x0006_0006)
     write_register(write_buffer, reg.dn_k1_reg2, 0x0006_0006)
@@ -497,7 +496,7 @@ def xylo_enable_pdm_interface(
     write_buffer: XyloAudio3WriteBuffer,
     pdm_clock_edge: bool = False,
     pdm_driving_direction: bool = False,
-    dn_active : bool = True
+    dn_active: bool = True,
 ) -> None:
     # - Configure Xylo A3 registers to use PDM input
     # CTRL0–1: Pad config to use PDM bus
@@ -547,15 +546,17 @@ def xylo_enable_pdm_interface(
         True,
     )
 
-# deactivate DN (divisive normalization)
+    # deactivate DN (divisive normalization)
     update_register_field(
         read_buffer,
         write_buffer,
         reg.dfe_ctrl,
         reg.dfe_ctrl__dn_en__pos,
-        reg.dfe_ctrl__dn_en__pos,   
+        reg.dfe_ctrl__dn_en__pos,
         dn_active,
     )
+
+
 def fpga_pdm_clk_enable(hdk: XyloAudio3HDK) -> None:
     io = hdk.get_io_module()
     io.write_config(0x0029, 1)  # pdm clock enable
