@@ -196,8 +196,8 @@ class DivisiveNormalization(Module):
 
             # choose a suitable version of jax
             JAX_MAX_BITS = 32
-            if max_low_pass_value > 2 ** (JAX_MAX_BITS - 1):
-                jax_spike_gen_func = jax_spike_gen
+            if max_low_pass_value < 2 ** (JAX_MAX_BITS - 1):
+                jax_spike_gen_func = fjax_spike_gen
             else:
                 jax_spike_gen_func = fjax_spike_gen
                 info(
