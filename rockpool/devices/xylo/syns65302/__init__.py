@@ -11,5 +11,6 @@ from .afe_sim import *
 from .xylo_samna import *
 from .xylo_mapper import *
 from .xylo_samna_pdm import *
+from .xylo_monitor import *
 
 from ..syns63300 import XyloSim
