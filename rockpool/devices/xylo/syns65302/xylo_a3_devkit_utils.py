@@ -22,6 +22,7 @@ XyloAudio3ReadBuffer = samna.BasicSinkNode_xylo_audio3_event_output_event
 XyloAudio3WriteBuffer = samna.BasicSourceNode_xylo_audio3_event_input_event
 ReadoutEvent = samna.xyloAudio3.event.Readout
 XyloAudio3HDK = samna.xyloAudio3Boards.XyloAudio3TestBoard
+# Xylo2NeuronStateBuffer = samna.xyloCore2.NeuronStateSinkNode
 
 
 class XyloState(NamedTuple):
@@ -110,6 +111,46 @@ def new_xylo_write_buffer(hdk: XyloAudio3HDK) -> XyloAudio3WriteBuffer:
     """
     return samna.graph.source_to(hdk.get_model_sink_node())
 
+
+def new_xylo_state_monitor_buffer(
+    hdk: XyloAudio3HDK,
+) -> ReadoutEvent:
+    """
+    Create a new buffer for monitoring neuron and synapse state and connect it
+
+    Args:
+        hdk (XyloDaughterBoard): A Xylo HDK to configure
+
+    Returns:
+        XyloNeuronStateBuffer: A connected neuron / synapse state monitor buffer
+    """
+ # - Get the device model
+    model = hdk.get_model()
+    # - Get Xylo output event source node
+    source_node = model.get_source_node()
+    graph = samna.graph.EventFilterGraph()
+
+    _, etf, state_buf = graph.sequential([source_node, "XyloAudio3OutputEventTypeFilter", samna.graph.JitSink()])
+    etf.set_desired_type('xyloAudio3::event::Readout')
+    graph.start()
+
+
+    # - Register a new buffer to receive neuron and synapse state
+    # buffer = Xylo2NeuronStateBuffer()
+    # buffer = ReadoutEvent()
+
+   
+
+    # - Add the buffer as a destination for the Xylo output events
+    # graph = samna.graph.EventFilterGraph()
+    # print()
+    # print('graph', graph)
+    # print('source node', source_node)
+    # print('buffer', buffer)
+    # graph.sequential([source_node, buffer])
+
+    # - Return the buffer
+    return state_buf, graph
 
 def config_standard_pdm_lpf(write_buffer: XyloAudio3WriteBuffer) -> None:
     """
@@ -386,6 +427,24 @@ def update_register_field(
     data = (data_h << (msb_pos + 1)) + (val << lsb_pos) + data_l
     write_register(write_buffer, addr, data)
 
+def config_basic_mode(
+    config: XyloConfiguration,
+) -> XyloConfiguration:
+    """
+    Set the Xylo HDK to manual mode before configure to real-time mode
+
+    Args:
+        config (XyloConfiguration): A configuration for Xylo
+
+    Return:
+        updated Xylo configuration
+    """
+    warn("This devkit utils function should be replaced.")
+    config.operation_mode = samna.xyloAudio3.OperationMode.Manual
+    # config.debug.always_update_omp_stat = True
+    # config.clear_network_state = True
+    return config
+
 
 def xylo_config_clk(
     read_buffer: XyloAudio3ReadBuffer,
@@ -644,6 +703,56 @@ def enable_saer_input(
     )
 
 
+def get_current_timestep(
+    read_buffer: XyloAudio3ReadBuffer,
+    write_buffer: XyloAudio3WriteBuffer,
+    timeout: float = 3.0,
+) -> int:
+    """
+    Retrieve the current timestep on a Xylo HDK
+
+    Args:
+        read_buffer (XyloAudio3ReadBuffer): A connected read buffer for the xylo HDK
+        write_buffer (XyloAudio3WriteBuffer): A connected write buffer for the Xylo HDK
+        timeout (float): A timeout for reading
+
+    Returns:
+        int: The current timestep on the Xylo HDK
+    """
+
+    # - Clear read buffer
+    read_buffer.get_events()
+
+    # - Trigger a readout event on Xylo
+    e = samna.xyloAudio3.event.TriggerReadout()
+   
+    write_buffer.write([e])
+
+    # - Wait for the readout event to be sent back, and extract the timestep
+    timestep = None
+    continue_read = True
+    start_t = time.time()
+    while continue_read:
+        readout_events = read_buffer.get_events()
+        ev_filt = [
+            e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Readout)
+        ]
+        print()
+        print(ev_filt )
+        if ev_filt:
+            timestep = ev_filt[0].timestep
+            continue_read = False
+        else:
+            # - Check timeout
+            continue_read &= (time.time() - start_t) < timeout
+
+    if timestep is None:
+        raise TimeoutError(f"Timeout after {timeout}s when reading current timestep.")
+
+    # - Return the timestep
+    return timestep
+
+
 def advance_time_step(write_buffer: XyloAudio3WriteBuffer) -> None:
     """
     Take a single manual time-step on a Xylo HDK
@@ -659,6 +768,68 @@ def is_xylo_ready(
 ) -> bool:
     stat2 = read_register(read_buffer, write_buffer, reg.stat2)[0]
     return stat2 & (1 << reg.stat2__pd__pos)
+
+def config_realtime_mode(
+    config: XyloConfiguration,
+    dt: float,
+    main_clk_rate: int,
+) -> XyloConfiguration:
+    """
+    Set the Xylo HDK to real-time mode
+
+    Args:
+        config (XyloConfiguration): A configuration for Xylo IMU
+        dt (float): The simulation time-step to use for this Module
+        main_clk_rate (int): The main clock rate of Xylo in Hz
+
+    Return:
+        updated Xylo configuration
+    """
+    # - Select real-time operation mode
+    config.operation_mode = samna.xyloAudio3.OperationMode.RealTime
+
+    # config.debug.always_update_omp_stat = True
+    # config.imu_if_input_enable = True
+    # config.debug.imu_if_clk_enable = True
+
+    # - Configure Xylo IMU clock rate
+    config.time_resolution_wrap = int(dt * main_clk_rate)
+    # IMU_IF_clk_rate = 50_000  # IMU IF clock must be 50 kHz
+    # config.debug.imu_if_clock_freq_div = int(main_clk_rate / IMU_IF_clk_rate - 1)
+
+    # # - Set configuration timeout
+    # config.input_interface.configuration_timeout = 20_000
+
+    # - No monitoring of internal state in realtime mode
+    config.debug.monitor_neuron_v_mem = {}
+    config.debug.monitor_neuron_i_syn = {}
+    config.debug.monitor_neuron_spike = {}
+
+    return config
+
+def set_power_measure(
+    hdk: XyloAudio3HDK,
+    frequency: Optional[float] = 5.0,
+) -> Tuple[
+    samna.BasicSinkNode_unifirm_modules_events_measurement,
+    samna.boards.common.power.PowerMonitor,
+]:
+    """
+    Initialize power consumption measure on a hdk
+
+    Args:
+        hdk (XyloAudio3HDK): The Xylo HDK to be measured
+        frequency (float): The frequency of power measurement. Default: 5.0
+
+    Returns:
+        power_buf: Event buffer to read power monitoring events from
+        power_monitor: The power monitoring object
+    """
+    power_monitor = hdk.get_power_monitor()
+    power_source = power_monitor.get_source_node()
+    power_buf = samna.graph.sink_from(power_source)
+    power_monitor.start_auto_power_measurement(frequency)
+    return power_buf, power_monitor
 
 
 def apply_configuration(
