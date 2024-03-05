@@ -144,8 +144,8 @@ class XyloMonitor(Module):
             self._device, self._read_buffer, self._write_buffer
         )
          # - Store the configuration (and apply it)
-        # time.sleep(self._sleep_time)
-        # hdkutils.xylo_config_clk(self._read_buffer, self._write_buffer, 1)
+        time.sleep(self._sleep_time)
+        hdkutils.xylo_config_clk(self._read_buffer, self._write_buffer, 1)
         
         # - Set main clock rate in MHz
         # self._main_clk_rate: float = hdkutils.set_xylo_core_clock_freq(
