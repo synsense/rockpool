@@ -131,7 +131,12 @@ class XyloMonitor(Module):
             dt
         )  # Fixed computation step rate of 200Hz for Xylo IMU
         """ float: Simulation time-step of the module, in seconds """
-        self._main_clk_rate = 50
+
+        self._main_clk_rate = main_clk_rate
+
+        # self._main_clk_rate: float = hdkutils.set_xylo_core_clock_freq(
+        #     self._device, main_clk_rate
+        # )
         # - Store the io module
         self._io = self._device.get_io_module()
 
@@ -145,12 +150,8 @@ class XyloMonitor(Module):
         )
          # - Store the configuration (and apply it)
         time.sleep(self._sleep_time)
-        hdkutils.xylo_config_clk(self._read_buffer, self._write_buffer, 1)
+       
         
-        # - Set main clock rate in MHz
-        # self._main_clk_rate: float = hdkutils.set_xylo_core_clock_freq(
-        #     self._device, main_clk_rate
-        # )
 
         """ float: Xylo main clock frequency in MHz """
 
@@ -195,7 +196,7 @@ class XyloMonitor(Module):
         """
 
         # - Config the streaming mode
-        config = hdkutils.config_realtime_mode(
+        config = hdkutils.config_realtime_mode(self._write_buffer,
             self._config,
             self.dt,
             int(self._main_clk_rate * 1e6),
