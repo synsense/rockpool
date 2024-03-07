@@ -124,22 +124,21 @@ def new_xylo_state_monitor_buffer(
     Returns:
         XyloNeuronStateBuffer: A connected neuron / synapse state monitor buffer
     """
- # - Get the device model
+    # - Get the device model
     model = hdk.get_model()
     # - Get Xylo output event source node
     source_node = model.get_source_node()
     graph = samna.graph.EventFilterGraph()
 
-    _, etf, state_buf = graph.sequential([source_node, "XyloAudio3OutputEventTypeFilter", samna.graph.JitSink()])
-    etf.set_desired_type('xyloAudio3::event::Readout')
+    _, etf, state_buf = graph.sequential(
+        [source_node, "XyloAudio3OutputEventTypeFilter", samna.graph.JitSink()]
+    )
+    etf.set_desired_type("xyloAudio3::event::Readout")
     graph.start()
-
 
     # - Register a new buffer to receive neuron and synapse state
     # buffer = Xylo2NeuronStateBuffer()
     # buffer = ReadoutEvent()
-
-   
 
     # - Add the buffer as a destination for the Xylo output events
     # graph = samna.graph.EventFilterGraph()
@@ -151,6 +150,7 @@ def new_xylo_state_monitor_buffer(
 
     # - Return the buffer
     return state_buf, graph
+
 
 def config_standard_pdm_lpf(write_buffer: XyloAudio3WriteBuffer) -> None:
     """
@@ -427,6 +427,7 @@ def update_register_field(
     data = (data_h << (msb_pos + 1)) + (val << lsb_pos) + data_l
     write_register(write_buffer, addr, data)
 
+
 def config_basic_mode(
     config: XyloConfiguration,
 ) -> XyloConfiguration:
@@ -445,7 +446,7 @@ def config_basic_mode(
     # config.clear_network_state = True
     return config
 
-  
+
 def xylo_config_clk(
     read_buffer: XyloAudio3ReadBuffer,
     write_buffer: XyloAudio3WriteBuffer,
@@ -725,7 +726,7 @@ def get_current_timestep(
 
     # - Trigger a readout event on Xylo
     e = samna.xyloAudio3.event.TriggerReadout()
-   
+
     write_buffer.write([e])
 
     # - Wait for the readout event to be sent back, and extract the timestep
@@ -738,7 +739,7 @@ def get_current_timestep(
             e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Readout)
         ]
         print()
-        print(ev_filt )
+        print(ev_filt)
         if ev_filt:
             timestep = ev_filt[0].timestep
             continue_read = False
@@ -769,7 +770,9 @@ def is_xylo_ready(
     stat2 = read_register(read_buffer, write_buffer, reg.stat2)[0]
     return stat2 & (1 << reg.stat2__pd__pos)
 
-def config_realtime_mode(write_buffer:XyloAudio3WriteBuffer, 
+
+def config_realtime_mode(
+    write_buffer: XyloAudio3WriteBuffer,
     config: XyloConfiguration,
     dt: float,
     main_clk_rate: int,
@@ -788,8 +791,8 @@ def config_realtime_mode(write_buffer:XyloAudio3WriteBuffer,
     # - Select real-time operation mode
     config.operation_mode = samna.xyloAudio3.OperationMode.RealTime
 
-    write_register(write_buffer, reg.tr_wrap, 0x79ff3)
-    
+    write_register(write_buffer, reg.tr_wrap, 0x79FF3)
+
     # - Configure Xylo IMU clock rate
     # config.time_resolution_wrap = int(dt * main_clk_rate)
     # IMU_IF_clk_rate = 50_000  # IMU IF clock must be 50 kHz
@@ -804,6 +807,7 @@ def config_realtime_mode(write_buffer:XyloAudio3WriteBuffer,
     config.debug.monitor_neuron_spike = {}
 
     return config
+
 
 def set_power_measure(
     hdk: XyloAudio3HDK,

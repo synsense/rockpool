@@ -5,6 +5,7 @@ Samna-backed bridge to Xylo dev kit for SYNS65302 Xylo core v3
 # - Samna imports
 import samna
 from samna.xyloAudio3.configuration import XyloConfiguration
+
 XyloAudio3HDK = samna.xyloAudio3Boards.XyloAudio3TestBoard
 from . import xylo_a3_devkit_utils as hdkutils
 
@@ -43,7 +44,7 @@ class XyloMonitor(Module):
     On evolution, :py:class:`.XyloMonitor` returns a chunk of buffered processed time of a specified duration.
 
     Use :py:func:`~.devices.xylo.syns65302.config_from_specification` to build and validate a configuration for Xylo.
-    
+
     """
 
     def __init__(
@@ -95,7 +96,7 @@ class XyloMonitor(Module):
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
 
-        # - Build a filter graph to filter `Readout` events from Xylo 
+        # - Build a filter graph to filter `Readout` events from Xylo
         self._readout_graph = samna.graph.EventFilterGraph()
         _, etf0, self._readout_buffer = self._readout_graph.sequential(
             [
@@ -108,9 +109,10 @@ class XyloMonitor(Module):
 
         self._readout_graph.start()
 
-
         # - Initialise the superclass
-        super().__init__(shape=(Nin, Nhidden, Nout), spiking_input=False, spiking_output=True)
+        super().__init__(
+            shape=(Nin, Nhidden, Nout), spiking_input=False, spiking_output=True
+        )
 
         # - Store the device
         self._device: XyloAudio3HDK = device
@@ -127,9 +129,9 @@ class XyloMonitor(Module):
             self.config.enable_hibernation_mode = True
 
         # - Store the timestep
-        self.dt: Union[float, SimulationParameter] = (
-            dt
-        )  # Fixed computation step rate of 200Hz for Xylo IMU
+        self.dt: Union[
+            float, SimulationParameter
+        ] = dt  # Fixed computation step rate of 200Hz for Xylo IMU
         """ float: Simulation time-step of the module, in seconds """
 
         self._main_clk_rate = main_clk_rate
@@ -148,10 +150,8 @@ class XyloMonitor(Module):
         hdkutils.initialise_xylo_hdk(
             self._device, self._read_buffer, self._write_buffer
         )
-         # - Store the configuration (and apply it)
+        # - Store the configuration (and apply it)
         time.sleep(self._sleep_time)
-       
-        
 
         """ float: Xylo main clock frequency in MHz """
 
@@ -187,7 +187,6 @@ class XyloMonitor(Module):
 
     # def _enable_realtime_mode(self, interface_params: dict):
     def _enable_realtime_mode(self):
-
         """
         Configure the Xylo HDK to use real-time mode.
 
@@ -196,7 +195,8 @@ class XyloMonitor(Module):
         """
 
         # - Config the streaming mode
-        config = hdkutils.config_realtime_mode(self._write_buffer,
+        config = hdkutils.config_realtime_mode(
+            self._write_buffer,
             self._config,
             self.dt,
             int(self._main_clk_rate * 1e6),
@@ -243,7 +243,6 @@ class XyloMonitor(Module):
         input_data, _ = self._auto_batch(input_data)
         Nb, Nt, Nc = input_data.shape
 
-       
         # - Discard the batch dimension
         input_data = input_data[0]
 
@@ -302,6 +301,3 @@ class XyloMonitor(Module):
         out = vmem_out_ts if self._output_mode == "vmem" else spike_out_ts
 
         return out, {}, rec_dict
-
-
-
