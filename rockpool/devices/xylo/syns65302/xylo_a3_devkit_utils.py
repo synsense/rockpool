@@ -445,7 +445,7 @@ def config_basic_mode(
     # config.clear_network_state = True
     return config
 
-
+  
 def xylo_config_clk(
     read_buffer: XyloAudio3ReadBuffer,
     write_buffer: XyloAudio3WriteBuffer,
@@ -769,7 +769,7 @@ def is_xylo_ready(
     stat2 = read_register(read_buffer, write_buffer, reg.stat2)[0]
     return stat2 & (1 << reg.stat2__pd__pos)
 
-def config_realtime_mode(
+def config_realtime_mode(write_buffer:XyloAudio3WriteBuffer, 
     config: XyloConfiguration,
     dt: float,
     main_clk_rate: int,
@@ -788,12 +788,10 @@ def config_realtime_mode(
     # - Select real-time operation mode
     config.operation_mode = samna.xyloAudio3.OperationMode.RealTime
 
-    # config.debug.always_update_omp_stat = True
-    # config.imu_if_input_enable = True
-    # config.debug.imu_if_clk_enable = True
-
+    write_register(write_buffer, reg.tr_wrap, 0x79ff3)
+    
     # - Configure Xylo IMU clock rate
-    config.time_resolution_wrap = int(dt * main_clk_rate)
+    # config.time_resolution_wrap = int(dt * main_clk_rate)
     # IMU_IF_clk_rate = 50_000  # IMU IF clock must be 50 kHz
     # config.debug.imu_if_clock_freq_div = int(main_clk_rate / IMU_IF_clk_rate - 1)
 
