@@ -196,6 +196,7 @@ class XyloMonitor(Module):
 
         # - Config the streaming mode
         config = hdkutils.config_realtime_mode(
+            self._read_buffer,
             self._write_buffer,
             self._config,
             self.dt,
