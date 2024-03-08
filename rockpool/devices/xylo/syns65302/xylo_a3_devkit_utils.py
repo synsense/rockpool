@@ -739,6 +739,7 @@ def get_current_timestep(
             e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Readout)
         ]
         print()
+        print(readout_events)
         print(ev_filt)
         if ev_filt:
             timestep = ev_filt[0].timestep
@@ -791,15 +792,14 @@ def config_realtime_mode(
     # - Select real-time operation mode
     config.operation_mode = samna.xyloAudio3.OperationMode.RealTime
 
-    write_register(write_buffer, reg.tr_wrap, 0x79FF3)
+    # write_register(write_buffer, reg.tr_wrap, hex(int(dt*main_clk_rate)))
+    # write_register(write_buffer, reg.tr_wrap,0x0007_9ff3)
+    # write_register(write_buffer, reg.tr_wrap,0x0000_0079)
+    write_register(write_buffer, reg.tr_wrap, 0x7_9FF3)
 
     # - Configure Xylo IMU clock rate
     # config.time_resolution_wrap = int(dt * main_clk_rate)
-    # IMU_IF_clk_rate = 50_000  # IMU IF clock must be 50 kHz
-    # config.debug.imu_if_clock_freq_div = int(main_clk_rate / IMU_IF_clk_rate - 1)
-
     # # - Set configuration timeout
-    # config.input_interface.configuration_timeout = 20_000
 
     # - No monitoring of internal state in realtime mode
     config.debug.monitor_neuron_v_mem = {}
