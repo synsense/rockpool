@@ -773,6 +773,7 @@ def is_xylo_ready(
 
 
 def config_realtime_mode(
+    read_buffer: XyloAudio3ReadBuffer,
     write_buffer: XyloAudio3WriteBuffer,
     config: XyloConfiguration,
     dt: float,
@@ -791,13 +792,17 @@ def config_realtime_mode(
     """
     # - Select real-time operation mode
     config.operation_mode = samna.xyloAudio3.OperationMode.RealTime
-
+    update_register_field(
+        read_buffer,
+        write_buffer,
+        reg.ctrl1,
+        reg.ctrl1__man__pos,
+        reg.ctrl1__man__pos,
+        0,
+    )
     # write_register(write_buffer, reg.tr_wrap, hex(int(dt*main_clk_rate)))
-    # write_register(write_buffer, reg.tr_wrap,0x0007_9ff3)
-    # write_register(write_buffer, reg.tr_wrap,0x0000_0079)
     write_register(write_buffer, reg.tr_wrap, 0x7_9FF3)
 
-    # - Configure Xylo IMU clock rate
     # config.time_resolution_wrap = int(dt * main_clk_rate)
     # # - Set configuration timeout
 
