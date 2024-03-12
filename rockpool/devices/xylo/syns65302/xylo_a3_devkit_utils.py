@@ -75,13 +75,13 @@ def find_xylo_a3_boards() -> List[XyloAudio3HDK]:
     device_list = samna.device.get_all_devices()
 
     # - Search for a xylo dev kit
-    imu_hdk_list = [
+    audio3_hdk_list = [
         samna.device.open_device(d)
         for d in device_list
         if d.device_type_name == "XyloAudio3TestBoard"
     ]
 
-    return imu_hdk_list
+    return audio3_hdk_list
 
 
 def new_xylo_read_buffer(
@@ -493,7 +493,7 @@ def initialise_xylo_hdk(
     pdm_clk_edge: int = 1,
 ) -> None:
     """
-    Initialise the Xylo IMU HDK
+    Initialise the Xylo Audio 3 HDK
 
     Args:
         hdk (XyloAudio3HDK): A connected Xylo HDK
@@ -783,7 +783,7 @@ def config_realtime_mode(
     Set the Xylo HDK to real-time mode
 
     Args:
-        config (XyloConfiguration): A configuration for Xylo IMU
+        config (XyloConfiguration): A configuration for Xylo Audio 3
         dt (float): The simulation time-step to use for this Module
         main_clk_rate (int): The main clock rate of Xylo in Hz
 
