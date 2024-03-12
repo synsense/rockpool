@@ -214,6 +214,14 @@ class XyloMonitor(Module):
         # - Reset the HDK to clean up
         self._device.reset_board_soft()
 
+    def apply_configuration(self, new_config):
+        # - Write the configuration to the device
+        hdkutils.apply_configuration(self._device, new_config)
+
+        # - Store the configuration locally
+        self._config = new_config
+        
+
     def evolve(
         self,
         input_data: np.ndarray,

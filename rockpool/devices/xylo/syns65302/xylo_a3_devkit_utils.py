@@ -792,14 +792,45 @@ def config_realtime_mode(
     """
     # - Select real-time operation mode
     config.operation_mode = samna.xyloAudio3.OperationMode.RealTime
-    update_register_field(
-        read_buffer,
-        write_buffer,
-        reg.ctrl1,
-        reg.ctrl1__man__pos,
-        reg.ctrl1__man__pos,
-        0,
-    )
+    # update_register_field(
+    #     read_buffer,
+    #     write_buffer,
+    #     reg.ctrl1,
+    #     reg.ctrl1__man__pos,
+    #     reg.ctrl1__man__pos,
+    #     0,
+    # )
+    # write_register(write_buffer, reg.tr_wrap, hex(int(dt*main_clk_rate)))
+    write_register(write_buffer, reg.tr_wrap, 0x7_9FF3)
+
+    # config.time_resolution_wrap = int(dt * main_clk_rate)
+    # # - Set configuration timeout
+
+    # - No monitoring of internal state in realtime mode
+    config.debug.monitor_neuron_v_mem = {}
+    config.debug.monitor_neuron_i_syn = {}
+    config.debug.monitor_neuron_spike = {}
+
+    return config
+
+def config_tr_wrap(
+    read_buffer: XyloAudio3ReadBuffer,
+    write_buffer: XyloAudio3WriteBuffer,
+    config: XyloConfiguration,
+    dt: float,
+    main_clk_rate: int,
+) -> XyloConfiguration:
+    """
+    Set the Xylo HDK to real-time mode
+
+    Args:
+        config (XyloConfiguration): A configuration for Xylo Audio 3
+        dt (float): The simulation time-step to use for this Module
+        main_clk_rate (int): The main clock rate of Xylo in Hz
+
+    Return:
+        updated Xylo configuration
+    """
     # write_register(write_buffer, reg.tr_wrap, hex(int(dt*main_clk_rate)))
     write_register(write_buffer, reg.tr_wrap, 0x7_9FF3)
 
