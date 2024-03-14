@@ -21,6 +21,7 @@ from typing import List, Optional, NamedTuple, Tuple, Union, Iterable
 XyloAudio3ReadBuffer = samna.BasicSinkNode_xylo_audio3_event_output_event
 XyloAudio3WriteBuffer = samna.BasicSourceNode_xylo_audio3_event_input_event
 ReadoutEvent = samna.xyloAudio3.event.Readout
+SpikeEvent = samna.xyloAudio3.event.Spike
 XyloAudio3HDK = samna.xyloAudio3Boards.XyloAudio3TestBoard
 # Xylo2NeuronStateBuffer = samna.xyloCore2.NeuronStateSinkNode
 
@@ -423,7 +424,7 @@ def update_register_field(
     """
     data = read_register(read_buffer, write_buffer, addr)[0]
     data_h = data >> (msb_pos + 1)
-    data_l = data & (2**lsb_pos - 1)
+    data_l = data & (2 ** lsb_pos - 1)
     data = (data_h << (msb_pos + 1)) + (val << lsb_pos) + data_l
     write_register(write_buffer, addr, data)
 
@@ -707,7 +708,7 @@ def enable_saer_input(
 def get_current_timestep(
     read_buffer: XyloAudio3ReadBuffer,
     write_buffer: XyloAudio3WriteBuffer,
-    timeout: float = 3.0,
+    timeout: float = 5.0,
 ) -> int:
     """
     Retrieve the current timestep on a Xylo HDK
@@ -722,23 +723,43 @@ def get_current_timestep(
     """
 
     # - Clear read buffer
+    print("clear buffer")
     read_buffer.get_events()
-
-    # - Trigger a readout event on Xylo
-    e = samna.xyloAudio3.event.TriggerReadout()
-
-    write_buffer.write([e])
 
     # - Wait for the readout event to be sent back, and extract the timestep
     timestep = None
     continue_read = True
     start_t = time.time()
+
+    # - Trigger a readout event on Xylo
+    e = samna.xyloAudio3.event.TriggerProcessing()
+    e.target_timestep = int(start_t)
+
+    print("trigger processing")
+    print(e)
+    write_buffer.write([e])
+    print(read_buffer.get_events())
+
+    print("read random register")
+    write_buffer.write([samna.xyloAudio3.event.ReadRegisterValue(0x0153)])
+    write_buffer.write([samna.xyloAudio3.event.TriggerReadout()])
+    write_buffer.write([samna.xyloAudio3.event.TriggerProcessing()])
+
+    print(read_buffer.get_n_events(1, 4000))
+    print("next")
+
     while continue_read:
+        write_buffer.write([samna.xyloAudio3.event.ReadRegisterValue(0x0153)])
+        readout_events = read_buffer.get_n_events(1, 3000)
+
+        print("reading events")
+        print(readout_events)
+
         readout_events = read_buffer.get_events()
         ev_filt = [
-            e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Readout)
+            e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Spike)
         ]
-        print()
+        print("inside while")
         print(readout_events)
         print(ev_filt)
         if ev_filt:
@@ -813,12 +834,10 @@ def config_realtime_mode(
 
     return config
 
+
 def config_tr_wrap(
-    read_buffer: XyloAudio3ReadBuffer,
     write_buffer: XyloAudio3WriteBuffer,
     config: XyloConfiguration,
-    dt: float,
-    main_clk_rate: int,
 ) -> XyloConfiguration:
     """
     Set the Xylo HDK to real-time mode
@@ -960,6 +979,7 @@ def read_output_events(
 
 def blocking_read(
     read_buffer: XyloAudio3ReadBuffer,
+    write_buffer: XyloAudio3WriteBuffer,
     target_timestep: Optional[int] = None,
     count: Optional[int] = None,
     timeout: Optional[float] = None,
@@ -987,7 +1007,10 @@ def blocking_read(
     start_time = time.time()
     while continue_read:
         # - Perform a read and save events
+        write_buffer.write([samna.xyloAudio3.event.TriggerProcessing()])
+        time.sleep(2)
         events = read_buffer.get_events()
+        # events = read_buffer.get_n_events(1, 2000)
         all_events.extend(events)
 
         # - Check if we reached the desired timestep
@@ -1016,7 +1039,9 @@ def blocking_read(
             continue_read &= len(all_events) == 0
 
     # - Perform one final read for good measure
+    time.sleep(2)
     all_events.extend(read_buffer.get_events())
+    # all_events.extend(read_buffer.get_n_events(1, 2000))
 
     # - Return read events
     return all_events, is_timeout
@@ -1346,3 +1371,36 @@ def read_all_register(read_buffer, write_buffer):
     for address in range(reg.cntr_stat + 1):
         data = read_register(read_buffer, write_buffer, address)[0]
         print("read register ", address, hex(data))
+
+
+def decode_realtime_mode_data(
+    readout_events: List[SpikeEvent],
+    Nout: int,
+    T_start: int,
+    T_end: int,
+) -> np.ndarray:
+    """
+    Read realtime simulation mode data from a Xylo HDK
+
+    Args:
+        readout_events (List[ReadoutEvent]): A list of `ReadoutEvent`s recorded from Xylo Audio3
+        Nout (int): The number of output neurons to monitor
+        T_start (int): Initial timestep
+        T_end (int): Final timestep
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: (`vmem_out_ts`, `output_ts`) The membrane potential and output event trains from Xylo
+    """
+    # - Initialise lists for recording state
+    T_count = T_end - T_start + 1
+    neuronId = np.zeros((int(T_count), int(Nout)), np.int16)
+
+    # - Loop over time steps
+    for ev in readout_events:
+        if type(ev) is SpikeEvent:
+            timestep = ev.timestep - T_start
+            if timestep >= 0:
+                neuronId[timestep, 0:Nout] = ev.neuronId
+
+    # - Return Vmem and spikes
+    return neuronId
