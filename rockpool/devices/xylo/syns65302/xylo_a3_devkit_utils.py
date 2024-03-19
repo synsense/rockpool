@@ -487,11 +487,7 @@ def xylo_config_clk(
 
 def initialise_xylo_hdk(
     hdk: XyloAudio3HDK,
-    read_buffer: XyloAudio3ReadBuffer,
-    write_buffer: XyloAudio3WriteBuffer,
     sleep_time: float = 5e-3,
-    pdm_clk_dir: int = 0,
-    pdm_clk_edge: int = 1,
 ) -> None:
     """
     Initialise the Xylo Audio 3 HDK
@@ -655,60 +651,24 @@ def enable_saer_input(
     io.write_config(0x0026, 0)  # stif_select: saer
 
     # FPGA drive PDM_DATA pin (for SAER input)
-    io.write_config(0x0012, 1)
+    io.write_config(0x0012, 0)
     # pdm port write enable
     io.write_config(0x0013, 1)
 
-    # setup SAER_I pads, PAD_CTRL.CTRL[012] = 2
-    # write_register(reg.pad_ctrl, 0x0000_0222)
-    update_register_field(
-        read_buffer,
-        write_buffer,
-        reg.pad_ctrl,
-        reg.pad_ctrl__ctrl0__pos_lsb,
-        reg.pad_ctrl__ctrl0__pos_msb,
-        2,
-    )
-    update_register_field(
-        read_buffer,
-        write_buffer,
-        reg.pad_ctrl,
-        reg.pad_ctrl__ctrl1__pos_lsb,
-        reg.pad_ctrl__ctrl1__pos_msb,
-        2,
-    )
-    update_register_field(
-        read_buffer,
-        write_buffer,
-        reg.pad_ctrl,
-        reg.pad_ctrl__ctrl2__pos_lsb,
-        reg.pad_ctrl__ctrl2__pos_msb,
-        2,
-    )
-    # DBG_CTRL1.SPK_SRC_SEL = 1, DBG_CTRL1.STIF_SEL = 0
-    # write_register(reg.dbg_ctrl1, 0x0004_0000)
-    update_register_field(
-        read_buffer,
-        write_buffer,
-        reg.dbg_ctrl1,
-        reg.dbg_ctrl1__spk_src_sel__pos,
-        reg.dbg_ctrl1__spk_src_sel__pos,
-        1,
-    )
-    update_register_field(
-        read_buffer,
-        write_buffer,
-        reg.dbg_ctrl1,
-        reg.dbg_ctrl1__stif_sel__pos,
-        reg.dbg_ctrl1__stif_sel__pos,
-        0,
-    )
+
+def enable_real_time_mode(hdk: XyloAudio3HDK) -> None:
+    io = hdk.get_io_module()
+
+    # FPGA drive PDM_DATA pin (for SAER input)
+    io.write_config(0x0012, 0)
+    # set real time mode
+    io.write_config(0x31, 2)
 
 
 def get_current_timestep(
     read_buffer: XyloAudio3ReadBuffer,
     write_buffer: XyloAudio3WriteBuffer,
-    timeout: float = 5.0,
+    timeout: float = 3.0,
 ) -> int:
     """
     Retrieve the current timestep on a Xylo HDK
@@ -723,7 +683,6 @@ def get_current_timestep(
     """
 
     # - Clear read buffer
-    print("clear buffer")
     read_buffer.get_events()
 
     # - Wait for the readout event to be sent back, and extract the timestep
@@ -734,36 +693,18 @@ def get_current_timestep(
     # - Trigger a readout event on Xylo
     e = samna.xyloAudio3.event.TriggerProcessing()
     e.target_timestep = int(start_t)
-
-    print("trigger processing")
-    print(e)
     write_buffer.write([e])
-    print(read_buffer.get_events())
-
-    print("read random register")
-    write_buffer.write([samna.xyloAudio3.event.ReadRegisterValue(0x0153)])
-    write_buffer.write([samna.xyloAudio3.event.TriggerReadout()])
-    write_buffer.write([samna.xyloAudio3.event.TriggerProcessing()])
-
-    print(read_buffer.get_n_events(1, 4000))
-    print("next")
 
     while continue_read:
-        write_buffer.write([samna.xyloAudio3.event.ReadRegisterValue(0x0153)])
-        readout_events = read_buffer.get_n_events(1, 3000)
-
-        print("reading events")
-        print(readout_events)
-
         readout_events = read_buffer.get_events()
-        ev_filt = [
-            e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Spike)
-        ]
-        print("inside while")
-        print(readout_events)
-        print(ev_filt)
-        if ev_filt:
-            timestep = ev_filt[0].timestep
+
+        # TODO: how to access Spike events for XyloA3 instead of ReadoutEvents
+        # the condition for getting the timestep was defined previously on the filtered list
+        # ev_filt = [
+        #     e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Spike)
+        # ]
+        if readout_events:
+            timestep = readout_events[0].timestep
             continue_read = False
         else:
             # - Check timeout
@@ -791,77 +732,6 @@ def is_xylo_ready(
 ) -> bool:
     stat2 = read_register(read_buffer, write_buffer, reg.stat2)[0]
     return stat2 & (1 << reg.stat2__pd__pos)
-
-
-def config_realtime_mode(
-    read_buffer: XyloAudio3ReadBuffer,
-    write_buffer: XyloAudio3WriteBuffer,
-    config: XyloConfiguration,
-    dt: float,
-    main_clk_rate: int,
-) -> XyloConfiguration:
-    """
-    Set the Xylo HDK to real-time mode
-
-    Args:
-        config (XyloConfiguration): A configuration for Xylo Audio 3
-        dt (float): The simulation time-step to use for this Module
-        main_clk_rate (int): The main clock rate of Xylo in Hz
-
-    Return:
-        updated Xylo configuration
-    """
-    # - Select real-time operation mode
-    config.operation_mode = samna.xyloAudio3.OperationMode.RealTime
-    # update_register_field(
-    #     read_buffer,
-    #     write_buffer,
-    #     reg.ctrl1,
-    #     reg.ctrl1__man__pos,
-    #     reg.ctrl1__man__pos,
-    #     0,
-    # )
-    # write_register(write_buffer, reg.tr_wrap, hex(int(dt*main_clk_rate)))
-    write_register(write_buffer, reg.tr_wrap, 0x7_9FF3)
-
-    # config.time_resolution_wrap = int(dt * main_clk_rate)
-    # # - Set configuration timeout
-
-    # - No monitoring of internal state in realtime mode
-    config.debug.monitor_neuron_v_mem = {}
-    config.debug.monitor_neuron_i_syn = {}
-    config.debug.monitor_neuron_spike = {}
-
-    return config
-
-
-def config_tr_wrap(
-    write_buffer: XyloAudio3WriteBuffer,
-    config: XyloConfiguration,
-) -> XyloConfiguration:
-    """
-    Set the Xylo HDK to real-time mode
-
-    Args:
-        config (XyloConfiguration): A configuration for Xylo Audio 3
-        dt (float): The simulation time-step to use for this Module
-        main_clk_rate (int): The main clock rate of Xylo in Hz
-
-    Return:
-        updated Xylo configuration
-    """
-    # write_register(write_buffer, reg.tr_wrap, hex(int(dt*main_clk_rate)))
-    write_register(write_buffer, reg.tr_wrap, 0x7_9FF3)
-
-    # config.time_resolution_wrap = int(dt * main_clk_rate)
-    # # - Set configuration timeout
-
-    # - No monitoring of internal state in realtime mode
-    config.debug.monitor_neuron_v_mem = {}
-    config.debug.monitor_neuron_i_syn = {}
-    config.debug.monitor_neuron_spike = {}
-
-    return config
 
 
 def set_power_measure(
@@ -1005,12 +875,13 @@ def blocking_read(
     continue_read = True
     is_timeout = False
     start_time = time.time()
+
+    # - Send a TriggerProcessing event with a value for the time step that the FPGA module should allow Xylo to run to
+    write_buffer.write([samna.xyloAudio3.event.TriggerProcessing(target_timestep)])
+
     while continue_read:
         # - Perform a read and save events
-        write_buffer.write([samna.xyloAudio3.event.TriggerProcessing()])
-        time.sleep(2)
         events = read_buffer.get_events()
-        # events = read_buffer.get_n_events(1, 2000)
         all_events.extend(events)
 
         # - Check if we reached the desired timestep
@@ -1027,7 +898,8 @@ def blocking_read(
 
         # - Check timeout
         if timeout:
-            is_timeout = (time.time() - start_time) > timeout
+            current_diff = time.time() - start_time
+            is_timeout = current_diff > timeout
             continue_read &= not is_timeout
 
         # - Check number of events read
@@ -1039,9 +911,7 @@ def blocking_read(
             continue_read &= len(all_events) == 0
 
     # - Perform one final read for good measure
-    time.sleep(2)
     all_events.extend(read_buffer.get_events())
-    # all_events.extend(read_buffer.get_n_events(1, 2000))
 
     # - Return read events
     return all_events, is_timeout

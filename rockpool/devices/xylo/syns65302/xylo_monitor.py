@@ -97,8 +97,9 @@ class XyloMonitor(Module):
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
 
         # - Initialise the HDK
-        hdkutils.initialise_xylo_hdk(device, self._read_buffer, self._write_buffer)
+        hdkutils.initialise_xylo_hdk(device)
         hdkutils.enable_saer_input(device, self._read_buffer, self._write_buffer)
+        hdkutils.enable_real_time_mode(device)
 
         # - Build a filter graph to filter `Readout` events from Xylo
         self._spike_graph = samna.graph.EventFilterGraph()
@@ -110,7 +111,7 @@ class XyloMonitor(Module):
                 samna.graph.JitSink(),
             ]
         )
-        etf0.set_desired_type("xyloAudio3::event::Spike")
+        etf0.set_desired_type("xyloAudio3::event::Readout")
 
         self._spike_graph.start()
 
@@ -151,14 +152,14 @@ class XyloMonitor(Module):
         self._sleep_time = 0e-3
         """ float: Post-stimulation sleep time in seconds """
 
+        # - Configure to real time mode
+        self._enable_realtime_mode()
+
         # - Store the configuration (and apply it)
+        hdkutils.apply_configuration(device, self._config)
         time.sleep(self._sleep_time)
 
         """ float: Xylo main clock frequency in MHz """
-
-        # - Configure to auto mode
-        # self._enable_realtime_mode(interface_params)
-        # self._enable_realtime_mode()
 
         self.power_monitor = None
         """Power monitor for Xylo"""
@@ -186,7 +187,6 @@ class XyloMonitor(Module):
         # - Store the configuration locally
         self._config = new_config
 
-    # def _enable_realtime_mode(self, interface_params: dict):
     def _enable_realtime_mode(self):
         """
         Configure the Xylo HDK to use real-time mode.
@@ -196,17 +196,14 @@ class XyloMonitor(Module):
         """
 
         # - Config the streaming mode
-        config = hdkutils.config_realtime_mode(
-            self._read_buffer,
-            self._write_buffer,
-            self._config,
-            self.dt,
-            int(self._main_clk_rate * 1e6),
-        )
+        # - Select real-time operation mode
+        self._config.operation_mode = samna.xyloAudio3.OperationMode.RealTime
+        self._config.time_resolution_wrap = int(0x7_9FF3)
 
-        # - Config the IMU interface and apply current configuration
-        # config.input_interface = IMUIFSim(**interface_params).export_config()
-        self.config = config
+        # - No monitoring of internal state in realtime mode
+        self._config.debug.monitor_neuron_v_mem = {}
+        self._config.debug.monitor_neuron_i_syn = {}
+        self._config.debug.monitor_neuron_spike = {}
 
     def __del__(self):
         """
@@ -222,12 +219,6 @@ class XyloMonitor(Module):
         # - Store the configuration locally
         self._config = new_config
         print("config applied")
-
-    def config_tr_wrap(self):
-
-        config = hdkutils.config_tr_wrap(self._write_buffer, self._config)
-
-        self.config = config
 
     def evolve(
         self,
@@ -249,83 +240,44 @@ class XyloMonitor(Module):
             Tuple[np.ndarray, dict, dict] output_events, {}, rec_dict
             output_events is an array that stores the output events of T time-steps
         """
-
-        print("read random register")
-        self._read_buffer.clear_events()
-        self._write_buffer.write([samna.xyloAudio3.event.ReadRegisterValue(0)])
-        time.sleep(2)
-        events = self._read_buffer.get_events()  # Try to get 1 event in 2 seconds.
-        # events = self._read_buffer.get_n_events(1, 2000) # Try to get 1 event in 2 seconds.
-        print("events", events)
-
-        print("~~evolve function~~")
-
         # - Check `record` flag
         if record:
             raise ValueError(
                 "Recording internal state is not supported by XyloIMUMonitor."
             )
 
-        print("1")
-
         # - Get data shape
         input_data, _ = self._auto_batch(input_data)
         Nb, Nt, Nc = input_data.shape
 
-        print("2")
         # - Discard the batch dimension
         input_data = input_data[0]
 
-        print("3")
-        # - Get the current time step, determine duration
-        start_timestep = time.time()
-        # start_timestep = (
-        #     hdkutils.get_current_timestep(self._read_buffer, self._write_buffer) + 1
-        # )
-
-        print("4")
+        start_timestep = (
+            hdkutils.get_current_timestep(self._read_buffer, self._write_buffer) + 1
+        )
 
         end_timestep = start_timestep + Nt - 1
 
-        print("5")
         # - Determine a read timeout
-        read_timeout = 3 * Nt * self.dt if read_timeout is None else read_timeout
-
-        print("read timeout")
-        print(read_timeout)
+        read_timeout = 2 * Nt * self.dt if read_timeout is None else read_timeout
 
         # - Clear the power recording buffer, if recording power
         if record_power:
             self._power_buf.clear_events()
 
-        # - Process in real-time mode for a desired number of time steps
-        self._write_buffer.write([samna.xyloAudio3.event.TriggerProcessing()])
-        time.sleep(2)
-        print("read single event")
-        read_events = self._read_buffer.get_events()  # Try to get 1 event in 2 seconds.
-        print(read_events)
-
-        print("other events")
-        read_events = (
-            self._spike_buffer.get_events()
-        )  # Try to get 1 event in 2 seconds.
-        print(read_events)
-
-        print("from the block")
-        self._write_buffer.write([samna.xyloAudio3.event.TriggerProcessing()])
         # - Blocking read of events until simulation is finished
         read_events, is_timeout = hdkutils.blocking_read(
             self._spike_buffer,
             self._write_buffer,
             target_timestep=end_timestep,
-            timeout=read_timeout,
+            timeout=10,
         )
-        print(read_events)
 
-        # if is_timeout:
-        #     raise TimeoutError(
-        #         f"Reading events timeout after {read_timeout} seconds. Read {len(read_events)} events, expected {Nt}. Last event timestep: {read_events[-1].timestep if len(read_events) > 0 else 'None'}, waiting for timestep {end_timestep}."
-        #     )
+        if is_timeout:
+            raise TimeoutError(
+                f"Reading events timeout after {read_timeout} seconds. Read {len(read_events)} events, expected {Nt}. Last event timestep: {read_events[-1].timestep if len(read_events) > 0 else 'None'}, waiting for timestep {end_timestep}."
+            )
 
         rec_dict = {}
 
@@ -346,14 +298,4 @@ class XyloMonitor(Module):
                 }
             )
 
-        print("decoding data from xylo")
-
-        # - Decode data read from Xylo
-        neuron_ids = hdkutils.decode_realtime_mode_data(
-            read_events, self.size_out, start_timestep, end_timestep
-        )
-
-        print("are some neurons here?")
-        print(neuron_ids)
-
-        return neuron_ids, {}, rec_dict
+        return read_events, {}, rec_dict
