@@ -424,7 +424,7 @@ def update_register_field(
     """
     data = read_register(read_buffer, write_buffer, addr)[0]
     data_h = data >> (msb_pos + 1)
-    data_l = data & (2 ** lsb_pos - 1)
+    data_l = data & (2**lsb_pos - 1)
     data = (data_h << (msb_pos + 1)) + (val << lsb_pos) + data_l
     write_register(write_buffer, addr, data)
 

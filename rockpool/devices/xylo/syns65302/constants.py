@@ -1,4 +1,3 @@
-
 # ===========================================================================
 # Description     : test file
 # Author          : Bai, Xin
@@ -10,10 +9,8 @@
 # ===========================================================================
 
 
-WORD_SIZE_REGISTER  = 32 # word size of the register
-NUMBER_OF_REGISTERS = 371 # total number of WORD_SIZE_REGISTER-bit registers
+WORD_SIZE_REGISTER = 32  # word size of the register
+NUMBER_OF_REGISTERS = 371  # total number of WORD_SIZE_REGISTER-bit registers
 
 MAX_INC = 16
 MAX_ONC = 32
-
-

@@ -801,7 +801,9 @@ try:
 
             def forward(state_in, input):
                 # compute the feedback part in AR part of the filters
-                ar_feedback = -jnp.sum(state_in[:, 0:-1] * a_list, axis=1) / 2**Baf_list
+                ar_feedback = (
+                    -jnp.sum(state_in[:, 0:-1] * a_list, axis=1) / 2**Baf_list
+                )
 
                 # combine scaled input (to avoid dead zone) with feedback coming from AR part
                 merged_input = input * 2**Bwf_list + ar_feedback
