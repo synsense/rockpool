@@ -374,9 +374,7 @@ class XyloSamna(Module):
         """ float: Post-stimulation sleep time in seconds """
 
         # - Initialise the HDK
-        hdkutils.initialise_xylo_hdk(
-            self._device, self._read_buffer, self._write_buffer
-        )
+        hdkutils.initialise_xylo_hdk(self._device)
 
         # - Store the configuration (and apply it)
         time.sleep(self._sleep_time)

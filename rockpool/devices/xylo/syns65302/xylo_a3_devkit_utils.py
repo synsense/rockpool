@@ -1025,7 +1025,9 @@ def read_memory(
     write_buffer.write(read_events)
 
     # - Read data
-    events, is_timeout = blocking_read(read_buffer, count=length, timeout=read_timeout)
+    events, is_timeout = blocking_read(
+        read_buffer, write_buffer, count=length, timeout=read_timeout
+    )
     if is_timeout:
         raise TimeoutError(
             f"Memory read timed out after {read_timeout} s. Reading @{start_address}+{length}."

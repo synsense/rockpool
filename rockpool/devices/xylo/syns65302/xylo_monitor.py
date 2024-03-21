@@ -99,7 +99,9 @@ class XyloMonitor(Module):
         # - Initialise the HDK
         hdkutils.initialise_xylo_hdk(device)
         hdkutils.enable_saer_input(device, self._read_buffer, self._write_buffer)
-        hdkutils.enable_real_time_mode(device)
+
+        if config.operation_mode == "RealTime":
+            hdkutils.enable_real_time_mode(device)
 
         # - Build a filter graph to filter `Readout` events from Xylo
         self._spike_graph = samna.graph.EventFilterGraph()
@@ -153,7 +155,10 @@ class XyloMonitor(Module):
         """ float: Post-stimulation sleep time in seconds """
 
         # - Configure to real time mode
-        self._enable_realtime_mode()
+        if config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
+            self._enable_realtime_mode()
+        elif config.operation_mode == samna.xyloAudio3.OperationMode.AcceleratedTime:
+            self._enable_acceleratedtime_mode()
 
         # - Store the configuration (and apply it)
         hdkutils.apply_configuration(device, self._config)
@@ -204,6 +209,18 @@ class XyloMonitor(Module):
         self._config.debug.monitor_neuron_v_mem = {}
         self._config.debug.monitor_neuron_i_syn = {}
         self._config.debug.monitor_neuron_spike = {}
+
+    def _enable_acceleratedtime_mode(self):
+        """
+        Configure the Xylo HDK to use real-time mode.
+
+        Args:
+            interface_params (dict): specify the interface parameters
+        """
+        # - Config the streaming mode
+        # - Select real-time operation mode
+        self._config.operation_mode = samna.xyloAudio3.OperationMode.AcceleratedTime
+        self._config.time_resolution_wrap = int(0x7_9FF3)
 
     def __del__(self):
         """
