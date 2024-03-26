@@ -448,6 +448,7 @@ def config_basic_mode(
     return config
 
 
+# To remove after test with PDM
 def xylo_config_clk(
     read_buffer: XyloAudio3ReadBuffer,
     write_buffer: XyloAudio3WriteBuffer,

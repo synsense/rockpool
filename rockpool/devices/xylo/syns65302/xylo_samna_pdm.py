@@ -115,12 +115,20 @@ class XyloSamnaPDM(Module):
 
         # - Enable PDM input IF and PDM clock
         hdkutils.fpga_enable_pdm_interface(self._device)
-        hdkutils.xylo_config_clk(self._read_buffer, self._write_buffer, 1)
+
+        # hdkutils.xylo_config_clk(self._read_buffer, self._write_buffer, 1)
+        snn_config.debug.enable_i2c = 1
+        snn_config.debug.enable_sdm = 1
+        snn_config.debug.sdm_module_clock = 48
 
         # - Enable PDM interface on Xylo and turn on FPGA PDM clock generation
         hdkutils.xylo_enable_pdm_interface(
             self._read_buffer, self._write_buffer, dn_active=dn_active
         )
+        snn_config.digital_frontend.mode = samna.xyloAudio3.DigitalFrontendMode.Pdm
+        snn_config.digital_frontend.pdm_preprocessing.clock_direction = 1
+        snn_config.digital_frontend.pdm_preprocessing.clock_edge = 1
+
         hdkutils.fpga_pdm_clk_enable(self._device)
 
         # - Store the SNN core configuration (and apply it)
@@ -167,7 +175,7 @@ class XyloSamnaPDM(Module):
         time.sleep(self._sleep_time)
 
         # - WORK-AROUND to fix clock divider being reset when applying config
-        hdkutils.xylo_config_clk(self._read_buffer, self._write_buffer, 1)
+        # hdkutils.xylo_config_clk(self._read_buffer, self._write_buffer, 1)
 
         self._config = new_config
 
