@@ -110,7 +110,7 @@ class XyloSamnaPDM(Module):
 
         # - Initialise the HDK
         hdkutils.initialise_xylo_hdk(
-            self._device, self._read_buffer, self._write_buffer
+            self._device
         )
 
         # - Enable PDM input IF and PDM clock
@@ -149,6 +149,8 @@ class XyloSamnaPDM(Module):
         snn_config.digital_frontend.pdm_preprocessing.clock_direction = 1
         snn_config.digital_frontend.pdm_preprocessing.clock_edge = 1
         snn_config.digital_frontend.filter_bank.use_global_iaf_threshold = 1
+
+        self.snn_config = snn_config
         warn("Configured standard BPF and PDM")
 
         # - Enable RAM access
@@ -245,7 +247,7 @@ class XyloSamnaPDM(Module):
 
         if record:
             # - Switch on reporting of input spike register pointer value
-            snn_config.debug.debug_status_update_enable = 1
+            self.snn_config.debug.debug_status_update_enable = 1
 
             # hdkutils.update_register_field(
             #     self._read_buffer,
@@ -257,8 +259,8 @@ class XyloSamnaPDM(Module):
             # )
 
         # - Enable PDM interface on Xylo and turn on FPGA PDM clock generation
-        config.digital_frontend.pdm_preprocessing.clock_direction = 0
-        config.digital_frontend.pdm_preprocessing.clock_edge = 0
+        self.snn_config.digital_frontend.pdm_preprocessing.clock_direction = 0
+        self.snn_config.digital_frontend.pdm_preprocessing.clock_edge = 0
         # There are more configurations to be done before removing this call to hdkutils
         hdkutils.xylo_enable_pdm_interface(self._read_buffer, self._write_buffer)
 
