@@ -125,9 +125,9 @@ class XyloSamnaPDM(Module):
         hdkutils.xylo_enable_pdm_interface(
             self._read_buffer, self._write_buffer, dn_active=dn_active
         )
-        snn_config.digital_frontend.mode = samna.xyloAudio3.DigitalFrontendMode.Pdm
-        snn_config.digital_frontend.pdm_preprocessing.clock_direction = 1
-        snn_config.digital_frontend.pdm_preprocessing.clock_edge = 1
+        # snn_config.digital_frontend.mode = samna.xyloAudio3.DigitalFrontendMode.Pdm
+        # snn_config.digital_frontend.pdm_preprocessing.clock_direction = 1
+        # snn_config.digital_frontend.pdm_preprocessing.clock_edge = 1
 
         hdkutils.fpga_pdm_clk_enable(self._device)
 
@@ -140,12 +140,16 @@ class XyloSamnaPDM(Module):
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Apply standard PDM and DFE configuration --- TO BE UPDATED WITH PROPER CONFIG
-        if register_config is not None:
-            hdkutils.write_register_dict(self._write_buffer, register_config)
-        else:
-            hdkutils.config_standard_bpf_set(self._write_buffer)
-            hdkutils.config_standard_pdm_lpf(self._write_buffer)
-            warn("Configured standard BPF and PDM")
+        # if register_config is not None:
+        #     hdkutils.write_register_dict(self._write_buffer, register_config)
+        # else:
+        # hdkutils.config_standard_bpf_set(self._write_buffer)
+        # hdkutils.config_standard_pdm_lpf(self._write_buffer)
+        snn_config.digital_frontend.mode = samna.xyloAudio3.DigitalFrontendMode.Pdm
+        snn_config.digital_frontend.pdm_preprocessing.clock_direction = 1
+        snn_config.digital_frontend.pdm_preprocessing.clock_edge = 1
+        snn_config.digital_frontend.filter_bank.use_global_iaf_threshold = 1
+        warn("Configured standard BPF and PDM")
 
         # - Enable RAM access
         hdkutils.enable_ram_access(self._device, True)
@@ -241,17 +245,23 @@ class XyloSamnaPDM(Module):
 
         if record:
             # - Switch on reporting of input spike register pointer value
-            hdkutils.update_register_field(
-                self._read_buffer,
-                self._write_buffer,
-                hdkutils.reg.dbg_ctrl1,
-                hdkutils.reg.dbg_ctrl1__dbg_sta_upd_en__pos,
-                hdkutils.reg.dbg_ctrl1__dbg_sta_upd_en__pos,
-                True,
-            )
+            snn_config.debug.debug_status_update_enable = 1
+
+            # hdkutils.update_register_field(
+            #     self._read_buffer,
+            #     self._write_buffer,
+            #     hdkutils.reg.dbg_ctrl1,
+            #     hdkutils.reg.dbg_ctrl1__dbg_sta_upd_en__pos,
+            #     hdkutils.reg.dbg_ctrl1__dbg_sta_upd_en__pos,
+            #     True,
+            # )
 
         # - Enable PDM interface on Xylo and turn on FPGA PDM clock generation
+        config.digital_frontend.pdm_preprocessing.clock_direction = 0
+        config.digital_frontend.pdm_preprocessing.clock_edge = 0
+        # There are more configurations to be done before removing this call to hdkutils
         hdkutils.xylo_enable_pdm_interface(self._read_buffer, self._write_buffer)
+
         hdkutils.fpga_pdm_clk_enable(self._device)
 
         # - Initialise lists for recording state
