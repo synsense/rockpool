@@ -386,7 +386,7 @@ class XyloSamna(Module):
 
         # - Enable the SAER interface
         time.sleep(self._sleep_time)
-        hdkutils.enable_saer_input(self._device, self._read_buffer, self._write_buffer)
+        hdkutils.enable_saer_input(self._device)
         time.sleep(self._sleep_time)
 
         # - Enable RAM access
@@ -457,7 +457,7 @@ class XyloSamna(Module):
         self.config = hdkutils.configure_single_step_time_mode(self.config)
 
         # - Enable SAER interface
-        hdkutils.enable_saer_input(self._device, self._read_buffer, self._write_buffer)
+        hdkutils.enable_saer_input(self._device)
 
         # - Advance one time-step
         hdkutils.advance_time_step(self._write_buffer)

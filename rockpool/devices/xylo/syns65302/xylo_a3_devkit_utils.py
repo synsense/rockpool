@@ -134,7 +134,7 @@ def new_xylo_state_monitor_buffer(
     _, etf, state_buf = graph.sequential(
         [source_node, "XyloAudio3OutputEventTypeFilter", samna.graph.JitSink()]
     )
-    etf.set_desired_type("xyloAudio3::event::Readout")
+    etf.set_desired_type("xyloAudio3::event::Spike")
     graph.start()
 
     # - Register a new buffer to receive neuron and synapse state
@@ -285,72 +285,6 @@ def fpga_enable_pdm_interface(
     io.write_config(0x0013, 1)
 
 
-def xylo_enable_pdm_interface(
-    read_buffer: XyloAudio3ReadBuffer,
-    write_buffer: XyloAudio3WriteBuffer,
-    pdm_clock_edge: bool = False,
-    pdm_driving_direction: bool = False,
-    dn_active: bool = True,
-) -> None:
-    # - Configure Xylo A3 registers to use PDM input
-    # CTRL0–1: Pad config to use PDM bus
-    update_register_field(
-        read_buffer,
-        write_buffer,
-        reg.pad_ctrl,
-        reg.pad_ctrl__ctrl0__pos_lsb,
-        reg.pad_ctrl__ctrl0__pos_msb,
-        0,
-    )
-    update_register_field(
-        read_buffer,
-        write_buffer,
-        reg.pad_ctrl,
-        reg.pad_ctrl__ctrl1__pos_lsb,
-        reg.pad_ctrl__ctrl1__pos_msb,
-        0,
-    )
-
-    # DFE_CTRL: PDM clock direction and edge, bandpass filter enable
-    # write_register(write_buffer, reg.dfe_ctrl, 0x3FFF_0017)
-    write_register(write_buffer, reg.dfe_ctrl, 0x3FFF_0037)
-
-    update_register_field(
-        read_buffer,
-        write_buffer,
-        reg.dfe_ctrl,
-        reg.dfe_ctrl__pdm_clk_dir_en__pos,
-        reg.dfe_ctrl__pdm_clk_dir_en__pos,
-        pdm_driving_direction,
-    )
-    update_register_field(
-        read_buffer,
-        write_buffer,
-        reg.dfe_ctrl,
-        reg.dfe_ctrl__pdm_clk_edge_en__pos,
-        reg.dfe_ctrl__pdm_clk_edge_en__pos,
-        pdm_clock_edge,
-    )
-    update_register_field(
-        read_buffer,
-        write_buffer,
-        reg.dfe_ctrl,
-        reg.dfe_ctrl__bfi_en__pos,
-        reg.dfe_ctrl__bfi_en__pos,
-        True,
-    )
-
-    # deactivate DN (divisive normalization)
-    update_register_field(
-        read_buffer,
-        write_buffer,
-        reg.dfe_ctrl,
-        reg.dfe_ctrl__dn_en__pos,
-        reg.dfe_ctrl__dn_en__pos,
-        dn_active,
-    )
-
-
 def fpga_pdm_clk_enable(hdk: XyloAudio3HDK) -> None:
     io = hdk.get_io_module()
     io.write_config(0x0029, 1)  # pdm clock enable
@@ -374,11 +308,7 @@ def send_pdm_datas(write_buffer: XyloAudio3WriteBuffer, datas, debug=0) -> None:
     write_buffer.write(events)
 
 
-def enable_saer_input(
-    hdk: XyloAudio3HDK,
-    read_buffer: XyloAudio3ReadBuffer,
-    write_buffer: XyloAudio3WriteBuffer,
-) -> None:
+def enable_saer_input(hdk: XyloAudio3HDK) -> None:
     io = hdk.get_io_module()
 
     # set SAER clock
@@ -433,7 +363,7 @@ def get_current_timestep(
     write_buffer.write([e])
 
     while continue_read:
-        readout_events = read_buffer.get_events()
+        readout_events = read_buffer.get_n_events(1, 3000)
 
         # TODO: how to access Spike events for XyloA3 instead of ReadoutEvents
         # the condition for getting the timestep was defined previously on the filtered list
@@ -606,6 +536,10 @@ def blocking_read(
         (List, bool): `event_list`, `is_timeout`
         `event_list` is a list of events read from the HDK. `is_timeout` is a boolean flag indicating that the read resulted in a timeout
     """
+
+    if count and timeout:
+        warn("You should not provide `count` and `target_timestep` together.")
+
     all_events = []
 
     # - Read at least a certain number of events
@@ -674,27 +608,30 @@ def read_register(
     """
     # - Set up a register read
     write_buffer.write([samna.xyloAudio3.event.ReadRegisterValue(address=address)])
+    events = read_buffer.get_n_events(1, 3000)
+    assert len(events) == 1
+    return [events[0].data]
 
-    # - Wait for data and read it
-    start_t = time.time()
-    continue_read = True
-    while continue_read:
-        # - Read from the buffer
-        events = read_buffer.get_events()
+    # # - Wait for data and read it
+    # start_t = time.time()
+    # continue_read = True
+    # while continue_read:
+    #     # - Read from the buffer
+    #     events = read_buffer.get_events()
 
-        # - Filter returned events for the desired address
-        ev_filt = [e for e in events if hasattr(e, "address") and e.address == address]
+    #     # - Filter returned events for the desired address
+    #     ev_filt = [e for e in events if hasattr(e, "address") and e.address == address]
 
-        # - Should we continue the read?
-        continue_read &= len(ev_filt) == 0
-        continue_read &= (time.time() - start_t) < timeout
+    #     # - Should we continue the read?
+    #     continue_read &= len(ev_filt) == 0
+    #     continue_read &= (time.time() - start_t) < timeout
 
-    # - If we didn't get the required register read, raise an error
-    if len(ev_filt) == 0:
-        raise TimeoutError(f"Timeout after {timeout}s when reading register {address}.")
+    # # - If we didn't get the required register read, raise an error
+    # if len(ev_filt) == 0:
+    #     raise TimeoutError(f"Timeout after {timeout}s when reading register {address}.")
 
-    # - Return data
-    return [e.data for e in ev_filt]
+    # # - Return data
+    # return [e.data for e in ev_filt]
 
 
 def write_register(

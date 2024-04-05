@@ -109,25 +109,23 @@ class XyloSamnaPDM(Module):
         """ float: Post-stimulation sleep time in seconds """
 
         # - Initialise the HDK
-        hdkutils.initialise_xylo_hdk(
-            self._device
-        )
+        hdkutils.initialise_xylo_hdk(self._device)
 
         # - Enable PDM input IF and PDM clock
         hdkutils.fpga_enable_pdm_interface(self._device)
 
-        # hdkutils.xylo_config_clk(self._read_buffer, self._write_buffer, 1)
         snn_config.debug.enable_i2c = 1
         snn_config.debug.enable_sdm = 1
         snn_config.debug.sdm_module_clock = 48
 
-        # - Enable PDM interface on Xylo and turn on FPGA PDM clock generation
-        hdkutils.xylo_enable_pdm_interface(
-            self._read_buffer, self._write_buffer, dn_active=dn_active
-        )
-        # snn_config.digital_frontend.mode = samna.xyloAudio3.DigitalFrontendMode.Pdm
-        # snn_config.digital_frontend.pdm_preprocessing.clock_direction = 1
-        # snn_config.digital_frontend.pdm_preprocessing.clock_edge = 1
+        snn_config.digital_frontend.mode = samna.xyloAudio3.DigitalFrontendMode.Pdm
+        snn_config.digital_frontend.filter_bank.dn_enable = dn_active
+        snn_config.digital_frontend.hibernation_mode_enable = 0
+        snn_config.digital_frontend.select_microphone_if = 1
+        snn_config.digital_frontend.filter_bank.use_global_iaf_threshold = 1
+        snn_config.digital_frontend.pdm_preprocessing.clock_direction = 0
+        snn_config.digital_frontend.pdm_preprocessing.clock_edge = 0
+        snn_config.digital_frontend.bfi_enable = 1
 
         hdkutils.fpga_pdm_clk_enable(self._device)
 
@@ -139,19 +137,28 @@ class XyloSamnaPDM(Module):
         ] = SimulationParameter(shape=(), init_func=lambda _: snn_config)
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
-        # - Apply standard PDM and DFE configuration --- TO BE UPDATED WITH PROPER CONFIG
-        # if register_config is not None:
-        #     hdkutils.write_register_dict(self._write_buffer, register_config)
-        # else:
-        # hdkutils.config_standard_bpf_set(self._write_buffer)
-        # hdkutils.config_standard_pdm_lpf(self._write_buffer)
-        snn_config.digital_frontend.mode = samna.xyloAudio3.DigitalFrontendMode.Pdm
+        # - Apply standard PDM and DFE configuration
         snn_config.digital_frontend.pdm_preprocessing.clock_direction = 1
         snn_config.digital_frontend.pdm_preprocessing.clock_edge = 1
-        snn_config.digital_frontend.filter_bank.use_global_iaf_threshold = 1
 
         self.snn_config = snn_config
         warn("Configured standard BPF and PDM")
+
+        print("read register dfe_ctrl")
+        self._write_buffer.write(
+            [samna.xyloAudio3.event.ReadRegisterValue(address=0x001B)]
+        )
+        events = self._read_buffer.get_n_events(1, 3000)
+        assert len(events) == 1
+        print(events[0].data)
+
+        print("read register pad_ctrl")
+        self._write_buffer.write(
+            [samna.xyloAudio3.event.ReadRegisterValue(address=0x000C)]
+        )
+        events = self._read_buffer.get_n_events(1, 3000)
+        assert len(events) == 1
+        print(events[0].data)
 
         # - Enable RAM access
         hdkutils.enable_ram_access(self._device, True)
@@ -180,9 +187,7 @@ class XyloSamnaPDM(Module):
         hdkutils.apply_configuration(self._device, new_config)
         time.sleep(self._sleep_time)
 
-        # - WORK-AROUND to fix clock divider being reset when applying config
-        # hdkutils.xylo_config_clk(self._read_buffer, self._write_buffer, 1)
-
+        print("configurarion updated")
         self._config = new_config
 
     def evolve(
@@ -249,20 +254,17 @@ class XyloSamnaPDM(Module):
             # - Switch on reporting of input spike register pointer value
             self.snn_config.debug.debug_status_update_enable = 1
 
-            # hdkutils.update_register_field(
-            #     self._read_buffer,
-            #     self._write_buffer,
-            #     hdkutils.reg.dbg_ctrl1,
-            #     hdkutils.reg.dbg_ctrl1__dbg_sta_upd_en__pos,
-            #     hdkutils.reg.dbg_ctrl1__dbg_sta_upd_en__pos,
-            #     True,
-            # )
-
         # - Enable PDM interface on Xylo and turn on FPGA PDM clock generation
+        self.snn_config.digital_frontend.mode = samna.xyloAudio3.DigitalFrontendMode.Pdm
+        self.snn_config.digital_frontend.filter_bank.dn_enable = 1
+        self.snn_config.digital_frontend.hibernation_mode_enable = 0
+        self.snn_config.digital_frontend.select_microphone_if = 1
+        self.snn_config.digital_frontend.filter_bank.use_global_iaf_threshold = 1
         self.snn_config.digital_frontend.pdm_preprocessing.clock_direction = 0
         self.snn_config.digital_frontend.pdm_preprocessing.clock_edge = 0
-        # There are more configurations to be done before removing this call to hdkutils
-        hdkutils.xylo_enable_pdm_interface(self._read_buffer, self._write_buffer)
+        self.snn_config.digital_frontend.bfi_enable = 1
+
+        hdkutils.apply_configuration(self._device, self.snn_config)
 
         hdkutils.fpga_pdm_clk_enable(self._device)
 

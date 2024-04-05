@@ -95,10 +95,11 @@ class XyloMonitor(Module):
         # - Register buffers to read and write events, monitor state
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
+        self._state_buffer = hdkutils.new_xylo_state_monitor_buffer(device)
 
         # - Initialise the HDK
         hdkutils.initialise_xylo_hdk(device)
-        hdkutils.enable_saer_input(device, self._read_buffer, self._write_buffer)
+        hdkutils.enable_saer_input(device)
 
         if config.operation_mode == "RealTime":
             hdkutils.enable_real_time_mode(device)
@@ -217,6 +218,14 @@ class XyloMonitor(Module):
         self._config = new_config
         print("config applied")
 
+    def read_register(self, addr):
+        self._write_buffer.write(
+            [samna.xyloAudio3.event.ReadRegisterValue(address=addr)]
+        )
+        events = self._read_buffer.get_n_events(1, 3000)
+        assert len(events) == 1
+        return events[0].data
+
     def evolve(
         self,
         input_data: np.ndarray,
@@ -237,62 +246,87 @@ class XyloMonitor(Module):
             Tuple[np.ndarray, dict, dict] output_events, {}, rec_dict
             output_events is an array that stores the output events of T time-steps
         """
-        # - Check `record` flag
-        if record:
-            raise ValueError(
-                "Recording internal state is not supported by XyloIMUMonitor."
-            )
 
         # - Get data shape
         input_data, _ = self._auto_batch(input_data)
         Nb, Nt, Nc = input_data.shape
 
+        print(f"\nNumber of output neurons: {Nc}")
+        print(f"\nNumber of steps: {Nt}")
+
         # - Discard the batch dimension
         input_data = input_data[0]
-
-        start_timestep = (
-            hdkutils.get_current_timestep(self._read_buffer, self._write_buffer) + 1
-        )
-
-        end_timestep = start_timestep + Nt - 1
-
-        # - Determine a read timeout
-        read_timeout = 2 * Nt * self.dt if read_timeout is None else read_timeout
 
         # - Clear the power recording buffer, if recording power
         if record_power:
             self._power_buf.clear_events()
 
-        # - Blocking read of events until simulation is finished
-        read_events, is_timeout = hdkutils.blocking_read(
-            self._spike_buffer,
-            self._write_buffer,
-            target_timestep=end_timestep,
-            timeout=10,
-        )
+        count = 0
+        # start processing -- this can only be done once, meaning evolve can only be called once.
+        self._write_buffer.write([samna.xyloAudio3.event.TriggerProcessing()])
 
-        if is_timeout:
-            raise TimeoutError(
-                f"Reading events timeout after {read_timeout} seconds. Read {len(read_events)} events, expected {Nt}. Last event timestep: {read_events[-1].timestep if len(read_events) > 0 else 'None'}, waiting for timestep {end_timestep}."
-            )
+        read_events = []
+
+        while count < int(Nt):
+            readout_events = self._read_buffer.get_events()
+
+            ev_filt = [
+                e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Spike)
+            ]
+
+            if readout_events:
+                count += len(readout_events) - len(ev_filt)
+                if self._output_mode == "Vmem":
+                    read_events.append(readout_events)
+                elif self._output_mode == "Spike":
+                    read_events.append(ev_filt)
+
+        # if is_timeout:
+        #     raise TimeoutError(
+        #         f"Reading events timeout after {read_timeout} seconds. Read {len(read_events)} events, expected {Nt}. Last event timestep: {read_events[-1].timestep if len(read_events) > 0 else 'None'}, waiting for timestep {end_timestep}."
+        # #     )
+
+        # vmem_ts = []
+        # isyn_ts = []
+        # isyn2_ts = []
+        # vmem_out_ts = []
+        # isyn_out_ts = []
+        # spikes_ts = []
+        # output_ts = []
+
+        # this_state = hdkutils.read_neuron_synapse_state(
+        #     self._read_buffer, self._write_buffer, Nb, Nt, Nc)
+
+        # vmem_ts.append(this_state.V_mem_hid)
+        # isyn_ts.append(this_state.I_syn_hid)
+        # isyn2_ts.append(this_state.I_syn2_hid)
+        # vmem_out_ts.append(this_state.V_mem_out)
+        # isyn_out_ts.append(this_state.I_syn_out)
+        # spikes_ts.append(this_state.Spikes_hid)
+
+        # # # - Read the output event register
+        # # read_events = hdkutils.read_output_events(
+        # #     self._read_buffer, self._write_buffer
+        # # )[:Nout]
+        # # output_ts.append(read_events)
 
         rec_dict = {}
 
-        if record_power:
-            # - Get all recent power events from the power measurement
-            ps = self._power_buf.get_events()
+        # if record_power:
+        #     # - Get all recent power events from the power measurement
+        #     ps = self._power_buf.get_events()
 
-            # - Separate out power meaurement events by channel
-            channels = samna.xyloAudio3Boards.MeasurementChannels
-            io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
-            core_power = np.array(
-                [e.value for e in ps if e.channel == int(channels.Core)]
-            )
-            rec_dict.update(
-                {
-                    "io_power": io_power,
-                    "core_power": core_power,
-                }
-            )
+        #     # - Separate out power meaurement events by channel
+        #     channels = samna.xyloAudio3Boards.MeasurementChannels
+        #     io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
+        #     core_power = np.array(
+        #         [e.value for e in ps if e.channel == int(channels.Core)]
+        #     )
+        #     rec_dict.update(
+        #         {
+        #             "io_power": io_power,
+        #             "core_power": core_power,
+        #         }
+        #     )
 
         return read_events, {}, rec_dict
