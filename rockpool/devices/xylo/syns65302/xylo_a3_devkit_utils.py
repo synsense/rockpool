@@ -515,78 +515,70 @@ def read_output_events(
 
 
 def blocking_read(
-   read_buffer: XyloAudio3ReadBuffer,
-   target_timestep: Optional[int] = None,
-   count: Optional[int] = None,
-   timeout: Optional[float] = None,
+    read_buffer: XyloAudio3ReadBuffer,
+    target_timestep: Optional[int] = None,
+    count: Optional[int] = None,
+    timeout: Optional[float] = None,
 ) -> Tuple[List, bool]:
-   """
-   Perform a blocking read on a buffer, optionally waiting for a certain count, a target timestep, or imposing a timeout
+    """
+    Perform a blocking read on a buffer, optionally waiting for a certain count, a target timestep, or imposing a timeout
 
 
-   You should not provide `count` and `target_timestep` together.
+    You should not provide `count` and `target_timestep` together.
 
 
-   Args:
-       read_buffer (XyloAudio3ReadBuffer): A buffer to read from
-       target_timestep (Optional[int]): The desired final timestep. Read until this timestep is returned in an event. Default: ``None``, don't wait until a particular timestep is read.
-       count (Optional[int]): The count of required events. Default: ``None``, just wait for any data.
-       timeout (Optional[float]): The time in seconds to wait for a result. Default: ``None``, no timeout: block until a read is made.
+    Args:
+        read_buffer (XyloAudio3ReadBuffer): A buffer to read from
+        target_timestep (Optional[int]): The desired final timestep. Read until this timestep is returned in an event. Default: ``None``, don't wait until a particular timestep is read.
+        count (Optional[int]): The count of required events. Default: ``None``, just wait for any data.
+        timeout (Optional[float]): The time in seconds to wait for a result. Default: ``None``, no timeout: block until a read is made.
 
 
-   Returns:
-       (List, bool): `event_list`, `is_timeout`
-       `event_list` is a list of events read from the HDK. `is_timeout` is a boolean flag indicating that the read resulted in a timeout
-   """
-   all_events = []
+    Returns:
+        (List, bool): `event_list`, `is_timeout`
+        `event_list` is a list of events read from the HDK. `is_timeout` is a boolean flag indicating that the read resulted in a timeout
+    """
+    all_events = []
 
+    # - Read at least a certain number of events
+    continue_read = True
+    is_timeout = False
+    start_time = time.time()
+    while continue_read:
+        # - Perform a read and save events
+        events = read_buffer.get_events()
+        all_events.extend(events)
 
-   # - Read at least a certain number of events
-   continue_read = True
-   is_timeout = False
-   start_time = time.time()
-   while continue_read:
-       # - Perform a read and save events
-       events = read_buffer.get_events()
-       all_events.extend(events)
+        # - Check if we reached the desired timestep
+        if target_timestep:
+            timesteps = [
+                e.timestep
+                for e in events
+                if hasattr(e, "timestep") and e.timestep is not None
+            ]
 
+            if timesteps:
+                reached_timestep = timesteps[-1] >= target_timestep
+                continue_read &= ~reached_timestep
 
-       # - Check if we reached the desired timestep
-       if target_timestep:
-           timesteps = [
-               e.timestep
-               for e in events
-               if hasattr(e, "timestep") and e.timestep is not None
-           ]
+        # - Check timeout
+        if timeout:
+            is_timeout = (time.time() - start_time) > timeout
+            continue_read &= not is_timeout
 
+        # - Check number of events read
+        if count:
+            continue_read &= len(all_events) < count
 
-           if timesteps:
-               reached_timestep = timesteps[-1] >= target_timestep
-               continue_read &= ~reached_timestep
+        # - Continue reading if no events have been read
+        if not target_timestep and not count:
+            continue_read &= len(all_events) == 0
 
+    # - Perform one final read for good measure
+    all_events.extend(read_buffer.get_events())
 
-       # - Check timeout
-       if timeout:
-           is_timeout = (time.time() - start_time) > timeout
-           continue_read &= not is_timeout
-
-
-       # - Check number of events read
-       if count:
-           continue_read &= len(all_events) < count
-
-
-       # - Continue reading if no events have been read
-       if not target_timestep and not count:
-           continue_read &= len(all_events) == 0
-
-
-   # - Perform one final read for good measure
-   all_events.extend(read_buffer.get_events())
-
-
-   # - Return read events
-   return all_events, is_timeout
+    # - Return read events
+    return all_events, is_timeout
 
 
 def read_register(
@@ -700,9 +692,7 @@ def read_memory(
     write_buffer.write(read_events)
 
     # - Read data
-    events, is_timeout = blocking_read(
-        read_buffer, count=length, timeout=read_timeout
-    )
+    events, is_timeout = blocking_read(read_buffer, count=length, timeout=read_timeout)
     if is_timeout:
         raise TimeoutError(
             f"Memory read timed out after {read_timeout} s. Reading @{start_address}+{length}."
