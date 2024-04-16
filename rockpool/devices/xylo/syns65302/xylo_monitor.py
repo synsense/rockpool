@@ -101,8 +101,10 @@ class XyloMonitor(Module):
         hdkutils.initialise_xylo_hdk(device)
         hdkutils.enable_saer_input(device)
 
-        if config.operation_mode == "RealTime":
-            hdkutils.enable_real_time_mode(device)
+        if config.operation_mode != samna.xyloAudio3.OperationMode.RealTime:
+            raise ValueError("`operation_mode` must be RealTime for XyloMonitor.")
+
+        hdkutils.enable_real_time_mode(device)
 
         # - Build a filter graph to filter `Readout` events from Xylo
         self._spike_graph = samna.graph.EventFilterGraph()
@@ -156,8 +158,7 @@ class XyloMonitor(Module):
         """ float: Post-stimulation sleep time in seconds """
 
         # - Configure to real time mode
-        if config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
-            self._enable_realtime_mode()
+        self._enable_realtime_mode()
 
         # - Store the configuration (and apply it)
         hdkutils.apply_configuration(device, self._config)
@@ -251,40 +252,45 @@ class XyloMonitor(Module):
         input_data, _ = self._auto_batch(input_data)
         Nb, Nt, Nc = input_data.shape
 
-        print(f"\nNumber of output neurons: {Nc}")
+        # print(f"\nNumber of output neurons: {Nc}")
         print(f"\nNumber of steps: {Nt}")
 
-        # - Discard the batch dimension
-        input_data = input_data[0]
+        # # - Discard the batch dimension
+        # input_data = input_data[0]
 
-        # - Clear the power recording buffer, if recording power
-        if record_power:
-            self._power_buf.clear_events()
+        # # - Clear the power recording buffer, if recording power
+        # if record_power:
+        #     self._power_buf.clear_events()
 
         count = 0
-        # start processing -- this can only be done once, meaning evolve can only be called once.
+        # # start processing -- this can only be done once, meaning evolve can only be called once.
         self._write_buffer.write([samna.xyloAudio3.event.TriggerProcessing()])
+        start_time = time.time()
 
         read_events = []
+        is_timeout = False
 
         while count < int(Nt):
             readout_events = self._read_buffer.get_events()
+            print(readout_events)
 
             ev_filt = [
                 e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Spike)
             ]
 
             if readout_events:
-                count += len(readout_events) - len(ev_filt)
                 if self._output_mode == "Vmem":
                     read_events.append(readout_events)
+                    count += len(readout_events) - len(ev_filt)
                 elif self._output_mode == "Spike":
                     read_events.append(ev_filt)
+                    count += len(ev_filt)
 
-        # if is_timeout:
-        #     raise TimeoutError(
-        #         f"Reading events timeout after {read_timeout} seconds. Read {len(read_events)} events, expected {Nt}. Last event timestep: {read_events[-1].timestep if len(read_events) > 0 else 'None'}, waiting for timestep {end_timestep}."
-        # #     )
+            is_timeout = (time.time() - start_time) > read_timeout
+            if is_timeout:
+                raise TimeoutError(
+                    f"Reading events timeout after {read_timeout} seconds. Read {len(read_events)} events, expected {Nt}. Last event timestep: {read_events[-1].timestep if len(read_events) > 0 else 'None'}, waiting for timestep {end_timestep}."
+                )
 
         # vmem_ts = []
         # isyn_ts = []
