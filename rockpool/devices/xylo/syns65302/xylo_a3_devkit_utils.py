@@ -184,44 +184,6 @@ def update_register_field(
     write_register(write_buffer, addr, data)
 
 
-# To remove after test with PDM
-def xylo_config_clk(
-    read_buffer: XyloAudio3ReadBuffer,
-    write_buffer: XyloAudio3WriteBuffer,
-    clk_div: int = 1,
-    debug: bool = False,
-) -> None:
-    """
-    Configure the clock divider registers on the Xylo XA3 HDK
-
-    Args:
-        write_buffer (XyloAudio3WriteBuffer): A write buffer connected to a Xylo HDK
-    """
-    update_register_field(
-        read_buffer,
-        write_buffer,
-        reg.clk_div,
-        reg.clk_div__sdm__pos_lsb,
-        reg.clk_div__sdm__pos_msb,
-        max((clk_div >> 1) - 1, 0),
-    )
-    (
-        print("clk_div:  0x" + format(read_register(reg.clk_div), "_X"))
-        if debug >= 1
-        else None
-    )
-    update_register_field(
-        read_buffer,
-        write_buffer,
-        reg.clk_ctrl,
-        reg.clk_ctrl__sdm__pos,
-        reg.clk_ctrl__sdm__pos,
-        1,
-    )
-    if debug:
-        print("clk_ctrl: 0x" + format(read_register(reg.clk_ctrl), "_X"))
-
-
 def initialise_xylo_hdk(
     hdk: XyloAudio3HDK,
     sleep_time: float = 5e-3,
