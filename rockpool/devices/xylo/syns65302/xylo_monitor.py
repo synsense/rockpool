@@ -256,14 +256,15 @@ class XyloMonitor(Module):
         print(f"\nNumber of steps: {Nt}")
 
         # # - Discard the batch dimension
-        # input_data = input_data[0]
+        input_data = input_data[0]
 
         # # - Clear the power recording buffer, if recording power
-        # if record_power:
-        #     self._power_buf.clear_events()
+        if record_power:
+            self._power_buf.clear_events()
 
         count = 0
-        # # start processing -- this can only be done once, meaning evolve can only be called once.
+
+        # start processing -- this can only be done once (in RealTime mode, meaning evolve can only be called once for Real Time.
         self._write_buffer.write([samna.xyloAudio3.event.TriggerProcessing()])
         start_time = time.time()
 
@@ -286,7 +287,9 @@ class XyloMonitor(Module):
                     read_events.append(ev_filt)
                     count += len(ev_filt)
 
-            is_timeout = (time.time() - start_time) > read_timeout
+            if(read_timeout):
+                is_timeout = (time.time() - start_time) > read_timeout
+    
             if is_timeout:
                 raise TimeoutError(
                     f"Reading events timeout after {read_timeout} seconds. Read {len(read_events)} events, expected {Nt}. Last event timestep: {read_events[-1].timestep if len(read_events) > 0 else 'None'}, waiting for timestep {end_timestep}."
