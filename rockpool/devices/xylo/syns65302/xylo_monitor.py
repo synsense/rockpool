@@ -99,12 +99,16 @@ class XyloMonitor(Module):
 
         # - Initialise the HDK
         hdkutils.initialise_xylo_hdk(device)
-        hdkutils.enable_saer_input(device)
+        # hdkutils.enable_saer_input(device)
+
+        hdkutils.fpga_enable_pdm_interface(
+            device,
+            config.digital_frontend.pdm_preprocessing.clock_edge,
+            config.digital_frontend.pdm_preprocessing.clock_direction,
+        )
 
         if config.operation_mode != samna.xyloAudio3.OperationMode.RealTime:
             raise ValueError("`operation_mode` must be RealTime for XyloMonitor.")
-
-        hdkutils.enable_real_time_mode(device)
 
         # - Build a filter graph to filter `Readout` events from Xylo
         self._spike_graph = samna.graph.EventFilterGraph()
@@ -163,6 +167,8 @@ class XyloMonitor(Module):
         # - Store the configuration (and apply it)
         hdkutils.apply_configuration(device, self._config)
         time.sleep(self._sleep_time)
+
+        hdkutils.enable_real_time_mode(device)
 
         """ float: Xylo main clock frequency in MHz """
 
@@ -229,7 +235,6 @@ class XyloMonitor(Module):
 
     def evolve(
         self,
-        input_data: np.ndarray,
         record: bool = False,
         record_power: bool = False,
         read_timeout: Optional[float] = None,
@@ -238,7 +243,6 @@ class XyloMonitor(Module):
         Evolve a network on the Xylo HDK in Real-time mode.
 
         Args:
-            input_data (np.ndarray): An array ``[T, 3]``, specifying the number of time-steps to record. If using external imu data input, the `input_data` is the external imu data. The first dimension is timesteps, and the last dimension is 3 channels of accelerations along x, y, z axes.
             record (bool): ``False``, do not return a recording dictionary. Recording internal state is not supported by :py:class:`.XyloIMUMonitor`
             record_power (bool): If ``True``, record the power consumption during each evolve.
             read_timeout (float): A duration in seconds for a read timeout. Default: 2x the real-time duration of the evolution
@@ -248,94 +252,15 @@ class XyloMonitor(Module):
             output_events is an array that stores the output events of T time-steps
         """
 
-        # - Get data shape
-        input_data, _ = self._auto_batch(input_data)
-        Nb, Nt, Nc = input_data.shape
-
-        # print(f"\nNumber of output neurons: {Nc}")
-        print(f"\nNumber of steps: {Nt}")
-
-        # # - Discard the batch dimension
-        input_data = input_data[0]
-
-        # # - Clear the power recording buffer, if recording power
-        if record_power:
-            self._power_buf.clear_events()
-
-        count = 0
-
-        # start processing -- this can only be done once (in RealTime mode, meaning evolve can only be called once for Real Time.
-        self._write_buffer.write([samna.xyloAudio3.event.TriggerProcessing()])
-        start_time = time.time()
-
-        read_events = []
-        is_timeout = False
-
-        while count < int(Nt):
-            readout_events = self._read_buffer.get_events()
+        target_timestep = 1000
+        self._write_buffer.write(
+            [samna.xyloAudio3.event.TriggerProcessing(target_timestep)]
+        )
+        timestep = 0
+        while timestep < target_timestep - 1:
+            readout_events = self._read_buffer.get_events_blocking()
             print(readout_events)
 
-            ev_filt = [
-                e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Spike)
-            ]
-
-            if readout_events:
-                if self._output_mode == "Vmem":
-                    read_events.append(readout_events)
-                    count += len(readout_events) - len(ev_filt)
-                elif self._output_mode == "Spike":
-                    read_events.append(ev_filt)
-                    count += len(ev_filt)
-
-            if(read_timeout):
-                is_timeout = (time.time() - start_time) > read_timeout
-    
-            if is_timeout:
-                raise TimeoutError(
-                    f"Reading events timeout after {read_timeout} seconds. Read {len(read_events)} events, expected {Nt}. Last event timestep: {read_events[-1].timestep if len(read_events) > 0 else 'None'}, waiting for timestep {end_timestep}."
-                )
-
-        # vmem_ts = []
-        # isyn_ts = []
-        # isyn2_ts = []
-        # vmem_out_ts = []
-        # isyn_out_ts = []
-        # spikes_ts = []
-        # output_ts = []
-
-        # this_state = hdkutils.read_neuron_synapse_state(
-        #     self._read_buffer, self._write_buffer, Nb, Nt, Nc)
-
-        # vmem_ts.append(this_state.V_mem_hid)
-        # isyn_ts.append(this_state.I_syn_hid)
-        # isyn2_ts.append(this_state.I_syn2_hid)
-        # vmem_out_ts.append(this_state.V_mem_out)
-        # isyn_out_ts.append(this_state.I_syn_out)
-        # spikes_ts.append(this_state.Spikes_hid)
-
-        # # # - Read the output event register
-        # # read_events = hdkutils.read_output_events(
-        # #     self._read_buffer, self._write_buffer
-        # # )[:Nout]
-        # # output_ts.append(read_events)
-
-        rec_dict = {}
-
-        # if record_power:
-        #     # - Get all recent power events from the power measurement
-        #     ps = self._power_buf.get_events()
-
-        #     # - Separate out power meaurement events by channel
-        #     channels = samna.xyloAudio3Boards.MeasurementChannels
-        #     io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
-        #     core_power = np.array(
-        #         [e.value for e in ps if e.channel == int(channels.Core)]
-        #     )
-        #     rec_dict.update(
-        #         {
-        #             "io_power": io_power,
-        #             "core_power": core_power,
-        #         }
-        #     )
+            timestep = readout_events[-1].timestep
 
         return read_events, {}, rec_dict
