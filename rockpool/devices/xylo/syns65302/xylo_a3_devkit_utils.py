@@ -152,6 +152,7 @@ def new_xylo_state_monitor_buffer(
     # - Return the buffer
     return state_buf, graph
 
+
 def update_register_field(
     read_buffer: XyloAudio3ReadBuffer,
     write_buffer: XyloAudio3WriteBuffer,
