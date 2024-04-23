@@ -416,9 +416,6 @@ class XyloSamna(Module):
         hdkutils.apply_configuration(self._device, new_config)
         time.sleep(self._sleep_time)
 
-        # - WORK-AROUND to fix clock divider being reset when applying config
-        hdkutils.write_register(self._write_buffer, hdkutils.reg.clk_div, 0)
-
         self._config = new_config
 
     def evolve(
