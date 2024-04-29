@@ -49,6 +49,7 @@ class StepPWL(torch.autograd.Function):
 
         return grad_x, grad_threshold, grad_window, grad_max_spikes_per_dt
 
+
 def tau_to_decay(dt, tau):
     return torch.exp(-dt / tau).to(tau.device)
 
@@ -75,9 +76,9 @@ class LIFNeuronTorch(TorchModule):
 
         V_{mem, j} > V_{thr} \\rightarrow S_{rec,j} = 1
 
-        V_{mem, j} = V_{mem, j} - 1
+        V_{mem, j} = V_{mem, j} - \\theta
 
-    Neurons therefore share a common resting potential of ``0.``, a firing threshold of ``0.``, and a subtractive reset of ``-1``. Neurons each have an optional bias current `.bias` (default: ``0.``).
+    Neurons therefore share a common resting potential of ``0.``, individual firing thresholds :math:`\\theta`, and a subtractive reset of :math:`-\\theta`. Neurons each have an optional bias current `.bias` (default: ``0.``).
     """
 
     def __init__(
@@ -127,7 +128,6 @@ class LIFNeuronTorch(TorchModule):
 
         # - Reset and thresholds
 
-        
         self._v_thresh: float = 0.0
         self._v_reset: float = -1.0
 
@@ -228,9 +228,7 @@ class LIFNeuronTorch(TorchModule):
         input_data, (vmem,) = self._auto_batch(
             input_data,
             (self.vmem,),
-            (
-                (self.size_out,),
-            ),
+            ((self.size_out,),),
         )
 
         n_batches, n_timesteps, _ = input_data.shape
