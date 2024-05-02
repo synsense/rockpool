@@ -206,9 +206,6 @@ def config_from_specification(
     # - Build the configuration
     config = samna.xyloAudio3.configuration.XyloConfiguration()
 
-    # - General config
-    # config.debug.always_update_omp_stat = True
-
     if bias_hidden is not None or bias_out is not None:
         config.bias_enable = True
 
@@ -378,7 +375,13 @@ class XyloSamna(Module):
 
         # - Store the configuration (and apply it)
         time.sleep(self._sleep_time)
-        config = hdkutils.configure_single_step_time_mode(config)
+
+        # - For XyloSamna, operation mode can be either manual or accelerated time
+        if config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
+            raise ValueError(
+                "`operation_mode` can't be RealTime for XyloSamna. Options are Manual or AcceleratedTime."
+            )
+
         self.config: Union[
             XyloConfiguration, SimulationParameter
         ] = SimulationParameter(shape=(), init_func=lambda _: config)
@@ -449,9 +452,11 @@ class XyloSamna(Module):
         # - Get some information about the network size
         Nin, Nhidden, Nout = self.shape
 
-        # - Select single-step simulation mode
-        # - Applies the configuration via `self.config`
-        self.config = hdkutils.configure_single_step_time_mode(self.config)
+        # - Check again operation mode (it could have changed between initializing the class and calling evolve)
+        if self._config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
+            raise ValueError(
+                "`operation_mode` can't be RealTime for XyloSamna. Options are Manual or AcceleratedTime."
+            )
 
         # - Enable SAER interface
         hdkutils.enable_saer_input(self._device)
@@ -464,12 +469,6 @@ class XyloSamna(Module):
         while not hdkutils.is_xylo_ready(self._read_buffer, self._write_buffer):
             if time.time() - t_start > read_timeout:
                 raise TimeoutError("Timed out waiting for Xylo to be ready.")
-
-        # # - Get current timestamp
-        # start_timestep = hdkutils.get_current_timestamp(
-        #     self._read_buffer, self._write_buffer
-        # )
-        # final_timestep = start_timestep + len(input) - 1
 
         # - Reset input spike registers
         hdkutils.reset_input_spikes(self._write_buffer)
