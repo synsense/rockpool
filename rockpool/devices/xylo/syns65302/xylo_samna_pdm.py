@@ -121,7 +121,6 @@ class XyloSamnaPDM(Module):
         snn_config.digital_frontend.mode = samna.xyloAudio3.DigitalFrontendMode.Pdm
         snn_config.digital_frontend.filter_bank.dn_enable = dn_active
         snn_config.digital_frontend.hibernation_mode_enable = 0
-        snn_config.digital_frontend.select_microphone_if = 1
         snn_config.digital_frontend.filter_bank.use_global_iaf_threshold = 1
         snn_config.digital_frontend.pdm_preprocessing.clock_direction = 0
         snn_config.digital_frontend.pdm_preprocessing.clock_edge = 0
@@ -131,7 +130,13 @@ class XyloSamnaPDM(Module):
 
         # - Store the SNN core configuration (and apply it)
         time.sleep(self._sleep_time)
-        snn_config = hdkutils.configure_single_step_time_mode(snn_config)
+
+        # - For XyloSamnaPDM, operation mode can be either manual or accelerated time
+        if snn_config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
+            raise ValueError(
+                "`operation_mode` can't be RealTime for XyloSamnaPDM. Options are Manual or AcceleratedTime."
+            )
+
         self.config: Union[
             XyloConfiguration, SimulationParameter
         ] = SimulationParameter(shape=(), init_func=lambda _: snn_config)
@@ -142,23 +147,6 @@ class XyloSamnaPDM(Module):
         snn_config.digital_frontend.pdm_preprocessing.clock_edge = 1
 
         self.snn_config = snn_config
-        warn("Configured standard BPF and PDM")
-
-        print("read register dfe_ctrl")
-        self._write_buffer.write(
-            [samna.xyloAudio3.event.ReadRegisterValue(address=0x001B)]
-        )
-        events = self._read_buffer.get_n_events(1, 3000)
-        assert len(events) == 1
-        print(events[0].data)
-
-        print("read register pad_ctrl")
-        self._write_buffer.write(
-            [samna.xyloAudio3.event.ReadRegisterValue(address=0x000C)]
-        )
-        events = self._read_buffer.get_n_events(1, 3000)
-        assert len(events) == 1
-        print(events[0].data)
 
         # - Enable RAM access
         hdkutils.enable_ram_access(self._device, True)
@@ -199,7 +187,8 @@ class XyloSamnaPDM(Module):
         **kwargs,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
-        Evolve a network on the Xylo Audio 3 HDK in single-step manual mode. For debug purposes only. Uses 'samna.xylo.OperationMode.Manual' in samna.
+        Evolve a network on the Xylo Audio 3 HDK in either single-step manual mode or accelerated time mode.
+        For debug purposes only. Uses 'samna.xylo.OperationMode.Manual' or 'samna.xylo.OperationMode.AcceleratedTime' in samna.
 
         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
 
@@ -221,9 +210,11 @@ class XyloSamnaPDM(Module):
         # - Get some information about the network size
         Nin, Nhidden, Nout = self.shape
 
-        # - Select single-step simulation mode
-        # - Applies the configuration via `self.config`
-        # self.config = hdkutils.configure_single_step_time_mode(self.config)
+        # - Check again if operation mode is either manual or accelerated time
+        if self.snn_config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
+            raise ValueError(
+                "`operation_mode` can't be RealTime for XyloSamnaPDM. Options are Manual or AcceleratedTime."
+            )
 
         # - Calculate sample rates and `dt`-length window
         PDM_sample_rate = 1562500
@@ -258,7 +249,6 @@ class XyloSamnaPDM(Module):
         self.snn_config.digital_frontend.mode = samna.xyloAudio3.DigitalFrontendMode.Pdm
         self.snn_config.digital_frontend.filter_bank.dn_enable = 1
         self.snn_config.digital_frontend.hibernation_mode_enable = 0
-        self.snn_config.digital_frontend.select_microphone_if = 1
         self.snn_config.digital_frontend.filter_bank.use_global_iaf_threshold = 1
         self.snn_config.digital_frontend.pdm_preprocessing.clock_direction = 0
         self.snn_config.digital_frontend.pdm_preprocessing.clock_edge = 0
@@ -278,6 +268,7 @@ class XyloSamnaPDM(Module):
         spikes_ts = []
         output_ts = []
 
+        triggered = False
         # - Send PDM data and extract activity
         for input_sample in tqdm(input_raster):
             # - Send PDM events for this dt
@@ -295,19 +286,30 @@ class XyloSamnaPDM(Module):
                     ]
                 )
 
-            # - Trigger processing
-            hdkutils.advance_time_step(self._write_buffer)
+            # - Trigger processing: if manual mode needs to advance time step manually
+            if self.snn_config.operation_mode == samna.xyloAudio3.OperationMode.Manual:
+                hdkutils.advance_time_step(self._write_buffer)
+                # - Wait until xylo has finished the simulation of this time step
+                t_start = time.time()
+                is_timeout = False
+                while not hdkutils.is_xylo_ready(self._read_buffer, self._write_buffer):
+                    if time.time() - t_start > read_timeout:
+                        is_timeout = True
+                        break
 
-            # - Wait until xylo has finished the simulation of this time step
-            t_start = time.time()
-            is_timeout = False
-            while not hdkutils.is_xylo_ready(self._read_buffer, self._write_buffer):
-                if time.time() - t_start > read_timeout:
-                    is_timeout = True
-                    break
+                if is_timeout:
+                    raise TimeoutError
 
-            if is_timeout:
-                raise TimeoutError
+            else:
+                # TODO: this is still a work in progress
+                # - Trigger processing: in accelerated time, time steps are advanced automatically after first trigger processing
+                if not triggered:
+                    # hdkutils.advance_time_step(self._write_buffer)
+                    # print("sending a trigger processing")
+                    self._write_buffer.write(
+                        [samna.xyloAudio3.event.TriggerProcessing()]
+                    )
+                    triggered = True
 
             # - Read all synapse and neuron states for this time step
             if record:
