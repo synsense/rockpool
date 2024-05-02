@@ -99,7 +99,6 @@ class XyloMonitor(Module):
 
         # - Initialise the HDK
         hdkutils.initialise_xylo_hdk(device)
-        # hdkutils.enable_saer_input(device)
 
         hdkutils.fpga_enable_pdm_interface(
             device,
@@ -237,7 +236,7 @@ class XyloMonitor(Module):
         self,
         record: bool = False,
         record_power: bool = False,
-        read_timeout: Optional[float] = None,
+        read_timeout: Optional[float] = 1,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
         Evolve a network on the Xylo HDK in Real-time mode.
@@ -252,15 +251,44 @@ class XyloMonitor(Module):
             output_events is an array that stores the output events of T time-steps
         """
 
-        target_timestep = 1000
+        target_timestep = int(read_timeout * (1 / self.dt))
+
         self._write_buffer.write(
             [samna.xyloAudio3.event.TriggerProcessing(target_timestep)]
         )
+
         timestep = 0
+        output_events = []
+        spikes_ts = []
+        vmem_out_ts = []
+
         while timestep < target_timestep - 1:
             readout_events = self._read_buffer.get_events_blocking()
-            print(readout_events)
+
+            ev_filt = [
+                e
+                for e in readout_events
+                if isinstance(e, samna.xyloAudio3.event.Readout)
+            ]
+
+            if ev_filt:
+                for ev in ev_filt:
+                    if self._output_mode == "Vmem":
+                        output_events.append(ev.output_v_mems)
+                    elif self._output_mode == "Spike":
+                        output_events.append(ev.output_spikes)
+
+                if record:
+                    vmem_out_ts.append(ev.output_v_mems)
+                    spikes_ts.append(ev.output_spikes)
+
+                    rec_dict = {
+                        "Spikes": np.array(spikes_ts),
+                        "Vmem_out": np.array(vmem_out_ts),
+                    }
+                else:
+                    rec_dict = {}
 
             timestep = readout_events[-1].timestep
 
-        return read_events, {}, rec_dict
+        return output_events, {}, rec_dict
