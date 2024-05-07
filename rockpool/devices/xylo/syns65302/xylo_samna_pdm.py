@@ -111,9 +111,6 @@ class XyloSamnaPDM(Module):
         # - Initialise the HDK
         hdkutils.initialise_xylo_hdk(self._device)
 
-        # - Enable PDM input IF and PDM clock
-        hdkutils.fpga_enable_pdm_interface(self._device)
-
         snn_config.debug.enable_i2c = 1
         snn_config.debug.enable_sdm = 1
         snn_config.debug.sdm_module_clock = 48
@@ -126,6 +123,16 @@ class XyloSamnaPDM(Module):
         snn_config.digital_frontend.pdm_preprocessing.clock_edge = 0
         snn_config.digital_frontend.bfi_enable = 1
 
+        if snn_config.operation_mode == samna.xyloAudio3.OperationMode.AcceleratedTime:
+            snn_config.debug.always_update_omp_stat = True
+            snn_config.debug.clock_enable = True
+
+        # - Enable PDM input IF and PDM clock
+        hdkutils.fpga_enable_pdm_interface(
+            self._device,
+            snn_config.digital_frontend.pdm_preprocessing.clock_edge,
+            snn_config.digital_frontend.pdm_preprocessing.clock_direction,
+        )
         hdkutils.fpga_pdm_clk_enable(self._device)
 
         # - Store the SNN core configuration (and apply it)
@@ -141,10 +148,6 @@ class XyloSamnaPDM(Module):
             XyloConfiguration, SimulationParameter
         ] = SimulationParameter(shape=(), init_func=lambda _: snn_config)
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
-
-        # - Apply standard PDM and DFE configuration
-        snn_config.digital_frontend.pdm_preprocessing.clock_direction = 1
-        snn_config.digital_frontend.pdm_preprocessing.clock_edge = 1
 
         self.snn_config = snn_config
 
@@ -175,7 +178,6 @@ class XyloSamnaPDM(Module):
         hdkutils.apply_configuration(self._device, new_config)
         time.sleep(self._sleep_time)
 
-        print("configurarion updated")
         self._config = new_config
 
     def evolve(
@@ -244,19 +246,7 @@ class XyloSamnaPDM(Module):
         if record:
             # - Switch on reporting of input spike register pointer value
             self.snn_config.debug.debug_status_update_enable = 1
-
-        # - Enable PDM interface on Xylo and turn on FPGA PDM clock generation
-        self.snn_config.digital_frontend.mode = samna.xyloAudio3.DigitalFrontendMode.Pdm
-        self.snn_config.digital_frontend.filter_bank.dn_enable = 1
-        self.snn_config.digital_frontend.hibernation_mode_enable = 0
-        self.snn_config.digital_frontend.filter_bank.use_global_iaf_threshold = 1
-        self.snn_config.digital_frontend.pdm_preprocessing.clock_direction = 0
-        self.snn_config.digital_frontend.pdm_preprocessing.clock_edge = 0
-        self.snn_config.digital_frontend.bfi_enable = 1
-
-        hdkutils.apply_configuration(self._device, self.snn_config)
-
-        hdkutils.fpga_pdm_clk_enable(self._device)
+            hdkutils.apply_configuration(self._device, self.snn_config)
 
         # - Initialise lists for recording state
         input_spikes = []
@@ -272,6 +262,7 @@ class XyloSamnaPDM(Module):
         # - Send PDM data and extract activity
         for input_sample in tqdm(input_raster):
             # - Send PDM events for this dt
+
             pdm_events = [
                 samna.xyloAudio3.event.AFESample(data=int(i)) for i in input_sample
             ]
@@ -286,7 +277,7 @@ class XyloSamnaPDM(Module):
                     ]
                 )
 
-            # - Trigger processing: if manual mode needs to advance time step manually
+            # - Trigger processing: if manual mode, advance time step manually
             if self.snn_config.operation_mode == samna.xyloAudio3.OperationMode.Manual:
                 hdkutils.advance_time_step(self._write_buffer)
                 # - Wait until xylo has finished the simulation of this time step
@@ -301,15 +292,10 @@ class XyloSamnaPDM(Module):
                     raise TimeoutError
 
             else:
-                # TODO: this is still a work in progress
-                # - Trigger processing: in accelerated time, time steps are advanced automatically after first trigger processing
-                if not triggered:
-                    # hdkutils.advance_time_step(self._write_buffer)
-                    # print("sending a trigger processing")
-                    self._write_buffer.write(
-                        [samna.xyloAudio3.event.TriggerProcessing()]
-                    )
-                    triggered = True
+                # - Trigger processing: in accelerated time, time steps are advanced automatically
+                # given the time step on the spike. AFESamples do not have timestep so sending
+                # trigger processing to do so.
+                self._write_buffer.write([samna.xyloAudio3.event.TriggerProcessing()])
 
             # - Read all synapse and neuron states for this time step
             if record:
