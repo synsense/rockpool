@@ -57,6 +57,7 @@ class XyloMonitor(Module):
         hibernation_mode: bool = False,
         # interface_params: dict = dict(),
         power_frequency: float = 5.0,
+        dn_active: bool = False,
         *args,
         **kwargs,
     ):
@@ -108,6 +109,8 @@ class XyloMonitor(Module):
 
         if config.operation_mode != samna.xyloAudio3.OperationMode.RealTime:
             raise ValueError("`operation_mode` must be RealTime for XyloMonitor.")
+
+        config.digital_frontend.filter_bank.dn_enable = dn_active
 
         # - Build a filter graph to filter `Readout` events from Xylo
         self._spike_graph = samna.graph.EventFilterGraph()
@@ -173,6 +176,9 @@ class XyloMonitor(Module):
 
         self.power_monitor = None
         """Power monitor for Xylo"""
+
+        self._evolve = False
+        """ Track if evolve function was called """
 
         # - Set power measurement module
         # self._power_buf, self.power_monitor = hdkutils.set_power_measure(
@@ -253,9 +259,14 @@ class XyloMonitor(Module):
 
         target_timestep = int(read_timeout * (1 / self.dt))
 
-        self._write_buffer.write(
-            [samna.xyloAudio3.event.TriggerProcessing(target_timestep)]
-        )
+        # Trigger processing can only be sent once in RealTime mode.
+        if (not self._evolve):
+            # send a trigger processing
+            self._write_buffer.write(
+                [samna.xyloAudio3.event.TriggerProcessing(target_timestep)]
+            )
+            self._evolve = True
+
 
         timestep = 0
         output_events = []
