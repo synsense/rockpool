@@ -57,7 +57,7 @@ class XyloMonitor(Module):
         hibernation_mode: bool = False,
         # interface_params: dict = dict(),
         power_frequency: float = 5.0,
-        dn_active: bool = False,
+        dn_active: bool = True,
         *args,
         **kwargs,
     ):
@@ -111,6 +111,20 @@ class XyloMonitor(Module):
             raise ValueError("`operation_mode` must be RealTime for XyloMonitor.")
 
         config.digital_frontend.filter_bank.dn_enable = dn_active
+
+        # - Configuration for real time in xyloA3
+        config.time_resolution_wrap = self.get_tr_wrap(
+            ts_in_ms=self.dt * 1000, main_clk_freq_in_mhz=50
+        )
+        config.debug.clock_enable = True
+        config.debug.always_update_omp_stat = True
+        config.digital_frontend.mode = samna.xyloAudio3.DigitalFrontendMode.Pdm
+        config.digital_frontend.filter_bank.use_global_iaf_threshold = True
+        config.digital_frontend.pdm_preprocessing.clock_direction = 1
+        config.digital_frontend.pdm_preprocessing.clock_edge = 0
+        config.digital_frontend.bfi_enable = True
+        config.debug.enable_sdm = True
+        config.debug.sdm_module_clock = 24
 
         # - Build a filter graph to filter `Readout` events from Xylo
         self._spike_graph = samna.graph.EventFilterGraph()
@@ -203,6 +217,13 @@ class XyloMonitor(Module):
         # - Store the configuration locally
         self._config = new_config
 
+    def get_tr_wrap(self, ts_in_ms, main_clk_freq_in_mhz):
+        ts_duration = ts_in_ms * 1e-3
+        # in second
+        main_clk_freq = main_clk_freq_in_mhz * 1e6  # in Hz
+        tr_wrap = int(ts_duration * main_clk_freq)
+        return tr_wrap
+
     def _enable_realtime_mode(self):
         """
         Configure the Xylo HDK to use real-time mode.
@@ -260,13 +281,12 @@ class XyloMonitor(Module):
         target_timestep = int(read_timeout * (1 / self.dt))
 
         # Trigger processing can only be sent once in RealTime mode.
-        if (not self._evolve):
+        if not self._evolve:
             # send a trigger processing
             self._write_buffer.write(
                 [samna.xyloAudio3.event.TriggerProcessing(target_timestep)]
             )
-            self._evolve = True
-
+            # self._evolve = True
 
         timestep = 0
         output_events = []
