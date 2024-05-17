@@ -27,6 +27,8 @@ from rockpool.typehints import FloatVector, P_ndarray, JaxRNGKey, P_float, P_int
 
 __all__ = ["LIFJax"]
 
+GRADIENT_LIMIT = 100.0
+
 
 # - Surrogate functions to use in learning
 def sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
@@ -71,6 +73,27 @@ def step_pwl_jvp(primals, tangents):
         x_dot / threshold - threshold_dot * x / (threshold**2)
     )
     return primal_out, tangent_out
+
+
+@jax.custom_vjp
+def clip_gradient(lo, hi, x):
+    return x  # identity function
+
+
+def clip_gradient_fwd(lo, hi, x):
+    return x, (lo, hi)  # save bounds as residuals
+
+
+def clip_gradient_bwd(res, g):
+    lo, hi = res
+    return (
+        None,
+        None,
+        np.clip(g, lo, hi),
+    )  # use None to indicate zero cotangents for lo and hi
+
+
+clip_gradient.defvjp(clip_gradient_fwd, clip_gradient_bwd)
 
 
 class LIFJax(JaxModule):
@@ -187,7 +210,9 @@ class LIFJax(JaxModule):
             )
             """ (Tensor) Recurrent weights `(Nout, Nin)` """
         else:
-            self.w_rec = np.zeros((self.size_out, self.size_in))
+            self.w_rec: P_ndarray = SimulationParameter(
+                np.zeros((self.size_out, self.size_in))
+            )
 
         # - Set parameters
         self.tau_mem: P_ndarray = Parameter(
@@ -356,6 +381,12 @@ class LIFJax(JaxModule):
             # - Apply subtractive membrane reset
             vmem = vmem - spikes * self.threshold
 
+            # - Ensure gradients are reasonable
+            vmem = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, vmem)
+            spikes = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, spikes)
+            irec = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, irec)
+            isyn = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, isyn)
+
             # - Return state and outputs
             return (spikes, isyn, vmem), (irec, spikes, vmem, isyn)
 
@@ -384,6 +415,12 @@ class LIFJax(JaxModule):
             "isyn": isyn_ts,
             "vmem": vmem_ts,
         }
+
+        # - Clip parameter gradients
+        self.tau_mem = clip_gradient(-1.0, 1.0, self.tau_mem)
+        self.tau_syn = clip_gradient(-1.0, 1.0, self.tau_syn)
+        self.bias = clip_gradient(-1.0, 1.0, self.bias)
+        self.threshold = clip_gradient(-1.0, 1.0, self.threshold)
 
         # - Return outputs
         return outputs, states, record_dict
