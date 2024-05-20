@@ -22,6 +22,7 @@ def test_lif_jax():
     config.update("jax_enable_x64", True)
     config.update("jax_log_compiles", True)
     config.update("jax_debug_nans", True)
+    config.update("jax_check_tracer_leaks", True)
 
     Nin = 4
     Nout = 2
@@ -56,13 +57,14 @@ def test_lif_jax():
         out, _, _ = mod(input)
         return np.sum(out**2)
 
-    print("evolving with jit")
-    je = jit(lyr)
-    _, new_state, _ = je(np.random.rand(T, Nin))
-    lyr = lyr.set_attributes(new_state)
+    @jit
+    def evolve(state, mod, input):
+        mod = mod.set_attributes(state)
+        return mod(input)
 
-    _, new_state, _ = je(np.random.rand(T, Nin))
-    lyr = lyr.set_attributes(new_state)
+    print("evolving with jit")
+    _, new_state, _ = evolve(lyr.state(), lyr, np.random.rand(T, Nin))
+    _, new_state, _ = evolve(new_state, lyr, np.random.rand(T, Nin))
 
     lyr = LIFJax((Nin, Nout))
     gf = jit(jax.grad(grad_check))
@@ -89,9 +91,8 @@ def test_lif_jax():
     lyr = lyr.set_attributes(ns)
 
     print("evolving recurrent with jit")
-    je = jit(lyr)
-    o, n_s, r_d = je(np.random.rand(T, Nin))
-    lyr = lyr.set_attributes(n_s)
+    o, n_s, r_d = evolve(lyr.state(), lyr, np.random.rand(T, Nin))
+    o, n_s, r_d = evolve(n_s, lyr, np.random.rand(T, Nin))
 
     lyr = LIFJax((Nin, Nout), has_rec=True)
     gf = jit(jax.grad(grad_check))
@@ -131,6 +132,7 @@ def test_ffwd_net():
     config.update("jax_enable_x64", True)
     config.update("jax_log_compiles", True)
     config.update("jax_debug_nans", True)
+    config.update("jax_check_tracer_leaks", True)
 
     class my_ffwd_net(JaxModule):
         def __init__(self, shape, *args, **kwargs):
@@ -216,6 +218,7 @@ def test_sgd():
     config.update("jax_enable_x64", True)
     config.update("jax_log_compiles", True)
     config.update("jax_debug_nans", True)
+    config.update("jax_check_tracer_leaks", True)
 
     print("Instantiating sequential net")
     net = Sequential(LinearJax((2, 3)), LIFJax(3), LinearJax((3, 1)), LIFJax(1))
@@ -277,6 +280,10 @@ def test_lif_jax_batches():
     from jax import jit
     import numpy as np
 
+    import jax
+
+    jax.config.update("jax_check_tracer_leaks", True)
+
     batches = 5
     N = 10
     T = 20
@@ -330,6 +337,9 @@ def test_linear_lif():
     import pytest
 
     pytest.importorskip("jax")
+    import jax
+
+    jax.config.update("jax_check_tracer_leaks", True)
 
     from rockpool.nn.combinators import Sequential
     from rockpool.nn.modules import LIFJax, LinearJax
