@@ -27,7 +27,7 @@ from rockpool.typehints import FloatVector, P_ndarray, JaxRNGKey, P_float, P_int
 
 __all__ = ["LIFJax"]
 
-GRADIENT_LIMIT = 100.0
+GRADIENT_LIMIT = np.inf
 
 
 # - Surrogate functions to use in learning
@@ -200,6 +200,7 @@ class LIFJax(JaxModule):
             )
 
         # - Should we be recurrent or FFwd?
+        self._has_rec: bool = SimulationParameter(has_rec)
         if isinstance(has_rec, jax.core.Tracer) or has_rec:
             self.w_rec: P_ndarray = Parameter(
                 w_rec,
@@ -382,10 +383,10 @@ class LIFJax(JaxModule):
             vmem = vmem - spikes * self.threshold
 
             # - Ensure gradients are reasonable
-            vmem = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, vmem)
-            spikes = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, spikes)
-            irec = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, irec)
-            isyn = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, isyn)
+            # vmem = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, vmem)
+            # spikes = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, spikes)
+            # irec = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, irec)
+            # isyn = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, isyn)
 
             # - Return state and outputs
             return (spikes, isyn, vmem), (irec, spikes, vmem, isyn)
@@ -417,10 +418,10 @@ class LIFJax(JaxModule):
         }
 
         # - Clip parameter gradients
-        self.tau_mem = clip_gradient(-1.0, 1.0, self.tau_mem)
-        self.tau_syn = clip_gradient(-1.0, 1.0, self.tau_syn)
-        self.bias = clip_gradient(-1.0, 1.0, self.bias)
-        self.threshold = clip_gradient(-1.0, 1.0, self.threshold)
+        # self.tau_mem = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, self.tau_mem)
+        # self.tau_syn = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, self.tau_syn)
+        # self.bias = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, self.bias)
+        # self.threshold = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, self.threshold)
 
         # - Return outputs
         return outputs, states, record_dict
@@ -440,7 +441,7 @@ class LIFJax(JaxModule):
         )
 
         # - Include recurrent weights if present
-        if len(self.attributes_named("w_rec")) > 0:
+        if self._has_rec:
             # - Weights are connected over the existing input and output nodes
             w_rec_graph = LinearWeights(
                 neurons.output_nodes,
