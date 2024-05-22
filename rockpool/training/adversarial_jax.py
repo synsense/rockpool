@@ -86,8 +86,8 @@ def _eval_target_loss(
         "mismatch_loss",
         "attack_steps",
         "mismatch_level",
-        "initial_std"
-    ]
+        "initial_std",
+    ],
 )
 def pga_attack(
     params_flattened: List,
@@ -165,8 +165,8 @@ def pga_attack(
         "initial_std",
         "mismatch_level",
         "beta_robustness",
-        "attack_steps"
-    ]
+        "attack_steps",
+    ],
 )
 def adversarial_loss(
     parameters: Tree,
