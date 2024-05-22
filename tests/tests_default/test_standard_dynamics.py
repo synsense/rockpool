@@ -10,7 +10,7 @@ def compare_value_tree(results, Classes, atol: float = 1e-4):
     from jax.tree_util import tree_map
 
     # - Set 64-bit mode
-    from jax.config import config
+    from jax import config
 
     config.update("jax_enable_x64", True)
 
@@ -76,7 +76,7 @@ def get_jax_gradients(module, data):
     from jax.test_util import check_grads
 
     # - Set 64-bit mode
-    from jax.config import config
+    from jax import config
 
     config.update("jax_enable_x64", True)
 
@@ -106,7 +106,7 @@ def test_lif_defaults():
     from rockpool.nn.modules import LIF, LIFJax, LIFTorch
 
     # - Set 64-bit mode
-    from jax.config import config
+    from jax import config
 
     config.update("jax_enable_x64", True)
 
@@ -142,7 +142,7 @@ def test_lif_dynamics():
     import torch
 
     # - Set 64-bit mode
-    from jax.config import config
+    from jax import config
 
     config.update("jax_enable_x64", True)
 
@@ -221,7 +221,7 @@ def test_linear_dynamics():
     import torch
 
     # - Set 64-bit mode
-    from jax.config import config
+    from jax import config
 
     config.update("jax_enable_x64", True)
 
@@ -267,7 +267,7 @@ def test_linear_gradients():
     import numpy as np
 
     # - Set 64-bit mode
-    from jax.config import config
+    from jax import config
 
     config.update("jax_enable_x64", True)
 
@@ -300,7 +300,7 @@ def test_rate_defaults():
     from rockpool.nn.modules import Rate, RateJax, RateTorch
 
     # - Set 64-bit mode
-    from jax.config import config
+    from jax import config
 
     config.update("jax_enable_x64", True)
 
@@ -333,7 +333,7 @@ def test_rate_dynamics():
     import torch
 
     # - Set 64-bit mode
-    from jax.config import config
+    from jax import config
 
     config.update("jax_enable_x64", True)
 
@@ -383,7 +383,7 @@ def test_expsyn_defaults():
     from rockpool.nn.modules import ExpSyn, ExpSynJax, ExpSynTorch
 
     # - Set 64-bit mode
-    from jax.config import config
+    from jax import config
 
     config.update("jax_enable_x64", True)
 
@@ -416,7 +416,7 @@ def test_expsyn_dynamics():
     import torch
 
     # - Set 64-bit mode
-    from jax.config import config
+    from jax import config
 
     config.update("jax_enable_x64", True)
 
@@ -458,7 +458,7 @@ def test_lif_gradients():
     import torch
 
     # - Set 64-bit mode
-    from jax.config import config
+    from jax import config
 
     config.update("jax_enable_x64", True)
 
@@ -510,7 +510,7 @@ def test_linearlif_gradients():
     import torch
 
     # - Set 64-bit mode
-    from jax.config import config
+    from jax import config
 
     config.update("jax_enable_x64", True)
 
@@ -600,7 +600,7 @@ def test_expsyn_gradients():
     import torch
 
     # - Set 64-bit mode
-    from jax.config import config
+    from jax import config
 
     config.update("jax_enable_x64", True)
 
@@ -641,7 +641,7 @@ def test_jax_surrogate():
     import jax
 
     # - Set 64-bit mode
-    from jax.config import config
+    from jax import config
 
     config.update("jax_enable_x64", True)
 
