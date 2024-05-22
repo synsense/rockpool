@@ -80,14 +80,14 @@ def _eval_target_loss(
 
 @partial(
     jax.jit,
-    static_argnames=(
+    static_argnames=[
         "net",
         "tree_def_params",
         "mismatch_loss",
         "attack_steps",
         "mismatch_level",
-        "initial_std",
-    ),
+        "initial_std"
+    ]
 )
 def pga_attack(
     params_flattened: List,
@@ -157,16 +157,16 @@ def pga_attack(
 
 @partial(
     jax.jit,
-    static_argnames=(
+    static_argnames=[
         "net",
-        "task_Loss",
+        "task_loss",
         "mismatch_loss",
         "noisy_forward_std",
         "initial_std",
         "mismatch_level",
         "beta_robustness",
-        "attack_steps",
-    ),
+        "attack_steps"
+    ]
 )
 def adversarial_loss(
     parameters: Tree,
