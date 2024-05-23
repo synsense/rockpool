@@ -5,7 +5,7 @@ import rockpool
 from rockpool.nn.modules import LinearTorch, ExpSynTorch, LIFTorch, to_nir, from_nir
 import snntorch as snn
 import torch.nn as nn
-from snntorch import export
+from snntorch import export_to_nir
 import numpy as np
 
 
@@ -164,7 +164,7 @@ def test_snntorch_nir_rockpool():
 
     x = torch.zeros(2)
 
-    net_nir = export.to_nir(net_snntorch, x)
+    net_nir = export_to_nir(net_snntorch, x)
 
     net_rockpool = from_nir(net_nir)
 
