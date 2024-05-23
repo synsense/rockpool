@@ -1,3 +1,8 @@
+import pytest
+
+pytest.skip("DEPRECATED Brian2 layers are deprecated, no testing performed")
+
+
 def test_imports():
     import pytest
 
