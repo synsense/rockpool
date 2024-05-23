@@ -5,7 +5,7 @@ def test_imports():
 
     from rockpool.nn.modules.jax.lif_jax import LIFJax
     import jax
-    from jax.config import config
+    from jax import config
 
 
 def test_lif_jax():
@@ -17,7 +17,7 @@ def test_lif_jax():
     from jax import jit
     import numpy as np
     import jax
-    from jax.config import config
+    from jax import config
 
     config.update("jax_enable_x64", True)
     config.update("jax_log_compiles", True)
@@ -126,7 +126,7 @@ def test_ffwd_net():
     import numpy as np
     import jax.numpy as jnp
 
-    from jax.config import config
+    from jax import config
 
     config.update("jax_enable_x64", True)
     config.update("jax_log_compiles", True)
@@ -210,7 +210,7 @@ def test_sgd():
 
     from jax import jit
     import jax
-    from jax.config import config
+    from jax import config
     import numpy as np
 
     config.update("jax_enable_x64", True)
