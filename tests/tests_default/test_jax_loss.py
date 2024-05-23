@@ -20,7 +20,7 @@ def test_imports():
     )
 
     # - Ensure that NaNs in compiled functions are errors
-    from jax.config import config
+    from jax import config
 
 
 def test_mse():
@@ -38,7 +38,7 @@ def test_mse():
     from rockpool.training.jax_loss import mse
 
     # - Ensure that NaNs in compiled functions are errors
-    from jax.config import config
+    from jax import config
 
     config.update("jax_debug_nans", True)
 
@@ -95,7 +95,7 @@ def test_bounds_cost():
     import numpy as np
 
     # - Ensure that NaNs in compiled functions are errors
-    from jax.config import config
+    from jax import config
 
     config.update("jax_debug_nans", True)
 
@@ -142,7 +142,7 @@ def test_l2sqr_norm():
     from rockpool.training.jax_loss import l2sqr_norm
 
     # - Ensure that NaNs in compiled functions are errors
-    from jax.config import config
+    from jax import config
 
     config.update("jax_debug_nans", True)
 
@@ -190,7 +190,7 @@ def test_softmax():
     import jax
 
     # - Ensure that NaNs in compiled functions are errors
-    from jax.config import config
+    from jax import config
 
     config.update("jax_debug_nans", True)
 
@@ -213,7 +213,7 @@ def test_logsoftmax():
     import jax
 
     # - Ensure that NaNs in compiled functions are errors
-    from jax.config import config
+    from jax import config
 
     config.update("jax_debug_nans", True)
 
