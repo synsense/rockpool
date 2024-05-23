@@ -11,8 +11,11 @@ All notable changes between Rockpool releases will be documented in this file.
 
 ### Fixed
 * `TypeError` when using `LIFExodus`. 
+* update `jax.config` usage
 
 ### Deprecated
+
+* Brian2 tests are not running. Brian2 backend will be soon removed.
 
 ### Removed
 
