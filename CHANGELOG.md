@@ -7,8 +7,10 @@ All notable changes between Rockpool releases will be documented in this file.
 ### Added
 
 ### Changed
+* `LIFExodus` now supports vectors as threshold parameter.
 
 ### Fixed
+* `TypeError` when using `LIFExodus`. 
 
 ### Deprecated
 
