@@ -326,15 +326,23 @@ class XyloMonitor(Module):
             ps = self._power_buf.get_events()
 
             # - Separate out power meaurement events by channel
-            channels = samna.xyloImuBoards.MeasurementChannels
+            channels = samna.xyloA2TestBoard.MeasurementChannels
             io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
-            core_power = np.array(
-                [e.value for e in ps if e.channel == int(channels.Core)]
+            AFE_io_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.IoAfe)]
+            )
+            logic_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.Logic)]
+            )
+            AFE_logic_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.LogicAfe)]
             )
             rec_dict.update(
                 {
                     "io_power": io_power,
-                    "core_power": core_power,
+                    "logic_power": logic_power,
+                    "AFE_io_power": AFE_io_power,
+                    "AFE_logic_power": AFE_logic_power,
                 }
             )
 

@@ -1,16 +1,22 @@
 # Change log
 
-All notable changes between Rockpool releases will be documented in this file.
+All notable changes between Rockpool releases will be documented in this file
 
 ## Unreleased
 
 ### Added
 
 ### Changed
+* `LIFExodus` now supports vectors as threshold parameter
 
 ### Fixed
+* `TypeError` when using `LIFExodus`
+* Update `jax.config` usage
+* Power measurement for `xyloA2` was not considering AFE channels
 
 ### Deprecated
+
+* Brian2 tests are not running -- Brian2 backend will be soon removed
 
 ### Removed
 
