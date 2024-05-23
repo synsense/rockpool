@@ -142,7 +142,9 @@ class LIFExodus(LIFBaseTorch):
         beta = self.beta.expand((n_batches, self.n_neurons, self.n_synapses)).flatten()
         alpha = self.alpha.expand((n_batches, self.n_neurons)).flatten().contiguous()
         membrane_subtract = self.threshold.expand((n_batches, self.n_neurons)).flatten()
-        threshold = self.threshold.expand((n_batches, self.n_neurons)).flatten().contiguous()
+        threshold = (
+            self.threshold.expand((n_batches, self.n_neurons)).flatten().contiguous()
+        )
 
         # Bring data into format expected by exodus: (batches*neurons*synapses, timesteps)
         data = data.movedim(1, -1).flatten(0, -2)
