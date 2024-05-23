@@ -60,8 +60,6 @@ class LIFExodus(LIFBaseTorch):
         The output of evolving this module is the neuron spike events; synaptic currents and membrane potentials are available using the ``record = True`` argument to :py:meth:`~.LIFExodus.evolve`.
 
         Warnings:
-            Exodus currently only supports a single threshold for the layer.
-
             Exodus does not currently support training thresholds.
 
             Exodus does not support noise injection.
@@ -92,10 +90,6 @@ class LIFExodus(LIFBaseTorch):
             learning_window (float): Cutoff value for the surrogate gradient. Default: 0.5
             dt (float): Time step in seconds. Default: 1 ms.
         """
-
-        assert isinstance(
-            threshold, float
-        ), "Exodus-backed LIF module must have a single threshold"
 
         if has_rec:
             raise ValueError("`LIFExodus` does not support recurrent weights.")
@@ -148,9 +142,7 @@ class LIFExodus(LIFBaseTorch):
         beta = self.beta.expand((n_batches, self.n_neurons, self.n_synapses)).flatten()
         alpha = self.alpha.expand((n_batches, self.n_neurons)).flatten().contiguous()
         membrane_subtract = self.threshold.expand((n_batches, self.n_neurons)).flatten()
-
-        # Threshold must be float
-        threshold = float(self.threshold)
+        threshold = self.threshold.expand((n_batches, self.n_neurons)).flatten().contiguous()
 
         # Bring data into format expected by exodus: (batches*neurons*synapses, timesteps)
         data = data.movedim(1, -1).flatten(0, -2)
@@ -188,7 +180,7 @@ class LIFExodus(LIFBaseTorch):
         )
 
         # Subtract spikes from Vmem as exodus subtracts them starting from the next timestep
-        vmem_exodus.data = vmem_exodus.data - spikes.data * threshold
+        vmem_exodus.data = vmem_exodus.data - spikes.data * threshold.unsqueeze(-1)
 
         # Bring states to rockpool dimensions
         isyn_exodus = (
