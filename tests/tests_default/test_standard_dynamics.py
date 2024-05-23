@@ -80,10 +80,10 @@ def get_jax_gradients(module, data):
 
     config.update("jax_enable_x64", True)
 
-    params, param_def = jax.tree_flatten(module.parameters())
+    params, param_def = jax.tree_util.tree_flatten(module.parameters())
 
     def grad_check(*params):
-        jax.tree_unflatten(param_def, params)
+        jax.tree_util.tree_unflatten(param_def, params)
         mod = module.set_attributes(params)
         out, _, _ = mod(data)
         return (out**2).sum()
