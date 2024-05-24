@@ -15,6 +15,7 @@ All notable changes between Rockpool releases will be documented in this file
 * Power measurement for `xyloA2` was not considering AFE channels
 * Removed `check_grads` from Jax tests, since this will fail for LIF neurons due to surrograte gradients
 * Fixed a bug in `AFESim` on windows, where the maximum int32 value would be exceeded when seeding the AFE simulation
+* Fixed stochasticity in some unit tests
 
 ### Deprecated
 
