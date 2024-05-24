@@ -1,21 +1,25 @@
 # Change log
 
-All notable changes between Rockpool releases will be documented in this file.
+All notable changes between Rockpool releases will be documented in this file
 
 ## Unreleased
 
 ### Added
 
 ### Changed
-* `LIFExodus` now supports vectors as threshold parameter.
+* `LIFExodus` now supports vectors as threshold parameter
 
 ### Fixed
-* `TypeError` when using `LIFExodus`. 
-* update `jax.config` usage
+* `TypeError` when using `LIFExodus`
+* Update `jax.config` usage
+* Power measurement for `xyloA2` was not considering AFE channels
+* Removed `check_grads` from Jax tests, since this will fail for LIF neurons due to surrograte gradients
+* Fixed a bug in `AFESim` on windows, where the maximum int32 value would be exceeded when seeding the AFE simulation
+* Fixed stochasticity in some unit tests
 
 ### Deprecated
 
-* Brian2 tests are not running. Brian2 backend will be soon removed.
+* Brian2 tests are not running -- Brian2 backend will be soon removed
 
 ### Removed
 

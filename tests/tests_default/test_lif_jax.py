@@ -24,6 +24,8 @@ def test_lif_jax():
     config.update("jax_debug_nans", True)
     config.update("jax_check_tracer_leaks", True)
 
+    np.random.seed(1)
+
     Nin = 4
     Nout = 2
     T = 20
@@ -127,6 +129,8 @@ def test_ffwd_net():
     import numpy as np
     import jax.numpy as jnp
 
+    np.random.seed(1)
+
     from jax import config
 
     config.update("jax_enable_x64", True)
@@ -215,6 +219,8 @@ def test_sgd():
     from jax import config
     import numpy as np
 
+    np.random.seed(1)
+
     config.update("jax_enable_x64", True)
     config.update("jax_log_compiles", True)
     config.update("jax_debug_nans", True)
@@ -283,6 +289,7 @@ def test_lif_jax_batches():
     import jax
 
     jax.config.update("jax_check_tracer_leaks", True)
+    np.random.seed(1)
 
     batches = 5
     N = 10

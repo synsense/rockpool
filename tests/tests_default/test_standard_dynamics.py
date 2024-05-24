@@ -76,24 +76,23 @@ def get_jax_gradients(module, data):
     from jax.test_util import check_grads
 
     # - Set 64-bit mode
-    from jax import config
+    jax.config.update("jax_enable_x64", True)
 
-    config.update("jax_enable_x64", True)
+    params_flat, param_def = jax.tree_util.tree_flatten(module.parameters())
 
-    params, param_def = jax.tree_flatten(module.parameters())
-
-    def grad_check(*params):
-        jax.tree_unflatten(param_def, params)
-        mod = module.set_attributes(params)
+    def grad_check(*params_flat):
+        mod = module.set_attributes(
+            jax.tree_util.tree_unflatten(param_def, params_flat)
+        )
         out, _, _ = mod(data)
         return (out**2).sum()
 
-    def grad_check_dict(parameters):
-        mod = module.set_attributes(parameters)
+    def grad_check_dict(params_dict):
+        mod = module.set_attributes(params_dict)
         out, _, _ = mod(data)
         return (out**2).sum()
 
-    check_grads(grad_check, params, order=2)
+    # check_grads(grad_check, params_flat, order=2) # - Will fail due to surrogate gradients
     return jax.grad(grad_check_dict)(module.parameters())
 
 
