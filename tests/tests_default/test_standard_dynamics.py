@@ -92,7 +92,7 @@ def get_jax_gradients(module, data):
         out, _, _ = mod(data)
         return (out**2).sum()
 
-    check_grads(grad_check, params_flat, order=2)
+    # check_grads(grad_check, params_flat, order=2) # - Will fail due to surrogate gradients
     return jax.grad(grad_check_dict)(module.parameters())
 
 
