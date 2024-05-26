@@ -10,6 +10,7 @@ All notable changes between Rockpool releases will be documented in this file
 
 ### Changed
 * `LIFExodus` now supports vectors as threshold parameter
+* Standard `LIF` modules now have `w_rec` as a simulation parameter when in non-recurrent mode
 
 ### Fixed
 * `TypeError` when using `LIFExodus`
@@ -20,6 +21,7 @@ All notable changes between Rockpool releases will be documented in this file
 * Fixed stochasticity in some unit tests
 * Fixed a bug in `channel_quantize`, where quantization would be incorrectly applied for Xylo IMU networks with Nien < Nhid
 * Fixed a bug in `channel_quantize`, where hidden unit biases would be incorrectly used in place of output unit biases
+* Fixed a non-handled buffer bug in `LIFJax`, where non-recurrent modules would sometimes have garbage in `w_rec` instead of all zeros
 
 ### Deprecated
 
