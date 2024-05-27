@@ -339,6 +339,8 @@ def test_linear_lif():
 
     pytest.importorskip("jax")
 
+    import numpy as np
+
     from rockpool.nn.combinators import Sequential
     from rockpool.nn.modules import LIFJax, LinearJax
 
@@ -347,6 +349,8 @@ def test_linear_lif():
     N = 50
     Nout = 1
     dt = 1e-3
+
+    np.random.seed(1)
 
     mod = Sequential(
         LinearJax((Nin, N), has_bias=False, spiking_input=True),
