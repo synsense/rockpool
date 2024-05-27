@@ -1,31 +1,34 @@
 """
-Cycle count model for Xylo IMU SYNS63300
+Cycle count model for Xylo Audio 2 SYNS61201
 """
 
 from rockpool.typehints import FloatVector
+from typing import Tuple
 import samna
 import numpy as np
 
-XyloIMUConfig = samna.xyloImu.configuration.XyloConfiguration
+XyloA2Config = samna.xyloCore2.configuration.XyloConfiguration
 
 
-def xylo_imu_cycles(
-    config: XyloIMUConfig,
+def xylo_a2_cycles(
+    config: XyloA2Config,
     input_sp: FloatVector = 1.0,
     hidden_sp: FloatVector = 1.0,
     output_sp: FloatVector = 1.0,
-) -> float:
+) -> Tuple[float, float]:
     """
     Calculate the average number of cycles required for a given network architecture
 
     Args:
-        config (XyloIMUConfig): A Xylo IMU configuration for which to calculate the cycle requirements
+        config (XyloA2Config): A Xylo Audio 2 configuration for which to calculate the cycle requirements
         input_sp (FloatVector): Either a floating-point number 0..1, specifying the average input firing rate, or an actual input spike raster to use in evaluation. Default: `1.0`; estimate a worst-case scenario
         hidden_sp (FloatVector): Either a floating-point number 0..1, specifying the average hidden neuron firing rate, or an actual hidden spike raster to use in evaluation. Default: `1.0`; estimate a worst-case scenario
         output_sp (FloatVector): Either a floating-point number 0..1, specifying the average output neuron firing rate, or an actual output spike raster to use in evaluation. Default: `1.0`; estimate a worst-case scenario
 
     Returns:
-        float: The average number of master clock cycles required for this configuration, for the Xylo SNN core to compute one network `dt`
+        Tuple[float, float]: (clk_cyles_reqd, additional_isyn2_ops)
+        clk_cyles_reqd (float): The average number of master clock cycles required for this configuration, for the Xylo SNN core to compute one network `dt`
+        additional_isyn2_ops (float): The average additional number of operations required when Isyn2 is enabled. Will be zero if Isyn2 is disabled. Note: These operations occur in parallel to Isyn1, and do not require additional master clock cycles.
     """
 
     # - Spiking probabilities
@@ -46,33 +49,34 @@ def xylo_imu_cycles(
 
     # - Extract network shapes
     Nin, _ = np.array(config.input.weights).shape
-    Nien = np.sum(
-        np.sign(np.sum(np.abs(np.sign(np.array(config.input.weights))), axis=0))
-    )
-    Nhid = len(config.hidden.neurons)
+    Nhid = len(config.reservoir.neurons)
+    Nien = Nhid
     _, Nout = np.array(config.readout.weights).shape
-    Noen = np.sum(
-        np.sign(np.sum(np.abs(np.sign(np.array(config.readout.weights))), axis=1))
-    )
+    Noen = Nhid
+
+    # - Is synapse 2 enabled?
+    is_isyn2_enabled = config.synapse2_enable
 
     # - Average fanout for the network
     Nhid_fanout_avg = np.mean(
-        np.sum(np.abs(np.sign(np.array(config.hidden.weights))), axis=1)
+        np.sum(np.abs(np.sign(np.array(config.reservoir.weights))), axis=1)
     )
 
     # - Number of alias sources and targets
     alias_target_count = np.zeros(Nhid)
-    for n in config.hidden.neurons:
+    for n in config.reservoir.neurons:
         if n.alias_target is not None:
-            for t in n.alias_target:
-                alias_target_count[t] += 1
+            alias_target_count[n.alias_target] += 1
 
     hidden_alias_targets_avg = np.mean(alias_target_count)
 
+    additional_isyn2_ops = 0
+
     # - Input spike processing
     input_loop_cycles = 3.5
-    single_input_neuron_cycles = input_spk_prob * Nien * input_loop_cycles
-    input_spike_processing_cycles = Nin * (single_input_neuron_cycles + 1)
+    single_input_neuron_cycles = input_spk_prob * Nin * input_loop_cycles
+    input_spike_processing_cycles = Nien * (single_input_neuron_cycles + 1)
+    additional_isyn2_ops += is_isyn2_enabled * (0.5 + 1) * input_spk_prob * Nin * Nien
 
     # - Hidden neuron Isyn
     hidden_update_cycles = 7
@@ -80,6 +84,10 @@ def xylo_imu_cycles(
         Nhid_fanout_avg * hidden_update_cycles * hidden_spk_prob + 3
     )
     hidden_isyn_processing_cycles = single_hidden_neuron_isyn_cycles * Nhid
+
+    additional_isyn2_ops += (
+        is_isyn2_enabled * (4 + 1) * Nhid_fanout_avg * hidden_spk_prob * Nhid
+    )
 
     # - Output neuron Isyn
     output_isyn_update_cycles = 8
@@ -98,6 +106,8 @@ def xylo_imu_cycles(
     )
     hidden_spk_processing_cycles = total_single_hidden_neuron_spk_cycles * Nhid
 
+    additional_isyn2_ops += is_isyn2_enabled * 1 * Nhid
+
     # - Output neuron spiking
     fixed_output_neuron_spk_cycles = 12
     var_output_neuron_spk_cycles = 0 * output_spk_prob
@@ -115,19 +125,19 @@ def xylo_imu_cycles(
         + output_spk_processing_cycles
     )
 
-    return est_processing_cycles
+    return est_processing_cycles, additional_isyn2_ops
 
 
-def est_clock_freq(config: XyloIMUConfig, dt: float, margin: float = 0.2):
+def est_clock_freq(config: XyloA2Config, dt: float, margin: float = 0.2):
     """
     Estimate the required master clock frequency, to run a network in real-time
 
     This function will perform a worst-case analysis, assuming that every input channel, every hidden neuron and every output neuron fire an event on each `dt`
 
     Args:
-        config (XyloIMUConfig):  A Xylo IMU configuration for which to estimate the required clock frequency
+        config (XyloA2Config):  A Xylo Audio 2 configuration for which to estimate the required clock frequency
         dt (float): The required network `dt`, in seconds
         margin (float): The additional overhead safety margin to add to the estimation, as a fraction. Default: `0.2` (20%)
     """
-    cycles = xylo_imu_cycles(config)
+    cycles, _ = xylo_a2_cycles(config)
     return cycles * (1 + margin) / dt
