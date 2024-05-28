@@ -64,18 +64,21 @@ def xylo_a2_cycles(
 
     # - Number of alias sources and targets
     alias_target_count = np.zeros(Nhid)
-    for n in config.reservoir.neurons:
+    alias_source_count = np.zeros(Nhid)
+    for id, n in enumerate(config.reservoir.neurons):
         if n.alias_target is not None:
             alias_target_count[n.alias_target] += 1
+            alias_source_count[id] += 1
 
-    hidden_alias_targets_avg = np.mean(alias_target_count)
+    is_alias_target_prob = np.mean(alias_target_count)
+    is_alias_source_prob = np.mean(alias_source_count)
 
     additional_isyn2_ops = 0
 
     # - Input spike processing
     input_loop_cycles = 3.5
-    single_input_neuron_cycles = input_spk_prob * Nin * input_loop_cycles
-    input_spike_processing_cycles = Nien * (single_input_neuron_cycles + 1)
+    single_input_neuron_cycles = input_spk_prob * Nien * input_loop_cycles
+    input_spike_processing_cycles = Nin * (single_input_neuron_cycles + 1)
     additional_isyn2_ops += is_isyn2_enabled * (0.5 + 1) * input_spk_prob * Nin * Nien
 
     # - Hidden neuron Isyn
@@ -98,8 +101,15 @@ def xylo_a2_cycles(
 
     # - Hidden neuron spiking
     fixed_hidden_neuron_cycles = 19
-    var_hidden_neuron_cycles = hidden_spk_prob * (
-        2 + hidden_alias_targets_avg * 3 + 1 + hidden_alias_targets_avg * 1
+    var_hidden_neuron_cycles = (
+        max(hidden_spk_prob, is_alias_target_prob * is_alias_source_prob) * 2
+        + max(
+            hidden_spk_prob * is_alias_target_prob,
+            is_alias_target_prob * is_alias_source_prob,
+        )
+        * 3
+        + hidden_spk_prob * 1
+        + max(hidden_spk_prob, is_alias_target_prob) * is_alias_source_prob * 1
     )
     total_single_hidden_neuron_spk_cycles = (
         fixed_hidden_neuron_cycles + var_hidden_neuron_cycles

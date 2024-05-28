@@ -62,12 +62,15 @@ def xylo_imu_cycles(
 
     # - Number of alias sources and targets
     alias_target_count = np.zeros(Nhid)
-    for n in config.hidden.neurons:
+    alias_source_count = np.zeros(Nhid)
+    for id, n in enumerate(config.hidden.neurons):
         if n.alias_target is not None:
             for t in n.alias_target:
                 alias_target_count[t] += 1
+                alias_source_count[id] += 1
 
-    hidden_alias_targets_avg = np.mean(alias_target_count)
+    is_alias_target_prob = np.mean(alias_target_count)
+    is_alias_source_prob = np.mean(alias_source_count)
 
     # - Input spike processing
     input_loop_cycles = 3.5
@@ -90,8 +93,15 @@ def xylo_imu_cycles(
 
     # - Hidden neuron spiking
     fixed_hidden_neuron_cycles = 19
-    var_hidden_neuron_cycles = hidden_spk_prob * (
-        2 + hidden_alias_targets_avg * 3 + 1 + hidden_alias_targets_avg * 1
+    var_hidden_neuron_cycles = (
+        max(hidden_spk_prob, is_alias_target_prob * is_alias_source_prob) * 2
+        + max(
+            hidden_spk_prob * is_alias_target_prob,
+            is_alias_target_prob * is_alias_source_prob,
+        )
+        * 3
+        + hidden_spk_prob * 1
+        + max(hidden_spk_prob, is_alias_target_prob) * is_alias_source_prob * 1
     )
     total_single_hidden_neuron_spk_cycles = (
         fixed_hidden_neuron_cycles + var_hidden_neuron_cycles
