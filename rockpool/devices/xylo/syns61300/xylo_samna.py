@@ -98,9 +98,7 @@ def config_from_specification(
             f"Input weights must be at least 2 dimensional `(Nin, Nin_res, [2])`. Found {weights_in.shape}"
         )
 
-    enable_isyn2 = True
     if weights_in.ndim == 2:
-        enable_isyn2 = False
         weights_in = np.reshape(weights_in, [*weights_in.shape, 1])
 
     # - Check output weights
@@ -108,8 +106,10 @@ def config_from_specification(
         raise ValueError("Output weights must be 2 dimensional `(Nhidden, Nout)`")
 
     # - Get network shape
-    Nin, Nin_res, _ = weights_in.shape
+    Nin, Nin_res, Nsyn = weights_in.shape
     Nhidden, Nout = weights_out.shape
+
+    enable_isyn2 = Nsyn > 1
 
     # - Check input and hidden weight sizes
     if Nin_res > Nhidden:
@@ -379,9 +379,9 @@ class XyloSamna(Module):
         """ `.XyloHDK`: The Xylo HDK used by this module """
 
         # - Store the configuration (and apply it)
-        self.config: Union[
-            XyloConfiguration, SimulationParameter
-        ] = SimulationParameter(shape=(), init_func=lambda _: config)
+        self.config: Union[XyloConfiguration, SimulationParameter] = (
+            SimulationParameter(shape=(), init_func=lambda _: config)
+        )
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration

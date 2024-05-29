@@ -11,6 +11,18 @@ import copy
 __all__ = ["global_quantize", "channel_quantize"]
 
 
+def validate_weights_to_2d(data):
+    assert len(data.shape) == 2, "Output weights must be 2D."
+    return data
+
+
+def validate_weights_to_3d(data):
+    assert (
+        len(data.shape) >= 2 and len(data.shape) <= 3
+    ), "Weight arrays must be 2D or 3D."
+    return np.expand_dims(data, -1) if len(data.shape) < 3 else data
+
+
 def global_quantize(
     weights_in: np.ndarray,
     weights_rec: np.ndarray,
@@ -75,9 +87,9 @@ def global_quantize(
         dict: `model_quan` which can be used to update a Xylo specification dictionary
     """
 
-    w_in = copy.copy(weights_in)
-    w_rec = copy.copy(weights_rec)
-    w_out = copy.copy(weights_out)
+    w_in = validate_weights_to_3d(copy.copy(weights_in))
+    w_rec = validate_weights_to_3d(copy.copy(weights_rec))
+    w_out = validate_weights_to_2d(copy.copy(weights_out))
     threshold = copy.copy(threshold)
     threshold_out = copy.copy(threshold_out)
     max_w_quan = 2 ** (bits_per_weight - 1) - 1
@@ -232,18 +244,17 @@ def channel_quantize(
         dict: `model_quan` which can be used to update a Xylo specification dictionary
     """
 
-    w_in = copy.copy(weights_in).squeeze()
-    w_rec = copy.copy(weights_rec).squeeze()
-    w_out = copy.copy(weights_out).squeeze()
+    w_in = validate_weights_to_3d(copy.copy(weights_in))
+    w_rec = validate_weights_to_3d(copy.copy(weights_rec))
+    w_out = validate_weights_to_2d(copy.copy(weights_out))
     threshold = copy.copy(threshold)
     threshold_out = copy.copy(threshold_out)
     max_w_quan = 2 ** (bits_per_weight - 1) - 1
     max_th_quan = 2 ** (bits_per_threshold - 1) - 1
 
-    Nin, Nien = w_in.shape
-    Nhid, _ = w_rec.shape
+    Nin, Nien, Nsyn = w_in.shape
+    Nhid, _, _ = w_rec.shape
     Noen, Nout = w_out.shape
-    Nsyn = w_rec.shape[2] if w_rec.ndim > 2 else 1
 
     # quantize input weight, recurrent weight, threshold
     # two weight matrix need to stack together to consider per-channel quantization
