@@ -39,7 +39,9 @@ def test_XyloMonitor():
     )
 
     # - Make a XyloMonitor module
-    mod_xylo = XyloMonitor(daughterboard, config, dt, output_mode="Vmem")
+    mod_xylo = XyloMonitor(
+        device=daughterboard, config=config, dt=dt, output_mode="Vmem"
+    )
 
     # - Simulate with random input
     T = 10
