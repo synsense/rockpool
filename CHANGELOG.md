@@ -8,7 +8,6 @@ All notable changes between Rockpool releases will be documented in this file
 
 ### Changed
 * `LIFExodus` now supports vectors as threshold parameter
-* Standard `LIF` modules now have `w_rec` as a simulation parameter when in non-recurrent mode
 
 ### Fixed
 * `TypeError` when using `LIFExodus`
@@ -17,7 +16,6 @@ All notable changes between Rockpool releases will be documented in this file
 * Removed `check_grads` from Jax tests, since this will fail for LIF neurons due to surrograte gradients
 * Fixed a bug in `AFESim` on windows, where the maximum int32 value would be exceeded when seeding the AFE simulation
 * Fixed stochasticity in some unit tests
-* Fixed a non-handled buffer bug in `LIFJax`, where non-recurrent modules would sometimes have garbage in `w_rec` instead of all zeros
 
 ### Deprecated
 

@@ -152,7 +152,6 @@ class LIF(Module):
         """ (int) Number of input synapses per neuron """
 
         # - Should we be recurrent or FFwd?
-        self._has_rec: bool = SimulationParameter(has_rec)
         if has_rec:
             self.w_rec: P_ndarray = Parameter(
                 w_rec,
@@ -165,10 +164,6 @@ class LIF(Module):
         else:
             if w_rec is not None:
                 raise ValueError("`w_rec` may not be provided if `has_rec` is `False`")
-
-            self.w_rec: P_ndarray = SimulationParameter(
-                np.zeros((self.size_out, self.size_in))
-            )
 
         # - Set parameters
         self.tau_mem: P_ndarray = Parameter(
@@ -384,7 +379,7 @@ class LIF(Module):
         )
 
         # - Include recurrent weights if present
-        if self._has_rec:
+        if len(self.attributes_named("w_rec")) > 0:
             # - Weights are connected over the existing input and output nodes
             w_rec_graph = LinearWeights(
                 neurons.output_nodes,

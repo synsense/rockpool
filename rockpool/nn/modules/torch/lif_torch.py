@@ -255,7 +255,6 @@ class LIFBaseTorch(TorchModule):
 
         # - Initialise recurrent weights
         w_rec_shape = (self.size_out, self.size_in)
-        self._has_rec: bool = rp.SimulationParameter(has_rec)
         if has_rec:
             self.w_rec: P_tensor = rp.Parameter(
                 w_rec,
@@ -268,10 +267,6 @@ class LIFBaseTorch(TorchModule):
         else:
             if w_rec is not None:
                 raise ValueError("`w_rec` may not be provided if `has_rec` is `False`")
-
-            self.w_rec: P_ndarray = rp.SimulationParameter(
-                torch.zeros((self.size_out, self.size_in))
-            )
 
         self.noise_std: P_float = rp.SimulationParameter(noise_std)
         """ (float) Noise std.dev. injected onto the membrane of each neuron during evolution """
@@ -496,7 +491,7 @@ class LIFBaseTorch(TorchModule):
         )
 
         # - Include recurrent weights if present
-        if self._has_rec:
+        if len(self.attributes_named("w_rec")) > 0:
             # - Weights are connected over the existing input and output nodes
             w_rec_graph = LinearWeights(
                 neurons.output_nodes,
