@@ -5,6 +5,7 @@ All notable changes between Rockpool releases will be documented in this file
 ## Unreleased
 
 ### Added
+* Added a cycles model for Xylo A and Xylo IMU, enabling to calculate the required master clock frequency for Xylo
 
 ### Changed
 * `LIFExodus` now supports vectors as threshold parameter
