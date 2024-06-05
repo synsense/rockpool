@@ -8,8 +8,10 @@ import numpy as np
 
 XyloIMUConfig = samna.xyloImu.configuration.XyloConfiguration
 
+__all__ = ["cycles_model", "est_clock_freq"]
 
-def xylo_imu_cycles(
+
+def cycles_model(
     config: XyloIMUConfig,
     input_sp: FloatVector = 1.0,
     hidden_sp: FloatVector = 1.0,
@@ -17,6 +19,12 @@ def xylo_imu_cycles(
 ) -> float:
     """
     Calculate the average number of cycles required for a given network architecture
+
+    This function contains a model which estimates the number of master clock cycles required for the Xylo SNN SYNS61202 inference core to compute one time-step for a given chip configuration in ``config``. Use :py:func:`.devices.xylo.syns61201.config_from_specification`` to obtain a chip configuration, along with :py:meth:`.Module.as_graph()`` and :py:func:`.devices.xylo.syns61201.mapper`, as described in the deployment tutorials for Xylo.
+
+    By default the model provides a "worst-case" estimation, assuming that every neuron and every input channel fire on each time-step. If desired, real input rasters and real hidden and output spike rasters can be provided for analysis. Alternative spiking probabilities can also be provided as floats ``0..1``.
+
+    Note that when estimating spiking probablility, only boolean values are relevant --- either a spike or no spike per time step per channel. Multiple events per bin cost the same as a single event.
 
     Args:
         config (XyloIMUConfig): A Xylo IMU configuration for which to calculate the cycle requirements
@@ -29,18 +37,18 @@ def xylo_imu_cycles(
     """
 
     # - Spiking probabilities
-    if hasattr(input_sp, "mean"):
-        input_spk_prob = input_sp.mean()
+    if np.size(input_sp) > 1:
+        input_spk_prob = np.count_nonzero(input_sp) / np.size(input_sp)
     else:
         input_spk_prob = input_sp
 
-    if hasattr(hidden_sp, "mean"):
-        hidden_spk_prob = hidden_sp.mean()
+    if np.size(hidden_sp) > 1:
+        hidden_spk_prob = np.count_nonzero(hidden_sp) / np.size(hidden_sp)
     else:
         hidden_spk_prob = hidden_sp
 
-    if hasattr(hidden_sp, "mean"):
-        output_spk_prob = output_sp.mean()
+    if np.size(output_sp) > 1:
+        output_spk_prob = np.count_nonzero(output_sp) / np.size(output_sp)
     else:
         output_spk_prob = output_sp
 
@@ -132,12 +140,12 @@ def est_clock_freq(config: XyloIMUConfig, dt: float, margin: float = 0.2):
     """
     Estimate the required master clock frequency, to run a network in real-time
 
-    This function will perform a worst-case analysis, assuming that every input channel, every hidden neuron and every output neuron fire an event on each `dt`
+    This function will perform a worst-case analysis, assuming that every input channel, every hidden neuron and every output neuron fire an event on each `dt`. An additional margin is included (Default: 20%), to guarantee that the model will run in real time at the suggested master clock frequency.
 
     Args:
         config (XyloIMUConfig):  A Xylo IMU configuration for which to estimate the required clock frequency
         dt (float): The required network `dt`, in seconds
         margin (float): The additional overhead safety margin to add to the estimation, as a fraction. Default: `0.2` (20%)
     """
-    cycles = xylo_imu_cycles(config)
+    cycles = cycles_model(config)
     return cycles * (1 + margin) / dt
