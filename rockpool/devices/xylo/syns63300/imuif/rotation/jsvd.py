@@ -6,6 +6,7 @@ computes the 3 x 3 rotation matrix and 3 x 3 diagonal matrix.
     (ii)    Apply infinite-bit approximation, which is valid when number of angles in lookup table is large enough.
     (iii)   This yields a higher precision in implementation of JSVD.
 """
+
 import warnings
 from typing import List, Tuple
 
@@ -180,9 +181,11 @@ class RotationLookUpTable:
                 #   (ii)    we do this to find the corresponding row of the lookup table.
                 row_index = np.sum(
                     [
-                        el * abs(a - c) <= abs(2 * b) * 2**NUM_BITS
-                        if not np.isnan(el)
-                        else False
+                        (
+                            el * abs(a - c) <= abs(2 * b) * 2**NUM_BITS
+                            if not np.isnan(el)
+                            else False
+                        )
                         for el in self.tan2_vals_quantized
                     ]
                 )
@@ -200,9 +203,11 @@ class RotationLookUpTable:
                 #   (iii)   since the cot(2 theta) values start later in the lookup table we need shift the row-index
                 row_index = np.sum(
                     [
-                        el * abs(2 * b) >= abs(a - c) * 2**NUM_BITS
-                        if not np.isnan(el)
-                        else True
+                        (
+                            el * abs(2 * b) >= abs(a - c) * 2**NUM_BITS
+                            if not np.isnan(el)
+                            else True
+                        )
                         for el in self.cot2_vals_quantized
                     ]
                 )

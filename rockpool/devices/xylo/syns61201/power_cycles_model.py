@@ -21,7 +21,7 @@ def cycles_model(
     """
     Calculate the average number of cycles required for a given network architecture
 
-    This function contains a model which estimates the number of master clock cycles required for the Xylo SNN SYNS61202 inference core to compute one time-step for a given chip configuration in ``config``. Use :py:func:`.devices.xylo.syns61201.config_from_specification`` to obtain a chip configuration, along with :py:meth:`.Module.as_graph()`` and :py:func:`.devices.xylo.syns61201.mapper`, as described in the deployment tutorials for Xylo.
+    This function contains a model which estimates the number of master clock cycles required for the Xylo SNN SYNS61202 inference core to compute one time-step for a given chip configuration in ``config``. Use :py:func:`.devices.xylo.syns61201.config_from_specification` to obtain a chip configuration, along with :py:meth:`.Module.as_graph` and :py:func:`.devices.xylo.syns61201.mapper`, as described in the deployment tutorials for Xylo.
 
     By default the model provides a "worst-case" estimation, assuming that every neuron and every input channel fire on each time-step. If desired, real input rasters and real hidden and output spike rasters can be provided for analysis. Alternative spiking probabilities can also be provided as floats ``0..1``.
 

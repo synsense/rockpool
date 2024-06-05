@@ -1,6 +1,7 @@
 """
 Hardware butterworth filter implementation for the Xylo IMU.
 """
+
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 

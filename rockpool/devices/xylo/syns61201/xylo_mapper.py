@@ -6,7 +6,6 @@ Mapper package for Xylo core v2
 
 """
 
-
 import numpy as np
 
 import copy

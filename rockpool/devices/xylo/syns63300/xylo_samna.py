@@ -2,7 +2,6 @@
 Utilities for producing a samna HW configuration for Xylo IMU devices
 """
 
-
 import numpy as np
 import samna
 
