@@ -344,6 +344,10 @@ def test_linear_lif():
     from rockpool.nn.combinators import Sequential
     from rockpool.nn.modules import LIFJax, LinearJax
 
+    import numpy as np
+
+    np.random.seed(1)
+
     # - Generate a network using the sequential combinator
     Nin = 200
     N = 50

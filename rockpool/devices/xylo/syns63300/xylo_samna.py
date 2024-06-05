@@ -89,8 +89,14 @@ def config_from_specification(
         raise ValueError("Output weights must be 2 dimensional `(Nhidden, Nout)`")
 
     # - Get network shape
+    if weights_in.ndim < 3:
+        weights_in = np.expand_dims(weights_in, -1)
     Nin, NIEN, Nsyn = weights_in.shape
+
+    if weights_rec.ndim < 3:
+        weights_rec = np.expand_dims(weights_rec, -1)
     Nhidden, _, Nsyn = weights_rec.shape
+
     NOEN, Nout = weights_out.shape
 
     # - Check number of input synapses
