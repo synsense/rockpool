@@ -356,7 +356,7 @@ def test_linear_lif():
 
     mod = Sequential(
         LinearJax((Nin, N), has_bias=False, spiking_input=True),
-        LIFJax(N, dt=dt, tau_syn=100e-3, tau_mem=200e-3),
+        LIFJax(N, dt=dt, tau_syn=100e-3, tau_mem=200e-3, has_rec=True),
         LinearJax((N, Nout), has_bias=False),
     )
 
