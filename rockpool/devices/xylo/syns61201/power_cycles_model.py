@@ -39,6 +39,13 @@ def cycles_model(
         additional_isyn2_ops (float): The average additional number of operations required when Isyn2 is enabled. Will be zero if Isyn2 is disabled. Note: These operations occur in parallel to Isyn1, and do not require additional master clock cycles.
     """
 
+    # - Cycle count magic numbers
+    input_loop_cycles = 3.5
+    hidden_update_cycles = 7
+    output_isyn_update_cycles = 8
+    fixed_hidden_neuron_cycles = 19
+    fixed_output_neuron_spk_cycles = 12
+
     # - Spiking probabilities
     if np.size(input_sp) > 1:
         input_spk_prob = np.count_nonzero(input_sp) / np.size(input_sp)
@@ -84,13 +91,11 @@ def cycles_model(
     additional_isyn2_ops = 0
 
     # - Input spike processing
-    input_loop_cycles = 3.5
     single_input_neuron_cycles = input_spk_prob * Nien * input_loop_cycles
     input_spike_processing_cycles = Nin * (single_input_neuron_cycles + 1)
     additional_isyn2_ops += is_isyn2_enabled * (0.5 + 1) * input_spk_prob * Nin * Nien
 
     # - Hidden neuron Isyn
-    hidden_update_cycles = 7
     single_hidden_neuron_isyn_cycles = (
         Nhid_fanout_avg * hidden_update_cycles * hidden_spk_prob + 3
     )
@@ -101,14 +106,12 @@ def cycles_model(
     )
 
     # - Output neuron Isyn
-    output_isyn_update_cycles = 8
     single_output_neuron_isyn_cycles = hidden_spk_prob * (
         1 + Nout * output_isyn_update_cycles
     )
     output_isyn_processing_cycles = single_output_neuron_isyn_cycles * Noen
 
     # - Hidden neuron spiking
-    fixed_hidden_neuron_cycles = 19
     var_hidden_neuron_cycles = (
         max(hidden_spk_prob, is_alias_target_prob * is_alias_source_prob) * 2
         + max(
@@ -127,7 +130,6 @@ def cycles_model(
     additional_isyn2_ops += is_isyn2_enabled * 1 * Nhid
 
     # - Output neuron spiking
-    fixed_output_neuron_spk_cycles = 12
     var_output_neuron_spk_cycles = 0 * output_spk_prob
     total_output_neuron_spk_cycles = (
         fixed_output_neuron_spk_cycles + var_output_neuron_spk_cycles

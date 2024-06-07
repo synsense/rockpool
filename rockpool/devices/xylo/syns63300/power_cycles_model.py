@@ -36,6 +36,13 @@ def cycles_model(
         float: The average number of master clock cycles required for this configuration, for the Xylo SNN core to compute one network `dt`
     """
 
+    # - Cycle count magic numbers
+    input_loop_cycles = 3.5
+    hidden_update_cycles = 7
+    output_isyn_update_cycles = 8
+    fixed_hidden_neuron_cycles = 19
+    fixed_output_neuron_spk_cycles = 12
+
     # - Spiking probabilities
     if np.size(input_sp) > 1:
         input_spk_prob = np.count_nonzero(input_sp) / np.size(input_sp)
@@ -81,26 +88,22 @@ def cycles_model(
     is_alias_source_prob = np.mean(alias_source_count)
 
     # - Input spike processing
-    input_loop_cycles = 3.5
     single_input_neuron_cycles = input_spk_prob * Nien * input_loop_cycles
     input_spike_processing_cycles = Nin * (single_input_neuron_cycles + 1)
 
     # - Hidden neuron Isyn
-    hidden_update_cycles = 7
     single_hidden_neuron_isyn_cycles = (
         Nhid_fanout_avg * hidden_update_cycles * hidden_spk_prob + 3
     )
     hidden_isyn_processing_cycles = single_hidden_neuron_isyn_cycles * Nhid
 
     # - Output neuron Isyn
-    output_isyn_update_cycles = 8
     single_output_neuron_isyn_cycles = hidden_spk_prob * (
         1 + Nout * output_isyn_update_cycles
     )
     output_isyn_processing_cycles = single_output_neuron_isyn_cycles * Noen
 
     # - Hidden neuron spiking
-    fixed_hidden_neuron_cycles = 19
     var_hidden_neuron_cycles = (
         max(hidden_spk_prob, is_alias_target_prob * is_alias_source_prob) * 2
         + max(
@@ -117,7 +120,6 @@ def cycles_model(
     hidden_spk_processing_cycles = total_single_hidden_neuron_spk_cycles * Nhid
 
     # - Output neuron spiking
-    fixed_output_neuron_spk_cycles = 12
     var_output_neuron_spk_cycles = 0 * output_spk_prob
     total_output_neuron_spk_cycles = (
         fixed_output_neuron_spk_cycles + var_output_neuron_spk_cycles
