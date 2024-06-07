@@ -2,7 +2,6 @@
 IAF neurons layers with Brian2 backend
 """
 
-
 # - Imports
 from warnings import warn
 

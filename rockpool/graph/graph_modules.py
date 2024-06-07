@@ -4,7 +4,6 @@ Basic computational modules for graph definition in Rockpool
 Defines :py:class:`.LinearWeights`, :py:class:`.GenericNeurons`, :py:class:`.AliasConnection` and :py:class:`.LIFNeuronRealValue`.
 """
 
-
 from rockpool.graph.graph_base import GraphModule
 
 from dataclasses import dataclass, field

@@ -1,6 +1,7 @@
 """"
 Implements an exponential low-pass synapse using Torch backend
 """
+
 import warnings
 
 import torch
