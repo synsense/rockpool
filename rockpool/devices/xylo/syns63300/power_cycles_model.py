@@ -80,9 +80,9 @@ def cycles_model(
     alias_source_count = np.zeros(Nhid)
     for id, n in enumerate(config.hidden.neurons):
         if n.alias_target is not None:
-            for t in n.alias_target:
-                alias_target_count[t] += 1
-                alias_source_count[id] += 1
+            t = n.alias_target
+            alias_target_count[t] += 1
+            alias_source_count[id] += 1
 
     is_alias_target_prob = np.mean(alias_target_count)
     is_alias_source_prob = np.mean(alias_source_count)

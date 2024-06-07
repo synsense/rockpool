@@ -54,6 +54,18 @@ class XyloSim(XyloSimV1):
             XyloSim: XyloSim object instance
         """
 
+        # - Extract network dimensions
+        IN, IEN = np.shape(config.input.weights)[0:2]
+        RSN = np.shape(config.hidden.weights)[0]
+        OEN, ON = np.shape(config.readout.weights)
+
+        assert (
+            OEN <= RSN
+        ), f"Config must satisfy OEN <= RSN. Found OEN {OEN} and RSN {RSN}."
+        assert (
+            IEN <= RSN
+        ), f"Config must satisfy IEN <= RSN. Found IEN {IEN} and RSN {RSN}."
+
         cls.output_mode = output_mode
 
         # - Instantiate the class
@@ -89,7 +101,9 @@ class XyloSim(XyloSimV1):
             _xylo_sim_params.synapses_rec.append(tmp)
 
         # - Convert output weights to XyloSynapse objects
-        _xylo_sim_params.synapses_out = []
+        _xylo_sim_params.synapses_out = [
+            [] for _ in range(RSN - OEN)
+        ]  # - Skip unconnected hidden neurons
         for pre, w_pre in enumerate(config.readout.weights):
             tmp = []
             for post in np.where(w_pre)[0]:
@@ -220,8 +234,12 @@ class XyloSim(XyloSimV1):
         RSN = weights_rec.shape[0] if weights_rec is not None else IEN
         OEN, ON = weights_out.shape
 
-        assert OEN <= RSN, "OEN <= RSN"
-        assert IEN <= RSN, "IEN <= RSN"
+        assert (
+            OEN <= RSN
+        ), f"Config must satisfy OEN <= RSN. Found OEN {OEN} and RSN {RSN}."
+        assert (
+            IEN <= RSN
+        ), f"Config must satisfy IEN <= RSN. Found IEN {IEN} and RSN {RSN}."
 
         if weights_rec is None:
             weights_rec = np.zeros((RSN, RSN, 2), int)
