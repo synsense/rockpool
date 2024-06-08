@@ -10,7 +10,6 @@ __all__ = ["PeakLoss", "BinaryPeakLoss"]
 
 
 class PeakLoss(_Loss):
-
     """
     This implements the peak loss for multiple readout neurons. The neuron with the highest output at any time point
     is interpreted as the predicting neuron and the time point of the highest output as the event time.
@@ -117,7 +116,6 @@ class PeakLoss(_Loss):
 
 
 class BinaryPeakLoss(_Loss):
-
     """
     This implements the peak loss for a single readout neurons.
     The time point of the highest output as the event time.

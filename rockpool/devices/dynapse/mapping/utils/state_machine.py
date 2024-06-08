@@ -3,6 +3,7 @@ Dynap-SE graph transformer package state machine implementation
 
 * Non User Facing *
 """
+
 from __future__ import annotations
 
 from typing import Optional

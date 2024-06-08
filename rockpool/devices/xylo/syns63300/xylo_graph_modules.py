@@ -1,6 +1,7 @@
 """
 Xylo graph modules for use with tracing and mapping
 """
+
 from rockpool.devices.xylo.syns61201 import Xylo2Neurons
 
 from dataclasses import dataclass, field

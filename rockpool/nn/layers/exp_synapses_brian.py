@@ -2,7 +2,6 @@
 Spike-to-current layer with exponential synapses, with a Brian2 backend
 """
 
-
 # - Imports
 from warnings import warn
 

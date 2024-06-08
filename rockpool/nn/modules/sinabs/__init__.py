@@ -1,6 +1,7 @@
 """
 Modules using Sinabs and sinabs-exodus as a backend
 """
+
 from rockpool.utilities.backend_management import (
     backend_available,
     missing_backend_shim,

@@ -457,9 +457,11 @@ class TWrapper(TorchModule):
     def _T(self):
         # - Transform parameters
         return {
-            k: T_fn(getattr(self._mod, k))
-            if T_fn is not None
-            else getattr(self._mod, k)
+            k: (
+                T_fn(getattr(self._mod, k))
+                if T_fn is not None
+                else getattr(self._mod, k)
+            )
             for k, T_fn in self._T_config.items()
         }
 

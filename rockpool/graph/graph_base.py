@@ -1,6 +1,7 @@
 """
 Base classes and functionality for graph tracing
 """
+
 import copy
 from dataclasses import dataclass, field
 from typing import List, Any, TypeVar, Iterable, Hashable, Optional

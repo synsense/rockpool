@@ -3,6 +3,7 @@ This module implement a simple sample-and-hold module.
 This is not typically implemented like this in the hardware.
 However we can still use this for comparison.
 """
+
 from typing import Dict, Optional, Tuple, Union
 
 import numpy as np

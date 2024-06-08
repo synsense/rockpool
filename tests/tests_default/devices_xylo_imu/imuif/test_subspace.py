@@ -21,6 +21,8 @@ def test_subspace():
     T = 1000
     gravity = 10
 
+    np.random.seed(1)
+
     phases = np.random.rand(3) * 2 * np.pi
     base = np.sin(2 * np.pi * phase / r_sampling * np.arange(T))
     signal = np.zeros((T, 3))

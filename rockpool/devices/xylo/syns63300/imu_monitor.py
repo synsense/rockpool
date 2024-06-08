@@ -163,8 +163,8 @@ class XyloIMUMonitor(Module):
         # - Configure to auto mode
         self._enable_realtime_mode(interface_params)
 
-        self.power_monitor = None
-        """Power monitor for Xylo IMU"""
+        # - Disable RAM access to save power
+        hdkutils.enable_ram_access(self._device, False)
 
         # - Set power measurement module
         self._power_buf, self.power_monitor = hdkutils.set_power_measure(

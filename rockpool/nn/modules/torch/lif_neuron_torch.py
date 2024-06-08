@@ -1,6 +1,7 @@
 """
 Implement a LIF Neuron Module, using a Torch backend
 """
+
 from typing import Union, Tuple, Any
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule

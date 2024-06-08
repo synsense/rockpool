@@ -1,6 +1,7 @@
 """
 Dynap-SE2 samna connection utilities.
 """
+
 from typing import Any, List
 import logging
 from rockpool.devices.dynapse.samna_alias import DeviceInfo

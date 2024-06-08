@@ -3,5 +3,6 @@ Dynap-SE high level property conversion and computation utility class implementa
 
 * Non User Facing *
 """
+
 from ._time import *
 from ._gain import *

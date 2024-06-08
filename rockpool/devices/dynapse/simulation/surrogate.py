@@ -5,6 +5,7 @@ Low level DynapSE-2 simulator surrogate gradient implementation
 
 [] TODO : max spikes per dt
 """
+
 from __future__ import annotations
 from typing import Tuple
 import jax
