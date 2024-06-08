@@ -5,6 +5,7 @@ Mapper package for Xylo
 - Call :py:func:`.mapper`
 
 """
+
 import warnings
 
 import numpy as np

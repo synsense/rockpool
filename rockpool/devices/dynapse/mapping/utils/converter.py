@@ -6,6 +6,7 @@ to a Dynapse computational graph
 
 * Non User Facing *
 """
+
 from __future__ import annotations
 from typing import List, Tuple, Union
 
