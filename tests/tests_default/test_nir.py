@@ -5,7 +5,7 @@ import rockpool
 from rockpool.nn.modules import LinearTorch, ExpSynTorch, LIFTorch, to_nir, from_nir
 import snntorch as snn
 import torch.nn as nn
-from snntorch import export
+from snntorch import export_to_nir
 import numpy as np
 
 
@@ -82,20 +82,21 @@ def test_from_nir_to_sequential():
 
     convert_model = from_nir(nir_graph)
 
-    for (key1, value1), (key2, value2) in zip(
-        orig_model.modules().items(), dict(convert_model.named_children()).items()
-    ):
-        assert key1 == key2
-        assert value2 == value2
+    def compare_params(orig, converted):
+        for key, param in orig.parameters().items():
+            assert hasattr(
+                converted, key
+            ), f"Parameter {key} not found in converted model."
+            assert np.allclose(
+                torch.tensor(param).detach().numpy(),
+                torch.tensor(getattr(converted, key)).detach().numpy(),
+            ), f"Parameter {key} in converted model doesn't match original.\nFound {param} and {getattr(converted, key)}."
 
-    convert_children = list(convert_model.children())
-    torch.testing.assert_allclose(orig_model[0].weight, convert_children[0].weight)
-    # torch.testing.assert_allclose(orig_model[0].bias, convert_model[0].bias)
-    assert type(orig_model[1]) == type(convert_children[1])
-    assert type(orig_model[2]) == type(convert_children[2])
-    torch.testing.assert_allclose(orig_model[2].weight, convert_children[2].weight)
-    # TODO: Bias not working
-    # torch.testing.assert_allclose(orig_model[2].bias, convert_children[2].bias)
+    for key, mod in orig_model.modules().items():
+        assert (
+            key in dict(convert_model.named_children()).keys()
+        ), f"Key {key} not found in converted model."
+        compare_params(mod, getattr(convert_model, key))
 
 
 def test_complex_net():
@@ -141,7 +142,6 @@ def test_complex_net():
 
     nir_graph = to_nir(net, in_test)
     convert_model = from_nir(nir_graph)
-    print(convert_model)
 
 
 def test_snntorch_nir_rockpool():
@@ -164,26 +164,21 @@ def test_snntorch_nir_rockpool():
 
     x = torch.zeros(2)
 
-    net_nir = export.to_nir(net_snntorch, x)
+    net_nir = export_to_nir(net_snntorch, x)
 
     net_rockpool = from_nir(net_nir)
 
-    test0 = (
-        net_snntorch[0].weight.data.T
-        == net_rockpool.modules().get("0_LinearTorch").weight.data
-    )
-    test2 = (
-        net_snntorch[2].weight.data.T
-        == net_rockpool.modules().get("2_LinearTorch").weight.data
-    )
-    test4 = (
-        net_snntorch[4].weight.data.T
-        == net_rockpool.modules().get("4_LinearTorch").weight.data
-    )
-    assert torch.sum(test0).detach().numpy() == num_in * num_hidden_1
-    assert torch.sum(test2).detach().numpy() == num_hidden_1 * num_hidden_2
-    assert torch.sum(test4).detach().numpy() == num_hidden_2 * num_out
+    def compare_params(orig, converted):
+        for id, (param_orig, param_converted) in enumerate(zip(list(orig.parameters()), list(converted.parameters()))):
+            assert np.allclose(
+                torch.tensor(param_orig.T).detach().numpy(),
+                torch.tensor(param_converted).detach().numpy(),
+            ), f"Parameter {id} in converted model doesn't match original.\nFound {param_orig} and {param_converted}."
 
+    for mod_id in range(6):
+        mod_snntorch = net_snntorch[mod_id]
+        mod_rockpool = net_rockpool.get_submodule(f"{mod_id}")
+        compare_params(mod_snntorch, mod_rockpool)
 
 def test_import_rnn():
     m = from_nir("rockpool_nir/tests/tests_default/nir_graphs/braille.nir")
