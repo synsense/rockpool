@@ -1,3 +1,8 @@
+import pytest
+
+pytest.importorskip("samna")
+
+
 def test_large_IMU_network():
     from rockpool.devices.xylo.syns63300 import (
         XyloSamna,
