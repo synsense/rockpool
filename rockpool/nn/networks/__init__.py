@@ -4,6 +4,11 @@ Defines classes for encapsulating and generating networks of layers
 
 import warnings
 
+from rockpool.utilities.backend_management import (
+    backend_available,
+    missing_backend_shim,
+)
+
 try:
     from .net_ads import *
 except (ImportError, ModuleNotFoundError) as err:
@@ -16,8 +21,12 @@ except (ImportError, ModuleNotFoundError) as err:
 
 try:
     from .wavesense import *
-except (ImportError, ModuleNotFoundError) as err:
-    warnings.warn(f"{err}")
+except:
+    if not backend_available("torch"):
+        WaveSenseNet = missing_backend_shim("WaveSenseNet", "torch")
+        WaveBlock = missing_backend_shim("WaveBlock", "torch")
+    else:
+        raise
 
 try:
     from .synnet import *

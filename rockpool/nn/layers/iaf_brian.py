@@ -2,7 +2,6 @@
 IAF neurons layers with Brian2 backend
 """
 
-
 # - Imports
 from warnings import warn
 
@@ -27,11 +26,14 @@ from rockpool.nn.modules.timed_module import astimedmodule
 
 # - Configure exports
 __all__ = [
+    "FFIAFBrian",
+    "RecIAFBrian",
     "FFIAFBrianBase",
     "FFIAFSpkInBrian",
     "RecIAFBrianBase",
     "RecIAFSpkInBrian",
     "eqNeuronIAFFF",
+    "eqNeuronCLIAFFF",
     "eqNeuronIAFSpkInFF",
     "eqNeuronIAFRec",
     "eqNeuronIAFSpkInRec",

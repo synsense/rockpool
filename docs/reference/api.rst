@@ -137,7 +137,6 @@ These classes are deprecated, but are still usable via the high-level API, until
     nn.layers.RecIAFBrian
     nn.layers.RecIAFSpkInBrian
     nn.layers.FFExpSynBrian
-    nn.layers.RecDIAF
 
 
 Standard networks
@@ -147,8 +146,7 @@ Standard networks
     :toctree: _autosummary
     :template: class.rst
 
-    nn.networks.wavesense.WaveSenseNet
-    nn.networks.wavesense.WaveBlock
+    nn.networks.WaveSenseNet
 
 
 Conversion utilities
@@ -204,23 +202,13 @@ Conversion utilities
 Xylo hardware support and simulation
 ------------------------------------
 
-.. autosummary::
+Support modules
+~~~~~~~~~~~~~~~
+
+.. autosummary:: 
     :toctree: _autosummary
 
-    devices.xylo.syns61201.config_from_specification
-    devices.xylo.syns61201.load_config
-    devices.xylo.syns61201.save_config
-
-.. autosummary::
-    :toctree: _autosummary
-    :template: class.rst
-
-    devices.xylo.syns61201.XyloSim
-    devices.xylo.syns61201.XyloSamna
-    devices.xylo.syns61201.XyloMonitor
-    devices.xylo.syns61201.AFESim
-    devices.xylo.syns61201.AFESamna
-    devices.xylo.syns61201.DivisiveNormalisation
+    devices.xylo.find_xylo_hdks
 
 .. autosummary::
     :toctree: _autosummary
@@ -235,25 +223,123 @@ Xylo hardware support and simulation
     devices.xylo.syns61300
     devices.xylo.syns61201
     devices.xylo.syns65300
+    devices.xylo.syns63300
+
+.. autosummary::
+    :toctree: _autosummary
+
+    transform.quantize_methods.global_quantize
+    transform.quantize_methods.channel_quantize
+
+
+Xylo Audio support
+~~~~~~~~~~~~~~~~~~~
 
 .. autosummary::
     :toctree: _autosummary
 
     devices.xylo.syns61201.mapper
+    devices.xylo.syns61201.config_from_specification
+    devices.xylo.syns61201.load_config
+    devices.xylo.syns61201.save_config
+    devices.xylo.syns61201.cycles_model
+    devices.xylo.syns61201.est_clock_freq
 
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
-    devices.xylo.syns61201.XyloHiddenNeurons
-    devices.xylo.syns61201.XyloOutputNeurons
+    devices.xylo.syns61201.XyloSim
+    devices.xylo.syns61201.XyloSamna
+    devices.xylo.syns61201.XyloMonitor
+    devices.xylo.syns61201.AFESim
+    devices.xylo.syns61201.AFESamna
+    devices.xylo.syns61201.DivisiveNormalisation
+    devices.xylo.syns61201.Xylo2HiddenNeurons
+    devices.xylo.syns61201.Xylo2OutputNeurons
+
+
+Xylo IMU support
+~~~~~~~~~~~~~~~~~~~
+
+.. seealso::
+    * :ref:`/devices/xylo-imu/xylo-imu-intro.ipynb`
+
+.. autosummary::
+    :toctree: _autosummary
+
+    devices.xylo.syns63300.mapper
+    devices.xylo.syns63300.config_from_specification
+    devices.xylo.syns63300.load_config
+    devices.xylo.syns63300.save_config
+    devices.xylo.syns63300.cycles_model
+    devices.xylo.syns63300.est_clock_freq
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    devices.xylo.syns63300.XyloSim
+    devices.xylo.syns63300.XyloSamna
+    devices.xylo.syns63300.XyloIMUMonitor
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    devices.xylo.syns63300.XyloIMUHiddenNeurons
+    devices.xylo.syns63300.XyloIMUOutputNeurons
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    devices.xylo.syns63300.XyloSamna
+    devices.xylo.syns63300.XyloSim
+    devices.xylo.syns63300.XyloIMUMonitor
+
+
+**IMU Preprocessing Interface**
+
+.. seealso::
+    * :ref:`/devices/xylo-imu/imu-if.ipynb`
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    devices.xylo.syns63300.IMUIFSim
+    devices.xylo.syns63300.IMUIFSamna
+    devices.xylo.syns63300.IMUData
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: module.rst
+
+    devices.xylo.syns63300.imuif
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    devices.xylo.syns63300.IMUIFSim
+    devices.xylo.syns63300.imuif.RotationRemoval
+    devices.xylo.syns63300.imuif.BandPassFilter
+    devices.xylo.syns63300.imuif.FilterBank
+    devices.xylo.syns63300.imuif.ScaleSpikeEncoder
+    devices.xylo.syns63300.imuif.IAFSpikeEncoder
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    devices.xylo.syns63300.Quantizer
+
 
 Dynap-SE2 hardware support and simulation
 -----------------------------------------
 
 .. seealso::
-    Tutorials:
-
     * :ref:`/devices/DynapSE/dynapse-overview.ipynb`
     * :ref:`/devices/DynapSE/post-training.ipynb`
     * :ref:`/devices/DynapSE/neuron-model.ipynb`

@@ -2,6 +2,7 @@
 Tests here make sure that the frozen mismatch generation works as it should work.
 The mismatch generator should deviate the parameters differently at each shot
 """
+
 import pytest
 
 
@@ -12,6 +13,10 @@ def test_mismatch_distribution():
 
     :raises AttributeError: Mismatch generation is identical across different attributes! Randomization is wrong! Each identity should use a different random number seed!
     """
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
 
     from rockpool.devices.dynapse import DynapSim, frozen_mismatch_prototype
     from rockpool.nn.combinators import Sequential
@@ -83,6 +88,10 @@ def test_mismatch_statistics():
     test_mismatch_statistics checks the statistical properties of the deviated parameters to make sure that the mismatch generation procedure can keep the mean value
     at the same point and create a standard deviation on parameters.
     """
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
 
     from rockpool.devices.dynapse import DynapSim, frozen_mismatch_prototype
     from rockpool.nn.combinators import Sequential

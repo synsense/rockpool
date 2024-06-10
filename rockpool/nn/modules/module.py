@@ -1,6 +1,7 @@
 """
 Contains the module base classes for Rockpool
 """
+
 # - Rockpool imports
 import collections
 

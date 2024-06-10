@@ -8,13 +8,6 @@ See Also:
 
 """
 
-from rockpool.utilities.backend_management import backend_available
-
-if not backend_available("samna"):
-    raise ModuleNotFoundError(
-        "`samna` not found. The Xylo HDK requires `samna` for interfacing."
-    )
-
 # - `samna` imports
 import samna
 from samna.xylo.configuration import XyloConfiguration
@@ -257,7 +250,7 @@ def blocking_read(
     target_timestamp: Optional[int] = None,
     count: Optional[int] = None,
     timeout: Optional[float] = None,
-) -> (List, bool):
+) -> Tuple[List, bool]:
     """
     Perform a blocking read on a buffer, optionally waiting for a certain count, a target timestamp, or imposing a timeout
 
@@ -1573,7 +1566,7 @@ def configure_accel_time_mode(
     # v_mem_start: Optional[int] = 0,
     readout="Spike",
     record=False,
-) -> (XyloConfiguration, XyloNeuronStateBuffer):
+) -> Tuple[XyloConfiguration, XyloNeuronStateBuffer]:
     """
     Switch on accelerated-time mode on a Xylo hdk, and configure network monitoring
 

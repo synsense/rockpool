@@ -1,9 +1,9 @@
-import pytest
-
-pytest.importorskip("samna")
-
-
 def test_XyloMonitor():
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("xylosim")
+
     from rockpool.devices.xylo.syns61201 import XyloMonitor, config_from_specification
     import rockpool.devices.xylo.syns61201.xa2_devkit_utils as putils
     import numpy as np
@@ -39,7 +39,9 @@ def test_XyloMonitor():
     )
 
     # - Make a XyloMonitor module
-    mod_xylo = XyloMonitor(daughterboard, config, dt, output_mode="Vmem")
+    mod_xylo = XyloMonitor(
+        device=daughterboard, config=config, dt=dt, output_mode="Vmem"
+    )
 
     # - Simulate with random input
     T = 10

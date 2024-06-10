@@ -1,47 +1,89 @@
+default:
+  image: "registry.gitlab.com/synsense/rockpool/clean:latest"
+
 stages:
+  - preliminaries
   - test
   - docs
   - docs_deploy
   - build
   - deploy
 
-unit_tests:
+black-check:
+  stage: preliminaries
+  needs: []
+  image: "registry.gitlab.com/synsense/rockpool/clean:latest"
+  before_script:
+    - pip install --upgrade pip
+    - pip install black==23.1.0
+
+  script:
+    - python -m black --check rockpool tests
+
+gpu_validation:
+  stage: preliminaries
+  image: "registry.gitlab.com/synsense/rockpool/clean:latest"
+  allow_failure: true
+  tags:
+    - cuda
+  script:
+    - nvidia-smi
+    - which nvcc
+
+unit_tests_clean:
   stage: test
-  image: "registry.gitlab.com/synsense/rockpool/test:latest"
+  image: "registry.gitlab.com/synsense/rockpool/clean:latest"
+  tags:
+    - cuda
 
   before_script:
     - pip install --upgrade pip
-    - conda install -c conda-forge cudatoolkit-dev=11.4.0=h5e8e339_5
-    - pip install --upgrade .[all] --no-cache-dir
+    - pip install --upgrade ".[all]" --no-cache-dir
     - python -c 'import samna'
-    - pip install 'sinabs-exodus>=1.1' || exit_code=$?
+    - pip install --upgrade sinabs-exodus --no-cache-dir || exit_code=$?
     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
 
   script:
-    - pytest -v tests/tests_default -n 4 --forked
-    - pytest -v tests/test_v1layers -n 4
+    - pytest -v tests/tests_default --random-order
 
-optional_tests:
+unit_tests_known_good:
   stage: test
-  allow_failure: true
-  image: "registry.gitlab.com/synsense/rockpool/test:latest"
-  when: manual
+  needs: []
+  image: "registry.gitlab.com/synsense/rockpool/known_good:latest"
+  tags:
+    - cuda
+  # parallel: 4
 
   before_script:
     - pip install --upgrade pip
-    - pip install --upgrade .[all] --no-cache-dir
+    - pip install --upgrade ".[all]" --no-cache-dir
+    - pip install --upgrade sinabs-exodus --no-cache-dir || exit_code=$?
+    - pip install pytest pytest-cov
+    - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
 
   script:
-      - pytest -v tests/test_optional -n 4
+    - pytest --cov --cov-report term --cov-report xml:coverage.xml -v tests/tests_default --random-order --junitxml="test_report.xml" #--test-group-count $CI_NODE_TOTAL --test-group=$CI_NODE_INDEX 
+
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    when: always
+    paths:
+      - test_report.xml
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+      junit: test_report.xml
+    expire_in: 1 day
 
 documentation_linting:
   stage: docs
   allow_failure: true
-  image: "registry.gitlab.com/synsense/rockpool/test:latest"
-
+  needs: []
   before_script:
     - pip install --upgrade pip
-    - pip install --upgrade .[all] --no-cache-dir
+    - pip install --upgrade ".[all]" --no-cache-dir
+    - python -c 'import samna'
 
   script:
     - sphinx-build -n -b dummy docs docs/_build/html
@@ -49,11 +91,10 @@ documentation_linting:
 docs_build:
   stage: docs
   allow_failure: true
-  image: "registry.gitlab.com/synsense/rockpool/test:latest"
-
   before_script:
     - pip install --upgrade pip
-    - pip install .[all] --no-cache-dir
+    - pip install ".[all]" --no-cache-dir
+    - python -c 'import samna'
 
   script:
     - cp CHANGELOG.md docs/advanced
@@ -66,10 +107,7 @@ docs_build:
 
 dist_build:
   stage: build
-  image: "registry.gitlab.com/synsense/rockpool/test:latest"
-
-  dependencies:
-    - unit_tests
+  needs: ["unit_tests_known_good", "unit_tests_clean"]
 
   before_script:
     - pip install --upgrade pip
@@ -82,25 +120,12 @@ dist_build:
     paths:
       - dist
 
-black-check:
-  stage: test
-  image: "registry.gitlab.com/synsense/rockpool/test:latest"
-
-  before_script:
-    - pip install --upgrade pip
-    - pip install black==23.1.0
-
-  script:
-    - python -m black --check rockpool tests
-
 pages:
   stage: docs_deploy
   only:
     - master
 
   allow_failure: true
-  image: "registry.gitlab.com/synsense/rockpool/test:latest"
-
   dependencies:
     - docs_build
 
@@ -110,11 +135,10 @@ pages:
   artifacts:
     paths:
       - public
-
+     
 pypi_deploy:
   stage: deploy
   when: manual
-  image: "registry.gitlab.com/synsense/rockpool/test:latest"
 
   only:
     - master
@@ -126,5 +150,8 @@ pypi_deploy:
     - pip install --upgrade pip
     - pip install -U twine
 
+  variables:
+    TWINE_USERNAME: "__token__"
+    TWINE_PASSWORD: $PYPI_PASSWORD
   script:
     - python -m twine upload dist/*

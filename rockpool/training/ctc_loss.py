@@ -1,11 +1,12 @@
 """
 Implementations of the CTC loss, in numpy, Jax and Torch
 """
+
 import warnings
 
 import numpy as np
 
-from typing import Sequence
+from typing import Sequence, Tuple
 
 
 def ctc_loss_numpy(
@@ -92,7 +93,7 @@ try:
         #### Outer loop
 
         # for i in range(1, seq_length):
-        def outer(carry, inputs) -> (jnp.ndarray, jnp.ndarray):
+        def outer(carry, inputs) -> Tuple[jnp.ndarray, jnp.ndarray]:
             (log_prob_i, log_prob_label_i) = inputs
             aa_isub1 = carry
 
@@ -113,7 +114,7 @@ try:
             # log_prob_label_i = log_prob_label_i
 
             # for j in range(3, l_ + 1):
-            def inner(_, inputs) -> (None, float):
+            def inner(_, inputs) -> Tuple[None, float]:
                 (
                     aa_isub1_j,
                     aa_isub1_jsub1,

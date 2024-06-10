@@ -5,6 +5,7 @@ Mapper package for Xylo
 - Call :py:func:`.mapper`
 
 """
+
 import warnings
 
 import numpy as np
@@ -233,6 +234,43 @@ def check_drc(
             )
 
 
+def assign_ids_to_module(m: GraphModuleBase, available_ids: List[int]) -> List[int]:
+    """
+    Assign IDs from a list to a single graph module
+
+    This function sets the :py:attr:`~.graph.GraphModule.hw_ids` attribute for a single :py:class:`.graph.GraphModule`, by assigning them greedily from a list. The allocated IDs are removed from the ``available`` list, are set in the graph module, and are returned as a list.
+
+    Examples:
+
+        >>> output_ids = list(range(16))
+        >>> allocated_ids = assign_ids_to_module(mod, output_ids)
+        >>> print(allocated_ids)
+        [0, 1, 2, 3, 4, 5]
+        >>> print(output_ids)
+        [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+    Args:
+        m (GraphModuleBase): The module to assign IDs to
+        available_ids (List[int]): A list of integer unique HW IDs that can be allocated from. These IDs will be allocated to the graph modules.
+
+    Returns:
+        List[int]: The hardware IDs that were allocated to the graph module
+    """
+    num_needed_ids = len(m.output_nodes)
+    if len(available_ids) < num_needed_ids:
+        raise DRCError(f"Exceeded number of available resources for graph module {m}.")
+
+    # - Allocate the IDs and remove them from the available list
+    m.hw_ids = available_ids[:num_needed_ids]
+    del available_ids[:num_needed_ids]
+
+    # - Annotate the original computational module with the allocated hardware IDs, if possible
+    if m.computational_module is not None:
+        m.computational_module._hw_ids = m.hw_ids
+
+    return m.hw_ids
+
+
 def assign_ids_to_class(
     graph: GraphModuleBase, cls, available_ids: List[int]
 ) -> List[int]:
@@ -265,22 +303,8 @@ def assign_ids_to_class(
     modules = find_modules_of_subclass(graph, cls)
 
     # - Allocate HW ids to these modules
-    for m in modules:
-        num_needed_ids = len(m.output_nodes)
-        if len(available_ids) < num_needed_ids:
-            raise DRCError(
-                f"Exceeded number of available resources for graph module {m}."
-            )
-
-        # - Allocate the IDs and remove them from the available list
-        m.hw_ids = available_ids[:num_needed_ids]
-        allocated_ids.extend(m.hw_ids)
-        del available_ids[:num_needed_ids]
-
-        # - Annotate the original computational module with the allocated hardware IDs, if possible
-        if m.computational_module is not None:
-            m.computational_module._hw_ids = m.hw_ids
-
+    allocated_ids = [assign_ids_to_module(m, available_ids) for m in modules]
+    allocated_ids = [nid for ids in allocated_ids for nid in ids]
     return allocated_ids
 
 
@@ -300,7 +324,7 @@ def mapper(
     Warnings:
         :py:func:`mapper` operates **in-place** on the graph, and may modify it. If you need the un-mapped graph, you may need to call :py:meth:`.Module.as_graph` again on your :py:class:`.Module`.
 
-    It then allocates neurons and converts the network weights into a specification for Xylo. This specification can be used to create a config object with :py:func:`~rockpool.devices.xylo.config_from_specification`.
+    It then allocates neurons and converts the network weights into a specification for Xylo. This specification can be used to create a config object with :py:func:`~rockpool.devices.xylo.syns61300.config_from_specification`.
 
     Args:
         graph (GraphModuleBase): The graph to map

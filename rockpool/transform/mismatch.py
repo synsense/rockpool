@@ -1,9 +1,11 @@
 """
 Analog device mismatch transformation (jax) implementation
 """
+
 from typing import Any, Callable, Dict, Tuple
 from rockpool.nn.modules.jax import JaxModule
 
+import jax
 from jax import random as rand
 from jax import numpy as jnp
 from rockpool.utilities.jax_tree_utils import tree_map_select_with_rng
@@ -13,9 +15,7 @@ __all__ = ["mismatch_generator"]
 
 def mismatch_generator(
     prototype: Dict[str, bool], percent_deviation: float = 0.30, sigma_rule: float = 3.0
-) -> Callable[
-    [Tuple[Dict[str, jnp.DeviceArray], jnp.DeviceArray]], Dict[str, jnp.DeviceArray]
-]:
+) -> Callable[[Tuple[Dict[str, jax.Array], jax.Array]], Dict[str, jax.Array]]:
     """ 
     mismatch_generator returns a function which simulates the analog device mismatch effect.
     The function deviates the parameter values provided in statistical means.
@@ -46,37 +46,33 @@ def mismatch_generator(
     :param sigma_rule: The sigma rule to use. if 1.0, then 68.27% of the values will deviate less then ``percent``, if 2.0, then 95.45% of the values will deviate less then ``percent`` etc., defaults to 3.0
     :type sigma_rule: float, optional
     :return: a function which takes a pytree and computes the mismatch amount accordingly
-    :rtype: Callable[ [Tuple[Dict[str, jnp.DeviceArray], jnp.DeviceArray]], Dict[str, jnp.DeviceArray] ]
+    :rtype: Callable[ [Tuple[Dict[str, jax.Array], jax.Array]], Dict[str, jax.Array] ]
     """
 
     sigma_eff = jnp.array(percent_deviation / sigma_rule)
 
-    def regenerate_mismatch(
-        mod: JaxModule, rng_key: jnp.DeviceArray
-    ) -> Dict[str, jnp.DeviceArray]:
+    def regenerate_mismatch(mod: JaxModule, rng_key: jax.Array) -> Dict[str, jax.Array]:
         """
         regenerate_mismatch takes a parameter dictionary, flattens the tree and applies parameter mismatch to every leaf of the tree.
 
         :param params: parameter dictionary that is subject to mismatch effect
-        :type params: Dict[str, jnp.DeviceArray]
+        :type params: Dict[str, jax.Array]
         :param rng_key: the initial jax random number generator seed
-        :type rng_key: jnp.DeviceArray
+        :type rng_key: jax.Array
         :return: deviated parameters
-        :rtype: Dict[str, jnp.DeviceArray]
+        :rtype: Dict[str, jax.Array]
         """
 
-        def __map_fun(
-            array: jnp.DeviceArray, rng_key: jnp.DeviceArray
-        ) -> jnp.DeviceArray:
+        def __map_fun(array: jax.Array, rng_key: jax.Array) -> jax.Array:
             """
             __map_fun is the mapping functions that applies the deviation to all leaves of the tree
 
             :param array: single parameter to deviate
-            :type array: jnp.DeviceArray
+            :type array: jax.Array
             :param rng_key: a single-use random number generator key
-            :type rng_key: jnp.DeviceArray
+            :type rng_key: jax.Array
             :return: the deviated parameter
-            :rtype: jnp.DeviceArray
+            :rtype: jax.Array
             """
             deviation = sigma_eff * rand.normal(rng_key, array.shape)
             return jnp.array(array + deviation * array, dtype=jnp.float32)

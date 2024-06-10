@@ -1,11 +1,26 @@
 """
 Quantisation methods for Xylo
+
+Defines the post-training quasntization methods :py:func:`.global_quantize` and :py:func:`.channel_quantize`.
+
 """
 
 import numpy as np
 import copy
 
 __all__ = ["global_quantize", "channel_quantize"]
+
+
+def validate_weights_to_2d(data):
+    assert len(data.shape) == 2, "Output weights must be 2D."
+    return data
+
+
+def validate_weights_to_3d(data):
+    assert (
+        len(data.shape) >= 2 and len(data.shape) <= 3
+    ), "Weight arrays must be 2D or 3D."
+    return np.expand_dims(data, -1) if len(data.shape) < 3 else data
 
 
 def global_quantize(
@@ -32,20 +47,24 @@ def global_quantize(
 
     The figure below illustrates the groups of weights which are considered for quantization. Under this global method, all weights in the network are considered together when scaling and quantizing weights and thresholds. Input and recurrent weights are considered together as a group; output weights are considered separately when quantizing. Dashes are rounded and cast to integer.
 
-                 target
-           -------------------
-    s   -------------------  -
-    o   -**- -**- -**- -**-  -
-    u   -**- -**- -**- -**-  -
-    r   -**- -**- -**- -**-  -
-    c   -**- -**- -**- -**-  -
-    e   -**- -**- -**- -**-  -
-        -------------------
+    ::
+
+                    target
+            -------------------
+        s   -------------------  -
+        o   -**- -**- -**- -**-  -
+        u   -**- -**- -**- -**-  -
+        r   -**- -**- -**- -**-  -
+        c   -**- -**- -**- -**-  -
+        e   -**- -**- -**- -**-  -
+            -------------------
 
     Examples:
-        specs = xylo.devices.mapper(net.as_graph(), weight_dtype="float", threshold_dtype="float")
-        specs.update(global_quantize(**specs, fuzzy_scaling = True))
-        xylo.devices.XyloSim.from_specifications(specs)
+        >>> specs = xylo.devices.mapper(net.as_graph(), weight_dtype="float", threshold_dtype="float")
+
+        >>> specs.update(global_quantize(**specs, fuzzy_scaling = True))
+
+        >>> xylo.devices.XyloSim.from_specifications(specs)
 
     Args:
         weights_in (np.ndarray): Input weight matrix
@@ -68,9 +87,9 @@ def global_quantize(
         dict: `model_quan` which can be used to update a Xylo specification dictionary
     """
 
-    w_in = copy.copy(weights_in)
-    w_rec = copy.copy(weights_rec)
-    w_out = copy.copy(weights_out)
+    w_in = validate_weights_to_3d(copy.copy(weights_in))
+    w_rec = validate_weights_to_3d(copy.copy(weights_rec))
+    w_out = validate_weights_to_2d(copy.copy(weights_out))
     threshold = copy.copy(threshold)
     threshold_out = copy.copy(threshold_out)
     max_w_quan = 2 ** (bits_per_weight - 1) - 1
@@ -186,20 +205,24 @@ def channel_quantize(
 
     The figure below illustrates the groups of weights which are considered for quantization. Under this per-channel method, all input weights to a single target neuron are considered together when scaling and quantizing weights and thresholds. Input and recurrent weights are considered together as a group; output weights are considered separately when quantizing. Dashes are rounded and cast to integer.
 
-                 target
-           -------------------
-    s   -------------------  -
-    o   -++- -**- -##- -oo-  -
-    u   -++- -**- -##- -oo-  -
-    r   -++- -**- -##- -oo-  -
-    c   -++- -**- -##- -oo-  -
-    e   -++- -**- -##- -oo-  -
-        -------------------
+    ::
+
+                    target
+            -------------------
+        s   -------------------  -
+        o   -++- -**- -##- -oo-  -
+        u   -++- -**- -##- -oo-  -
+        r   -++- -**- -##- -oo-  -
+        c   -++- -**- -##- -oo-  -
+        e   -++- -**- -##- -oo-  -
+            -------------------
 
     Examples:
-        specs = xylo.devices.mapper(net.as_graph(), weight_dtype="float", threshold_dtype="float")
-        specs.update(channel_quantize(**specs, bits_per_weight = 12))
-        xylo.devices.XyloSim.from_specifications(specs)
+        >>> specs = xylo.devices.mapper(net.as_graph(), weight_dtype="float", threshold_dtype="float")
+
+        >>> specs.update(channel_quantize(**specs, bits_per_weight = 12))
+
+        >>> xylo.devices.XyloSim.from_specifications(specs)
 
     Args:
         weights_in (np.ndarray): Input weight matrix
@@ -221,13 +244,17 @@ def channel_quantize(
         dict: `model_quan` which can be used to update a Xylo specification dictionary
     """
 
-    w_in = copy.copy(weights_in)
-    w_rec = copy.copy(weights_rec)
-    w_out = copy.copy(weights_out)
+    w_in = validate_weights_to_3d(copy.copy(weights_in))
+    w_rec = validate_weights_to_3d(copy.copy(weights_rec))
+    w_out = validate_weights_to_2d(copy.copy(weights_out))
     threshold = copy.copy(threshold)
     threshold_out = copy.copy(threshold_out)
     max_w_quan = 2 ** (bits_per_weight - 1) - 1
     max_th_quan = 2 ** (bits_per_threshold - 1) - 1
+
+    Nin, Nien, Nsyn = w_in.shape
+    Nhid, _, _ = w_rec.shape
+    Noen, Nout = w_out.shape
 
     # quantize input weight, recurrent weight, threshold
     # two weight matrix need to stack together to consider per-channel quantization
@@ -235,67 +262,106 @@ def channel_quantize(
     w_rec_quan = np.zeros(shape=w_rec.shape)
     threshold_quan = np.zeros(shape=threshold.shape)
 
-    for i in range(w_in.shape[1]):
+    for hidden_id in range(Nhid):
         # if two synaptic connection is used
-        if len(w_in.shape) == 3:
+        if Nsyn > 1:
+            # - Find the maximum output weight for this neuron
             max_w = 0
-            max_w = np.max([max_w, np.max(np.abs(w_in[:, i, :]))])
-            max_w = np.max([max_w, np.max(np.abs(w_rec[:, i, :]))])
+            max_w = (
+                np.max([max_w, np.max(np.abs(w_in[:, hidden_id, :]))])
+                if hidden_id < Nien
+                else max_w
+            )
+            max_w = np.max([max_w, np.max(np.abs(w_rec[:, hidden_id, :]))])
+
+            # - Scale and quantise weights, thresholds and biases
             if max_w != 0:
                 scaling = max_w_quan / max_w
-                w_in_quan[:, i, :] = np.round(w_in[:, i, :] * scaling)
-                w_rec_quan[:, i, :] = np.round(w_rec[:, i, :] * scaling)
-                threshold_quan[i] = np.round(threshold[i] * scaling)
+                if hidden_id < Nien:
+                    w_in_quan[:, hidden_id, :] = np.round(
+                        w_in[:, hidden_id, :] * scaling
+                    )
+                w_rec_quan[:, hidden_id, :] = np.round(w_rec[:, hidden_id, :] * scaling)
+                threshold_quan[hidden_id] = np.round(threshold[hidden_id] * scaling)
                 if not bias is None:
-                    bias[i] = np.round(bias[i] * scaling)
-                # if the threshold exceed boundary
-                if np.abs(threshold_quan[i]) > max_th_quan:
-                    limited_scaling = max_th_quan / threshold[i]
-                    threshold_quan[i] = np.round(threshold[i] * limited_scaling)
-                    w_in_quan[:, i, :] = np.round(w_in[:, i, :] * limited_scaling)
-                    w_rec_quan[:, i, :] = np.round(w_rec[:, i, :] * limited_scaling)
+                    bias[hidden_id] = np.round(bias[hidden_id] * scaling)
+
+                # if the threshold exceeds boundary
+                if np.abs(threshold_quan[hidden_id]) > max_th_quan:
+                    limited_scaling = max_th_quan / threshold[hidden_id]
+                    threshold_quan[hidden_id] = np.round(
+                        threshold[hidden_id] * limited_scaling
+                    )
+                    if hidden_id <= Nien:
+                        w_in_quan[:, hidden_id, :] = np.round(
+                            w_in[:, hidden_id, :] * limited_scaling
+                        )
+                    w_rec_quan[:, hidden_id, :] = np.round(
+                        w_rec[:, hidden_id, :] * limited_scaling
+                    )
             else:
-                threshold_quan[i] = np.round(threshold[i])
+                threshold_quan[hidden_id] = np.round(threshold[hidden_id])
 
         # if only one synaptic connection is used
-        elif len(w_in.shape) == 2:
+        elif Nsyn == 1:
+            # - Find the maximum output weight for this neuron
             max_w = 0
-            max_w = np.max([max_w, np.max(np.abs(w_in[:, i]))])
-            max_w = np.max([max_w, np.max(np.abs(w_rec[:, i]))])
+            max_w = (
+                np.max([max_w, np.max(np.abs(w_in[:, hidden_id]))])
+                if hidden_id < Nien
+                else max_w
+            )
+            max_w = np.max([max_w, np.max(np.abs(w_rec[:, hidden_id]))])
+
+            # - Scale and quantise weights, thresholds and biases
             if max_w != 0:
                 scaling = max_w_quan / max_w
-                w_in_quan[:, i] = np.round(w_in[:, i] * scaling)
-                w_rec_quan[:, i] = np.round(w_rec[:, i] * scaling)
-                threshold_quan[i] = np.round(threshold[i] * scaling)
-                # if the threshold exceed boundary
-                if np.abs(threshold_quan[i]) > max_th_quan:
-                    limited_scaling = max_th_quan / threshold[i]
-                    threshold_quan[i] = np.round(threshold[i] * limited_scaling)
-                    w_in_quan[:, i] = np.round(w_in[:, i] * limited_scaling)
-                    w_rec_quan[:, i] = np.round(w_rec[:, i] * limited_scaling)
+                if hidden_id < Nien:
+                    w_in_quan[:, hidden_id] = np.round(w_in[:, hidden_id] * scaling)
+
+                w_rec_quan[:, hidden_id] = np.round(w_rec[:, hidden_id] * scaling)
+                threshold_quan[hidden_id] = np.round(threshold[hidden_id] * scaling)
+
+                # if the threshold exceeds boundary
+                if np.abs(threshold_quan[hidden_id]) > max_th_quan:
+                    limited_scaling = max_th_quan / threshold[hidden_id]
+                    threshold_quan[hidden_id] = np.round(
+                        threshold[hidden_id] * limited_scaling
+                    )
+                    if hidden_id <= Nien:
+                        w_in_quan[:, hidden_id] = np.round(
+                            w_in[:, hidden_id] * limited_scaling
+                        )
+                    w_rec_quan[:, hidden_id] = np.round(
+                        w_rec[:, hidden_id] * limited_scaling
+                    )
             else:
-                threshold_quan[i] = np.round(threshold[i])
+                threshold_quan[hidden_id] = np.round(threshold[hidden_id])
 
     # quantize output weight, threshold_out
     w_out_quan = np.zeros(shape=w_out.shape)
     threshold_out_quan = np.zeros(shape=threshold_out.shape)
 
-    for i in range(w_out.shape[1]):
+    for output_id in range(Nout):
         max_w = 0
-        max_w = np.max([max_w, np.max(np.abs(w_out[:, i]))])
+        max_w = np.max([max_w, np.max(np.abs(w_out[:, output_id]))])
         if max_w != 0:
             scaling = max_w_quan / max_w
-            w_out_quan[:, i] = np.round(w_out[:, i] * scaling)
-            threshold_out_quan[i] = np.round(threshold_out[i] * scaling)
+            w_out_quan[:, output_id] = np.round(w_out[:, output_id] * scaling)
+            threshold_out_quan[output_id] = np.round(threshold_out[output_id] * scaling)
             if not bias_out is None:
-                bias_out[i] = np.round(bias[i] * scaling)
+                bias_out[output_id] = np.round(bias[output_id] * scaling)
             # if the threshold exceed boundary
-            if np.abs(threshold_out_quan[i]) > max_th_quan:
-                limited_scaling = max_th_quan / threshold_out[i]
-                threshold_out_quan[i] = np.round(threshold_out[i] * limited_scaling)
-                w_out_quan[:, i] = np.round(w_out[:, i] * limited_scaling)
+            if np.abs(threshold_out_quan[output_id]) > max_th_quan:
+                limited_scaling = max_th_quan / threshold_out[output_id]
+                threshold_out_quan[output_id] = np.round(
+                    threshold_out[output_id] * limited_scaling
+                )
+                w_out_quan[:, output_id] = np.round(
+                    w_out[:, output_id] * limited_scaling
+                )
         else:
-            threshold_out_quan[i] = np.round(threshold_out[i])
+            threshold_out_quan[output_id] = np.round(threshold_out[output_id])
 
     # make sure all types are int
     weights_in = w_in_quan.astype(int)

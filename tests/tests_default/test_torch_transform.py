@@ -89,8 +89,12 @@ def test_transform_net():
     )
 
     tconf = tt.make_param_T_config(net, tt.stochastic_rounding, "weights")
-    tu.tree_update(tconf, tt.make_param_T_config(net, tt.stochastic_rounding, "biases"))
-    tu.tree_update(tconf, tt.make_param_T_config(net, tt.stochastic_rounding, "taus"))
+    tconf = tu.tree_update(
+        tconf, tt.make_param_T_config(net, tt.stochastic_rounding, "biases")
+    )
+    tconf = tu.tree_update(
+        tconf, tt.make_param_T_config(net, tt.stochastic_rounding, "taus")
+    )
 
     tnet = tt.make_param_T_network(net, tconf)
 
@@ -113,6 +117,8 @@ def test_act_transform_net():
     import rockpool.transform.torch_transform as tt
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential, Residual
+
+    torch.manual_seed(1)
 
     net = Sequential(
         LinearTorch((3, 5)),

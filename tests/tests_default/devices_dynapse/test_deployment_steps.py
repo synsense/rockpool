@@ -5,19 +5,22 @@ To test the pipeline, two weight matrices (w_in and w_rec) are loaded
 Every test sequentially combines a `LinearJax` and a `DynapSim` layer whose weight matrices are loaded externally.
 """
 
-from numpy.testing import assert_equal, assert_allclose, assert_array_equal
-
 
 def test_network_building_first_step():
     """
     test_network_building_first_step checks if the weight matrices after the network construction is identically the same
     """
     ### --- Preliminaries --- ###
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
     import os
     import numpy as np
     from rockpool.nn.modules import LinearJax
     from rockpool.nn.combinators import Sequential
     from rockpool.devices.dynapse import DynapSim
+    from numpy.testing import assert_equal
 
     # - Path building
     __dirname__ = os.path.dirname(os.path.abspath(__file__))
@@ -48,11 +51,16 @@ def test_net_from_spec():
     test_net_from_spec checks if the network constructed after mapping is the same network before the mapping
     """
     ### --- Preliminaries --- ###
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
     import os
     import numpy as np
     from rockpool.nn.modules import LinearJax
     from rockpool.nn.combinators import Sequential
     from rockpool.devices.dynapse import DynapSim
+    from numpy.testing import assert_equal, assert_array_equal
 
     # - Path building
     __dirname__ = os.path.dirname(os.path.abspath(__file__))
@@ -98,11 +106,16 @@ def test_net_from_spec_mismatch():
     """
 
     ### --- Preliminaries --- ###
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
     import os
     import numpy as np
     from rockpool.nn.modules import LinearJax
     from rockpool.nn.combinators import Sequential
     from rockpool.devices.dynapse import DynapSim
+    from numpy.testing import assert_equal, assert_allclose
 
     # - Path building
     __dirname__ = os.path.dirname(os.path.abspath(__file__))
@@ -146,11 +159,16 @@ def test_quantization():
     """
 
     ### --- Preliminaries --- ###
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
     import os
     import numpy as np
     from rockpool.nn.modules import LinearJax
     from rockpool.nn.combinators import Sequential
     from rockpool.devices.dynapse import DynapSim
+    from numpy.testing import assert_equal, assert_allclose, assert_array_equal
 
     # - Path building
     __dirname__ = os.path.dirname(os.path.abspath(__file__))
@@ -208,6 +226,10 @@ def test_network_from_config():
     The weight parameters are deviated a lot because of quantization
     The network parameters will be deviated less due to bias parameter selection
     """
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("jax")
 
     ### --- Preliminaries --- ###
     import os
@@ -215,6 +237,7 @@ def test_network_from_config():
     from rockpool.nn.modules import LinearJax
     from rockpool.nn.combinators import Sequential
     from rockpool.devices.dynapse import DynapSim
+    from numpy.testing import assert_allclose
 
     # - Path building
     __dirname__ = os.path.dirname(os.path.abspath(__file__))

@@ -1,6 +1,7 @@
 """
 Provide a base class for build Torch-compatible modules
 """
+
 __all__ = ["TorchModule", "TorchModuleParameters"]
 
 from rockpool.nn.modules.module import Module, ModuleBase

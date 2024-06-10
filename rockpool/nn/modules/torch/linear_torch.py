@@ -1,6 +1,7 @@
 """
 Implement a linear module, using a Torch backend
 """
+
 import math
 import warnings
 from typing import Union, Optional, Callable

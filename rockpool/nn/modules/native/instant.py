@@ -13,7 +13,7 @@ from rockpool.utilities.backend_management import (
 
 from warnings import warn
 
-from typing import Callable, Union
+from typing import Callable, Union, Tuple, Any
 
 __all__ = ["Instant", "InstantJax", "InstantTorch"]
 
@@ -47,11 +47,17 @@ class InstantMixin:
         # - Store the function
         self.function: P_Callable = SimulationParameter(function)
 
+        if not hasattr(self, "_auto_batch"):
+            raise NotImplementedError(
+                "_auto_batch must be implemented by superclasses!"
+            )
+
     def evolve(
         self,
         input,
         record: bool = False,
-    ) -> (tuple, tuple, tuple):
+    ) -> Tuple[Any, dict, dict]:
+        input, _ = self._auto_batch(input)
         return self.function(input), {}, {}
 
 

@@ -1,6 +1,7 @@
 """
 Xylo graph modules for use with tracing and mapping
 """
+
 import warnings
 
 from rockpool.graph import (

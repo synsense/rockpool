@@ -6,7 +6,6 @@ Mapper package for Xylo core v2
 
 """
 
-
 import numpy as np
 
 import copy
@@ -55,7 +54,7 @@ def mapper(
     Warnings:
         :py:func:`mapper` operates **in-place** on the graph, and may modify it. If you need the un-mapped graph, you may need to call :py:meth:`.Module.as_graph` again on your :py:class:`.Module`.
 
-    It then allocates neurons and converts the network weights into a specification for Xylo. This specification can be used to create a config object with :py:func:`~rockpool.devices.xylo.config_from_specification`.
+    It then allocates neurons and converts the network weights into a specification for Xylo. This specification can be used to create a config object with :py:func:`~rockpool.devices.xylo.syns61201.config_from_specification`.
 
     Args:
         graph (GraphModuleBase): The graph to map

@@ -2,6 +2,7 @@
 Obtain a DynapSim network from the spec output of the mapper
 See also `rockpool.devices.dynapse.mapper`
 """
+
 from __future__ import annotations
 from typing import List, Optional
 

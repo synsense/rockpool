@@ -2,17 +2,12 @@
 Unit tests for jax training utilities, loss functions
 """
 
-import pytest
-
-pytest.importorskip("jax")
-
-# - Ensure that NaNs in compiled functions are errors
-from jax.config import config
-
-config.update("jax_debug_nans", True)
-
 
 def test_imports():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.training.jax_loss import (
         mse,
         bounds_cost,
@@ -24,8 +19,15 @@ def test_imports():
         logsoftmax,
     )
 
+    # - Ensure that NaNs in compiled functions are errors
+    from jax import config
+
 
 def test_mse():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.nn.modules import RateJax
     from jax.example_libraries.optimizers import adam
 
@@ -34,6 +36,14 @@ def test_mse():
     import numpy as np
 
     from rockpool.training.jax_loss import mse
+
+    # - Ensure that NaNs in compiled functions are errors
+    from jax import config
+
+    config.update("jax_debug_nans", True)
+
+    # - Seed for reproducibility
+    np.random.seed(1)
 
     mod = RateJax(2)
     params0 = mod.parameters()
@@ -68,6 +78,10 @@ def test_mse():
 
 
 def test_bounds_cost():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.nn.modules.jax.rate_jax import RateEulerJax
     from rockpool.training.jax_loss import bounds_cost, make_bounds
     from rockpool.training.jax_debug import flatten
@@ -79,6 +93,11 @@ def test_bounds_cost():
     import jax
     from jax import jit, numpy as jnp
     import numpy as np
+
+    # - Ensure that NaNs in compiled functions are errors
+    from jax import config
+
+    config.update("jax_debug_nans", True)
 
     mod = RateEulerJax((2, 2))
     params0 = mod.parameters()
@@ -114,9 +133,18 @@ def test_bounds_cost():
 
 
 def test_l2sqr_norm():
+    import pytest
+
+    pytest.importorskip("jax")
+
     import jax
     from rockpool.nn.modules.jax.rate_jax import RateJax
     from rockpool.training.jax_loss import l2sqr_norm
+
+    # - Ensure that NaNs in compiled functions are errors
+    from jax import config
+
+    config.update("jax_debug_nans", True)
 
     mod = RateJax(2, has_rec=True)
 
@@ -130,6 +158,10 @@ def test_l2sqr_norm():
 
 
 def test_l0norm():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.nn.modules.jax.rate_jax import RateJax
     from rockpool.training.jax_loss import l0_norm_approx
     from rockpool.nn.combinators.ffwd_stack import FFwdStack
@@ -149,9 +181,18 @@ def test_l0norm():
 
 
 def test_softmax():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.training.jax_loss import softmax
     import numpy as np
     import jax
+
+    # - Ensure that NaNs in compiled functions are errors
+    from jax import config
+
+    config.update("jax_debug_nans", True)
 
     N = 3
     temp = 0.01
@@ -163,9 +204,18 @@ def test_softmax():
 
 
 def test_logsoftmax():
+    import pytest
+
+    pytest.importorskip("jax")
+
     from rockpool.training.jax_loss import logsoftmax
     import numpy as np
     import jax
+
+    # - Ensure that NaNs in compiled functions are errors
+    from jax import config
+
+    config.update("jax_debug_nans", True)
 
     N = 3
     temp = 0.01
