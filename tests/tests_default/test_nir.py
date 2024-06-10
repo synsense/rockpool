@@ -1,20 +1,26 @@
-import nir
-import torch
-from rockpool.nn.combinators import Sequential
-import rockpool
-from rockpool.nn.modules import LinearTorch, ExpSynTorch, LIFTorch, to_nir, from_nir
-import snntorch as snn
-import torch.nn as nn
-from snntorch import export_to_nir
-import numpy as np
+import pytest
+
+pytest.importorskip("nir")
+pytest.importorskip("nirtorch")
+pytest.importorskip("torch")
+
+
+def test_imports():
+    from rockpool.nn.modules import to_nir, from_nir
 
 
 def test_from_sequential_to_nir():
+    import rockpool
+    from rockpool.nn.modules import LinearTorch, ExpSynTorch, to_nir
+    from rockpool.nn.combinators import Sequential
+    import torch
+    import nir
+
     Nin = 2
     Nhidden = 4
     Nout = 2
     dt = 1e-3
-    net = rockpool.nn.combinators.Sequential(
+    net = Sequential(
         LinearTorch((Nin, Nhidden), has_bias=False),
         ExpSynTorch(Nhidden, dt=dt),
         LinearTorch((Nhidden, Nout), has_bias=False),
@@ -30,11 +36,17 @@ def test_from_sequential_to_nir():
 
 
 def test_from_sequential_to_nir_2():
+    import rockpool
+    from rockpool.nn.combinators import Sequential
+    from rockpool.nn.modules import LinearTorch, LIFTorch, to_nir
+    import torch
+    import nir
+
     Nin = 2
     Nhidden = 4
     Nout = 2
     dt = 1e-3
-    net = rockpool.nn.combinators.Sequential(
+    net = Sequential(
         LinearTorch((Nin, Nhidden), has_bias=False),
         LIFTorch(Nhidden, dt=dt),
         LinearTorch((Nhidden, Nout), has_bias=False),
@@ -50,6 +62,9 @@ def test_from_sequential_to_nir_2():
 
 
 def test_from_linear_to_nir():
+    import torch
+    from rockpool.nn.modules import LinearTorch, to_nir
+
     in_features = 2
     out_features = 3
     m = LinearTorch(shape=(in_features, out_features))
@@ -61,6 +76,9 @@ def test_from_linear_to_nir():
 
 
 def test_from_nir_to_linear():
+    import torch
+    from rockpool.nn.modules import LinearTorch, to_nir, from_nir
+
     in_features = 2
     out_features = 3
     m = LinearTorch(shape=(in_features, out_features))
@@ -70,6 +88,11 @@ def test_from_nir_to_linear():
 
 
 def test_from_nir_to_sequential():
+    from rockpool.nn.combinators import Sequential
+    from rockpool.nn.modules import LinearTorch, ExpSynTorch, LIFTorch, to_nir, from_nir
+    import torch
+    import numpy as np
+
     timesteps = 6
 
     orig_model = Sequential(
@@ -100,6 +123,11 @@ def test_from_nir_to_sequential():
 
 
 def test_complex_net():
+    import rockpool
+    from rockpool.nn.modules import LinearTorch, LIFTorch, to_nir, from_nir
+    from rockpool.nn.combinators import Sequential
+    import torch
+
     num_in = 2
     num_hidden_1 = 4
     num_hidden_2 = 6
@@ -109,7 +137,7 @@ def test_complex_net():
     tau_syn = 0.02
     threshold = 1
 
-    net = rockpool.nn.combinators.Sequential(
+    net = Sequential(
         LinearTorch((num_in, num_hidden_1)),
         LIFTorch(
             (num_hidden_1,),
@@ -145,6 +173,13 @@ def test_complex_net():
 
 
 def test_snntorch_nir_rockpool():
+    pytest.importorskip("snntorch")
+    from snntorch import export_to_nir
+    import snntorch as snn
+    import torch.nn as nn
+    import torch
+    from rockpool.nn.modules import from_nir
+    import numpy as np
 
     alpha = 0.5
     beta = 0.5
@@ -169,7 +204,9 @@ def test_snntorch_nir_rockpool():
     net_rockpool = from_nir(net_nir)
 
     def compare_params(orig, converted):
-        for id, (param_orig, param_converted) in enumerate(zip(list(orig.parameters()), list(converted.parameters()))):
+        for id, (param_orig, param_converted) in enumerate(
+            zip(list(orig.parameters()), list(converted.parameters()))
+        ):
             assert np.allclose(
                 torch.tensor(param_orig.T).detach().numpy(),
                 torch.tensor(param_converted).detach().numpy(),
@@ -180,17 +217,10 @@ def test_snntorch_nir_rockpool():
         mod_rockpool = net_rockpool.get_submodule(f"{mod_id}")
         compare_params(mod_snntorch, mod_rockpool)
 
+
 def test_import_rnn():
-    m = from_nir("rockpool_nir/tests/tests_default/nir_graphs/braille.nir")
+    from rockpool.nn.modules import from_nir
+    import torch
+
+    m = from_nir("tests/tests_default/nir_graphs/braille.nir")
     m(torch.empty(1, 1, 12))
-
-
-if __name__ == "__main__":
-    test_from_linear_to_nir()
-    test_from_nir_to_linear()
-    test_from_nir_to_sequential()
-    test_from_sequential_to_nir()
-    test_from_sequential_to_nir_2()
-    test_import_rnn()
-    test_snntorch_nir_rockpool()
-    test_complex_net()
