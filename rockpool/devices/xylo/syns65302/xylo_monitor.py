@@ -58,6 +58,7 @@ class XyloMonitor(Module):
         # interface_params: dict = dict(),
         power_frequency: float = 5.0,
         dn_active: bool = True,
+        
         *args,
         **kwargs,
     ):
@@ -114,7 +115,7 @@ class XyloMonitor(Module):
 
         # - Configuration for real time in xyloA3
         config.time_resolution_wrap = self.get_tr_wrap(
-            ts_in_ms=self.dt * 1000, main_clk_freq_in_mhz=50
+            ts_in_ms=dt * 1000, main_clk_freq_in_mhz=50
         )
         config.debug.clock_enable = True
         config.debug.always_update_omp_stat = True
@@ -194,7 +195,7 @@ class XyloMonitor(Module):
         self._evolve = False
         """ Track if evolve function was called """
 
-        # - Set power measurement module
+        # # - Set power measurement module
         # self._power_buf, self.power_monitor = hdkutils.set_power_measure(
         #     self._device, power_frequency
         # )
@@ -249,7 +250,6 @@ class XyloMonitor(Module):
 
         # - Store the configuration locally
         self._config = new_config
-        print("config applied")
 
     def read_register(self, addr):
         self._write_buffer.write(
@@ -293,7 +293,12 @@ class XyloMonitor(Module):
         spikes_ts = []
         vmem_out_ts = []
 
+         # - Clear the power recording buffer, if recording power
+        if record_power:
+            self._power_buf.clear_events()
+
         while timestep < target_timestep - 1:
+            # print(timestep)
             readout_events = self._read_buffer.get_events_blocking()
 
             ev_filt = [
@@ -321,5 +326,22 @@ class XyloMonitor(Module):
                     rec_dict = {}
 
             timestep = readout_events[-1].timestep
+
+            if record_power:
+                # - Get all recent power events from the power measurement
+                ps = self._power_buf.get_events()
+
+                # - Separate out power meaurement events by channel
+                channels = samna.xyloImuBoards.MeasurementChannels
+                io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
+                core_power = np.array(
+                    [e.value for e in ps if e.channel == int(channels.Core)]
+                )
+                rec_dict.update(
+                    {
+                        "io_power": io_power,
+                        "core_power": core_power,
+                    }
+                )
 
         return output_events, {}, rec_dict
