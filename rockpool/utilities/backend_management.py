@@ -118,7 +118,10 @@ def backend_available(*backend_names) -> bool:
     """
     Report if a backend is available for use
 
-    This function returns immediately if the named backend has already been checked previously. Otherwise, if the backend is "standard", then it will be checked for availability. If the backend is non-standard, it cannot be checked automatically. In that case you must use :py:func:`.check_backend` directly.
+    This function returns immediately if the named backend has already been checked previously.
+    Otherwise, if the backend is either a defined standard backend, or is a simple importable python module, then it will be checked for availability.
+    If the backend is non-standard, it cannot be checked automatically.
+    In that case you must use :py:func:`.check_backend` directly.
 
     Args:
         backend_name0, backend_name1, ... (str): A backend to check
