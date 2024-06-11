@@ -5,6 +5,7 @@ All notable changes between Rockpool releases will be documented in this file
 ## Unreleased
 
 ### Added
+* Added a cycles model for Xylo A and Xylo IMU, enabling to calculate the required master clock frequency for Xylo
 
 * Added simulation support for audio front-end for Xylo A3 (SYNS65302)
   * `AFESimExternal` , `AFESimAGC`, and `AFESimPDM` with all the necessary sub-modules.

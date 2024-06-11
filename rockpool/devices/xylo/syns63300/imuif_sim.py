@@ -6,6 +6,7 @@ Defines :py:class:`.IMUIFSim` module.
 See Also:
     For example usage of the :py:class:`.IMUIFSim` Module, see :ref:`/devices/xylo-imu/imu-if.ipynb`
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple, Union

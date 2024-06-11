@@ -1,6 +1,7 @@
 """
 Defines the `JaxModule` base class, for Jax support in Rockpool.
 """
+
 __all__ = ["JaxModule"]
 
 # - Import Rockpool Module base class

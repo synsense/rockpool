@@ -4,6 +4,7 @@ Functions to implement adversarial training approaches using Jax
 See Also:
     :ref:`/tutorials/adversarial_training.ipynb` illustrates how to use the functions in this module to implement adversarial attacks on the parameters of a network during training.
 """
+
 import jax
 import numpy as np
 

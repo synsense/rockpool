@@ -3,6 +3,7 @@ Dynap-SE graph conversion package memory grid implementation
 
 * Non User Facing *
 """
+
 from typing import List, Tuple
 
 from copy import deepcopy

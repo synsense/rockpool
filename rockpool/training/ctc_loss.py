@@ -1,6 +1,7 @@
 """
 Implementations of the CTC loss, in numpy, Jax and Torch
 """
+
 import warnings
 
 import numpy as np

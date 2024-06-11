@@ -1,6 +1,7 @@
 """
 Implements a leaky integrate-and-fire neuron module with a Jax backend
 """
+
 import jax
 
 from rockpool.nn.modules.jax.jax_module import JaxModule

@@ -2,7 +2,6 @@
 Modules using Torch as a backend
 """
 
-
 try:
     from .torch_module import *
     from .rate_torch import *

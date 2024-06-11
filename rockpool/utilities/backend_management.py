@@ -5,6 +5,7 @@ To check a standard backend, use :py:func:`.backend_available`. To check a non-s
 
 To build a shim class that raises an error on instantiation, for when a required backend is not available, use :py:func:`.missing_backend_shim`.
 """
+
 import importlib
 from importlib import util
 from typing import List, Union, Tuple, Optional, Dict
