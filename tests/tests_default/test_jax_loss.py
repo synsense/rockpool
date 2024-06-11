@@ -65,7 +65,7 @@ def test_mse():
     loss_t = []
     vgf = jit(jax.value_and_grad(loss))
 
-    from tqdm.autonotebook import tqdm
+    from tqdm.auto import tqdm
 
     with tqdm(range(5)) as t:
         for i in t:
