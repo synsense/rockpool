@@ -1,3 +1,14 @@
+"""
+Utilities for import and export of Rockpool ``torch`` networks to NIR.
+For more information see https://neuroir.org/docs/
+Manuscript: https://arxiv.org/abs/2311.14641
+Github: https://github.com/neuromorphs/NIR
+
+Defines the :py:func:`.to_nir' and :py:func:`.from_nir` helper functions.
+
+For more information see :ref:`/advanced/nir_export_import.ipynb`.
+"""
+
 from numbers import Number
 from os import PathLike
 from typing import Optional, Union
@@ -7,15 +18,19 @@ from rockpool.nn.modules.torch import (
     LinearTorch,
     TorchModule,
     LIFNeuronTorch,
+    TorchModule,
 )
 import torch
 import nir
+import nirtorch
 from nirtorch import extract_nir_graph, load
 from nirtorch.from_nir import GraphExecutor
 import warnings
 import numpy as np
 import rockpool.graph as rg
 from types import MethodType
+
+from rockpool.typehints import Tensor
 
 __all__ = ["to_nir", "from_nir"]
 
@@ -37,20 +52,17 @@ def _to_numpy(x):
     return x.detach().numpy()
 
 
-class RecurrentCubaLIF(torch.nn.Module):
-    def __init__(self, lif, lin):
-        super().__init__()
-        self.lif = lif
-        self.lin = lin
+def _convert_nir_to_rockpool(node: nir.NIRNode) -> Optional[TorchModule]:
+    """
+    Helper function for mapping NIR node instances to equivalent Rockpool modules
 
-    def forward(self, x, state=None):
-        if state is None:
-            state = torch.zeros_like(x)
-        x, _ = self.lif(x + state)
-        return x, self.lin(x)
+    Args:
+        node (nir.NIRNode): An NIR node instance to convert
 
+    Returns:
+        TorchModule: A Rockpool :py:class:`.Torchmodule` instance generated from ``node``
 
-def _convert_nir_to_rockpool(node: nir.ir.NIRNode) -> Optional[TorchModule]:
+    """
     if isinstance(node, nir.ir.Input) or isinstance(node, nir.ir.Output):
         return None
 
@@ -73,7 +85,7 @@ def _convert_nir_to_rockpool(node: nir.ir.NIRNode) -> Optional[TorchModule]:
                 tau_syn=_to_tensor(lif_node.tau_syn),
                 threshold=_to_tensor(lif_node.v_threshold),
                 dt=torch.min(
-                    torch.tensor(_to_tensor(lif_node.tau_mem / (1 + lif_node.r)))
+                    torch.as_tensor(_to_tensor(lif_node.tau_mem / (1 + lif_node.r)))
                 ).item(),
                 has_rec=True,
                 w_rec=_to_tensor(affine_node.weight.T),
@@ -94,7 +106,7 @@ def _convert_nir_to_rockpool(node: nir.ir.NIRNode) -> Optional[TorchModule]:
         return ExpSynTorch(
             shape=_to_tensor(node.input_type["input"]),
             tau=_to_tensor(node.tau).int(),
-            dt=torch.min(torch.tensor(_to_tensor(node.tau / (1 + node.r)))).item(),
+            dt=torch.min(torch.as_tensor(_to_tensor(node.tau / (1 + node.r)))).item(),
         )
 
     if isinstance(node, nir.ir.LIF):
@@ -103,7 +115,9 @@ def _convert_nir_to_rockpool(node: nir.ir.NIRNode) -> Optional[TorchModule]:
             tau_mem=_to_tensor(node.tau_mem),
             threshold=_to_tensor(node.v_threshold),
             bias=_to_tensor(node.v_leak),
-            dt=torch.min(torch.tensor(_to_tensor(node.tau_mem / (1 + node.r)))).item(),
+            dt=torch.min(
+                torch.as_tensor(_to_tensor(node.tau_mem / (1 + node.r)))
+            ).item(),
         )
 
     if isinstance(node, nir.ir.CubaLIF):
@@ -112,7 +126,9 @@ def _convert_nir_to_rockpool(node: nir.ir.NIRNode) -> Optional[TorchModule]:
             tau_mem=_to_tensor(node.tau_mem),
             tau_syn=_to_tensor(node.tau_syn),
             threshold=_to_tensor(node.v_threshold),
-            dt=torch.min(torch.tensor(_to_tensor(node.tau_mem / (1 + node.r)))).item(),
+            dt=torch.min(
+                torch.as_tensor(_to_tensor(node.tau_mem / (1 + node.r)))
+            ).item(),
             bias=_to_tensor(node.v_leak),
         )
 
@@ -135,24 +151,39 @@ def _convert_nir_to_rockpool(node: nir.ir.NIRNode) -> Optional[TorchModule]:
 
 
 def _convert_nir_to_rockpool_torch(node: nir.NIRNode) -> Optional[torch.nn.Module]:
+    """
+    A helper function that converts NIR graphs to Rockpool nets, returning ``torch``-compatible modules
+
+    Args:
+        node (nir.NIRNode): A NIR node to convert
+
+    Returns:
+        torch.nn.Module: A ``torch``-compatible Rockpool module converted from ``node``
+    """
     mod = _convert_nir_to_rockpool(node)
     if mod is not None:
         mod.to_torch()
     return mod
 
 
-def from_nir(source: Union[PathLike, nir.NIRNode]):
-    """Generates a rockpool model from a NIR representation.
-
-    Parameters:
-        source: If string or Path will try to load from file. Otherwise should be NIR object
+def from_nir(source: Union[PathLike, nir.NIRNode]) -> torch.nn.Module:
     """
+    Generate a rockpool model from a NIR representation
+
+    Args:
+        source (Union[PathLike, nir.NIRNode]): Either a filename containing a NIR graph (produced with ``nir.write()``), or an already-loaded NIR graph (e.g. loaded with ``nir.read()``)
+
+    Returns:
+        torch.nn.Module: A ``torch``-compatible Rockpool module converted from ``source``
+    """
+    # - Load from file
     if isinstance(source, PathLike):
-        source = nir.load(source)
+        source = nir.read(source)
 
-    ge = load(source, _convert_nir_to_rockpool_torch)
+    # - Use nirtorch to convert the NIR graph
+    ge = nirtorch.load(source, _convert_nir_to_rockpool_torch)
 
-    # - Add in an `as_graph` method
+    # - Add in an `as_graph` method for Rockpool mapping support
     def as_graph(self: GraphExecutor) -> rg.GraphModuleBase:
         mod_graphs = []
 
@@ -192,12 +223,22 @@ def from_nir(source: Union[PathLike, nir.NIRNode]):
             self,
         )
 
+    # - Patch the instance with the `.as_graph()` method and return
     ge.as_graph = MethodType(as_graph, ge)
 
     return ge
 
 
-def _extract_rockpool_module(module) -> Optional[nir.NIRNode]:
+def _extract_rockpool_module(module: TorchModule) -> Optional[nir.NIRNode]:
+    """
+    A helper function mapping Rockpool modules to NIR classes
+
+    Args:
+        module (TorchModule): A Rockpool :py:class:`.TorchModule` to convert
+
+    Returns:
+        Optional[nir.NIRNode]: An NIR node entity equivalent to ``module``. If no mapping is possible, ``None`` is returned
+    """
     if type(module) == ExpSynTorch:
         return nir.LI(
             tau=module.tau,
@@ -255,8 +296,28 @@ def _extract_rockpool_module(module) -> Optional[nir.NIRNode]:
 
 
 def to_nir(
-    module: torch.nn.Module, sample_data: torch.Tensor, model_name: str = "rockpool"
+    module: TorchModule,
+    sample_data: Optional[Tensor] = None,
+    model_name: str = "rockpool",
 ) -> nir.NIRNode:
+    """
+    Convert a Rockpool module into a NIR graph for export
+
+    Args:
+        module (TorchModule): A Rockpool :py:class:`.TorchModule` to export
+        sample_data (Optional[Tensor]): If needed, a ``Tensor`` containg dummy data of the shape expected by ``module``. Default: Will be generated automatically from ``module.size_in``.
+        model_name (str): An optional string naming the model. Default: ``"rockpool"``.
+
+    Returns:
+        nir.NIRNode: A NIR graph for export
+    """
+
+    # - Generate sample data if not provided
+    sample_data = (
+        torch.zeros((1, module.size_in)) if sample_data is None else sample_data
+    )
+
+    # - Extract and return NIR graph
     return extract_nir_graph(
         module, _extract_rockpool_module, sample_data, model_name=model_name
     )
