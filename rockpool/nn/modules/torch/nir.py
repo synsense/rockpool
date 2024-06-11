@@ -1,10 +1,12 @@
 """
 Utilities for import and export of Rockpool ``torch`` networks to NIR.
 For more information see https://neuroir.org/docs/
+
 Manuscript: https://arxiv.org/abs/2311.14641
+
 Github: https://github.com/neuromorphs/NIR
 
-Defines the :py:func:`.to_nir' and :py:func:`.from_nir` helper functions.
+Defines the :py:func:`.to_nir` and :py:func:`.from_nir` helper functions.
 
 For more information see :ref:`/advanced/nir_export_import.ipynb`.
 """
