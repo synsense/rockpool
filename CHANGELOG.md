@@ -18,7 +18,7 @@ All notable changes between Rockpool releases will be documented in this file
 * Fixed a bug in `AFESim` on windows, where the maximum int32 value would be exceeded when seeding the AFE simulation
 * Fixed stochasticity in some unit tests
 * Fixed a bug in `channel_quantize`, where quantization would be incorrectly applied for Xylo IMU networks with Nien < Nhid
-
+* Fixed a bug in `channel_quantize`, where hidden unit biases would be incorrectly used in place of output unit biases
 
 ### Deprecated
 
