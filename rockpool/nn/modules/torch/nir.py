@@ -28,6 +28,7 @@ import nirtorch
 from nirtorch import extract_nir_graph, load
 from nirtorch.from_nir import GraphExecutor
 import warnings
+import copy
 import numpy as np
 import rockpool.graph as rg
 from types import MethodType
@@ -44,7 +45,7 @@ def _to_tensor(x):
         return tuple(_to_tensor(y) for y in x)
     if isinstance(x, Number):
         return x
-    parsed = torch.from_numpy(x)
+    parsed = torch.from_numpy(copy.copy(x))
     if parsed.numel() == 1:
         return parsed.item()
     return parsed

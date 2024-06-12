@@ -111,8 +111,8 @@ def test_from_nir_to_sequential():
                 converted, key
             ), f"Parameter {key} not found in converted model."
             assert np.allclose(
-                torch.tensor(param).detach().numpy(),
-                torch.tensor(getattr(converted, key)).detach().numpy(),
+                torch.as_tensor(param).detach().numpy(),
+                torch.as_tensor(getattr(converted, key)).detach().numpy(),
             ), f"Parameter {key} in converted model doesn't match original.\nFound {param} and {getattr(converted, key)}."
 
     for key, mod in orig_model.modules().items():
