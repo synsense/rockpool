@@ -373,8 +373,6 @@ def test_linear_lif():
     from rockpool.nn.combinators import Sequential
     from rockpool.nn.modules import LIFJax, LinearJax
 
-    import numpy as np
-
     # - Generate a network using the sequential combinator
     Nin = 200
     N = 50
@@ -387,7 +385,7 @@ def test_linear_lif():
 
     mod = Sequential(
         LinearJax((Nin, N), has_bias=False, spiking_input=True),
-        LIFJax(N, dt=dt, tau_syn=100e-3, tau_mem=200e-3, rng_key=rng_key),
+        LIFJax(N, dt=dt, tau_syn=100e-3, tau_mem=200e-3),
         LinearJax((N, Nout), has_bias=False),
     )
 
