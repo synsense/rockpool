@@ -276,7 +276,12 @@ def test_sgd():
     loss_t = []
     vgf = jax.value_and_grad(mse_loss)
 
-    from tqdm.auto import tqdm
+    try:
+        from tqdm.autonotebook import tqdm
+    except:
+
+        def tqdm(iter, *args, **kwargs):
+            return iter
 
     print("Testing training loop")
     with tqdm(range(2)) as t:
