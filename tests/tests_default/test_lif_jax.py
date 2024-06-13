@@ -361,10 +361,11 @@ def test_linear_lif():
     dt = 1e-3
 
     np.random.seed(1)
+    rng_key = jax.random.PRNGKey(0)
 
     mod = Sequential(
         LinearJax((Nin, N), has_bias=False, spiking_input=True),
-        LIFJax(N, dt=dt, tau_syn=100e-3, tau_mem=200e-3, has_rec=True),
+        LIFJax(N, dt=dt, tau_syn=100e-3, tau_mem=200e-3, rng_key=rng_key),
         LinearJax((N, Nout), has_bias=False),
     )
 
