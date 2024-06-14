@@ -24,12 +24,14 @@ def test_lif_jax():
     config.update("jax_debug_nans", True)
     config.update("jax_check_tracer_leaks", True)
 
+    # - Seed pRNGs
     np.random.seed(1)
+    rng_key = jax.random.PRNGKey(0)
 
     Nin = 4
     Nout = 2
     T = 20
-    lyr = LIFJax((Nin, Nout))
+    lyr = LIFJax((Nin, Nout), rng_key=rng_key)
 
     # - Test getting and setting
     p = lyr.parameters()
@@ -68,7 +70,7 @@ def test_lif_jax():
     _, new_state, _ = evolve(lyr.state(), lyr, np.random.rand(T, Nin))
     _, new_state, _ = evolve(new_state, lyr, np.random.rand(T, Nin))
 
-    lyr = LIFJax((Nin, Nout))
+    lyr = LIFJax((Nin, Nout), rng_key=rng_key)
     gf = jit(jax.grad(grad_check))
     grads = gf(lyr.parameters(), lyr, np.random.rand(T, Nin))
 
@@ -86,7 +88,7 @@ def test_lif_jax():
     ), "`threshold` gradients are zero in FFwd mode."
 
     ## - Test recurrent mode
-    lyr = LIFJax((Nin, Nout), has_rec=True)
+    lyr = LIFJax((Nin, Nout), has_rec=True, rng_key=rng_key)
 
     print("evolving recurrent")
     o, ns, r_d = lyr(np.random.rand(T, Nin))
@@ -96,7 +98,7 @@ def test_lif_jax():
     o, n_s, r_d = evolve(lyr.state(), lyr, np.random.rand(T, Nin))
     o, n_s, r_d = evolve(n_s, lyr, np.random.rand(T, Nin))
 
-    lyr = LIFJax((Nin, Nout), has_rec=True)
+    lyr = LIFJax((Nin, Nout), has_rec=True, rng_key=rng_key)
     gf = jit(jax.grad(grad_check))
     grads = gf(lyr.parameters(), lyr, np.random.rand(T, Nin))
 
@@ -129,14 +131,17 @@ def test_ffwd_net():
     import numpy as np
     import jax.numpy as jnp
 
-    np.random.seed(1)
-
+    import jax
     from jax import config
 
     config.update("jax_enable_x64", True)
     config.update("jax_log_compiles", True)
     config.update("jax_debug_nans", True)
     config.update("jax_check_tracer_leaks", True)
+
+    # - Seed pRNGs
+    np.random.seed(1)
+    rng_key = jax.random.PRNGKey(0)
 
     class my_ffwd_net(JaxModule):
         def __init__(self, shape, *args, **kwargs):
@@ -214,20 +219,27 @@ def test_sgd():
     from rockpool.nn.combinators import Sequential
     from rockpool.training.jax_loss import mse, l0_norm_approx
 
-    from jax import jit
     import jax
+    from jax import jit
     from jax import config
     import numpy as np
-
-    np.random.seed(1)
 
     config.update("jax_enable_x64", True)
     config.update("jax_log_compiles", True)
     config.update("jax_debug_nans", True)
     config.update("jax_check_tracer_leaks", True)
 
+    # - Seed pRNGs
+    np.random.seed(1)
+    rng_key = jax.random.PRNGKey(0)
+
     print("Instantiating sequential net")
-    net = Sequential(LinearJax((2, 3)), LIFJax(3), LinearJax((3, 1)), LIFJax(1))
+    net = Sequential(
+        LinearJax((2, 3)),
+        LIFJax(3, rng_key=rng_key),
+        LinearJax((3, 1)),
+        LIFJax(1, rng_key=rng_key),
+    )
     print("Testing sequential net jit")
     jnet = jit(net)
     jnet(np.random.rand(10, 2))
@@ -264,7 +276,12 @@ def test_sgd():
     loss_t = []
     vgf = jax.value_and_grad(mse_loss)
 
-    from tqdm.autonotebook import tqdm
+    try:
+        from tqdm.autonotebook import tqdm
+    except:
+
+        def tqdm(iter, *args, **kwargs):
+            return iter
 
     print("Testing training loop")
     with tqdm(range(2)) as t:
@@ -290,10 +307,14 @@ def test_lif_jax_batches():
 
     jax.config.update("jax_check_tracer_leaks", True)
 
+    # - Seed pRNGs
+    np.random.seed(1)
+    rng_key = jax.random.PRNGKey(0)
+
     batches = 5
     N = 10
     T = 20
-    lyr = LIFJax(N)
+    lyr = LIFJax(N, rng_key=rng_key)
 
     # - Test getting and setting
     p = lyr.parameters()
@@ -327,7 +348,7 @@ def test_lif_jax_batches():
     lyr = lyr.set_attributes(new_state)
 
     ## - Test recurrent mode
-    lyr = LIFJax((N, N), has_rec=True)
+    lyr = LIFJax((N, N), has_rec=True, rng_key=rng_key)
 
     print("evolving recurrent")
     o, ns, r_d = lyr(np.random.rand(batches, T, N))
@@ -360,11 +381,13 @@ def test_linear_lif():
     Nout = 1
     dt = 1e-3
 
+    # - Seed pRNGs
     np.random.seed(1)
+    rng_key = jax.random.PRNGKey(0)
 
     mod = Sequential(
         LinearJax((Nin, N), has_bias=False, spiking_input=True),
-        LIFJax(N, dt=dt, tau_syn=100e-3, tau_mem=200e-3, has_rec=True),
+        LIFJax(N, dt=dt, tau_syn=100e-3, tau_mem=200e-3, rng_key=rng_key),
         LinearJax((N, Nout), has_bias=False),
     )
 
