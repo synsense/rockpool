@@ -58,6 +58,7 @@ class XyloMonitor(Module):
         # interface_params: dict = dict(),
         power_frequency: float = 5.0,
         dn_active: bool = True,
+        digital_microphone=True,
         *args,
         **kwargs,
     ):
@@ -68,10 +69,13 @@ class XyloMonitor(Module):
             device (XyloAudio3HDK): An opened `samna` device to a Xylo dev kit
             config (XyloConfiguraration): A Xylo configuration from `samna`
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Vmem"]``. Default: "Spike", return events from the output layer.
+            dt (float):
             main_clk_rate (float): The main clock rate of Xylo, in MHz
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
             interface_params(dict): The dictionary of Xylo interface parameters used for the `hdkutils.config_if_module` function, the keys of which must be "num_avg_bitshif", "select_iaf_output", "sampling_period", "filter_a1_list", "filter_a2_list", "scale_values", "Bb_list", "B_wf_list", "B_af_list", "iaf_threshold_values".
             power_frequency (float): The frequency of power measurement. Default: 5.0
+            dn_active (bool): If True, divisive normalization will be used. Defaults to True.
+            digital_microphone (bool): If True, configure Xylo Audio3 to use the digital microphone, otherwise, analog microphone. Defaults to True.
         """
 
         # - Check input arguments
@@ -101,30 +105,36 @@ class XyloMonitor(Module):
         # - Initialise the HDK
         hdkutils.initialise_xylo_hdk(device)
 
-        hdkutils.fpga_enable_pdm_interface(
-            device,
-            config.digital_frontend.pdm_preprocessing.clock_edge,
-            config.digital_frontend.pdm_preprocessing.clock_direction,
-        )
-
         if config.operation_mode != samna.xyloAudio3.OperationMode.RealTime:
             raise ValueError("`operation_mode` must be RealTime for XyloMonitor.")
 
         config.digital_frontend.filter_bank.dn_enable = dn_active
 
         # - Configuration for real time in xyloA3
-        config.time_resolution_wrap = self.get_tr_wrap(
+        config.time_resolution_wrap = self._get_tr_wrap(
             ts_in_ms=self.dt * 1000, main_clk_freq_in_mhz=50
         )
         config.debug.clock_enable = True
         config.debug.always_update_omp_stat = True
-        config.digital_frontend.mode = samna.xyloAudio3.DigitalFrontendMode.Pdm
-        config.digital_frontend.filter_bank.use_global_iaf_threshold = True
-        config.digital_frontend.pdm_preprocessing.clock_direction = 1
-        config.digital_frontend.pdm_preprocessing.clock_edge = 0
-        config.digital_frontend.bfi_enable = True
         config.debug.enable_sdm = True
         config.debug.sdm_module_clock = 24
+
+        if digital_microphone:
+            hdkutils.fpga_enable_pdm_interface(
+                device,
+                config.digital_frontend.pdm_preprocessing.clock_edge,
+                config.digital_frontend.pdm_preprocessing.clock_direction,
+            )
+
+            config.digital_frontend.mode = samna.xyloAudio3.DigitalFrontendMode.Pdm
+            config.digital_frontend.filter_bank.use_global_iaf_threshold = True
+            config.digital_frontend.pdm_preprocessing.clock_direction = 1
+            config.digital_frontend.pdm_preprocessing.clock_edge = 0
+            config.digital_frontend.bfi_enable = True
+
+        else:
+            self._enable_analog_registers(config)
+            self._program_analog_registers(config)
 
         # - Build a filter graph to filter `Readout` events from Xylo
         self._spike_graph = samna.graph.EventFilterGraph()
@@ -167,26 +177,15 @@ class XyloMonitor(Module):
 
         self._main_clk_rate = main_clk_rate
 
-        # self._main_clk_rate: float = hdkutils.set_xylo_core_clock_freq(
-        #     self._device, main_clk_rate
-        # )
         # - Store the io module
         self._io = self._device.get_io_module()
-
-        # - Sleep time post sending spikes on each time-step, in manual mode
-        self._sleep_time = 0e-3
-        """ float: Post-stimulation sleep time in seconds """
 
         # - Configure to real time mode
         self._enable_realtime_mode()
 
         # - Store the configuration (and apply it)
         hdkutils.apply_configuration(device, self._config)
-        time.sleep(self._sleep_time)
-
         hdkutils.enable_real_time_mode(device)
-
-        """ float: Xylo main clock frequency in MHz """
 
         self.power_monitor = None
         """Power monitor for Xylo"""
@@ -217,12 +216,107 @@ class XyloMonitor(Module):
         # - Store the configuration locally
         self._config = new_config
 
-    def get_tr_wrap(self, ts_in_ms, main_clk_freq_in_mhz):
-        ts_duration = ts_in_ms * 1e-3
-        # in second
+    def _get_tr_wrap(self, ts_in_ms, main_clk_freq_in_mhz):
+        """
+        Calculate the value of tr wrap
+
+        Args:
+            ts_in_ms: time windown in miliseconds
+            main_clk_freq_in_mhz: main clock frequency in mhz
+        """
+        ts_duration = ts_in_ms * 1e-3  # in second
         main_clk_freq = main_clk_freq_in_mhz * 1e6  # in Hz
         tr_wrap = int(ts_duration * main_clk_freq)
         return tr_wrap
+
+    def _enable_analog_registers(self, config):
+        """
+        Activate registers to use the analolog microphone path.
+
+        Args:
+            config: the configuration that will be applied
+        """
+        # bandgap
+        config.analog_frontend.ivegen_config.select_default = True
+        # ldo-analog
+        config.analog_frontend.ldo_config.enable_ldo_analog = True
+        config.analog_frontend.ldo_config.enable_ldo_vref_gen = True
+        # afe-amp
+        config.analog_frontend.ivegen_config.enable_afe_lna_bias = True
+        config.analog_frontend.ivegen_config.enable_afe_pga_bias = True
+        config.analog_frontend.ivegen_config.enable_afe_driver_bias = True
+        config.analog_frontend.enable_lna = True
+        config.analog_frontend.enable_pga = True
+        config.analog_frontend.enable_drv = True
+        # afe-adc
+        config.debug.enableAdc = True
+        # charProg.reset_SubModules_Deassert()
+        config.analog_frontend.adc_config.enable_adc = True
+
+    def _program_analog_registers(self, config):
+        """
+        Configure registers to use the analolog microphone path.
+
+        Args:
+            config: the configuration that will be applied
+        """
+        # configuration values from Can's script - xylo-a3 program parameters (do not modify)
+        # bandgap
+        bandgap_trim_value = 95  # 0 - 127 --> ~565mV - ~635mV
+        bandgap_trim_slope = 8  # 0 - 15 --> slope and value increases linearly
+        # ptat
+        ptat_trim_value = 24  # range: 0 - 31, default: 18, linear
+        # ldo-digital
+        ldo_digital_trim = 0  # 0-7; 0-3, 1.10V-0.95V; 4-7, 1.3V-1.15V
+        # ldo-analog
+        common_mode_voltage_trim = 1  # 0 - 3 --> 500mV, 550mV, 575mV, 600mV
+        ldo_analog_trim = 0  # 0-7; 0-3, 1.10V-0.95V; 4-7, 1.3V-1.15V
+        # afe-adc
+        adcSpeed = 3  # 0 - 3 --> 0: 50ksps, 1: 100ksps, 3: 200ksps (2: not allowed)
+        clockDivision = 1  # 1 - 8 --> 200ksps - 25ksps (inverse)
+        # bias
+        bias_mirror_linear = 3  # (default: 7) 0 - 7 --> 25nA - 200nA (linear)
+        bias_pmos_inverse = 1  # (default: 0) 0 - 3 --> 800nA - 200nA (inverse)
+        bias_adc = 0  # (default: 0, 4, 12): 0 - 15, 50nA - 237.5nA (linear)
+        bias_ldo_dig = 7  # (default: 3) 0 - 7 --> 250nA - 600nA (linear)
+        bias__ldo_dig_internal = 1  # (default: 0) 0 - 1 --> 400nA - 800nA (linear)
+        bias_ldo_dig_ilim = 1  # (default: 0) 0 - 3, 50nA - 200nA (linear)
+        bias_lna = 1  # (default: 1) 0 - 7 --> 50nA - 400nA (linear)
+        bias_pga = 0  # (default: 1) 0 - 7 --> 50nA - 400nA (linear)
+        bias_driver = 0  # (default: 3) 0 - 7 --> 100nA - 800nA (linear)
+
+        # bandgap
+        config.analog_frontend.ivegen_config.temperature_slope_trim_bangap = (
+            bandgap_trim_slope
+        )
+        config.analog_frontend.ivegen_config.absolute_value_trim_bangap = (
+            bandgap_trim_value
+        )
+        # ptat
+        config.analog_frontend.ivegen_config.trim_value_ptat = ptat_trim_value
+        # ldo-digital
+        config.analog_frontend.ldo_config.vdd_digital_core_voltage = ldo_digital_trim
+        # ldo-analog
+        config.analog_frontend.ldo_config.vdd_analog_core_voltage = ldo_analog_trim
+        config.analog_frontend.ldo_config.vcm_lna_voltage = common_mode_voltage_trim
+        # afe-adc
+        # charProg.adc_Clock_Division(clockDivision-1)
+        config.analog_frontend.adc_config.adc_conversion_speed = adcSpeed
+
+        # bias currents
+        config.analog_frontend.ivegen_config.adc_buffer_test = False
+        config.analog_frontend.ivegen_config.adc_buffer_bias = bias_adc
+        config.analog_frontend.ivegen_config.ldo_digital_bias = bias_ldo_dig
+        config.analog_frontend.ldo_config.ldo_digital_capacitor_stability = (
+            bias__ldo_dig_internal
+        )
+        config.analog_frontend.ldo_config.ldo_digital_current_limit = bias_ldo_dig_ilim
+        config.analog_frontend.ivegen_config.current_ptat = bias_mirror_linear
+        config.analog_frontend.ivegen_config.current_mirror_input2 = bias_pmos_inverse
+        config.analog_frontend.ivegen_config.afe_lna_bias = bias_lna
+        config.analog_frontend.ivegen_config.afe_pga_bias = bias_pga
+        config.analog_frontend.ivegen_config.afe_drv_bias = bias_driver
+        config.debug.bypassAfe = False
 
     def _enable_realtime_mode(self):
         """
@@ -286,7 +380,7 @@ class XyloMonitor(Module):
             self._write_buffer.write(
                 [samna.xyloAudio3.event.TriggerProcessing(target_timestep)]
             )
-            # self._evolve = True
+            self._evolve = True
 
         timestep = 0
         output_events = []
