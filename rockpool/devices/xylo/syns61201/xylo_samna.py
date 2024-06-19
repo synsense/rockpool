@@ -405,9 +405,9 @@ class XyloSamna(Module):
         """ `.XyloHDK`: The Xylo HDK used by this module """
 
         # - Store the configuration (and apply it)
-        self.config: Union[
-            XyloConfiguration, SimulationParameter
-        ] = SimulationParameter(shape=(), init_func=lambda _: config)
+        self.config: Union[XyloConfiguration, SimulationParameter] = (
+            SimulationParameter(shape=(), init_func=lambda _: config)
+        )
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
@@ -580,11 +580,13 @@ class XyloSamna(Module):
             read_timeout = read_timeout * 100.0 if record else read_timeout
 
         # - Read output events from Xylo HDK
+        start_time = time.time()
         read_events, is_timeout = hdkutils.blocking_read(
             self._read_buffer,
             timeout=max(read_timeout, 1.0),
             target_timestamp=final_timestamp,
         )
+        inf_duration = time.time() - start_time
 
         # - Handle a timeout error
         if is_timeout:
@@ -630,6 +632,7 @@ class XyloSamna(Module):
                 "Vmem_out": np.array(xylo_data.V_mem_out),
                 "Isyn_out": np.array(xylo_data.I_syn_out),
                 "times": np.arange(start_timestep, final_timestamp + 1),
+                "inf_duration": inf_duration,
             }
         else:
             rec_dict = {}
@@ -642,6 +645,7 @@ class XyloSamna(Module):
                     "afe_core_power": afe_core_power,
                     "afe_ldo_power": afe_ldo_power,
                     "snn_core_power": snn_core_power,
+                    "inf_duration": inf_duration,
                 }
             )
 
