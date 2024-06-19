@@ -142,7 +142,7 @@ class LIFNeuronTorch(TorchModule):
             tau_mem,
             family="taus",
             shape=[(self.n_neurons,), ()],
-            init_func=lambda s: torch.ones(s) * 100e-3,
+            init_func=lambda s: torch.ones(s) * 20e-3,
             cast_fn=to_float_tensor,
         )
         """ (Tensor) Membrane time constant for each neuron in seconds `(Nout,)` """
