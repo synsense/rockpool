@@ -459,3 +459,11 @@ General Utilities
     utilities.jax_tree_utils
     utilities.type_handling
 
+NIR import and export
+---------------------
+
+.. autosummary::
+    :toctree: _autosummary
+
+    rockpool.nn.modules.to_nir
+    rockpool.nn.modules.from_nir

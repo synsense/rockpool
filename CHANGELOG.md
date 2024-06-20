@@ -6,6 +6,7 @@ All notable changes between Rockpool releases will be documented in this file
 
 ### Added
 * Added a cycles model for Xylo A and Xylo IMU, enabling to calculate the required master clock frequency for Xylo
+* Added support for NIR, for importing and exporting Rockpool torch networks
 
 ### Changed
 * `LIFExodus` now supports vectors as threshold parameter

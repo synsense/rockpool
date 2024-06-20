@@ -19,7 +19,7 @@ from . import xa2_devkit_utils as hdu
 from .xa2_devkit_utils import XyloA2HDK
 
 try:
-    from tqdm.autonotebook import tqdm
+    from tqdm.auto import tqdm
 except ModuleNotFoundError:
 
     def tqdm(wrapped, *args, **kwargs):

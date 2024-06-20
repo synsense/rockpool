@@ -109,7 +109,7 @@ class LinearTorch(TorchModule):
         # - Set up parameters
         w_rec_shape = (self.size_in, self.size_out)
         self.weight: P_tensor = rp.Parameter(
-            weight,
+            torch.as_tensor(weight) if weight is not None else None,
             shape=w_rec_shape,
             init_func=weight_init_func,
             family="weights",
