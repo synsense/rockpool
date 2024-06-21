@@ -237,21 +237,21 @@ class XyloMonitor(Module):
             config: the configuration that will be applied
         """
         # bandgap
-        config.analog_frontend.ivgen_config.select_default = True
+        config.analog_frontend.ivgen.select_default = True
         # ldo-analog
-        config.analog_frontend.ldo_config.enable_ldo_analog = True
-        config.analog_frontend.ldo_config.enable_ldo_vref_gen = True
+        config.analog_frontend.ldo.enable_ldo_analog = True
+        config.analog_frontend.ldo.enable_ldo_vref_gen = True
         # afe-amp
-        config.analog_frontend.ivgen_config.enable_afe_lna_bias = True
-        config.analog_frontend.ivgen_config.enable_afe_pga_bias = True
-        config.analog_frontend.ivgen_config.enable_afe_driver_bias = True
+        config.analog_frontend.ivgen.enable_afe_lna_bias = True
+        config.analog_frontend.ivgen.enable_afe_pga_bias = True
+        config.analog_frontend.ivgen.enable_afe_driver_bias = True
         config.analog_frontend.enable_lna = True
         config.analog_frontend.enable_pga = True
         config.analog_frontend.enable_drv = True
         # afe-adc
-        config.debug.enableAdc = True
+        config.debug.enable_adc = True
         # charProg.reset_SubModules_Deassert()
-        config.analog_frontend.adc_config.enable_adc = True
+        config.analog_frontend.adc.enable_adc = True
 
     def _program_analog_registers(self, config):
         """
@@ -286,36 +286,36 @@ class XyloMonitor(Module):
         bias_driver = 0  # (default: 3) 0 - 7 --> 100nA - 800nA (linear)
 
         # bandgap
-        config.analog_frontend.ivgen_config.temperature_slope_trim_bangap = (
+        config.analog_frontend.ivgen.temperature_slope_trim_bangap = (
             bandgap_trim_slope
         )
-        config.analog_frontend.ivgen_config.absolute_value_trim_bangap = (
+        config.analog_frontend.ivgen.absolute_value_trim_bangap = (
             bandgap_trim_value
         )
         # ptat
-        config.analog_frontend.ivgen_config.trim_value_ptat = ptat_trim_value
+        config.analog_frontend.ivgen.trim_value_ptat = ptat_trim_value
         # ldo-digital
-        config.analog_frontend.ldo_config.vdd_digital_core_voltage = ldo_digital_trim
+        config.analog_frontend.ldo.vdd_digital_core_voltage = ldo_digital_trim
         # ldo-analog
-        config.analog_frontend.ldo_config.vdd_analog_core_voltage = ldo_analog_trim
-        config.analog_frontend.ldo_config.vcm_lna_voltage = common_mode_voltage_trim
+        config.analog_frontend.ldo.vdd_analog_core_voltage = ldo_analog_trim
+        config.analog_frontend.ldo.vcm_lna_voltage = common_mode_voltage_trim
         # afe-adc
         config.debug.adc_module_clock = clockDivision - 1
-        config.analog_frontend.adc_config.adc_conversion_speed = adcSpeed
+        config.analog_frontend.adc.adc_conversion_speed = adcSpeed
         # bias currents
-        config.analog_frontend.ivgen_config.adc_buffer_test = False
-        config.analog_frontend.ivgen_config.adc_buffer_bias = bias_adc
-        config.analog_frontend.ivgen_config.ldo_digital_bias = bias_ldo_dig
-        config.analog_frontend.ldo_config.ldo_digital_capacitor_stability = (
+        config.analog_frontend.ivgen.adc_buffer_test = False
+        config.analog_frontend.ivgen.adc_buffer_bias = bias_adc
+        config.analog_frontend.ivgen.ldo_digital_bias = bias_ldo_dig
+        config.analog_frontend.ldo.ldo_digital_capacitor_stability = (
             bias__ldo_dig_internal
         )
-        config.analog_frontend.ldo_config.ldo_digital_current_limit = bias_ldo_dig_ilim
-        config.analog_frontend.ivgen_config.current_ptat = bias_mirror_linear
-        config.analog_frontend.ivgen_config.current_mirror_input2 = bias_pmos_inverse
-        config.analog_frontend.ivgen_config.afe_lna_bias = bias_lna
-        config.analog_frontend.ivgen_config.afe_pga_bias = bias_pga
-        config.analog_frontend.ivgen_config.afe_drv_bias = bias_driver
-        config.debug.bypassAfe = False
+        config.analog_frontend.ldo.ldo_digital_current_limit = bias_ldo_dig_ilim
+        config.analog_frontend.ivgen.current_ptat = bias_mirror_linear
+        config.analog_frontend.ivgen.current_mirror_input2 = bias_pmos_inverse
+        config.analog_frontend.ivgen.afe_lna_bias = bias_lna
+        config.analog_frontend.ivgen.afe_pga_bias = bias_pga
+        config.analog_frontend.ivgen.afe_drv_bias = bias_driver
+        config.debug.bypass_afe = False
 
     def _enable_realtime_mode(self):
         """
