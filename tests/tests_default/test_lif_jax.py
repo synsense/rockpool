@@ -276,8 +276,9 @@ def test_sgd():
     loss_t = []
     vgf = jax.value_and_grad(mse_loss)
 
+    
     try:
-        from tqdm.autonotebook import tqdm
+        from tqdm.auto import tqdm
     except:
 
         def tqdm(iter, *args, **kwargs):
