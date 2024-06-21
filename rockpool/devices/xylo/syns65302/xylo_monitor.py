@@ -112,7 +112,7 @@ class XyloMonitor(Module):
 
         # - Configuration for real time in xyloA3
         config.time_resolution_wrap = self._get_tr_wrap(
-            ts_in_ms=self.dt * 1000, main_clk_freq_in_mhz=50
+            ts_in_ms=dt * 1000, main_clk_freq_in_mhz=50
         )
         config.debug.clock_enable = True
         config.debug.always_update_omp_stat = True
