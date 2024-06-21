@@ -22,6 +22,7 @@ All notable changes between Rockpool releases will be documented in this file
 * Fixed a bug in `channel_quantize`, where quantization would be incorrectly applied for Xylo IMU networks with Nien < Nhid
 * Fixed a bug in `channel_quantize`, where hidden unit biases would be incorrectly used in place of output unit biases
 * Fixed a non-handled buffer bug in `LIFJax`, where non-recurrent modules would sometimes have garbage in `w_rec` instead of all zeros
+* Fix a bug in `TorchSequential.as_graph()`, where torch module functions would be called instead of rockpool modules, leading to a failing call to `.as_graph()`.
 
 ### Deprecated
 
