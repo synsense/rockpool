@@ -2,7 +2,7 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-## [v2.8] -- 2024-XX-XX
+## [v2.8] -- 2024-06-24
 
 ### Added
 * Add cycles model for Xylo A and Xylo IMU, enabling to calculate the required master clock frequency for Xylo
