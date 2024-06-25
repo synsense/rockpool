@@ -116,7 +116,7 @@ def test_adversarial_loss():
         parameters=parameters,
         net=net,
         inputs=inputs,
-        target=random.normal(rng_key, shape=(Nout, T)),
+        target=np.random.normal(size=(Nout, T)),
         task_loss=tu.Partial(mse),
         mismatch_loss=tu.Partial(mse),
         rng_key=rng_key,
