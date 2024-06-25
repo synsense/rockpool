@@ -5,6 +5,7 @@ Process a quantized specification dictionary and obtain a deployable object
 See also `devices.dynapse.mapper`
 See also `devices.dynapse.autoencoder_quantization`
 """
+
 from __future__ import annotations
 import logging
 import numpy as np

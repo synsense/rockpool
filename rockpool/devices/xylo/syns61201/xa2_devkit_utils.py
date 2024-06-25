@@ -179,6 +179,7 @@ def read_afe2_register(
     rrv_ev.address = address
 
     # - Request read
+    read_buffer.get_events()
     write_buffer.write([rrv_ev])
 
     # - Wait for data and read it
@@ -189,7 +190,13 @@ def read_afe2_register(
         events = read_buffer.get_events()
 
         # - Filter returned events for the desired address
-        ev_filt = [e for e in events if hasattr(e, "address") and e.address == address]
+        ev_filt = [
+            e
+            for e in events
+            if hasattr(e, "address")
+            and e.address == address
+            and isinstance(e, samna.afe2.event.RegisterValue)
+        ]
 
         # - Should we continue the read?
         continue_read &= len(ev_filt) == 0
@@ -199,7 +206,7 @@ def read_afe2_register(
     if len(ev_filt) == 0:
         raise TimeoutError(f"Timeout after {timeout}s when reading register {address}.")
 
-    # - Return adta
+    # - Return data
     return [e.data for e in ev_filt]
 
 
@@ -290,7 +297,7 @@ def apply_afe2_default_config(
     config: AfeConfiguration,
     bpf_bias: int = 2,
     fwr_bias: int = 6,
-    lna_ci_tune: int = 5,
+    lna_ci_tune: int = 0,
     lna_cf_tune: int = 5,
     afe_stable_time: int = 0x80,
     leak_timing_window: int = int(25e5),
@@ -321,7 +328,7 @@ def apply_afe2_default_config(
     config.analog_top.bpf.bias = int(bpf_bias) if bpf_bias is not None else 2
     config.analog_top.fwr.bias = int(fwr_bias) if fwr_bias is not None else 6
 
-    config.analog_top.lna.ci_tune = int(lna_ci_tune) if lna_ci_tune is not None else 5
+    config.analog_top.lna.ci_tune = int(lna_ci_tune) if lna_ci_tune is not None else 0
     config.analog_top.lna.cf_tune = int(lna_cf_tune) if lna_cf_tune is not None else 5
 
     config.analog_top.bpf.scale = True
@@ -1685,10 +1692,10 @@ def config_lna_amplification(
 
     assert level in ["low", "mid", "high"]
     if level == "mid":
-        config.analog_top.lna.ci_tune = 0x0
+        config.analog_top.lna.ci_tune = 0x7
         config.analog_top.lna.cf_tune = 0xF
     elif level == "high":
-        config.analog_top.lna.ci_tune = 0x5
+        config.analog_top.lna.ci_tune = 0x0
         config.analog_top.lna.cf_tune = 0xF
     return config
 

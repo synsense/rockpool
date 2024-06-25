@@ -6,7 +6,6 @@ See Also:
 
 """
 
-
 from rockpool.graph.graph_base import (
     GraphModule,
     GraphHolder,

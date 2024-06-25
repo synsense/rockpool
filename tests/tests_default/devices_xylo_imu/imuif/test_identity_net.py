@@ -1,10 +1,9 @@
 import pytest
 
+pytest.importorskip("samna")
+
 
 def test_import():
-    import pytest
-
-    pytest.importorskip("samna")
     from rockpool.devices.xylo.syns63300 import IdentityNet
 
     assert IdentityNet is not None

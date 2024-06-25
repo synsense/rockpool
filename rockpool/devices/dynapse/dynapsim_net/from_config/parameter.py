@@ -3,6 +3,7 @@ Dynap-SE2 from_config parameter composition helper, serves as a developer tool
 
 * Non User Facing *
 """
+
 from __future__ import annotations
 
 from typing import Dict, List, Tuple

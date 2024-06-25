@@ -8,7 +8,7 @@ from time import time
 import warnings
 
 try:
-    from tqdm.autonotebook import tqdm
+    from tqdm.auto import tqdm
 except:
 
     def tqdm(obj):

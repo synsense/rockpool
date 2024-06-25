@@ -1,6 +1,7 @@
 """
 Xylo graph modules for use with tracing and mapping
 """
+
 import warnings
 
 from rockpool.graph import (
@@ -55,7 +56,15 @@ class Xylo2Neurons(GenericNeurons):
             # - Get a value for `dt` to use in the conversion
             if mod.dt is None:
                 raise ValueError(
-                    f"Graph module of type {type(mod).__name__} has no `dt` set, so cannot convert time constants when converting to {cls.__name__}."
+                    f"Graph module of type {type(mod).__name__} with name {mod.name} has no `dt` set, so cannot convert time constants when converting to {cls.__name__}."
+                )
+
+            # - Check values of time constants
+            if np.any(np.array(mod.tau_mem) <= mod.dt) or np.any(
+                np.array(mod.tau_syn) <= mod.dt
+            ):
+                raise ValueError(
+                    f"Graph module of type {type(mod).__name__} with name {mod.name} has one or more time constants <= `dt`, which therefore cannot be converted to `dash` parameters."
                 )
 
             # - Convert TCs to dash parameters

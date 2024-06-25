@@ -1,6 +1,7 @@
 """
 Implements a leaky integrate-and-fire neuron module with a Jax backend
 """
+
 import jax
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
@@ -25,6 +26,8 @@ from typing import Optional, Tuple, Union, Callable
 from rockpool.typehints import FloatVector, P_ndarray, JaxRNGKey, P_float, P_int
 
 __all__ = ["LIFJax"]
+
+GRADIENT_LIMIT = np.inf
 
 
 # - Surrogate functions to use in learning
@@ -72,6 +75,27 @@ def step_pwl_jvp(primals, tangents):
     return primal_out, tangent_out
 
 
+@jax.custom_vjp
+def clip_gradient(lo, hi, x):
+    return x  # identity function
+
+
+def clip_gradient_fwd(lo, hi, x):
+    return x, (lo, hi)  # save bounds as residuals
+
+
+def clip_gradient_bwd(res, g):
+    lo, hi = res
+    return (
+        None,
+        None,
+        np.clip(g, lo, hi),
+    )  # use None to indicate zero cotangents for lo and hi
+
+
+clip_gradient.defvjp(clip_gradient_fwd, clip_gradient_bwd)
+
+
 class LIFJax(JaxModule):
     """
     A leaky integrate-and-fire spiking neuron model, with a Jax backend
@@ -82,11 +106,11 @@ class LIFJax(JaxModule):
 
         I_{syn} += S_{in}(t) + S_{rec} \\cdot W_{rec}
 
-        I_{syn} *= \exp(-dt / \tau_{syn})
+        I_{syn} *= \\exp(-dt / \\tau_{syn})
 
-        V_{mem} *= \exp(-dt / \tau_{mem})
+        V_{mem} *= \\exp(-dt / \\tau_{mem})
 
-        V_{mem} += I_{syn} + b + \sigma \zeta(t)
+        V_{mem} += I_{syn} + b + \\sigma \\zeta(t)
 
     where :math:`S_{in}(t)` is a vector containing ``1`` (or a weighed spike) for each input channel that emits a spike at time :math:`t`; :math:`b` is a :math:`N` vector of bias currents for each neuron; :math:`\\sigma\\zeta(t)` is a Wiener noise process with standard deviation :math:`\\sigma` after 1s; and :math:`\\tau_{mem}` and :math:`\\tau_{syn}` are the membrane and synaptic time constants, respectively. :math:`S_{rec}(t)` is a vector containing ``1`` for each neuron that emitted a spike in the last time-step. :math:`W_{rec}` is a recurrent weight matrix, if recurrent weights are used. :math:`b` is an optional bias current per neuron (default 0.).
 
@@ -176,6 +200,7 @@ class LIFJax(JaxModule):
             )
 
         # - Should we be recurrent or FFwd?
+        self._has_rec: bool = SimulationParameter(has_rec)
         if isinstance(has_rec, jax.core.Tracer) or has_rec:
             self.w_rec: P_ndarray = Parameter(
                 w_rec,
@@ -186,7 +211,9 @@ class LIFJax(JaxModule):
             )
             """ (Tensor) Recurrent weights `(Nout, Nin)` """
         else:
-            self.w_rec = np.zeros((self.size_out, self.size_in))
+            self.w_rec: P_ndarray = SimulationParameter(
+                np.zeros((self.size_out, self.size_in))
+            )
 
         # - Set parameters
         self.tau_mem: P_ndarray = Parameter(
@@ -355,6 +382,12 @@ class LIFJax(JaxModule):
             # - Apply subtractive membrane reset
             vmem = vmem - spikes * self.threshold
 
+            # - Ensure gradients are reasonable
+            # vmem = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, vmem)
+            # spikes = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, spikes)
+            # irec = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, irec)
+            # isyn = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, isyn)
+
             # - Return state and outputs
             return (spikes, isyn, vmem), (irec, spikes, vmem, isyn)
 
@@ -384,6 +417,12 @@ class LIFJax(JaxModule):
             "vmem": vmem_ts,
         }
 
+        # - Clip parameter gradients
+        # self.tau_mem = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, self.tau_mem)
+        # self.tau_syn = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, self.tau_syn)
+        # self.bias = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, self.bias)
+        # self.threshold = clip_gradient(-GRADIENT_LIMIT, GRADIENT_LIMIT, self.threshold)
+
         # - Return outputs
         return outputs, states, record_dict
 
@@ -402,7 +441,7 @@ class LIFJax(JaxModule):
         )
 
         # - Include recurrent weights if present
-        if len(self.attributes_named("w_rec")) > 0:
+        if self._has_rec:
             # - Weights are connected over the existing input and output nodes
             w_rec_graph = LinearWeights(
                 neurons.output_nodes,

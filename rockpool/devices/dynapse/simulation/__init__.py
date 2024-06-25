@@ -10,6 +10,7 @@ This module also provides a surrogate function implementation to support gradien
 See also:
     The neuron model tutorial provided in :ref:`/devices/DynapSE/neuron-model.ipynb`
 """
+
 from rockpool.utilities.backend_management import (
     backend_available,
     missing_backend_shim,

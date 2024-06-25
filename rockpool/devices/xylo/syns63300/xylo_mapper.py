@@ -6,7 +6,6 @@ Mapper package for Xylo IMU core
 
 """
 
-
 import numpy as np
 
 import copy
@@ -31,6 +30,7 @@ from rockpool.devices.xylo.syns61300.xylo_mapper import (
     DRCError,
     DRCWarning,
     check_drc,
+    assign_ids_to_module,
     assign_ids_to_class,
     output_nodes_have_neurons_as_source,
     input_to_neurons_is_a_weight,
@@ -45,7 +45,7 @@ from rockpool.devices.xylo.syns61300.xylo_mapper import (
     weight_nodes_have_no_biases,
 )
 
-from typing import List, Callable, Set, Optional, Union
+from typing import List, Callable, Set, Optional, Union, Any
 
 __all__ = ["mapper", "DRCError", "DRCWarning"]
 
@@ -68,6 +68,19 @@ def le_128_output_expansion_neurons(graph: GraphModuleBase) -> None:
     pass
 
 
+def max_synapses_per_neuron(graph: GraphModuleBase, max_syns: int = 1) -> None:
+    # - Neuron modules may only have `max_syns` synapses
+    neurons = find_modules_of_subclass(graph, GenericNeurons)
+
+    for n in neurons:
+        num_syns = int(len(n.input_nodes) / len(n.output_nodes))
+
+        if num_syns > max_syns:
+            raise DRCError(
+                f"Neurons may only have {max_syns} synapse(s) per neuron for this device.\nA neuron node {n} has {num_syns} synapses per neuron."
+            )
+
+
 xylo_drc: List[Callable[[GraphModuleBase], None]] = [
     output_nodes_have_neurons_as_source,
     input_to_neurons_is_a_weight,
@@ -83,6 +96,7 @@ xylo_drc: List[Callable[[GraphModuleBase], None]] = [
     alias_output_nodes_must_have_neurons_as_input,
     at_least_two_neuron_layers_needed,
     weight_nodes_have_no_biases,
+    max_synapses_per_neuron,
 ]
 """ List[Callable[[GraphModuleBase], None]]: The collection of design rules for Xylo """
 
@@ -147,12 +161,59 @@ def mapper(
 
     # --- Assign neurons to HW neurons ---
 
-    # - Enumerate hidden neurons
+    # - Get all hidden neurons
+    all_hidden_neuron_mods: XyloIMUHiddenNeurons = find_modules_of_subclass(
+        graph, XyloIMUHiddenNeurons
+    )
+
+    # - Identify input expansion neurons --- these need to be allocated first (lowest neuron IDs)
+    # - Find the input weights and their target IENs
+    input_weight_mod: LinearWeights = graph.input_nodes[0].sink_modules[0]
+    iens_mod: XyloIMUHiddenNeurons = input_weight_mod.output_nodes[0].sink_modules[0]
+    num_IENs = len(iens_mod.dash_mem)
+
+    # - Identify output expansion neurons --- these need to be allocated last (highest neuron IDs)
+    output_neurons: XyloIMUOutputNeurons = graph.output_nodes[0].source_modules[0]
+    list_output_weights_mods: List[LinearWeights] = output_neurons.input_nodes[
+        0
+    ].source_modules
+    list_oens_mods: List[XyloIMUHiddenNeurons] = [
+        sm
+        for ow in list_output_weights_mods
+        for sm in ow.input_nodes[0].source_modules
+        if isinstance(sm, XyloIMUHiddenNeurons)
+    ]
+    num_OENs = sum([len(oen.dash_mem) for oen in list_oens_mods])
+
+    # - Remove IENs and OENs from all hidden neurons
+    non_ien_oen_hidden_mods = [
+        hn
+        for hn in all_hidden_neuron_mods
+        if (hn is not iens_mod) and (hn not in list_oens_mods)
+    ]
+
+    # - Allocate hidden neurons
     available_hidden_neuron_ids = list(range(max_hidden_neurons))
     try:
-        allocated_hidden_neurons = assign_ids_to_class(
-            graph, XyloIMUHiddenNeurons, available_hidden_neuron_ids
+        allocated_iens = assign_ids_to_module(iens_mod, available_hidden_neuron_ids)
+
+        allocated_hidden_neurons = [
+            assign_ids_to_module(m, available_hidden_neuron_ids)
+            for m in non_ien_oen_hidden_mods
+        ]
+        allocated_hidden_neurons = [
+            nid for ids in allocated_hidden_neurons for nid in ids
+        ]
+
+        allocated_oens = [
+            assign_ids_to_module(m, available_hidden_neuron_ids) for m in list_oens_mods
+        ]
+        allocated_oens = [nid for ids in allocated_oens for nid in ids]
+
+        all_allocated_hidden_neurons = (
+            allocated_iens + allocated_hidden_neurons + allocated_oens
         )
+
     except Exception as e:
         raise DRCError("Failed to allocate HW resources for hidden neurons.") from e
 
@@ -170,30 +231,26 @@ def mapper(
     # - Enumerate input channels
     input_channels = list(range(len(graph.input_nodes)))
 
-    # - Extract hidden neurons modules
-    hidden_neurons: SetList[XyloIMUHiddenNeurons] = find_modules_of_subclass(
-        graph, XyloIMUHiddenNeurons
-    )
+    # # - Extract hidden neurons modules
+    # hidden_neurons: SetList[XyloIMUHiddenNeurons] = find_modules_of_subclass(
+    #     graph, XyloIMUHiddenNeurons
+    # )
 
     # - Xylo-IMU only provides one synapse per neuron
     num_hidden_synapses = 1
 
     # --- Map weights and build Xylo weight matrices ---
 
-    # - Build an input weight matrix
-    input_weight_mod: LinearWeights = graph.input_nodes[0].sink_modules[0]
-    target_neurons: XyloIMUNeurons = input_weight_mod.output_nodes[0].sink_modules[0]
-    # - Since DRC passed, we know this is valid
-
+    # -- Build an input weight matrix
     # - Xylo-IMU only provides one synapse per neuron
     weight_num_synapses = 1
 
-    target_ids = target_neurons.hw_ids
-    these_dest_indices = [allocated_hidden_neurons.index(id) for id in target_ids]
+    target_ids = iens_mod.hw_ids
+    these_dest_indices = [allocated_iens.index(id) for id in target_ids]
 
     # - Allocate and assign the input weights
     w_in = np.zeros(
-        (len(input_channels), len(allocated_hidden_neurons), num_hidden_synapses),
+        (len(input_channels), num_IENs, num_hidden_synapses),
         weight_dtype,
     )
     w_in[
@@ -205,20 +262,18 @@ def mapper(
     # - Build a recurrent weight matrix
     w_rec = np.zeros(
         (
-            len(allocated_hidden_neurons),
-            len(allocated_hidden_neurons),
+            len(all_allocated_hidden_neurons),
+            len(all_allocated_hidden_neurons),
             num_hidden_synapses,
         ),
         weight_dtype,
     )
-    w_rec_source_ids = allocated_hidden_neurons
-    w_rec_dest_ids = allocated_hidden_neurons
+    w_rec_source_ids = all_allocated_hidden_neurons
+    w_rec_dest_ids = all_allocated_hidden_neurons
 
     # - Build an output weight matrix
-    w_out = np.zeros(
-        (len(allocated_hidden_neurons), len(allocated_output_neurons)), weight_dtype
-    )
-    w_out_source_ids = allocated_hidden_neurons
+    w_out = np.zeros((num_OENs, len(allocated_output_neurons)), weight_dtype)
+    w_out_source_ids = allocated_oens
     w_out_dest_ids = allocated_output_neurons
 
     # - Get all weights
@@ -293,7 +348,7 @@ def mapper(
     output_neurons: SetList[XyloIMUOutputNeurons] = find_modules_of_subclass(
         graph, XyloIMUOutputNeurons
     )
-    num_hidden_neurons = len(allocated_hidden_neurons)
+    num_hidden_neurons = len(all_allocated_hidden_neurons)
     num_output_neurons = len(allocated_output_neurons)
 
     dash_mem = np.zeros(num_hidden_neurons, dash_dtype)
@@ -357,11 +412,11 @@ def mapper(
                 if isinstance(sm, XyloIMUNeurons)
             ]
         )
-        target_neurons: XyloIMUNeurons = sm[0]
+        iens_mod: XyloIMUNeurons = sm[0]
 
         # - Get the source and target HW IDs
         source_ids = source_neurons.hw_ids
-        target_ids = target_neurons.hw_ids
+        target_ids = iens_mod.hw_ids
 
         # - Add to the aliases list
         for source, target in zip(source_ids, target_ids):

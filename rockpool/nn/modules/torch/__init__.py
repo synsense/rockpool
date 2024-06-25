@@ -2,7 +2,6 @@
 Modules using Torch as a backend
 """
 
-
 try:
     from .torch_module import *
     from .rate_torch import *
@@ -17,6 +16,7 @@ try:
     from .linear_torch import *
     from .bool_state import *
     from .dropout import *
+
 except:
     from rockpool.utilities.backend_management import (
         backend_available,
@@ -35,5 +35,20 @@ except:
         ExpSynTorch = missing_backend_shim("ExpSynTorch", "torch")
         UpDownTorch = missing_backend_shim("UpDownTorch", "torch")
         LinearTorch = missing_backend_shim("LinearTorch", "torch")
+    else:
+        raise
+
+try:
+    from .nir import *
+
+except:
+    from rockpool.utilities.backend_management import (
+        backend_available,
+        missing_backend_shim,
+    )
+
+    if not backend_available("nir", "nirtorch", "torch"):
+        from_nir = missing_backend_shim("from_nir", "nir, nirtorch, torch")
+        to_nir = missing_backend_shim("to_nir", "nir, nirtorch, torch")
     else:
         raise

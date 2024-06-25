@@ -14,6 +14,14 @@ from rockpool.utilities.backend_management import (
 try:
     from .iaf_brian import *
     from .exp_synapses_brian import *
+
+    import warnings
+
+    warnings.warn(
+        "Deprecation: Brian-backed layers are deprecated, and will be removed in future versions.",
+        DeprecationWarning,
+    )
+
 except:
     if not backend_available("brian"):
         FFIAFBrian = missing_backend_shim("FFIAFBrian", "brian")

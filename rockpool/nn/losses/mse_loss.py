@@ -9,7 +9,6 @@ __all__ = ["MSELoss"]
 
 
 class MSELoss(_Loss):
-
     """
     This is a wrapper around the PyTorch MSE loss.
     """

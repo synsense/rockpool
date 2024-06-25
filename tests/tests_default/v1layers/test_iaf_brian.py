@@ -2,6 +2,13 @@
 Test Brian-based spiking layers from layers.internal.iaf_brian and layers.recurrent.iaf_brian
 """
 
+import pytest
+
+pytest.skip(
+    "DEPRECATED Brian2 layers are deprecated, no testing performed",
+    allow_module_level=True,
+)
+
 
 def test_ffiaf():
     import pytest

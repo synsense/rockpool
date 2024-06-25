@@ -1,33 +1,71 @@
 # Change log
 
-All notable changes between Rockpool releases will be documented in this file.
+All notable changes between Rockpool releases will be documented in this file
+
+## [v2.8] -- 2024-06-24
+
+### Added
+* Add cycles model for Xylo A and Xylo IMU, enabling to calculate the required master clock frequency for Xylo
+* Add support for NIR, for importing and exporting Rockpool torch networks
+
+### Changed
+* `LIFExodus` now supports vectors as threshold parameter
+* Standard `LIF` modules now have `w_rec` as a simulation parameter when in non-recurrent mode
+
+### Fixed
+* `TypeError` when using `LIFExodus`
+* Update `jax.config` usage
+* Power measurement for `xyloA2` was not considering AFE channels
+* Remove `check_grads` from Jax tests, since this will fail for LIF neurons due to surrograte gradients
+* Fix a bug in `AFESim` on windows, where the maximum int32 value would be exceeded when seeding the AFE simulation
+* Fix stochasticity in some unit tests
+* Fix a bug in `channel_quantize`, where quantization would be incorrectly applied for Xylo IMU networks with Nien < Nhid
+* Fix a bug in `channel_quantize`, where hidden unit biases would be incorrectly used in place of output unit biases
+* Fix a non-handled buffer bug in `LIFJax`, where non-recurrent modules would sometimes have garbage in `w_rec` instead of all zeros
+* Fix a bug in `TorchSequential.as_graph()`, where torch module functions would be called instead of rockpool modules, leading to a failing call to `.as_graph()`.
+
+### Deprecated
+
+* Brian2 tests are not running -- Brian2 backend will be soon removed
+
+### Removed
+
+### Security
+
+
+## [v.2.7.1 hotfix] -- 2024-01-19
+
+### Fixed
+
+* Bug in Xylo IMU mapper, where networks with more than 128 hidden neurons could not be mapped
+
 
 ## [v2.7] -- 2023-09-25
 
 ### Added
 
 
-* Dependency on `pytest-random-order` v1.1.0 for test order randomization.
+* Dependency on `pytest-random-order` v1.1.0 for test order randomization
 * New HowTo tutorial for performing constrained optimisation with torch and jax
 * Xylo IMU application software support:
 
   * `mapper`, `config_from_specification` and graph mapping support
-  * `XyloSim` module: SNN core simulation for Xylo IMU.
+  * `XyloSim` module: SNN core simulation for Xylo IMU
   * `IMUIFSim` module: Simulation of the input encoding interface with sub-modules:
     * `BandPassFilter`
     * `FilterBank`
     * `RotationRemoval`
     * `IAFSpikeEncoder`
     * `ScaleSpikeEncoder`
-  * `XyloIMUMonitor` module: Real-time hardware monitoring for Xylo IMU.
-  * `XyloSamna` module: Interface to the SNN core.
-  * `IMUIFSamna` module: Interface to `IMUIF`, utilizing neurons in the SNN core.
-  * `IMUData` module: Collection of sensor data from the onboard IMU sensor.
-  * Utility functions for network mapping to the Xylo IMU HDK, interfacing, and data processing.
-  * Introductory documentation providing an overview of Xylo IMU and instructions on configuring preprocessing.
-* New losses, with structure similar to PyTorch.
-  * PeakLoss which can be imported as `peak_loss = rockpool.nn.losses.PeakLoss()`.
-  * MSELoss which can be imported as  `mse_loss = rockpool.nn.losses.MSELoss()`.
+  * `XyloIMUMonitor` module: Real-time hardware monitoring for Xylo IMU
+  * `XyloSamna` module: Interface to the SNN core
+  * `IMUIFSamna` module: Interface to `IMUIF`, utilizing neurons in the SNN core
+  * `IMUData` module: Collection of sensor data from the onboard IMU sensor
+  * Utility functions for network mapping to the Xylo IMU HDK, interfacing, and data processing
+  * Introductory documentation providing an overview of Xylo IMU and instructions on configuring preprocessing
+* New losses, with structure similar to PyTorch
+  * PeakLoss which can be imported as `peak_loss = rockpool.nn.losses.PeakLoss()`
+  * MSELoss which can be imported as  `mse_loss = rockpool.nn.losses.MSELoss()`
 
 ### Changed
 

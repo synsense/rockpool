@@ -2,7 +2,6 @@
 Utilities for producing a samna HW configuration for Xylo IMU devices
 """
 
-
 import numpy as np
 import samna
 
@@ -90,8 +89,15 @@ def config_from_specification(
         raise ValueError("Output weights must be 2 dimensional `(Nhidden, Nout)`")
 
     # - Get network shape
-    Nin, Nin_res, Nsyn = weights_in.shape
-    Nhidden, Nout = weights_out.shape
+    if weights_in.ndim < 3:
+        weights_in = np.expand_dims(weights_in, -1)
+    Nin, NIEN, Nsyn = weights_in.shape
+
+    if weights_rec.ndim < 3:
+        weights_rec = np.expand_dims(weights_rec, -1)
+    Nhidden, _, Nsyn = weights_rec.shape
+
+    NOEN, Nout = weights_out.shape
 
     # - Check number of input synapses
     if Nsyn > 1:
@@ -100,8 +106,16 @@ def config_from_specification(
         )
 
     # - Check input and hidden weight sizes
-    if Nin_res > Nhidden:
-        raise ValueError("Input weight dimension `Nin_res` must be <= `Nhidden`")
+    if NIEN > Nhidden:
+        raise ValueError(
+            f"Input expansion weight dimension `NIEN` ({NIEN}) must be <= `Nhidden` ({Nhidden})."
+        )
+
+    # - Check output and hidden weight sizes
+    if NOEN > Nhidden:
+        raise ValueError(
+            f"Output expansion weight dimension `NOEN` ({NOEN}) must be <= `Nhidden` ({Nhidden})."
+        )
 
     # - Provide default `weights_rec`
     weights_rec = (
@@ -112,12 +126,6 @@ def config_from_specification(
     if weights_rec.ndim != 3 or weights_rec.shape[0] != weights_rec.shape[1]:
         raise ValueError(
             "Recurrent weights must be of shape `(Nhidden, Nhidden [, 1])`"
-        )
-
-    if Nhidden != weights_rec.shape[0]:
-        raise ValueError(
-            "Input weights must be consistent with recurrent weights.\n"
-            f"`weights_in`: {weights_in.shape}; `weights_rec`: {weights_rec.shape}"
         )
 
     # - Check aliases
@@ -225,7 +233,7 @@ def config_from_specification(
     else:
         config.input.weights = weights_in[:, :, 0]
     config.hidden.weights = weights_rec[:, :, 0]
-    if weights_out.shape[1] > 128:
+    if weights_out.shape[0] > 128:
         warn(
             "More than 128 output expansion neurons (OEN) detected. Only the last 128 will be used."
         )

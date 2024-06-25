@@ -16,12 +16,12 @@ from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 
 # - Typing
-from typing import Optional, Union, Callable, List, Tuple
+from typing import Optional, Union, Callable, List
 
 import warnings
 
 try:
-    from tqdm.autonotebook import tqdm
+    from tqdm.auto import tqdm
 except ModuleNotFoundError:
 
     def tqdm(wrapped, *args, **kwargs):
@@ -55,6 +55,7 @@ class XyloMonitor(Module):
         divisive_norm_params: Optional[dict] = {},
         calibration_params: Optional[dict] = {},
         read_register: bool = False,
+        power_frequency: float = 5.0,
         *args,
         **kwargs,
     ):
@@ -75,6 +76,7 @@ class XyloMonitor(Module):
             divisive_norm_params (Dict): Specify the divisive normalization parameters, should be structured as {"s": , "p": , "iaf_bias": }.
             calibration_params (Dict): Specify the calibration parameters.
             read_register (bool): If True, will print all register values of AFE and Xylo after initialization.
+            power_frequency (float): The frequency of power measurement. Default: 5.0
         """
 
         # - Check input arguments
@@ -211,6 +213,11 @@ class XyloMonitor(Module):
         # - Apply configuration
         self._device.get_afe_model().apply_configuration(afe_config)
 
+        # - Set power measurement module
+        self._power_buf, self.power_monitor = hdkutils.set_power_measure(
+            self._device, power_frequency
+        )
+
         # - Configure to auto mode
         self.auto_config(hibernation=hibernation_mode)
 
@@ -268,21 +275,37 @@ class XyloMonitor(Module):
         time.sleep(1)
         self._state_buffer.reset()
 
-    def evolve(self, input_data, record: bool = False) -> Tuple[list, dict, dict]:
+    def evolve(
+        self,
+        input_data,
+        record: bool = False,
+        record_power: bool = False,
+    ) -> (list, dict, dict):
         """
         Evolve a network on the Xylo HDK in Real-time mode
 
         Args:
             input_data (np.ndarray): An array ``[T, Nin]``, specifying the number of time-steps to record.
+            record (bool): ``False``, do not return a recording dictionary. Recording internal state is not supported by :py:class:`.XyloMonitor`
+            record_power (bool): If ``True``, record the power consumption during each evolve.
 
         Returns:
             (list, dict, dict) output_events, {}, {}
             output_events is a list that stores the output events of T time-steps.
         """
+        # - Check `record` flag
+        if record:
+            raise ValueError(
+                "Recording internal state is not supported by XyloIMUMonitor."
+            )
 
         Nt = input_data.shape[0]
         out = []
         count = 0
+
+        # - Clear the power recording buffer, if recording power
+        if record_power:
+            self._power_buf.clear_events()
 
         while count < int(Nt):
             if self._output_mode == "Vmem":
@@ -293,7 +316,39 @@ class XyloMonitor(Module):
 
             if output[0]:
                 self._state_buffer.reset()
-                count += 1
+                count += len(output)
                 out.append([sub[-1] for sub in output])
 
-        return out, {}, {}
+        rec_dict = {}
+
+        if record_power:
+            # - Get all recent power events from the power measurement
+            ps = self._power_buf.get_events()
+
+            # - Separate out power meaurement events by channel
+            channels = samna.xyloA2TestBoard.MeasurementChannels
+            io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
+            AFE_io_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.IoAfe)]
+            )
+            logic_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.Logic)]
+            )
+            AFE_logic_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.LogicAfe)]
+            )
+            rec_dict.update(
+                {
+                    "io_power": io_power,
+                    "logic_power": logic_power,
+                    "AFE_io_power": AFE_io_power,
+                    "AFE_logic_power": AFE_logic_power,
+                }
+            )
+
+        return out, {}, rec_dict
+
+    def reset_state(*args, **kwargs):
+        raise NotImplementedError(
+            "Reset state is not permitted for Xylo Audio in real-time mode"
+        )

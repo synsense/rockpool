@@ -42,6 +42,7 @@ try:
     from .xa2_devkit_utils import *
     from .xylo_monitor import *
     from .afe_samna import *
+    from .power_cycles_model import cycles_model, est_clock_freq
 except:
     if not backend_available("samna"):
         AFESamna = missing_backend_shim("AFESamna", "samna")
@@ -52,6 +53,8 @@ except:
         )
         save_config = missing_backend_shim("save_config", "samna")
         load_config = missing_backend_shim("load_config", "samna")
+        cycles_model = missing_backend_shim("cycles_model", "samna")
+        est_clock_freq = missing_backend_shim("est_clock_freq", "samna")
     else:
         raise
 

@@ -62,7 +62,7 @@ class AFESim(Module):
         add_noise: bool = True,
         add_offset: bool = True,
         add_mismatch: bool = True,
-        seed: int = np.random.randint(2**32 - 1),
+        seed: int = np.random.randint(2**32 - 1, dtype=np.uint32),
         num_workers: int = 1,
         *args,
         **kwargs,

@@ -7,6 +7,7 @@ See Also:
     The tutorials in :ref:`/devices/xylo-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-xylo.ipynb`.
 
 """
+
 from rockpool.devices.xylo.syns61201.xa2_devkit_utils import (
     to_hex,
     write_memory,

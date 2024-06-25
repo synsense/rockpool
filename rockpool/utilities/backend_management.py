@@ -5,6 +5,7 @@ To check a standard backend, use :py:func:`.backend_available`. To check a non-s
 
 To build a shim class that raises an error on instantiation, for when a required backend is not available, use :py:func:`.missing_backend_shim`.
 """
+
 import importlib
 from importlib import util
 from typing import List, Union, Tuple, Optional, Dict
@@ -117,7 +118,10 @@ def backend_available(*backend_names) -> bool:
     """
     Report if a backend is available for use
 
-    This function returns immediately if the named backend has already been checked previously. Otherwise, if the backend is "standard", then it will be checked for availability. If the backend is non-standard, it cannot be checked automatically. In that case you must use :py:func:`.check_backend` directly.
+    This function returns immediately if the named backend has already been checked previously.
+    Otherwise, if the backend is either a defined standard backend, or is a simple importable python module, then it will be checked for availability.
+    If the backend is non-standard, it cannot be checked automatically.
+    In that case you must use :py:func:`.check_backend` directly.
 
     Args:
         backend_name0, backend_name1, ... (str): A backend to check

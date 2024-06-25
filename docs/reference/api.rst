@@ -242,6 +242,8 @@ Xylo Audio support
     devices.xylo.syns61201.config_from_specification
     devices.xylo.syns61201.load_config
     devices.xylo.syns61201.save_config
+    devices.xylo.syns61201.cycles_model
+    devices.xylo.syns61201.est_clock_freq
 
 .. autosummary::
     :toctree: _autosummary
@@ -270,6 +272,8 @@ Xylo IMU support
     devices.xylo.syns63300.config_from_specification
     devices.xylo.syns63300.load_config
     devices.xylo.syns63300.save_config
+    devices.xylo.syns63300.cycles_model
+    devices.xylo.syns63300.est_clock_freq
 
 .. autosummary::
     :toctree: _autosummary
@@ -455,3 +459,11 @@ General Utilities
     utilities.jax_tree_utils
     utilities.type_handling
 
+NIR import and export
+---------------------
+
+.. autosummary::
+    :toctree: _autosummary
+
+    rockpool.nn.modules.to_nir
+    rockpool.nn.modules.from_nir

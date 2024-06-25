@@ -36,7 +36,7 @@ from typing import Optional, Union, Callable, List, Tuple
 from warnings import warn
 
 try:
-    from tqdm.autonotebook import tqdm
+    from tqdm.auto import tqdm
 except ModuleNotFoundError:
 
     def tqdm(wrapped, *args, **kwargs):
@@ -98,9 +98,7 @@ def config_from_specification(
             f"Input weights must be at least 2 dimensional `(Nin, Nin_res, [2])`. Found {weights_in.shape}"
         )
 
-    enable_isyn2 = True
     if weights_in.ndim == 2:
-        enable_isyn2 = False
         weights_in = np.reshape(weights_in, [*weights_in.shape, 1])
 
     # - Check output weights
@@ -108,8 +106,10 @@ def config_from_specification(
         raise ValueError("Output weights must be 2 dimensional `(Nhidden, Nout)`")
 
     # - Get network shape
-    Nin, Nin_res, _ = weights_in.shape
+    Nin, Nin_res, Nsyn = weights_in.shape
     Nhidden, Nout = weights_out.shape
+
+    enable_isyn2 = Nsyn > 1
 
     # - Check input and hidden weight sizes
     if Nin_res > Nhidden:

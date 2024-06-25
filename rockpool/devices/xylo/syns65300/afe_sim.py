@@ -140,7 +140,7 @@ class AFESim(Module):
         fs: int = 48000,
         manual_scaling: float = None,
         add_noise: bool = True,
-        seed: int = np.random.randint(2**32 - 1),
+        seed: int = np.random.randint(2**32 - 1, dtype=np.uint32),
         num_workers: int = 1,
         *args,
         **kwargs,

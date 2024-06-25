@@ -5,3 +5,4 @@ channels:
 dependencies:
   - numpy
   - scipy
+  - python=3.11

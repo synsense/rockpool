@@ -1,6 +1,7 @@
 """
 Dynap-SE simulator generator from the samna config object
 """
+
 from typing import Dict, Optional
 
 import numpy as np

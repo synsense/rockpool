@@ -2,7 +2,6 @@
 Helpful functions for performing analysis on spiking outputs
 """
 
-
 import numpy as np
 from typing import List
 
