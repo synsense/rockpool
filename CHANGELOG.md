@@ -2,11 +2,12 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-## Unreleased
+## Unreleased - [v2.8.1.dev] -- xxxx-xx-xx
 
 ### Added
 
 ### Changed
+- Update ``release notes`` for developers in documentation
 
 ### Fixed
 
