@@ -20,7 +20,7 @@ from typing import Optional, Union, Callable, List, Tuple
 from warnings import warn
 
 try:
-    from tqdm.autonotebook import tqdm, trange
+    from tqdm.auto import tqdm, trange
 except ModuleNotFoundError:
 
     def tqdm(wrapped, *args, **kwargs):

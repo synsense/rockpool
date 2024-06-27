@@ -256,7 +256,7 @@ def test_FF_equality_torch():
     inp[0, 0] = (inp[0, 0] * weight) << bitshift
 
     # - evolve rockpool model
-    out_torch, state, rec = lif_torch.evolve(torch.Tensor([inp]), record=True)
+    out_torch, state, rec = lif_torch.evolve(torch.Tensor(np.array(inp)), record=True)
 
     # - get recordings
     vmem_torch = rec["vmem"][0, :, 0].detach().int().numpy()

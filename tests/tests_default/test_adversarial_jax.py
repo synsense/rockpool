@@ -12,6 +12,7 @@ def test_imports():
 
 def test_adversarial_loss():
     PLOT = False
+
     from rockpool.training.jax_loss import mse
     from rockpool.training.adversarial_jax import (
         pga_attack,
@@ -25,12 +26,12 @@ def test_adversarial_loss():
     import jax.tree_util as tu
     import numpy as np
 
-    from functools import partial
-
     if PLOT:
         import matplotlib.pyplot as plt
 
+    # - Seed pRNGs
     np.random.seed(0)
+    rng_key = random.PRNGKey(0)
 
     # - Define network
     Nin = 2
@@ -56,7 +57,6 @@ def test_adversarial_loss():
     net = net.reset_state()
     net = net.set_attributes(parameters)
     output_nominal, _, _ = net(inputs)
-    rng_key = random.PRNGKey(0)
 
     theta_star, verbose = pga_attack(
         params_flattened=parameters_flattened,
@@ -116,7 +116,7 @@ def test_adversarial_loss():
         parameters=parameters,
         net=net,
         inputs=inputs,
-        target=random.normal(rng_key, shape=(Nout, T)),
+        target=np.random.normal(size=(Nout, T)),
         task_loss=tu.Partial(mse),
         mismatch_loss=tu.Partial(mse),
         rng_key=rng_key,

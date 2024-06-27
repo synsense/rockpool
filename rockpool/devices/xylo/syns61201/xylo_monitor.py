@@ -21,7 +21,7 @@ from typing import Optional, Union, Callable, List
 import warnings
 
 try:
-    from tqdm.autonotebook import tqdm
+    from tqdm.auto import tqdm
 except ModuleNotFoundError:
 
     def tqdm(wrapped, *args, **kwargs):

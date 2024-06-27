@@ -16,7 +16,7 @@ from jax.lax import stop_gradient
 import jax.numpy as jnp
 from jax import value_and_grad
 
-from functools import partial
+from jax.tree_util import Partial
 
 from typing import Tuple, Callable, List, Dict, Any, Optional
 from rockpool.typehints import Tree, JaxTreeDef, JaxRNGKey
@@ -79,7 +79,7 @@ def _eval_target_loss(
     return loss(target, output)
 
 
-@partial(
+@Partial(
     jax.jit,
     static_argnames=[
         "net",
@@ -156,7 +156,7 @@ def pga_attack(
     return theta_star, verbose
 
 
-@partial(
+@Partial(
     jax.jit,
     static_argnames=[
         "net",

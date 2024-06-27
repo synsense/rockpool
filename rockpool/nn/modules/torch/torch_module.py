@@ -17,6 +17,9 @@ import rockpool.parameters as rp
 
 from typing import Tuple, Any, Generator, Union, List
 
+# - To-float-tensor conversion utility
+to_float_tensor = lambda x: torch.as_tensor(x, dtype=torch.float)
+
 
 class TorchModuleParameters(dict):
     """
@@ -256,7 +259,7 @@ class TorchModule(Module, nn.Module):
             self._register_attribute(key, value)
 
             # - Register as a torch `parameter`
-            super().register_parameter(key, nn.Parameter(value.data))
+            super().register_parameter(key, nn.Parameter(to_float_tensor(value.data)))
             return
 
         if isinstance(value, rp.State):
@@ -537,14 +540,14 @@ class TorchModule(Module, nn.Module):
                 elif isinstance(my_params[k], np.ndarray):
                     my_params[k] = np.array(param)
                 elif isinstance(my_params[k], torch.Tensor):
-                    my_params[k].data = torch.tensor(param)
+                    my_params[k].data = to_float_tensor(param)
                 elif isinstance(my_params[k], TorchModuleParameters):
                     self.modules()[k].json_to_param(param)
                 elif my_params[k] == None:
                     my_params[k] = param
                 else:
                     raise NotImplementedError(
-                        f"{type(my_params[k])} for parameter {k} with value {params} not implemented to load. Please implement."
+                        f"{type(my_params[k])} for parameter {k} with value {param} not implemented to load. Please implement."
                     )
 
     def param_to_json(self, param):
