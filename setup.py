@@ -57,6 +57,10 @@ setup_args = {
             "rockpool[jax]",
             "samna>=0.32.1.0",
         ],
+        "nir": [
+            "nir",
+            "nirtorch",
+        ],
         "extras": [
             "matplotlib",
             "tqdm",

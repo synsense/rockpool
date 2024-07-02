@@ -36,7 +36,7 @@ from typing import Optional, Union, Callable, List, Tuple
 from warnings import warn
 
 try:
-    from tqdm.autonotebook import tqdm
+    from tqdm.auto import tqdm
 except ModuleNotFoundError:
 
     def tqdm(wrapped, *args, **kwargs):

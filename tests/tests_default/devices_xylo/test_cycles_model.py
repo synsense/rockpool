@@ -1,5 +1,7 @@
 import pytest
 
+pytest.importorskip("samna")
+
 
 def test_imports_syns61201():
     from rockpool.devices.xylo.syns61201 import cycles_model, est_clock_freq

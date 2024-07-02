@@ -5,23 +5,41 @@ All notable changes between Rockpool releases will be documented in this file
 ## Unreleased
 
 ### Added
-* Added a cycles model for Xylo A and Xylo IMU, enabling to calculate the required master clock frequency for Xylo
+
+### Changed
+
+### Fixed
+
+### Deprecated
+
+### Removed
+
+### Security
+
+## [v2.8] -- 2024-06-24
+
+### Added
+* Add cycles model for Xylo A and Xylo IMU, enabling to calculate the required master clock frequency for Xylo
+* Add support for NIR, for importing and exporting Rockpool torch networks
 
 * Added simulation support for audio front-end for Xylo A3 (SYNS65302)
   * `AFESimExternal` , `AFESimAGC`, and `AFESimPDM` with all the necessary sub-modules.
 
 ### Changed
 * `LIFExodus` now supports vectors as threshold parameter
+* Standard `LIF` modules now have `w_rec` as a simulation parameter when in non-recurrent mode
 
 ### Fixed
 * `TypeError` when using `LIFExodus`
 * Update `jax.config` usage
 * Power measurement for `xyloA2` was not considering AFE channels
-* Removed `check_grads` from Jax tests, since this will fail for LIF neurons due to surrograte gradients
-* Fixed a bug in `AFESim` on windows, where the maximum int32 value would be exceeded when seeding the AFE simulation
-* Fixed stochasticity in some unit tests
-* Fixed a bug in `channel_quantize`, where quantization would be incorrectly applied for Xylo IMU networks with Nien < Nhid
-
+* Remove `check_grads` from Jax tests, since this will fail for LIF neurons due to surrograte gradients
+* Fix a bug in `AFESim` on windows, where the maximum int32 value would be exceeded when seeding the AFE simulation
+* Fix stochasticity in some unit tests
+* Fix a bug in `channel_quantize`, where quantization would be incorrectly applied for Xylo IMU networks with Nien < Nhid
+* Fix a bug in `channel_quantize`, where hidden unit biases would be incorrectly used in place of output unit biases
+* Fix a non-handled buffer bug in `LIFJax`, where non-recurrent modules would sometimes have garbage in `w_rec` instead of all zeros
+* Fix a bug in `TorchSequential.as_graph()`, where torch module functions would be called instead of rockpool modules, leading to a failing call to `.as_graph()`.
 
 ### Deprecated
 

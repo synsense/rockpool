@@ -147,9 +147,9 @@ class SequentialMixin(ABC):
             Module: The ``item``th module in the sequence
         """
         if isinstance(item, str):
-            return self.modules()[item]
+            return Module.modules(self)[item]
         else:
-            return self.modules()[self._submodulenames[item]]
+            return Module.modules(self)[self._submodulenames[item]]
 
     def as_graph(self):
         mod_graphs = []

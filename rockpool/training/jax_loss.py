@@ -120,8 +120,8 @@ def bounds_cost(params: dict, lower_bounds: dict, upper_bounds: dict) -> float:
 
     # - Define a bounds function
     def bound(p, lower, upper):
-        lb_cost_all = np.exp(-(p - lower))
-        ub_cost_all = np.exp(-(upper - p))
+        lb_cost_all = np.exp(-(p - np.clip(lower, a_min=-(2**31))))
+        ub_cost_all = np.exp(-(np.clip(upper, a_max=2**31 - 1) - p))
 
         lb_cost = np.nansum(np.where(p < lower, lb_cost_all, 0.0))
         ub_cost = np.nansum(np.where(p > upper, ub_cost_all, 0.0))
@@ -130,6 +130,12 @@ def bounds_cost(params: dict, lower_bounds: dict, upper_bounds: dict) -> float:
 
     # - Map bounds function over parameters and return
     return np.sum(np.array(list(map(bound, params, lower_bounds, upper_bounds))))
+
+
+def bounds_clip(params: dict, lower_bounds: dict, upper_bounds: dict) -> dict:
+    """ """
+    # - Map bounds function over parameters and return
+    return tu.tree_map(np.clip, params, lower_bounds, upper_bounds)
 
 
 def l2sqr_norm(params: dict) -> float:

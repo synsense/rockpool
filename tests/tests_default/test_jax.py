@@ -333,7 +333,7 @@ def test_sgd():
     loss_t = []
     vgf = jit(jax.value_and_grad(mse_loss))
 
-    from tqdm.autonotebook import tqdm
+    from tqdm.auto import tqdm
 
     with tqdm(range(100)) as t:
         for i in t:
