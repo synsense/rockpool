@@ -286,12 +286,8 @@ class XyloMonitor(Module):
         bias_driver = 0  # (default: 3) 0 - 7 --> 100nA - 800nA (linear)
 
         # bandgap
-        config.analog_frontend.ivgen.temperature_slope_trim_bangap = (
-            bandgap_trim_slope
-        )
-        config.analog_frontend.ivgen.absolute_value_trim_bangap = (
-            bandgap_trim_value
-        )
+        config.analog_frontend.ivgen.temperature_slope_trim_bangap = bandgap_trim_slope
+        config.analog_frontend.ivgen.absolute_value_trim_bangap = bandgap_trim_value
         # ptat
         config.analog_frontend.ivgen.trim_value_ptat = ptat_trim_value
         # ldo-digital
@@ -385,7 +381,7 @@ class XyloMonitor(Module):
         spikes_ts = []
         vmem_out_ts = []
 
-         # - Clear the power recording buffer, if recording power
+        # - Clear the power recording buffer, if recording power
         if record_power:
             self._power_buf.clear_events()
 
@@ -425,7 +421,9 @@ class XyloMonitor(Module):
 
                 # - Separate out power meaurement events by channel
                 channels = samna.xyloImuBoards.MeasurementChannels
-                io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
+                io_power = np.array(
+                    [e.value for e in ps if e.channel == int(channels.Io)]
+                )
                 core_power = np.array(
                     [e.value for e in ps if e.channel == int(channels.Core)]
                 )
