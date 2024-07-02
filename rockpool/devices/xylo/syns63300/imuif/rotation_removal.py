@@ -1,6 +1,7 @@
 """
 Rotation-Removal module for removing the rotation from the IMU input signal.
 """
+
 from typing import Any, Dict, Tuple, Optional, Union
 
 import numpy as np

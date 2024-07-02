@@ -9,7 +9,6 @@ Defines the configuration function :py:func:`~.syns63300.config_from_specificati
 Defines the subpackage :py:mod:`.xylo_imu_devkit_utils`.
 """
 
-
 from rockpool.utilities.backend_management import (
     backend_available,
     missing_backend_shim,
@@ -34,6 +33,7 @@ try:
     from .imu_monitor import *
     from .imuif_sim import *
     from .imuif_samna import *
+    from .power_cycles_model import cycles_model, est_clock_freq
 except:
     if not backend_available("samna"):
         XyloSamna = missing_backend_shim("XyloSamna", "samna")
@@ -45,5 +45,7 @@ except:
         )
         save_config = missing_backend_shim("save_config", "samna")
         load_config = missing_backend_shim("load_config", "samna")
+        cycles_model = missing_backend_shim("cycles_model", "samna")
+        est_clock_freq = missing_backend_shim("est_clock_freq", "samna")
     else:
         raise

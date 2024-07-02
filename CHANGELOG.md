@@ -1,19 +1,31 @@
 # Change log
 
-All notable changes between Rockpool releases will be documented in this file.
+All notable changes between Rockpool releases will be documented in this file
 
 ## Unreleased
 
 ### Added
+* Added a cycles model for Xylo A and Xylo IMU, enabling to calculate the required master clock frequency for Xylo
 
 * Added simulation support for audio front-end for Xylo A3 (SYNS65302)
   * `AFESimExternal` , `AFESimAGC`, and `AFESimPDM` with all the necessary sub-modules.
 
 ### Changed
+* `LIFExodus` now supports vectors as threshold parameter
 
 ### Fixed
+* `TypeError` when using `LIFExodus`
+* Update `jax.config` usage
+* Power measurement for `xyloA2` was not considering AFE channels
+* Removed `check_grads` from Jax tests, since this will fail for LIF neurons due to surrograte gradients
+* Fixed a bug in `AFESim` on windows, where the maximum int32 value would be exceeded when seeding the AFE simulation
+* Fixed stochasticity in some unit tests
+* Fixed a bug in `channel_quantize`, where quantization would be incorrectly applied for Xylo IMU networks with Nien < Nhid
+
 
 ### Deprecated
+
+* Brian2 tests are not running -- Brian2 backend will be soon removed
 
 ### Removed
 

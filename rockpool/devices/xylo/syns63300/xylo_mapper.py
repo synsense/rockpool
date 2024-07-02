@@ -6,7 +6,6 @@ Mapper package for Xylo IMU core
 
 """
 
-
 import numpy as np
 
 import copy
@@ -69,6 +68,19 @@ def le_128_output_expansion_neurons(graph: GraphModuleBase) -> None:
     pass
 
 
+def max_synapses_per_neuron(graph: GraphModuleBase, max_syns: int = 1) -> None:
+    # - Neuron modules may only have `max_syns` synapses
+    neurons = find_modules_of_subclass(graph, GenericNeurons)
+
+    for n in neurons:
+        num_syns = int(len(n.input_nodes) / len(n.output_nodes))
+
+        if num_syns > max_syns:
+            raise DRCError(
+                f"Neurons may only have {max_syns} synapse(s) per neuron for this device.\nA neuron node {n} has {num_syns} synapses per neuron."
+            )
+
+
 xylo_drc: List[Callable[[GraphModuleBase], None]] = [
     output_nodes_have_neurons_as_source,
     input_to_neurons_is_a_weight,
@@ -84,6 +96,7 @@ xylo_drc: List[Callable[[GraphModuleBase], None]] = [
     alias_output_nodes_must_have_neurons_as_input,
     at_least_two_neuron_layers_needed,
     weight_nodes_have_no_biases,
+    max_synapses_per_neuron,
 ]
 """ List[Callable[[GraphModuleBase], None]]: The collection of design rules for Xylo """
 

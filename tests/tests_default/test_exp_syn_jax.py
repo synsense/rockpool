@@ -7,7 +7,7 @@ def test_ExpSynJax():
     from rockpool.nn.modules import ExpSynJax
     import numpy as np
     import jax
-    from jax.config import config
+    from jax import config
 
     config.update("jax_debug_nans", True)
 
@@ -41,7 +41,7 @@ def test_ExpSynJax_default():
     from rockpool.nn.modules import ExpSynJax
     import numpy as np
     import jax
-    from jax.config import config
+    from jax import config
 
     config.update("jax_debug_nans", True)
 
@@ -75,7 +75,7 @@ def test_ExpSynJax_single_tau():
     from rockpool.nn.modules import ExpSynJax
     import numpy as np
     import jax
-    from jax.config import config
+    from jax import config
 
     config.update("jax_debug_nans", True)
 
@@ -110,7 +110,7 @@ def test_ExpSynJax_constant():
     from rockpool.parameters import Constant
     import numpy as np
     import jax
-    from jax.config import config
+    from jax import config
 
     config.update("jax_debug_nans", True)
 

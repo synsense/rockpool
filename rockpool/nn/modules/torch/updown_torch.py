@@ -1,6 +1,7 @@
 """
 Feedforward layer that converts each analogue input channel to one spiking up and one down channel
 """
+
 from typing import Optional, Union, Tuple, Any
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule

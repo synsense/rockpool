@@ -4,7 +4,7 @@ def test_imports():
     pytest.importorskip("jax")
 
     import rockpool.utilities.jax_tree_utils as jtu
-    from jax.config import config
+    from jax import config
 
 
 def test_tree_map_reduce_select():
@@ -13,7 +13,7 @@ def test_tree_map_reduce_select():
     pytest.importorskip("jax")
 
     import rockpool.utilities.jax_tree_utils as jtu
-    from jax.config import config
+    from jax import config
     import jax.numpy as jnp
 
     config.update("jax_debug_nans", False)

@@ -5,6 +5,7 @@ Includes utility methods to restore/reshape weight matrices from compartments
 
 * Non User Facing *
 """
+
 from typing import Any, Optional, Tuple, Union
 
 import jax
