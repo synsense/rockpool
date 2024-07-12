@@ -254,7 +254,7 @@ def send_pdm_datas(write_buffer: XyloAudio3WriteBuffer, datas, debug=0) -> None:
     for n in datas:
         n = n.strip()
         # print(f"n: \${n}\$") if debug>=1 else None
-        ev = samna.xyloAudio3.event.AFESample()
+        ev = samna.xyloAudio3.event.AfeSample()
         ev.data = int(n)
         events.append(ev)
     write_buffer.write(events)

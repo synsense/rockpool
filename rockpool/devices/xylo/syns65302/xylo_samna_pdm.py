@@ -264,7 +264,7 @@ class XyloSamnaPDM(Module):
             # - Send PDM events for this dt
 
             pdm_events = [
-                samna.xyloAudio3.event.AFESample(data=int(i)) for i in input_sample
+                samna.xyloAudio3.event.AfeSample(data=int(i)) for i in input_sample
             ]
             self._write_buffer.write(pdm_events)
             time.sleep(0.5)
@@ -293,7 +293,7 @@ class XyloSamnaPDM(Module):
 
             else:
                 # - Trigger processing: in accelerated time, time steps are advanced automatically
-                # given the time step on the spike. AFESamples do not have timestep so sending
+                # given the time step on the spike. AfeSamples do not have timestep so sending
                 # trigger processing to do so.
                 self._write_buffer.write([samna.xyloAudio3.event.TriggerProcessing()])
 

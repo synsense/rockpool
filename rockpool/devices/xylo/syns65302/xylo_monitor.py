@@ -116,8 +116,8 @@ class XyloMonitor(Module):
         )
         config.debug.clock_enable = True
         config.debug.always_update_omp_stat = True
-        config.debug.enable_sdm = True
-        config.debug.sdm_module_clock = 24
+        config.digital_frontend.filter_bank.use_global_iaf_threshold = True
+        config.digital_frontend.bfi_enable = True
 
         if digital_microphone:
             hdkutils.fpga_enable_pdm_interface(
@@ -126,15 +126,18 @@ class XyloMonitor(Module):
                 config.digital_frontend.pdm_preprocessing.clock_direction,
             )
 
+            config.debug.enable_sdm = True
+            config.debug.sdm_module_clock = 24
+
             config.digital_frontend.mode = samna.xyloAudio3.DigitalFrontendMode.Pdm
-            config.digital_frontend.filter_bank.use_global_iaf_threshold = True
             config.digital_frontend.pdm_preprocessing.clock_direction = 1
             config.digital_frontend.pdm_preprocessing.clock_edge = 0
-            config.digital_frontend.bfi_enable = True
 
         else:
-            self._enable_analog_registers(config)
-            self._program_analog_registers(config)
+            config = self._enable_analog_registers(config)
+            config = self._program_analog_registers(config)
+
+            config.digital_frontend.mode = samna.xyloAudio3.DigitalFrontendMode.Adc
 
         # - Build a filter graph to filter `Readout` events from Xylo
         self._spike_graph = samna.graph.EventFilterGraph()
@@ -160,14 +163,14 @@ class XyloMonitor(Module):
         """ `.XyloHDK`: The Xylo HDK used by this module """
 
         # - Store the configuration (and apply it)
-        self.config: Union[
+        self._config: Union[
             XyloConfiguration, SimulationParameter
         ] = SimulationParameter(shape=(), init_func=lambda _: config)
         """ `XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Enable hibernation mode
         if hibernation_mode:
-            self.config.enable_hibernation_mode = True
+            self._config.enable_hibernation_mode = True
 
         # - Store the timestep
         self.dt: Union[
@@ -248,10 +251,15 @@ class XyloMonitor(Module):
         config.analog_frontend.enable_lna = True
         config.analog_frontend.enable_pga = True
         config.analog_frontend.enable_drv = True
+        config.analog_frontend.adc.convert_adc = True
+        config.analog_frontend.adc.enable_adc_parallel = True
+
         # afe-adc
         config.debug.enable_adc = True
         # charProg.reset_SubModules_Deassert()
         config.analog_frontend.adc.enable_adc = True
+
+        return config
 
     def _program_analog_registers(self, config):
         """
@@ -312,6 +320,8 @@ class XyloMonitor(Module):
         config.analog_frontend.ivgen.afe_pga_bias = bias_pga
         config.analog_frontend.ivgen.afe_drv_bias = bias_driver
         config.debug.bypass_afe = False
+
+        return config
 
     def _enable_realtime_mode(self):
         """
@@ -374,7 +384,7 @@ class XyloMonitor(Module):
             self._write_buffer.write(
                 [samna.xyloAudio3.event.TriggerProcessing(target_timestep)]
             )
-            self._evolve = True
+            # self._evolve = True
 
         timestep = 0
         output_events = []
@@ -386,7 +396,6 @@ class XyloMonitor(Module):
             self._power_buf.clear_events()
 
         while timestep < target_timestep - 1:
-            # print(timestep)
             readout_events = self._read_buffer.get_events_blocking()
 
             ev_filt = [
