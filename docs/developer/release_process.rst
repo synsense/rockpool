@@ -11,13 +11,16 @@ Checklist for releasing a new |project| version
 - Make a merge request from ``rc/...`` into ``master``
 - Get all primary developers to review the merge request, ensure that all suggested modifications are included
 - Ensure that all pipelines pass, **including manual pipelines**
-- Update ``CHANGELOG.md`` using ``git log X..Y --oneline``
+- Update ``CHANGELOG.md`` by checking file and removing empty sections and adding the release date
 - Once the merge has succeeded, delete the ``rc/...`` branch
 - Make and push a tag to the ``master`` branch for the new version (i.e. "vX.Y.Z")
-- Once all CI tasks have succeeded, a manual CI task "pypi_deploy" will be available. Run this task to deploy to PyPI. **This task must be run from the internal Rockpool repository**
+- Once all CI tasks have succeeded, a manual CI task "pypi_deploy" will be available. Run this task to deploy to PyPI. **This task must be run from the internal Rockpool repository and after the commit has been tagged**
 - A pull request for the `conda feedstock <https://github.com/ai-cortex/rockpool-feedstock>`_ should be created automatically by a conda-forge bot. Check and merge this PR to bump the version on ``conda-forge``
 - Merge ``master`` back into ``develop``
 - Bump the version number in the ``develop`` branch to something like "vX.Y.Z.dev"
+- Update ``CHANGELOG.md``in the ``develop`` branch to "[Unreleased]" and complete headings (as listed below)
+- Notify all the developer a new version is out and that they need to update their branches
+
 
 Headings for ``CHANGELOG.md``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -39,15 +42,15 @@ During code review for each merge request, make sure all of the following questi
 If any boxes are not ticked, there should be a good reason why not.
 
 - [ ] Are there user-facing tutorials?
-    - what does the feature do? how to use it?
-    - what are the limitations of the feature? what it doesn't do?
-    - troubleshooting guide: what to do in case of issues/bugs/problems?
-    - FAQ: what are the most common mistakes or confusions?
-- [ ] Is each tutorial minimal and relatively self-contained?
-- [ ] Is each tutorial didactic?
+    - [ ] what does the feature do? how to use it?
+    - [ ] what are the limitations of the feature? what it doesn't do?
+    - [ ] troubleshooting guide: what to do in case of issues/bugs/problems?
+    - [ ] FAQ: what are the most common mistakes or confusions?
+    - [ ] Is each tutorial minimal and relatively self-contained?
+    - [ ] Is each tutorial didactic?
+    - [ ] Are all class / method / function / file links in the tutorials working correctly?
 - [ ] Is the developer documentation updated with any new modules or changes?
 - [ ] Are the packages / tutorials integrated into the documentation TOC?
-- [ ] Are all class / method / function / file links in the tutorials working correctly?
 - [ ] Do all user-facing class attributes have docstrings in `__init__()`?
 - [ ] Do all non-user-facing class attributes have a leading underscore? (e.g. `._attr`)
 - [ ] Are all user-facing class attributes either `Parameter`, `State` or `SimulationParameter` objects in `__init__()`?
@@ -61,4 +64,7 @@ If any boxes are not ticked, there should be a good reason why not.
     - [ ] performance tests?
     - [ ] code coverage measured?
 - [ ] Is `CHANGELOG.md` updated?
+    - [ ] Does it contains an one-line description of the functionality?
+    - [ ] Does the dev version have been updated?
+- [ ] Is ``version.py`` updated and is it matching ``CHANGELOG.md``?
 - [ ] Is the implementation minimal? i.e. the simplest possible way of implementing the functionality
