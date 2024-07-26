@@ -571,13 +571,13 @@ class XyloSamna(Module):
         if record_power:
             self._power_buf.get_events()
 
-        # - Write the events and trigger the simulation
-        self._write_buffer.write(input_events_list)
-
         # - Determine a reasonable read timeout
         if read_timeout is None:
             read_timeout = len(input) * self.dt * Nhidden / 100.0
             read_timeout = read_timeout * 100.0 if record else read_timeout
+
+        # - Write the events and trigger the simulation
+        self._write_buffer.write(input_events_list)
 
         # - Read output events from Xylo HDK
         start_time = time.time()
