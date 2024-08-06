@@ -159,9 +159,9 @@ class FFUpDownV1(Layer):
             #     mnOutputSpikes[idx_curr : idx_curr+num_ts_curr],
             #     record[idx_curr : idx_curr+num_ts_curr]
             # ) = self._single_batch_evolution(
-            mnOutputSpikes[idx_curr : idx_curr + num_ts_curr] = (
-                self._single_batch_evolution(matr_input_curr, num_ts_curr, verbose)
-            )
+            mnOutputSpikes[
+                idx_curr : idx_curr + num_ts_curr
+            ] = self._single_batch_evolution(matr_input_curr, num_ts_curr, verbose)
             idx_curr += num_ts_curr
 
         ## -- Distribute output spikes over output channels by assigning to each channel
