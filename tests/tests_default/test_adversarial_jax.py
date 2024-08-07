@@ -19,6 +19,7 @@ def test_adversarial_loss():
         adversarial_loss,
     )
     from jax import jacfwd
+    import jax
     from rockpool.nn.combinators import Sequential
     from rockpool.nn.modules import LinearJax, InstantJax
     import jax.numpy as jnp
@@ -80,7 +81,7 @@ def test_adversarial_loss():
                 / attack_steps
                 * jnp.sign(verbose["grads"][step][idx])
             )
-        diagonals.append(1 + jnp.reshape(diagonal_tmp, newshape=(-1,)))
+        diagonals.append(1 + jnp.reshape(diagonal_tmp, shape=(-1,)))
 
     # - Compute jacobian with jax
     J, _ = jacfwd(pga_attack, has_aux=True)(
@@ -112,19 +113,20 @@ def test_adversarial_loss():
         plt.show()
 
     # - Evaluate attack loss
-    loss = adversarial_loss(
-        parameters=parameters,
-        net=net,
-        inputs=inputs,
-        target=np.random.normal(shape=(Nout, T)),
-        task_loss=tu.Partial(mse),
-        mismatch_loss=tu.Partial(mse),
-        rng_key=rng_key,
-        noisy_forward_std=0.2,
-        initial_std=0.001,
-        mismatch_level=0.01,
-        beta_robustness=0.1,
-        attack_steps=5,
-    )
+    with jax.checking_leaks():
+        loss = adversarial_loss(
+            parameters=parameters,
+            net=net,
+            inputs=inputs,
+            target=np.random.normal(size=(Nout, T)),
+            task_loss=tu.Partial(mse),
+            mismatch_loss=tu.Partial(mse),
+            rng_key=rng_key,
+            noisy_forward_std=0.2,
+            initial_std=0.001,
+            mismatch_level=0.01,
+            beta_robustness=0.1,
+            attack_steps=5,
+        )
 
     assert not (np.array(loss).item() in [np.inf, np.nan]), "Loss is NaN/Inf"
