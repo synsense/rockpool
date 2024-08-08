@@ -31,4 +31,7 @@ except:
 try:
     from .synnet import *
 except (ImportError, ModuleNotFoundError) as err:
-    warnings.warn(f"{err}")
+    if not backend_available("torch"):
+        SynNet = missing_backend_shim("SynNet", "torch")
+    else:
+        raise

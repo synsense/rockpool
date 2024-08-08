@@ -1,8 +1,7 @@
 """
 Implements the SynNet architecture for temporal signal processing
 
-The SynNet architecture is described in Bos et al 2022 [https://arxiv.org/abs/2208.12991]
-
+The SynNet architecture is described in Bos & Muir 2022 [https://arxiv.org/abs/2208.12991] and Bos & Muir 2024 [https://arxiv.org/abs/2406.15112]
 """
 
 from rockpool.nn.modules import TorchModule
@@ -22,15 +21,27 @@ __all__ = ["SynNet"]
 
 
 class SynNet(TorchModule):
+    """
+    Define a ``SynNet`` architecture network
+
+    This class wraps a ``SynNet`` network, as defined in [1, 2].
+    This is a feedforward spiking network architecture, with a range of synaptic time constants in each layer.
+    By default the time constants are constant (not trainable). This is modifiable with the ``train_time_constants`` argument.
+
+    [1] Bos, Muir 2022. "Sub-mW Neuromorphic SNN audio processing applications with Rockpool and Xylo." ESSCIRC2022. https://arxiv.org/abs/2208.12991
+
+    [2] Bos, Muir 2024. "Micro-power spoken keyword spotting on Xylo Audio 2." arXiv. https://arxiv.org/abs/2406.15112
+    """
+
     def __init__(
         self,
         n_classes: int,
         n_channels: int,
         size_hidden_layers: List = [60],
         time_constants_per_layer: List = [10],
-        tau_syn_base: float = 0.002,
-        tau_mem: float = 0.002,
-        tau_syn_out: float = 0.002,
+        tau_syn_base: float = 2e-3,
+        tau_mem: float = 2e-3,
+        tau_syn_out: float = 2e-3,
         quantize_time_constants: bool = True,
         threshold: float = 1.0,
         threshold_out: Union[float, List[float]] = None,
@@ -45,36 +56,32 @@ class SynNet(TorchModule):
         **kwargs,
     ):
         """
+        Define a ``SynNet`` architecture network
+
         Args:
-            :param int n_classes:                 number of output classes
-            :param int n_channels:                number of input channels
-            :param List size_hidden_layers:       list of number of neurons per layer, list has length
-                                                  number_of_layers
-            :param List time_constants_per_layer: list of number of time synaptic constants per layer, list has length
-                                                  number_of_layers, the unit of each time constant is seconds
-            :param float tau_syn_base:            smallest synaptic time constants of hidden neurons in seconds
-            :param float tau_syn_out:             synaptic time constants of output neurons in seconds
-            :param float tau_mem:                 membrane time constant of all neurons in seconds
-            :param bool quantize_time_constants:  determines if time constants are rounded to deployment values
-            :param float threshold:               threshold of hidden neurons
-            :param float or list threshold_out:   thresholds of readout neurons, can only be set if output is spikes
-            :param bool train_threshold:          determines of threshold is trained
-            :param TorchModule neuron_model:      neuron model of all neurons
-            :param max_spikes_per_dt:             maximum number of spikes per time step of all neurons apart from
-                                                  output neurons
-            :param max_spikes_per_dt_out:         maximum number of spikes per time step of output neurons
-            :param float p_dropout:               probability that one time step from one neuorn is dropped
-            :param float dt:                      time step for simulation in seconds, determines time step on hardware,
-                                                  currently the values of the time step and the time constants are not
-                                                  independent, thus it should be chosen carefully to allow for
-                                                  interpretable time constants
-            :param str output:                    specification of output variable, default 'spikes', other option 'vmem'
+            n_classes (int):                 number of output classes
+            n_channels (int):                number of input channels
+            size_hidden_layers (List[int]):       list of number of neurons per layer, list has length ``number_of_layers``. Default: ``[60]``
+            time_constants_per_layer (List[float]): list of number of time synaptic constants per layer, list has length ``number_of_layers``. Default: ``[10]``
+            tau_syn_base (float):            smallest synaptic time constants of hidden neurons in seconds. Default: 2ms, ``2e-3``
+            tau_syn_out (float):             synaptic time constants of output neurons in seconds. Default: 2ms, ``2e-3``
+            tau_mem (float):                 membrane time constant of all neurons in seconds. Default: 2ms, ``2e-3``
+            quantize_time_constants (bool):  If ``True``, initial time constants will be rounded to values compatibe with Xylo deployment. Default: ``True``
+            threshold (float):               threshold of hidden neurons. Default: ``1.0``
+            threshold_out (Union[List[float], float]):   thresholds of readout neurons, can only be set if output is spikes. Default: ``None``, use the same value as ``threshold``
+            train_threshold (bool):          If ``True``, the threshold will be trainable. If ``False``, the threshold will be constant. Default: ``False``.
+            neuron_model (Type):      neuron model used for all neurons. Default: :py:class:`LIFTorch`
+            max_spikes_per_dt (int):             maximum number of spikes per time step of all neurons apart from output neurons. Default: ``31``
+            max_spikes_per_dt_out (int):         maximum number of spikes per time step of output neurons. Default: ``1``
+            p_dropout (float):               probability that each time step from each neuron is dropped during training. Default: ``0.0``
+            dt (float):                      time step for simulation in seconds. Currently the values of the time step and the time constants are not independent, thus it should be chosen carefully to allow for interpretable time constants. Default: 1ms, ``1e-3``
+            output (str):                    specification of output variable, one of ``['spikes', 'vmem']``. Default: ``spikes``
         """
 
         super().__init__(
             shape=(n_channels, n_classes),
             spiking_input=True,
-            spiking_output=True,
+            spiking_output=output == "spikes",
             *args,
             **kwargs,
         )
