@@ -380,9 +380,9 @@ class XyloSamna(Module):
         """ float: Simulation time-step of the module, in seconds """
 
         # - Store the configuration (and apply it)
-        self.config: Union[XyloConfiguration, SimulationParameter] = (
-            SimulationParameter(shape=(), init_func=lambda _: config)
-        )
+        self.config: Union[
+            XyloConfiguration, SimulationParameter
+        ] = SimulationParameter(shape=(), init_func=lambda _: config)
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration

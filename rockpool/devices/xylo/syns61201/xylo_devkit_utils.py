@@ -1490,9 +1490,9 @@ def export_allram_state(
         dtype=int,
     )
     reservoir_effective_fanout_count = np.array(state.REFOCRAM_state).astype(int)
-    mat[:, : reservoir_effective_fanout_count.shape[1]] = (
-        reservoir_effective_fanout_count[:, 0 : Nhidden + num_buffer_neurons(Nhidden)]
-    )
+    mat[
+        :, : reservoir_effective_fanout_count.shape[1]
+    ] = reservoir_effective_fanout_count[:, 0 : Nhidden + num_buffer_neurons(Nhidden)]
     path_REFOCRAM_state = path / "REFOCRAM_state"
     if not path_REFOCRAM_state.exists():
         makedirs(path_REFOCRAM_state)
@@ -1912,9 +1912,9 @@ def export_last_state(
         dtype=int,
     )
     reservoir_effective_fanout_count = np.array(state.REFOCRAM_state).astype(int)
-    mat[:, : reservoir_effective_fanout_count.shape[1]] = (
-        reservoir_effective_fanout_count[:, 0 : Nhidden + num_buffer_neurons(Nhidden)]
-    )
+    mat[
+        :, : reservoir_effective_fanout_count.shape[1]
+    ] = reservoir_effective_fanout_count[:, 0 : Nhidden + num_buffer_neurons(Nhidden)]
     path_REFOCRAM_state = path / "REFOCRAM_state"
     if not path_REFOCRAM_state.exists():
         makedirs(path_REFOCRAM_state)
