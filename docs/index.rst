@@ -54,6 +54,8 @@ and evaluating recurrent networks, which can operate both with continuous-time d
 
    tutorials/rockpool-shd.ipynb
    tutorials/wavesense_training.ipynb
+
+   tutorials/synnet/synnet_architecture.ipynb
    
    .. tutorials/building_reservoir.ipynb
    .. tutorials/deneve_reservoirs.ipynb
