@@ -147,6 +147,7 @@ Standard networks
     :template: class.rst
 
     nn.networks.WaveSenseNet
+    nn.networks.SynNet
 
 
 Conversion utilities
