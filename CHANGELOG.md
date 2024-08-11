@@ -5,6 +5,7 @@ All notable changes between Rockpool releases will be documented in this file
 ## Unreleased - [v2.8.2.dev] -- xxxx-xx-xx
 
 ### Added
+- Tutorial and documentation for the ``SynNet`` architecture, to improve visibility
 
 ### Changed
 - Update ``release notes`` for developers in documentation
@@ -16,6 +17,7 @@ All notable changes between Rockpool releases will be documented in this file
 ### Removed
 
 ### Security
+
 
 ## [v2.8] -- 2024-06-24
 
