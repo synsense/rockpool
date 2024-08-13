@@ -102,9 +102,6 @@ class XyloMonitor(Module):
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
         self._state_buffer = hdkutils.new_xylo_state_monitor_buffer(device)
 
-        # - Initialise the HDK
-        hdkutils.initialise_xylo_hdk(device)
-
         if config.operation_mode != samna.xyloAudio3.OperationMode.RealTime:
             raise ValueError("`operation_mode` must be RealTime for XyloMonitor.")
 
@@ -114,22 +111,13 @@ class XyloMonitor(Module):
         config.time_resolution_wrap = self._get_tr_wrap(
             ts_in_ms=dt * 1000, main_clk_freq_in_mhz=50
         )
-        config.debug.clock_enable = True
         config.debug.always_update_omp_stat = True
         config.digital_frontend.filter_bank.use_global_iaf_threshold = True
-        config.digital_frontend.bfi_enable = True
 
         if digital_microphone:
-            hdkutils.fpga_enable_pdm_interface(
-                device,
-                config.digital_frontend.pdm_preprocessing.clock_edge,
-                config.digital_frontend.pdm_preprocessing.clock_direction,
-            )
-
-            config.debug.enable_sdm = True
-            config.debug.sdm_module_clock = 24
-
-            config.digital_frontend.mode = samna.xyloAudio3.DigitalFrontendMode.Pdm
+            config.input_source = samna.xyloAudio3.InputSource.Pdm
+            config.debug.sw_input_enable = False
+            config.debug.sdm_clock_ratio = 24
             config.digital_frontend.pdm_preprocessing.clock_direction = 1
             config.digital_frontend.pdm_preprocessing.clock_edge = 0
 
@@ -137,7 +125,7 @@ class XyloMonitor(Module):
             config = self._enable_analog_registers(config)
             config = self._program_analog_registers(config)
 
-            config.digital_frontend.mode = samna.xyloAudio3.DigitalFrontendMode.Adc
+            config.input_source = samna.xyloAudio3.InputSource.Adc
 
         # - Build a filter graph to filter `Readout` events from Xylo
         self._spike_graph = samna.graph.EventFilterGraph()
@@ -294,8 +282,8 @@ class XyloMonitor(Module):
         bias_driver = 0  # (default: 3) 0 - 7 --> 100nA - 800nA (linear)
 
         # bandgap
-        config.analog_frontend.ivgen.temperature_slope_trim_bangap = bandgap_trim_slope
-        config.analog_frontend.ivgen.absolute_value_trim_bangap = bandgap_trim_value
+        config.analog_frontend.ivgen.temperature_slope_trim_bandgap = bandgap_trim_slope
+        config.analog_frontend.ivgen.absolute_value_trim_bandgap = bandgap_trim_value
         # ptat
         config.analog_frontend.ivgen.trim_value_ptat = ptat_trim_value
         # ldo-digital
@@ -304,7 +292,7 @@ class XyloMonitor(Module):
         config.analog_frontend.ldo.vdd_analog_core_voltage = ldo_analog_trim
         config.analog_frontend.ldo.vcm_lna_voltage = common_mode_voltage_trim
         # afe-adc
-        config.debug.adc_module_clock = clockDivision - 1
+        config.debug.adc_clock_ratio = clockDivision - 1
         config.analog_frontend.adc.adc_conversion_speed = adcSpeed
         # bias currents
         config.analog_frontend.ivgen.adc_buffer_test = False
@@ -319,7 +307,7 @@ class XyloMonitor(Module):
         config.analog_frontend.ivgen.afe_lna_bias = bias_lna
         config.analog_frontend.ivgen.afe_pga_bias = bias_pga
         config.analog_frontend.ivgen.afe_drv_bias = bias_driver
-        config.debug.bypass_afe = False
+        config.debug.analog_test_mode.bypass_afe = False
 
         return config
 

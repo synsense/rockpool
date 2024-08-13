@@ -108,32 +108,18 @@ class XyloSamnaPDM(Module):
         self._sleep_time = 0e-3
         """ float: Post-stimulation sleep time in seconds """
 
-        # - Initialise the HDK
-        hdkutils.initialise_xylo_hdk(self._device)
+        snn_config.debug.sdm_clock_ratio = 48
 
-        snn_config.debug.enable_i2c = 1
-        snn_config.debug.enable_sdm = 1
-        snn_config.debug.sdm_module_clock = 48
-
-        snn_config.digital_frontend.mode = samna.xyloAudio3.DigitalFrontendMode.Pdm
+        snn_config.input_source = samna.xyloAudio3.InputSource.Pdm
+        snn_config.debug.sw_input_enable = True
         snn_config.digital_frontend.filter_bank.dn_enable = dn_active
         snn_config.digital_frontend.hibernation_mode_enable = 0
         snn_config.digital_frontend.filter_bank.use_global_iaf_threshold = 1
         snn_config.digital_frontend.pdm_preprocessing.clock_direction = 0
         snn_config.digital_frontend.pdm_preprocessing.clock_edge = 0
-        snn_config.digital_frontend.bfi_enable = 1
 
         if snn_config.operation_mode == samna.xyloAudio3.OperationMode.AcceleratedTime:
             snn_config.debug.always_update_omp_stat = True
-            snn_config.debug.clock_enable = True
-
-        # - Enable PDM input IF and PDM clock
-        hdkutils.fpga_enable_pdm_interface(
-            self._device,
-            snn_config.digital_frontend.pdm_preprocessing.clock_edge,
-            snn_config.digital_frontend.pdm_preprocessing.clock_direction,
-        )
-        hdkutils.fpga_pdm_clk_enable(self._device)
 
         # - Store the SNN core configuration (and apply it)
         time.sleep(self._sleep_time)
@@ -150,9 +136,6 @@ class XyloSamnaPDM(Module):
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         self.snn_config = snn_config
-
-        # - Enable RAM access
-        hdkutils.enable_ram_access(self._device, True)
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
         self._last_record_mode: Optional[bool] = None
