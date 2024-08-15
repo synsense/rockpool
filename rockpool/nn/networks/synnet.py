@@ -136,11 +136,11 @@ class SynNet(TorchModule):
         tau_mem = tau_mem if train_time_constants else Constant(tau_mem)
 
         # calculate how often time constants are repeated within a layer
-        tau_repititions = []
+        tau_repetitions = []
         for i, (n_hidden, n_tau) in enumerate(
             zip(size_hidden_layers, time_constants_per_layer)
         ):
-            tau_repititions.append(int(n_hidden / n_tau) + min(1, n_hidden % n_tau))
+            tau_repetitions.append(int(n_hidden / n_tau) + min(1, n_hidden % n_tau))
 
         # - Define an empty Sequential network, to add each layer to
         self.seq = TorchSequential()
@@ -174,7 +174,7 @@ class SynNet(TorchModule):
                 torch.tensor(
                     [(tau_syn_base / dt) ** j * dt for j in range(1, n_tau + 1)]
                 )
-                for _ in range(tau_repititions[i])
+                for _ in range(tau_repetitions[i])
             ]
             tau_syn_hidden = torch.hstack(taus)
 

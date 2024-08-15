@@ -844,7 +844,7 @@ def test_trainable_taus():
         assert "tau_syn" not in model.seq[lyr].simulation_parameters()
         assert "tau_mem" not in model.seq[lyr].simulation_parameters()
 
-    # - Check that output later taus are not trainable (in "simulation_parameters")
+    # - Check that output layer taus are not trainable (in "simulation_parameters")
     lyr = model.lif_names[-1]
     assert "tau_syn" not in model.seq[lyr].parameters()
     assert "tau_mem" not in model.seq[lyr].parameters()
