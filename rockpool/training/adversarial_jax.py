@@ -82,7 +82,6 @@ def _eval_target_loss(
 @Partial(
     jax.jit,
     static_argnames=[
-        "net",
         "tree_def_params",
         "mismatch_loss",
         "attack_steps",
