@@ -2,7 +2,7 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-## Unreleased - [v2.8.3.dev] -- xxxx-xx-xx
+## Unreleased - [v2.8.4.dev] -- xxxx-xx-xx
 
 ### Added
 * Tutorial and documentation for the ``SynNet`` architecture, to improve visibility
