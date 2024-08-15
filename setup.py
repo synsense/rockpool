@@ -34,8 +34,8 @@ setup_args = {
             "torchvision",
         ],
         "jax": [
-            "jax>=0.2.13",
-            "jaxlib>=0.1.66",
+            "jax>=0.4.28",
+            "jaxlib>=0.4.28",
         ],
         "xylo": [
             "xylosim",
