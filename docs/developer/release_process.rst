@@ -12,6 +12,7 @@ Checklist for releasing a new |project| version
 - Get all primary developers to review the merge request, ensure that all suggested modifications are included
 - Ensure that all pipelines pass, **including manual pipelines**
 - Update ``CHANGELOG.md`` by checking file and removing empty sections and adding the release date
+- Check if copyright date needs to be update in ``docs/conf.py``
 - Once the merge has succeeded, delete the ``rc/...`` branch
 - Make and push a tag to the ``master`` branch for the new version (i.e. "vX.Y.Z")
 - Once all CI tasks have succeeded, a manual CI task "pypi_deploy" will be available. Run this task to deploy to PyPI. **This task must be run from the internal Rockpool repository and after the commit has been tagged**
