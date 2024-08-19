@@ -68,5 +68,3 @@ $ git push -u origin feature/my-feature
 ```
 
 When you're finished with your modifications, make a merge request on github.com, from your branch in your fork to https://github.com/SynSense/rockpool.
-
-Test.
