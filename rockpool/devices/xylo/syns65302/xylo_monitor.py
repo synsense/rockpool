@@ -116,7 +116,7 @@ class XyloMonitor(Module):
 
         if digital_microphone:
             config.input_source = samna.xyloAudio3.InputSource.Pdm
-            config.debug.sw_input_enable = False
+            config.debug.event_input_enable = False
             config.debug.sdm_clock_ratio = 24
             config.digital_frontend.pdm_preprocessing.clock_direction = 1
             config.digital_frontend.pdm_preprocessing.clock_edge = 0

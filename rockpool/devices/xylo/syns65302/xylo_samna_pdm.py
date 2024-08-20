@@ -95,10 +95,10 @@ class XyloSamnaPDM(Module):
 
         # - Register buffers to read and write events
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
-        """ `.XyloIMUReadBuffer`: The read buffer for the connected HDK """
+        """ `.XyloAudio3ReadBuffer`: The read buffer for the connected HDK """
 
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
-        """ `.XyloIMUWriteBuffer`: The write buffer for the connected HDK """
+        """ `.XyloAudio3WriteBuffer`: The write buffer for the connected HDK """
 
         # - Store the timestep
         self.dt: Union[float, SimulationParameter] = dt
@@ -111,7 +111,7 @@ class XyloSamnaPDM(Module):
         snn_config.debug.sdm_clock_ratio = 48
 
         snn_config.input_source = samna.xyloAudio3.InputSource.Pdm
-        snn_config.debug.sw_input_enable = True
+        snn_config.debug.event_input_enable = True
         snn_config.digital_frontend.filter_bank.dn_enable = dn_active
         snn_config.digital_frontend.hibernation_mode_enable = 0
         snn_config.digital_frontend.filter_bank.use_global_iaf_threshold = 1
