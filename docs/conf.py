@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath("../rockpool"))
 # -- Project information -----------------------------------------------------
 
 project = "Rockpool"
-copyright = "2019–2022, SynSense"
+copyright = "2019–2024, SynSense"
 author = "Dylan Muir, Felix Bauer, Philipp Weidel"
 
 # The full version, including alpha/beta/rc tags

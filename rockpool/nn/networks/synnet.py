@@ -1,37 +1,51 @@
 """
 Implements the SynNet architecture for temporal signal processing
 
-The SynNet architecture is described in Bos et al 2022 [https://arxiv.org/abs/2208.12991]
-
+The SynNet architecture is described in Bos & Muir 2022 [https://arxiv.org/abs/2208.12991] and Bos & Muir 2024 [https://arxiv.org/abs/2406.15112]
 """
 
 from rockpool.nn.modules import TorchModule
-from rockpool.nn.modules import LinearTorch, LIFTorch, TimeStepDropout
+from rockpool.nn.modules import LinearTorch, LIFTorch, TimeStepDropout, LIFExodus
 from rockpool.parameters import Constant
 from rockpool.nn.modules.torch.lif_torch import tau_to_bitshift, bitshift_to_tau
 from rockpool.nn.modules.torch.lif_torch import PeriodicExponential
-from rockpool.nn.combinators.sequential import Sequential
+from rockpool.nn.combinators.sequential import TorchSequential
 
 import torch
 
-from typing import List, Type, Union
+from copy import copy
 
-THRESHOLD_OUT = 100.0
+from typing import List, Type, Union, Optional, Dict
+
+THRESHOLD_OUT = 2**15 - 1
 
 __all__ = ["SynNet"]
 
 
 class SynNet(TorchModule):
+    """
+    Define a ``SynNet`` architecture network
+
+    This class wraps a ``SynNet`` network, as defined in [1, 2].
+    This is a feedforward spiking network architecture, with a range of synaptic time constants in each layer.
+    By default the time constants are constant (not trainable). This is modifiable with the ``train_time_constants`` argument.
+
+    [1] Bos & Muir 2022. "Sub-mW Neuromorphic SNN audio processing applications with Rockpool and Xylo." ESSCIRC2022. https://arxiv.org/abs/2208.12991
+
+    [2] Bos & Muir 2024. "Micro-power spoken keyword spotting on Xylo Audio 2." arXiv. https://arxiv.org/abs/2406.15112
+    """
+
     def __init__(
         self,
         n_classes: int,
         n_channels: int,
         size_hidden_layers: List = [60],
         time_constants_per_layer: List = [10],
-        tau_syn_base: float = 0.002,
-        tau_mem: float = 0.002,
-        tau_syn_out: float = 0.002,
+        tau_syn_base: float = 2e-3,
+        tau_mem: float = 2e-3,
+        tau_syn_out: float = 2e-3,
         quantize_time_constants: bool = True,
+        train_time_constants: bool = False,
         threshold: float = 1.0,
         threshold_out: Union[float, List[float]] = None,
         train_threshold: bool = False,
@@ -41,40 +55,40 @@ class SynNet(TorchModule):
         p_dropout: float = 0.0,
         dt: float = 1e-3,
         output: str = "spikes",
+        neuron_kwargs: Optional[Dict] = None,
         *args,
         **kwargs,
     ):
         """
+        Define a ``SynNet`` architecture network
+
         Args:
-            :param int n_classes:                 number of output classes
-            :param int n_channels:                number of input channels
-            :param List size_hidden_layers:       list of number of neurons per layer, list has length
-                                                  number_of_layers
-            :param List time_constants_per_layer: list of number of time synaptic constants per layer, list has length
-                                                  number_of_layers, the unit of each time constant is seconds
-            :param float tau_syn_base:            smallest synaptic time constants of hidden neurons in seconds
-            :param float tau_syn_out:             synaptic time constants of output neurons in seconds
-            :param float tau_mem:                 membrane time constant of all neurons in seconds
-            :param bool quantize_time_constants:  determines if time constants are rounded to deployment values
-            :param float threshold:               threshold of hidden neurons
-            :param float or list threshold_out:   thresholds of readout neurons, can only be set if output is spikes
-            :param bool train_threshold:          determines of threshold is trained
-            :param TorchModule neuron_model:      neuron model of all neurons
-            :param max_spikes_per_dt:             maximum number of spikes per time step of all neurons apart from
-                                                  output neurons
-            :param max_spikes_per_dt_out:         maximum number of spikes per time step of output neurons
-            :param float p_dropout:               probability that one time step from one neuorn is dropped
-            :param float dt:                      time step for simulation in seconds, determines time step on hardware,
-                                                  currently the values of the time step and the time constants are not
-                                                  independent, thus it should be chosen carefully to allow for
-                                                  interpretable time constants
-            :param str output:                    specification of output variable, default 'spikes', other option 'vmem'
+            n_classes (int):                 number of output classes
+            n_channels (int):                number of input channels
+            size_hidden_layers (List[int]):       list of number of neurons per layer, list has length ``number_of_layers``. Default: ``[60]``
+            time_constants_per_layer (List[float]): list of number of time synaptic constants per layer, list has length ``number_of_layers``. Default: ``[10]``
+            tau_syn_base (float):            smallest synaptic time constants of hidden neurons in seconds. Default: 2ms, ``2e-3``
+            tau_syn_out (float):             synaptic time constants of output neurons in seconds. Default: 2ms, ``2e-3``
+            tau_mem (float):                 membrane time constant of all neurons in seconds. Default: 2ms, ``2e-3``
+            quantize_time_constants (bool):  If ``True``, initial time constants will be rounded to values compatibe with Xylo deployment. Default: ``True``
+            train_time_constants (bool): If ``True``, time constants will be trainable. Default: ``False``, do not train time constants
+            threshold (float):               threshold of hidden neurons. Default: ``1.0``
+            threshold_out (Union[List[float], float]):   thresholds of readout neurons, can only be set if output is spikes. Default: ``None``, use the same value as ``threshold``
+            train_threshold (bool):          If ``True``, the threshold will be trainable. If ``False``, the threshold will be constant. Default: ``False``.
+            neuron_model (Type):      neuron model used for all neurons. Default: :py:class:`LIFTorch`
+            max_spikes_per_dt (int):             maximum number of spikes per time step of all neurons apart from output neurons. Default: ``31``
+            max_spikes_per_dt_out (int):         maximum number of spikes per time step of output neurons. Default: ``1``
+            p_dropout (float):               probability that each time step from each neuron is dropped during training. Default: ``0.0``
+            dt (float):                      time step for simulation in seconds. Currently the values of the time step and the time constants are not independent, thus it should be chosen carefully to allow for interpretable time constants. Default: 1ms, ``1e-3``
+            output (str):                    specification of output variable, one of ``['spikes', 'vmem']``. Default: ``spikes``
+            neuron_kwargs (Optional[Dict]): If supplied, keyword arguments from this dictionary will be passed to ``neuron_model`` on instantiation. Default: If :py:class:`LIFTorch` or :py:class:`LIFExodus` are used, the arguments will be ``{'spike_generation_fn':PeriodicExponential, 'max_spikes_per_dt': max_spikes_per_dt_out}``
         """
 
+        # - Initialise superclass
         super().__init__(
             shape=(n_channels, n_classes),
             spiking_input=True,
-            spiking_output=True,
+            spiking_output=output == "spikes",
             *args,
             **kwargs,
         )
@@ -95,13 +109,17 @@ class SynNet(TorchModule):
                 "threshold of readout neurons is not applied if output is vmem (membrane potential)"
             )
 
+        # - Select the output threshold
         if output == "vmem":
             threshold_out = THRESHOLD_OUT
-        elif threshold_out is None:
-            threshold_out = threshold
+        else:
+            threshold_out = threshold_out if threshold_out is not None else threshold
 
-        self.output = output
-        self.dt = dt
+        self.output: str = output
+        """ str: The output generated by this network. One of ``['spike', 'vmem']`` """
+
+        self.dt: float = dt
+        """ float: The time constant used by this network on initialisation """
 
         # round time constants to the values they will take when deploying to Xylo
         if quantize_time_constants:
@@ -114,29 +132,57 @@ class SynNet(TorchModule):
             ).int()
             tau_syn_out = bitshift_to_tau(dt, tau_syn_out_bitshift)[0].item()
 
-        # calculate how often time constants are repeated within a layer
-        tau_repititions = []
-        for i, (n_hidden, n_tau) in enumerate(
-            zip(size_hidden_layers, time_constants_per_layer)
-        ):
-            tau_repititions.append(int(n_hidden / n_tau) + min(1, n_hidden % n_tau))
+        # - Make ``tau_mem`` constant, if it should not be trainable
+        tau_mem = tau_mem if train_time_constants else Constant(tau_mem)
 
-        layers = []
-        n_channels_in = n_channels
+        # calculate how often time constants are repeated within a layer
+        tau_repetitions = []
         for i, (n_hidden, n_tau) in enumerate(
             zip(size_hidden_layers, time_constants_per_layer)
         ):
+            tau_repetitions.append(int(n_hidden / n_tau) + min(1, n_hidden % n_tau))
+
+        # - Define an empty Sequential network, to add each layer to
+        self.seq = TorchSequential()
+        """ Sequential: The network itself, as a ``Sequential`` Module """
+
+        # - Generate neuron arguments
+        if neuron_model in [LIFTorch, LIFExodus]:
+            default_neuron_kwargs = {
+                "spike_generation_fn": PeriodicExponential,
+                "max_spikes_per_dt": max_spikes_per_dt,
+            }
+
+            if neuron_kwargs is not None:
+                default_neuron_kwargs.update(neuron_kwargs)
+
+            default_out_neuron_kwargs = copy(default_neuron_kwargs)
+            default_out_neuron_kwargs.update(
+                {
+                    "max_spikes_per_dt": max_spikes_per_dt_out,
+                }
+            )
+
+        # - Generate each set of weights and neurons in turn
+        n_channels_in = n_channels
+        lif_names = []
+        for i, (n_hidden, n_tau) in enumerate(
+            zip(size_hidden_layers, time_constants_per_layer)
+        ):
+            # - Generate time constants
             taus = [
                 torch.tensor(
                     [(tau_syn_base / dt) ** j * dt for j in range(1, n_tau + 1)]
                 )
-                for _ in range(tau_repititions[i])
+                for _ in range(tau_repetitions[i])
             ]
             tau_syn_hidden = torch.hstack(taus)
+
             # if size of layer is not a multiple of the time constants connections of different time constants are
             # removed starting from the largest one
             tau_syn_hidden = tau_syn_hidden[:n_hidden]
-            # orund time constants to the values they will take when deploying to Xylo
+
+            # round time constants to the values they will take when deploying to Xylo
             if quantize_time_constants:
                 tau_syn_hidden_bitshift = [
                     torch.round(tau_to_bitshift(dt, tau_syn)[0]).int()
@@ -149,78 +195,109 @@ class SynNet(TorchModule):
                     ]
                 )
 
-            layers.append(LinearTorch(shape=(n_channels_in, n_hidden), has_bias=False))
+            # - Generate a linear weight module
+            lyr_weights = LinearTorch(shape=(n_channels_in, n_hidden), has_bias=False)
             n_channels_in = n_hidden
+
+            # - Normalise weights by time constant and add to network
             with torch.no_grad():
-                layers[-1].weight.data = layers[-1].weight.data * dt / tau_syn_hidden
-            layers.append(
+                lyr_weights.weight.data = lyr_weights.weight.data * dt / tau_syn_hidden
+            self.seq.append(lyr_weights, f"{i}_linear")
+
+            # - Add the neuron layer to the network
+            self.seq.append(
                 neuron_model(
                     shape=(n_hidden, n_hidden),
-                    tau_mem=Constant(tau_mem),
-                    tau_syn=Constant(tau_syn_hidden),
+                    tau_mem=tau_mem,
+                    tau_syn=(
+                        tau_syn_hidden
+                        if train_time_constants
+                        else Constant(tau_syn_hidden)
+                    ),
                     bias=Constant(0.0),
                     threshold=threshold if train_threshold else Constant(threshold),
-                    spike_generation_fn=PeriodicExponential,
                     dt=dt,
-                    max_spikes_per_dt=max_spikes_per_dt,
-                )
+                    **default_neuron_kwargs,
+                ),
+                f"{i}_neurons",
             )
+            lif_names.append(f"{i}_neurons")
 
-            layers.append(TimeStepDropout(shape=(n_hidden), p=p_dropout))
+            # - Incorporate a dropout layer, if requested
+            if p_dropout > 0.0:
+                self.seq.append(
+                    TimeStepDropout(shape=(n_hidden), p=p_dropout), f"{i}_dropout"
+                )
 
-        layers.append(LinearTorch(shape=(n_hidden, n_classes), has_bias=False))
+        # - Add the output weight layer
+        lyr_weights = LinearTorch(shape=(n_hidden, n_classes), has_bias=False)
         with torch.no_grad():
-            layers[-1].weight.data = layers[-1].weight.data * dt / tau_syn_out
+            lyr_weights.weight.data = lyr_weights.weight.data * dt / tau_syn_out
 
-        layers.append(
+        self.seq.append(lyr_weights, "out_linear")
+
+        # - Add the output neuron layer
+        self.seq.append(
             neuron_model(
                 shape=(n_classes, n_classes),
                 tau_mem=Constant(tau_mem),
                 tau_syn=Constant(tau_syn_out),
                 bias=Constant(0.0),
                 threshold=Constant(threshold_out),
-                spike_generation_fn=PeriodicExponential,
-                max_spikes_per_dt=max_spikes_per_dt_out,
                 dt=dt,
-            )
+                **default_out_neuron_kwargs,
+            ),
+            "out_neurons",
         )
+        lif_names.append(f"out_neurons")
 
-        self.seq = Sequential(*layers)
+        # Record names of neuron and output layers
+        self.lif_names: List[str] = lif_names
+        """ List[str]: A list of the neuron models present in this network, in evolution order. """
 
-        # pick last LIFTorch layer as readout layer
-        lif_names = [
-            label
-            for label in self.seq._submodulenames
-            if neuron_model.__name__ in label
-        ]
-        self.lif_names = lif_names
-        self.label_last_LIF = lif_names[-1]
+        self.label_last_LIF: str = lif_names[-1]
+        """ str: The name of the readout neuron layer in this network. """
 
         # Dictionary for recording state
-        self._record = False
-        self._record_dict = {}
+        self._record: bool = False
+        """ bool: If ``True``, record the state trace during evolution """
+
+        self._record_dict: dict = {}
+        """ dict: The internal set of recorded state traces, if requested """
 
     def forward(self, data: torch.Tensor):
-        out, _, self._record_dict = self.seq(data, record=self._record)
-        if self.output != "spikes" and self.output == "vmem":
-            out = self._record_dict[self.label_last_LIF]["vmem"]
-        for key in self._record_dict.keys():
-            if "output" in key:
-                self._record_dict[key] = out if self._record else []
+        # - Evolve the Sequential network
+        out, _, record_dict = self.seq(data, record=self._record)
+
+        # - If "vmem" output is requested, use this instead of spiking in the final layer
+        if self.output == "vmem":
+            out = record_dict[self.label_last_LIF]["vmem"]
+
+        # - Modify the record dictionary to store the output
+        if self._record:
+            for key in record_dict.keys():
+                if "output" in key:
+                    record_dict[key] = out
+
+        # - Keep a copy of the record dictionary
+        self._record_dict = record_dict if self._record else {}
+
+        # - Return the model output
         return out
 
     def evolve(self, input_data, record: bool = False):
         # - Store "record" state
-        self._record = record
+        self._record = record or self.output == "vmem"
 
         # - Evolve network
-        output, new_state, _ = super().evolve(input_data, record=self._record)
+        output, new_state, record_dict = super().evolve(input_data, record=self._record)
 
         # - Get recording dictionary
-        record_dict = self._record_dict if self._record else {}
+        record_dict = record_dict if record else {}
 
         # - Return
         return output, new_state, record_dict
 
     def as_graph(self):
+        # - Return the graph from the ``Sequential`` network
         return self.seq.as_graph()

@@ -1,5 +1,5 @@
 """
-Utilities for producing a samna HW configuration for Xylo IMU devices
+Samna-backed bridge to Xylo dev kit for SYNS63300 Xylo IMU
 """
 
 import numpy as np
@@ -16,6 +16,7 @@ from .xylo_imu_devkit_utils import XyloIMUHDK
 from typing import Optional, Union, Callable, List, Tuple
 from warnings import warn
 
+import time
 
 try:
     from rich import print
@@ -526,11 +527,13 @@ class XyloSamna(Module):
             read_timeout = read_timeout * 30.0 if record else read_timeout
 
         # - Wait until the simulation is finished
+        start_time = time.time()
         read_events, is_timeout = hdkutils.blocking_read(
             self._read_buffer,
             timeout=max(read_timeout, 1.0),
             target_timestep=final_timestep,
         )
+        inf_duration = time.time() - start_time
 
         if is_timeout:
             message = f"Processing didn't finish for {read_timeout}s. Read {len(read_events)} events"
@@ -570,6 +573,7 @@ class XyloSamna(Module):
                 "Vmem_out": np.array(xylo_data.V_mem_out),
                 "Isyn_out": np.array(xylo_data.I_syn_out),
                 "times": np.arange(start_timestep, final_timestep + 1),
+                "inf_duration": inf_duration,
             }
         else:
             rec_dict = {}
@@ -580,6 +584,7 @@ class XyloSamna(Module):
                 {
                     "io_power": io_power,
                     "core_power": core_power,
+                    "inf_duration": inf_duration,
                 }
             )
 

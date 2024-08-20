@@ -28,6 +28,12 @@ If any boxes are not ticked, there should be a good reason why not.
     - [ ] Are all class / method / function / file links in the tutorials working correctly?
 - [ ] Is the developer documentation updated with any new modules or changes?
 - [ ] Are the packages / tutorials integrated into the documentation TOC?
+- [ ] Do all user-facing class attributes have docstrings in `__init__()`?
+- [ ] Do all non-user-facing class attributes have a leading underscore? (e.g. `._attr`)
+- [ ] Are all user-facing class attributes either `Parameter`, `State` or `SimulationParameter` objects in `__init__()`?
+- [ ] Do Rockpool modules obey the standard Rockpool API for `.evolve()`?
+- [ ] `.as_graph()` implemented, if at all possible, for any new modules
+- [ ] Does every `__init__.py` have an initial docstring block, describing what the package / sub-package does and contains?
 - [ ] Are there tests implemented?
     - [ ] unit tests?
     - [ ] integration tests?
@@ -35,4 +41,7 @@ If any boxes are not ticked, there should be a good reason why not.
     - [ ] performance tests?
     - [ ] code coverage measured?
 - [ ] Is `CHANGELOG.md` updated?
+    - [ ] Does it contains an one-line description of the functionality?
+    - [ ] Does the dev version have been updated?
+- [ ] Is ``version.py`` updated and is it matching ``CHANGELOG.md``?
 - [ ] Is the implementation minimal? i.e. the simplest possible way of implementing the functionality

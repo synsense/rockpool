@@ -76,30 +76,6 @@ To check which computational back-ends are available to |project|, use the :func
     rockpool.list_backends()
 
 
-
-Building the documentation
---------------------------
-
-The |project| documentation is based on sphinx, and all dependencies required for a local HTML version are installed with ``pip install "rockpool[all]"``. You can install just the minimal dependencies to build the documentaion with ``pip install "rockpool[docs]"``, but note that you can only build documentation for the backends which are correctly installed and available for use by |project|.
-
-To build a live, locally-hosted HTML version of the docs, use the command
-
-.. code-block:: Bash
-
-    $ cd docs
-    $ make clean html
-
-Once built, the documentation will be placed in ``rockpool\docs\_build\html``. Open ``index.html`` in a web browser to start using the documentation.
-
-To build a PDF version of the docs, you need to install ``imagemagick`` on your system, as well as a working version of ``latex`` and ``pdflatex``. You will need to install these dependencies manually.
-
-Once all dependencies are installed, you can build the PDF docs with
-
-.. code-block:: Bash
-
-    $ cd docs
-    $ make clean latexpdf
-
 Contributing
 ------------
 
@@ -146,6 +122,29 @@ Use the `Black code formatter`_ on your submission during your final commit. Thi
 Then when you're ready, make a merge request on github.com, from the feature branch in your fork to https://github.com/synsense/rockpool.
 
 .. _`Black code formatter`: https://black.readthedocs.io/en/stable/
+
+Building the documentation
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The |project| documentation is based on sphinx, and all dependencies required for a local HTML version are installed with ``pip install "rockpool[all]"``. You can install just the minimal dependencies to build the documentaion with ``pip install "rockpool[docs]"``, but note that you can only build documentation for the backends which are correctly installed and available for use by |project|.
+
+To build a live, locally-hosted HTML version of the docs, use the command
+
+.. code-block:: Bash
+
+    $ cd docs
+    $ make clean html
+
+Once built, the documentation will be placed in ``rockpool\docs\_build\html``. Open ``index.html`` in a web browser to start using the documentation.
+
+To build a PDF version of the docs, you need to install ``imagemagick`` on your system, as well as a working version of ``latex`` and ``pdflatex``. You will need to install these dependencies manually.
+
+Once all dependencies are installed, you can build the PDF docs with
+
+.. code-block:: Bash
+
+    $ cd docs
+    $ make clean latexpdf
 
 Running tests
 ~~~~~~~~~~~~~

@@ -33,3 +33,4 @@ _fp_q_model_deployments.ipynb
 docs/basics/MNIST/*
 design/*
 pytest.ini
+*.bkp
