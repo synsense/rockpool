@@ -161,9 +161,7 @@ class XyloMonitor(Module):
             self._config.enable_hibernation_mode = True
 
         # - Store the timestep
-        self.dt: Union[
-            float, SimulationParameter
-        ] = dt  # Fixed computation step rate of 200Hz for Xylo IMU
+        self.dt: Union[float, SimulationParameter] = dt
         """ float: Simulation time-step of the module, in seconds """
 
         self._main_clk_rate = main_clk_rate
@@ -325,7 +323,7 @@ class XyloMonitor(Module):
 
     def __del__(self):
         """
-        Delete the XyloIMUMonitor object and reset the HDK.
+        Delete the XyloAudio3Monitor object and reset the HDK.
         """
         # - Reset the HDK to clean up
         self._device.reset_board_soft()
@@ -337,14 +335,6 @@ class XyloMonitor(Module):
         # - Store the configuration locally
         self._config = new_config
 
-    def read_register(self, addr):
-        self._write_buffer.write(
-            [samna.xyloAudio3.event.ReadRegisterValue(address=addr)]
-        )
-        events = self._read_buffer.get_n_events(1, 3000)
-        assert len(events) == 1
-        return events[0].data
-
     def evolve(
         self,
         record: bool = False,
@@ -355,7 +345,7 @@ class XyloMonitor(Module):
         Evolve a network on the Xylo HDK in Real-time mode.
 
         Args:
-            record (bool): ``False``, do not return a recording dictionary. Recording internal state is not supported by :py:class:`.XyloIMUMonitor`
+            record (bool): ``False``, do not return a recording dictionary. Recording internal state is not supported by :py:class:`.XyloAudio3Monitor`
             record_power (bool): If ``True``, record the power consumption during each evolve.
             read_timeout (float): A duration in seconds for a read timeout. Default: 2x the real-time duration of the evolution
 
@@ -379,9 +369,10 @@ class XyloMonitor(Module):
         spikes_ts = []
         vmem_out_ts = []
 
+        # TODO: Power measurement is not yet ready
         # - Clear the power recording buffer, if recording power
-        if record_power:
-            self._power_buf.clear_events()
+        # if record_power:
+        #     self._power_buf.clear_events()
 
         while timestep < target_timestep - 1:
             readout_events = self._read_buffer.get_events_blocking()
@@ -412,23 +403,24 @@ class XyloMonitor(Module):
 
             timestep = readout_events[-1].timestep
 
-            if record_power:
-                # - Get all recent power events from the power measurement
-                ps = self._power_buf.get_events()
+            # TODO: Power measurement is not yet ready
+            # if record_power:
+            # # - Get all recent power events from the power measurement
+            # ps = self._read_buffer.get_events()
 
-                # - Separate out power meaurement events by channel
-                channels = samna.xyloImuBoards.MeasurementChannels
-                io_power = np.array(
-                    [e.value for e in ps if e.channel == int(channels.Io)]
-                )
-                core_power = np.array(
-                    [e.value for e in ps if e.channel == int(channels.Core)]
-                )
-                rec_dict.update(
-                    {
-                        "io_power": io_power,
-                        "core_power": core_power,
-                    }
-                )
+            # # - Separate out power meaurement events by channel
+            # channels = samna.xyloAudio3Boards.MeasurementChannels
+            # io_power = np.array(
+            #     [e.value for e in ps if e.channel == int(channels.Io)]
+            # )
+            # core_power = np.array(
+            #     [e.value for e in ps if e.channel == int(channels.Core)]
+            # )
+            # rec_dict.update(
+            #     {
+            #         "io_power": io_power,
+            #         "core_power": core_power,
+            #     }
+            # )
 
         return output_events, {}, rec_dict

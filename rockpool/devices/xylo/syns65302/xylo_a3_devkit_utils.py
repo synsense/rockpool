@@ -137,18 +137,6 @@ def new_xylo_state_monitor_buffer(
     etf.set_desired_type("xyloAudio3::event::Readout")
     graph.start()
 
-    # - Register a new buffer to receive neuron and synapse state
-    # buffer = Xylo2NeuronStateBuffer()
-    # buffer = ReadoutEvent()
-
-    # - Add the buffer as a destination for the Xylo output events
-    # graph = samna.graph.EventFilterGraph()
-    # print()
-    # print('graph', graph)
-    # print('source node', source_node)
-    # print('buffer', buffer)
-    # graph.sequential([source_node, buffer])
-
     # - Return the buffer
     return state_buf, graph
 
@@ -172,79 +160,6 @@ def update_register_field(
     data_l = data & (2**lsb_pos - 1)
     data = (data_h << (msb_pos + 1)) + (val << lsb_pos) + data_l
     write_register(write_buffer, addr, data)
-
-
-def initialise_xylo_hdk(
-    hdk: XyloAudio3HDK,
-    sleep_time: float = 5e-3,
-) -> None:
-    """
-    Initialise the Xylo Audio 3 HDK
-
-    Args:
-        hdk (XyloAudio3HDK): A connected Xylo HDK
-        write_buffer (XyloAudio3WriteBuffer): A write buffer connected to a Xylo HDK to initialise
-    """
-    ioc = hdk.get_io_control_module()
-    io = hdk.get_io_module()
-
-    ioc.write_config(0, 0x0)  # power off
-    time.sleep(sleep_time)
-    io.write_config(0x0008, 0)  # main clock disable
-    time.sleep(sleep_time)
-    ioc.write_config(0, 0x1B)  # power on
-    time.sleep(sleep_time)
-    io.write_config(0x0008, 1)  # main clock enable
-    time.sleep(sleep_time)
-
-
-def fpga_enable_pdm_interface(
-    hdk: XyloAudio3HDK,
-    pdm_clock_edge: bool = False,
-    pdm_driving_direction: bool = False,
-) -> None:
-    """
-    Configure the PDM input interface on a Xylo A3 HDK
-
-    This function configures the FPGA to generate the PDM clock, and configures the FPGA and Xylo A3 chip with a common setup for PDM clock edge triggering and driving direction.
-
-    Args:
-        hdk (XyloAudio3HDK): A connected Xylo Audio 3 HDK
-        read_buffer (XyloAudio3ReadBuffer):
-        write_bufer (XyloAudio3WriteBuffer):
-        pdm_clock_edge (bool): Which edge of the PDM clock to use to trigger Xylo clock. ``False``: rising edge; ``True`` (falling edge, default).
-        pdm_driving_direction (bool): Which direction is the Xylo PDM clock pin? ``False``: Xylo PDM_CLK pin in slave mode, driven externally (default); ``True``: PDM_CLK driven by Xylo A3 chip.
-    """
-    io = hdk.get_io_module()
-
-    # set PDM clock
-    io.write_config(0x0027, 0)  # pdm clock msw
-    io.write_config(0x0028, 19)  # pdm clock lsw
-    if pdm_driving_direction:
-        io.write_config(0x0029, 0)  # FPGA pdm clock generation disabled
-    else:
-        io.write_config(0x0029, 1)  # FPGA pdm clock generation enabled
-    io.write_config(0x0026, 2)  # select: use pdm interface
-
-    # bit 0: PDM_CLK edge (0: FPGA drives PDM_DATA at falling edge, 1: FPGA drives PDM_DATA at rising edge)
-    # bit 1: PDM_CLK dir  (0: FPGA->Xylo, 1: Xylo->FPGA)
-    pdm_config = pdm_clock_edge + pdm_driving_direction << 1
-    io.write_config(0x002A, pdm_config)
-
-    # FPGA drive PDM_DATA
-    io.write_config(0x0012, 1)
-    # PDM port write enable
-    io.write_config(0x0013, 1)
-
-
-def fpga_pdm_clk_enable(hdk: XyloAudio3HDK) -> None:
-    io = hdk.get_io_module()
-    io.write_config(0x0029, 1)  # pdm clock enable
-
-
-def fpga_pdm_clk_disable(hdk: XyloAudio3HDK) -> None:
-    io = hdk.get_io_module()
-    io.write_config(0x0029, 0)  # pdm clock disable
 
 
 def send_pdm_datas(write_buffer: XyloAudio3WriteBuffer, datas, debug=0) -> None:

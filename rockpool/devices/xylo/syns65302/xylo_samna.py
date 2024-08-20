@@ -1,5 +1,5 @@
 """
-Utilities for producing a samna HW configuration for Xylo IMU devices
+Utilities for producing a samna HW configuration for Xylo Audio3 devices
 """
 
 import numpy as np
@@ -74,7 +74,7 @@ def config_from_specification(
         weight_shift_out (int): The number of bits to left-shift each output layer weight. Default: ``0``
         aliases (Optional[List[List[int]]]): For each neuron in the hidden population, a list containing the alias targets for that neuron
 
-    Returns: (:py:class:`.samna.xyloImu.XyloConfiguration`, bool, str): config, is_valid, message
+    Returns: (:py:class:`.samna.xyloAudio3.XyloConfiguration`, bool, str): config, is_valid, message
         ``config`` will be a `XyloConfiguration`.
         ``is_valid`` will be a boolean flag ``True`` iff the configuration is valid.
         ``message`` will be an empty string if the configuration is valid, or a message indicating why the configuration is invalid.
@@ -299,12 +299,11 @@ class XyloSamna(Module):
     A spiking neuron :py:class:`.Module` backed by the Xylo hardware, via `samna`.
 
     Use :py:func:`.config_from_specification` to build and validate a configuration for Xylo.
-
-    See Also:
-
-        See the tutorials :ref:`/devices/xylo-imu/xylo-imu-intro.ipynb` and :ref:`/devices/torch-training-spiking-for-xylo.ipynb` for a high-level overview of building and deploying networks for Xylo.
-
     """
+
+    # TODO: Update similar tutorial for XyloA3 and add to the description of the class
+    # See Also:
+    #     See the tutorials :ref:`/devices/xylo-imu/xylo-imu-intro.ipynb` and :ref:`/devices/torch-training-spiking-for-xylo.ipynb` for a high-level overview of building and deploying networks for Xylo.
 
     def __init__(
         self,
@@ -317,10 +316,10 @@ class XyloSamna(Module):
         **kwargs,
     ):
         """
-        Instantiate a Module with Xylo dev-kit backend
+        Instantiate a Module with Xylo Audio 3 dev-kit backend
 
         Args:
-            device (XyloIMUHDK): An opened `samna` device to a Xylo dev kit
+            device (XyloAudio3HDK): An opened `samna` device to a Xylo Audio 3 dev kit
             config (XyloConfiguration): A Xylo configuration from `samna`
             dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
@@ -357,10 +356,10 @@ class XyloSamna(Module):
 
         # - Register buffers to read and write events
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
-        """ `.XyloIMUReadBuffer`: The read buffer for the connected HDK """
+        """ `.XyloAudio3ReadBuffer`: The read buffer for the connected HDK """
 
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
-        """ `.XyloIMUWriteBuffer`: The write buffer for the connected HDK """
+        """ `.XyloAudio3WriteBuffer`: The write buffer for the connected HDK """
 
         # - Store the timestep
         self.dt: Union[float, SimulationParameter] = dt
@@ -369,12 +368,6 @@ class XyloSamna(Module):
         # - Sleep time post sending spikes on each time-step, in manual mode
         self._sleep_time = 0e-3
         """ float: Post-stimulation sleep time in seconds """
-
-        # - Initialise the HDK
-        hdkutils.initialise_xylo_hdk(self._device)
-
-        # - Store the configuration (and apply it)
-        time.sleep(self._sleep_time)
 
         # - For XyloSamna, operation mode can be either manual or accelerated time
         if config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
@@ -386,14 +379,6 @@ class XyloSamna(Module):
             XyloConfiguration, SimulationParameter
         ] = SimulationParameter(shape=(), init_func=lambda _: config)
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
-
-        # - Enable the SAER interface
-        time.sleep(self._sleep_time)
-        hdkutils.enable_saer_input(self._device)
-        time.sleep(self._sleep_time)
-
-        # - Enable RAM access
-        hdkutils.enable_ram_access(self._device, True)
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
         self._last_record_mode: Optional[bool] = None
