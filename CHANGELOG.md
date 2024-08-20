@@ -2,7 +2,7 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-## Unreleased - [v2.8.5.dev] -- xxxx-xx-xx
+## Unreleased - [v2.8.6.dev] -- xxxx-xx-xx
 
 ### Added
 * Tutorial and documentation for the ``SynNet`` architecture, to improve visibility
@@ -12,6 +12,7 @@ All notable changes between Rockpool releases will be documented in this file
     * Add check for version
     * Add check for copyright
 * Update dependency version of Jax to >=0.4.28
+* Move instructions to build documentation inside ``Contributing`` section
 
 ### Fixed
 
