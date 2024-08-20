@@ -13,12 +13,12 @@ except:
 
 from samna.xyloAudio3.configuration import (
     XyloConfiguration,
-    # PdmPreprocessingConfig,
-    # DFEConfiguration,
+    PdmPreprocessingConfig,
+    DigitalFrontendConfig,
 )
 
 PdmPreprocessingConfig = None
-DFEConfiguration = None
+DigitalFrontendConfig = None
 
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
@@ -43,7 +43,7 @@ class XyloSamnaPDM(Module):
         device: XyloAudio3HDK,
         snn_config: XyloConfiguration = None,
         pdm_config: PdmPreprocessingConfig = None,
-        dfe_config: DFEConfiguration = None,
+        dfe_config: DigitalFrontendConfig = None,
         register_config: dict = None,
         dt: float = 1024e-6,
         output_mode: str = "Spike",
@@ -56,7 +56,7 @@ class XyloSamnaPDM(Module):
         Instantiate a Module with Xylo dev-kit backend
 
         Args:
-            device (XyloIMUHDK): An opened `samna` device to a Xylo dev kit
+            device (XyloAudio3HDK): An opened `samna` device to a Xylo dev kit
             config (XyloConfiguration): A Xylo configuration from `samna`
             dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
@@ -77,6 +77,12 @@ class XyloSamnaPDM(Module):
         # - Get a default configuration
         if snn_config is None:
             snn_config = samna.xyloAudio3.configuration.XyloConfiguration()
+
+        if pdm_config is None:
+            pdm_config = samna.xyloAudio3.configuration.PdmPreprocessingConfig()
+
+        if dfe_config is None:
+            dfe_config = samna.xyloAudio3.configuration.DigitalFrontendConfig()
 
         # - Get the network shape
         Nin, _ = np.shape(snn_config.input.weights)
@@ -108,6 +114,9 @@ class XyloSamnaPDM(Module):
         self._sleep_time = 0e-3
         """ float: Post-stimulation sleep time in seconds """
 
+        # - TODO: AFAIK these parameters are necesary to run with PDM configurations
+        # there is a discussion need in order to understand if we will only overwrite parameters
+        # or assume that the user knows what parameters he needs.
         snn_config.debug.sdm_clock_ratio = 48
 
         snn_config.input_source = samna.xyloAudio3.InputSource.Pdm
