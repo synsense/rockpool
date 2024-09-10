@@ -186,6 +186,9 @@ class XyloMonitor(Module):
             self._device, power_frequency
         )
 
+        self._power_frequency = power_frequency
+        """Power measurement frequency for Xylo"""
+
     @property
     def config(self):
         # - Return the configuration stored on Xylo HDK
@@ -351,7 +354,13 @@ class XyloMonitor(Module):
         Returns:
             Tuple[np.ndarray, dict, dict] output_events, {}, rec_dict
             output_events is an array that stores the output events of T time-steps
+            rec_dict is a dictionary that stores the power measurements of T time-steps
         """
+
+        if record:
+            raise ValueError(
+                f"Recording internal state is not supported by :py:class:`.XyloAudio3Monitor`"
+            )
 
         target_timestep = int(read_timeout * (1 / self.dt))
 
@@ -365,10 +374,8 @@ class XyloMonitor(Module):
 
         timestep = 0
         output_events = []
-        spikes_ts = []
-        vmem_out_ts = []
 
-        # - Clear the power recording buffer, if recording power
+        # - Clear the power buffer, if recording power
         if record_power:
             self._power_buf.clear_events()
 
@@ -388,37 +395,28 @@ class XyloMonitor(Module):
                     elif self._output_mode == "Spike":
                         output_events.append(ev.output_spikes)
 
-                if record:
-                    vmem_out_ts.append(ev.output_v_mems)
-                    spikes_ts.append(ev.output_spikes)
-
-                    rec_dict = {
-                        "Spikes": np.array(spikes_ts),
-                        "Vmem_out": np.array(vmem_out_ts),
-                    }
-                else:
-                    rec_dict = {}
-
             timestep = readout_events[-1].timestep
 
-            if record_power:
-                # - Get all recent power events from the power measurement
-                ps = self._power_buf.get_events()
+        rec_dict = {}
+        if record_power:
+            # - Get all recent power events from the power measurement
+            ps = self._power_buf.get_events()
 
-                # - Separate out power meaurement events by channel
-                # - Channel 0: IO power
-                # - Channel 1: Analog logic power
-                # - Channel 2: Digital logic power
+            # - Separate out power measurement events by channel
+            # - Channel 0: IO power
+            # - Channel 1: Analog logic power
+            # - Channel 2: Digital logic power
 
-                io_power = np.array([e.value for e in ps if e.channel == 0])
-                analog_power = np.array([e.value for e in ps if e.channel == 1])
-                digital_power = np.array([e.value for e in ps if e.channel == 2])
-                rec_dict.update(
-                    {
-                        "io_power": io_power,
-                        "analog_power": analog_power,
-                        "digital_power": digital_power,
-                    }
-                )
+            io_power = np.array([e.value for e in ps if e.channel == 0])
+            analog_power = np.array([e.value for e in ps if e.channel == 1])
+            digital_power = np.array([e.value for e in ps if e.channel == 2])
+
+            rec_dict.update(
+                {
+                    "io_power": io_power,
+                    "analog_power": analog_power,
+                    "digital_power": digital_power,
+                }
+            )
 
         return output_events, {}, rec_dict
