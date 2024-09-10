@@ -6,6 +6,7 @@ All notable changes between Rockpool releases will be documented in this file
 
 ### Added
 * Tutorial and documentation for the ``SynNet`` architecture, to improve visibility
+* Power measurement for XyloA3
 
 ### Changed
 * Update ``release notes`` for developers in documentation
