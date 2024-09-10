@@ -280,7 +280,7 @@ def set_power_measure(
 
     Args:
         hdk (XyloAudio3HDK): The Xylo HDK to be measured
-        frequency (float): The frequency of power measurement. Default: 5.0
+        frequency (float): The frequency in Hz of power measurement. Default: 5.0
 
     Returns:
         power_buf: Event buffer to read power monitoring events from
@@ -289,7 +289,12 @@ def set_power_measure(
     power_monitor = hdk.get_power_monitor()
     power_source = power_monitor.get_source_node()
     power_buf = samna.graph.sink_from(power_source)
+    stopwatch = hdk.get_stop_watch()
+    # Start the stopwatch to enable time-stamped power sampling
+    stopwatch.start()
+    # Start sampling power on all channels at a rate of frequency in Hz.
     power_monitor.start_auto_power_measurement(frequency)
+
     return power_buf, power_monitor
 
 
