@@ -388,6 +388,11 @@ class XyloSamna(Module):
         self.dt: Union[float, SimulationParameter] = dt
         """ float: Simulation time-step of the module, in seconds """
 
+        # - Set power measurement module
+        self._power_buf, self._power_monitor = hdkutils.set_power_measure(
+            self._device, power_frequency
+        )
+
     @property
     def config(self):
         # - Return the configuration stored on Xylo HDK
@@ -411,6 +416,7 @@ class XyloSamna(Module):
         input: np.ndarray,
         record: bool = False,
         read_timeout: float = 5.0,
+        record_power: bool = False,
         *args,
         **kwargs,
     ) -> Tuple[np.ndarray, dict, dict]:
@@ -423,6 +429,7 @@ class XyloSamna(Module):
             input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
             record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
             read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
+            record_power (bool): Iff ``True``, record the power consumption during each evolve.
 
         Returns:
             (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
@@ -457,6 +464,10 @@ class XyloSamna(Module):
 
         # - Reset input spike registers
         hdkutils.reset_input_spikes(self._write_buffer)
+
+        # - Clear the power buffer, if recording power
+        if record_power:
+            self._power_buf.clear_events()
 
         # - Initialise lists for recording state
         vmem_ts = []
@@ -518,6 +529,27 @@ class XyloSamna(Module):
             }
         else:
             rec_dict = {}
+
+        if record_power:
+            # - Get all recent power events from the power measurement
+            ps = self._power_buf.get_events()
+
+            # - Separate out power measurement events by channel
+            # - Channel 0: IO power
+            # - Channel 1: Analog logic power
+            # - Channel 2: Digital logic power
+
+            io_power = np.array([e.value for e in ps if e.channel == 0])
+            analog_power = np.array([e.value for e in ps if e.channel == 1])
+            digital_power = np.array([e.value for e in ps if e.channel == 2])
+
+            rec_dict.update(
+                {
+                    "io_power": io_power,
+                    "analog_power": analog_power,
+                    "digital_power": digital_power,
+                }
+            )
 
         # - Return the output spikes, the (empty) new state dictionary, and the recorded state dictionary
         return np.array(output_ts), {}, rec_dict
