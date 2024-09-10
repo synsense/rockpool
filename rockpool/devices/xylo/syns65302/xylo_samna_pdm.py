@@ -13,8 +13,8 @@ except:
 
 from samna.xyloAudio3.configuration import (
     XyloConfiguration,
-    PdmPreprocessingConfig,
-    DigitalFrontendConfig,
+    # PdmPreprocessingConfig,
+    # DigitalFrontendConfig,
 )
 
 PdmPreprocessingConfig = None
@@ -78,11 +78,16 @@ class XyloSamnaPDM(Module):
         if snn_config is None:
             snn_config = samna.xyloAudio3.configuration.XyloConfiguration()
 
-        if pdm_config is None:
-            pdm_config = samna.xyloAudio3.configuration.PdmPreprocessingConfig()
+        if snn_config.input_source is samna.xyloAudio3.InputSource.Adc:
+            raise ValueError(
+                "Analog configuration is not available yet for Xylo A3. Please change your input source to PDM or SAER."
+            )
 
-        if dfe_config is None:
-            dfe_config = samna.xyloAudio3.configuration.DigitalFrontendConfig()
+        # if pdm_config is None:
+        #     pdm_config = samna.xyloAudio3.configuration.PdmPreprocessingConfig()
+
+        # if dfe_config is None:
+        #     dfe_config = samna.xyloAudio3.configuration.DigitalFrontendConfig()
 
         # - Get the network shape
         Nin, _ = np.shape(snn_config.input.weights)
