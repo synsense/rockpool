@@ -186,9 +186,6 @@ class XyloMonitor(Module):
             self._device, power_frequency
         )
 
-        self._power_frequency = power_frequency
-        """Power measurement frequency for Xylo"""
-
     @property
     def config(self):
         # - Return the configuration stored on Xylo HDK
