@@ -323,7 +323,12 @@ class XyloSamna(Module):
             config (XyloConfiguration): A Xylo configuration from `samna`
             dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
-            power_frequency (float): The frequency of power measurement. Default: 5.0
+            power_frequency (float): The frequency of power measurement in Hz. Default: 5.0
+
+        Raises:
+            `ValueError`: If ``device`` is not set. ``device`` must be a ``XyloAudio3HDK``.
+            `TimeoutError`: If ``output_mode`` is not ``Spike``, ``Vmem`` or ``ISyn``.
+            `ValueError`: If ``operation_mode`` is set to ``RealTime``. For ``RealTime`` please use :py:class:`.XyloMonitor`.
         """
 
         # - Check input arguments
@@ -435,9 +440,10 @@ class XyloSamna(Module):
             (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
             ``output`` is a raster ``(T, Nout)``, containing events for each channel in each time bin. Time bins in ``output`` correspond to the time bins in ``input``.
             ``new_state`` is an empty dictionary. The Xylo HDK does not permit querying or setting state.
-            ``record_dict`` is a dictionary containing recorded internal state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
+            ``record_dict`` is a dictionary containing recorded internal state of Xylo during evolution, if the ``record`` argument is ``True``. It also contains power measurement recordings if ``record_power`` is ``True``. Otherwise this is an empty dictionary.
 
         Raises:
+            `ValueError`: If ``operation_mode`` is set to ``RealTime``. For ``RealTime`` please use :py:class:`.XyloMonitor`.
             `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
         """
 

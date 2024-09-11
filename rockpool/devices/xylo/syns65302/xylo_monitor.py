@@ -1,5 +1,5 @@
 """
-Samna-backed bridge to Xylo dev kit for SYNS65302 Xylo core v3
+Provides :py:class:`.XyloMonitor`
 """
 
 # - Samna imports
@@ -63,19 +63,23 @@ class XyloMonitor(Module):
         **kwargs,
     ):
         """
-        Instantiate a Module with Xylo dev-kit backend.
+        Instantiate a Module with Xylo Audio3 dev-kit backend.
 
         Args:
-            device (XyloAudio3HDK): An opened `samna` device to a Xylo dev kit
+            device (XyloAudio3HDK): An opened `samna` device to a Xylo Audio 3 dev kit
             config (XyloConfiguraration): A Xylo configuration from `samna`
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Vmem"]``. Default: "Spike", return events from the output layer.
             dt (float):
             main_clk_rate (float): The main clock rate of Xylo, in MHz
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
-            interface_params(dict): The dictionary of Xylo interface parameters used for the `hdkutils.config_if_module` function, the keys of which must be "num_avg_bitshif", "select_iaf_output", "sampling_period", "filter_a1_list", "filter_a2_list", "scale_values", "Bb_list", "B_wf_list", "B_af_list", "iaf_threshold_values".
-            power_frequency (float): The frequency of power measurement. Default: 5.0
+            power_frequency (float): The frequency of power measurement, in Hz. Default: 5.0
             dn_active (bool): If True, divisive normalization will be used. Defaults to True.
             digital_microphone (bool): If True, configure Xylo Audio3 to use the digital microphone, otherwise, analog microphone. Defaults to True.
+
+        Raises:
+            `ValueError`: If ``device`` is not set. ``device`` must be a ``XyloAudio3HDK``.
+            `TimeoutError`: If ``output_mode`` is not ``Spike`` or ``Vmem``.
+            `ValueError`: If ``operation_mode`` is not set to ``RealTime``. For  other opeartion modes please use :py:class:`.XyloSamna`.
         """
 
         # - Check input arguments
