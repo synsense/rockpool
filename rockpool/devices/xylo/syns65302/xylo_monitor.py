@@ -126,9 +126,7 @@ class XyloMonitor(Module):
             config.digital_frontend.pdm_preprocessing.clock_edge = 0
 
         else:
-            # config = self._enable_analog_registers(config)
-            # config = self._program_analog_registers(config)
-            config.input_source = samna.xyloAudio3.InputSource.Adc
+            raise ValueError("Analog microphone is not available yet for Xylo A3.")
 
         # - Build a filter graph to filter `Readout` events from Xylo
         self._spike_graph = samna.graph.EventFilterGraph()
@@ -220,97 +218,6 @@ class XyloMonitor(Module):
         main_clk_freq = main_clk_freq_in_mhz * 1e6  # in Hz
         tr_wrap = int(ts_duration * main_clk_freq)
         return tr_wrap
-
-    # def _enable_analog_registers(self, config):
-    #     """
-    #     Activate registers to use the analolog microphone path.
-
-    #     Args:
-    #         config: the configuration that will be applied
-    #     """
-    #     # bandgap
-    #     config.analog_frontend.ivgen.select_default = True
-    #     # ldo-analog
-    #     config.analog_frontend.ldo.enable_ldo_analog = True
-    #     config.analog_frontend.ldo.enable_ldo_vref_gen = True
-    #     # afe-amp
-    #     config.analog_frontend.ivgen.enable_afe_lna_bias = True
-    #     config.analog_frontend.ivgen.enable_afe_pga_bias = True
-    #     config.analog_frontend.ivgen.enable_afe_driver_bias = True
-    #     config.analog_frontend.enable_lna = True
-    #     config.analog_frontend.enable_pga = True
-    #     config.analog_frontend.enable_drv = True
-    #     config.analog_frontend.adc.convert_adc = True
-    #     config.analog_frontend.adc.enable_adc_parallel = True
-
-    #     # afe-adc
-    #     config.debug.enable_adc = True
-    #     # charProg.reset_SubModules_Deassert()
-    #     config.analog_frontend.adc.enable_adc = True
-
-    #     return config
-
-    # def _program_analog_registers(self, config):
-    #     """
-    #     Configure registers to use the analolog microphone path.
-
-    #     Args:
-    #         config: the configuration that will be applied
-    #     """
-    #     # configuration values from Can's script - xylo-a3 program parameters (do not modify)
-    #     # bandgap
-    #     bandgap_trim_value = 95  # 0 - 127 --> ~565mV - ~635mV
-    #     bandgap_trim_slope = 8  # 0 - 15 --> slope and value increases linearly
-    #     # ptat
-    #     ptat_trim_value = 24  # range: 0 - 31, default: 18, linear
-    #     # ldo-digital
-    #     ldo_digital_trim = 0  # 0-7; 0-3, 1.10V-0.95V; 4-7, 1.3V-1.15V
-    #     # ldo-analog
-    #     common_mode_voltage_trim = 1  # 0 - 3 --> 500mV, 550mV, 575mV, 600mV
-    #     ldo_analog_trim = 0  # 0-7; 0-3, 1.10V-0.95V; 4-7, 1.3V-1.15V
-    #     # afe-adc
-    #     adcSpeed = 3  # 0 - 3 --> 0: 50ksps, 1: 100ksps, 3: 200ksps (2: not allowed)
-    #     clockDivision = 1  # 1 - 8 --> 200ksps - 25ksps (inverse)
-    #     # bias
-    #     bias_mirror_linear = 3  # (default: 7) 0 - 7 --> 25nA - 200nA (linear)
-    #     bias_pmos_inverse = 1  # (default: 0) 0 - 3 --> 800nA - 200nA (inverse)
-    #     bias_adc = 0  # (default: 0, 4, 12): 0 - 15, 50nA - 237.5nA (linear)
-    #     bias_ldo_dig = 7  # (default: 3) 0 - 7 --> 250nA - 600nA (linear)
-    #     bias__ldo_dig_internal = 1  # (default: 0) 0 - 1 --> 400nA - 800nA (linear)
-    #     bias_ldo_dig_ilim = 1  # (default: 0) 0 - 3, 50nA - 200nA (linear)
-    #     bias_lna = 1  # (default: 1) 0 - 7 --> 50nA - 400nA (linear)
-    #     bias_pga = 0  # (default: 1) 0 - 7 --> 50nA - 400nA (linear)
-    #     bias_driver = 0  # (default: 3) 0 - 7 --> 100nA - 800nA (linear)
-
-    #     # bandgap
-    #     config.analog_frontend.ivgen.temperature_slope_trim_bandgap = bandgap_trim_slope
-    #     config.analog_frontend.ivgen.absolute_value_trim_bandgap = bandgap_trim_value
-    #     # ptat
-    #     config.analog_frontend.ivgen.trim_value_ptat = ptat_trim_value
-    #     # ldo-digital
-    #     config.analog_frontend.ldo.vdd_digital_core_voltage = ldo_digital_trim
-    #     # ldo-analog
-    #     config.analog_frontend.ldo.vdd_analog_core_voltage = ldo_analog_trim
-    #     config.analog_frontend.ldo.vcm_lna_voltage = common_mode_voltage_trim
-    #     # afe-adc
-    #     config.debug.adc_clock_ratio = clockDivision - 1
-    #     config.analog_frontend.adc.adc_conversion_speed = adcSpeed
-    #     # bias currents
-    #     config.analog_frontend.ivgen.adc_buffer_test = False
-    #     config.analog_frontend.ivgen.adc_buffer_bias = bias_adc
-    #     config.analog_frontend.ivgen.ldo_digital_bias = bias_ldo_dig
-    #     config.analog_frontend.ldo.ldo_digital_capacitor_stability = (
-    #         bias__ldo_dig_internal
-    #     )
-    #     config.analog_frontend.ldo.ldo_digital_current_limit = bias_ldo_dig_ilim
-    #     config.analog_frontend.ivgen.current_ptat = bias_mirror_linear
-    #     config.analog_frontend.ivgen.current_mirror_input2 = bias_pmos_inverse
-    #     config.analog_frontend.ivgen.afe_lna_bias = bias_lna
-    #     config.analog_frontend.ivgen.afe_pga_bias = bias_pga
-    #     config.analog_frontend.ivgen.afe_drv_bias = bias_driver
-    #     config.debug.analog_test_mode.bypass_afe = False
-
-    #     return config
 
     def _enable_realtime_mode(self):
         """

@@ -346,6 +346,11 @@ class XyloSamna(Module):
         if config is None:
             config = samna.xyloAudio3.configuration.XyloConfiguration()
 
+        if config.input_source is samna.xyloAudio3.InputSource.Adc:
+            raise ValueError(
+                "Analog configuration is not available yet for Xylo A3. Please change your input source to PDM or SAER."
+            )
+
         # - Get the network shape
         Nin, Nhidden = np.shape(config.input.weights)
         _, Nout = np.shape(config.readout.weights)
