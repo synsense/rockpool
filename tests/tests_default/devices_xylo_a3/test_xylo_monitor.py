@@ -46,6 +46,6 @@ def test_Xylo_Monitor():
         device=daughterboard, config=config, dt=dt, output_mode="Vmem"
     )
 
-    assert(mod_xylo != None)
+    assert mod_xylo != None
 
-    #TODO: XyloMonitor evolve function needs to be tested with live mic input
+    # TODO: XyloMonitor evolve function needs to be tested with live mic input
