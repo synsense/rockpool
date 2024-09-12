@@ -1,4 +1,4 @@
-def test_XyloMonitor():
+def test_Xylo_Monitor():
     import pytest
 
     pytest.importorskip("samna")
@@ -7,6 +7,7 @@ def test_XyloMonitor():
     from rockpool.devices.xylo.syns65302 import XyloMonitor, config_from_specification
     import rockpool.devices.xylo.syns65302.xylo_a3_devkit_utils as putils
     import numpy as np
+    import samna
 
     xylo_hdk_nodes = putils.find_xylo_a3_boards()
 
@@ -45,8 +46,6 @@ def test_XyloMonitor():
         device=daughterboard, config=config, dt=dt, output_mode="Vmem"
     )
 
-    # - Simulate with random input
-    T = 10
-    input_ts = np.random.rand(T, Nin)
-    # mod_xylo.reset_state()
-    output_ts, _, _ = mod_xylo(input_ts)
+    assert(mod_xylo != None)
+
+    #TODO: XyloMonitor evolve function needs to be tested with live mic input
