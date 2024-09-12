@@ -38,6 +38,8 @@ def test_XyloMonitor():
         aliases=None,
     )
 
+    config.operation_mode = samna.xyloAudio3.OperationMode.RealTime
+
     # - Make a XyloMonitor module
     mod_xylo = XyloMonitor(
         device=daughterboard, config=config, dt=dt, output_mode="Vmem"
