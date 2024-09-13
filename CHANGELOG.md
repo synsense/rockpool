@@ -14,6 +14,7 @@ All notable changes between Rockpool releases will be documented in this file
     * Add check for copyright
 * Update dependency version of Jax to >=0.4.28
 * Move instructions to build documentation inside ``Contributing`` section
+* Set ``config.input_source`` to ``SAER`` when using XyloSamna
 
 ### Fixed
 
