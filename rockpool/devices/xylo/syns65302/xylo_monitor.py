@@ -6,7 +6,7 @@ Samna-backed bridge to Xylo dev kit for SYNS65302 Xylo core v3
 import samna
 from samna.xyloAudio3.configuration import XyloConfiguration
 
-XyloAudio3HDK = samna.xyloAudio3Boards.XyloAudio3TestBoard
+XyloAudio3HDK = samna.xyloAudio3.XyloAudio3TestBoard
 from . import xylo_a3_devkit_utils as hdkutils
 
 import time
@@ -315,7 +315,7 @@ class XyloMonitor(Module):
             # ps = self._read_buffer.get_events()
 
             # # - Separate out power meaurement events by channel
-            # channels = samna.xyloAudio3Boards.MeasurementChannels
+            # channels = samna.xyloAudio3.MeasurementChannels
             # io_power = np.array(
             #     [e.value for e in ps if e.channel == int(channels.Io)]
             # )
