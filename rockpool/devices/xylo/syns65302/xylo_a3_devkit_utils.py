@@ -22,7 +22,7 @@ XyloAudio3ReadBuffer = samna.BasicSinkNode_xylo_audio3_event_output_event
 XyloAudio3WriteBuffer = samna.BasicSourceNode_xylo_audio3_event_input_event
 ReadoutEvent = samna.xyloAudio3.event.Readout
 SpikeEvent = samna.xyloAudio3.event.Spike
-XyloAudio3HDK = samna.xyloAudio3Boards.XyloAudio3TestBoard
+XyloAudio3HDK = samna.xyloAudio3.XyloAudio3TestBoard
 # Xylo2NeuronStateBuffer = samna.xyloCore2.NeuronStateSinkNode
 
 
