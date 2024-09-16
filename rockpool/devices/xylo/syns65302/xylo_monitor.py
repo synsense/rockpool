@@ -6,7 +6,7 @@ Provides :py:class:`.XyloMonitor`
 import samna
 from samna.xyloAudio3.configuration import XyloConfiguration
 
-XyloAudio3HDK = samna.xyloAudio3Boards.XyloAudio3TestBoard
+XyloAudio3HDK = samna.xyloAudio3.XyloAudio3TestBoard
 from . import xylo_a3_devkit_utils as hdkutils
 
 import time
