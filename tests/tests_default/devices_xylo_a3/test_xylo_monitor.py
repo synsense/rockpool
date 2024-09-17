@@ -53,3 +53,5 @@ def test_XyloMonitor():
     output_ts, _, _ = mod_xylo(input_ts)
 
     assert mod_xylo != None
+
+    #TODO: XyloMonitor evolve function needs to be tested with live mic input
