@@ -324,7 +324,7 @@ class XyloSamna(Module):
             dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
             power_frequency (float): The frequency of power measurement, in Hz. Default: 5.0
-            
+
         Raises:
             `ValueError`: If ``device`` is not set. ``device`` must be a ``XyloAudio3HDK``
             `TimeoutError`: If ``output_mode`` is not ``Spike``, ``Vmem`` or ``ISyn``
