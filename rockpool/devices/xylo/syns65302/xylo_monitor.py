@@ -1,5 +1,5 @@
 """
-Samna-backed bridge to Xylo dev kit for SYNS65302 Xylo core v3
+Provides :py:class:`.XyloMonitor`
 """
 
 # - Samna imports
@@ -63,19 +63,23 @@ class XyloMonitor(Module):
         **kwargs,
     ):
         """
-        Instantiate a Module with Xylo dev-kit backend.
+        Instantiate a Module with Xylo Audio3 dev-kit backend.
 
         Args:
-            device (XyloAudio3HDK): An opened `samna` device to a Xylo dev kit
+            device (XyloAudio3HDK): An opened `samna` device to a Xylo Audio 3 dev kit
             config (XyloConfiguraration): A Xylo configuration from `samna`
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Vmem"]``. Default: "Spike", return events from the output layer.
             dt (float):
             main_clk_rate (float): The main clock rate of Xylo, in MHz
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
-            interface_params(dict): The dictionary of Xylo interface parameters used for the `hdkutils.config_if_module` function, the keys of which must be "num_avg_bitshif", "select_iaf_output", "sampling_period", "filter_a1_list", "filter_a2_list", "scale_values", "Bb_list", "B_wf_list", "B_af_list", "iaf_threshold_values".
-            power_frequency (float): The frequency of power measurement. Default: 5.0
+            power_frequency (float): The frequency of power measurement, in Hz. Default: 5.0
             dn_active (bool): If True, divisive normalization will be used. Defaults to True.
             digital_microphone (bool): If True, configure Xylo Audio3 to use the digital microphone, otherwise, analog microphone. Defaults to True.
+
+        Raises:
+            `ValueError`: If ``device`` is not set. ``device`` must be a ``XyloAudio3HDK``.
+            `TimeoutError`: If ``output_mode`` is not ``Spike`` or ``Vmem``.
+            `ValueError`: If ``operation_mode`` is not set to ``RealTime``. For  other opeartion modes please use :py:class:`.XyloSamna`.
         """
 
         # - Check input arguments
@@ -173,16 +177,16 @@ class XyloMonitor(Module):
         hdkutils.apply_configuration(device, self._config)
         hdkutils.enable_real_time_mode(device)
 
-        self.power_monitor = None
+        self._power_monitor = None
         """Power monitor for Xylo"""
 
         self._evolve = False
         """ Track if evolve function was called """
 
-        # # - Set power measurement module
-        # self._power_buf, self.power_monitor = hdkutils.set_power_measure(
-        #     self._device, power_frequency
-        # )
+        # - Set power measurement module
+        self._power_buf, self._power_monitor = hdkutils.set_power_measure(
+            self._device, power_frequency
+        )
 
     @property
     def config(self):
@@ -258,7 +262,13 @@ class XyloMonitor(Module):
         Returns:
             Tuple[np.ndarray, dict, dict] output_events, {}, rec_dict
             output_events is an array that stores the output events of T time-steps
+            rec_dict is a dictionary that stores the power measurements of T time-steps
         """
+
+        if record:
+            raise ValueError(
+                f"Recording internal state is not supported by :py:class:`.XyloAudio3Monitor`"
+            )
 
         target_timestep = int(read_timeout * (1 / self.dt))
 
@@ -272,13 +282,10 @@ class XyloMonitor(Module):
 
         timestep = 0
         output_events = []
-        spikes_ts = []
-        vmem_out_ts = []
 
-        # TODO: Power measurement is not yet ready
-        # - Clear the power recording buffer, if recording power
-        # if record_power:
-        #     self._power_buf.clear_events()
+        # - Clear the power buffer, if recording power
+        if record_power:
+            self._power_buf.clear_events()
 
         while timestep < target_timestep - 1:
             readout_events = self._read_buffer.get_events_blocking()
@@ -296,37 +303,28 @@ class XyloMonitor(Module):
                     elif self._output_mode == "Spike":
                         output_events.append(ev.output_spikes)
 
-                if record:
-                    vmem_out_ts.append(ev.output_v_mems)
-                    spikes_ts.append(ev.output_spikes)
-
-                    rec_dict = {
-                        "Spikes": np.array(spikes_ts),
-                        "Vmem_out": np.array(vmem_out_ts),
-                    }
-                else:
-                    rec_dict = {}
-
             timestep = readout_events[-1].timestep
 
-            # TODO: Power measurement is not yet ready
-            # if record_power:
-            # # - Get all recent power events from the power measurement
-            # ps = self._read_buffer.get_events()
+        rec_dict = {}
+        if record_power:
+            # - Get all recent power events from the power measurement
+            ps = self._power_buf.get_events()
 
-            # # - Separate out power meaurement events by channel
-            # channels = samna.xyloAudio3.MeasurementChannels
-            # io_power = np.array(
-            #     [e.value for e in ps if e.channel == int(channels.Io)]
-            # )
-            # core_power = np.array(
-            #     [e.value for e in ps if e.channel == int(channels.Core)]
-            # )
-            # rec_dict.update(
-            #     {
-            #         "io_power": io_power,
-            #         "core_power": core_power,
-            #     }
-            # )
+            # - Separate out power measurement events by channel
+            # - Channel 0: IO power
+            # - Channel 1: Analog logic power
+            # - Channel 2: Digital logic power
+
+            io_power = np.array([e.value for e in ps if e.channel == 0])
+            analog_power = np.array([e.value for e in ps if e.channel == 1])
+            digital_power = np.array([e.value for e in ps if e.channel == 2])
+
+            rec_dict.update(
+                {
+                    "io_power": io_power,
+                    "analog_power": analog_power,
+                    "digital_power": digital_power,
+                }
+            )
 
         return output_events, {}, rec_dict
