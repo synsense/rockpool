@@ -52,4 +52,4 @@ def test_XyloMonitor():
     # mod_xylo.reset_state()
     output_ts, _, _ = mod_xylo(input_ts)
 
-    assert(mod_xylo != None)
+    assert mod_xylo != None
