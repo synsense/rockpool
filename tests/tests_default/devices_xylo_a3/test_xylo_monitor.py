@@ -7,6 +7,7 @@ def test_XyloMonitor():
     from rockpool.devices.xylo.syns65302 import XyloMonitor, config_from_specification
     import rockpool.devices.xylo.syns65302.xylo_a3_devkit_utils as putils
     import numpy as np
+    import samna
 
     xylo_hdk_nodes = putils.find_xylo_a3_boards()
 
@@ -38,6 +39,8 @@ def test_XyloMonitor():
         aliases=None,
     )
 
+    config.operation_mode = samna.xyloAudio3.OperationMode.RealTime
+
     # - Make a XyloMonitor module
     mod_xylo = XyloMonitor(
         device=daughterboard, config=config, dt=dt, output_mode="Vmem"
@@ -48,3 +51,5 @@ def test_XyloMonitor():
     input_ts = np.random.rand(T, Nin)
     # mod_xylo.reset_state()
     output_ts, _, _ = mod_xylo(input_ts)
+
+    assert(mod_xylo != None)
