@@ -324,7 +324,7 @@ class XyloSamna(Module):
             dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
             power_frequency (float): The frequency of power measurement. Default: 5.0
-        
+
         Raises:
             `Warning`: For XyloSamna ``config.input_source`` must be set to ``SAER``
 
@@ -344,7 +344,7 @@ class XyloSamna(Module):
         # - Get a default configuration
         if config is None:
             config = samna.xyloAudio3.configuration.XyloConfiguration()
-        
+
         if config.input_source != samna.xyloAudio3.InputSource.Saer:
             raise Warning(
                 "XyloSamna is intended to be used with direct input to the SNN core. Updating config.input_source to SAER"
