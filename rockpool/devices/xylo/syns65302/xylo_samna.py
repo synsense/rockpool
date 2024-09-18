@@ -328,7 +328,6 @@ class XyloSamna(Module):
         Raises:
             `ValueError`: If ``device`` is not set. ``device`` must be a ``XyloAudio3HDK``
             `TimeoutError`: If ``output_mode`` is not ``Spike``, ``Vmem`` or ``ISyn``
-            `ValueError`: If ``config.input_source`` is set to ``Adc``. Input source must be ``PDM`` or ``SAER``
             `ValueError`: If ``operation_mode`` is set to ``RealTime``. For ``RealTime`` please use :py:class:`.XyloMonitor`
             `Warning`: For XyloSamna ``config.input_source`` must be set to ``SAER``
 
