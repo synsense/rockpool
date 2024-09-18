@@ -69,7 +69,7 @@ def test_xylosamna_pdm():
     out, _, rd = xmod(input_pdm, record=True)
     dur = 200e-3
     # result of the same data simulation
-    a = np.loadtxt("tests/tests_default/models/xylo_a3_afe_sim_pdm.txt")
+    a = np.loadtxt("tests/tests_default/models/xylo_a3_afe_sim_pdm_output.txt")
     b = np.sum(rd["Spikes_in"].T, axis=1) / dur
 
     result = [abs(i - j) / i for i, j in zip(a, b)]
