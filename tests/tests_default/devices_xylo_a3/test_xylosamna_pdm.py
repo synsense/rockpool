@@ -16,7 +16,11 @@ def test_xylosamna_pdm():
 
     pytest.importorskip("samna")
 
-    from rockpool.devices.xylo.syns65302 import XyloSamnaPDM, config_from_specification, mapper
+    from rockpool.devices.xylo.syns65302 import (
+        XyloSamnaPDM,
+        config_from_specification,
+        mapper,
+    )
     import rockpool.devices.xylo.syns65302.xylo_a3_devkit_utils as putils
     from rockpool import TSEvent, TSContinuous
     from rockpool.nn.combinators import Sequential
@@ -52,23 +56,23 @@ def test_xylosamna_pdm():
 
     if not is_valid:
         print(msg)
-    
+
     # - Create a Xylo module with PDM input
     dn = True
     config.operation_mode = samna.xyloAudio3.OperationMode.AcceleratedTime
-    xmod = XyloSamnaPDM(daughterboard, config, dt=1024e-6, dn_active = dn)
-    
-    assert(xmod != None)
+    xmod = XyloSamnaPDM(daughterboard, config, dt=1024e-6, dn_active=dn)
 
-    input_pdm = np.loadtxt('tests/tests_default/models/xylo_a3_input_pdm.txt')
+    assert xmod != None
 
-    out, _, rd = xmod(input_pdm, record = True)
+    input_pdm = np.loadtxt("tests/tests_default/models/xylo_a3_input_pdm.txt")
+
+    out, _, rd = xmod(input_pdm, record=True)
     dur = 200e-3
-    # result of the same data simulation 
-    a = np.loadtxt('tests/tests_default/models/xylo_a3_afe_sim_pdm.txt')
-    b = np.sum(rd['Spikes_in'].T, axis=1)/dur
+    # result of the same data simulation
+    a = np.loadtxt("tests/tests_default/models/xylo_a3_afe_sim_pdm.txt")
+    b = np.sum(rd["Spikes_in"].T, axis=1) / dur
 
-    result = [abs(i-j)/i for i,j in zip(a,b)]
+    result = [abs(i - j) / i for i, j in zip(a, b)]
 
     b = np.array([element < 0.1 for element in result])
 

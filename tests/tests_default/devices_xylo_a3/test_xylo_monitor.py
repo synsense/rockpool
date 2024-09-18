@@ -54,4 +54,4 @@ def test_XyloMonitor():
 
     assert mod_xylo != None
 
-    #TODO: XyloMonitor evolve function needs to be tested with live mic input
+    # TODO: XyloMonitor evolve function needs to be tested with live mic input
