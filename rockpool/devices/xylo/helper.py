@@ -80,7 +80,7 @@ def find_xylo_hdks() -> Tuple[List["XyloHDK"], List[ModuleType], List[str]]:
         elif d.device_type_name == "XyloAudio3TestBoard":
             dev = samna.device.open_device(d)
 
-            # ADD a firmware version check!
+            # TODO: a firmware version check!
             # if not check_firmware_versions(dev, "0.11.5", "1.1.3"):
             #     raise ValueError(
             #         "The firmware of the connected Xylo HDK is unsupported, and must be upgraded."
