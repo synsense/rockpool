@@ -1,5 +1,5 @@
 """
-This module implements the digital filterbank in Xylo-A3 chip.
+This module implements the digital filterbank in XyloAudio 3 chip.
 This is the first version of Xylo chip in which the analog filters have been replaced with the digital ones.
 """
 

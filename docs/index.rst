@@ -56,10 +56,14 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    tutorials/wavesense_training.ipynb
 
    tutorials/synnet/synnet_architecture.ipynb
-   
-   .. tutorials/building_reservoir.ipynb
-   .. tutorials/deneve_reservoirs.ipynb
-   .. tutorials/network_ads_tutorial.ipynb
+
+.. toctree::
+   :hidden:
+   tutorials/building_reservoir.ipynb
+   tutorials/deneve_reservoirs.ipynb
+   tutorials/network_ads_tutorial.ipynb
+   tutorials/pytorch_lightning_mlflow.ipynb
+   tutorials/pytorch_lightning_mlflow_spiking_MNIST.ipynb
 
 
 .. toctree::
@@ -79,11 +83,14 @@ and evaluating recurrent networks, which can operate both with continuous-time d
 
 .. toctree::
    :maxdepth: 1
-   :caption: Xylo™ Audio v3
+   :caption: Xylo™Audio 3
 
+   devices/xylo-a3/xylo-a3-intro.ipynb
    devices/xylo-a3/afesim.ipynb
    devices/xylo-a3/afesim_agc.ipynb
    devices/xylo-a3/afesim_pdm.ipynb
+   devices/xylo-a3/Xylo_A3.ipynb
+   devices/xylo-a3/Xylo_A3_agc.ipynb
 
 .. toctree::
    :maxdepth: 1

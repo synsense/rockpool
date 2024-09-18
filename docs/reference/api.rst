@@ -234,7 +234,7 @@ Support modules
     transform.quantize_methods.channel_quantize
 
 
-Xylo Audio support
+XyloAudio support
 ~~~~~~~~~~~~~~~~~~~
 
 .. autosummary::
@@ -261,8 +261,8 @@ Xylo Audio support
     devices.xylo.syns61201.Xylo2OutputNeurons
 
 
-Xylo Audio v3 Support
-~~~~~~~~~~~~~~~~~~~~~
+XyloAudio 3 Support
+~~~~~~~~~~~~~~~~~~~~
 
 .. autosummary::
     :toctree: _autosummary
@@ -272,8 +272,8 @@ Xylo Audio v3 Support
     devices.xylo.syns65302.AFESimAGC
 
 
-Xylo IMU support
-~~~~~~~~~~~~~~~~~~~
+XyloIMU support
+~~~~~~~~~~~~~~~~~
 
 .. seealso::
     * :ref:`/devices/xylo-imu/xylo-imu-intro.ipynb`

@@ -80,7 +80,7 @@ def test_deltasigma():
 
 
 def test_pdm_mic():
-    """this module verifies the default PDM microphone setting in Xylo-A3."""
+    """this module verifies the default PDM microphone setting in XyloAudio 3."""
     from rockpool.devices.xylo.syns65302.afe.pdm import MicrophonePDM
     import numpy as np
 

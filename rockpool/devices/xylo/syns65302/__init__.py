@@ -1,5 +1,5 @@
 """
-Package to support the Xylo HW SYNS65302 (Xylo™ Audio 3)
+Package to support the Xylo HW SYNS65302 (Xylo™Audio 3)
 
 Includes simulation, interfacing and deployment modules.
 

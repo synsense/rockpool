@@ -1,5 +1,5 @@
 """
-Implements Audio resampling module to make sure that the Xylo-A3 AFESim modules works with all possible sampling rates with no problem
+Implements Audio resampling module to make sure that the XyloAudio 3 AFESim modules works with all possible sampling rates with no problem
 """
 import logging
 import warnings
@@ -15,7 +15,7 @@ __all__ = ["ResampleAudio"]
 
 class ResampleAudio(Module):
     """
-    Time resampling module, working perfectly with the Xylo-A3 front-end modules
+    Time resampling module, working perfectly with the XyloAudio 3 front-end modules
     """
 
     def __init__(self, fs_target: float) -> None:

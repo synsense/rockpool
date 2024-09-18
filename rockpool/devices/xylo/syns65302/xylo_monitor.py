@@ -37,7 +37,7 @@ Default_Main_Clock_Rate = 50.0  # 50 MHz
 
 class XyloMonitor(Module):
     """
-    A spiking neuron :py:class:`.Module` backed by the Xylo-audio3 hardware, via `samna`.
+    A spiking neuron :py:class:`.Module` backed by the XyloAudio 3 hardware, via `samna`.
 
     :py:class:`.XyloMonitor` operates continuously in real-time, receiving and processing data from a microphone with the deployed SNN. Results are continuously output from the HDK and buffered.
 
@@ -66,7 +66,7 @@ class XyloMonitor(Module):
         Instantiate a Module with Xylo Audio3 dev-kit backend.
 
         Args:
-            device (XyloAudio3HDK): An opened `samna` device to a Xylo Audio 3 dev kit
+            device (XyloAudio3HDK): An opened `samna` device to a XyloAudio 3 dev kit
             config (XyloConfiguraration): A Xylo configuration from `samna`
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Vmem"]``. Default: "Spike", return events from the output layer.
             dt (float):
@@ -111,7 +111,7 @@ class XyloMonitor(Module):
 
         config.digital_frontend.filter_bank.dn_enable = dn_active
 
-        # - Configuration for real time in xyloA3
+        # - Configuration for real time in XyloAudio 3
         config.time_resolution_wrap = self._get_tr_wrap(
             ts_in_ms=dt * 1000, main_clk_freq_in_mhz=50
         )
@@ -126,7 +126,7 @@ class XyloMonitor(Module):
             config.digital_frontend.pdm_preprocessing.clock_edge = 0
 
         else:
-            raise ValueError("Analog microphone is not available yet for Xylo A3.")
+            raise ValueError("Analog microphone is not available yet for XyloAudio 3.")
 
         # - Build a filter graph to filter `Readout` events from Xylo
         self._spike_graph = samna.graph.EventFilterGraph()

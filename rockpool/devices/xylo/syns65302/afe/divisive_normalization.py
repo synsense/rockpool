@@ -1,8 +1,8 @@
 """ 
 This module implements the divisive normalization (DN) algorithm to balance the spike rate.
 
-NOTE: In the previous version Xylo-A2, DN module was after the spike generation because spikes were produced asynchronously within the analog part (analog filter + leaky IF spike generator).
-In the current version Xylo-A3 since the output of the filters (here digital filters) is directly available, one does not need to do (i) spike generation followed by (ii) DN on the generated spikes.
+NOTE: In the previous version XyloAudio 2, DN module was after the spike generation because spikes were produced asynchronously within the analog part (analog filter + leaky IF spike generator).
+In the current version XyloAudio 3 since the output of the filters (here digital filters) is directly available, one does not need to do (i) spike generation followed by (ii) DN on the generated spikes.
 Instead, we merge these two so that DN is applied directly to the filter output to normalize its power, which yields a better performance than DN applied to spikes.
 
 NOTE: There is of course an option to NOT apply DN where in that case, spikes are produced using ordinary IAF with given/fixed thresholds rather than adaptive ones computed and used in DN.
@@ -41,7 +41,7 @@ __all__ = ["DivisiveNormalization", "jax_spike_gen", "fjax_spike_gen", "py_spike
 
 class DivisiveNormalization(Module):
     """
-    This class implements a divisive normalisation module for Xylo-A3.
+    This class implements a divisive normalisation module for XyloAudio 3.
     """
 
     def __init__(
@@ -60,7 +60,7 @@ class DivisiveNormalization(Module):
 
         Args:
             fs (float): sampling frequency of the input audio in Hz (e.g., 48.8 or 50K).
-            shape (int): number of channels (here filters) in the divisive normalization module. Defaults to NUM_FILTERS (16 in Xylo-A3).
+            shape (int): number of channels (here filters) in the divisive normalization module. Defaults to NUM_FILTERS (16 in XyloAudio 3).
             enable_DN_channel (bool): if True, divisive normalization is applied to the channel. Defaults to True.
             spike_rate_scale_bitshift1 ( int ): how much the spike rate should be scaled compared with the sampling rate of the input audio. Defaults to 6.
             spike_rate_scale_bitshift2 ( int ): how much the spike rate should be scaled compared with the sampling rate of the input audio. Defaults to 0.
@@ -183,7 +183,7 @@ class DivisiveNormalization(Module):
             ## use jax version:
             # we have int32 and float32 version:
             #       - former matches the python version exactly but may have over- and under-flow issues due to int32 limitation in jax.
-            #       - latter may have deviation from python version, e.g., spike times may be shifted slightly, which would be fine for applications in Xylo-A3.
+            #       - latter may have deviation from python version, e.g., spike times may be shifted slightly, which would be fine for applications in XyloAudio 3.
 
             # check if int32 version is ok
 
@@ -203,7 +203,7 @@ class DivisiveNormalization(Module):
                 info(
                     "Jax float32 was chosen for spike generation.\n\n"
                     + f"NOTE #1: Since Jax has only 32 bit for integer simulation, it could not simulate the current divisive normalization setting. More specifically, the amplitude of the low-pass filter can go up to {max_low_pass_value} in channel {max_low_pass_channel}. This cannot be simulated with 32-bit integer format.\n\n"
-                    + "NOTE #2: Jax float32 should be sufficiently good for Xylo-A3 simulation but it has the issues that the generated spikes may have some jitter compared with the exact integer version obtained from the Xylo-A3 chip. However, the average rate of spikes even over very small time intervals should be the same as exact integer version. This jitter simply implies that spikes should not be compared with MSE distance, for example, because jitter may yield a very large distance, whereas the spikes are indeed quite similar.\n"
+                    + "NOTE #2: Jax float32 should be sufficiently good for XyloAudio 3 simulation but it has the issues that the generated spikes may have some jitter compared with the exact integer version obtained from the XyloAudio 3 chip. However, the average rate of spikes even over very small time intervals should be the same as exact integer version. This jitter simply implies that spikes should not be compared with MSE distance, for example, because jitter may yield a very large distance, whereas the spikes are indeed quite similar.\n"
                     + "Other metrics such as Wasserstein metric should be good in this case."
                 )
 
@@ -549,7 +549,7 @@ try:
 
         return spikes, recording
 
-    # NOTE: this function implements the floating point 32-bit version of spike generation. It may have slight imprecision but should work well for all usecases in Xylo-A3.
+    # NOTE: this function implements the floating point 32-bit version of spike generation. It may have slight imprecision but should work well for all usecases in XyloAudio 3.
     def fjax_spike_gen(
         sig_in: np.ndarray,
         mode_vec: np.ndarray,
