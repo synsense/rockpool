@@ -58,15 +58,6 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    tutorials/synnet/synnet_architecture.ipynb
 
 .. toctree::
-   :hidden:
-
-   tutorials/deneve_reservoirs.ipynb
-   tutorials/network_ads_tutorial.ipynb
-   tutorials/pytorch_lightning_mlflow.ipynb
-   tutorials/pytorch_lightning_mlflow_spiking_MNIST.ipynb
-
-
-.. toctree::
    :maxdepth: 1
    :caption: Xylo™ inference processors
 
@@ -76,7 +67,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
 
 .. toctree::
    :maxdepth: 1
-   :caption: Xylo™ Audio
+   :caption: Xylo™Audio
 
    devices/quick-xylo/xylo-audio-2-intro.ipynb
    devices/analog-frontend-example.ipynb
@@ -91,14 +82,8 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    devices/xylo-a3/afesim_pdm.ipynb
 
 .. toctree::
-   :hidden:
-
-   devices/xylo-a3/Xylo_A3.ipynb
-   devices/xylo-a3/Xylo_A3_agc.ipynb
-
-.. toctree::
    :maxdepth: 1
-   :caption: Xylo™ IMU
+   :caption: Xylo™IMU
 
    devices/xylo-imu/xylo-imu-intro.ipynb
    devices/xylo-imu/imu-if.ipynb
@@ -124,11 +109,6 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    reference/lif-benchmarks.ipynb
    reference/api
    advanced/CHANGELOG
-
-.. toctree::
-   :hidden:
-
-   advanced/QuantTorch.ipynb
 
 .. toctree::
    :maxdepth: 1
