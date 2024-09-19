@@ -14,7 +14,7 @@ from ..syns63300 import XyloSim
 
 try:
     from .xylo_samna import *
-    from .xylo_a3_devkit_utils import *
+    from .xa3_devkit_utils import *
     from .xylo_monitor import *
 except:
     if not backend_available("samna"):

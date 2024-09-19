@@ -8,7 +8,7 @@ def test_imports():
         XyloSamna,
         config_from_specification,
     )
-    import rockpool.devices.xylo.syns65302.xylo_a3_devkit_utils as putils
+    import rockpool.devices.xylo.syns65302.xa3_devkit_utils as putils
 
 
 def test_XyloSamna():
@@ -17,7 +17,7 @@ def test_XyloSamna():
     pytest.importorskip("samna")
 
     from rockpool.devices.xylo.syns65302 import XyloSamna, config_from_specification
-    import rockpool.devices.xylo.syns65302.xylo_a3_devkit_utils as putils
+    import rockpool.devices.xylo.syns65302.xa3_devkit_utils as putils
     from rockpool import TSEvent, TSContinuous
 
     import numpy as np
@@ -162,7 +162,7 @@ def test_xylo_vs_xylosim():
     # - Samna imports
     import samna
 
-    from rockpool.devices.xylo.syns65302 import xylo_a3_devkit_utils as putils
+    from rockpool.devices.xylo.syns65302 import xa3_devkit_utils as putils
     import rockpool.devices.xylo.syns65302 as x
 
     import numpy as np

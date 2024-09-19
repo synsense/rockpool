@@ -5,7 +5,7 @@ def test_XyloMonitor():
     pytest.importorskip("xylosim")
 
     from rockpool.devices.xylo.syns65302 import XyloMonitor, config_from_specification
-    import rockpool.devices.xylo.syns65302.xylo_a3_devkit_utils as putils
+    import rockpool.devices.xylo.syns65302.xa3_devkit_utils as putils
     import numpy as np
     import samna
 

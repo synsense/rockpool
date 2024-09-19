@@ -15,7 +15,7 @@ from samna.xyloAudio3.configuration import XyloConfiguration
 
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
-from . import xylo_a3_devkit_utils as hdkutils
+from . import xa3_devkit_utils as hdkutils
 
 XyloAudio3HDK = samna.xyloAudio3.XyloAudio3TestBoard
 

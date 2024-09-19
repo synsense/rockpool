@@ -8,7 +8,7 @@ def test_imports():
         XyloSamna,
         config_from_specification,
     )
-    import rockpool.devices.xylo.syns65302.xylo_a3_devkit_utils as putils
+    import rockpool.devices.xylo.syns65302.xa3_devkit_utils as putils
 
 
 def test_xylosamna_pdm():
@@ -21,7 +21,7 @@ def test_xylosamna_pdm():
         config_from_specification,
         mapper,
     )
-    import rockpool.devices.xylo.syns65302.xylo_a3_devkit_utils as putils
+    import rockpool.devices.xylo.syns65302.xa3_devkit_utils as putils
     from rockpool import TSEvent, TSContinuous
     from rockpool.nn.combinators import Sequential
     from rockpool.nn.modules import LIF, Linear
