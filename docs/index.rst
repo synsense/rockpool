@@ -59,7 +59,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
 
 .. toctree::
    :hidden:
-   tutorials/building_reservoir.ipynb
+
    tutorials/deneve_reservoirs.ipynb
    tutorials/network_ads_tutorial.ipynb
    tutorials/pytorch_lightning_mlflow.ipynb
@@ -89,6 +89,10 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    devices/xylo-a3/afesim.ipynb
    devices/xylo-a3/afesim_agc.ipynb
    devices/xylo-a3/afesim_pdm.ipynb
+
+.. toctree::
+   :hidden:
+
    devices/xylo-a3/Xylo_A3.ipynb
    devices/xylo-a3/Xylo_A3_agc.ipynb
 
@@ -120,6 +124,11 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    reference/lif-benchmarks.ipynb
    reference/api
    advanced/CHANGELOG
+
+.. toctree::
+   :hidden:
+
+   advanced/QuantTorch.ipynb
 
 .. toctree::
    :maxdepth: 1
