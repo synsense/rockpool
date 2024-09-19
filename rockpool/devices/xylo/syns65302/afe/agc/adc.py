@@ -252,7 +252,7 @@ class ADC(Module):
     ) -> None:
         """
         Args:
-            num_bits (int, optional): number of bits in ADC. Defaults to 10 in current Xylo-A3 hardware.
+            num_bits (int, optional): number of bits in ADC. Defaults to 10 in current XyloAudio 3 hardware.
             max_audio_amplitude (float, optional): maximum audio amplitude that can be handled within the chip. Defaults to XYLO_MAX_AMP.
             oversampling_factor (int, optional): oversampling factor of the high-rate ADC used in the implementation of ADC. Defaults to 1.
             fs (float, optional): target sampling rate of the equivalent ADC (sampling rate of the audio). Defaults to AUDIO_SAMPLING_RATE_AGC.

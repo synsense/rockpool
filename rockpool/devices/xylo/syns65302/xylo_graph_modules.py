@@ -1,5 +1,5 @@
 """
-Xylo A3 graph modules for use with tracing and mapping
+XyloAudio 3 graph modules for use with tracing and mapping
 """
 import warnings
 
@@ -121,7 +121,7 @@ class XyloA3Neurons(GenericNeurons):
 @dataclass(eq=False, repr=False)
 class XyloA3HiddenNeurons(XyloA3Neurons):
     """
-    A :py:class:`.graph.GraphModule` encapsulating Xylo A3 hidden neurons
+    A :py:class:`.graph.GraphModule` encapsulating XyloAudio 3 hidden neurons
     """
 
     def __post_init__(self, *args, **kwargs):
@@ -137,7 +137,7 @@ class XyloA3HiddenNeurons(XyloA3Neurons):
 @dataclass(eq=False, repr=False)
 class XyloA3OutputNeurons(XyloA3Neurons):
     """
-    A :py:class:`.graph.GraphModule` encapsulating Xylo A3 output neurons
+    A :py:class:`.graph.GraphModule` encapsulating XyloAudio 3 output neurons
     """
 
     def __post_init__(self, *args, **kwargs):

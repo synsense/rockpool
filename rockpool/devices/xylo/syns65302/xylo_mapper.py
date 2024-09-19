@@ -1,5 +1,5 @@
 """
-Mapper package for Xylo A3 core
+Mapper package for XyloAudio 3 core
 
 - Create a graph using the :py:meth:`~.graph.GraphModule.as_graph` API
 - Call :py:func:`.mapper`
@@ -55,7 +55,7 @@ def le_16_output_channels(graph: GraphModuleBase) -> None:
     if len(graph.output_nodes) > 16:
         warnings.warn(
             DRCWarning(
-                f"Xylo-A3 only supports up to 16 output channels. The network requires {len(graph.output_nodes)} output channels."
+                f"XyloAudio 3 only supports up to 16 output channels. The network requires {len(graph.output_nodes)} output channels."
             ),
             DRCWarning,
         )
@@ -97,9 +97,9 @@ def mapper(
     max_output_neurons: int = 32,
 ) -> dict:
     """
-    Map a computational graph onto the Xylo A3 architecture
+    Map a computational graph onto the XyloAudio 3 architecture
 
-    This function performs a DRC of the computational graph to ensure it can be mapped onto the Xylo A3 architecture.
+    This function performs a DRC of the computational graph to ensure it can be mapped onto the XyloAudio 3 architecture.
 
     Warnings:
         :py:func:`mapper` operates **in-place** on the graph, and may modify it. If you need the un-mapped graph, you may need to call :py:meth:`.Module.as_graph` again on your :py:class:`.Module`.
@@ -111,11 +111,11 @@ def mapper(
         weight_dtype (Union[np.dtype, str]): Data type for mapped weight parameters. Default: ``"int8"``
         threshold_dtype (Union[np.dtype, str]): Data type for mapped threshold parameters. Default: ``"int16"``
         dash_dtype (Union[np.dtype, str]): Data type for mapped dash (bitshift time constant) parameters. Default: ``"uint8"``
-        max_hidden_neurons (int): Maximum number of available hidden neurons. Default: ``992``, matching Xylo A3 hardware
-        max_output_neurons (int): Maximum number of available output neurons. Default: ``32``, matching Xylo A3 hardware
+        max_hidden_neurons (int): Maximum number of available hidden neurons. Default: ``992``, matching XyloAudio 3 hardware
+        max_output_neurons (int): Maximum number of available output neurons. Default: ``32``, matching XyloAudio 3 hardware
 
     Returns:
-        dict: A dictionary of specifications for Xylo A3, containing the mapped computational graph
+        dict: A dictionary of specifications for XyloAudio 3, containing the mapped computational graph
     """
     # - Check design rules
     check_drc(graph, xylo_drc)

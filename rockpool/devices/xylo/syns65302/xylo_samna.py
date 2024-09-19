@@ -102,7 +102,7 @@ def config_from_specification(
     # - Check number of input synapses
     if Nsyn > 2:
         raise ValueError(
-            f"Max of 2 input synapses are supported on Xylo A3. Found {Nsyn}."
+            f"Max of 2 input synapses are supported on XyloAudio 3. Found {Nsyn}."
         )
 
     # - Check input and hidden weight sizes
@@ -301,7 +301,7 @@ class XyloSamna(Module):
     Use :py:func:`.config_from_specification` to build and validate a configuration for Xylo.
     """
 
-    # TODO: Update similar tutorial for XyloA3 and add to the description of the class
+    # TODO: Update similar tutorial for XyloAudio 3 and add to the description of the class
     # See Also:
     #     See the tutorials :ref:`/devices/xylo-imu/xylo-imu-intro.ipynb` and :ref:`/devices/torch-training-spiking-for-xylo.ipynb` for a high-level overview of building and deploying networks for Xylo.
 
@@ -316,10 +316,10 @@ class XyloSamna(Module):
         **kwargs,
     ):
         """
-        Instantiate a Module with Xylo Audio 3 dev-kit backend
+        Instantiate a Module with XyloAudio 3 dev-kit backend
 
         Args:
-            device (XyloAudio3HDK): An opened `samna` device to a Xylo Audio 3 dev kit
+            device (XyloAudio3HDK): An opened `samna` device to a XyloAudio 3 dev kit
             config (XyloConfiguration): A Xylo configuration from `samna`
             dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
@@ -436,7 +436,7 @@ class XyloSamna(Module):
         **kwargs,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
-        Evolve a network on the Xylo Audio 3 HDK in single-step manual mode. For debug purposes only. Uses 'samna.xylo.OperationMode.Manual' in samna.
+        Evolve a network on the XyloAudio 3 HDK in single-step manual mode. For debug purposes only. Uses 'samna.xylo.OperationMode.Manual' in samna.
 
         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
 

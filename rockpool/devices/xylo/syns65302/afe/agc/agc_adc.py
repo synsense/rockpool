@@ -1,5 +1,5 @@
 """
-This file implements the analog input path for Xylo-A3, which starts from an analog microphone and consists of several preprocessing modules.
+This file implements the analog input path for XyloAudio 3, which starts from an analog microphone and consists of several preprocessing modules.
 
     - `PGA (programmable gain amplifier)`: This gain of the amplifier can be controlled by the 4-bit command sent from `envelope controller` module. 
         So using PGA we can have one of the following gains $g_1, g_2, \dots, g_{16}$. In our design, we set $g_1=1$ and $g_{16}=64$ giving a total maximum gain of 36 dB. 
@@ -50,7 +50,7 @@ __all__ = ["AGCADC"]
 
 class AGCADC(Module):
     """
-    Automatic Gain Controller Analog-to-Digital (ADC) module for Xylo-A3 chip consisting of
+    Automatic Gain Controller Analog-to-Digital (ADC) module for XyloAudio 3 chip consisting of
 
         (i)   Programmable gain amplifier (PGA), used for signal amplification.
         (ii)  ADC module, used for quantizing the PGA output.
@@ -205,7 +205,7 @@ class AGCADC(Module):
         self, audio_in: Tuple[np.ndarray, float], record: bool = False
     ) -> Tuple[np.ndarray, Dict, Dict]:
         """
-        Takes a input audio signal and simulates the behavior of the analog input path of Xylo-A3 chip.
+        Takes a input audio signal and simulates the behavior of the analog input path of XyloAudio 3 chip.
 
         Args:
             audio_in (Tuple[np.ndarray, float]): A tuple containing the input audio signal and its sampling rate.

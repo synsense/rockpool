@@ -80,7 +80,7 @@ class XyloSamnaPDM(Module):
 
         if snn_config.input_source is samna.xyloAudio3.InputSource.Adc:
             raise ValueError(
-                "Analog configuration is not available yet for Xylo A3. Please change your input source to PDM or SAER."
+                "Analog configuration is not available yet for XyloAudio 3. Please change your input source to PDM or SAER."
             )
 
         # if pdm_config is None:
@@ -186,7 +186,7 @@ class XyloSamnaPDM(Module):
         **kwargs,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
-        Evolve a network on the Xylo Audio 3 HDK in either single-step manual mode or accelerated time mode.
+        Evolve a network on the XyloAudio 3 HDK in either single-step manual mode or accelerated time mode.
         For debug purposes only. Uses 'samna.xylo.OperationMode.Manual' or 'samna.xylo.OperationMode.AcceleratedTime' in samna.
 
         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.

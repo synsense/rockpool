@@ -49,7 +49,7 @@ class RiskyInitializationError(Exception):
 
 class AFESim(ModSequential):
     """
-    A :py:class:`.ModSequential` that simulates the audio signal preprocessing on Xylo A3 chip.
+    A :py:class:`.ModSequential` that simulates the audio signal preprocessing on XyloAudio 3 chip.
 
 
     See Also:

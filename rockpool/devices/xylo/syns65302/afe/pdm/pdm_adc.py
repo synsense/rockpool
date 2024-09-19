@@ -32,7 +32,7 @@ __all__ = ["PDMADC"]
 
 class PDMADC(ModSequential):
     """
-    Pulse-density modulatio Analog-to-Digital (ADC) module for Xylo-A3 chip consisting of
+    Pulse-density modulatio Analog-to-Digital (ADC) module for XyloAudio 3 chip consisting of
         (i)  PDM microphone converting the input analog audio signal into PDM bit-stream.
         (ii) low-pass filtering and decimation module converting the binary PDM stream into the target sampled audio signal.
     """

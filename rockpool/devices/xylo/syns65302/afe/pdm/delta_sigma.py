@@ -32,9 +32,9 @@ class DeltaSigma:
 
         Args:
             amplitude (float, optional): maximum amplitude of the input signal. Defaults to 1.0 to obtain +1, -1 as the output.
-            bandwidth (float, optional): target bandwidth of the input signal. Defaults to AUDIO_CUTOFF_FREQUENCY = 20K in Xylo-A3.
-            order (int, optional): order of deltasigma module. Defaults to DELTA_SIGMA_ORDER = 4 in Xylo-A3.
-            fs (float, optional): sampling rate of deltasigma module. Defaults to PDM_SAMPLING_RATE = 1.6 M in Xylo-A3.
+            bandwidth (float, optional): target bandwidth of the input signal. Defaults to AUDIO_CUTOFF_FREQUENCY = 20K in XyloAudio 3.
+            order (int, optional): order of deltasigma module. Defaults to DELTA_SIGMA_ORDER = 4 in XyloAudio 3.
+            fs (float, optional): sampling rate of deltasigma module. Defaults to PDM_SAMPLING_RATE = 1.6 M in XyloAudio 3.
         """
         self.amplitude = amplitude
         self.bandwidth = bandwidth

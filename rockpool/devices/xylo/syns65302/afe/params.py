@@ -1,5 +1,5 @@
 """
-Design parameters for Xylo-A3 Audio Frontend.
+Design parameters for XyloAudio 3 Audio Frontend.
 
 NOTE: Refer to the following documentation file for further details on the design
 https://spinystellate.office.synsense.ai/saeid.haghighatshoar/agc-for-xylo-v3/blob/master/README.md
@@ -240,7 +240,7 @@ NOTE (2): we are always using an ascending sequence for PGA gain and also amplit
 
 MAX_WAITING_BITWIDTH = 24
 """
-* what is the largest waiting time length covered by the Xylo-A3 -> how many bits suffice?
+* what is the largest waiting time length covered by the XyloAudio 3 -> how many bits suffice?
 NOTE: with a clock rate of 50K, and unsigned format for waiting times, this allows delaying PGA gain adjustment by 2^24/50K = 320 second
 this would be more than enough for all AGC applications in conventional audio and perhaps other closely-related applications
 """

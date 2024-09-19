@@ -87,7 +87,7 @@ def find_xylo_hdks() -> Tuple[List["XyloHDK"], List[ModuleType], List[str]]:
             #     )
 
             print(
-                "The connected Xylo HDK contains a Xylo A3. Importing `rockpool.devices.xylo.syns65302`"
+                "The connected Xylo HDK contains a XyloAudio 3. Importing `rockpool.devices.xylo.syns65302`"
             )
             import rockpool.devices.xylo.syns65302 as a3
 

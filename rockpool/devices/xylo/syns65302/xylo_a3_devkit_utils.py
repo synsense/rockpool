@@ -1,5 +1,5 @@
 """
-Low-level device kit utilities for the Xylo Audio 3 HDK
+Low-level device kit utilities for the XyloAudio 3 HDK
 """
 
 import samna
@@ -64,12 +64,12 @@ class XyloState(NamedTuple):
 
 def find_xylo_a3_boards() -> List[XyloAudio3HDK]:
     """
-    Search for and return a list of Xylo A3 HDKs
+    Search for and return a list of XyloAudio 3 HDKs
 
-    Iterate over devices and search for Xylo A3 HDK nodes. Return a list of available A3 HDKs, or an empty list if none are found.
+    Iterate over devices and search for XyloAudio 3 HDK nodes. Return a list of available XyloAudio 3 HDKs, or an empty list if none are found.
 
     Returns:
-        List[XyloAudio3HDK]: A (possibly empty) list of Xylo A3 HDK nodes.
+        List[XyloAudio3HDK]: A (possibly empty) list of XyloAudio 3 HDK nodes.
     """
 
     # - Get a list of devices
@@ -232,7 +232,7 @@ def get_current_timestep(
     while continue_read:
         readout_events = read_buffer.get_n_events(1, 3000)
 
-        # TODO: how to access Spike events for XyloA3 instead of ReadoutEvents
+        # TODO: how to access Spike events for XyloAudio 3 instead of ReadoutEvents
         # the condition for getting the timestep was defined previously on the filtered list
         # ev_filt = [
         #     e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Spike)
@@ -319,7 +319,7 @@ def configure_single_step_time_mode(
     config: XyloConfiguration,
 ) -> XyloConfiguration:
     """
-    Switch on single-step mode on a Xylo Audio 3 HDK
+    Switch on single-step mode on a XyloAudio 3 HDK
 
     Args:
         config (XyloConfiguration): The desired Xylo configuration to use
@@ -331,7 +331,7 @@ def configure_single_step_time_mode(
 
 def reset_input_spikes(write_buffer: XyloAudio3WriteBuffer) -> None:
     """
-    Reset the input spike registers on a Xylo A3 HDK
+    Reset the input spike registers on a XyloAudio 3 HDK
 
     Args:
         write_buffer (XyloAudio3WriteBuffer): A write buffer connected to the Xylo HDK to access
@@ -345,7 +345,7 @@ def send_immediate_input_spikes(
     spike_counts: Iterable[int],
 ) -> None:
     """
-    Send a list of immediate input events to a Xylo A3 HDK in manual mode
+    Send a list of immediate input events to a XyloAudio 3 HDK in manual mode
 
     Args:
         write_buffer (XyloAudio3WriteBuffer): A write buffer connected to the Xylo HDK to access
@@ -503,10 +503,10 @@ def write_register(
     write_buffer: XyloAudio3WriteBuffer, register: int, data: int = 0
 ) -> None:
     """
-    Write data to a register on a Xylo A3 HDK
+    Write data to a register on a XyloAudio 3 HDK
 
     Args:
-        write_buffer (XyloAudio3WriteBuffer): A connected write buffer to the destination Xylo A3 HDK
+        write_buffer (XyloAudio3WriteBuffer): A connected write buffer to the destination XyloAudio 3 HDK
         register (int): The address of the register to write to
         data (int): The data to write. Default: 0x0
     """
@@ -521,12 +521,12 @@ def write_memory(
     data: Union[List[int], int] = 0,
 ) -> None:
     """
-    Write data to memory on a Xylo A3 HDK
+    Write data to memory on a XyloAudio 3 HDK
 
-    This function will write a list of data to sequential locations in the Xylo A3 memory
+    This function will write a list of data to sequential locations in the XyloAudio 3 memory
 
     Args:
-        write_buffer (XyloAudio3WriteBuffer): A connected write buffer to the target Xylo A3 HDK
+        write_buffer (XyloAudio3WriteBuffer): A connected write buffer to the target XyloAudio 3 HDK
         start_address (int): The start memory address to write to
         data (Union[List[int], int]): A list of integers, or single integer, to write to memory
     """

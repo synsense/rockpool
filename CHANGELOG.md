@@ -6,8 +6,8 @@ All notable changes between Rockpool releases will be documented in this file
 
 ### Added
 * Tutorial and documentation for the ``SynNet`` architecture, to improve visibility
-* Power measurement for XyloA3
-* Support for digital microphone. Analog microphone is not supported yet.
+* Power measurement for XyloAudio 3
+* Support for digital microphone in XyloAudio 3. Analog microphone is not supported yet.
 
 ### Changed
 * Update ``release notes`` for developers in documentation

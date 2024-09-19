@@ -13,7 +13,7 @@ class AudioQuantizer(Module):
     """
     The quantizer that converts the input signal into integer representation in hardware implementation.
     This module quantizes the input signals into an integer with defined number of bits precision.
-    In XyloA3, the audio signal is quantized to 14-bit by default.
+    In XyloAudio 3, the audio signal is quantized to 14-bit by default.
     """
 
     def __init__(
