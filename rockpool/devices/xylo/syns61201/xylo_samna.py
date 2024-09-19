@@ -332,7 +332,7 @@ class XyloSamna(Module):
     See Also:
 
         See the tutorials :ref:`/devices/xylo-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-xylo.ipynb` for a high-level overview of building and deploying networks for Xylo.
-        See the tutorial :ref:`/devices/quick-xylo/xylo-audio-2-intro.ipynb` for information specific to the Xylo™ Audio 2 dev kit, including power measurement.
+        See the tutorial :ref:`/devices/quick-xylo/xylo-audio-intro.ipynb` for information specific to the Xylo™Audio dev kits, including power measurement.
 
     Note:
 
