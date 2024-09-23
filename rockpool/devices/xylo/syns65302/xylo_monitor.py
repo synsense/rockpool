@@ -63,7 +63,7 @@ class XyloMonitor(Module):
         **kwargs,
     ):
         """
-        Instantiate a Module with Xylo Audio3 dev-kit backend.
+        Instantiate a Module with XyloAudio 3 dev-kit backend.
 
         Args:
             device (XyloAudio3HDK): An opened `samna` device to a XyloAudio 3 dev kit
@@ -74,7 +74,7 @@ class XyloMonitor(Module):
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
             power_frequency (float): The frequency of power measurement, in Hz. Default: 5.0
             dn_active (bool): If True, divisive normalization will be used. Defaults to True.
-            digital_microphone (bool): If True, configure Xylo Audio3 to use the digital microphone, otherwise, analog microphone. Defaults to True.
+            digital_microphone (bool): If True, configure XyloAudio 3 to use the digital microphone, otherwise, analog microphone. Defaults to True.
 
         Raises:
             `ValueError`: If ``device`` is not set. ``device`` must be a ``XyloAudio3HDK``.
