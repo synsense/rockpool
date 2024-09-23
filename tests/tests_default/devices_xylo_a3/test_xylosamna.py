@@ -21,12 +21,13 @@ def test_XyloSamna():
     from rockpool import TSEvent, TSContinuous
 
     import numpy as np
+    import samna
 
     # - Get a Xylo HDK board
     xylo_hdk_nodes = putils.find_xylo_a3_boards()
 
     if len(xylo_hdk_nodes) == 0:
-        pytest.skip("A connected Xylo Audio3 HDK is required to run this test")
+        pytest.skip("A connected XyloAudio 3 HDK is required to run this test")
 
     daughterboard = xylo_hdk_nodes[0]
 
@@ -52,6 +53,9 @@ def test_XyloSamna():
         aliases=None,
     )
 
+    config.input_source = samna.xyloAudio3.InputSource.Saer
+    config.operation_mode = samna.xyloAudio3.OperationMode.AcceleratedTime
+
     # - Make a XyloSamna module
     modXyloSamna = XyloSamna(
         device=daughterboard, config=config, dt=dt, output_mode="Vmem"
@@ -61,19 +65,19 @@ def test_XyloSamna():
     T = 100
     f = 0.4
     input_spikes = np.random.rand(T, Nin) < f
-    output_ts, _, _ = modXyloSamna(input_spikes)
+    output_ts, _, _ = modXyloSamna(input_spikes, record=True)
     print(output_ts)
 
     # - Make a XyloSamna module
     modXyloSamna = XyloSamna(
         device=daughterboard, config=config, dt=dt, output_mode="Isyn"
     )
-    output_ts, _, _ = modXyloSamna(input_spikes)
+    output_ts, _, _ = modXyloSamna(input_spikes, record=True)
     print(output_ts)
 
     # - Make a XyloSamna module
     modXyloSamna = XyloSamna(device=daughterboard, config=config, dt=dt)
-    output_ts, _, _ = modXyloSamna(input_spikes)
+    output_ts, _, _ = modXyloSamna(input_spikes, record=True)
     print(output_ts)
 
 
@@ -154,6 +158,7 @@ def test_save_load():
 
 
 def test_xylo_vs_xylosim():
+    # TODO - Add a test for acceleratedtime
     import pytest
 
     pytest.importorskip("samna")
@@ -189,6 +194,8 @@ def test_xylo_vs_xylosim():
         aliases=None,
     )
 
+    config.input_source = samna.xyloAudio3.InputSource.Saer
+
     # - Create XyloSim object
     mod_xylo_sim_vmem = x.XyloSim.from_config(config, output_mode="Vmem", dt=1.0 / 200)
     mod_xylo_sim_isyn = x.XyloSim.from_config(config, output_mode="Isyn", dt=1.0 / 200)
@@ -210,7 +217,7 @@ def test_xylo_vs_xylosim():
     xylo_hdk_nodes = putils.find_xylo_a3_boards()
 
     if len(xylo_hdk_nodes) == 0:
-        pytest.skip("A connected Xylo Audio3 HDK is required to run this test")
+        pytest.skip("A connected XyloAudio 3 HDK is required to run this test")
 
     daughterboard = xylo_hdk_nodes[0]
 
@@ -219,7 +226,7 @@ def test_xylo_vs_xylosim():
 
     # - Evolve Xylo
     mod_xylo_spike.reset_state()
-    out_xylo, _, rec_xylo = mod_xylo_spike.evolve(input_raster, record=True)
+    out_xylo, _, rec_xylo = mod_xylo_spike._evolve_manual(input_raster, record=True)
 
     # - Assert equality for all outputs and recordings
     assert np.all(out_sim == out_xylo)

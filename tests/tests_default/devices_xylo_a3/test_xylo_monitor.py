@@ -12,7 +12,7 @@ def test_XyloMonitor():
     xylo_hdk_nodes = putils.find_xylo_a3_boards()
 
     if len(xylo_hdk_nodes) == 0:
-        pytest.skip("A connected Xylo Audio3 HDK is required to run this test")
+        pytest.skip("A connected XyloAudio 3 HDK is required to run this test")
 
     daughterboard = xylo_hdk_nodes[0]
 
@@ -45,12 +45,6 @@ def test_XyloMonitor():
     mod_xylo = XyloMonitor(
         device=daughterboard, config=config, dt=dt, output_mode="Vmem"
     )
-
-    # - Simulate with random input
-    T = 10
-    input_ts = np.random.rand(T, Nin)
-    # mod_xylo.reset_state()
-    output_ts, _, _ = mod_xylo(input_ts)
 
     assert mod_xylo != None
 

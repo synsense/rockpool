@@ -35,7 +35,7 @@ def test_xylosamna_pdm():
     xylo_hdk_nodes = putils.find_xylo_a3_boards()
 
     if len(xylo_hdk_nodes) == 0:
-        pytest.skip("A connected Xylo Audio3 HDK is required to run this test")
+        pytest.skip("A connected XyloAudio 3 HDK is required to run this test")
 
     daughterboard = xylo_hdk_nodes[0]
 
