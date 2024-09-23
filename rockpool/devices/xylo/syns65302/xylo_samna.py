@@ -1,5 +1,5 @@
 """
-Utilities for producing a samna HW configuration for Xylo Audio3 devices
+Utilities for producing a samna HW configuration for XyloAudio 3 devices
 """
 
 import numpy as np
@@ -510,7 +510,7 @@ class XyloSamna(Module):
 
         # - Generate input events
         for timestep, channel, count in zip(spikes[:, 0], spikes[:, 1], counts):
-            for _ in range(count):
+            for _ in range(int(count)):
                 event = samna.xyloAudio3.event.Spike(
                     neuron_id=channel, timestep=start_timestep + timestep
                 )
@@ -548,7 +548,7 @@ class XyloSamna(Module):
 
         if len(readout_events) < timestep_count:
             message = f"Processing didn't finish for {read_timeout}s. Read {len(read_events)} events."
-            if read_events > 0:
+            if len(readout_events) > 0:
                 message += f" First timestep: {readout_events[0].timestep}, final timestep: {readout_events[-1].timestep}, target timestep: {final_timestep}"
             raise TimeoutError(message)
 
