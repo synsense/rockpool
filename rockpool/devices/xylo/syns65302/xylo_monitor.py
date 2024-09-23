@@ -170,9 +170,6 @@ class XyloMonitor(Module):
         # - Store the io module
         self._io = self._device.get_io_module()
 
-        # - Configure to real time mode
-        self._enable_realtime_mode()
-
         # - Store the configuration (and apply it)
         hdkutils.apply_configuration(device, self._config)
         hdkutils.enable_real_time_mode(device)
@@ -220,18 +217,6 @@ class XyloMonitor(Module):
         main_clk_freq = main_clk_freq_in_mhz * 1e6  # in Hz
         tr_wrap = int(ts_duration * main_clk_freq)
         return tr_wrap
-
-    def _enable_realtime_mode(self):
-        """
-        Configure the Xylo HDK to use real-time mode.
-
-        Args:
-            interface_params (dict): specify the interface parameters
-        """
-        # - No monitoring of internal state in realtime mode
-        self._config.debug.monitor_neuron_v_mem = {}
-        self._config.debug.monitor_neuron_i_syn = {}
-        self._config.debug.monitor_neuron_spike = {}
 
     def __del__(self):
         """
