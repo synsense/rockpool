@@ -349,7 +349,7 @@ class XyloSamna(Module):
             config = samna.xyloAudio3.configuration.XyloConfiguration()
 
         if config.input_source != samna.xyloAudio3.InputSource.Saer:
-            raise Warning(
+            warn(
                 "XyloSamna is intended to be used with direct input to the SNN core. Updating config.input_source to SAER"
             )
         # - Set input source to SAER
