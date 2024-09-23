@@ -23,7 +23,6 @@ XyloAudio3WriteBuffer = samna.BasicSourceNode_xylo_audio3_event_input_event
 ReadoutEvent = samna.xyloAudio3.event.Readout
 SpikeEvent = samna.xyloAudio3.event.Spike
 XyloAudio3HDK = samna.xyloAudio3.XyloAudio3TestBoard
-# Xylo2NeuronStateBuffer = samna.xyloCore2.NeuronStateSinkNode
 
 
 class XyloState(NamedTuple):
@@ -477,27 +476,6 @@ def read_register(
     assert len(events) == 1
     return [events[0].data]
 
-    # # - Wait for data and read it
-    # start_t = time.time()
-    # continue_read = True
-    # while continue_read:
-    #     # - Read from the buffer
-    #     events = read_buffer.get_events()
-
-    #     # - Filter returned events for the desired address
-    #     ev_filt = [e for e in events if hasattr(e, "address") and e.address == address]
-
-    #     # - Should we continue the read?
-    #     continue_read &= len(ev_filt) == 0
-    #     continue_read &= (time.time() - start_t) < timeout
-
-    # # - If we didn't get the required register read, raise an error
-    # if len(ev_filt) == 0:
-    #     raise TimeoutError(f"Timeout after {timeout}s when reading register {address}.")
-
-    # # - Return data
-    # return [e.data for e in ev_filt]
-
 
 def decode_accel_mode_data(
     readout_events: List[ReadoutEvent],
@@ -754,7 +732,7 @@ def decode_realtime_mode_data(
     Read realtime simulation mode data from a Xylo HDK
 
     Args:
-        readout_events (List[ReadoutEvent]): A list of `ReadoutEvent`s recorded from Xylo Audio3
+        readout_events (List[ReadoutEvent]): A list of `ReadoutEvent`s recorded from XyloAudio 3
         Nout (int): The number of output neurons to monitor
         T_start (int): Initial timestep
         T_end (int): Final timestep
