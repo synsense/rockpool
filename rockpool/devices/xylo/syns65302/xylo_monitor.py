@@ -183,6 +183,8 @@ class XyloMonitor(Module):
         self._evolve = False
         """ Track if evolve function was called """
 
+        self._power_frequency = power_frequency
+
         # - Set power measurement module
         self._power_buf, self._power_monitor = hdkutils.set_power_measure(
             self._device, power_frequency
@@ -285,6 +287,7 @@ class XyloMonitor(Module):
 
         # - Clear the power buffer, if recording power
         if record_power:
+            self._power_monitor.start_auto_power_measurement(self._power_frequency)
             self._power_buf.clear_events()
 
         while timestep < target_timestep - 1:
@@ -326,5 +329,5 @@ class XyloMonitor(Module):
                     "digital_power": digital_power,
                 }
             )
-
+        self._power_monitor.stop_auto_power_measurement()
         return output_events, {}, rec_dict
