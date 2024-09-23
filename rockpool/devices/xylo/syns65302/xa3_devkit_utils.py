@@ -499,6 +499,72 @@ def read_register(
     # return [e.data for e in ev_filt]
 
 
+def decode_accel_mode_data(
+    readout_events: List[ReadoutEvent],
+    Nin: int,
+    Nhidden_monitor: int,
+    Nout_monitor: int,
+    Nout: int,
+    T_start: int,
+    T_end: int,
+) -> XyloState:
+    """
+    Read accelerated simulation mode data from a Xylo HDK
+
+    Args:
+        readout_events (List[ReadoutEvent]): A list of `ReadoutEvent`s recorded from Xylo IMU
+        Nin (int): The number of input channels for the configured network
+        Nhidden_monitor (int): The number of hidden neurons to monitor
+        Nout_monitor (int): The number of output neurons to monitor
+        Nout (int): The number of output neurons in total
+        T_start (int): Initial timestep
+        T_end (int): Final timestep
+
+    Returns:
+        XyloState: The encapsulated state read from the Xylo device
+    """
+    # - Initialise lists for recording state
+    T_count = T_end - T_start + 1
+    vmem_ts = np.zeros((T_count, Nhidden_monitor), np.int16)
+    isyn_ts = np.zeros((T_count, Nhidden_monitor), np.int16)
+    isyn2_ts = np.zeros((T_count, Nhidden_monitor), np.int16)
+    vmem_out_ts = np.zeros((T_count, Nout), np.int16)
+    isyn_out_ts = np.zeros((T_count, Nout_monitor), np.int16)
+    spikes_ts = np.zeros((T_count, Nhidden_monitor), np.int8)
+    output_ts = np.zeros((T_count, Nout), np.int8)
+
+    # - Loop over time steps
+    for ev in readout_events:
+        if type(ev) is ReadoutEvent:
+            timestep = ev.timestep - T_start
+            vmems = ev.neuron_v_mems
+            vmem_ts[timestep, 0:Nhidden_monitor] = vmems[0:Nhidden_monitor]
+            vmem_out_ts[timestep, 0:Nout] = ev.output_v_mems
+
+            isyns = ev.neuron_i_syns
+            isyn_ts[timestep, 0:Nhidden_monitor] = isyns[0:Nhidden_monitor]
+            isyn_out_ts[timestep, 0:Nout] = isyns[
+                Nhidden_monitor : Nhidden_monitor + Nout_monitor
+            ]
+
+            spikes_ts[timestep] = ev.hidden_spikes
+            output_ts[timestep] = ev.output_spikes
+
+    # - Return as a XyloState object
+    return XyloState(
+        Nin=Nin,
+        Nhidden=Nhidden_monitor,
+        Nout=Nout,
+        V_mem_hid=vmem_ts,
+        I_syn_hid=isyn_ts,
+        V_mem_out=vmem_out_ts,
+        I_syn_out=isyn_out_ts,
+        I_syn2_hid=isyn2_ts,
+        Spikes_hid=spikes_ts,
+        Spikes_out=output_ts,
+    )
+
+
 def write_register(
     write_buffer: XyloAudio3WriteBuffer, register: int, data: int = 0
 ) -> None:
