@@ -53,32 +53,29 @@ def test_XyloSamna():
         aliases=None,
     )
 
-    config.input_source = samna.xyloAudio3.InputSource.Saer
+    config.input_source = samna.xyloAudio3.InputSource.SpikeEvents
     config.operation_mode = samna.xyloAudio3.OperationMode.AcceleratedTime
-
-    # - Make a XyloSamna module
-    modXyloSamna = XyloSamna(
-        device=daughterboard, config=config, dt=dt, output_mode="Vmem"
-    )
 
     # - Simulate with random input
     T = 100
     f = 0.4
     input_spikes = np.random.rand(T, Nin) < f
-    output_ts, _, _ = modXyloSamna(input_spikes, record=True)
-    print(output_ts)
 
-    # - Make a XyloSamna module
+    # - Make a XyloSamna module for Vmem
+    modXyloSamna = XyloSamna(
+        device=daughterboard, config=config, dt=dt, output_mode="Vmem"
+    )
+    output_ts, _, _ = modXyloSamna(input_spikes, record=True)
+
+    # - Make a XyloSamna module for Isyn
     modXyloSamna = XyloSamna(
         device=daughterboard, config=config, dt=dt, output_mode="Isyn"
     )
     output_ts, _, _ = modXyloSamna(input_spikes, record=True)
-    print(output_ts)
 
-    # - Make a XyloSamna module
+    # - Make a XyloSamna module for Spike
     modXyloSamna = XyloSamna(device=daughterboard, config=config, dt=dt)
     output_ts, _, _ = modXyloSamna(input_spikes, record=True)
-    print(output_ts)
 
 
 def test_save_load():
@@ -194,7 +191,8 @@ def test_xylo_vs_xylosim():
         aliases=None,
     )
 
-    config.input_source = samna.xyloAudio3.InputSource.Saer
+    config.input_source = samna.xyloAudio3.InputSource.SpikeEvents
+    config.operation_mode = samna.xyloAudio3.OperationMode.AcceleratedTime
 
     # - Create XyloSim object
     mod_xylo_sim_vmem = x.XyloSim.from_config(config, output_mode="Vmem", dt=1.0 / 200)
@@ -224,9 +222,11 @@ def test_xylo_vs_xylosim():
     # - Init Xylo
     mod_xylo_spike = x.XyloSamna(daughterboard, config, dt=1.0 / 200)
 
+    print(len(input_raster))
+
     # - Evolve Xylo
     mod_xylo_spike.reset_state()
-    out_xylo, _, rec_xylo = mod_xylo_spike._evolve_manual(input_raster, record=True)
+    out_xylo, _, rec_xylo = mod_xylo_spike.evolve(input_raster, record=True)
 
     # - Assert equality for all outputs and recordings
     assert np.all(out_sim == out_xylo)
