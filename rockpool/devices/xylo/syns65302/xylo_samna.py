@@ -651,9 +651,6 @@ class XyloSamna(Module):
                 "`operation_mode` needs to be Manual when using evolve_manual."
             )
 
-        # - Enable SAER interface
-        hdkutils.enable_saer_input(self._device)
-
         # - Advance one time-step
         hdkutils.advance_time_step(self._write_buffer)
 

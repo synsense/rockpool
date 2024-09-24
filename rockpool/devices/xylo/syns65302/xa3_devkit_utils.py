@@ -174,21 +174,6 @@ def send_pdm_datas(write_buffer: XyloAudio3WriteBuffer, datas, debug=0) -> None:
     write_buffer.write(events)
 
 
-def enable_saer_input(hdk: XyloAudio3HDK) -> None:
-    io = hdk.get_io_module()
-
-    # set SAER clock
-    io.write_config(0x0020, 0)  # saer clock msw
-    io.write_config(0x0021, 3)  # saer clock lsw
-    io.write_config(0x0022, 1)  # saer clock enable
-    io.write_config(0x0026, 0)  # stif_select: saer
-
-    # FPGA drive PDM_DATA pin (for SAER input)
-    io.write_config(0x0012, 1)
-    # pdm port write enable
-    io.write_config(0x0013, 1)
-
-
 def enable_real_time_mode(hdk: XyloAudio3HDK) -> None:
     io = hdk.get_io_module()
 
