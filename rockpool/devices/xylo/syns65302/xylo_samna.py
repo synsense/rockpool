@@ -329,7 +329,7 @@ class XyloSamna(Module):
             `ValueError`: If ``device`` is not set. ``device`` must be a ``XyloAudio3HDK``
             `TimeoutError`: If ``output_mode`` is not ``Spike``, ``Vmem`` or ``ISyn``
             `ValueError`: If ``operation_mode`` is set to ``RealTime``. For ``RealTime`` please use :py:class:`.XyloMonitor`
-            `Warning`: For XyloSamna ``config.input_source`` must be set to ``SAER``
+            `Warning`: For XyloSamna ``config.input_source`` must be set to ``SpikeEvents``
 
         """
 
@@ -348,13 +348,12 @@ class XyloSamna(Module):
         if config is None:
             config = samna.xyloAudio3.configuration.XyloConfiguration()
 
-        if config.input_source != samna.xyloAudio3.InputSource.Saer:
+        if config.input_source != samna.xyloAudio3.InputSource.SpikeEvents:
             warn(
-                "XyloSamna is intended to be used with direct input to the SNN core. Updating config.input_source to SAER."
+                "XyloSamna is intended to be used with direct input to the SNN core. Updating config.input_source to SpikeEvents."
             )
-        # - Set input source to SAER
-        config.input_source = samna.xyloAudio3.InputSource.Saer
-        config.debug.event_input_enable = True
+        # - Set input source to SpikeEvents
+        config.input_source = samna.xyloAudio3.InputSource.SpikeEvents
 
         # - Get the network shape
         Nin, Nhidden = np.shape(config.input.weights)
@@ -366,7 +365,7 @@ class XyloSamna(Module):
         )
 
         # - Store the device
-        self._device: XyloAudio3HDK = device
+        self._device: XyloAudio3HDK = deviceevent
         """ `.XyloHDK`: The Xylo HDK used by this module """
 
         # - Register buffers to read and write events
@@ -395,15 +394,7 @@ class XyloSamna(Module):
                 "`operation_mode is set to Manual. This mode can be used for debug purpuses together with `_evolve_manual`. Otherwise, please use `AccelerateTime`."
             )
 
-        elif config.operation_mode == samna.xyloAudio3.OperationMode.AcceleratedTime:
-            # In Accelerated-Time mode we can use automatic state monitoring, by setting the neuron ids we want to monitor.
-            # Output Vmem and spikes are always activated, so we only monitor the hidden neurons.
-            config.debug.monitor_neuron_v_mem = [i for i in range(Nhidden)]
-            config.debug.monitor_neuron_spike = [i for i in range(Nhidden)]
-            # Output Isyn is not available by default, so we add both hidden and output neurons.
-            config.debug.monitor_neuron_i_syn = [i for i in range(Nhidden + Nout)]
-
-        self.config: Union[
+        self._config: Union[
             XyloConfiguration, SimulationParameter
         ] = SimulationParameter(shape=(), init_func=lambda _: config)
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
@@ -493,13 +484,34 @@ class XyloSamna(Module):
         evts = self._read_buffer.get_n_events(1, timeout=3000)
         assert len(evts) == 1
 
-        start_timestep = evts[0].timestep + 1
-        final_timestep = start_timestep + len(input) - 1
+        start_timestep = evts[0].timestep
+        final_timestep = start_timestep + len(input)
 
         # - Get the network size
         Nin, Nhidden, Nout = self.shape[:]
         Nhidden_monitor = Nhidden if record else 0
         Nout_monitor = Nout if record or self._output_mode == "Isyn" else 0
+
+        if record:
+            # In Accelerated-Time mode we can use automatic state monitoring, by setting the neuron ids we want to monitor.
+            # Output Vmem and spikes are always activated, so we only monitor the hidden neurons.
+            self._config.debug.monitor_neuron_v_mem = [
+                i for i in range(Nhidden_monitor)
+            ]
+            self._config.debug.monitor_neuron_spike = [
+                i for i in range(Nhidden_monitor)
+            ]
+            # Output Isyn is not available by default, so we add both hidden and output neurons.
+            self._config.debug.monitor_neuron_i_syn = [
+                i for i in range(Nhidden_monitor + Nout_monitor)
+            ]
+        else:
+            self._config.debug.monitor_neuron_v_mem = []
+            self._config.debug.monitor_neuron_spike = []
+            # Output Isyn is not available by default, so we add both hidden and output neurons.
+            self._config.debug.monitor_neuron_i_syn = []
+
+        hdkutils.apply_configuration(self._device, self._config)
 
         # -- Encode input events
         input_events_list = []
@@ -535,7 +547,7 @@ class XyloSamna(Module):
 
         # - Determine a reasonable read timeout
         if read_timeout is None:
-            read_timeout = 2 * len(input)
+            read_timeout = 3 * len(input)
             read_timeout = read_timeout * 30.0 if record else read_timeout
             read_timeout = int(read_timeout)
 
@@ -554,7 +566,7 @@ class XyloSamna(Module):
 
         # - Read the simulation output data
         xylo_data = hdkutils.decode_accel_mode_data(
-            read_events,
+            readout_events,
             Nin,
             Nhidden_monitor,
             Nout_monitor,
@@ -581,14 +593,15 @@ class XyloSamna(Module):
             # - Get all recent power events from the power measurement
             ps = self._power_buf.get_events()
 
-            # - Separate out power measurement events by channel
-            # - Channel 0: IO power
-            # - Channel 1: Analog logic power
-            # - Channel 2: Digital logic power
-
-            io_power = np.array([e.value for e in ps if e.channel == 0])
-            analog_power = np.array([e.value for e in ps if e.channel == 1])
-            digital_power = np.array([e.value for e in ps if e.channel == 2])
+            # - Separate out power meaurement events by channel
+            channels = samna.xyloAudio3.MeasurementChannels
+            io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
+            analog_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.AnalogLogic)]
+            )
+            digital_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.DigitalLogic)]
+            )
 
             rec_dict.update(
                 {
@@ -732,14 +745,15 @@ class XyloSamna(Module):
             # - Get all recent power events from the power measurement
             ps = self._power_buf.get_events()
 
-            # - Separate out power measurement events by channel
-            # - Channel 0: IO power
-            # - Channel 1: Analog logic power
-            # - Channel 2: Digital logic power
-
-            io_power = np.array([e.value for e in ps if e.channel == 0])
-            analog_power = np.array([e.value for e in ps if e.channel == 1])
-            digital_power = np.array([e.value for e in ps if e.channel == 2])
+            # - Separate out power meaurement events by channel
+            channels = samna.xyloAudio3.MeasurementChannels
+            io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
+            analog_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.AnalogLogic)]
+            )
+            digital_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.DigitalLogic)]
+            )
 
             rec_dict.update(
                 {
