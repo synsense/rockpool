@@ -119,8 +119,7 @@ class XyloMonitor(Module):
         config.digital_frontend.filter_bank.use_global_iaf_threshold = True
 
         if digital_microphone:
-            config.input_source = samna.xyloAudio3.InputSource.Pdm
-            config.debug.event_input_enable = False
+            config.input_source = samna.xyloAudio3.InputSource.DigitalMicrophone
             config.debug.sdm_clock_ratio = 24
             config.digital_frontend.pdm_preprocessing.clock_direction = 1
             config.digital_frontend.pdm_preprocessing.clock_edge = 0
@@ -244,7 +243,7 @@ class XyloMonitor(Module):
         Args:
             record (bool): ``False``, do not return a recording dictionary. Recording internal state is not supported by :py:class:`.XyloAudio3Monitor`
             record_power (bool): If ``True``, record the power consumption during each evolve.
-            read_timeout (float): A duration in seconds for a read timeout. Default: 2x the real-time duration of the evolution
+            read_timeout (float): A duration in seconds for a read timeout.
 
         Returns:
             Tuple[np.ndarray, dict, dict] output_events, {}, rec_dict
@@ -276,7 +275,11 @@ class XyloMonitor(Module):
             self._power_buf.clear_events()
 
         while timestep < target_timestep - 1:
-            readout_events = self._read_buffer.get_events_blocking()
+            readout_events = self._read_buffer.get_events_blocking(read_timeout * 1000)
+
+            if len(readout_events) == 0:
+                message = f"No event received in {read_timeout}s."
+                raise TimeoutError(message)
 
             ev_filt = [
                 e
