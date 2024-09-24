@@ -61,6 +61,9 @@ class XyloSamnaPDM(Module):
             dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
             power_frequency (float): The frequency of power measurement. Default: 5.0
+
+        Raises:
+            `Warning`: For XyloSamnaPDM ``config.input_source`` must be set to ``PdmEvents``
         """
 
         # - Check input arguments
@@ -78,16 +81,11 @@ class XyloSamnaPDM(Module):
         if snn_config is None:
             snn_config = samna.xyloAudio3.configuration.XyloConfiguration()
 
-        if snn_config.input_source is samna.xyloAudio3.InputSource.Adc:
-            raise ValueError(
-                "Analog configuration is not available yet for XyloAudio 3. Please change your input source to PDM or SAER."
+        if snn_config.input_source is not samna.xyloAudio3.InputSource.PdmEvents:
+            warn(
+                "Changing `input_source` configuration to PdmEvents. For real monitoring or spiking signals use `XyloMonitor` or `XyloSamna`."
             )
-
-        # if pdm_config is None:
-        #     pdm_config = samna.xyloAudio3.configuration.PdmPreprocessingConfig()
-
-        # if dfe_config is None:
-        #     dfe_config = samna.xyloAudio3.configuration.DigitalFrontendConfig()
+            snn_config.input_source = samna.xyloAudio3.InputSource.PdmEvents
 
         # - Get the network shape
         Nin, _ = np.shape(snn_config.input.weights)
@@ -123,9 +121,6 @@ class XyloSamnaPDM(Module):
         # there is a discussion need in order to understand if we will only overwrite parameters
         # or assume that the user knows what parameters he needs.
         snn_config.debug.sdm_clock_ratio = 48
-
-        snn_config.input_source = samna.xyloAudio3.InputSource.Pdm
-        snn_config.debug.event_input_enable = True
         snn_config.digital_frontend.filter_bank.dn_enable = dn_active
         snn_config.digital_frontend.hibernation_mode_enable = 0
         snn_config.digital_frontend.filter_bank.use_global_iaf_threshold = 1

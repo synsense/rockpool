@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_imports():
     import pytest
 
@@ -11,6 +14,7 @@ def test_imports():
     import rockpool.devices.xylo.syns65302.xa3_devkit_utils as putils
 
 
+@pytest.mark.skip(reason="Needs version of samna 0.39.5.7 that is not out yet")
 def test_xylosamna_pdm():
     import pytest
 

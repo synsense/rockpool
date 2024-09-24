@@ -475,7 +475,7 @@ def decode_accel_mode_data(
     Read accelerated simulation mode data from a Xylo HDK
 
     Args:
-        readout_events (List[ReadoutEvent]): A list of `ReadoutEvent`s recorded from Xylo IMU
+        readout_events (List[ReadoutEvent]): A list of `ReadoutEvent`s recorded from XyloAudio 3
         Nin (int): The number of input channels for the configured network
         Nhidden_monitor (int): The number of hidden neurons to monitor
         Nout_monitor (int): The number of output neurons to monitor
@@ -498,20 +498,24 @@ def decode_accel_mode_data(
 
     # - Loop over time steps
     for ev in readout_events:
-        if type(ev) is ReadoutEvent:
-            timestep = ev.timestep - T_start
-            vmems = ev.neuron_v_mems
-            vmem_ts[timestep, 0:Nhidden_monitor] = vmems[0:Nhidden_monitor]
-            vmem_out_ts[timestep, 0:Nout] = ev.output_v_mems
+        timestep = ev.timestep - T_start
+        vmems = ev.neuron_v_mems
+        isyns = ev.neuron_i_syns
+        # TODO - syn2 needs to be added
 
-            isyns = ev.neuron_i_syns
+        if Nhidden_monitor != 0:
+            vmem_ts[timestep, 0:Nhidden_monitor] = vmems[0:Nhidden_monitor]
             isyn_ts[timestep, 0:Nhidden_monitor] = isyns[0:Nhidden_monitor]
+            isyn2_ts[timestep, 0:Nhidden_monitor] = isyns[0:Nhidden_monitor]
+            spikes_ts[timestep] = ev.hidden_spikes
+
+        if Nout_monitor != 0:
             isyn_out_ts[timestep, 0:Nout] = isyns[
                 Nhidden_monitor : Nhidden_monitor + Nout_monitor
             ]
 
-            spikes_ts[timestep] = ev.hidden_spikes
-            output_ts[timestep] = ev.output_spikes
+        vmem_out_ts[timestep, 0:Nout] = ev.output_v_mems
+        output_ts[timestep] = ev.output_spikes
 
     # - Return as a XyloState object
     return XyloState(
