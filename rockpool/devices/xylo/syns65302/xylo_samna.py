@@ -364,13 +364,30 @@ class XyloSamna(Module):
             shape=(Nin, Nhidden, Nout), spiking_input=True, spiking_output=True
         )
 
+        # FIXME This should be defined depending on if record is true or false
+        # In theory, when this is on, more power is consumed
+        # However, updating configuration during evolve is creating undesired behavior (readout get stuck)
+        # And I havent noticed any difference in power consumption, with or without state monitorin
+        # So it is always on for now.
+        # In Accelerated-Time mode we can use automatic state monitoring, by setting the neuron ids we want to monitor.
+        # Output Vmem and spikes are always activated, so we only monitor the hidden neurons.
+        config.debug.monitor_neuron_v_mem = [i for i in range(Nhidden)]
+        config.debug.monitor_neuron_spike = [i for i in range(Nhidden)]
+        # Output Isyn is not available by default, so we add both hidden and output neurons.
+        config.debug.monitor_neuron_i_syn = [i for i in range(Nhidden + Nout)]
+
         # - Store the device
-        self._device: XyloAudio3HDK = deviceevent
+        self._device: XyloAudio3HDK = device
         """ `.XyloHDK`: The Xylo HDK used by this module """
 
         # - Register buffers to read and write events
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
         """ `.XyloAudio3ReadBuffer`: The read buffer for the connected HDK """
+
+        (
+            self._readout_buffer,
+            self._readout_graph,
+        ) = hdkutils.new_xylo_state_monitor_buffer(device)
 
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
         """ `.XyloAudio3WriteBuffer`: The write buffer for the connected HDK """
@@ -415,6 +432,9 @@ class XyloSamna(Module):
         self._power_buf, self._power_monitor = hdkutils.set_power_measure(
             self._device, self._power_frequency
         )
+
+        # apply_configuration resets the board timestep, we need to get timestep afterwards
+        hdkutils.apply_configuration(self._device, self._config)
 
     @property
     def config(self):
@@ -474,6 +494,30 @@ class XyloSamna(Module):
                 "`operation_mode` needs to be `AcceleratedTime` when using evolve. For debug purposes, use `_evolve_manual`."
             )
 
+        # - Get the network size
+        Nin, Nhidden, Nout = self.shape[:]
+        Nhidden_monitor = Nhidden if record else 0
+        Nout_monitor = Nout if record or self._output_mode == "Isyn" else 0
+
+        new_config = self._config
+        if record:
+            # In Accelerated-Time mode we can use automatic state monitoring, by setting the neuron ids we want to monitor.
+            # Output Vmem and spikes are always activated, so we only monitor the hidden neurons.
+            new_config.debug.monitor_neuron_v_mem = [i for i in range(Nhidden_monitor)]
+            new_config.debug.monitor_neuron_spike = [i for i in range(Nhidden_monitor)]
+            # Output Isyn is not available by default, so we add both hidden and output neurons.
+            new_config.debug.monitor_neuron_i_syn = [
+                i for i in range(Nhidden_monitor + Nout_monitor)
+            ]
+        else:
+            new_config.debug.monitor_neuron_v_mem = []
+            new_config.debug.monitor_neuron_spike = []
+            new_config.debug.monitor_neuron_i_syn = []
+
+        # - Update configuration on the hdk
+        # FIXME: the property decorator is not working and this configuration is not being applied!
+        self._config = new_config
+
         # -- Control timestep per evolve section
         timestep_count = len(input)
         if not timestep_count:
@@ -481,52 +525,24 @@ class XyloSamna(Module):
 
         # - Get current timestep by reading a `Readout` event
         self._write_buffer.write([samna.xyloAudio3.event.TriggerReadout()])
-        evts = self._read_buffer.get_n_events(1, timeout=3000)
+        evts = self._readout_buffer.get_n_events(1, timeout=3000)
         assert len(evts) == 1
 
-        start_timestep = evts[0].timestep
-        final_timestep = start_timestep + len(input)
-
-        # - Get the network size
-        Nin, Nhidden, Nout = self.shape[:]
-        Nhidden_monitor = Nhidden if record else 0
-        Nout_monitor = Nout if record or self._output_mode == "Isyn" else 0
-
-        if record:
-            # In Accelerated-Time mode we can use automatic state monitoring, by setting the neuron ids we want to monitor.
-            # Output Vmem and spikes are always activated, so we only monitor the hidden neurons.
-            self._config.debug.monitor_neuron_v_mem = [
-                i for i in range(Nhidden_monitor)
-            ]
-            self._config.debug.monitor_neuron_spike = [
-                i for i in range(Nhidden_monitor)
-            ]
-            # Output Isyn is not available by default, so we add both hidden and output neurons.
-            self._config.debug.monitor_neuron_i_syn = [
-                i for i in range(Nhidden_monitor + Nout_monitor)
-            ]
-        else:
-            self._config.debug.monitor_neuron_v_mem = []
-            self._config.debug.monitor_neuron_spike = []
-            # Output Isyn is not available by default, so we add both hidden and output neurons.
-            self._config.debug.monitor_neuron_i_syn = []
-
-        hdkutils.apply_configuration(self._device, self._config)
+        start_timestep = evts[0].timestep + 1
+        final_timestep = start_timestep + len(input) - 1
 
         # -- Encode input events
         input_events_list = []
 
         # - Locate input events
-        spikes = np.argwhere(input)
-        counts = input[np.nonzero(input)]
-
         # - Generate input events
-        for timestep, channel, count in zip(spikes[:, 0], spikes[:, 1], counts):
-            for _ in range(int(count)):
-                event = samna.xyloAudio3.event.Spike(
-                    neuron_id=channel, timestep=start_timestep + timestep
-                )
-                input_events_list.append(event)
+        for i, spike_counts in enumerate(input):
+            timestep = start_timestep + i
+            for neuron_id, count in enumerate(spike_counts):
+                spikes = [
+                    samna.xyloAudio3.event.Spike(neuron_id=neuron_id, timestep=timestep)
+                ] * count
+                input_events_list.extend(spikes)
 
         # - Add a `TriggerProcessing` event to ensure all time-steps are processed
         event = samna.xyloAudio3.event.TriggerProcessing(
@@ -536,6 +552,7 @@ class XyloSamna(Module):
 
         # - Clear the read and state buffers
         self._read_buffer.get_events()
+        self._readout_buffer.get_events()
 
         # - Clear the power recording buffer, if recording power
         if record_power:
@@ -552,14 +569,12 @@ class XyloSamna(Module):
             read_timeout = int(read_timeout)
 
         # - Wait until the simulation is finished
-        read_events = self._read_buffer.get_n_events(
+        readout_events = self._readout_buffer.get_n_events(
             timestep_count, timeout=read_timeout
         )
 
-        readout_events = [e for e in read_events if hasattr(e, "timestep")]
-
         if len(readout_events) < timestep_count:
-            message = f"Processing didn't finish for {read_timeout}s. Read {len(read_events)} events."
+            message = f"Processing didn't finish for {read_timeout}s. Read {len(readout_events)} events."
             if len(readout_events) > 0:
                 message += f" First timestep: {readout_events[0].timestep}, final timestep: {readout_events[-1].timestep}, target timestep: {final_timestep}"
             raise TimeoutError(message)
@@ -612,6 +627,7 @@ class XyloSamna(Module):
             )
 
         self._power_monitor.stop_auto_power_measurement()
+        # self._readout_graph.stop()
 
         # - This module holds no state
         new_state = {}
