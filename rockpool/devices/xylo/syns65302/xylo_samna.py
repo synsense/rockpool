@@ -557,7 +557,7 @@ class XyloSamna(Module):
 
         # - Get current timestep by reading a `Readout` event
         self._write_buffer.write([samna.xyloAudio3.event.TriggerReadout()])
-        evts = self._readout_buffer.get_n_events(1, timeout=3000)
+        evts = self._readout_buffer.get_n_events(1, timeout=6000)
         assert len(evts) == 1
 
         start_timestep = evts[0].timestep + 1
