@@ -455,6 +455,9 @@ def read_register(
     Returns:
         List[int]: A list of events returned from the read
     """
+    # - Clear buffer
+    read_buffer.get_events()
+
     # - Set up a register read
     write_buffer.write([samna.xyloAudio3.event.ReadRegisterValue(address=address)])
     events = read_buffer.get_n_events(1, 3000)
