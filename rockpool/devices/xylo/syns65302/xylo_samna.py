@@ -478,7 +478,7 @@ class XyloSamna(Module):
         # -- Operation mode can not be RealTime in XyloSamna
         self._config.operation_mode = (
             samna.xyloAudio3.OperationMode.Manual
-            if self._config.operationMode
+            if self._config.operation_mode
             == samna.xyloAudio3.OperationMode.AcceleratedTime
             else samna.xyloAudio3.OperationMode.AcceleratedTime
         )
