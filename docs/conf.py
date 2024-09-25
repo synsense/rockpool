@@ -76,6 +76,9 @@ exclude_patterns += [
     "rockpool/docs/tutorials/pytorch_lightning_mlflow_spiking_MNIST.ipynb",
     "rockpool/docs/devices/xylo-a3/Xylo_A3.ipynb",
     "rockpool/docs/devices/xylo-a3/Xylo_A3_agc.ipynb",
+    "rockpool/docs/devices/xylo-a3/afesim.ipynb",
+    "rockpool/docs/devices/xylo-a3/afesim_agc.ipynb",
+    "rockpool/docs/devices/xylo-a3/afesim_pdm.ipynb",
 ]
 
 # - Set the default role to construct python references by default
