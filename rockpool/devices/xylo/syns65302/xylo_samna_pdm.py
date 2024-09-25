@@ -196,8 +196,13 @@ class XyloSamnaPDM(Module):
         status_update = self.snn_config.debug.debug_status_update_enable
 
         # - To reset Samna and Firmware, we need to send a configuration with different operation mode
-        # - Apply ReatTime mode as we sure it is not used in XyloSamna.
-        self._config.operation_mode = samna.xyloAudio3.OperationMode.RealTime
+        # -- Operation mode can not be RealTime in XyloSamnaPDM
+        self._config.operation_mode = (
+            samna.xyloAudio3.OperationMode.Manual
+            if self._config.operationMode
+            == samna.xyloAudio3.OperationMode.AcceleratedTime
+            else samna.xyloAudio3.OperationMode.AcceleratedTime
+        )
         self.snn_config.debug.debug_status_update_enable = 0
         hdkutils.apply_configuration(self._device, self._config)
 

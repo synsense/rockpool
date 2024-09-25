@@ -475,8 +475,13 @@ class XyloSamna(Module):
         isyn_monitor = self._config.debug.monitor_neuron_i_syn
 
         # - To reset Samna and Firmware, we need to send a configuration with different operation mode
-        # - Apply ReatTime mode as we sure it is not used in XyloSamna.
-        self._config.operation_mode = samna.xyloAudio3.OperationMode.RealTime
+        # -- Operation mode can not be RealTime in XyloSamna
+        self._config.operation_mode = (
+            samna.xyloAudio3.OperationMode.Manual
+            if self._config.operationMode
+            == samna.xyloAudio3.OperationMode.AcceleratedTime
+            else samna.xyloAudio3.OperationMode.AcceleratedTime
+        )
         self._config.debug.monitor_neuron_v_mem = []
         self._config.debug.monitor_neuron_spike = []
         self._config.debug.monitor_neuron_i_syn = []
