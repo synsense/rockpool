@@ -311,6 +311,7 @@ class XyloSamna(Module):
         config: XyloConfiguration = None,
         dt: float = 1e-3,
         output_mode: str = "Spike",
+        record: Optional[bool] = False,
         power_frequency: Optional[float] = 5.0,
         *args,
         **kwargs,
@@ -323,6 +324,7 @@ class XyloSamna(Module):
             config (XyloConfiguration): A Xylo configuration from `samna`
             dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
+            record (bool): Record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
             power_frequency (float): The frequency of power measurement, in Hz. Default: 5.0
 
         Raises:
@@ -364,17 +366,23 @@ class XyloSamna(Module):
             shape=(Nin, Nhidden, Nout), spiking_input=True, spiking_output=True
         )
 
-        # FIXME This should be defined depending on if record is true or false
-        # In theory, when this is on, more power is consumed
-        # However, updating configuration during evolve is creating undesired behavior (readout get stuck)
-        # And I havent noticed any difference in power consumption, with or without state monitorin
-        # So it is always on for now.
+        # HACK record tag was moved to the constructor of the class instead of evolve
+        # updating the configuration in evolve is leading to erratic behavior because of a mismatch between samna and firmware
         # In Accelerated-Time mode we can use automatic state monitoring, by setting the neuron ids we want to monitor.
         # Output Vmem and spikes are always activated, so we only monitor the hidden neurons.
-        config.debug.monitor_neuron_v_mem = [i for i in range(Nhidden)]
-        config.debug.monitor_neuron_spike = [i for i in range(Nhidden)]
-        # Output Isyn is not available by default, so we add both hidden and output neurons.
-        config.debug.monitor_neuron_i_syn = [i for i in range(Nhidden + Nout)]
+        if record:
+            config.debug.monitor_neuron_v_mem = [i for i in range(Nhidden)]
+            config.debug.monitor_neuron_spike = [i for i in range(Nhidden)]
+            # Output Isyn is not available by default, so we add both hidden and output neurons.
+            config.debug.monitor_neuron_i_syn = [i for i in range(Nhidden + Nout)]
+        else:
+            config.debug.monitor_neuron_v_mem = []
+            config.debug.monitor_neuron_spike = []
+            config.debug.monitor_neuron_i_syn = []
+
+        # - Store record option
+        self._record: Optional[bool] = record
+        """ bool: Record and return all internal state of the neurons and synapses on Xylo """
 
         # - Store the device
         self._device: XyloAudio3HDK = device
@@ -433,8 +441,12 @@ class XyloSamna(Module):
             self._device, self._power_frequency
         )
 
-        # apply_configuration resets the board timestep, we need to get timestep afterwards
+        # - Apply configuration on the board
         hdkutils.apply_configuration(self._device, self._config)
+
+    def __del__(self):
+        # - Stop the readout graph buffer
+        self._readout_graph.stop()
 
     @property
     def config(self):
@@ -469,7 +481,7 @@ class XyloSamna(Module):
 
         Args:
             input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
-            record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
+            record (bool): Deprecated parameter. Please use ``record`` from the class initialization.
             record_power (bool): Iff ``True``, record the power consumption during each evolve.
             read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
 
@@ -483,6 +495,7 @@ class XyloSamna(Module):
             `ValueError`: If ``operation_mode`` is not set to ``AcceleratedTime``. For ``RealTime`` please use :py:class:`.XyloMonitor`.
             `ValueError`: If input is empty.
             `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
+            Warning: if using ``record`` parameter in the evolve function.
         """
 
         # - Check operation mode
@@ -494,29 +507,17 @@ class XyloSamna(Module):
                 "`operation_mode` needs to be `AcceleratedTime` when using evolve. For debug purposes, use `_evolve_manual`."
             )
 
+        # HACK record is not working inside evolve and was transferred to the class initialization
+        if record:
+            warn(
+                "`record` is now a parameter in the class initialization and its behavior is not updated in the `evolve` method."
+            )
+        record = self._record
+
         # - Get the network size
         Nin, Nhidden, Nout = self.shape[:]
         Nhidden_monitor = Nhidden if record else 0
         Nout_monitor = Nout if record or self._output_mode == "Isyn" else 0
-
-        new_config = self._config
-        if record:
-            # In Accelerated-Time mode we can use automatic state monitoring, by setting the neuron ids we want to monitor.
-            # Output Vmem and spikes are always activated, so we only monitor the hidden neurons.
-            new_config.debug.monitor_neuron_v_mem = [i for i in range(Nhidden_monitor)]
-            new_config.debug.monitor_neuron_spike = [i for i in range(Nhidden_monitor)]
-            # Output Isyn is not available by default, so we add both hidden and output neurons.
-            new_config.debug.monitor_neuron_i_syn = [
-                i for i in range(Nhidden_monitor + Nout_monitor)
-            ]
-        else:
-            new_config.debug.monitor_neuron_v_mem = []
-            new_config.debug.monitor_neuron_spike = []
-            new_config.debug.monitor_neuron_i_syn = []
-
-        # - Update configuration on the hdk
-        # FIXME: the property decorator is not working and this configuration is not being applied!
-        self._config = new_config
 
         # -- Control timestep per evolve section
         timestep_count = len(input)
@@ -599,7 +600,6 @@ class XyloSamna(Module):
                 "Spikes": np.array(xylo_data.Spikes_hid),
                 "Vmem_out": np.array(xylo_data.V_mem_out),
                 "Isyn_out": np.array(xylo_data.I_syn_out),
-                # "times": np.arange(start_timestep, final_timestep + 1),
             }
         else:
             rec_dict = {}
@@ -627,7 +627,6 @@ class XyloSamna(Module):
             )
 
         self._power_monitor.stop_auto_power_measurement()
-        # self._readout_graph.stop()
 
         # - This module holds no state
         new_state = {}
@@ -656,7 +655,7 @@ class XyloSamna(Module):
 
         Args:
             input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
-            record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
+            record (bool): Deprecated parameter. Please use ``record`` from the class initialization.
             read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
             record_power (bool): Iff ``True``, record the power consumption during each evolve.
 
@@ -679,6 +678,13 @@ class XyloSamna(Module):
             raise ValueError(
                 "`operation_mode` needs to be Manual when using evolve_manual."
             )
+
+        # HACK record is not working inside evolve and was transferred to the class initialization
+        if record:
+            warn(
+                "`record` is now a parameter in the class initialization and its behavior is not updated in the `evolve` method."
+            )
+        record = self._record
 
         # - Advance one time-step
         hdkutils.advance_time_step(self._write_buffer)

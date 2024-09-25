@@ -47,6 +47,7 @@ class XyloSamnaPDM(Module):
         register_config: dict = None,
         dt: float = 1024e-6,
         output_mode: str = "Spike",
+        record: Optional[bool] = False,
         power_frequency: Optional[float] = 5.0,
         dn_active: bool = True,
         *args,
@@ -60,6 +61,7 @@ class XyloSamnaPDM(Module):
             config (XyloConfiguration): A Xylo configuration from `samna`
             dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
+            record (bool): Record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
             power_frequency (float): The frequency of power measurement. Default: 5.0
 
         Raises:
@@ -97,6 +99,16 @@ class XyloSamnaPDM(Module):
         super().__init__(
             shape=(Nin, Nhidden, Nout), spiking_input=True, spiking_output=True
         )
+
+        # HACK record tag was moved to the constructor of the class instead of evolve
+        # updating the configuration in evolve is leading to erratic behavior because of a mismatch between samna and firmware
+        if record:
+            # - Switch on reporting of input spike register pointer value
+            snn_config.debug.debug_status_update_enable = 1
+
+        # - Store record option
+        self._record: Optional[bool] = record
+        """ bool: Record and return all internal state of the neurons and synapses on Xylo """
 
         # - Store the device
         self._device: XyloAudio3HDK = device
@@ -154,6 +166,9 @@ class XyloSamnaPDM(Module):
         self.dt: Union[float, SimulationParameter] = dt
         """ float: Simulation time-step of the module, in seconds """
 
+        # - Apply configuration on the board
+        hdkutils.apply_configuration(self._device, self.snn_config)
+
     @property
     def config(self):
         # - Return the configuration stored on Xylo HDK
@@ -188,7 +203,7 @@ class XyloSamnaPDM(Module):
 
         Args:
             input (np.ndarray): A vector ``(Tpdm, 1)`` with a PDM-encoded audio signal, ``1`` or ``0``. The PDM clock is always 1.5625 MHz. 32 PDM samples correspond to one audio sample passed to the band-pass filterbank (i.e. 48.828125 kHz). The network ``dt`` is independent of this sampling rate, but should be an even divisor of 48.828125 MHz (e.g. 1024 us).
-            record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
+            record (bool): Deprecated parameter. Please use ``record`` from the class initialization.
             read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
 
         Returns:
@@ -209,6 +224,13 @@ class XyloSamnaPDM(Module):
             raise ValueError(
                 "`operation_mode` can't be RealTime for XyloSamnaPDM. Options are Manual or AcceleratedTime."
             )
+
+        # HACK record is not working inside evolve and was transferred to the class initialization
+        if record:
+            warn(
+                "`record` is now a parameter in the class initialization and its behavior is not updated in the `evolve` method."
+            )
+        record = self._record
 
         # - Calculate sample rates and `dt`-length window
         PDM_sample_rate = 1562500
@@ -234,11 +256,6 @@ class XyloSamnaPDM(Module):
         input_raster = np.reshape(
             input[: num_dt * PDM_samples_per_dt], [-1, PDM_samples_per_dt]
         )
-
-        if record:
-            # - Switch on reporting of input spike register pointer value
-            self.snn_config.debug.debug_status_update_enable = 1
-            hdkutils.apply_configuration(self._device, self.snn_config)
 
         # - Initialise lists for recording state
         input_spikes = []
