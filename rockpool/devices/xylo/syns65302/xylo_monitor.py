@@ -55,7 +55,6 @@ class XyloMonitor(Module):
         dt: float = 1e-3,
         main_clk_rate: float = Default_Main_Clock_Rate,
         hibernation_mode: bool = False,
-        # interface_params: dict = dict(),
         power_frequency: float = 5.0,
         dn_active: bool = True,
         digital_microphone=True,
