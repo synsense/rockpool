@@ -5,6 +5,8 @@ Utilities for producing a samna HW configuration for XyloAudio 3 devices
 import numpy as np
 import samna
 import time
+import copy
+
 
 try:
     from tqdm.autonotebook import tqdm
@@ -469,7 +471,7 @@ class XyloSamna(Module):
     def reset_state(self) -> "XyloSamna":
         # - Reset neuron and synapse state on Xylo
         # -- Copy values of configuration
-        operation_mode = self._config.operation_mode
+        operation_mode = copy.copy(self._config.operation_mode)
         vmem_monitor = self._config.debug.monitor_neuron_v_mem
         spike_monitor = self._config.debug.monitor_neuron_spike
         isyn_monitor = self._config.debug.monitor_neuron_i_syn
