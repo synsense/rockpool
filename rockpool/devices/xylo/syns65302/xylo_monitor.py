@@ -68,7 +68,7 @@ class XyloMonitor(Module):
             device (XyloAudio3HDK): An opened `samna` device to a XyloAudio 3 dev kit
             config (XyloConfiguraration): A Xylo configuration from `samna`
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Vmem"]``. Default: "Spike", return events from the output layer.
-            dt (float):
+            dt (float): The timewindow duration, in seconds. Default: 0.001
             main_clk_rate (float): The main clock rate of Xylo, in MHz
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
             power_frequency (float): The frequency of power measurement, in Hz. Default: 5.0
@@ -112,7 +112,7 @@ class XyloMonitor(Module):
 
         # - Configuration for real time in XyloAudio 3
         config.time_resolution_wrap = self._get_tr_wrap(
-            ts_in_ms=dt * 1000, main_clk_freq_in_mhz=50
+            ts=dt, main_clk_freq_in_mhz=main_clk_rate
         )
         config.debug.always_update_omp_stat = True
         config.digital_frontend.filter_bank.use_global_iaf_threshold = True
@@ -203,17 +203,16 @@ class XyloMonitor(Module):
         # - Store the configuration locally
         self._config = new_config
 
-    def _get_tr_wrap(self, ts_in_ms, main_clk_freq_in_mhz):
+    def _get_tr_wrap(self, ts, main_clk_freq_in_mhz):
         """
         Calculate the value of tr wrap
 
         Args:
-            ts_in_ms: time windown in miliseconds
+            ts: time windown in seconds
             main_clk_freq_in_mhz: main clock frequency in mhz
         """
-        ts_duration = ts_in_ms * 1e-3  # in second
         main_clk_freq = main_clk_freq_in_mhz * 1e6  # in Hz
-        tr_wrap = int(ts_duration * main_clk_freq)
+        tr_wrap = int(ts * main_clk_freq)
         return tr_wrap
 
     def __del__(self):

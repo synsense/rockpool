@@ -5,6 +5,7 @@ Provides :py:class:`.XyloSamnaPDM`
 import numpy as np
 import samna
 import time
+import copy
 
 try:
     from tqdm.autonotebook import tqdm
@@ -192,8 +193,8 @@ class XyloSamnaPDM(Module):
     def reset_state(self) -> "XyloSamnaPDM":
         # - Reset neuron and synapse state on Xylo
         # -- Copy values of configuration
-        operation_mode = self.snn_config.operation_mode
-        status_update = self.snn_config.debug.debug_status_update_enable
+        operation_mode = copy.copy(self.snn_config.operation_mode)
+        status_update = copy.copy(self.snn_config.debug.debug_status_update_enable)
 
         # - To reset Samna and Firmware, we need to send a configuration with different operation mode
         # -- Operation mode can not be RealTime in XyloSamnaPDM
