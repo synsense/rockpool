@@ -261,7 +261,7 @@ class XyloMonitor(Module):
 
         # - Clear the power buffer, if recording power
         if record_power:
-            # self._power_monitor.start_auto_power_measurement(self._power_frequency)
+            self._power_monitor.start_auto_power_measurement(self._power_frequency)
             self._power_buf.clear_events()
 
         # Start processing
