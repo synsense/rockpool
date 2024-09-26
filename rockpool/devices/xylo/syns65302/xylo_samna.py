@@ -326,7 +326,7 @@ class XyloSamna(Module):
             config (XyloConfiguration): A Xylo configuration from `samna`
             dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
-            record (bool): Record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
+            record (bool): Record and return all internal states of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
             power_frequency (float): The frequency of power measurement, in Hz. Default: 5.0
 
         Raises:
@@ -372,7 +372,10 @@ class XyloSamna(Module):
         # updating the configuration in evolve is leading to erratic behavior because of a mismatch between samna and firmware
         # In Accelerated-Time mode we can use automatic state monitoring, by setting the neuron ids we want to monitor.
         # Output Vmem and spikes are always activated, so we only monitor the hidden neurons.
-        if record:
+        if (
+            record
+            and config.operation_mode == samna.xyloAudio3.OperationMode.AcceleratedTime
+        ):
             config.debug.monitor_neuron_v_mem = [i for i in range(Nhidden)]
             config.debug.monitor_neuron_spike = [i for i in range(Nhidden)]
             # Output Isyn is not available by default, so we add both hidden and output neurons.
@@ -448,7 +451,8 @@ class XyloSamna(Module):
 
     def __del__(self):
         # - Stop the readout graph buffer
-        self._readout_graph.stop()
+        if self._readout_graph:
+            self._readout_graph.stop()
 
     @property
     def config(self):
