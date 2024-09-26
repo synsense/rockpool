@@ -504,7 +504,7 @@ def decode_accel_mode_data(
         timestep = ev.timestep - T_start
         vmems = ev.neuron_v_mems
         isyns = ev.neuron_i_syns
-        # TODO - syn2 needs to be added
+        # FIXME - syn2 needs to be added
 
         if Nhidden_monitor != 0:
             vmem_ts[timestep, 0:Nhidden_monitor] = vmems[0:Nhidden_monitor]
@@ -512,7 +512,7 @@ def decode_accel_mode_data(
             isyn2_ts[timestep, 0:Nhidden_monitor] = isyns[0:Nhidden_monitor]
             spikes_ts[timestep] = ev.hidden_spikes
 
-        if Nout_monitor != 0:
+        if Nhidden_monitor != 0 or Nout_monitor != 0:
             isyn_out_ts[timestep, 0:Nout] = isyns[
                 Nhidden_monitor : Nhidden_monitor + Nout_monitor
             ]
