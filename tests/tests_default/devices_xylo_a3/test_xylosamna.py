@@ -14,7 +14,6 @@ def test_imports():
     import rockpool.devices.xylo.syns65302.xa3_devkit_utils as putils
 
 
-@pytest.mark.skip(reason="Needs version of samna 0.39.5.7 that is not out yet")
 def test_XyloSamna():
     import pytest
 
@@ -158,8 +157,7 @@ def test_save_load():
     )
 
 
-@pytest.mark.skip(reason="Needs version of samna 0.39.5.7 that is not out yet")
-def test_xylo_vs_xylosim():
+def test_xylo_vs_xylosim_acceleratedtime():
     # TODO - Add a test for acceleratedtime
     import pytest
 
@@ -213,6 +211,89 @@ def test_xylo_vs_xylosim():
     # - Simulate the evolution of the network on Xylo
     # mod_xylo_sim_spike.reset_state()
     out_sim, _, rec_sim = mod_xylo_sim_spike.evolve(
+        input_raster.clip(0, 15), record=True
+    )
+
+    # - Get a Xylo HDK board
+    xylo_hdk_nodes = putils.find_xylo_a3_boards()
+
+    if len(xylo_hdk_nodes) == 0:
+        pytest.skip("A connected XyloAudio 3 HDK is required to run this test")
+
+    daughterboard = xylo_hdk_nodes[0]
+
+    # - Init Xylo
+    mod_xylo_spike = x.XyloSamna(daughterboard, config, dt=1.0 / 200)
+
+    print(len(input_raster))
+
+    # - Evolve Xylo
+    mod_xylo_spike.reset_state()
+    out_xylo, _, rec_xylo = mod_xylo_spike.evolve(input_raster, record=True)
+
+    # - Assert equality for all outputs and recordings
+    assert np.all(out_sim == out_xylo)
+    assert np.all(rec_sim["Vmem"] == rec_xylo["Vmem"])
+    assert np.all(rec_sim["Isyn"] == rec_xylo["Isyn"])
+    assert np.all(rec_sim["Vmem_out"] == rec_xylo["Vmem_out"])
+    assert np.all(rec_sim["Isyn_out"] == rec_xylo["Isyn_out"])
+    assert np.all(rec_sim["Spikes"] == rec_xylo["Spikes"])
+
+
+def test_xylo_vs_xylosim_manual():
+    # TODO - Add a test for acceleratedtime
+    import pytest
+
+    pytest.importorskip("samna")
+    pytest.importorskip("xylosim")
+
+    # - Samna imports
+    import samna
+
+    from rockpool.devices.xylo.syns65302 import xa3_devkit_utils as putils
+    import rockpool.devices.xylo.syns65302 as x
+
+    import numpy as np
+
+    # Make a Xylo configuration
+    Nin = 3
+    Nhidden = 5
+    Nout = 2
+    T = 1000
+
+    config, valid, msg = x.config_from_specification(
+        weights_in=np.random.uniform(-127, 127, size=(Nin, Nhidden, 1)),
+        weights_out=np.random.uniform(-127, 127, size=(Nhidden, Nout)),
+        weights_rec=np.random.uniform(-127, 127, size=(Nhidden, Nhidden, 1)),
+        dash_mem=2 * np.ones(Nhidden),
+        dash_mem_out=3 * np.ones(Nout),
+        dash_syn=4 * np.ones(Nhidden),
+        dash_syn_out=3 * np.ones(Nout),
+        threshold=128 * np.ones(Nhidden),
+        threshold_out=256 * np.ones(Nout),
+        weight_shift_in=1,
+        weight_shift_rec=1,
+        weight_shift_out=1,
+        aliases=None,
+    )
+
+    config.input_source = samna.xyloAudio3.InputSource.SpikeEvents
+    config.operation_mode = samna.xyloAudio3.OperationMode.Manual
+
+    # - Create XyloSim object
+    mod_xylo_sim_vmem = x.XyloSim.from_config(config, output_mode="Vmem", dt=1.0 / 200)
+    mod_xylo_sim_isyn = x.XyloSim.from_config(config, output_mode="Isyn", dt=1.0 / 200)
+    mod_xylo_sim_spike = x.XyloSim.from_config(config, dt=1.0 / 200)
+    mod_xylo_sim_vmem.timed()
+    mod_xylo_sim_isyn.timed()
+    mod_xylo_sim_spike.timed()
+
+    # - Generate random input
+    input_raster = np.random.randint(0, 16, (T, Nin))
+
+    # - Simulate the evolution of the network on Xylo
+    # mod_xylo_sim_spike.reset_state()
+    out_sim, _, rec_sim = mod_xylo_sim_spike._evolve_manual(
         input_raster.clip(0, 15), record=True
     )
 
