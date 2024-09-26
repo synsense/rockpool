@@ -4,18 +4,36 @@
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "## Using XyloSamna to run tests on Xylo SNN Core \n",
-    "In this tutorial we go through an example of deploying an audio classification model trained in Rockpool into SNN Core XyloAudio 3 in `accelerated time mode` using `XyloSamna`. Steps are following:\n",
+    "## Using XyloSamna and XyloMonitor to run tests on XyloAudio 3 HDK \n",
+    "\n",
+    "In this tutorial we go through an example of deploying an audio classification model trained in Rockpool into SNN Core XyloAudio 3 in two modes:\n",
+    "\n",
+    "\n",
+    "- `Accelerated time mode` using `XyloSamna`\n",
+    "\n",
+    "-  `Real time mode` using `XyloMonitor`\n",
+    "\n",
+    " \n",
+    " \n",
+    "  Steps are following:\n",
     "\n",
     "- To load, map and quantize the trained checkpoint with tools and transforms from Rockpool\n",
     "\n",
     "- To build the config object for SNN Core \n",
     "\n",
-    "- Instantiate a `XyloSamna` by passing the config object and connecting Xylo HDK device\n",
+    "  For `Accelerated time mode`:\n",
+    "  - Instantiate a `XyloSamna` by passing the config object and connecting Xylo HDK device\n",
     "\n",
-    "- Feeding the input (pre generated spike train)\n",
+    "  - Feeding the input (pre generated spike train)\n",
     "\n",
-    "- Analyze the output of SNN Core \n",
+    "  - Analyze the output of SNN Core \n",
+    "\n",
+    "-  For `Real time mode`:\n",
+    "  - Instantiate a `XyloMonitor` by passing the config object and connecting Xylo HDK device\n",
+    "\n",
+    "  - Playing audio files and recording the output of SNN Core \n",
+    "## Using XyloSamna in accelerated time \n",
+    "This type of deployment is recommended for a quick check of validity of trained model. Before runing the full test pipline the user can test the model by bypassing the microphone in `accelerated time mode` and feeding pre generated spike trains. The trained model will be quantized and mapped to Xylo SNN Core. \n",
     "\n",
     "### Loading the trained model\n",
     "In this example we use a trained model for a binary classification task: detection of baby cry. The model is composed of 16 input channels 3 layers of LIF neurons and one single output neuron.  "
@@ -23,9 +41,20 @@
   },
   {
    "cell_type": "code",
-   "execution_count": 50,
+   "execution_count": 1,
    "metadata": {},
-   "outputs": [],
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "/home/mina/tools/rockpool/rockpool/nn/networks/__init__.py:15: UserWarning: This module needs to be ported to teh v2 API.\n",
+      "  warnings.warn(f\"{err}\")\n",
+      "/home/mina/tools/rockpool/rockpool/nn/networks/__init__.py:20: UserWarning: This module needs to be ported to the v2 API.\n",
+      "  warnings.warn(f\"{err}\")\n"
+     ]
+    }
+   ],
    "source": [
     "from rockpool.nn.networks import SynNet\n",
     "from rockpool.nn.modules import LIFExodus\n",
@@ -146,7 +175,7 @@
   },
   {
    "cell_type": "code",
-   "execution_count": 49,
+   "execution_count": 5,
    "metadata": {},
    "outputs": [
     {
@@ -155,7 +184,7 @@
        "Text(0.5, 1.0, 'hidden neuron spikes')"
       ]
      },
-     "execution_count": 49,
+     "execution_count": 5,
      "metadata": {},
      "output_type": "execute_result"
     },
@@ -178,6 +207,91 @@
     "plt.subplot(132); plt.plot(out, 'g');plt.grid(True); plt.xlabel('Time (10ms)'); plt.title('output spikes'); \n",
     "plt.subplot(133); plt.imshow(rec['Spikes'].T, aspect='auto'); plt.xlabel('Time (10ms)'); plt.ylabel('hidden neuron index'); plt.title('hidden neuron spikes')\n"
    ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Using XyloMonitor in Real Time mode"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "\n",
+    "`XyloMonitor` is a Rockpool API that manages user iterface with XyloAudio3 HDK in `Real time ` mode, used for tests and deployments with embedded microphone in the loop. \n",
+    "\n",
+    "We will use the created config object to instantiate `XyloMonitor` and will test it by playing an audio file.  \n",
+    "- XyloAudio 3 HDK needs to be connected to PC at this step \n",
+    "\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "metadata": {},
+   "outputs": [
+    {
+     "ename": "RuntimeError",
+     "evalue": "Vmem monitoring is only supported in accelerated-time mode.\nIsyn monitoring is only supported in accelerated-time mode.\nspike monitoring is only supported in accelerated-time mode.\n",
+     "output_type": "error",
+     "traceback": [
+      "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+      "\u001b[0;31mRuntimeError\u001b[0m                              Traceback (most recent call last)",
+      "Cell \u001b[0;32mIn[6], line 9\u001b[0m\n\u001b[1;32m      5\u001b[0m xa3 \u001b[38;5;241m=\u001b[39m xylo_nodes[\u001b[38;5;241m0\u001b[39m]\n\u001b[1;32m      7\u001b[0m xylo_conf\u001b[38;5;241m.\u001b[39moperation_mode \u001b[38;5;241m=\u001b[39m samna\u001b[38;5;241m.\u001b[39mxyloAudio3\u001b[38;5;241m.\u001b[39mOperationMode\u001b[38;5;241m.\u001b[39mRealTime\n\u001b[0;32m----> 9\u001b[0m xylo_monitor  \u001b[38;5;241m=\u001b[39m \u001b[43mXyloMonitor\u001b[49m\u001b[43m(\u001b[49m\u001b[43mdevice\u001b[49m\u001b[38;5;241;43m=\u001b[39;49m\u001b[43mxa3\u001b[49m\u001b[43m,\u001b[49m\u001b[43m \u001b[49m\u001b[43mconfig\u001b[49m\u001b[38;5;241;43m=\u001b[39;49m\u001b[43mxylo_conf\u001b[49m\u001b[43m,\u001b[49m\u001b[43m \u001b[49m\u001b[43mdt\u001b[49m\u001b[43m \u001b[49m\u001b[38;5;241;43m=\u001b[39;49m\u001b[43m \u001b[49m\u001b[38;5;241;43m0.01\u001b[39;49m\u001b[43m,\u001b[49m\u001b[43m \u001b[49m\u001b[43moutput_mode\u001b[49m\u001b[38;5;241;43m=\u001b[39;49m\u001b[38;5;124;43m'\u001b[39;49m\u001b[38;5;124;43mSpike\u001b[39;49m\u001b[38;5;124;43m'\u001b[39;49m\u001b[43m,\u001b[49m\u001b[43m \u001b[49m\u001b[43mdn_enable\u001b[49m\u001b[43m \u001b[49m\u001b[38;5;241;43m=\u001b[39;49m\u001b[43m \u001b[49m\u001b[38;5;28;43;01mTrue\u001b[39;49;00m\u001b[43m,\u001b[49m\u001b[43m \u001b[49m\u001b[43mdigital_microphone\u001b[49m\u001b[38;5;241;43m=\u001b[39;49m\u001b[38;5;28;43;01mTrue\u001b[39;49;00m\u001b[43m)\u001b[49m\n",
+      "File \u001b[0;32m~/tools/rockpool/rockpool/nn/modules/module.py:689\u001b[0m, in \u001b[0;36mPostInitMetaMixin.__call__\u001b[0;34m(cls, *args, **kwargs)\u001b[0m\n\u001b[1;32m    <a href='file:///home/mina/tools/rockpool/rockpool/nn/modules/module.py?line=686'>687</a>\u001b[0m \u001b[39mdef\u001b[39;00m \u001b[39m__call__\u001b[39m(\u001b[39mcls\u001b[39m, \u001b[39m*\u001b[39margs, \u001b[39m*\u001b[39m\u001b[39m*\u001b[39mkwargs):\n\u001b[1;32m    <a href='file:///home/mina/tools/rockpool/rockpool/nn/modules/module.py?line=687'>688</a>\u001b[0m     \u001b[39m# - Instantiate the object\u001b[39;00m\n\u001b[0;32m--> <a href='file:///home/mina/tools/rockpool/rockpool/nn/modules/module.py?line=688'>689</a>\u001b[0m     obj \u001b[39m=\u001b[39m \u001b[39msuper\u001b[39;49m()\u001b[39m.\u001b[39;49m\u001b[39m__call__\u001b[39;49m(\u001b[39m*\u001b[39;49margs, \u001b[39m*\u001b[39;49m\u001b[39m*\u001b[39;49mkwargs)\n\u001b[1;32m    <a href='file:///home/mina/tools/rockpool/rockpool/nn/modules/module.py?line=690'>691</a>\u001b[0m     \u001b[39m# - Check for a `__post_init__` method\u001b[39;00m\n\u001b[1;32m    <a href='file:///home/mina/tools/rockpool/rockpool/nn/modules/module.py?line=691'>692</a>\u001b[0m     \u001b[39mif\u001b[39;00m \u001b[39mhasattr\u001b[39m(\u001b[39mcls\u001b[39m, \u001b[39m\"\u001b[39m\u001b[39m__post_init__\u001b[39m\u001b[39m\"\u001b[39m):\n",
+      "File \u001b[0;32m~/tools/rockpool/rockpool/devices/xylo/syns65302/xylo_monitor.py:172\u001b[0m, in \u001b[0;36mXyloMonitor.__init__\u001b[0;34m(self, device, config, output_mode, dt, main_clk_rate, hibernation_mode, power_frequency, dn_active, digital_microphone, *args, **kwargs)\u001b[0m\n\u001b[1;32m    <a href='file:///home/mina/tools/rockpool/rockpool/devices/xylo/syns65302/xylo_monitor.py?line=168'>169</a>\u001b[0m \u001b[39mself\u001b[39m\u001b[39m.\u001b[39m_io \u001b[39m=\u001b[39m \u001b[39mself\u001b[39m\u001b[39m.\u001b[39m_device\u001b[39m.\u001b[39mget_io_module()\n\u001b[1;32m    <a href='file:///home/mina/tools/rockpool/rockpool/devices/xylo/syns65302/xylo_monitor.py?line=170'>171</a>\u001b[0m \u001b[39m# - Store the configuration (and apply it)\u001b[39;00m\n\u001b[0;32m--> <a href='file:///home/mina/tools/rockpool/rockpool/devices/xylo/syns65302/xylo_monitor.py?line=171'>172</a>\u001b[0m hdkutils\u001b[39m.\u001b[39;49mapply_configuration(device, \u001b[39mself\u001b[39;49m\u001b[39m.\u001b[39;49m_config)\n\u001b[1;32m    <a href='file:///home/mina/tools/rockpool/rockpool/devices/xylo/syns65302/xylo_monitor.py?line=172'>173</a>\u001b[0m hdkutils\u001b[39m.\u001b[39menable_real_time_mode(device)\n\u001b[1;32m    <a href='file:///home/mina/tools/rockpool/rockpool/devices/xylo/syns65302/xylo_monitor.py?line=174'>175</a>\u001b[0m \u001b[39mself\u001b[39m\u001b[39m.\u001b[39m_power_monitor \u001b[39m=\u001b[39m \u001b[39mNone\u001b[39;00m\n",
+      "File \u001b[0;32m~/tools/rockpool/rockpool/devices/xylo/syns65302/xa3_devkit_utils.py:299\u001b[0m, in \u001b[0;36mapply_configuration\u001b[0;34m(hdk, config, *_, **__)\u001b[0m\n\u001b[1;32m    <a href='file:///home/mina/tools/rockpool/rockpool/devices/xylo/syns65302/xa3_devkit_utils.py?line=290'>291</a>\u001b[0m \u001b[39m\u001b[39m\u001b[39m\"\"\"\u001b[39;00m\n\u001b[1;32m    <a href='file:///home/mina/tools/rockpool/rockpool/devices/xylo/syns65302/xa3_devkit_utils.py?line=291'>292</a>\u001b[0m \u001b[39mApply a configuration to the Xylo HDK\u001b[39;00m\n\u001b[1;32m    <a href='file:///home/mina/tools/rockpool/rockpool/devices/xylo/syns65302/xa3_devkit_utils.py?line=292'>293</a>\u001b[0m \n\u001b[0;32m   (...)\u001b[0m\n\u001b[1;32m    <a href='file:///home/mina/tools/rockpool/rockpool/devices/xylo/syns65302/xa3_devkit_utils.py?line=295'>296</a>\u001b[0m \u001b[39m    config (XyloConfiguration): A configuration for Xylo\u001b[39;00m\n\u001b[1;32m    <a href='file:///home/mina/tools/rockpool/rockpool/devices/xylo/syns65302/xa3_devkit_utils.py?line=296'>297</a>\u001b[0m \u001b[39m\"\"\"\u001b[39;00m\n\u001b[1;32m    <a href='file:///home/mina/tools/rockpool/rockpool/devices/xylo/syns65302/xa3_devkit_utils.py?line=297'>298</a>\u001b[0m \u001b[39m# - Ideal -- just write the configuration using samna\u001b[39;00m\n\u001b[0;32m--> <a href='file:///home/mina/tools/rockpool/rockpool/devices/xylo/syns65302/xa3_devkit_utils.py?line=298'>299</a>\u001b[0m hdk\u001b[39m.\u001b[39;49mget_model()\u001b[39m.\u001b[39;49mapply_configuration(config)\n",
+      "\u001b[0;31mRuntimeError\u001b[0m: Vmem monitoring is only supported in accelerated-time mode.\nIsyn monitoring is only supported in accelerated-time mode.\nspike monitoring is only supported in accelerated-time mode.\n"
+     ]
+    }
+   ],
+   "source": [
+    "import samna\n",
+    "from rockpool.devices.xylo.syns65302 import XyloMonitor\n",
+    "\n",
+    "xylo_nodes = hdu.find_xylo_a3_boards()\n",
+    "xa3 = xylo_nodes[0]\n",
+    "\n",
+    "xylo_conf.operation_mode = samna.xyloAudio3.OperationMode.RealTime\n",
+    "             \n",
+    "xylo_monitor  = XyloMonitor(device=xa3, config=xylo_conf, dt = 0.01, output_mode='Spike', dn_enable = True, digital_microphone=True)\n",
+    "              "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<OperationMode.RealTime: 2>"
+      ]
+     },
+     "execution_count": 7,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "xylo_conf.operation_mode"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
   }
  ],
  "metadata": {
