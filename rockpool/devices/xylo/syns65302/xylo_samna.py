@@ -472,9 +472,9 @@ class XyloSamna(Module):
         # - Reset neuron and synapse state on Xylo
         # -- Copy values of configuration
         operation_mode = copy.copy(self._config.operation_mode)
-        vmem_monitor = self._config.debug.monitor_neuron_v_mem
-        spike_monitor = self._config.debug.monitor_neuron_spike
-        isyn_monitor = self._config.debug.monitor_neuron_i_syn
+        vmem_monitor = copy.copy(self._config.debug.monitor_neuron_v_mem)
+        spike_monitor = copy.copy(self._config.debug.monitor_neuron_spike)
+        isyn_monitor = copy.copy(self._config.debug.monitor_neuron_i_syn)
 
         # - To reset Samna and Firmware, we need to send a configuration with different operation mode
         # -- Operation mode can not be RealTime in XyloSamna
