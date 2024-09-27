@@ -126,6 +126,11 @@ class XyloMonitor(Module):
         else:
             raise ValueError("Analog microphone is not available yet for XyloAudio 3.")
 
+        # - Disable internal state monitoring
+        config.debug.monitor_neuron_v_mem = []
+        config.debug.monitor_neuron_spike = []
+        config.debug.monitor_neuron_i_syn = []
+
         # - Build a filter graph to filter `Readout` events from Xylo
         self._spike_graph = samna.graph.EventFilterGraph()
 
