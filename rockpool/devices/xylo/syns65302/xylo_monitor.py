@@ -10,6 +10,7 @@ XyloAudio3HDK = samna.xyloAudio3.XyloAudio3TestBoard
 from . import xa3_devkit_utils as hdkutils
 
 import time
+import math
 import numpy as np
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
@@ -259,17 +260,13 @@ class XyloMonitor(Module):
                 f"Recording internal state is not supported by :py:class:`.XyloAudio3Monitor`"
             )
 
-        target_timestep = int(read_timeout * (1 / self.dt))
-
-        # Trigger processing can only be sent once in RealTime mode.
-        if not self._evolve:
-            # send a trigger processing
-            self._write_buffer.write(
-                [samna.xyloAudio3.event.TriggerProcessing(target_timestep)]
+        if read_timeout < self.dt:
+            raise ValueError(
+                "Read timeout can not be smaller then the duration of the processing step."
             )
-            # self._evolve = True
 
-        timestep = 0
+        # use current time to calculate how long the processing will run
+        read_until = time.time() + read_timeout
         output_events = []
 
         # - Clear the power buffer, if recording power
@@ -277,8 +274,17 @@ class XyloMonitor(Module):
             self._power_monitor.start_auto_power_measurement(self._power_frequency)
             self._power_buf.clear_events()
 
-        while timestep < target_timestep - 1:
-            readout_events = self._read_buffer.get_events_blocking(read_timeout * 1000)
+        # Start processing
+        # In realtime mode, sending triggerprocessing again without target timestep is not an issue (i.e., does nothing)
+        # TriggerProcessing with target timestep can stop execution if target is smaller than current timestep
+        self._write_buffer.write([samna.xyloAudio3.event.TriggerProcessing()])
+
+        self._read_buffer.clear_events()
+        while (now := time.time()) < read_until:
+            remaining_time = read_until - now
+            readout_events = self._read_buffer.get_events_blocking(
+                math.ceil(remaining_time * 1000)
+            )
 
             if len(readout_events) == 0:
                 message = f"No event received in {read_timeout}s."
@@ -290,28 +296,26 @@ class XyloMonitor(Module):
                 if isinstance(e, samna.xyloAudio3.event.Readout)
             ]
 
-            if ev_filt:
-                for ev in ev_filt:
-                    if self._output_mode == "Vmem":
-                        output_events.append(ev.output_v_mems)
-                    elif self._output_mode == "Spike":
-                        output_events.append(ev.output_spikes)
-
-            timestep = readout_events[-1].timestep
+            for ev in ev_filt:
+                if self._output_mode == "Vmem":
+                    output_events.append(ev.output_v_mems)
+                elif self._output_mode == "Spike":
+                    output_events.append(ev.output_spikes)
 
         rec_dict = {}
         if record_power:
             # - Get all recent power events from the power measurement
             ps = self._power_buf.get_events()
 
-            # - Separate out power measurement events by channel
-            # - Channel 0: IO power
-            # - Channel 1: Analog logic power
-            # - Channel 2: Digital logic power
-
-            io_power = np.array([e.value for e in ps if e.channel == 0])
-            analog_power = np.array([e.value for e in ps if e.channel == 1])
-            digital_power = np.array([e.value for e in ps if e.channel == 2])
+            # - Separate out power meaurement events by channel
+            channels = samna.xyloAudio3.MeasurementChannels
+            io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
+            analog_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.AnalogLogic)]
+            )
+            digital_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.DigitalLogic)]
+            )
 
             rec_dict.update(
                 {
@@ -320,5 +324,8 @@ class XyloMonitor(Module):
                     "digital_power": digital_power,
                 }
             )
+
         self._power_monitor.stop_auto_power_measurement()
+
+        # - Return the output spikes, the (empty) new state dictionary, and the recorded power dictionary
         return output_events, {}, rec_dict
