@@ -76,7 +76,9 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    :maxdepth: 1
    :caption: Xylo™Audio 3
 
-   devices/xylo-a3/operation_modes.ipynb
+   devices/xylo-a3/xylo-audio3-intro.ipynb
+   devices/xylo-a3/AFESim3_as_transform.ipynb
+   devices/xylo-a3/Using_XyloSamna_and_XyloMonitor.ipynb
 
 .. toctree::
    :maxdepth: 1
