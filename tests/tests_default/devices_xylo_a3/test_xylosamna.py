@@ -66,19 +66,19 @@ def test_XyloSamna():
 
     # - Make a XyloSamna module for Vmem
     modXyloSamna = XyloSamna(
-        device=daughterboard, config=config, dt=dt, output_mode="Vmem"
+        device=daughterboard, config=config, dt=dt, output_mode="Vmem", record=True
     )
-    output_ts, _, _ = modXyloSamna(input_spikes, record=True)
+    output_ts, _, _ = modXyloSamna.evolve(input_spikes)
 
     # - Make a XyloSamna module for Isyn
     modXyloSamna = XyloSamna(
-        device=daughterboard, config=config, dt=dt, output_mode="Isyn"
+        device=daughterboard, config=config, dt=dt, output_mode="Isyn", record=True
     )
-    output_ts, _, _ = modXyloSamna(input_spikes, record=True)
+    output_ts, _, _ = modXyloSamna.evolve(input_spikes)
 
     # - Make a XyloSamna module for Spike
-    modXyloSamna = XyloSamna(device=daughterboard, config=config, dt=dt)
-    output_ts, _, _ = modXyloSamna(input_spikes, record=True)
+    modXyloSamna = XyloSamna(device=daughterboard, config=config, dt=dt, record=True)
+    output_ts, _, _ = modXyloSamna.evolve(input_spikes)
 
 
 def test_save_load():
