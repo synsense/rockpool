@@ -4,7 +4,7 @@ Simulation of an analog audio filtering front-end
 Defines :py:class:`.AFESim` module.
 
 See Also:
-    For example usage of the :py:class:`.AFESim` Module, see :ref:`/devices/xylo-a3/afesim.ipynb`
+    For example usage of the :py:class:`.AFESim` Module, see :ref:`/devices/xylo-a3/AFESim3_as_transform.ipynb`
 """
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ class AFESim(ModSequential):
 
 
     See Also:
-        For example usage of the :py:class:`.AFESim` Module, see :ref:`/devices/xylo-a3/afesim.ipynb`
+        For example usage of the :py:class:`.AFESim` Module, see :ref:`/devices/xylo-a3/AFESim3_as_transform.ipynb`
     """
 
     def __init__(
