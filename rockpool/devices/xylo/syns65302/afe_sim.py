@@ -35,11 +35,6 @@ from rockpool.nn.combinators.sequential import ModSequential
 from rockpool.utilities.backend_management import backend_available
 from rockpool.parameters import SimulationParameter
 
-if backend_available("samna"):
-    print("from samna.xyloA3.configuration import InputInterfaceConfig")
-else:
-    InputInterfaceConfig = Any
-
 __all__ = ["AFESimExternal", "AFESimAGC", "AFESimPDM"]
 
 
