@@ -35,10 +35,6 @@ def test_zero():
     """
     test_zero is a negative tests which tries to map an empty network
     """
-    import pytest
-
-    pytest.importorskip("samna")
-    pytest.importorskip("jax")
     from rockpool.devices.dynapse import mapper, DynapSim
 
     with pytest.raises(ValueError):
@@ -49,10 +45,6 @@ def test_single_dynapsim():
     """
     test_single_dynapsim creates a standalone `DynapSim` layer and maps it
     """
-    import pytest
-
-    pytest.importorskip("samna")
-    pytest.importorskip("jax")
     from rockpool.devices.dynapse import mapper, DynapSim
 
     # - Parameters
@@ -84,8 +76,8 @@ def test_dynapsim_net_minimal():
     """
     import pytest
 
-    pytest.importorskip("samna")
     pytest.importorskip("jax")
+
     from rockpool.nn.modules import LinearJax
     from rockpool.nn.combinators import Sequential
     from rockpool.devices.dynapse import mapper, DynapSim
@@ -120,8 +112,8 @@ def test_lif_net_minimal():
     """
     import pytest
 
-    pytest.importorskip("samna")
     pytest.importorskip("jax")
+
     from rockpool.nn.modules import LIFJax, LinearJax
     from rockpool.nn.combinators import Sequential
     from rockpool.devices.dynapse import mapper
@@ -160,8 +152,8 @@ def test_dynapsim_net_multi():
     """
     import pytest
 
-    pytest.importorskip("samna")
     pytest.importorskip("jax")
+
     from rockpool.nn.modules import LinearJax
     from rockpool.nn.combinators import Sequential
     from rockpool.devices.dynapse import mapper, DynapSim
@@ -241,8 +233,8 @@ def test_lif_net_multi():
     """
     import pytest
 
-    pytest.importorskip("samna")
     pytest.importorskip("jax")
+
     from rockpool.nn.modules import LIFJax, LinearJax
     from rockpool.nn.combinators import Sequential
     from rockpool.devices.dynapse import mapper, DynapSim
@@ -321,7 +313,6 @@ def test_negative_consecutive_lif():
     """
     import pytest
 
-    pytest.importorskip("samna")
     pytest.importorskip("jax")
 
     from rockpool.nn.modules import LIFJax, LinearJax
@@ -350,7 +341,6 @@ def test_negative_consecutive_linear():
     """
     import pytest
 
-    pytest.importorskip("samna")
     pytest.importorskip("jax")
 
     from rockpool.nn.modules import LIFJax, LinearJax

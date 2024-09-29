@@ -1,7 +1,6 @@
 import pytest
 
 pytest.importorskip("xylosim")
-pytest.importorskip("samna")
 
 
 def test_DN():
