@@ -1,6 +1,5 @@
 import pytest
 
-pytest.importorskip("samna")
 pytest.importorskip("xylosim")
 
 
@@ -66,6 +65,7 @@ def test_specification_IMU():
 
 
 def test_config_IMU():
+    pytest.importorskip("samna")
     from rockpool.devices.xylo.syns63300 import (
         XyloSim,
         mapper,
@@ -111,6 +111,7 @@ def test_config_IMU():
 
 
 def test_xylo_vs_xylosim():
+    pytest.importorskip("samna")
     # - Samna imports
     import samna
 

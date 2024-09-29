@@ -11,8 +11,8 @@ def test_evolve():
     ### --- Preliminaries --- ###
     import pytest
 
-    pytest.importorskip("samna")
     pytest.importorskip("jax")
+
     import os
     import numpy as np
     from rockpool.devices.dynapse import DynapSim

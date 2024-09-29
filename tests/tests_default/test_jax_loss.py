@@ -86,10 +86,6 @@ def test_bounds_cost():
     from rockpool.training.jax_loss import bounds_cost, make_bounds
     from rockpool.training.jax_debug import flatten
 
-    from jax.example_libraries.optimizers import adam
-
-    from copy import deepcopy
-
     import jax
     from jax import jit, numpy as jnp
     import numpy as np

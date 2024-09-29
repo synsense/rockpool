@@ -490,9 +490,6 @@ def test_ahp_LIFTorch_network_graph():
 
     g = net.as_graph()
 
-    pytest.importorskip("xylosim")
-    pytest.importorskip("samna")
-
     from rockpool.devices.xylo.syns61300 import mapper, config_from_specification
 
     spec = mapper(g)

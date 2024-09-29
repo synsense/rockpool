@@ -15,7 +15,6 @@ def test_mismatch_distribution():
     """
     import pytest
 
-    pytest.importorskip("samna")
     pytest.importorskip("jax")
 
     from rockpool.devices.dynapse import DynapSim, frozen_mismatch_prototype
@@ -90,7 +89,6 @@ def test_mismatch_statistics():
     """
     import pytest
 
-    pytest.importorskip("samna")
     pytest.importorskip("jax")
 
     from rockpool.devices.dynapse import DynapSim, frozen_mismatch_prototype

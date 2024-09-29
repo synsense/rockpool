@@ -1,6 +1,5 @@
 import pytest
 
-pytest.importorskip("samna")
 pytest.importorskip("xylosim")
 
 
@@ -64,6 +63,7 @@ def test_specification_V2():
 
 
 def test_config_V2():
+    pytest.importorskip("samna")
     from rockpool.devices.xylo.syns61201 import (
         XyloSim,
         mapper,
@@ -109,6 +109,7 @@ def test_config_V2():
 
 
 def test_xylo_vs_xylosim():
+    pytest.importorskip("samna")
     # - Samna imports
     import samna
     from samna.xyloCore2 import validate_configuration
