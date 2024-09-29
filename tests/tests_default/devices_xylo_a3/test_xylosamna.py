@@ -158,7 +158,6 @@ def test_save_load():
 
 
 def test_xylo_vs_xylosim_acceleratedtime():
-    # TODO - Add a test for acceleratedtime
     import pytest
 
     pytest.importorskip("samna")
@@ -244,7 +243,6 @@ def test_xylo_vs_xylosim_acceleratedtime():
 
 
 def test_xylo_vs_xylosim_manual():
-    # TODO - Add a test for acceleratedtime
     import pytest
 
     pytest.importorskip("samna")
