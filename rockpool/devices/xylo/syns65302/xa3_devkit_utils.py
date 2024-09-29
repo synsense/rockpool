@@ -248,6 +248,8 @@ def advance_time_step(write_buffer: XyloAudio3WriteBuffer) -> None:
 def is_xylo_ready(
     read_buffer: XyloAudio3ReadBuffer, write_buffer: XyloAudio3WriteBuffer
 ) -> bool:
+    # - Clear the buffer
+    read_buffer.get_events()
     stat2 = read_register(read_buffer, write_buffer, reg.stat2)[0]
     return stat2 & (1 << reg.stat2__pd__pos)
 

@@ -724,6 +724,9 @@ class XyloSamna(Module):
         # - Advance one time-step
         hdkutils.advance_time_step(self._write_buffer)
 
+        # - Clear the read buffers
+        self._read_buffer.get_events()
+
         # - Wait until xylo is ready
         t_start = time.time()
         while not hdkutils.is_xylo_ready(self._read_buffer, self._write_buffer):
