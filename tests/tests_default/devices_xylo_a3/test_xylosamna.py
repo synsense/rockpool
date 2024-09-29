@@ -222,6 +222,9 @@ def test_xylo_vs_xylosim_acceleratedtime():
 
     daughterboard = xylo_hdk_nodes[0]
 
+    # - Make sure the board is in a clean state after running other tests
+    daughterboard.reset_board_soft()
+
     # - Init Xylo
     mod_xylo_spike = x.XyloSamna(daughterboard, config, dt=1.0 / 200, record=True)
 
@@ -304,6 +307,9 @@ def test_xylo_vs_xylosim_manual():
         pytest.skip("A connected XyloAudio 3 HDK is required to run this test")
 
     daughterboard = xylo_hdk_nodes[0]
+
+    # - Make sure the board is in a clean state after running other tests
+    daughterboard.reset_board_soft()
 
     # - Init Xylo
     mod_xylo_spike = x.XyloSamna(daughterboard, config, dt=1.0 / 200, record=True)
