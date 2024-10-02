@@ -1,7 +1,7 @@
 """
 Simulation of an analog audio filtering front-end
 
-Defines the :py:class:`.AFESim` module, with an empirically-validated simulation of the audio front-end on Xylo A2 (SYNS61201).
+Defines the :py:class:`.AFESim` module, with an empirically-validated simulation of the audio front-end on XyloAudio 2 (SYNS61201).
 
 See Also:
     For example usage of the :py:class:`.AFESim` Module, see :ref:`/devices/analog-frontend-example.ipynb`
@@ -33,7 +33,7 @@ class AFESim(Module):
     """
     A :py:class:`.Module` that simulates analog hardware for preprocessing audio and converting into spike features.
 
-    This module simulates the Xylo audio front-end stage. This is a signal-to-event core that consists of a number of band-pass filters, followed by rectifying event production
+    This module simulates the XyloAudio 2 front-end stage. This is a signal-to-event core that consists of a number of band-pass filters, followed by rectifying event production
     simulating a spiking LIF neuron. The event rate in each channel is roughly correlated to the energy in each filter band.
 
     .. warning::

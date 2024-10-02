@@ -39,7 +39,7 @@ def find_xylo_hdks() -> Tuple[List["XyloHDK"], List[ModuleType], List[str]]:
                 )
 
             print(
-                "The connected Xylo HDK contains a Xylo Audio v2 (SYNS61201). Importing `rockpool.devices.xylo.syns61201`"
+                "The connected Xylo HDK contains a XyloAudio v2 (SYNS61201). Importing `rockpool.devices.xylo.syns61201`"
             )
             import rockpool.devices.xylo.syns61201 as x2
 
@@ -69,7 +69,7 @@ def find_xylo_hdks() -> Tuple[List["XyloHDK"], List[ModuleType], List[str]]:
                 )
 
             print(
-                "The connected Xylo HDK contains a Xylo IMU. Importing `rockpool.devices.xylo.syns63300`"
+                "The connected Xylo HDK contains a XyloIMU. Importing `rockpool.devices.xylo.syns63300`"
             )
             import rockpool.devices.xylo.syns63300 as imu
 

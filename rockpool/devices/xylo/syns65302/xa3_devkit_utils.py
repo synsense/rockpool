@@ -1,5 +1,5 @@
 """
-Low-level device kit utilities for the XyloAudio 3 HDK
+Low-level device kit utilities for the Xylo™Audio 3 HDK
 """
 
 import samna

@@ -1,11 +1,12 @@
 """
-Simulation of an analog audio filtering front-end
+Simulation of the audio filtering front-end for Xylo™Audio 3
 
-Defines :py:class:`.AFESim` module.
+Defines the modules :py:class:`.AFESimExternal` and :py:class:`.AFESimPDM`
 
 See Also:
-    For example usage of the :py:class:`.AFESim` Module, see :ref:`/devices/xylo-a3/AFESim3_as_transform.ipynb`
+    For example usage of the `AFESim...` modules, see :ref:`/devices/xylo-a3/AFESim3_as_transform.ipynb`
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, Tuple, Union
@@ -285,6 +286,9 @@ class AFESim(ModSequential):
 
     @classmethod
     def from_config(cls, config: Any) -> AFESim:
+        """
+        Construct a :py:`.AFESim` module from a hardware configuration. Not yet supported.
+        """
         raise NotImplementedError("To be implemented following `samna` support")
 
     @classmethod
@@ -567,6 +571,9 @@ class AFESim(ModSequential):
         return 2 ** self.dn_rate_scale_bitshift[0] - 2 ** self.dn_rate_scale_bitshift[1]
 
     def export_config(self) -> Any:
+        """
+        Export a hardware configuration matching this AFE simulation
+        """
         raise NotImplementedError("To be implemented following `samna` support")
 
 
@@ -662,9 +669,11 @@ class __AFESimCommon(AFESim):
 
 class AFESimExternal(__AFESimCommon):
     """
-    AFESim module that simulates the audio signal preprocessing on Xylo A3 chip, processing an EXTERNAL signal.
-    It's mostly used for debugging purposes and it requires 14-bit QUANTIZED signal.
-    Bypasses the microphone paths. Uses neither the PDM microphone nor the analog microphone.
+    AFESim module that simulates audio signal preprocessing on XyloAudio 3 chip.
+    This module requires as input a 14-bit QUANTIZED signal.
+
+    See Also:
+        For example usage of the :py:class:`.AFESimExternal` Module, see :ref:`/devices/xylo-a3/AFESim3_as_transform.ipynb`
     """
 
     def __init__(self, **kwargs):
@@ -672,6 +681,14 @@ class AFESimExternal(__AFESimCommon):
 
 
 class AFESimPDM(__AFESimCommon):
+    """
+    AFESim module that simulates audio signal preprocessing on XyloAudio 3 chip.
+    This module requires as input a 14-bit QUANTIZED signal.
+
+    See Also:
+        For example usage of the :py:class:`.AFESimExternal` Module, see :ref:`/devices/xylo-a3/AFESim3_as_transform.ipynb`
+    """
+
     def __init__(self, **kwargs):
         super().__init__(input_mode="pdm", **kwargs)
 

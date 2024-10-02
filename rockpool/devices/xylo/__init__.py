@@ -22,16 +22,16 @@ See Also:
      - Xylo SNN core only. Two synapses per neuron.
    * - SYNS65300
      - :py:mod:`~rockpool.devices.xylo.syns65300`
-     - XyloAudio 1. Two synapses per neuron. Includes Analog audio front-end core and Xylo SNN core. Includes AFE simulation modules.
+     - Xylo™Audio 1. Two synapses per neuron. Includes Analog audio front-end core and Xylo SNN core. Includes AFE simulation modules.
    * - SYNS61201
      - :py:mod:`~rockpool.devices.xylo.syns61201`
-     - XyloAudio 2. Two synapses per neuron. Includes Analog audio front-end core and Xylo SNN core. Includes divisive normalisation simulation modules. Includes AFE simulation modules.
+     - Xylo™Audio 2. Two synapses per neuron. Includes Analog audio front-end core and Xylo SNN core. Includes divisive normalisation simulation modules. Includes AFE simulation modules.
    * - SYNS63300
      - :py:mod:`~rockpool.devices.xylo.syns63300`
      - XyloIMU. One synapse per neuron. 496 hidden neurons, 16 output neurons. Includes direct IMU sensor interface, and IMU IF simulation.
    * - SYNS65302
      - :py:mod:`~rockpool.devices.xylo.65302`
-     - XyloAudio 3. Two synapses per neuron. 992 hidden neurons, 32 output neurons. Includes AFE with one PDM microphone, and one analog microphone path.
+     - Xylo™Audio 3. Two synapses per neuron. 992 hidden neurons, 32 output neurons. Includes AFE with one PDM microphone, and one analog microphone path.
 """
 
 from rockpool.utilities.backend_management import (

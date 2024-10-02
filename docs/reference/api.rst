@@ -200,7 +200,7 @@ Conversion utilities
     transform.torch_transform
 
 
-Xylo hardware support and simulation
+Xylo™ hardware support and simulation
 ------------------------------------
 
 Support modules
@@ -234,7 +234,7 @@ Support modules
     transform.quantize_methods.channel_quantize
 
 
-XyloAudio support
+Xylo™Audio support
 ~~~~~~~~~~~~~~~~~~~
 
 .. autosummary::
@@ -261,7 +261,7 @@ XyloAudio support
     devices.xylo.syns61201.Xylo2OutputNeurons
 
 
-XyloAudio 3 Support
+Xylo™Audio 3 Support
 ~~~~~~~~~~~~~~~~~~~~
 
 .. autosummary::
@@ -269,10 +269,13 @@ XyloAudio 3 Support
 
     devices.xylo.syns65302.AFESimExternal
     devices.xylo.syns65302.AFESimPDM
-    devices.xylo.syns65302.AFESimAGC
+    devices.xylo.syns65302.XyloSim
+    devices.xylo.syns65302.XyloSamna
+    devices.xylo.syns65302.XyloMonitor
+    .. devices.xylo.syns65302.AFESimAGC
 
 
-XyloIMU support
+Xylo™IMU support
 ~~~~~~~~~~~~~~~~~
 
 .. seealso::
