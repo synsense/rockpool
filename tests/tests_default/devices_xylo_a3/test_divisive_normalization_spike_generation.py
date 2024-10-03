@@ -26,7 +26,7 @@ def test_filterbank():
     )
     from rockpool.devices.xylo.syns65302.afe.params import (
         NUM_FILTERS,
-        AUDIO_SAMPLING_RATE_PDM,
+        AUDIO_SAMPLING_RATE,
     )
 
     # just to extract the sampling rate
@@ -62,7 +62,7 @@ def test_filterbank():
     assert sig_filtered.shape[1] == NUM_FILTERS
 
     # aplly divisive normalization and spike generation
-    dn = DivisiveNormalization(fs=AUDIO_SAMPLING_RATE_PDM)
+    dn = DivisiveNormalization(fs=AUDIO_SAMPLING_RATE)
     spikes, _, _ = dn(sig_filtered)
 
     sample_rate = fs / oversampling

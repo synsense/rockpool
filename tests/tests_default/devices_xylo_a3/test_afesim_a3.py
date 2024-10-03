@@ -65,10 +65,10 @@ def test_dn_low_pass_bitshift_known_feasible(
         low_pass_bitshift (int): Expected `low_pass_bitshift` calculated given the target `low_pass_averaging_window`.
     """
     pytest.importorskip("samna")
-    from rockpool.devices.xylo.syns65302 import AFESimExternal, AUDIO_SAMPLING_RATE_PDM
+    from rockpool.devices.xylo.syns65302 import AFESimExternal, AUDIO_SAMPLING_RATE
 
     bitshift = AFESimExternal.get_dn_low_pass_bitshift(
-        audio_sampling_rate=AUDIO_SAMPLING_RATE_PDM,
+        audio_sampling_rate=AUDIO_SAMPLING_RATE,
         low_pass_averaging_window=low_pass_averaging_window,
     )
     assert bitshift == low_pass_bitshift
@@ -85,11 +85,11 @@ def test_dn_low_pass_bitshift_known_raising_error(
         low_pass_averaging_window (int): Target `low_pass_averaging_window` for the `DivisiveNormalization` module.
     """
     pytest.importorskip("samna")
-    from rockpool.devices.xylo.syns65302 import AFESimExternal, AUDIO_SAMPLING_RATE_PDM
+    from rockpool.devices.xylo.syns65302 import AFESimExternal, AUDIO_SAMPLING_RATE
 
     with pytest.raises(ValueError):
         AFESimExternal.get_dn_low_pass_bitshift(
-            audio_sampling_rate=AUDIO_SAMPLING_RATE_PDM,
+            audio_sampling_rate=AUDIO_SAMPLING_RATE,
             low_pass_averaging_window=low_pass_averaging_window,
         )
 
@@ -108,10 +108,10 @@ def test_down_sampling_factor_known_feasible(
         down_sampling_factor (int): Expected `down_sampling_factor` calculated given the target `dt`.
     """
     pytest.importorskip("samna")
-    from rockpool.devices.xylo.syns65302 import AFESimExternal, AUDIO_SAMPLING_RATE_PDM
+    from rockpool.devices.xylo.syns65302 import AFESimExternal, AUDIO_SAMPLING_RATE
 
     factor = AFESimExternal.get_down_sampling_factor(
-        audio_sampling_rate=AUDIO_SAMPLING_RATE_PDM, dt=dt
+        audio_sampling_rate=AUDIO_SAMPLING_RATE, dt=dt
     )
     assert factor == down_sampling_factor
 
@@ -125,9 +125,9 @@ def test_down_sampling_factor_known_raising_error(dt: float) -> None:
         dt (float): Sampling period of the audio signal.
     """
     pytest.importorskip("samna")
-    from rockpool.devices.xylo.syns65302 import AFESimExternal, AUDIO_SAMPLING_RATE_PDM
+    from rockpool.devices.xylo.syns65302 import AFESimExternal, AUDIO_SAMPLING_RATE
 
     with pytest.raises(ValueError):
         AFESimExternal.get_down_sampling_factor(
-            audio_sampling_rate=AUDIO_SAMPLING_RATE_PDM, dt=dt
+            audio_sampling_rate=AUDIO_SAMPLING_RATE, dt=dt
         )

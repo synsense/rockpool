@@ -22,7 +22,7 @@ from rockpool.devices.xylo.syns65302.afe.agc.agc_adc import AGCADC
 from rockpool.devices.xylo.syns65302.afe.external import ExternalSignal
 
 from rockpool.devices.xylo.syns65302.afe.params import (
-    AUDIO_SAMPLING_RATE_PDM,
+    AUDIO_SAMPLING_RATE,
     AUDIO_SAMPLING_RATE_AGC,
     MAX_SPIKES_INPUT,
     DEFAULT_PGA_COMMAND_IN_FIXED_GAIN_FOR_PGA_MODE,
@@ -641,7 +641,7 @@ class __AFESimCommon(AFESim):
             dn_EPS=dn_EPS,
             fixed_threshold_vec=fixed_threshold_vec,
             down_sampling_factor=down_sampling_factor,
-            audio_sampling_rate=AUDIO_SAMPLING_RATE_PDM,
+            audio_sampling_rate=AUDIO_SAMPLING_RATE,
         )
 
     @classmethod
@@ -656,7 +656,7 @@ class __AFESimCommon(AFESim):
         dt: Optional[float] = 1024e-6,
     ) -> __AFESimCommon:
         return super().from_specification(
-            audio_sampling_rate=AUDIO_SAMPLING_RATE_PDM,
+            audio_sampling_rate=AUDIO_SAMPLING_RATE,
             select_filters=select_filters,
             spike_gen_mode=spike_gen_mode,
             rate_scale_factor=rate_scale_factor,
