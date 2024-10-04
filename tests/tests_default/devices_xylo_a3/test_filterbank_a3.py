@@ -34,10 +34,15 @@ def test_filterbank():
     # compute the filterbank output
     fb = ChipButterworth()
 
-    sig_filtered, _, _ = fb(sig_out)
+    sig_filtered, _, rd = fb(sig_out, record=True)
 
-    assert sig_filtered.shape[1] == NUM_FILTERS
-    assert sig_filtered.shape[0] == len(sig_out)
+    assert (
+        sig_filtered.shape[1] == NUM_FILTERS
+    ), "Filtered signal has the wrong number of output channels"
+    assert sig_filtered.shape[0] == len(sig_out), "Filtered signal has the wrong length"
+
+    for k, v in rd.items():
+        assert v.shape[0] == len(sig_out), "Returned filter state has the wrong length"
 
 
 @pytest.mark.parametrize(

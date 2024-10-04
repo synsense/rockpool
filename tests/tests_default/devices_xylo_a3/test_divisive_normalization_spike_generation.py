@@ -57,13 +57,13 @@ def test_filterbank():
     # compute the filterbank output
     fb = ChipButterworth()
 
-    sig_filtered, _, _ = fb(sig_in)
+    sig_filtered, _, rd = fb(sig_in, record=True)
 
     assert sig_filtered.shape[1] == NUM_FILTERS
 
     # aplly divisive normalization and spike generation
     dn = DivisiveNormalization(fs=AUDIO_SAMPLING_RATE)
-    spikes, _, _ = dn(sig_filtered)
+    spikes, _, rd = dn(sig_filtered, record=True)
 
     sample_rate = fs / oversampling
     spike_rate = np.mean(spikes, axis=0) * sample_rate

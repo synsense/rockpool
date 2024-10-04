@@ -759,9 +759,9 @@ class AFESim(Module):
             spike_sum[1:, :] -= spike_sum[:-1, :]
 
             # truncate the number of spikes
-            spike_sum[
-                spike_sum > self.max_spike_per_raster_period
-            ] = self.max_spike_per_raster_period
+            spike_sum[spike_sum > self.max_spike_per_raster_period] = (
+                self.max_spike_per_raster_period
+            )
 
             return spike_sum
 
@@ -769,8 +769,8 @@ class AFESim(Module):
         spike_sum = TSEvent.from_raster(spikes, dt=self.dt).raster(
             dt=self.raster_period, add_events=True
         )
-        spike_sum[
-            spike_sum > self.max_spike_per_raster_period
-        ] = self.max_spike_per_raster_period
+        spike_sum[spike_sum > self.max_spike_per_raster_period] = (
+            self.max_spike_per_raster_period
+        )
 
         return spike_sum

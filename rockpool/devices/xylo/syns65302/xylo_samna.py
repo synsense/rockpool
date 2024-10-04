@@ -360,8 +360,9 @@ class XyloSamna(Module):
         config.input_source = samna.xyloAudio3.InputSource.SpikeEvents
 
         # - Get the network shape
-        Nin, Nhidden = np.shape(config.input.weights)
-        _, Nout = np.shape(config.readout.weights)
+        Nin, Nien = np.shape(config.input.weights)
+        Nhidden, _ = np.shape(config.hidden.weights)
+        Noen, Nout = np.shape(config.readout.weights)
 
         # - Initialise the superclass
         super().__init__(
@@ -424,9 +425,9 @@ class XyloSamna(Module):
                 "`operation_mode is set to Manual. This mode can be used for debug purpuses together with `_evolve_manual`. Otherwise, please use `AccelerateTime`."
             )
 
-        self._config: Union[
-            XyloConfiguration, SimulationParameter
-        ] = SimulationParameter(shape=(), init_func=lambda _: config)
+        self._config: Union[XyloConfiguration, SimulationParameter] = (
+            SimulationParameter(shape=(), init_func=lambda _: config)
+        )
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration

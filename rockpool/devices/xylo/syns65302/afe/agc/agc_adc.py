@@ -13,6 +13,7 @@ This file implements the analog input path for XyloAudio 3, which starts from an
         To solve this issue, we have added the gain smoother module, which makes sure that the gain transition from $g_i$ to $g_j$ happens smoothly in time so that the transient effect is not problematic.
 
 """
+
 from copy import copy
 from typing import Dict, Optional, Tuple
 

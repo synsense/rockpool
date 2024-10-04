@@ -209,9 +209,9 @@ class UpDownTorch(TorchModule):
                 down_channels[down_channels >= 1] = 1
 
                 # - Reset the refractory counter back to the full time when either an up or a down spike was emitted
-                remaining_ref_steps[
-                    (up_channels + down_channels) > 0
-                ] = self.n_ref_steps
+                remaining_ref_steps[(up_channels + down_channels) > 0] = (
+                    self.n_ref_steps
+                )
 
                 # - Set the reference value to the last input for all channels which are in refractory period
                 analog_value[remaining_ref_steps > 0] = (data[:, t, :])[

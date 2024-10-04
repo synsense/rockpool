@@ -2,7 +2,6 @@
 This module implements a new controller for adjusting the gain based on the envelope detection of the input signal.
 """
 
-
 import warnings
 from typing import Any, Optional
 

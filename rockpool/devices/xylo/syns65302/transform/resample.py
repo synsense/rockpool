@@ -1,6 +1,7 @@
 """
 Implements Audio resampling module to make sure that the XyloAudio 3 AFESim modules works with all possible sampling rates with no problem
 """
+
 import logging
 import warnings
 from typing import Tuple

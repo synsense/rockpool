@@ -6,7 +6,6 @@ Mapper package for XyloAudio 3 core
 
 """
 
-
 import numpy as np
 
 import copy

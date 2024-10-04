@@ -159,24 +159,30 @@ class DivisiveNormalization(Module):
         *args,
         **kwargs,
     ):
-        """This module takes the input `T x C` signal `sig_in` and applies divisive normalization across each channel.
+        """This module takes the input `B x T x C` signal `sig_in` and applies divisive normalization across each channel.
 
         Args:
-            sig_in (np.ndarray): input signal of dimension `T x num_channels`.
+            sig_in (np.ndarray): input signal of dimension `B x T x num_channels`.
             record (bool): record the state. Defaults to False.
         """
-
-        # check if there is a single channel
-        if sig_in.ndim == 1:
-            sig_in = sig_in.reshape(1, -1)
-
-        T, num_channels = sig_in.shape
+        sig_in, _ = self._auto_batch(sig_in)
+        Nb, T, num_channels = sig_in.shape
 
         if self.size_out != num_channels:
             raise ValueError(
                 f"number of channels ({num_channels}) in the input signal differs\n"
                 + f"from the numbers of channels ({self.size_out} in DN module!"
             )
+
+        if Nb > 1:
+            raise ValueError("Only batch size of 1 is supported.")
+
+        sig_in = sig_in[0, :, :]
+
+        # -- Revert and repeat the input signal in the beginning to avoid boundary effects
+        l = np.shape(sig_in)[0]
+        __input_rev = np.flip(sig_in, axis=0)
+        sig_in = np.concatenate((__input_rev, sig_in), axis=0)
 
         # check if jax is available
         if JAX_SPIKE_GEN:
@@ -232,6 +238,13 @@ class DivisiveNormalization(Module):
                 joint_normalization=self.joint_normalization,
                 record=record,
             )
+
+        # Trim the part of the signal coresponding to __input_rev (which was added to avoid boundary effects)
+        spikes = spikes[l:, :]
+
+        # Trim recordings
+        for k, v in recording.items():
+            recording[k] = v[l:, :] if "state" in k else v
 
         return spikes, self.state(), recording
 
