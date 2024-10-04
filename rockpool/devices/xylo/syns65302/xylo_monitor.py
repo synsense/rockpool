@@ -156,9 +156,9 @@ class XyloMonitor(Module):
         """ `.XyloHDK`: The Xylo HDK used by this module """
 
         # - Store the configuration (and apply it)
-        self._config: Union[XyloConfiguration, SimulationParameter] = (
-            SimulationParameter(shape=(), init_func=lambda _: config)
-        )
+        self._config: Union[
+            XyloConfiguration, SimulationParameter
+        ] = SimulationParameter(shape=(), init_func=lambda _: config)
         """ `XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Enable hibernation mode

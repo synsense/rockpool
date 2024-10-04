@@ -140,9 +140,9 @@ class XyloMonitor(Module):
         )
 
         # - Store the configuration (and apply it)
-        self.config: Union[XyloConfiguration, SimulationParameter] = (
-            SimulationParameter(shape=(), init_func=lambda _: config)
-        )
+        self.config: Union[
+            XyloConfiguration, SimulationParameter
+        ] = SimulationParameter(shape=(), init_func=lambda _: config)
         self._config = config
         if hibernation_mode:
             self._config.enable_hibernation_mode = True

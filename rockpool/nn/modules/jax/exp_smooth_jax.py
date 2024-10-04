@@ -74,9 +74,9 @@ class ExpSmoothJax(JaxModule):
         )
         """ (np.ndarray) Internal activation of each unit. """
 
-        self.activation_fun: Union[SimulationParameter, Callable[[float], float]] = (
-            SimulationParameter(Partial(activation_fun))
-        )
+        self.activation_fun: Union[
+            SimulationParameter, Callable[[float], float]
+        ] = SimulationParameter(Partial(activation_fun))
         """ (Callable[[np.ndarray], np.ndarray]) Activation function of this module. """
 
         self._init_args = {

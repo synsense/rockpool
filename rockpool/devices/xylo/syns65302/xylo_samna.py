@@ -425,9 +425,9 @@ class XyloSamna(Module):
                 "`operation_mode is set to Manual. This mode can be used for debug purpuses together with `_evolve_manual`. Otherwise, please use `AccelerateTime`."
             )
 
-        self._config: Union[XyloConfiguration, SimulationParameter] = (
-            SimulationParameter(shape=(), init_func=lambda _: config)
-        )
+        self._config: Union[
+            XyloConfiguration, SimulationParameter
+        ] = SimulationParameter(shape=(), init_func=lambda _: config)
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
