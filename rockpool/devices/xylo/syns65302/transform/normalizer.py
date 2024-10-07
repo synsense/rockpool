@@ -1,3 +1,7 @@
+"""
+Implements :py:class:`.AmplitudeNormalizer`, a robust signal normalization block used by AFESim3
+"""
+
 from typing import Dict, Tuple, Optional, Union
 
 import numpy as np

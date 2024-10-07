@@ -1,3 +1,7 @@
+"""
+Defines RAM banks for Xylo™Audio 3 SYNS65302
+"""
+
 # ===========================================================================
 # Description     : test file
 # Author          : Bai, Xin

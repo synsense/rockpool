@@ -36,7 +36,7 @@ from rockpool.nn.combinators.sequential import ModSequential
 from rockpool.utilities.backend_management import backend_available
 from rockpool.parameters import SimulationParameter
 
-__all__ = ["AFESimExternal", "AFESimAGC", "AFESimPDM"]
+__all__ = ["AFESimExternal", "AFESimPDM"]
 
 
 class RiskyInitializationError(Exception):
@@ -162,15 +162,15 @@ class AFESim(ModSequential):
                         "Threshold is enabled! Adaptive threshold parameter `dn_EPS` is ignored!"
                     )
 
-        dn_rate_scale_bitshift = self.handle_none_dn_rate_scale_bitshift(
+        dn_rate_scale_bitshift = self._handle_none_dn_rate_scale_bitshift(
             spike_gen_mode, dn_rate_scale_bitshift
         )
-        dn_low_pass_bitshift = self.handle_none_dn_low_pass_bitshift(
+        dn_low_pass_bitshift = self._handle_none_dn_low_pass_bitshift(
             spike_gen_mode, dn_low_pass_bitshift
         )
-        dn_EPS = self.handle_none_dn_EPS(spike_gen_mode, dn_EPS)
+        dn_EPS = self._handle_none_dn_EPS(spike_gen_mode, dn_EPS)
 
-        fixed_threshold_vec = self.handle_none_fixed_threshold_vec(
+        fixed_threshold_vec = self._handle_none_fixed_threshold_vec(
             spike_gen_mode, fixed_threshold_vec
         )
 
@@ -217,7 +217,7 @@ class AFESim(ModSequential):
         self.audio_sampling_rate = SimulationParameter(audio_sampling_rate)
 
     @staticmethod
-    def handle_none_dn_rate_scale_bitshift(
+    def _handle_none_dn_rate_scale_bitshift(
         spike_gen_mode: str, dn_rate_scale_bitshift: Optional[Tuple[int]]
     ) -> Tuple[int]:
         """
@@ -234,7 +234,7 @@ class AFESim(ModSequential):
             return (1, 0)
 
     @staticmethod
-    def handle_none_dn_low_pass_bitshift(
+    def _handle_none_dn_low_pass_bitshift(
         spike_gen_mode: str, dn_low_pass_bitshift: Optional[int]
     ) -> int:
         """
@@ -251,7 +251,7 @@ class AFESim(ModSequential):
             return 0
 
     @staticmethod
-    def handle_none_dn_EPS(
+    def _handle_none_dn_EPS(
         spike_gen_mode: str, dn_EPS: Optional[Union[int, Tuple[int]]]
     ) -> Union[int, Tuple[int]]:
         """
@@ -268,7 +268,7 @@ class AFESim(ModSequential):
             return 1
 
     @staticmethod
-    def handle_none_fixed_threshold_vec(
+    def _handle_none_fixed_threshold_vec(
         spike_gen_mode: str, fixed_threshold_vec: Optional[Union[int, Tuple[int]]]
     ) -> Union[int, Tuple[int]]:
         """
@@ -557,17 +557,21 @@ class AFESim(ModSequential):
 
     @property
     def low_pass_averaging_window(self) -> float:
-        """Averaging window length in seconds depended on the `dn_low_pass_bitshift` parameter. Defines the averaging window length of the low-pass filter"""
+        """
+        (float) Averaging window length in seconds dependent on the `dn_low_pass_bitshift` parameter. Defines the averaging window length of the low-pass filter
+        """
         return (2**self.dn_low_pass_bitshift) / self.audio_sampling_rate
 
     @property
     def dt(self) -> float:
-        """Time-step length in seconds depended on the `down_sampling_factor` parameter"""
+        """(float) Time-step length in seconds dependent on the `down_sampling_factor` parameter"""
         return self.down_sampling_factor / self.audio_sampling_rate
 
     @property
     def rate_scale_factor(self) -> int:
-        """Rate scaling factor depended on the `dn_rate_scale_bitshift` parameter. Defines how much the spike rate should be scaled compared with the sampling rate of the input audio"""
+        """
+        (int) Rate scaling factor dependent on the `dn_rate_scale_bitshift` parameter. Defines how much the spike rate should be scaled compared with the sampling rate of the input audio
+        """
         return 2 ** self.dn_rate_scale_bitshift[0] - 2 ** self.dn_rate_scale_bitshift[1]
 
     def export_config(self) -> Any:

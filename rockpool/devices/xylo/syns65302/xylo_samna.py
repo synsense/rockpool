@@ -1,5 +1,7 @@
 """
-Utilities for producing a samna HW configuration for XyloAudio 3 devices
+Implements :py:class:`.XyloSamna`, for running inference on a Xylo™Audio 3 HDK
+
+Also provides :py:func:`.config_from_specification`.
 """
 
 import numpy as np
@@ -54,7 +56,7 @@ def config_from_specification(
     **kwargs,
 ) -> XyloConfiguration:
     """
-    Convert a full network specification to a xylo config and validate it
+    Convert a full network specification to a XyloAudio3 config and validate it
 
     See Also:
         For detailed information about the networks supported on Xylo, see :ref:`/devices/xylo-overview.ipynb`
@@ -298,14 +300,13 @@ def load_config(filename: str) -> XyloConfiguration:
 
 class XyloSamna(Module):
     """
-    A spiking neuron :py:class:`.Module` backed by the Xylo hardware, via `samna`.
+    A spiking neuron :py:class:`.Module` backed by the XyloAudio 3 hardware, via `samna`.
 
     Use :py:func:`.config_from_specification` to build and validate a configuration for Xylo.
-    """
 
-    # TODO: Update similar tutorial for XyloAudio 3 and add to the description of the class
-    # See Also:
-    #     See the tutorials :ref:`/devices/xylo-imu/xylo-imu-intro.ipynb` and :ref:`/devices/torch-training-spiking-for-xylo.ipynb` for a high-level overview of building and deploying networks for Xylo.
+    See Also:
+        See the tutorial :ref:`/devices/xylo-a3/xylo-audio3-intro.ipynb` for a high-level overview of building and deploying networks for Xylo.
+    """
 
     def __init__(
         self,
@@ -422,13 +423,13 @@ class XyloSamna(Module):
 
         elif config.operation_mode == samna.xyloAudio3.OperationMode.Manual:
             warn(
-                "`operation_mode is set to Manual. This mode can be used for debug purpuses together with `_evolve_manual`. Otherwise, please use `AccelerateTime`."
+                "`operation_mode is set to Manual. This mode can be used for debug purpuses together with `_evolve_manual`. Otherwise, please use `AcceleratedTime`."
             )
 
-        self._config: Union[
-            XyloConfiguration, SimulationParameter
-        ] = SimulationParameter(shape=(), init_func=lambda _: config)
-        """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
+        # - Apply configuration
+        self._config: Union[XyloConfiguration, SimulationParameter] = (
+            SimulationParameter(shape=(), init_func=lambda _: config)
+        )
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
         self._last_record_mode: Optional[bool] = None
@@ -457,11 +458,13 @@ class XyloSamna(Module):
 
     @property
     def config(self):
+        """`.XyloConfiguration`: The HDK configuration applied to the Xylo module"""
         # - Return the configuration stored on Xylo HDK
         return self._device.get_model().get_configuration()
 
     @config.setter
     def config(self, new_config):
+        """`.XyloConfiguration`: The HDK configuration applied to the Xylo module"""
         # - Test for a valid configuration
         is_valid, msg = samna.xyloAudio3.validate_configuration(new_config)
         if not is_valid:
@@ -474,6 +477,9 @@ class XyloSamna(Module):
         self._config = new_config
 
     def reset_state(self) -> "XyloSamna":
+        """
+        Reset all states on the Xylo device
+        """
         # - Reset neuron and synapse state on Xylo
         # -- Copy values of configuration
         operation_mode = copy.copy(self._config.operation_mode)
@@ -563,7 +569,10 @@ class XyloSamna(Module):
         # - Get current timestep by reading a `Readout` event
         self._write_buffer.write([samna.xyloAudio3.event.TriggerReadout()])
         evts = self._readout_buffer.get_n_events(1, timeout=6000)
-        assert len(evts) == 1
+        if len(evts) < 1:
+            raise TimeoutError(
+                "Couldn't read current timestep. No response after 6000 ms."
+            )
 
         start_timestep = evts[0].timestep + 1
         final_timestep = start_timestep + len(input) - 1
@@ -601,7 +610,7 @@ class XyloSamna(Module):
 
         # - Determine a reasonable read timeout
         if read_timeout is None:
-            read_timeout = 3 * len(input)
+            read_timeout = 4 * len(input)
             read_timeout = read_timeout * 30.0 if record else read_timeout
             read_timeout = int(read_timeout)
 

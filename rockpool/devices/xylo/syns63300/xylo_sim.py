@@ -1,5 +1,5 @@
 """
-XyloSim-backed module compatible with Xylo IMU. Requires XyloSim package.
+XyloSim-backed module compatible with Xylo™IMU and Xylo™Audio 3. Requires XyloSim package.
 """
 
 # - Rockpool imports

@@ -5,7 +5,7 @@ where the relative frequency of 1-vs-0 depends on the amplitude of the signal
 
 import warnings
 from numbers import Number
-from typing import Any, Tuple
+from typing import Any, Tuple, Union
 
 import numpy as np
 
@@ -53,13 +53,13 @@ class MicrophonePDM(Module):
 
         # deltasigma modulator parameters
         self.sdm_order: P_int = SimulationParameter(sdm_order)
-        """ int: order of the deltasigma modulator """
+        """ int: Order of the deltasigma modulator """
 
         self.sdm_OSR: P_int = SimulationParameter(sdm_OSR)
-        """ int: oversampling rate in deltasigma modulator """
+        """ int: Oversampling rate in deltasigma modulator """
 
         self.fs: P_float = SimulationParameter(fs)
-        """ float: Sampling frequency of the module in Hz """
+        """ float: Sampling rate of this module in Hz """
 
         target_audio_sample_rate = self.fs / self.sdm_OSR
         if bandwidth > target_audio_sample_rate / 2.0:
@@ -81,7 +81,7 @@ class MicrophonePDM(Module):
 
     def evolve(
         self,
-        audio_in: Tuple[np.ndarray, float],
+        audio_in: Union[np.ndarray, Tuple[np.ndarray, float]],
         record: bool = False,
         *args,
         **kwargs,
@@ -98,7 +98,7 @@ class MicrophonePDM(Module):
 
         Args:
             audio_in (Tuple[np.ndarray), float]: a tuple containing the input audio signal and its sampling rate.
-            record (bool): record the inner states of the deltasigma module used for PDM modulation.
+            record (bool): Record the inner states of the deltasigma module used for PDM modulation. Default: ``False``
 
         Raises:
             ValueError: if the amplitude is not scaled properly and is not in the valid range [-1.0, 1.0]
@@ -107,20 +107,33 @@ class MicrophonePDM(Module):
             np.ndarray: array containing PDM bit-stream at the output of the microphone.
         """
 
-        try:
-            audio, sample_rate = audio_in
+        if isinstance(audio_in, tuple):
+            try:
+                audio, sample_rate = audio_in
 
-            if isinstance(audio, np.ndarray) and isinstance(sample_rate, Number):
-                pass
-        except:
+                if isinstance(audio, np.ndarray) and isinstance(sample_rate, Number):
+                    pass
+            except:
+                raise TypeError(
+                    "`audio_in` should be a tuple consisting of a numpy array containing the audio and its sampling rate."
+                )
+        elif isinstance(audio_in, np.ndarray):
+            audio = audio_in
+            sample_rate = self.fs
+        else:
             raise TypeError(
-                "`audio_in` should be a tuple consisting of a numpy array containing the audio and its sample rate!"
+                "`audio_in` must be either a numpy array or a tuple of a numpy array and the sampling rate."
             )
 
-        if audio.ndim != 1:
+        audio, _ = self._auto_batch(audio)
+        Nb, Nt, Nc = audio.shape
+
+        if Nb > 1 or Nc > 1:
             raise ValueError(
-                "only single-channel audio signals can be processed by the deltasigma modulator in PDM microphone!"
+                "only single-batch single-channel audio signals can be processed by the deltasigma modulator in PDM microphone."
             )
+
+        audio = audio[0, :, 0]
 
         if np.max(np.abs(audio)) > 1.0:
             raise ValueError(
@@ -136,7 +149,7 @@ class MicrophonePDM(Module):
                 + "\n"
                 + f"In practice, the input to the PDM microphone (fed by a clock of rate:{self.fs}) is the analog audio signal.\n"
                 + "In simulations, however, we have to use sampled audio signal at the input to mimic this analog signal.\n"
-                + f"Here we resample the input audio (of course artificially) to the higher sample rate of PDM microphone ({self.fs}).\n"
+                + f"Here we resample the input audio to the higher sampling rate of PDM microphone ({self.fs}).\n"
                 + "For a more realistic simulation, it is better to provide an audio signal which is originally sampled with a higher rate.\n"
                 + "+" * 120
                 + "\n\n"

@@ -57,6 +57,7 @@ def test_tracing_jax():
 
 def test_tracing_torch():
     pytest.importorskip("jax")
+    pytest.importorskip("torch")
 
     from rockpool.nn.modules import LinearTorch, LIFTorch
     from rockpool.nn.combinators import Sequential

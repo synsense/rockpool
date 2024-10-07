@@ -12,7 +12,7 @@ import numpy as np
 from warnings import warn
 
 # - Useful constants for XA3
-from . import ram, reg, constants
+from . import ram, reg
 
 
 # - Typing and useful proxy types

@@ -78,3 +78,6 @@ def test_pdm_adc():
 
         MIN_CORR = 0.7
         assert corr > MIN_CORR
+
+        # - Check that raw input samples works
+        pdm_adc(sig_in)

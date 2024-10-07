@@ -1,4 +1,6 @@
 def test_import():
+    import pytest
+    pytest.importorskip('samna')
     from rockpool.devices.xylo.syns63300.imuif.rotation import SubSpace
 
     assert SubSpace is not None
@@ -6,6 +8,8 @@ def test_import():
 
 def test_subspace():
     # required packages
+    import pytest
+    pytest.importorskip('samna')
     import numpy as np
     from numpy.testing import assert_allclose
     from scipy.signal import lfilter

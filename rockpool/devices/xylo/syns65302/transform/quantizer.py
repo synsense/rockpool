@@ -1,3 +1,7 @@
+"""
+Implements :py:class:`.AudioQuantizer`, a simulation of the XA3 audio quantization block
+"""
+
 from typing import Tuple
 
 import numpy as np

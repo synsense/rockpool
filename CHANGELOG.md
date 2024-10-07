@@ -5,9 +5,11 @@ All notable changes between Rockpool releases will be documented in this file
 ## Unreleased - [v2.8.6.dev] -- xxxx-xx-xx
 
 ### Added
+* Support for Xylo™Audio 3 development kit
+  * Hardware interface via samna
+  * Digital microphone input and simulaton package
+  * Cycles model
 * Tutorial and documentation for the ``SynNet`` architecture, to improve visibility
-* Power measurement for XyloAudio 3
-* Support for digital microphone in XyloAudio 3. Analog microphone is not supported yet.
 
 ### Changed
 * Update ``release notes`` for developers in documentation
@@ -28,7 +30,7 @@ All notable changes between Rockpool releases will be documented in this file
 ## [v2.8] -- 2024-06-24
 
 ### Added
-* Add cycles model for Xylo A and Xylo IMU, enabling to calculate the required master clock frequency for Xylo
+* Add cycles model for Xylo Audio and Xylo IMU, enabling users to calculate the required master clock frequency for Xylo
 * Add support for NIR, for importing and exporting Rockpool torch networks
 
 * Added simulation support for audio front-end for Xylo A3 (SYNS65302)

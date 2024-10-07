@@ -1,10 +1,10 @@
 """
-Implements Audio resampling module to make sure that the XyloAudio 3 AFESim modules works with all possible sampling rates with no problem
+Implements Audio resampling module :py:class:`.ResampleAudio` to make sure that the XyloAudio 3 AFESim modules works with all possible sampling rates with no problem
 """
 
 import logging
 import warnings
-from typing import Tuple
+from typing import Tuple, Union
 
 import numpy as np
 
@@ -26,16 +26,17 @@ class ResampleAudio(Module):
         """
         super().__init__(shape=(1, 1), spiking_input=False, spiking_output=False)
         self.fs_target = SimulationParameter(fs_target, shape=())
+        """ (float) The target output sampling rate for the audio signal."""
 
     def evolve(
-        self, signal: Tuple[np.ndarray, float], record: bool = False
+        self, signal: Union[np.ndarray, Tuple[np.ndarray, float]], record: bool = False
     ) -> Tuple[np.ndarray, dict, dict]:
         """
         Apply linear interpolation to the input audio signal and resample
 
         Args:
-            signal (Tuple[np.ndarray, float]): A tuple of the actual audio signal and the sampling rate
-            record (bool, optional): Dummy variable, to meet the rockpool conventions. Defaults to False.
+            signal (Union[np.ndarray, Tuple[np.ndarray, float]]): Either a numpy array, assumed to already be at the target sampling rate, or a tuple of the audio signal and the actual input sampling rate.
+            record (bool): Record internal state during evoltion. Defaults to ``False``. Note: This module does not have internal state.
 
         Returns:
             Tuple[np.ndarray, dict, dict]:
@@ -43,27 +44,43 @@ class ResampleAudio(Module):
                 state_dict: empty dictionary
                 record_dict : empty dictionary
         """
-        try:
-            audio, sample_rate = signal
+        if isinstance(signal, tuple):
+            try:
+                audio, sample_rate = signal
 
-        except:
+            except:
+                raise TypeError(
+                    "`signal` should be a tuple consisting of a numpy array containing the audio and its sampling rate."
+                )
+        elif isinstance(signal, np.ndarray):
+            audio = signal
+            sample_rate = self.fs_target
+        else:
             raise TypeError(
-                "`signal` should be a tuple consisting of a numpy array containing the audio and its sample rate!"
+                "`signal` must be either a numpy array or a tuple of a numpy array and a sampling rate."
             )
 
-        if not isinstance(audio, np.ndarray):
-            raise TypeError("The given input audio is not a numpy array!")
+        # - Verify sampling rate
         if not isinstance(sample_rate, (int, float)):
-            raise TypeError("The given sample rate is not a number!")
-        if audio.ndim != 1:
-            raise ValueError(
-                "only single-channel audio signals can be processed by this module!"
+            raise TypeError(
+                "The given sampling rate must be an integer or float number."
             )
+
+        # - perform auto-batching, verify dimensions
+        audio, _ = self._auto_batch(audio)
+        Nb, Nt, Nc = audio.shape
+
+        if Nb > 1 or Nc > 1:
+            raise ValueError(
+                "Only single-batch, single-channel audio signals can be processed by this module."
+            )
+
+        audio = audio[0, :, 0]
 
         if sample_rate != self.fs_target:
             warnings.warn(
-                f"Resampling the signal!"
-                + f"\nSample rate given = {sample_rate}, sample rate required = {self.fs_target}"
+                f"Resampling the signal."
+                + f"\nInput sampling rate = {sample_rate}, target sampling rate = {self.fs_target}"
             )
             duration = (len(audio) - 1) / sample_rate
             time_in = np.arange(len(audio)) / sample_rate
