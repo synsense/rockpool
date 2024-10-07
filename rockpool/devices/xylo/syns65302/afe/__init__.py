@@ -1,7 +1,9 @@
 """
 Implements a simulation module for the digital audio front-end on XyloAudio 3
 
-Provides the modules :py:class:`.Raster`, :py:class:`.MicrophonePDM`, :py:class:`.PolyPhaseFIR`, :py:class:.`PDMADC`, :py:class:`.DivisiveNormalization`, :py:class:`.ChipButterworth`.
+Provides the modules :py:class:`.Raster`, :py:class:`.MicrophonePDM`, :py:class:`.PolyPhaseFIR`, :py:class:`.PDMADC`, :py:class:`.DivisiveNormalization`, :py:class:`.ChipButterworth`.
+
+For an introduction to using the audio front-end simulation, see :ref:`/devices/xylo-a3/AFESim3_as_transform.ipynb`.
 """
 
 from .pdm import PDMADC

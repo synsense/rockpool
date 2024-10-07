@@ -1,3 +1,9 @@
+"""
+Defines the external audio signal path for the AFE simulation for Xylo™Audio 3.
+
+Defines the class :py:class:`.ExternalSignal`.
+"""
+
 from rockpool.devices.xylo.syns65302.transform import AudioQuantizer, ResampleAudio
 from rockpool.nn.combinators.sequential import ModSequential
 from rockpool.devices.xylo.syns65302.afe.params import (
