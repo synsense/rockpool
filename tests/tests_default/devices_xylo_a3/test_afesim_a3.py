@@ -5,9 +5,8 @@ def test_import() -> None:
     """Test that the AFESim modules can be imported"""
 
     pytest.importorskip("samna")
-    from rockpool.devices.xylo.syns65302 import AFESimAGC, AFESimPDM, AFESimExternal
+    from rockpool.devices.xylo.syns65302 import AFESimPDM, AFESimExternal
 
-    assert AFESimAGC is not None
     assert AFESimPDM is not None
     assert AFESimExternal is not None
 
