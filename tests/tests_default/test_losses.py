@@ -1,9 +1,8 @@
-import pytest
-
-
 def test_peak_loss():
+    import pytest
 
     pytest.importorskip("torch")
+
     import torch
     from rockpool.nn.losses import PeakLoss
 
@@ -69,7 +68,10 @@ def test_peak_loss():
 
 
 def test_binary_peak_loss():
+    import pytest
+
     pytest.importorskip("torch")
+
     import torch
     from rockpool.nn.losses import BinaryPeakLoss
 
@@ -140,7 +142,10 @@ def test_binary_peak_loss():
 
 
 def test_mse_loss():
+    import pytest
+
     pytest.importorskip("torch")
+
     import torch
     from rockpool.nn.losses import MSELoss
 
