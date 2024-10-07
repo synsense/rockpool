@@ -427,9 +427,9 @@ class XyloSamna(Module):
             )
 
         # - Apply configuration
-        self._config: Union[XyloConfiguration, SimulationParameter] = (
-            SimulationParameter(shape=(), init_func=lambda _: config)
-        )
+        self._config: Union[
+            XyloConfiguration, SimulationParameter
+        ] = SimulationParameter(shape=(), init_func=lambda _: config)
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
         self._last_record_mode: Optional[bool] = None
