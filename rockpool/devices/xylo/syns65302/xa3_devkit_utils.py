@@ -161,20 +161,13 @@ def update_register_field(
     write_register(write_buffer, addr, data)
 
 
-def send_pdm_datas(write_buffer: XyloAudio3WriteBuffer, datas, debug=0) -> None:
-    # read_important_register()
-    print(f"send pdm datas: {datas}") if debug >= 2 else None
-    events = []
-    for n in datas:
-        n = n.strip()
-        # print(f"n: \${n}\$") if debug>=1 else None
-        ev = samna.xyloAudio3.event.AfeSample()
-        ev.data = int(n)
-        events.append(ev)
-    write_buffer.write(events)
-
-
 def enable_real_time_mode(hdk: XyloAudio3HDK) -> None:
+    """
+    Enable real-time mode on the XA3 dev kit
+
+    Args:
+        hdk (XyloAudio3HDK): A connected XyloAudio 3 HDK
+    """
     io = hdk.get_io_module()
 
     # FPGA drive PDM_DATA pin (for SAER input)
@@ -248,6 +241,16 @@ def advance_time_step(write_buffer: XyloAudio3WriteBuffer) -> None:
 def is_xylo_ready(
     read_buffer: XyloAudio3ReadBuffer, write_buffer: XyloAudio3WriteBuffer
 ) -> bool:
+    """
+    Read the status register on a XyloAudio 3 device to determine if it is finished with processing
+
+    Args:
+        read_buffer (XyloAudio3ReadBuffer): A read buffer connected to a XyloAudio 3 HDK
+        write_buffer (XyloAudio3WriteBuffer): A write buffer connected to a XyloAudio 3 HDK
+
+    Returns:
+        bool: If ``True``, the Xylo device is finished with processing
+    """
     # - Clear the buffer
     read_buffer.get_events()
     stat2 = read_register(read_buffer, write_buffer, reg.stat2)[0]
@@ -589,6 +592,19 @@ def read_memory(
     length: int = 1,
     read_timeout: float = 2.0,
 ) -> List[int]:
+    """
+    Read memory from a XyloAudio 3 device
+
+    Args:
+        read_buffer (XyloAudio3ReadBuffer): A read buffer connected to a XyloAudio 3 HDK
+        write_buffer (XyloAudio3WriteBuffer): A write buffer connected to a XyloAudio 3 HDK
+        start_address (int): The memory address to begin reading from
+        length (int): The number of memory addresses to read. Default: ``1``
+        read_timeout (float): The duration in seconds to wait for the read events. Default: ``2.0`` seconds
+
+    Returns:
+        List[int]: A list of the memory values read from the Xylo device
+    """
     # - Generate read events
     read_events = [
         samna.xyloAudio3.event.ReadMemoryValue(addr)
@@ -623,6 +639,17 @@ def read_input_spikes(
     write_buffer: XyloAudio3WriteBuffer,
     debug: bool = False,
 ) -> np.array:
+    """
+    Read the input spike register from a Xylo device
+
+    Args:
+        read_buffer (XyloAudio3ReadBuffer): A read buffer connected to a XyloAudio 3 HDK
+        write_buffer (XyloAudio3WriteBuffer): A write buffer connected to a XyloAudio 3 HDK
+        debug (bool): If ``True``, print debug information. Default: ``False``
+
+    Returns:
+        np.ndarray: An integer array containing the event counts in the current active input spike register
+    """
     # - Read input spike register pointer
     dbg_stat1 = read_register(read_buffer, write_buffer, reg.dbg_stat1)[0]
     ispk_reg_ptr = bool((dbg_stat1 & 0b10000000000000000) >> 15)
@@ -710,6 +737,13 @@ def read_neuron_synapse_state(
 
 
 def enable_ram_access(device: XyloAudio3HDK, enabled: bool) -> None:
+    """
+    Enable or disable RAM access for a Xylo device
+
+    Args:
+        device (XyloAudio3HDK): A connected XyloAudio 3 device
+        enabled (bool): If ``True``, enable memory access. If ``False``, disable memory access.
+    """
     if enabled:
         device.get_model().open_ram_access()
     else:
