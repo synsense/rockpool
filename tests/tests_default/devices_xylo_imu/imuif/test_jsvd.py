@@ -2,14 +2,20 @@
 
 
 def test_import():
+    import pytest
+
+    pytest.importorskip("samna")
     from rockpool.devices.xylo.syns63300.imuif.rotation import JSVD
 
     assert JSVD is not None
 
 
 def test_type_check():
-    import numpy as np
     import pytest
+
+    pytest.importorskip("samna")
+
+    import numpy as np
     from numpy.testing import assert_array_equal
 
     from rockpool.devices.xylo.syns63300.imuif.utils import type_check
@@ -30,6 +36,9 @@ def test_type_check():
 
 
 def test_JSVD_low_rank_gravity():
+    import pytest
+
+    pytest.importorskip("samna")
     import numpy as np
     from numpy.testing import assert_array_almost_equal
     from rockpool.devices.xylo.syns63300.imuif.rotation import JSVD

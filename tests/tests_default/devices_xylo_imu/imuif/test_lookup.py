@@ -2,12 +2,18 @@
 
 
 def test_import():
+    import pytest
+
+    pytest.importorskip("samna")
     from rockpool.devices.xylo.syns63300.imuif.rotation import RotationLookUpTable
 
     assert RotationLookUpTable is not None
 
 
 def test_lookup_table():
+    import pytest
+
+    pytest.importorskip("samna")
     import numpy as np
     from numpy.testing import assert_almost_equal
 

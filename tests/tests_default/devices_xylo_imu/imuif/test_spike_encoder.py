@@ -1,4 +1,7 @@
 def test_import():
+    import pytest
+
+    pytest.importorskip("samna")
     from rockpool.devices.xylo.syns63300.imuif import (
         IAFSpikeEncoder,
         ScaleSpikeEncoder,
@@ -11,6 +14,8 @@ def test_import():
 def test_scale_spike_encoder():
     import numpy as np
     import pytest
+
+    pytest.importorskip("samna")
     from numpy.testing import assert_array_compare, assert_array_equal
 
     from rockpool.devices.xylo.syns63300.imuif import ScaleSpikeEncoder
@@ -34,6 +39,8 @@ def test_scale_spike_encoder():
 def test_iaf_spike_encoder():
     import numpy as np
     import pytest
+
+    pytest.importorskip("samna")
     from numpy.testing import assert_array_compare, assert_array_equal
 
     from rockpool.devices.xylo.syns63300.imuif import IAFSpikeEncoder

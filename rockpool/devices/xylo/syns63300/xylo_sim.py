@@ -1,5 +1,5 @@
 """
-XyloSim-backed module compatible with Xylo IMU. Requires XyloSim package.
+XyloSim-backed module compatible with Xylo™IMU and Xylo™Audio 3. Requires XyloSim package.
 """
 
 # - Rockpool imports
@@ -68,10 +68,21 @@ class XyloSim(XyloSimV1):
 
         cls.output_mode = output_mode
 
+        # - Determine the size of the simulated network
+        if np.array(config.input.weights).ndim == 2:
+            Nin, NIEN = np.array(config.input.weights).shape
+            Nsyn = 1
+        else:
+            Nin, NIEN, Nsyn = np.array(config.input.weights).shape
+
+        Nhid, *_ = np.array(config.hidden.weights).shape
+        NOEN, Nout = np.array(config.readout.weights).shape
+
         # - Instantiate the class
         mod = cls(
             create_key=cls.__create_key,
             config=config,
+            shape=(Nin, Nhid, Nout),
             dt=dt,
             output_mode=cls.output_mode,
         )

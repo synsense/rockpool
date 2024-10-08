@@ -2,9 +2,13 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-## Unreleased - [v2.8.6.dev] -- xxxx-xx-xx
+## Unreleased - [v2.8.7.dev] -- xxxx-xx-xx
 
 ### Added
+* Support for Xylo™Audio 3 development kit
+  * Hardware interface via samna
+  * Digital microphone input and simulaton package
+  * Cycles model
 * Tutorial and documentation for the ``SynNet`` architecture, to improve visibility
 
 ### Changed
@@ -26,8 +30,11 @@ All notable changes between Rockpool releases will be documented in this file
 ## [v2.8] -- 2024-06-24
 
 ### Added
-* Add cycles model for Xylo A and Xylo IMU, enabling to calculate the required master clock frequency for Xylo
+* Add cycles model for Xylo Audio and Xylo IMU, enabling users to calculate the required master clock frequency for Xylo
 * Add support for NIR, for importing and exporting Rockpool torch networks
+
+* Added simulation support for audio front-end for Xylo A3 (SYNS65302)
+  * `AFESimExternal` , `AFESimAGC`, and `AFESimPDM` with all the necessary sub-modules.
 
 ### Changed
 * `LIFExodus` now supports vectors as threshold parameter
@@ -53,20 +60,17 @@ All notable changes between Rockpool releases will be documented in this file
 
 ### Security
 
-
 ## [v.2.7.1 hotfix] -- 2024-01-19
 
 ### Fixed
 
 * Bug in Xylo IMU mapper, where networks with more than 128 hidden neurons could not be mapped
 
-
 ## [v2.7] -- 2023-09-25
 
 ### Added
 
-
-* Dependency on `pytest-random-order` v1.1.0 for test order randomization
+* Dependency on `pytest-random-order` v1.1.0 for test order randomization.
 * New HowTo tutorial for performing constrained optimisation with torch and jax
 * Xylo IMU application software support:
 
@@ -78,15 +82,16 @@ All notable changes between Rockpool releases will be documented in this file
     * `RotationRemoval`
     * `IAFSpikeEncoder`
     * `ScaleSpikeEncoder`
-  * `XyloIMUMonitor` module: Real-time hardware monitoring for Xylo IMU
-  * `XyloSamna` module: Interface to the SNN core
-  * `IMUIFSamna` module: Interface to `IMUIF`, utilizing neurons in the SNN core
-  * `IMUData` module: Collection of sensor data from the onboard IMU sensor
-  * Utility functions for network mapping to the Xylo IMU HDK, interfacing, and data processing
-  * Introductory documentation providing an overview of Xylo IMU and instructions on configuring preprocessing
-* New losses, with structure similar to PyTorch
-  * PeakLoss which can be imported as `peak_loss = rockpool.nn.losses.PeakLoss()`
-  * MSELoss which can be imported as  `mse_loss = rockpool.nn.losses.MSELoss()`
+  * `XyloIMUMonitor` module: Real-time hardware monitoring for Xylo IMU.
+  * `XyloSamna` module: Interface to the SNN core.
+  * `IMUIFSamna` module: Interface to `IMUIF`, utilizing neurons in the SNN core.
+  * `IMUData` module: Collection of sensor data from the onboard IMU sensor.
+  * Utility functions for network mapping to the Xylo IMU HDK, interfacing, and data processing.
+  * Introductory documentation providing an overview of Xylo IMU and instructions on configuring preprocessing.
+* New losses, with structure similar to PyTorch.
+
+  * PeakLoss which can be imported as `peak_loss = rockpool.nn.losses.PeakLoss()`.
+  * MSELoss which can be imported as  `mse_loss = rockpool.nn.losses.MSELoss()`.
 
 ### Changed
 
@@ -140,7 +145,6 @@ All notable changes between Rockpool releases will be documented in this file
 * Added initial developer documentation
 * Added MNIST tutorial
 * Fixed notebook links to MyBinder.org
-
 
 ### Changed
 
