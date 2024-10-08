@@ -278,29 +278,30 @@ class XyloMonitor(Module):
         # In realtime mode, sending triggerprocessing again without target timestep is not an issue (i.e., does nothing)
         # TriggerProcessing with target timestep can stop execution if target is smaller than current timestep
         self._write_buffer.write([samna.xyloAudio3.event.TriggerProcessing()])
-
         self._read_buffer.clear_events()
+
+        # - Wait for all the events received during the read timeout
+        readout_events = []
+        # -- We still need the loop because there is no function in samna that wait for a specific ammount of time and return all events
         while (now := time.time()) < read_until:
             remaining_time = read_until - now
-            readout_events = self._read_buffer.get_events_blocking(
+            readout_events += self._read_buffer.get_events_blocking(
                 math.ceil(remaining_time * 1000)
             )
 
-            if len(readout_events) == 0:
-                message = f"No event received in {read_timeout}s."
-                raise TimeoutError(message)
+        if len(readout_events) == 0:
+            message = f"No event received in {read_timeout}s."
+            raise TimeoutError(message)
 
-            ev_filt = [
-                e
-                for e in readout_events
-                if isinstance(e, samna.xyloAudio3.event.Readout)
-            ]
+        ev_filt = [
+            e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Readout)
+        ]
 
-            for ev in ev_filt:
-                if self._output_mode == "Vmem":
-                    output_events.append(ev.output_v_mems)
-                elif self._output_mode == "Spike":
-                    output_events.append(ev.output_spikes)
+        for ev in ev_filt:
+            if self._output_mode == "Vmem":
+                output_events.append(ev.output_v_mems)
+            elif self._output_mode == "Spike":
+                output_events.append(ev.output_spikes)
 
         rec_dict = {}
         if record_power:
