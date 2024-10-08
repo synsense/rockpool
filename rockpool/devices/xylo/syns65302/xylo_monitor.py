@@ -265,8 +265,6 @@ class XyloMonitor(Module):
                 "Read timeout can not be smaller then the duration of the processing step."
             )
 
-        # use current time to calculate how long the processing will run
-        read_until = time.time() + read_timeout
         output_events = []
 
         # - Clear the power buffer, if recording power
@@ -278,29 +276,26 @@ class XyloMonitor(Module):
         # In realtime mode, sending triggerprocessing again without target timestep is not an issue (i.e., does nothing)
         # TriggerProcessing with target timestep can stop execution if target is smaller than current timestep
         self._write_buffer.write([samna.xyloAudio3.event.TriggerProcessing()])
-
         self._read_buffer.clear_events()
-        while (now := time.time()) < read_until:
-            remaining_time = read_until - now
-            readout_events = self._read_buffer.get_events_blocking(
-                math.ceil(remaining_time * 1000)
-            )
 
-            if len(readout_events) == 0:
-                message = f"No event received in {read_timeout}s."
-                raise TimeoutError(message)
+        # - Wait for all the events received during the read timeout
+        readout_events = self._read_buffer.get_events_blocking(
+            math.ceil(read_timeout * 1000)
+        )
 
-            ev_filt = [
-                e
-                for e in readout_events
-                if isinstance(e, samna.xyloAudio3.event.Readout)
-            ]
+        if len(readout_events) == 0:
+            message = f"No event received in {read_timeout}s."
+            raise TimeoutError(message)
 
-            for ev in ev_filt:
-                if self._output_mode == "Vmem":
-                    output_events.append(ev.output_v_mems)
-                elif self._output_mode == "Spike":
-                    output_events.append(ev.output_spikes)
+        ev_filt = [
+            e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Readout)
+        ]
+
+        for ev in ev_filt:
+            if self._output_mode == "Vmem":
+                output_events.append(ev.output_v_mems)
+            elif self._output_mode == "Spike":
+                output_events.append(ev.output_spikes)
 
         rec_dict = {}
         if record_power:
