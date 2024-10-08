@@ -78,6 +78,7 @@ unit_tests_known_good:
 
 documentation_linting:
   stage: docs
+  image: "registry.gitlab.com/synsense/rockpool/known_good:latest"
   allow_failure: true
   needs: []
   before_script:
@@ -90,6 +91,7 @@ documentation_linting:
 
 docs_build:
   stage: docs
+  image: "registry.gitlab.com/synsense/rockpool/known_good:latest"
   allow_failure: true
   before_script:
     - pip install --upgrade pip
