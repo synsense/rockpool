@@ -1,5 +1,5 @@
 """
-Package to support the Xylo HW SYNS63300 (Xylo™ IMU)
+Package to support the Xylo HW SYNS63300 (Xylo™IMU)
 
 Defines the Rockpool modules :py:class:`~.syns63300.XyloIMUMonitor`, :py:class:`~.syns63300.XyloSamna`, :py:class:`~.syns63300.XyloIMUMonitor`, :py:class:`~.syns63300.IMUIFSim`, :py:class:`~.syns63300.IMUIFSamna`, :py:class:`~.syns63300.IMUData`.
 

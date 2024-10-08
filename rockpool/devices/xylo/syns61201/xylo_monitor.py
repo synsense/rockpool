@@ -350,5 +350,5 @@ class XyloMonitor(Module):
 
     def reset_state(*args, **kwargs):
         raise NotImplementedError(
-            "Reset state is not permitted for Xylo Audio in real-time mode"
+            "Reset state is not permitted for XyloAudio 2 in real-time mode"
         )

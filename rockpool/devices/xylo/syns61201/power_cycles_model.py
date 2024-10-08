@@ -1,5 +1,5 @@
 """
-Cycle count model for Xylo Audio 2 SYNS61201
+Cycle count model for XyloAudio 2 SYNS61201
 """
 
 from rockpool.typehints import FloatVector
@@ -28,7 +28,7 @@ def cycles_model(
     Note that when estimating spiking probablility, only boolean values are relevant --- either a spike or no spike per time step per channel. Multiple events per bin cost the same as a single event.
 
     Args:
-        config (XyloA2Config): A Xylo Audio 2 configuration for which to calculate the cycle requirements
+        config (XyloA2Config): A XyloAudio 2 configuration for which to calculate the cycle requirements
         input_sp (FloatVector): Either a floating-point number 0..1, specifying the average input firing rate, or an actual input spike raster to use in evaluation. Default: `1.0`; estimate a worst-case scenario
         hidden_sp (FloatVector): Either a floating-point number 0..1, specifying the average hidden neuron firing rate, or an actual hidden spike raster to use in evaluation. Default: `1.0`; estimate a worst-case scenario
         output_sp (FloatVector): Either a floating-point number 0..1, specifying the average output neuron firing rate, or an actual output spike raster to use in evaluation. Default: `1.0`; estimate a worst-case scenario
@@ -155,7 +155,7 @@ def est_clock_freq(config: XyloA2Config, dt: float, margin: float = 0.2):
     This function will perform a worst-case analysis, assuming that every input channel, every hidden neuron and every output neuron fire an event on each `dt`. An additional margin is included (Default: 20%), to guarantee that the model will run in real time at the suggested master clock frequency.
 
     Args:
-        config (XyloA2Config):  A Xylo Audio 2 configuration for which to estimate the required clock frequency
+        config (XyloA2Config):  A XyloAudio 2 configuration for which to estimate the required clock frequency
         dt (float): The required network `dt`, in seconds
         margin (float): The additional overhead safety margin to add to the estimation, as a fraction. Default: `0.2` (20%)
     """

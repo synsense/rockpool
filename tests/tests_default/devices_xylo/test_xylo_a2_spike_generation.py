@@ -1,7 +1,7 @@
-import pytest
-
-
 def test_imports():
+    import pytest
+
+    pytest.importorskip("samna")
     from rockpool.devices.xylo.syns61201 import AFESim
     from rockpool.devices.xylo.syns61201.afe_spike_generation import (
         _encode_spikes,
@@ -53,6 +53,7 @@ def rel_error_levy_local(v1, v2):
 def test_spike_generation():
     import pytest
 
+    pytest.importorskip("samna")
     pytest.importorskip("jax")
 
     from rockpool.devices.xylo.syns61201 import AFESim
