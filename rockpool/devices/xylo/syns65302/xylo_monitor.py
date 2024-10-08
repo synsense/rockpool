@@ -265,6 +265,8 @@ class XyloMonitor(Module):
                 "Read timeout can not be smaller then the duration of the processing step."
             )
 
+        # use current time to calculate how long the processing will run
+        read_until = time.time() + read_timeout
         output_events = []
 
         # - Clear the power buffer, if recording power
@@ -279,9 +281,13 @@ class XyloMonitor(Module):
         self._read_buffer.clear_events()
 
         # - Wait for all the events received during the read timeout
-        readout_events = self._read_buffer.get_events_blocking(
-            math.ceil(read_timeout * 1000)
-        )
+        readout_events = []
+        # -- We still need the loop because there is no function in samna that wait for a specific ammount of time and return all events
+        while (now := time.time()) < read_until:
+            remaining_time = read_until - now
+            readout_events += self._read_buffer.get_events_blocking(
+                math.ceil(remaining_time * 1000)
+            )
 
         if len(readout_events) == 0:
             message = f"No event received in {read_timeout}s."
