@@ -443,11 +443,6 @@ class XyloSamna(Module):
         self._power_frequency = power_frequency
         """ float: Frequency of power monitoring, in Hz """
 
-        # - Set power measurement module
-        self._power_buf, self._power_monitor = hdkutils.set_power_measure(
-            self._device, self._power_frequency
-        )
-
         # - Apply configuration on the board
         hdkutils.apply_configuration(self._device, self._config)
 
@@ -556,6 +551,11 @@ class XyloSamna(Module):
             )
         record = self._record
 
+        if record_power:
+            raise ValueError(
+                f"Power measurement is not available yet by :py:class:`.XyloSamna`"
+            )
+
         # - Get the network size
         Nin, Nhidden, Nout = self.shape[:]
         Nhidden_monitor = Nhidden if record else 0
@@ -600,11 +600,6 @@ class XyloSamna(Module):
         self._read_buffer.get_events()
         self._readout_buffer.get_events()
 
-        # - Clear the power recording buffer, if recording power
-        if record_power:
-            self._power_monitor.start_auto_power_measurement(self._power_frequency)
-            self._power_buf.clear_events()
-
         # - Write the events and trigger the simulation
         self._write_buffer.write(input_events_list)
 
@@ -648,30 +643,6 @@ class XyloSamna(Module):
             }
         else:
             rec_dict = {}
-
-        if record_power:
-            # - Get all recent power events from the power measurement
-            ps = self._power_buf.get_events()
-
-            # - Separate out power meaurement events by channel
-            channels = samna.xyloAudio3.MeasurementChannels
-            io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
-            analog_power = np.array(
-                [e.value for e in ps if e.channel == int(channels.AnalogLogic)]
-            )
-            digital_power = np.array(
-                [e.value for e in ps if e.channel == int(channels.DigitalLogic)]
-            )
-
-            rec_dict.update(
-                {
-                    "io_power": io_power,
-                    "analog_power": analog_power,
-                    "digital_power": digital_power,
-                }
-            )
-
-        self._power_monitor.stop_auto_power_measurement()
 
         # - This module holds no state
         new_state = {}
@@ -731,6 +702,11 @@ class XyloSamna(Module):
             )
         record = self._record
 
+        if record_power:
+            raise ValueError(
+                f"Power measurement is not available yet by :py:class:`.XyloSamna`"
+            )
+
         # - Advance one time-step
         hdkutils.advance_time_step(self._write_buffer)
 
@@ -745,11 +721,6 @@ class XyloSamna(Module):
 
         # - Reset input spike registers
         hdkutils.reset_input_spikes(self._write_buffer)
-
-        # - Clear the power recording buffer, if recording power
-        if record_power:
-            self._power_monitor.start_auto_power_measurement(self._power_frequency)
-            self._power_buf.clear_events()
 
         # - Initialise lists for recording state
         vmem_ts = []
@@ -810,30 +781,6 @@ class XyloSamna(Module):
             }
         else:
             rec_dict = {}
-
-        if record_power:
-            # - Get all recent power events from the power measurement
-            ps = self._power_buf.get_events()
-
-            # - Separate out power meaurement events by channel
-            channels = samna.xyloAudio3.MeasurementChannels
-            io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
-            analog_power = np.array(
-                [e.value for e in ps if e.channel == int(channels.AnalogLogic)]
-            )
-            digital_power = np.array(
-                [e.value for e in ps if e.channel == int(channels.DigitalLogic)]
-            )
-
-            rec_dict.update(
-                {
-                    "io_power": io_power,
-                    "analog_power": analog_power,
-                    "digital_power": digital_power,
-                }
-            )
-
-        self._power_monitor.stop_auto_power_measurement()
 
         # - Return the output spikes, the (empty) new state dictionary, and the recorded state dictionary
         return np.array(output_ts), {}, rec_dict
