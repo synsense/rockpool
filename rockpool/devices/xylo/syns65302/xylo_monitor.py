@@ -155,7 +155,7 @@ class XyloMonitor(Module):
         self._device: XyloAudio3HDK = device
         """ `.XyloHDK`: The Xylo HDK used by this module """
 
-        # - Store the configuration (and apply it)
+        # - Store the configuration
         self._config: Union[
             XyloConfiguration, SimulationParameter
         ] = SimulationParameter(shape=(), init_func=lambda _: config)
@@ -174,9 +174,8 @@ class XyloMonitor(Module):
         # - Store the io module
         self._io = self._device.get_io_module()
 
-        # - Store the configuration (and apply it)
+        # - Apply the configuration on Xylo HDK
         hdkutils.apply_configuration(device, self._config)
-        hdkutils.enable_real_time_mode(device)
 
         self._power_monitor = None
         """Power monitor for Xylo"""
