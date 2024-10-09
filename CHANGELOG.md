@@ -2,7 +2,7 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-## Unreleased - [v2.8.8.dev] -- xxxx-xx-xx
+## [v2.9] -- 2024-10-10
 
 ### Added
 * Support for Xylo™Audio 3 development kit
