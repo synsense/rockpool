@@ -707,11 +707,6 @@ class XyloSamna(Module):
         # - Reset input spike registers
         hdkutils.reset_input_spikes(self._write_buffer)
 
-        # - Clear the power recording buffer, if recording power
-        if record_power:
-            self._power_monitor.start_auto_power_measurement(self._power_frequency)
-            self._power_buf.clear_events()
-
         # - Initialise lists for recording state
         vmem_ts = []
         isyn_ts = []
@@ -771,30 +766,6 @@ class XyloSamna(Module):
             }
         else:
             rec_dict = {}
-
-        if record_power:
-            # - Get all recent power events from the power measurement
-            ps = self._power_buf.get_events()
-
-            # - Separate out power meaurement events by channel
-            channels = samna.xyloAudio3.MeasurementChannels
-            io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
-            analog_power = np.array(
-                [e.value for e in ps if e.channel == int(channels.AnalogLogic)]
-            )
-            digital_power = np.array(
-                [e.value for e in ps if e.channel == int(channels.DigitalLogic)]
-            )
-
-            rec_dict.update(
-                {
-                    "io_power": io_power,
-                    "analog_power": analog_power,
-                    "digital_power": digital_power,
-                }
-            )
-
-        self._power_monitor.stop_auto_power_measurement()
 
         # - Return the output spikes, the (empty) new state dictionary, and the recorded state dictionary
         return np.array(output_ts), {}, rec_dict
