@@ -179,7 +179,6 @@ def test_FF_equality_torch():
     import pytest
 
     pytest.importorskip("torch")
-    pytest.importorskip("samna")
     pytest.importorskip("xylosim")
     import torch
     import numpy as np
@@ -285,7 +284,6 @@ def test_Rec_equality_torch():
     import pytest
 
     pytest.importorskip("torch")
-    pytest.importorskip("samna")
     pytest.importorskip("xylosim")
     import torch
     import numpy as np
@@ -384,7 +382,6 @@ def test_FF_equality_slayer():
 
     pytest.importorskip("torch")
     pytest.importorskip("sinabs.exodus")
-    pytest.importorskip("samna")
     pytest.importorskip("xylosim")
     import torch
     import numpy as np
