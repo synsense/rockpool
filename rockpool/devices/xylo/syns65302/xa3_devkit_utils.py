@@ -161,21 +161,6 @@ def update_register_field(
     write_register(write_buffer, addr, data)
 
 
-def enable_real_time_mode(hdk: XyloAudio3HDK) -> None:
-    """
-    Enable real-time mode on the XA3 dev kit
-
-    Args:
-        hdk (XyloAudio3HDK): A connected XyloAudio 3 HDK
-    """
-    io = hdk.get_io_module()
-
-    # FPGA drive PDM_DATA pin (for SAER input)
-    io.write_config(0x0012, 0)
-    # set real time mode
-    io.write_config(0x31, 2)
-
-
 def get_current_timestep(
     read_buffer: XyloAudio3ReadBuffer,
     write_buffer: XyloAudio3WriteBuffer,

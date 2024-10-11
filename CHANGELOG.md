@@ -2,13 +2,14 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-## Unreleased - [v2.8.8.dev] -- xxxx-xx-xx
+## [v2.9] -- 2024-10-11
 
 ### Added
 * Support for Xylo™Audio 3 development kit
   * Hardware interface via samna
   * Digital microphone input and simulaton package
   * Cycles model
+  * Simulation support for audio front-end: `AFESimExternal` , `AFESimAGC`, and `AFESimPDM` with all the necessary sub-modules
 * Tutorial and documentation for the ``SynNet`` architecture, to improve visibility
 
 ### Changed
@@ -18,23 +19,11 @@ All notable changes between Rockpool releases will be documented in this file
 * Update dependency version of Jax to >=0.4.28
 * Move instructions to build documentation inside ``Contributing`` section
 
-### Fixed
-
-### Deprecated
-
-### Removed
-
-### Security
-
-
 ## [v2.8] -- 2024-06-24
 
 ### Added
 * Add cycles model for Xylo Audio and Xylo IMU, enabling users to calculate the required master clock frequency for Xylo
 * Add support for NIR, for importing and exporting Rockpool torch networks
-
-* Added simulation support for audio front-end for Xylo A3 (SYNS65302)
-  * `AFESimExternal` , `AFESimAGC`, and `AFESimPDM` with all the necessary sub-modules.
 
 ### Changed
 * `LIFExodus` now supports vectors as threshold parameter
