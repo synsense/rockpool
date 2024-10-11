@@ -248,7 +248,7 @@ def set_power_measure(
 ) -> Tuple[
     samna.BasicSinkNode_unifirm_modules_events_measurement,
     samna.boards.common.power.PowerMonitor,
-    samna.unifirm.timestamp.StopWatch
+    samna.unifirm.timestamp.StopWatch,
 ]:
     """
     Initialize power consumption measure on a hdk

@@ -178,9 +178,11 @@ class XyloMonitor(Module):
         self._power_frequency = power_frequency
 
         # - Set power measurement module
-        self._power_buf, self._power_monitor, self.stopwatch = hdkutils.set_power_measure(
-            self._device, power_frequency
-        )
+        (
+            self._power_buf,
+            self._power_monitor,
+            self.stopwatch,
+        ) = hdkutils.set_power_measure(self._device, power_frequency)
 
     @property
     def config(self):
