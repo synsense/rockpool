@@ -34,6 +34,7 @@ except ModuleNotFoundError:
 __all__ = ["XyloMonitor"]
 
 Default_Main_Clock_Rate = 50.0  # 50 MHz
+Pdm_Clock_Rate = 1.56
 
 
 class XyloMonitor(Module):
@@ -100,6 +101,7 @@ class XyloMonitor(Module):
         # - Get a default configuration
         if config is None:
             config = samna.xyloAudio3.configuration.XyloConfiguration()
+            config.operation_mode = samna.xyloAudio3.OperationMode.RealTime
 
         # - Get the network shape
         Nin, Nhidden = np.shape(config.input.weights)
@@ -124,7 +126,8 @@ class XyloMonitor(Module):
 
         if digital_microphone:
             config.input_source = samna.xyloAudio3.InputSource.DigitalMicrophone
-            config.debug.sdm_clock_ratio = 24
+            # - the ideal sdm clock ratio depends on the main clock rate
+            config.debug.sdm_clock_ratio = int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
             config.digital_frontend.pdm_preprocessing.clock_direction = 1
             config.digital_frontend.pdm_preprocessing.clock_edge = 0
 
@@ -229,6 +232,8 @@ class XyloMonitor(Module):
         """
         Delete the XyloAudio3Monitor object and reset the HDK.
         """
+
+        self._spike_graph.stop()
         # - Reset the HDK to clean up
         self._device.reset_board_soft()
 
@@ -275,7 +280,7 @@ class XyloMonitor(Module):
 
         # - Clear the power buffer, if recording power
         if record_power:
-            self._power_monitor.start_auto_power_measurement(self._power_frequency)
+            # self._power_monitor.start_auto_power_measurement(self._power_frequency)
             self._power_buf.clear_events()
 
         # Start processing
@@ -330,7 +335,7 @@ class XyloMonitor(Module):
                 }
             )
 
-        self._power_monitor.stop_auto_power_measurement()
+        # self._power_monitor.stop_auto_power_measurement()
 
         # - Return the output spikes, the (empty) new state dictionary, and the recorded power dictionary
         return output_events, {}, rec_dict
