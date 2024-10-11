@@ -83,6 +83,7 @@ class XyloMonitor(Module):
         # - Get a default configuration
         if config is None:
             config = samna.xyloAudio3.configuration.XyloConfiguration()
+            config.operation_mode = samna.xyloAudio3.OperationMode.RealTime
 
         # - Get a default audio frontend configuration
         # TODO: Add audio frontend configuration
