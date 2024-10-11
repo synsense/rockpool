@@ -2,7 +2,7 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-## [v2.9] -- 2024-10-10
+## [v2.9] -- 2024-10-11
 
 ### Added
 * Support for Xylo™Audio 3 development kit
@@ -18,14 +18,6 @@ All notable changes between Rockpool releases will be documented in this file
     * Add check for copyright
 * Update dependency version of Jax to >=0.4.28
 * Move instructions to build documentation inside ``Contributing`` section
-
-### Fixed
-
-### Deprecated
-
-### Removed
-
-### Security
 
 ## [v2.8] -- 2024-06-24
 
