@@ -161,21 +161,6 @@ def update_register_field(
     write_register(write_buffer, addr, data)
 
 
-def enable_real_time_mode(hdk: XyloAudio3HDK) -> None:
-    """
-    Enable real-time mode on the XA3 dev kit
-
-    Args:
-        hdk (XyloAudio3HDK): A connected XyloAudio 3 HDK
-    """
-    io = hdk.get_io_module()
-
-    # FPGA drive PDM_DATA pin (for SAER input)
-    io.write_config(0x0012, 0)
-    # set real time mode
-    io.write_config(0x31, 2)
-
-
 def get_current_timestep(
     read_buffer: XyloAudio3ReadBuffer,
     write_buffer: XyloAudio3WriteBuffer,
@@ -263,6 +248,7 @@ def set_power_measure(
 ) -> Tuple[
     samna.BasicSinkNode_unifirm_modules_events_measurement,
     samna.boards.common.power.PowerMonitor,
+    samna.unifirm.timestamp.StopWatch
 ]:
     """
     Initialize power consumption measure on a hdk
@@ -284,7 +270,7 @@ def set_power_measure(
     # Start sampling power on all channels at a rate of frequency in Hz.
     power_monitor.start_auto_power_measurement(frequency)
 
-    return power_buf, power_monitor
+    return power_buf, power_monitor, stopwatch
 
 
 def apply_configuration(
