@@ -1,18 +1,20 @@
 """
-Cycle count model for Xylo IMU SYNS63300
+Cycle count model for Xylo™IMU SYNS63300 and Xylo™Audio 3 SYNS65302
 """
 
 from rockpool.typehints import FloatVector
+from typing import Union
 import samna
 import numpy as np
 
 XyloIMUConfig = samna.xyloImu.configuration.XyloConfiguration
+XyloA3Config = samna.xyloAudio3.configuration.XyloConfiguration
 
 __all__ = ["cycles_model", "est_clock_freq"]
 
 
 def cycles_model(
-    config: XyloIMUConfig,
+    config: Union[XyloIMUConfig, XyloA3Config],
     input_sp: FloatVector = 1.0,
     hidden_sp: FloatVector = 1.0,
     output_sp: FloatVector = 1.0,
@@ -20,14 +22,14 @@ def cycles_model(
     """
     Calculate the average number of cycles required for a given network architecture
 
-    This function contains a model which estimates the number of master clock cycles required for the Xylo SNN SYNS61202 inference core to compute one time-step for a given chip configuration in ``config``. Use :py:func:`.devices.xylo.syns61201.config_from_specification` to obtain a chip configuration, along with :py:meth:`.Module.as_graph` and :py:func:`.devices.xylo.syns61201.mapper`, as described in the deployment tutorials for Xylo.
+    This function contains a model which estimates the number of master clock cycles required for the Xylo SNN SYNS61202 and SYNS65302 inference cores to compute one time-step for a given chip configuration in ``config``. Use :py:func:`~.devices.xylo.syns61201.config_from_specification` to obtain a chip configuration, along with :py:meth:`.Module.as_graph` and :py:func:`~.devices.xylo.syns61201.mapper`, as described in the deployment tutorials for Xylo.
 
     By default the model provides a "worst-case" estimation, assuming that every neuron and every input channel fire on each time-step. If desired, real input rasters and real hidden and output spike rasters can be provided for analysis. Alternative spiking probabilities can also be provided as floats ``0..1``.
 
     Note that when estimating spiking probablility, only boolean values are relevant --- either a spike or no spike per time step per channel. Multiple events per bin cost the same as a single event.
 
     Args:
-        config (XyloIMUConfig): A Xylo IMU configuration for which to calculate the cycle requirements
+        config (Union[XyloIMUConfig, XyloA3Config]): A Xylo configuration for which to calculate the cycle requirements
         input_sp (FloatVector): Either a floating-point number 0..1, specifying the average input firing rate, or an actual input spike raster to use in evaluation. Default: `1.0`; estimate a worst-case scenario
         hidden_sp (FloatVector): Either a floating-point number 0..1, specifying the average hidden neuron firing rate, or an actual hidden spike raster to use in evaluation. Default: `1.0`; estimate a worst-case scenario
         output_sp (FloatVector): Either a floating-point number 0..1, specifying the average output neuron firing rate, or an actual output spike raster to use in evaluation. Default: `1.0`; estimate a worst-case scenario
@@ -138,14 +140,16 @@ def cycles_model(
     return est_processing_cycles
 
 
-def est_clock_freq(config: XyloIMUConfig, dt: float, margin: float = 0.2):
+def est_clock_freq(
+    config: Union[XyloIMUConfig, XyloA3Config], dt: float, margin: float = 0.2
+):
     """
     Estimate the required master clock frequency, to run a network in real-time
 
     This function will perform a worst-case analysis, assuming that every input channel, every hidden neuron and every output neuron fire an event on each `dt`. An additional margin is included (Default: 20%), to guarantee that the model will run in real time at the suggested master clock frequency.
 
     Args:
-        config (XyloIMUConfig):  A Xylo IMU configuration for which to estimate the required clock frequency
+        config (Union[XyloIMUConfig, XyloA3Config]):  A Xylo configuration for which to estimate the required clock frequency
         dt (float): The required network `dt`, in seconds
         margin (float): The additional overhead safety margin to add to the estimation, as a fraction. Default: `0.2` (20%)
     """

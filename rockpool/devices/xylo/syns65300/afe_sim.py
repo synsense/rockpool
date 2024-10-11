@@ -116,7 +116,7 @@ class AFESim(Module):
     """
     A :py:class:`.Module` that simulates analog hardware for preprocessing audio
 
-    This module simulates the Xylo audio front-end stage. This is a signal-to-event core that provides a number of band-pass filters, followed by rectifying event production simulating a spiking LIF neuron. The event rate in each channel is roughly correlated to the energy in each filter band.
+    This module simulates the XyloAudio 2 front-end stage. This is a signal-to-event core that provides a number of band-pass filters, followed by rectifying event production simulating a spiking LIF neuron. The event rate in each channel is roughly correlated to the energy in each filter band.
 
     Notes:
         - The AFE contains frequency tripling internally. For accurate simulation, the sampling frequency must be at least 6 times higher than the highest frequency component in the filtering chain. This would be the centre frequency of the highest filter, plus half the BW of that signal. To prevent signal aliasing, you should apply a low-pass filter to restrict the bandwidth of the input, to ensure you don't exceed this target highest frequency.

@@ -332,7 +332,7 @@ class XyloSamna(Module):
     See Also:
 
         See the tutorials :ref:`/devices/xylo-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-xylo.ipynb` for a high-level overview of building and deploying networks for Xylo.
-        See the tutorial :ref:`/devices/quick-xylo/xylo-audio-2-intro.ipynb` for information specific to the Xylo™ Audio 2 dev kit, including power measurement.
+        See the tutorial :ref:`/devices/quick-xylo/xylo-audio-intro.ipynb` for information specific to the Xylo™Audio dev kits, including power measurement.
 
     Note:
 
@@ -571,20 +571,22 @@ class XyloSamna(Module):
         if record_power:
             self._power_buf.get_events()
 
-        # - Write the events and trigger the simulation
-        self._write_buffer.write(input_events_list)
-
         # - Determine a reasonable read timeout
         if read_timeout is None:
             read_timeout = len(input) * self.dt * Nhidden / 100.0
             read_timeout = read_timeout * 100.0 if record else read_timeout
 
+        # - Write the events and trigger the simulation
+        self._write_buffer.write(input_events_list)
+
         # - Read output events from Xylo HDK
+        start_time = time.time()
         read_events, is_timeout = hdkutils.blocking_read(
             self._read_buffer,
             timeout=max(read_timeout, 1.0),
             target_timestamp=final_timestamp,
         )
+        inf_duration = time.time() - start_time
 
         # - Handle a timeout error
         if is_timeout:
@@ -630,6 +632,7 @@ class XyloSamna(Module):
                 "Vmem_out": np.array(xylo_data.V_mem_out),
                 "Isyn_out": np.array(xylo_data.I_syn_out),
                 "times": np.arange(start_timestep, final_timestamp + 1),
+                "inf_duration": inf_duration,
             }
         else:
             rec_dict = {}
@@ -642,6 +645,7 @@ class XyloSamna(Module):
                     "afe_core_power": afe_core_power,
                     "afe_ldo_power": afe_ldo_power,
                     "snn_core_power": snn_core_power,
+                    "inf_duration": inf_duration,
                 }
             )
 

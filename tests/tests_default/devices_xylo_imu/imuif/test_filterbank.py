@@ -1,4 +1,8 @@
+import pytest
+
+
 def test_import():
+    pytest.importorskip("samna")
     from rockpool.devices.xylo.syns63300.imuif import FilterBank
 
     assert FilterBank is not None
@@ -9,7 +13,7 @@ def test_import():
 
 
 def test_BPF_FB_from_specification():
-    import pytest
+    pytest.importorskip("samna")
     from rockpool.devices.xylo.syns63300.imuif import BandPassFilter, FilterBank
 
     bpf = BandPassFilter.from_specification(0.1, 10)
@@ -26,6 +30,7 @@ def test_BPF_FB_from_specification():
 
 
 def test_bandpass_filter():
+    pytest.importorskip("samna")
     import numpy as np
     from rockpool.devices.xylo.syns63300.imuif import BandPassFilter
     from rockpool.devices.xylo.syns63300.transform import Quantizer
@@ -50,6 +55,9 @@ def test_bandpass_filter():
 
 
 def test_filterbank():
+    import pytest
+
+    pytest.importorskip("samna")
     from rockpool.devices.xylo.syns63300.imuif import (
         RotationRemoval,
         FilterBank,
@@ -113,7 +121,7 @@ def test_signal_gain_drop():
     Compute the power of the filtered signal in the pass band and in the stop band.
     Assert that the power in the pass band is at least 3dB higher than the power in the stop band.
     """
-
+    pytest.importorskip("samna")
     import numpy as np
     from rockpool.devices.xylo.syns63300.imuif import BandPassFilter
     from rockpool.devices.xylo.syns63300.transform import Quantizer

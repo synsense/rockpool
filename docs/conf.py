@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath("../rockpool"))
 # -- Project information -----------------------------------------------------
 
 project = "Rockpool"
-copyright = "2019–2022, SynSense"
+copyright = "2019–2024, SynSense"
 author = "Dylan Muir, Felix Bauer, Philipp Weidel"
 
 # The full version, including alpha/beta/rc tags
@@ -63,11 +63,22 @@ exclude_patterns = [
 ]
 
 # Models that need to be ported to the v2 API
+# Too advanced or non-user friendly tutorials
 exclude_patterns += [
     "rockpool/nn/networks/net_ads.py",
     "rockpool/nn/networks/net_deneve.py",
     "rockpool/training/rr_trained_layer.py",
     "rockpool/training/train_rr.py",
+    "rockpool/docs/advanced/QuantTorch.ipynb",
+    "rockpool/docs/tutorials/deneve_reservoirs.ipynb",
+    "rockpool/docs/tutorials/network_ads_tutorial.ipynb",
+    "rockpool/docs/tutorials/pytorch_lightning_mlflow.ipynb",
+    "rockpool/docs/tutorials/pytorch_lightning_mlflow_spiking_MNIST.ipynb",
+    "rockpool/docs/devices/xylo-a3/Xylo_A3.ipynb",
+    "rockpool/docs/devices/xylo-a3/Xylo_A3_agc.ipynb",
+    "rockpool/docs/devices/xylo-a3/afesim.ipynb",
+    "rockpool/docs/devices/xylo-a3/afesim_agc.ipynb",
+    "rockpool/docs/devices/xylo-a3/afesim_pdm.ipynb",
 ]
 
 # - Set the default role to construct python references by default

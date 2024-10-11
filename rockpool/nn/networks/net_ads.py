@@ -4,7 +4,7 @@ Author: Julian Buechel
 Note that ADS stands for Arbitrary Dynamical System
 """
 
-raise ImportError("This module needs to be ported to teh v2 API.")
+raise ImportError("This module needs to be ported to the v2 API.")
 
 
 import numpy as np

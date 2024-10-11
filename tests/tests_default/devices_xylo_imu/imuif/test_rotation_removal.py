@@ -1,4 +1,7 @@
 def test_import():
+    import pytest
+
+    pytest.importorskip("samna")
     from rockpool.devices.xylo.syns63300.imuif import RotationRemoval
 
     assert RotationRemoval is not None
@@ -9,6 +12,9 @@ def test_rotation_removal():
     IMPORTANT NOTE: NEED TO BE WORKED ON AND FIXED.
     CHECK ISSUE #252
     """
+    import pytest
+
+    pytest.importorskip("samna")
     from rockpool.devices.xylo.syns63300.imuif import RotationRemoval
     from rockpool.devices.xylo.syns63300.transform import Quantizer
     from numpy.testing import assert_allclose

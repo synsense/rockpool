@@ -4,10 +4,16 @@ Tests for quantization preprocessing module
 
 
 def test_import():
+    import pytest
+
+    pytest.importorskip("samna")
     from rockpool.devices.xylo.syns63300.transform import Quantizer
 
 
 def test_quantization():
+    import pytest
+
+    pytest.importorskip("samna")
     import numpy as np
     from numpy.testing import assert_array_equal
     from rockpool.devices.xylo.syns63300.transform import Quantizer
@@ -26,6 +32,9 @@ def test_quantization():
 
 
 def test_quantization_num_bits():
+    import pytest
+
+    pytest.importorskip("samna")
     import numpy as np
     from numpy.testing import assert_array_equal
     from rockpool.devices.xylo.syns63300.transform import Quantizer

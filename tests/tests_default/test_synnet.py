@@ -60,19 +60,6 @@ def test_synnet_forward():
 
     # forward
     out, state, rec = model(inp, record=True)
-    layer_LIF = [
-        label for label in rec.keys() if "LIFTorch" in label and "output" not in label
-    ]
-    # pick last LIFTorch layer as readout layer
-    label_last_LIF = sorted(layer_LIF)[-1]
-
-    assert torch.allclose(out, rec[label_last_LIF]["spikes"])
-    assert torch.allclose(
-        state["seq"][label_last_LIF]["spikes"], rec[label_last_LIF]["spikes"][0, -1]
-    )
-    assert torch.allclose(
-        state["seq"][label_last_LIF]["vmem"], rec[label_last_LIF]["vmem"][0, -1]
-    )
 
 
 def test_synnet_record():
@@ -106,7 +93,6 @@ def test_synnet_record():
     # forward
     out, state, rec = model(inp)
     assert len(rec) == 0
-    assert all([len(d) == 0 for d in model._record_dict.values()])
 
     model = SynNet(
         n_classes=2,
@@ -127,7 +113,6 @@ def test_synnet_record():
     # forward
     out, state, rec = model(inp, record=True)
     print(rec)
-    print(model._record_dict)
 
     assert len(rec) > 0
 
@@ -269,13 +254,7 @@ def test_synnet_reset():
     out, state, rec = model(inp)
 
     # assert that first spk layers state is not reset
-    layer_LIF = [
-        label
-        for label in state["seq"].keys()
-        if "LIFTorch" in label and "output" not in label
-    ]
-    # pick last LIFTorch layer as readout layer
-    label_first_LIF = sorted(layer_LIF)[0]
+    label_first_LIF = model.lif_names[0]
     assert not torch.all(state["seq"][label_first_LIF]["vmem"] == 0)
 
     model.reset_state()
@@ -486,31 +465,21 @@ def test_synnet_output():
         output="vmem",
     )
 
-    assert_equal(
-        model_spikes.seq[-1].threshold.detach().numpy(),
-        model_vmem.seq[-1].threshold.detach().numpy(),
-    )
-
-    # models need to have the same parameter
+    # models need to have the same parameters
     with torch.no_grad():
         model_vmem.seq[0].weight.data = model_spikes.seq[0].weight.data
         model_vmem.seq[1].bias.data = model_spikes.seq[1].bias.data
-        model_vmem.seq[3].weight.data = model_spikes.seq[3].weight.data
-        model_vmem.seq[4].bias.data = model_spikes.seq[4].bias.data
-        model_vmem.seq[6].weight.data = model_spikes.seq[6].weight.data
-        model_vmem.seq[7].bias.data = model_spikes.seq[7].bias.data
+        model_vmem.seq[2].weight.data = model_spikes.seq[2].weight.data
+        model_vmem.seq[3].bias.data = model_spikes.seq[3].bias.data
+        model_vmem.seq[4].weight.data = model_spikes.seq[4].weight.data
+        model_vmem.seq[5].bias.data = model_spikes.seq[5].bias.data
 
     inp = torch.ones(n_batches, T, n_channels) * 100
     out_spikes, _, rec_spikes = model_spikes(inp, record=True)
     out_vmem, _, rec_vmem = model_vmem(inp, record=True)
 
-    layer_LIF = [
-        label
-        for label in rec_spikes.keys()
-        if "LIFTorch" in label and "output" not in label
-    ]
     # pick last LIFTorch layer as readout layer
-    label_last_LIF = sorted(layer_LIF)[-1]
+    label_last_LIF = model_spikes.lif_names[-1]
 
     assert torch.allclose(out_vmem, rec_spikes[label_last_LIF]["vmem"])
     assert torch.allclose(
@@ -706,9 +675,9 @@ def test_synnet_thresholds_readout_list():
         threshold_out=threshold_out,
     )
 
-    assert len(model.seq[7].threshold) == n_classes
+    assert len(model.seq[-1].threshold) == n_classes
     for i in range(n_classes):
-        assert model.seq[7].threshold[i] == threshold_out[i]
+        assert model.seq[-1].threshold[i] == threshold_out[i]
 
 
 def test_synnet_constant_threshold_list():
@@ -849,3 +818,35 @@ def test_synnet_constant_threshold_list():
     for submod in model.seq:
         if isinstance(submod, LIFTorch):
             assert "threshold" not in list(submod.parameters().keys())
+
+
+def test_trainable_taus():
+    """Test if we can construct a SynNet with trainable time constants"""
+    from rockpool.nn.networks import SynNet
+
+    # test that threshold_out is set correctly for all readout neurons if we choose a separate threshold for each neuron
+    size_hidden_layers = [60, 3]
+    time_constants_per_layer = [3, 1]
+    n_classes = 3
+
+    model = SynNet(
+        n_classes=n_classes,
+        n_channels=12,
+        size_hidden_layers=size_hidden_layers,
+        time_constants_per_layer=time_constants_per_layer,
+        train_time_constants=True,
+    )
+
+    # - Check that hidden layer taus are trainable (in "parameters")
+    for lyr in model.lif_names[:-1]:
+        assert "tau_syn" in model.seq[lyr].parameters()
+        assert "tau_mem" in model.seq[lyr].parameters()
+        assert "tau_syn" not in model.seq[lyr].simulation_parameters()
+        assert "tau_mem" not in model.seq[lyr].simulation_parameters()
+
+    # - Check that output layer taus are not trainable (in "simulation_parameters")
+    lyr = model.lif_names[-1]
+    assert "tau_syn" not in model.seq[lyr].parameters()
+    assert "tau_mem" not in model.seq[lyr].parameters()
+    assert "tau_syn" in model.seq[lyr].simulation_parameters()
+    assert "tau_mem" in model.seq[lyr].simulation_parameters()

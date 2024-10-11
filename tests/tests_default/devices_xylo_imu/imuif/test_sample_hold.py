@@ -1,10 +1,16 @@
 def test_import():
+    import pytest
+
+    pytest.importorskip("samna")
     from rockpool.devices.xylo.syns63300.imuif.rotation import SampleAndHold
 
     assert SampleAndHold is not None
 
 
 def test_sample_and_hold():
+    import pytest
+
+    pytest.importorskip("samna")
     import numpy as np
     from rockpool.devices.xylo.syns63300.imuif.rotation import SampleAndHold
     from rockpool.devices.xylo.syns63300.transform import Quantizer
