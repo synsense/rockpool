@@ -93,6 +93,10 @@ class XyloMonitor(Module):
             )
         self._output_mode = output_mode
 
+        default_config = samna.xyloAudio3.XyloAudio3TestBoardDefaultConfig()
+        default_config.main_clock_frequency = int(main_clk_rate * 1e6)
+        device.reset_board_soft(default_config)
+
         # - Get a default configuration
         if config is None:
             config = samna.xyloAudio3.configuration.XyloConfiguration()
