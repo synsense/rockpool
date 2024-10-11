@@ -110,7 +110,6 @@ class XyloMonitor(Module):
         # - Register buffers to read and write events, monitor state
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
-        self._state_buffer = hdkutils.new_xylo_state_monitor_buffer(device)
 
         if config.operation_mode != samna.xyloAudio3.OperationMode.RealTime:
             raise ValueError("`operation_mode` must be RealTime for XyloMonitor.")
@@ -138,20 +137,6 @@ class XyloMonitor(Module):
         config.debug.monitor_neuron_v_mem = []
         config.debug.monitor_neuron_spike = []
         config.debug.monitor_neuron_i_syn = []
-
-        # - Build a filter graph to filter `Readout` events from Xylo
-        self._spike_graph = samna.graph.EventFilterGraph()
-
-        _, etf0, self._spike_buffer = self._spike_graph.sequential(
-            [
-                device.get_model_source_node(),
-                "XyloAudio3OutputEventTypeFilter",
-                samna.graph.JitSink(),
-            ]
-        )
-        etf0.set_desired_type("xyloAudio3::event::Readout")
-
-        self._spike_graph.start()
 
         # - Initialise the superclass
         super().__init__(
@@ -183,7 +168,6 @@ class XyloMonitor(Module):
 
         # - Store the configuration (and apply it)
         hdkutils.apply_configuration(device, self._config)
-        hdkutils.enable_real_time_mode(device)
 
         self._power_monitor = None
         """Power monitor for Xylo"""
@@ -194,7 +178,7 @@ class XyloMonitor(Module):
         self._power_frequency = power_frequency
 
         # - Set power measurement module
-        self._power_buf, self._power_monitor = hdkutils.set_power_measure(
+        self._power_buf, self._power_monitor, self.stopwatch = hdkutils.set_power_measure(
             self._device, power_frequency
         )
 
@@ -233,7 +217,8 @@ class XyloMonitor(Module):
         Delete the XyloAudio3Monitor object and reset the HDK.
         """
 
-        self._spike_graph.stop()
+        # self._spike_graph.stop()
+        self.stopwatch.stop()
         # - Reset the HDK to clean up
         self._device.reset_board_soft()
 
@@ -280,7 +265,7 @@ class XyloMonitor(Module):
 
         # - Clear the power buffer, if recording power
         if record_power:
-            # self._power_monitor.start_auto_power_measurement(self._power_frequency)
+            self._power_monitor.start_auto_power_measurement(self._power_frequency)
             self._power_buf.clear_events()
 
         # Start processing
@@ -335,7 +320,7 @@ class XyloMonitor(Module):
                 }
             )
 
-        # self._power_monitor.stop_auto_power_measurement()
+        self._power_monitor.stop_auto_power_measurement()
 
         # - Return the output spikes, the (empty) new state dictionary, and the recorded power dictionary
         return output_events, {}, rec_dict
