@@ -2,6 +2,12 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
+## [v.2.9.1 hotfix] -- 2024-10-14
+
+### Fixed
+
+* Rockpool package was not generate on conda-forge. Update package build requirements.
+
 ## [v2.9] -- 2024-10-11
 
 ### Added
