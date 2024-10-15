@@ -16,6 +16,7 @@ from ..syns63300.power_cycles_model import *
 
 try:
     from .xylo_samna import *
+    from .afe_samna import *
     from .xa3_devkit_utils import *
     from .xylo_monitor import *
 except:
