@@ -99,7 +99,7 @@ class AFESamna(Module):
         """ `stopwatch`: The Xylo HDK control for timesteps """
 
         # - Calculate tr_wrap (clock in Hz and dt in seconds)
-        tr_wrap = main_clk_rate * dt
+        tr_wrap = main_clk_rate * 1e6 * dt
 
         # - Get a default configuration
         if config is None:
@@ -125,7 +125,7 @@ class AFESamna(Module):
 
         # - Check that we have a correct device version
         # self._chip_version, self._chip_revision = hdu.read_afe2_module_version(
-        #     self._afe_read_buf, self._afe_write_buf
+        #     self._afe_read_buf, self._afe_write_buffer
         # )
         # if self._chip_version != 1 or self._chip_revision != 0:
         #     raise ValueError(
@@ -197,7 +197,7 @@ class AFESamna(Module):
         # -- We still need the loop because there is no function in samna that wait for a specific ammount of time and return all events
         while (now := time.time()) < read_until:
             remaining_time = read_until - now
-            readout_events += self._afe_read_buf.get_events_blocking(
+            readout_events += self._afe_read_buffer.get_events_blocking(
                 math.ceil(remaining_time * 1000)
             )
 
@@ -207,10 +207,10 @@ class AFESamna(Module):
 
         last_timestep = readout_events[-1].timestep
         events = [
-            (e.timestamp, e.channel)
+            (e.timestep, e.neuron_id)
             for e in readout_events
             if isinstance(e, samna.xyloAudio3.event.Spike)
-            and e.timestamp <= last_timestep
+            and e.timestep <= last_timestep
         ]
 
         # - Sort events by time
@@ -218,29 +218,38 @@ class AFESamna(Module):
             events = np.stack(events)
             index_array = np.argsort(events[:, 0])
 
-            # - Convert to vectors of timestamps, channels
-            timestamps = events[index_array, 0]
-            channels = events[index_array, 1]
+            # - Convert to vectors of timesteps, neuron ids
+            timesteps = events[index_array, 0]
+            neuron_ids = events[index_array, 1]
         else:
-            timestamps = np.zeros(0)
-            channels = np.zeros(0)
+            timesteps = np.zeros(0)
+            neuron_ids = np.zeros(0)
 
         # - Convert to an event raster
         events_ts = TSEvent(
-            timestamps,
-            channels,
+            timesteps,
+            neuron_ids,
             t_start=0.0,
-            t_stop=duration,
-            num_channels=self.size_out,
+            t_stop=last_timestep + 1,
+            num_channels=16,
         ).raster(self.dt, add_events=True)
 
+        if record:
+            # - Build a recorded state dictionary
+            rec_dict = {
+                "neuron_ids": np.array(neuron_ids),
+                "timesteps": np.array(timesteps),
+            }
+        else:
+            rec_dict = {}
+
         # - Apply a default configuration to stop recording mode
-        self._device.apply_configuration(
+        self._device.get_model().apply_configuration(
             samna.xyloAudio3.configuration.XyloConfiguration()
         )
 
         # - Return output, state, record dict
-        return events_ts, self.state(), {}
+        return events_ts, self.state(), rec_dict
 
     @property
     def _version(self) -> Tuple[int, int]:
@@ -269,17 +278,19 @@ class AFESamna(Module):
         self._device.reset_board_soft()
 
     def apply_config_blocking(self, config):
-        self._device.apply_configuration(config)
+        self._device.get_model().apply_configuration(config)
 
         # Communication with the device is asynchronous, so we don't know when the configuration is finished.
         # Normally this is not a problem, because events are guaranteed to be sent in order.
         # But for this script we want to let Xylo run for a specific amount of time, so we need to synchronise somehow,
         # the easiest way is to read a register and wait for the response.
 
-        self._afe_write_buf.write([samna.xyloAudio3.event.ReadRegisterValue(address=0)])
+        self._afe_write_buffer.write(
+            [samna.xyloAudio3.event.ReadRegisterValue(address=0)]
+        )
         ready = False
         while not ready:
-            events += self._afe_read_buf.get_events_blocking(timeout=1000)
+            events = self._afe_read_buffer.get_events_blocking(timeout=1000)
             for ev in events:
                 if (
                     isinstance(ev, samna.xyloAudio3.event.RegisterValue)
