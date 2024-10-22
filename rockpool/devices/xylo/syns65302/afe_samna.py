@@ -18,20 +18,13 @@ import numpy as np
 import time
 import math
 
-try:
-    from tqdm.auto import tqdm
-except ModuleNotFoundError:
-
-    def tqdm(wrapped, *args, **kwargs):
-        return wrapped
-
-
 from typing import Union, Dict, Any, Tuple, Optional
 
 # - Configure exports
 __all__ = ["AFESamna", "load_afe_config", "save_afe_config"]
 
 Default_Main_Clock_Rate = 50.0  # 50 MHz
+Pdm_Clock_Rate = 1.56  # MHz
 
 
 class AFESamna(Module):
@@ -123,16 +116,8 @@ class AFESamna(Module):
         self._afe_read_buffer = hdu.new_xylo_read_buffer(device)
         self._afe_write_buffer = hdu.new_xylo_write_buffer(device)
 
-        # - Check that we have a correct device version
-        # self._chip_version, self._chip_revision = hdu.read_afe2_module_version(
-        #     self._afe_read_buf, self._afe_write_buffer
-        # )
-        # if self._chip_version != 1 or self._chip_revision != 0:
-        #     raise ValueError(
-        #         f"AFE version is {(self._chip_version, self._chip_revision)}; expected (1, 0)."
-        #     )
-
         if default_config:
+            # FIXME
             config.debug.use_timestamps = False
             config.time_resolution_wrap = int(tr_wrap)
             # Choose PDM as input source.
@@ -141,7 +126,7 @@ class AFESamna(Module):
             config.digital_frontend.pdm_preprocessing.clock_direction = 1
             config.digital_frontend.pdm_preprocessing.clock_edge = 0
             # Xylo clock frequency for PDM sampling can be influenced here.
-            config.debug.sdm_clock_ratio = 23
+            config.debug.sdm_clock_ratio = int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
             config.digital_frontend.filter_bank.dn_enable = True
             config.digital_frontend.filter_bank.use_global_iaf_threshold = True
 
@@ -232,7 +217,9 @@ class AFESamna(Module):
             t_start=0.0,
             t_stop=last_timestep + 1,
             num_channels=16,
-        ).raster(self.dt, add_events=True)
+        ).raster(
+            1, add_events=True
+        )  # the timesteps are given by the spike timesteps
 
         if record:
             # - Build a recorded state dictionary
