@@ -60,7 +60,6 @@ class AFESamna(Module):
         config: Optional[XyloConfiguration] = None,
         dt: float = 1e-3,
         main_clk_rate: float = Default_Main_Clock_Rate,
-        amplify_level: str = "low",
         change_count: Optional[int] = None,
         hibernation_mode: bool = False,
         divisive_norm: bool = False,
@@ -74,7 +73,6 @@ class AFESamna(Module):
             device (XyloA3HDK): A connected XyloAudio 3 HDK device.
             config (XyloConfiguraration): A Xylo configuration from `samna`
             dt (float): The desired spike time resolution in seconds.
-            amplify_level(str): The level of volume gain. Defaul "low" is the one without gain.
             change_count (int): If is not None, AFE event counter will change from outputting 1 spike out of 4 into outputting 1 out of change_count.
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
             divisive_norm (bool): If True, divisive normalization will be switched on.
@@ -117,7 +115,6 @@ class AFESamna(Module):
         self._afe_write_buffer = hdu.new_xylo_write_buffer(device)
 
         if default_config:
-            # FIXME
             config.debug.use_timestamps = False
             config.time_resolution_wrap = int(tr_wrap)
             # Choose PDM as input source.
@@ -139,14 +136,14 @@ class AFESamna(Module):
             #         )
             #     config = hdu.config_afe_channel_thresholds(config, change_count)
 
-            # # - Amplify input volume
-            # config = hdu.config_lna_amplification(config, level=amplify_level)
+        # - Set up hibernation mode
+        if hibernation_mode:
+            config.enable_hibernation_mode = True
 
-            # # - Set up hibernation mode
-            # if hibernation_mode:
-            #     config = hdu.config_AFE_hibernation(config)
-            #     config.aer_2_saer.hibernation.mode = 2
-            #     config.aer_2_saer.hibernation.reset = 1
+        config.digital_frontend.filter_bank.dn_enable = divisive_norm
+
+        ## TODO
+        ## Check if there are other configuration that should be updated for AFESamna?
 
         # - Apply configuration
         self.apply_config_blocking(config)
