@@ -122,8 +122,9 @@ class AFESamna(Module):
             # We need to set `clock_direction` to 1 (Xylo output), because there is no external clock.
             config.digital_frontend.pdm_preprocessing.clock_direction = 1
             config.digital_frontend.pdm_preprocessing.clock_edge = 0
-            # Xylo clock frequency for PDM sampling can be influenced here.
-            config.debug.sdm_clock_ratio = int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
+            # Xylo clock frequency for PDM sampling can be influenced here
+            # In theory, the calculation for SDM clock should use: int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
+            config.debug.sdm_clock_ratio = 24
             config.digital_frontend.filter_bank.dn_enable = True
             config.digital_frontend.filter_bank.use_global_iaf_threshold = True
 
