@@ -126,7 +126,8 @@ class XyloMonitor(Module):
         if digital_microphone:
             config.input_source = samna.xyloAudio3.InputSource.DigitalMicrophone
             # - the ideal sdm clock ratio depends on the main clock rate
-            config.debug.sdm_clock_ratio = int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
+            # -- int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
+            config.debug.sdm_clock_ratio = 24
             config.digital_frontend.pdm_preprocessing.clock_direction = 1
             config.digital_frontend.pdm_preprocessing.clock_edge = 0
 
