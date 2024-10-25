@@ -6,5 +6,5 @@ Access the rockpool version with ``rockpool.__version__``.
 
 __all__ = ["__version__"]
 
-__version__ = "2.10.0.dev"
+__version__ = "2.10.0.dev1"
 
