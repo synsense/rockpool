@@ -387,9 +387,9 @@ class XyloSamna(Module):
         """ float: Post-stimulation sleep time in seconds """
 
         # - Apply configuration
-        self._config: Union[
-            XyloConfiguration, SimulationParameter
-        ] = SimulationParameter(shape=(), init_func=lambda _: config)
+        self._config: Union[XyloConfiguration, SimulationParameter] = (
+            SimulationParameter(shape=(), init_func=lambda _: config)
+        )
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
         self._last_record_mode: Optional[bool] = None
@@ -533,6 +533,12 @@ class XyloSamna(Module):
 
         # -- Encode input events
         input_events_list = []
+
+        # - Determine a reasonable read timeout
+        if read_timeout is None:
+            read_timeout = 4 * timestep_count
+            read_timeout = read_timeout * 30.0 if record else read_timeout
+            read_timeout = int(read_timeout)
 
         # - Locate input events
         spikes = np.argwhere(input)
