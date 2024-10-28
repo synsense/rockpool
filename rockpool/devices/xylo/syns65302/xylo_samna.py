@@ -355,7 +355,6 @@ class XyloSamna(Module):
             config.input_source = samna.xyloAudio3.InputSource.SpikeEvents
             config.operation_mode = samna.xyloAudio3.OperationMode.AcceleratedTime
 
-
         if config.input_source != samna.xyloAudio3.InputSource.SpikeEvents:
             warn(
                 "XyloSamna is intended to be used with direct input to the SNN core. Updating config.input_source to SpikeEvents."
