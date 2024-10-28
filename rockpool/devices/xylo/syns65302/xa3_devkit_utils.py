@@ -767,3 +767,27 @@ def decode_realtime_mode_data(
 
     # - Return Vmem and spikes
     return neuronId
+
+
+def set_xylo_core_clock_freq(
+    device: XyloAudio3HDK, main_clock_frequency_MHz: float
+) -> None:
+    """
+    Set the internal core clock frequency used by Xylo
+
+    Args:
+        device (XyloAudio3HDK): A XyloAudio 3 device to configure
+        main_clock_frequency_MHz (float): The main clock frequency of XyloAudio 3 in MHz
+
+    """
+
+    # - Get a device config object to define the clocks
+    default_config = samna.xyloAudio3.XyloAudio3TestBoardDefaultConfig()
+    # - Set main clock frequency
+    default_config.main_clock_frequency = int(main_clock_frequency_MHz * 1e6)
+    # - Update other clock frequency based on main clock frequency
+    default_config.saer_clock_frequency = int(main_clock_frequency_MHz / 8)
+    default_config.pdm_clock_frequency = int(main_clock_frequency_MHz / 40)
+    default_config.sadc_clock_frequency = int(main_clock_frequency_MHz / 8)
+    # - Configure device
+    device.reset_board_soft(default_config)
