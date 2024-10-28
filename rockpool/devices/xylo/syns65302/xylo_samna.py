@@ -312,9 +312,9 @@ class XyloSamna(Module):
         self,
         device: XyloAudio3HDK,
         config: XyloConfiguration = None,
-        dt: float = 1e-3,
+        # dt: float = 1e-3,
         output_mode: str = "Spike",
-        record: Optional[bool] = False,
+        # record: Optional[bool] = False,
         power_frequency: Optional[float] = 5.0,
         *args,
         **kwargs,
@@ -409,9 +409,9 @@ class XyloSamna(Module):
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
         """ `.XyloAudio3WriteBuffer`: The write buffer for the connected HDK """
 
-        # - Store the timestep
-        self.dt: Union[float, SimulationParameter] = dt
-        """ float: Simulation time-step of the module, in seconds """
+        # # - Store the timestep
+        # self.dt: Union[float, SimulationParameter] = dt
+        # """ float: Simulation time-step of the module, in seconds """
 
         # - Sleep time post sending spikes on each time-step, in manual mode
         self._sleep_time = 0e-3
@@ -429,25 +429,25 @@ class XyloSamna(Module):
             )
 
         # - Apply configuration
-        self._config: Union[
-            XyloConfiguration, SimulationParameter
-        ] = SimulationParameter(shape=(), init_func=lambda _: config)
+        self._config: Union[XyloConfiguration, SimulationParameter] = (
+            SimulationParameter(shape=(), init_func=lambda _: config)
+        )
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
         self._last_record_mode: Optional[bool] = None
         """ bool: The most recent (and assumed still valid) recording mode """
 
-        # - Store the timestep
-        self.dt: Union[float, SimulationParameter] = dt
-        """ float: Simulation time-step of the module, in seconds """
+        # # - Store the timestep
+        # self.dt: Union[float, SimulationParameter] = dt
+        # """ float: Simulation time-step of the module, in seconds """
 
         # - Store the power frequency
         self._power_frequency = power_frequency
         """ float: Frequency of power monitoring, in Hz """
 
         # - Set power measurement module
-        self._power_buf, self._power_monitor = hdkutils.set_power_measure(
-            self._device, self._power_frequency
+        self._power_buf, self._power_monitor, self._stopwatch = (
+            hdkutils.set_power_measure(self._device, self._power_frequency)
         )
 
         # - Apply configuration on the board
@@ -543,15 +543,17 @@ class XyloSamna(Module):
         """
 
         # - Check operation mode
-        if (
-            self._config.operation_mode
-            != samna.xyloAudio3.OperationMode.AcceleratedTime
-        ):
-            raise ValueError(
-                "`operation_mode` needs to be `AcceleratedTime` when using evolve. For debug purposes, use `_evolve_manual`."
-            )
+        # Impose accelerated mode
+        # if (
+        #     self._config.operation_mode
+        #     != samna.xyloAudio3.OperationMode.AcceleratedTime
+        # ):
+        #     raise ValueError(
+        #         "`operation_mode` needs to be `AcceleratedTime` when using evolve. For debug purposes, use `_evolve_manual`."
+        #     )
 
         # HACK record is not working inside evolve and was transferred to the class initialization
+        # TODO FIXME PLS
         if record:
             warn(
                 "`record` is now a parameter in the class initialization and its behavior is not updated in the `evolve` method."
@@ -563,10 +565,9 @@ class XyloSamna(Module):
         Nhidden_monitor = Nhidden if record else 0
         Nout_monitor = Nout if record or self._output_mode == "Isyn" else 0
 
-        # -- Control timestep per evolve section
-        timestep_count = len(input)
-        if not timestep_count:
-            raise ValueError("Couldn't read input data size.")
+        # - Get input shape
+        input, _ = self._auto_batch(input)
+        timestep_count, _, _ = input.shape
 
         # - Get current timestep by reading a `Readout` event
         self._write_buffer.write([samna.xyloAudio3.event.TriggerReadout()])
@@ -577,10 +578,16 @@ class XyloSamna(Module):
             )
 
         start_timestep = evts[0].timestep + 1
-        final_timestep = start_timestep + len(input) - 1
+        final_timestep = start_timestep + timestep_count - 1
 
         # -- Encode input events
         input_events_list = []
+
+        # - Determine a reasonable read timeout
+        if read_timeout is None:
+            read_timeout = 4 * timestep_count
+            read_timeout = read_timeout * 30.0 if record else read_timeout
+            read_timeout = int(read_timeout)
 
         # - Locate input events
         # - Generate input events
@@ -610,16 +617,13 @@ class XyloSamna(Module):
         # - Write the events and trigger the simulation
         self._write_buffer.write(input_events_list)
 
-        # - Determine a reasonable read timeout
-        if read_timeout is None:
-            read_timeout = 4 * len(input)
-            read_timeout = read_timeout * 30.0 if record else read_timeout
-            read_timeout = int(read_timeout)
-
         # - Wait until the simulation is finished
-        readout_events = self._readout_buffer.get_n_events(
-            timestep_count, timeout=read_timeout
-        )
+        # readout_events = self._readout_buffer.get_n_events(
+        # timestep_count, timeout=read_timeout
+        # )
+        # Use block_read from hdkutils, with target_timestamp option
+
+        # Check code from SYNS61201/XyloSamna
 
         if len(readout_events) < timestep_count:
             message = f"Processing didn't finish for {read_timeout}s. Read {len(readout_events)} events."
@@ -720,13 +724,15 @@ class XyloSamna(Module):
         # - Get some information about the network size
         Nin, Nhidden, Nout = self.shape
 
+        # Impose manual operation mode
         # - Check again operation mode (it could have changed between initializing the class and calling evolve)
-        if self._config.operation_mode != samna.xyloAudio3.OperationMode.Manual:
-            raise ValueError(
-                "`operation_mode` needs to be Manual when using evolve_manual."
-            )
+        # if self._config.operation_mode != samna.xyloAudio3.OperationMode.Manual:
+        #     raise ValueError(
+        #         "`operation_mode` needs to be Manual when using evolve_manual."
+        #     )
 
         # HACK record is not working inside evolve and was transferred to the class initialization
+        # FIXME TODO PLS :)
         if record:
             warn(
                 "`record` is now a parameter in the class initialization and its behavior is not updated in the `evolve` method."
