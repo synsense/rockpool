@@ -352,6 +352,9 @@ class XyloSamna(Module):
         # - Get a default configuration
         if config is None:
             config = samna.xyloAudio3.configuration.XyloConfiguration()
+            config.input_source = samna.xyloAudio3.InputSource.SpikeEvents
+            config.operation_mode = samna.xyloAudio3.OperationMode.AcceleratedTime
+
 
         if config.input_source != samna.xyloAudio3.InputSource.SpikeEvents:
             warn(
