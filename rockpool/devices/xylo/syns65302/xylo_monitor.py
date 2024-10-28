@@ -96,6 +96,10 @@ class XyloMonitor(Module):
 
         default_config = samna.xyloAudio3.XyloAudio3TestBoardDefaultConfig()
         default_config.main_clock_frequency = int(main_clk_rate * 1e6)
+        # - Update other clock frequency accordingly
+        default_config.saer_clock_frequency = int(config.main_clock_frequency / 8)
+        default_config.pdm_clock_frequency = int(config.main_clock_frequency / 40)
+        default_config.sadc_clock_frequency = int(config.main_clock_frequency / 8)
         device.reset_board_soft(default_config)
 
         # - Get a default configuration
