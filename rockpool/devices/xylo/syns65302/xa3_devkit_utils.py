@@ -417,7 +417,7 @@ def blocking_read(
             continue_read &= len(all_events) < count
 
         # - Continue reading if no events have been read
-        if not target_timestep and not count:
+        if not target_timestep and not count and not timeout:
             continue_read &= len(all_events) == 0
 
     # - Perform one final read for good measure
