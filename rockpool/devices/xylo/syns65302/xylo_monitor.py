@@ -53,7 +53,7 @@ class XyloMonitor(Module):
         self,
         device: XyloAudio3HDK,
         config: Optional[XyloConfiguration] = None,
-        frontend_config: Optional[XyloAudioFrontendConfig] = None,
+        # frontend_config: Optional[XyloAudioFrontendConfig] = None,
         output_mode: str = "Spike",
         dt: float = 1e-3,
         main_clk_rate: float = Default_Main_Clock_Rate,
@@ -95,14 +95,14 @@ class XyloMonitor(Module):
         self._output_mode = output_mode
 
         # - Configure master clock and communication bus clocks
-        hdkutils.set_xylo_core_clock_freq(main_clk_rate)
+        hdkutils.set_xylo_core_clock_freq(device, main_clk_rate)
 
         # - Get a default configuration
         if config is None:
             config = samna.xyloAudio3.configuration.XyloConfiguration()
 
         # - Get a default audio frontend configuration
-        ...
+        # TODO: Add audio frontend configuration
 
         # - Get the network shape
         Nin, Nhidden = np.shape(config.input.weights)
@@ -124,16 +124,16 @@ class XyloMonitor(Module):
         config.debug.always_update_omp_stat = True
         config.digital_frontend.filter_bank.use_global_iaf_threshold = True
 
-        if digital_microphone:
-            config.input_source = samna.xyloAudio3.InputSource.DigitalMicrophone
-            # - the ideal sdm clock ratio depends on the main clock rate
-            # -- int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
-            config.debug.sdm_clock_ratio = 24
-            config.digital_frontend.pdm_preprocessing.clock_direction = 1
-            config.digital_frontend.pdm_preprocessing.clock_edge = 0
+        # if digital_microphone:
+        config.input_source = samna.xyloAudio3.InputSource.DigitalMicrophone
+        # - the ideal sdm clock ratio depends on the main clock rate
+        # -- int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
+        config.debug.sdm_clock_ratio = 24
+        config.digital_frontend.pdm_preprocessing.clock_direction = 1
+        config.digital_frontend.pdm_preprocessing.clock_edge = 0
 
-        else:
-            raise ValueError("Analog microphone is not available yet for XyloAudio 3.")
+        # else:
+        #     raise ValueError("Analog microphone is not available yet for XyloAudio 3.")
 
         # - Disable internal state monitoring
         config.debug.monitor_neuron_v_mem = []
@@ -244,16 +244,14 @@ class XyloMonitor(Module):
         input_data: np.ndarray,
         record: bool = False,
         record_power: bool = False,
-        # read_timeout: Optional[float] = 1,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
         Evolve a network on the Xylo HDK in Real-time mode.
 
         Args:
-            input_data (np.ndarray): An array ``[T, Nin]``, specifying the number of time-steps to record.
+            input_data (np.ndarray): An array ``[T, Nin]``, specifying the number of T time-steps to record.
             record (bool): ``False``, do not return a recording dictionary. Recording internal state is not supported by :py:class:`.XyloAudio3Monitor`.
             record_power (bool): If ``True``, record the power consumption during each evolve.
-            read_timeout (float): A duration in seconds for a read timeout.
 
         Returns:
             Tuple[np.ndarray, dict, dict] output_events, {}, rec_dict
@@ -270,7 +268,7 @@ class XyloMonitor(Module):
         read_timeout = Nt * self.dt
 
         # use current time to calculate how long the processing will run
-        read_until = time.time() + read_timeout
+        # read_until = time.time() + read_timeout
         output_events = []
 
         # - Disable RAM access to save power
@@ -288,13 +286,15 @@ class XyloMonitor(Module):
         self._read_buffer.clear_events()
 
         # - Wait for all the events received during the read timeout
-        readout_events, is_timeout = hdkutils.blocking_read(
-            read_buffer=self._read_buffer, timeout=read_until
+        readout_events, _ = hdkutils.blocking_read(
+            read_buffer=self._read_buffer, timeout=read_timeout
         )
 
-        if is_timeout:
+        # - Check if events were recorded
+        # The reading is done for a time-window and the error is thrown if nothing was read
+        if len(readout_events) == 0:
             raise TimeoutError(
-                f"Reading events timeout after {read_timeout} seconds. Read {len(readout_events)} events, expected {Nt}. Last event timestep: {readout_events[-1].timestep if len(readout_events) > 0 else 'None'}."
+                f"No events received after reading for {read_timeout} seconds."
             )
 
         ev_filt = [
