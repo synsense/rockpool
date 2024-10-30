@@ -224,6 +224,8 @@ class XyloMonitor(Module):
         """
         Delete the XyloAudio3Monitor object and reset the HDK.
         """
+        # self._spike_graph.stop()
+        self._stopwatch.stop()
         # - Reset the HDK to clean up
         self._device.reset_board_soft()
 
