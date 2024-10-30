@@ -225,7 +225,7 @@ class XyloMonitor(Module):
         """
 
         # self._spike_graph.stop()
-        self.stopwatch.stop()
+        self._stopwatch.stop()
         # - Reset the HDK to clean up
         self._device.reset_board_soft()
 
