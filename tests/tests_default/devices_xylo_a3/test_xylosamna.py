@@ -38,7 +38,6 @@ def test_XyloSamna():
     Nin = 3
     Nhidden = 5
     Nout = 2
-    dt = 1e-3
 
     config, valid, msg = config_from_specification(
         weights_in=np.random.uniform(-127, 127, size=(Nin, Nhidden, 1)),
@@ -65,20 +64,16 @@ def test_XyloSamna():
     input_spikes = np.random.rand(T, Nin) < f
 
     # - Make a XyloSamna module for Vmem
-    modXyloSamna = XyloSamna(
-        device=daughterboard, config=config, dt=dt, output_mode="Vmem", record=True
-    )
-    output_ts, _, _ = modXyloSamna.evolve(input_spikes)
+    modXyloSamna = XyloSamna(device=daughterboard, config=config, output_mode="Vmem")
+    output_ts, _, _ = modXyloSamna.evolve(input_spikes, record=True)
 
     # - Make a XyloSamna module for Isyn
-    modXyloSamna = XyloSamna(
-        device=daughterboard, config=config, dt=dt, output_mode="Isyn", record=True
-    )
-    output_ts, _, _ = modXyloSamna.evolve(input_spikes)
+    modXyloSamna = XyloSamna(device=daughterboard, config=config, output_mode="Isyn")
+    output_ts, _, _ = modXyloSamna.evolve(input_spikes, record=True)
 
     # - Make a XyloSamna module for Spike
-    modXyloSamna = XyloSamna(device=daughterboard, config=config, dt=dt, record=True)
-    output_ts, _, _ = modXyloSamna.evolve(input_spikes)
+    modXyloSamna = XyloSamna(device=daughterboard, config=config)
+    output_ts, _, _ = modXyloSamna.evolve(input_spikes, record=True)
 
 
 def test_save_load():
@@ -225,13 +220,13 @@ def test_xylo_vs_xylosim_acceleratedtime():
     daughterboard.reset_board_soft()
 
     # - Init Xylo
-    mod_xylo_spike = x.XyloSamna(daughterboard, config, dt=1.0 / 200, record=True)
+    mod_xylo_spike = x.XyloSamna(daughterboard, config)
 
     print(len(input_raster))
 
     # - Evolve Xylo
     mod_xylo_spike.reset_state()
-    out_xylo, _, rec_xylo = mod_xylo_spike.evolve(input_raster)
+    out_xylo, _, rec_xylo = mod_xylo_spike.evolve(input_raster, record=True)
 
     # - Assert equality for all outputs and recordings
     assert np.all(out_sim == out_xylo)
@@ -310,11 +305,11 @@ def test_xylo_vs_xylosim_manual():
     daughterboard.reset_board_soft()
 
     # - Init Xylo
-    mod_xylo_spike = x.XyloSamna(daughterboard, config, dt=1.0 / 200, record=True)
+    mod_xylo_spike = x.XyloSamna(daughterboard, config)
 
     # - Evolve Xylo
     mod_xylo_spike.reset_state()
-    out_xylo, _, rec_xylo = mod_xylo_spike._evolve_manual(input_raster)
+    out_xylo, _, rec_xylo = mod_xylo_spike._evolve_manual(input_raster, record=True)
 
     # - Assert equality for all outputs and recordings
     assert np.all(out_sim == out_xylo)
