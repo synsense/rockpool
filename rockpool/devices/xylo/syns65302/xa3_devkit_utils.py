@@ -450,9 +450,19 @@ def read_register(
 
     # - Set up a register read
     write_buffer.write([samna.xyloAudio3.event.ReadRegisterValue(address=address)])
-    events = read_buffer.get_n_events(1, 3000)
-    assert len(events) == 1
-    return [events[0].data]
+    ready = False
+    data = []
+    while not ready:
+        events = read_buffer.get_events_blocking(timeout=int(timeout * 1000))
+        for ev in events:
+            if (
+                isinstance(ev, samna.xyloAudio3.event.RegisterValue)
+                and ev.address == address
+            ):
+                ready = True
+                data = ev.data
+
+    return [data]
 
 
 def decode_accel_mode_data(
@@ -827,13 +837,13 @@ def configure_accel_time_mode(
         config.debug.monitor_neuron_i_syn = [i for i in range(Nhidden + Nout)]
 
     else:
+        config.debug.monitor_neuron_v_mem = []
         config.debug.monitor_neuron_spike = []
+        config.debug.monitor_neuron_i_syn = []
 
         if readout == "Isyn":
-            config.monitor_neuron_spike = []
             config.debug.monitor_neuron_i_syn = [i for i in range(Nhidden + Nout)]
         elif readout == "Vmem":
-            config.monitor_neuron_i_syn = []
             config.debug.monitor_neuron_v_mem = [i for i in range(Nhidden)]
 
     # - Return the configuration and buffer
