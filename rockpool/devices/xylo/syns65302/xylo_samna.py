@@ -352,14 +352,14 @@ class XyloSamna(Module):
         # - Set input source to SpikeEvents
         if config.input_source != samna.xyloAudio3.InputSource.SpikeEvents:
             warn(
-                "XyloSamna is intended to be used with direct input to the SNN core. Updating config.input_source to SpikeEvents."
+                "`XyloSamna` is intended to be used with direct input to the SNN core. Updating `config.input_source` to SpikeEvents."
             )
         config.input_source = samna.xyloAudio3.InputSource.SpikeEvents
 
         # - Set operation mode to AcceleratedTime in XyloSamna
         if config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
             warn(
-                "XyloSamna can't be used in RealTime mode. Updating config.operation_mode to AcceleratedTime. For RealTime use XyloMonitor."
+                "`XyloSamna` can't be used in RealTime mode. Updating `config.operation_mode` to `AcceleratedTime`. For `RealTime` use `XyloMonitor`."
             )
         config.operation_mode = samna.xyloAudio3.OperationMode.AcceleratedTime
 
@@ -394,9 +394,9 @@ class XyloSamna(Module):
         """ float: Post-stimulation sleep time in seconds """
 
         # - Apply configuration
-        self._config: Union[
-            XyloConfiguration, SimulationParameter
-        ] = SimulationParameter(shape=(), init_func=lambda _: config)
+        self._config: Union[XyloConfiguration, SimulationParameter] = (
+            SimulationParameter(shape=(), init_func=lambda _: config)
+        )
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
         self._last_record_mode: Optional[bool] = None
@@ -415,6 +415,9 @@ class XyloSamna(Module):
 
         # - Apply configuration on the board
         hdkutils.apply_configuration(self._device, self._config)
+
+        # - Turn off RAM access
+        hdkutils.enable_ram_access(self._device, False)
 
     def __del__(self):
         # - Stop the readout graph buffer
@@ -533,12 +536,6 @@ class XyloSamna(Module):
         Nhidden_monitor = Nhidden if record else 0
         Nout_monitor = Nout if record or self._output_mode == "Isyn" else 0
 
-        # - Switch on or off RAM clocks depending on state access mode
-        if record or self._output_mode != "Spike":
-            hdkutils.enable_ram_access(self._device, True)
-        else:
-            hdkutils.enable_ram_access(self._device, False)
-
         # - Impose accelerated mode
         if (
             self._config.operation_mode
@@ -550,6 +547,12 @@ class XyloSamna(Module):
 
         # - Configure operation mode and recording
         self._configure_accel_time_mode(Nhidden, Nout, record)
+
+        # - Switch on or off RAM clocks depending on state access mode
+        if record or self._output_mode != "Spike":
+            hdkutils.enable_ram_access(self._device, True)
+        else:
+            hdkutils.enable_ram_access(self._device, False)
 
         # - Get input shape
         input, _ = self._auto_batch(input)
