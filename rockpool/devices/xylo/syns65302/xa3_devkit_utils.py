@@ -248,6 +248,7 @@ def set_power_measure(
 ) -> Tuple[
     samna.BasicSinkNode_unifirm_modules_events_measurement,
     samna.boards.common.power.PowerMonitor,
+    samna.unifirm.timestamp.StopWatch,
 ]:
     """
     Initialize power consumption measure on a hdk
@@ -269,7 +270,7 @@ def set_power_measure(
     # Start sampling power on all channels at a rate of frequency in Hz.
     power_monitor.start_auto_power_measurement(frequency)
 
-    return power_buf, power_monitor
+    return power_buf, power_monitor, stopwatch
 
 
 def apply_configuration(

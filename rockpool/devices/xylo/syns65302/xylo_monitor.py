@@ -34,6 +34,7 @@ except ModuleNotFoundError:
 __all__ = ["XyloMonitor"]
 
 Default_Main_Clock_Rate = 50.0  # 50 MHz
+Pdm_Clock_Rate = 1.56
 
 
 class XyloMonitor(Module):
@@ -47,6 +48,8 @@ class XyloMonitor(Module):
     Use :py:func:`~.devices.xylo.syns65302.config_from_specification` to build and validate a configuration for Xylo.
 
     """
+
+    # TODO: Create XyloAudioFrontendConfig and include hibernation_mode, dn_active and digital microphone in it
 
     def __init__(
         self,
@@ -110,12 +113,11 @@ class XyloMonitor(Module):
         # - Register buffers to read and write events, monitor state
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
-        self._state_buffer = hdkutils.new_xylo_state_monitor_buffer(device)
 
         # - Set operation mode to be RealTime
         config.operation_mode = samna.xyloAudio3.OperationMode.RealTime
-
-        # config.digital_frontend.filter_bank.dn_enable = dn_active
+        config.digital_frontend.filter_bank.dn_enable = dn_active
+        config.enable_hibernation_mode = hibernation_mode
 
         # - Configuration for real time in XyloAudio 3
         config.time_resolution_wrap = self._get_tr_wrap(
@@ -124,35 +126,21 @@ class XyloMonitor(Module):
         config.debug.always_update_omp_stat = True
         config.digital_frontend.filter_bank.use_global_iaf_threshold = True
 
-        # if digital_microphone:
-        config.input_source = samna.xyloAudio3.InputSource.DigitalMicrophone
-        # - the ideal sdm clock ratio depends on the main clock rate
-        # -- int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
-        config.debug.sdm_clock_ratio = 24
-        config.digital_frontend.pdm_preprocessing.clock_direction = 1
-        config.digital_frontend.pdm_preprocessing.clock_edge = 0
+        if digital_microphone:
+            config.input_source = samna.xyloAudio3.InputSource.DigitalMicrophone
+            # - the ideal sdm clock ratio depends on the main clock rate
+            # -- int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
+            config.debug.sdm_clock_ratio = 24
+            config.digital_frontend.pdm_preprocessing.clock_direction = 1
+            config.digital_frontend.pdm_preprocessing.clock_edge = 0
 
-        # else:
-        #     raise ValueError("Analog microphone is not available yet for XyloAudio 3.")
+        else:
+            raise ValueError("Analog microphone is not available yet for XyloAudio 3.")
 
         # - Disable internal state monitoring
         config.debug.monitor_neuron_v_mem = []
         config.debug.monitor_neuron_spike = []
         config.debug.monitor_neuron_i_syn = []
-
-        # - Build a filter graph to filter `Readout` events from Xylo
-        self._spike_graph = samna.graph.EventFilterGraph()
-
-        _, etf0, self._spike_buffer = self._spike_graph.sequential(
-            [
-                device.get_model_source_node(),
-                "XyloAudio3OutputEventTypeFilter",
-                samna.graph.JitSink(),
-            ]
-        )
-        etf0.set_desired_type("xyloAudio3::event::Readout")
-
-        self._spike_graph.start()
 
         # - Initialise the superclass
         super().__init__(
@@ -169,10 +157,6 @@ class XyloMonitor(Module):
         ] = SimulationParameter(shape=(), init_func=lambda _: config)
         """ `XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
-        # - Enable hibernation mode
-        if hibernation_mode:
-            self._config.enable_hibernation_mode = True
-
         # - Store the timestep
         self.dt: Union[float, SimulationParameter] = dt
         """ float: Simulation time-step of the module, in seconds """
@@ -182,13 +166,23 @@ class XyloMonitor(Module):
         # - Store the io module
         self._io = self._device.get_io_module()
 
-        # - Apply the configuration on Xylo HDK
+        # - Apply the configuration
         hdkutils.apply_configuration(device, self._config)
+
+        # # - Disable RAM access to save power
+        hdkutils.enable_ram_access(self._device, False)
 
         self._power_monitor = None
         """Power monitor for Xylo"""
 
         self._power_frequency = power_frequency
+
+        # - Set power measurement module
+        (
+            self._power_buf,
+            self._power_monitor,
+            self._stopwatch,
+        ) = hdkutils.set_power_measure(self._device, power_frequency)
 
     @property
     def config(self):
@@ -204,6 +198,9 @@ class XyloMonitor(Module):
 
         # - Write the configuration to the device
         hdkutils.apply_configuration(self._device, new_config)
+
+        # - Disable RAM access to save power
+        hdkutils.enable_ram_access(self._device, False)
 
         # - Store the configuration locally
         self._config = new_config
@@ -224,6 +221,7 @@ class XyloMonitor(Module):
         """
         Delete the XyloAudio3Monitor object and reset the HDK.
         """
+
         # self._spike_graph.stop()
         self._stopwatch.stop()
         # - Reset the HDK to clean up
@@ -233,11 +231,15 @@ class XyloMonitor(Module):
         # - Write the configuration to the device
         hdkutils.apply_configuration(self._device, new_config)
 
+        # - Disable RAM access to save power
+        hdkutils.enable_ram_access(self._device, False)
+
         # - Store the configuration locally
         self._config = new_config
 
     def evolve(
         self,
+        input_data: np.ndarray,
         record: bool = False,
         record_power: bool = False,
     ) -> Tuple[np.ndarray, dict, dict]:
@@ -304,6 +306,30 @@ class XyloMonitor(Module):
                 output_events.append(ev.output_spikes)
 
         rec_dict = {}
+        if record_power:
+            # - Get all recent power events from the power measurement
+            ps = self._power_buf.get_events()
+
+            # - Separate out power meaurement events by channel
+            channels = samna.xyloAudio3.MeasurementChannels
+            io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
+            analog_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.AnalogLogic)]
+            )
+            digital_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.DigitalLogic)]
+            )
+
+            rec_dict.update(
+                {
+                    "io_power": io_power,
+                    "analog_power": analog_power,
+                    "digital_power": digital_power,
+                }
+            )
+
+        self._power_monitor.stop_auto_power_measurement()
 
         # - Return the output spikes, the (empty) new state dictionary, and the recorded power dictionary
+        output_events = np.stack(output_events)
         return output_events, {}, rec_dict
