@@ -751,7 +751,6 @@ class XyloSamna(Module):
 
         # - Clear the power recording buffer, if recording power
         if record_power:
-            self._power_monitor.start_auto_power_measurement(self._power_frequency)
             self._power_buf.clear_events()
 
         # - Initialise lists for recording state
@@ -835,8 +834,6 @@ class XyloSamna(Module):
                     "digital_power": digital_power,
                 }
             )
-
-        self._power_monitor.stop_auto_power_measurement()
 
         # - Return the output spikes, the (empty) new state dictionary, and the recorded state dictionary
         return np.array(output_ts), {}, rec_dict
