@@ -3,7 +3,7 @@ import pytest
 pytest.importorskip("samna")
 
 
-def test_large_IMU_network():
+def test_large_IMU_network_config():
     from rockpool.devices.xylo.syns63300 import (
         XyloSamna,
         mapper,
@@ -11,8 +11,7 @@ def test_large_IMU_network():
         XyloIMUMonitor,
     )
 
-    # from rockpool.devices.xylo.syns61201 import XyloSamna, mapper, config_from_specification, AFESamna, XyloMonitor
-    from rockpool.devices.xylo import find_xylo_hdks
+    import rockpool.devices.xylo.syns63300.xylo_imu_devkit_utils as putils
 
     from rockpool.transform.quantize_methods import channel_quantize
 
@@ -22,7 +21,11 @@ def test_large_IMU_network():
     import numpy as np
     import matplotlib.pyplot as plt
 
-    hdks, modules, versions = find_xylo_hdks()
+    # - Get a Xylo HDK board
+    xylo_hdk_nodes = putils.find_xylo_imu_boards()
+
+    if len(xylo_hdk_nodes) == 0:
+        pytest.skip("A connected Xylo IMU device is required for this test")
 
     net = Sequential(
         Linear((16, 63)),
@@ -44,3 +47,6 @@ def test_large_IMU_network():
 
     if not is_valid:
         raise ValueError(msg)
+
+    xmod = XyloSamna.from_config(xylo_hdk_nodes[0], config, dt=1e-3)
+    xmod = XyloIMUMonitor.from_config(xylo_hdk_nodes[0], config, dt=1e-3)
