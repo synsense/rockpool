@@ -571,9 +571,9 @@ class XyloSamna(Module):
         # - Generate input events
         for timestep, channel, count in zip(spikes[:, 1], spikes[:, 2], counts):
             for _ in range(int(count)):
-                event = samna.xyloAudio3.event.Spike(
-                    neuron_id=channel, timestep=start_timestep + timestep
-                )
+                event = samna.xyloAudio3.event.Spike()
+                event.neuron_id = channel
+                event.timestep = start_timestep + timestep
                 input_events_list.append(event)
 
         # - Add a `TriggerProcessing` event to ensure all time-steps are processed
