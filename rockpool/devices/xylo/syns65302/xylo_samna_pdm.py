@@ -232,7 +232,7 @@ class XyloSamnaPDM(Module):
             input (np.ndarray): A vector ``(Tpdm, 1)`` with a PDM-encoded audio signal, ``1`` or ``0``. The PDM clock is always 1.5625 MHz. 32 PDM samples correspond to one audio sample passed to the band-pass filterbank (i.e. 48.828125 kHz). The network ``dt`` is independent of this sampling rate, but should be an even divisor of 48.828125 MHz (e.g. 1024 us).
             record (bool): Deprecated parameter. Please use ``record`` from the class initialization.
             read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
-            flip_and_encode: Boolean that determines if flip-and-encode fix should be applied to the input data. When applied, the input data will be flipped on axis=0 and concatenated to the begin of the original input data. Note that input data will have its size doubled.
+            flip_and_encode (bool): Determine if flip-and-encode fix should be applied to the input data. When applied, the input data will be flipped on axis=0 and concatenated to the begin of the original input data. Note that input data will have its size doubled.
 
         Returns:
             (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
