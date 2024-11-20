@@ -16,7 +16,9 @@ __all__ = ["ResampleAndQuantize"]
 
 class ResampleAndQuantize(ModSequential):
     """
-    Simulates the input directly to the filter banks on XyloAudio 3, skipping the PDM pathway, and automatically resampling and quantizating the input.
+    Simulates the input directly to the filter banks on XyloAudio 3 skipping the PDM pathway.
+
+    For this, the input needs to be resampled and quantized.
     """
 
     def __init__(
@@ -29,10 +31,13 @@ class ResampleAndQuantize(ModSequential):
         _summary_
 
         Args:
-            fs (float, optional): The expected sampling rate. Defaults to AUDIO_SAMPLING_RATE.
-                If the input sampling rate is different, then the `ResampleAudio` module AUTOMATICALLY resamples the input signal
-            scale (float, optional): the input signal amplitude scaling, usually, it's OK to leave it as 1.0. Defaults to 1.0.
-            num_bits (int, optional): The number of bits devoted to the final sampled audio. Defaults to NUM_BITS_PDM_ADC.
+            fs (float, optional): The expected audio sampling rate.
+                Defaults to AUDIO_SAMPLING_RATE.
+                If the input sampling rate is different, it will AUTOMATICALLY be resampled.
+            scale (float, optional): the input signal amplitude scaling.
+                Usually, it's OK to leave it as 1.0. Defaults to 1.0.
+            num_bits (int, optional): The number of bits devoted to the final sampled audio.
+                Defaults to NUM_BITS_PDM_ADC.
         """
         super().__init__(
             ResampleAudio(fs_target=fs), AudioQuantizer(scale=scale, num_bits=num_bits)
