@@ -1,7 +1,7 @@
 """
-Defines the external audio signal path for the AFE simulation for Xylo™Audio 3.
+Defines the audio signal path for the AFE simulation skipping the PDM pathway for XyloAudio 3.
 
-Defines the class :py:class:`.ExternalSignal`.
+Defines the class :py:class:`.ResampleAndQuantize`.
 """
 
 from rockpool.devices.xylo.syns65302.transform import AudioQuantizer, ResampleAudio
@@ -11,12 +11,12 @@ from rockpool.devices.xylo.syns65302.afe.params import (
     NUM_BITS_PDM_ADC,
 )
 
-__all__ = ["ExternalSignal"]
+__all__ = ["ResampleAndQuantize"]
 
 
-class ExternalSignal(ModSequential):
+class ResampleAndQuantize(ModSequential):
     """
-    Support external signal path of `AFESim` with automatic resampling and quantization
+    Simulates the input directly to the filter banks on XyloAudio 3, skipping the PDM pathway, and automatically resampling and quantizating the input.
     """
 
     def __init__(
