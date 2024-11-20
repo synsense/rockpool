@@ -19,7 +19,9 @@ from rockpool.devices.xylo.syns65302.afe.divisive_normalization import (
     DivisiveNormalization,
 )
 from rockpool.devices.xylo.syns65302.afe.agc.agc_adc import AGCADC
-from rockpool.devices.xylo.syns65302.afe.external import ResampleAndQuantize
+from rockpool.devices.xylo.syns65302.afe.resample_and_quantize import (
+    ResampleAndQuantize,
+)
 
 from rockpool.devices.xylo.syns65302.afe.params import (
     AUDIO_SAMPLING_RATE,
