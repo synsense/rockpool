@@ -218,6 +218,7 @@ class XyloSamnaPDM(Module):
         input: np.ndarray,
         record: bool = False,
         read_timeout: float = 5.0,
+        flip_and_encode: bool = False,
         *args,
         **kwargs,
     ) -> Tuple[np.ndarray, dict, dict]:
@@ -231,6 +232,7 @@ class XyloSamnaPDM(Module):
             input (np.ndarray): A vector ``(Tpdm, 1)`` with a PDM-encoded audio signal, ``1`` or ``0``. The PDM clock is always 1.5625 MHz. 32 PDM samples correspond to one audio sample passed to the band-pass filterbank (i.e. 48.828125 kHz). The network ``dt`` is independent of this sampling rate, but should be an even divisor of 48.828125 MHz (e.g. 1024 us).
             record (bool): Deprecated parameter. Please use ``record`` from the class initialization.
             read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
+            flip_and_encode: Boolean that determines if flip-and-encode fix should be applied to the input data. When applied, the input data will be flipped on axis=0 and concatenated to the begin of the original input data. Note that input data will have its size doubled.
 
         Returns:
             (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
@@ -282,6 +284,13 @@ class XyloSamnaPDM(Module):
         input_raster = np.reshape(
             input[: num_dt * PDM_samples_per_dt], [-1, PDM_samples_per_dt]
         )
+
+        flip_and_encode_size = None
+        if flip_and_encode:
+            # -- Revert and repeat the input signal in the beginning to avoid boundary effects
+            flip_and_encode_size = np.shape(input_raster)[0]
+            __input_rev = np.flip(input_raster, axis=0)
+            input_raster = np.concatenate((__input_rev, input_raster), axis=0)
 
         # - Initialise lists for recording state
         input_spikes = []
@@ -365,5 +374,14 @@ class XyloSamnaPDM(Module):
         else:
             rec_dict = {}
 
+        output_ts = np.array(output_ts)
+
+        if flip_and_encode:
+            # Trim the part of the signal coresponding to __input_rev (which was added to avoid boundary effects)
+            output_ts = output_ts[flip_and_encode_size:, :]
+
+            # # Trim recordings
+            rec_dict = {k: v[flip_and_encode_size:, :] for k, v in rec_dict.items()}
+
         # - Return the output spikes, the (empty) new state dictionary, and the recorded state dictionary
-        return np.array(output_ts), {}, rec_dict
+        return output_ts, {}, rec_dict
