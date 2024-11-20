@@ -150,12 +150,16 @@ class AFESamna(Module):
         self.apply_config_blocking(config)
         self._config = config
 
-    def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
+    def evolve(
+        self, input_data, record: bool = False, flip_and_encode: bool = False
+    ) -> Tuple[Any, Any, Any]:
         """
         Use the AFE HW module to record live audio and return as encoded events
 
         Args:
             input_data (np.ndarray): An array ``[0, T, 0]``, specifying the number of time-steps to record.
+            record (bool): Record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
+            flip_and_encode (bool): Determine if flip-and-encode fix should be applied to the input data. When applied, the input data will be flipped on axis=0 and concatenated to the begin of the original input data. Note that input data will have its size doubled.
 
         Returns:
             (np.ndarray, dict, dict) output_events, {}, {}
@@ -166,6 +170,13 @@ class AFESamna(Module):
 
         # - For how long should we record?
         duration = input_data.shape[1] * self.dt
+
+        flip_and_encode_size = None
+        if flip_and_encode:
+            # -- Revert and repeat the input signal in the beginning to avoid boundary effects
+            flip_and_encode_size = np.shape(input_data)[0]
+            __input_rev = np.flip(input_data, axis=0)
+            input_data = np.concatenate((__input_rev, input_data), axis=0)
 
         # At this point, the chip is already recording input.
         # But we want to define a clear time window in which we record, so we start the stopwatch to obtain event timesteps relative to this moment.
@@ -232,6 +243,13 @@ class AFESamna(Module):
         self._device.get_model().apply_configuration(
             samna.xyloAudio3.configuration.XyloConfiguration()
         )
+
+        if flip_and_encode:
+            # - Trim the part of the signal coresponding to __input_rev (which was added to avoid boundary effects)
+            events_ts = events_ts[flip_and_encode_size:, :]
+
+            # - Trim recordings
+            rec_dict = {k: v[flip_and_encode_size:, :] for k, v in rec_dict.items()}
 
         # - Return output, state, record dict
         return events_ts, self.state(), rec_dict
