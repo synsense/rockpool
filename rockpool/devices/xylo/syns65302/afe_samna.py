@@ -53,7 +53,6 @@ class AFESamna(Module):
     #     >>> audio_events = afe(np.zeros([0, 100, 0]))
     """
 
-    # FIXME: Currently we are using full XyloConfig, change it to AFEconfig
     def __init__(
         self,
         device: XyloAudio3HDK,
@@ -312,7 +311,6 @@ def load_afe_config(filename: str) -> XyloConfiguration:
     Returns:
         `.XyloConfiguration`: The configuration loaded from disk
     """
-    # FIXME: Currently we are using full XyloConfig, change it to AFEconfig
     # - Create a new config object
     conf = XyloConfiguration()
 
@@ -332,6 +330,5 @@ def save_afe_config(config: XyloConfiguration, filename: str) -> None:
         config (XyloConfiguration): The configuration to write
         filename (str): The filename to write to
     """
-    # FIXME: Currently we are using full XyloConfig, change it to AFEconfig
     with open(filename, "w") as f:
         f.write(config.to_json())
