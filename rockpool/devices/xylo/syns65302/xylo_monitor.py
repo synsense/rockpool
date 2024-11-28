@@ -43,7 +43,7 @@ class XyloMonitor(Module):
         dt: float = 1e-3,
         main_clk_rate: float = Default_Main_Clock_Rate,
         hibernation_mode: bool = False,
-        power_frequency: float = 5.0,
+        power_frequency: float = 100.0,
         dn_active: bool = True,
         *args,
         **kwargs,
@@ -58,7 +58,7 @@ class XyloMonitor(Module):
             dt (float): The timewindow duration, in seconds. Default: 0.001.
             main_clk_rate (float): The main clock rate of Xylo, in MHz.
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
-            power_frequency (float): The frequency of power measurement, in Hz. Default: 5.0.
+            power_frequency (float): The frequency of power measurement, in Hz. Default: 100 Hz.
             dn_active (bool): If True, divisive normalization will be used. Defaults to True.
 
         Raises:
