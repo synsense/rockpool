@@ -63,7 +63,7 @@ class XyloMonitor(Module):
 
         Raises:
             `ValueError`: If ``device`` is not set. ``device`` must be a ``XyloAudio3HDK``.
-            `TimeoutError`: If ``output_mode`` is not ``Spike`` or ``Vmem``.
+            `ValueError`: If ``output_mode`` is not ``Spike`` or ``Vmem``.
         """
 
         # - Check input arguments
@@ -238,11 +238,16 @@ class XyloMonitor(Module):
             Tuple[np.ndarray, dict, dict] output_events, {}, rec_dict.
                 output_events is an array that stores the output events of T time-steps.
                 rec_dict is a dictionary that stores the power measurements of T time-steps.
+
+        Raises:
+            `ValueError`: If record is set to True. Internal state recording is not supported by :py:class:`.XyloMonitor`".
+            `TimeoutError`: If no event is received after the processing time.
+
         """
 
         if record:
             raise ValueError(
-                f"Recording internal state is not supported by :py:class:`.XyloMonitor`"
+                f"Recording internal state is not supported by :py:class:`.XyloMonitor`."
             )
 
         Nt = input_data.shape[0]
