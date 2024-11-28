@@ -245,7 +245,7 @@ def is_xylo_ready(
     return stat2 & (1 << reg.stat2__pd__pos)
 
 
-def set_power_measure(
+def set_power_measurement(
     hdk: XyloAudio3HDK,
     frequency: Optional[float] = 5.0,
 ) -> Tuple[
