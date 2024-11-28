@@ -225,6 +225,12 @@ class XyloSamnaPDM(Module):
                 "`operation_mode` can't be RealTime for XyloSamnaPDM. Options are Manual or AcceleratedTime."
             )
 
+        # - Switch on or off RAM clocks depending on state access mode
+        if record or self._output_mode != "Spike":
+            hdkutils.enable_ram_access(self._device, True)
+        else:
+            hdkutils.enable_ram_access(self._device, False)
+
         # # HACK record is not working inside evolve and was transferred to the class initialization
         if record != self._last_record_mode:
             self._snn_config.debug.debug_status_update_enable = record
