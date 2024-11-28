@@ -5,16 +5,18 @@ Also provides :py:func:`.config_from_specification`.
 """
 
 import numpy as np
-import samna
 import time
 import copy
-
+from typing import Optional, Union, List, Tuple
+from warnings import warn
 
 try:
     from tqdm.autonotebook import tqdm
 except:
     tqdm = lambda x: x
 
+
+import samna
 from samna.xyloAudio3.configuration import XyloConfiguration
 
 from rockpool.nn.modules.module import Module
@@ -22,10 +24,6 @@ from rockpool.parameters import SimulationParameter
 from . import xa3_devkit_utils as hdkutils
 
 XyloAudio3HDK = samna.xyloAudio3.XyloAudio3TestBoard
-
-# - Typing
-from typing import Optional, Union, List, Tuple
-from warnings import warn
 
 # - Configure exports
 __all__ = [
