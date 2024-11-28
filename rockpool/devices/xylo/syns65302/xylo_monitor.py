@@ -2,33 +2,18 @@
 Provides :py:class:`.XyloMonitor`
 """
 
+import numpy as np
+from typing import Optional, Union, Tuple
+
 # - Samna imports
 import samna
 from samna.xyloAudio3.configuration import XyloConfiguration
 
 XyloAudio3HDK = samna.xyloAudio3.XyloAudio3TestBoard
-from . import xa3_devkit_utils as hdkutils
 
-import time
-import math
-import numpy as np
+from . import xa3_devkit_utils as hdkutils
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
-
-# - Typing
-from typing import Optional, Union, Callable, List, Tuple
-from warnings import warn
-
-try:
-    from tqdm.autonotebook import tqdm, trange
-except ModuleNotFoundError:
-
-    def tqdm(wrapped, *args, **kwargs):
-        return wrapped
-
-    def trange(obj, *args, **kwargs):
-        return range(obj)
-
 
 # - Configure exports
 __all__ = ["XyloMonitor"]
