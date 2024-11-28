@@ -411,7 +411,7 @@ class XyloSamna(Module):
             self._power_buf,
             self._power_monitor,
             self._stopwatch,
-        ) = hdkutils.set_power_measure(self._device, self._power_frequency)
+        ) = hdkutils.set_power_measurement(self._device, self._power_frequency)
 
         # - Apply configuration on the board
         hdkutils.apply_configuration(self._device, self._config)
