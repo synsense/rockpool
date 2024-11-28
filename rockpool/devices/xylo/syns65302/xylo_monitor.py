@@ -152,8 +152,8 @@ class XyloMonitor(Module):
         # - Apply the configuration
         hdkutils.apply_configuration(device, self._config)
 
-        # # - Disable RAM access to save power
-        # hdkutils.enable_ram_access(self._device, False)
+        # - Disable RAM access to save power
+        hdkutils.enable_ram_access(self._device, False)
 
         self._power_monitor = None
         """Power monitor for Xylo"""
