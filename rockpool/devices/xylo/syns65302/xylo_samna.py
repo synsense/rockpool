@@ -316,7 +316,7 @@ class XyloSamna(Module):
         **kwargs,
     ):
         """
-        Instantiate a Module with XyloAudio 3 dev-kit backend
+        Instantiate a Module with XyloAudio 3 dev-kit backend.
 
         Args:
             device (XyloAudio3HDK): An opened `samna` device to a XyloAudio 3 dev kit.
@@ -326,10 +326,8 @@ class XyloSamna(Module):
 
         Raises:
             `ValueError`: If ``device`` is not set. ``device`` must be a ``XyloAudio3HDK``.
-            `TimeoutError`: If ``output_mode`` is not ``Spike``, ``Vmem`` or ``ISyn``.
+            `ValueError`: If ``output_mode`` is not ``Spike``, ``Vmem`` or ``ISyn``.
             `Warning`: For XyloSamna ``config.input_source`` has to be set to ``SpikeEvents``.
-            `Warning`: For XyloSamna ``config.operation_mode`` is set to `AcceleratedTime`. `Manual` can be used for debug purpuses together with `_evolve_manual`. For `RealTime` please use :py:class:`.XyloMonitor`.
-
         """
 
         # - Check input arguments
