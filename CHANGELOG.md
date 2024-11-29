@@ -2,9 +2,11 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-## [v2.10.0.dev1] -- XXXX-XX-XX
+## [v2.10.0.dev2] -- XXXX-XX-XX
 
 ### Added
+* Power measurement for XyloAudio 3
+
 ### Changed
 ### Fixed
 * Remove dependence of imp module that was deprecated in Python 3.12
