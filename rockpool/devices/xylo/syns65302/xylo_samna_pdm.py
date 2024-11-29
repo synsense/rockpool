@@ -177,6 +177,16 @@ class XyloSamnaPDM(Module):
 
         self._snn_config = new_config
 
+    def __del__(self):
+        if self._power_monitor:
+            self._power_monitor.stop_auto_power_measurement()
+
+        if self._stopwatch:
+            self._stopwatch.stop()
+
+        # - Reset the HDK to clean up
+        self._device.reset_board_soft()
+
     def reset_state(self) -> "XyloSamnaPDM":
         # - Reset neuron and synapse state on Xylo
         # - Reset neuron and synapse state on Xylo
@@ -225,17 +235,19 @@ class XyloSamnaPDM(Module):
                 "`operation_mode` can't be RealTime for XyloSamnaPDM. Options are Manual or AcceleratedTime."
             )
 
-        # - Switch on or off RAM clocks depending on state access mode
-        if record or self._output_mode != "Spike":
-            hdkutils.enable_ram_access(self._device, True)
-        else:
-            hdkutils.enable_ram_access(self._device, False)
-
-        # # HACK record is not working inside evolve and was transferred to the class initialization
         if record != self._last_record_mode:
             self._snn_config.debug.debug_status_update_enable = record
             self._last_record_mode = record
+            hdkutils.enable_ram_access(self._device, True)
             hdkutils.apply_configuration(self._device, self._snn_config)
+
+        # - Switch on or off RAM clocks depending on state access mode
+        if not record or self._output_mode == "Spike":
+            hdkutils.enable_ram_access(self._device, False)
+
+        if record_power:
+            # clear the record buffer
+            self._power_buf.get_events()
 
         # - Calculate sample rates and `dt`-length window
         PDM_sample_rate = 1562500
