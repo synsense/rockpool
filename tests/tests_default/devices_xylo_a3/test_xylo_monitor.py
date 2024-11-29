@@ -1,7 +1,6 @@
 import pytest
 
 
-@pytest.mark.skip(reason="Needs version of samna 0.39.5.7 that is not out yet")
 def test_XyloMonitor():
     import pytest
 
@@ -53,3 +52,4 @@ def test_XyloMonitor():
     assert mod_xylo != None
 
     # TODO: XyloMonitor evolve function needs to be tested with live mic input
+    # and then test power consumption
