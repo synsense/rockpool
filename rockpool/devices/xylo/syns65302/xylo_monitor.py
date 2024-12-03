@@ -90,9 +90,6 @@ class XyloMonitor(Module):
         # - Get a default audio frontend configuration
         # TODO: Add audio frontend configuration
 
-        # - Get a default audio frontend configuration
-        # TODO: Add audio frontend configuration
-
         # - Get the network shape
         Nin, Nhidden = np.shape(config.input.weights)
         _, Nout = np.shape(config.readout.weights)
