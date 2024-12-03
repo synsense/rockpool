@@ -9,7 +9,7 @@ Provides the modules :py:class:`.AFESimExternal`, :py:class:`.AFESimPDM`, :py:cl
 from .afe.params import *
 from .afe_sim import *
 from .xylo_mapper import *
-from .xylo_samna_pdm import *
+from .afe_samna_pdm import *
 from .xylo_graph_modules import *
 from ..syns63300 import XyloSim
 from ..syns63300.power_cycles_model import *

@@ -1,5 +1,5 @@
 """
-Provides :py:class:`.XyloSamnaPDM`
+Provides :py:class:`.AFESamnaPDM`
 """
 
 import numpy as np
@@ -31,10 +31,10 @@ XyloAudio3HDK = samna.xyloAudio3.XyloAudio3TestBoard
 from typing import Optional, Union, List, Tuple
 from warnings import warn
 
-__all__ = ["XyloSamnaPDM"]
+__all__ = ["AFESamnaPDM"]
 
 
-class XyloSamnaPDM(Module):
+class AFESamnaPDM(Module):
     """
     A spiking neuron :py:class:`.Module` backed by the Xylo hardware, via `samna`, with PDM input.
     """
@@ -58,7 +58,7 @@ class XyloSamnaPDM(Module):
         Instantiate a Module with Xylo dev-kit backend
 
         Args:
-            device (XyloAudio3HDK): An opened `samna` device to a Xylo dev kit
+            device (XyloAudio3HDK): An opened `samna` device to a XyloAudio 3 dev kit
             config (XyloConfiguration): A Xylo configuration from `samna`
             dt (float): The simulation time-step to use for this Module
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
@@ -66,7 +66,7 @@ class XyloSamnaPDM(Module):
             power_frequency (float): The frequency of power measurement. Default: 5.0
 
         Raises:
-            `Warning`: For XyloSamnaPDM ``config.input_source`` must be set to ``PdmEvents``
+            `Warning`: For AFESamnaPDM ``config.input_source`` must be set to ``PdmEvents``
         """
 
         # - Check input arguments
@@ -148,10 +148,10 @@ class XyloSamnaPDM(Module):
         # - Store the SNN core configuration (and apply it)
         time.sleep(self._sleep_time)
 
-        # - For XyloSamnaPDM, operation mode can be either manual or accelerated time
+        # - For AFESamnaPDM, operation mode can be either manual or accelerated time
         if snn_config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
             raise ValueError(
-                "`operation_mode` can't be RealTime for XyloSamnaPDM. Options are Manual or AcceleratedTime."
+                "`operation_mode` can't be RealTime for AFESamnaPDM. Options are Manual or AcceleratedTime."
             )
 
         self.config: Union[
@@ -190,14 +190,14 @@ class XyloSamnaPDM(Module):
 
         self._config = new_config
 
-    def reset_state(self) -> "XyloSamnaPDM":
+    def reset_state(self) -> "AFESamnaPDM":
         # - Reset neuron and synapse state on Xylo
         # -- Copy values of configuration
         operation_mode = copy.copy(self.snn_config.operation_mode)
         status_update = copy.copy(self.snn_config.debug.debug_status_update_enable)
 
         # - To reset Samna and Firmware, we need to send a configuration with different operation mode
-        # -- Operation mode can not be RealTime in XyloSamnaPDM
+        # -- Operation mode can not be RealTime in AFESamnaPDM
         self._config.operation_mode = (
             samna.xyloAudio3.OperationMode.Manual
             if self._config.operation_mode
@@ -250,7 +250,7 @@ class XyloSamnaPDM(Module):
         # - Check again if operation mode is either manual or accelerated time
         if self.snn_config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
             raise ValueError(
-                "`operation_mode` can't be RealTime for XyloSamnaPDM. Options are Manual or AcceleratedTime."
+                "`operation_mode` can't be RealTime for AFESamnaPDM. Options are Manual or AcceleratedTime."
             )
 
         # HACK record is not working inside evolve and was transferred to the class initialization
