@@ -2,7 +2,6 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-
 ## [v2.10.0.dev2] -- XXXX-XX-XX
 
 ### Added
@@ -23,6 +22,7 @@ All notable changes between Rockpool releases will be documented in this file
   * Hardware interface via samna
   * Digital microphone input and simulaton package
   * Cycles model
+  * Simulation support for audio front-end: `AFESimExternal` , `AFESimAGC`, and `AFESimPDM` with all the necessary sub-modules
 * Tutorial and documentation for the ``SynNet`` architecture, to improve visibility
 
 ### Changed
@@ -37,9 +37,6 @@ All notable changes between Rockpool releases will be documented in this file
 ### Added
 * Add cycles model for Xylo Audio and Xylo IMU, enabling users to calculate the required master clock frequency for Xylo
 * Add support for NIR, for importing and exporting Rockpool torch networks
-
-* Added simulation support for audio front-end for Xylo A3 (SYNS65302)
-  * `AFESimExternal` , `AFESimAGC`, and `AFESimPDM` with all the necessary sub-modules.
 
 ### Changed
 * `LIFExodus` now supports vectors as threshold parameter

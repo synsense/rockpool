@@ -268,8 +268,10 @@ def set_power_measurement(
     power_source = power_monitor.get_source_node()
     power_buf = samna.graph.sink_from(power_source)
     stopwatch = hdk.get_stop_watch()
+
     # Start the stopwatch to enable time-stamped power sampling
     stopwatch.start()
+
     # Start sampling power on all channels at a rate of frequency in Hz.
     power_monitor.start_auto_power_measurement(frequency)
 
@@ -289,8 +291,14 @@ def apply_configuration(
         hdk (XyloAudio3HDK): The Xylo HDK to write the configuration to
         config (XyloConfiguration): A configuration for Xylo
     """
+    # - Enable RAM access
+    enable_ram_access(hdk, True)
+
     # - Ideal -- just write the configuration using samna
     hdk.get_model().apply_configuration(config)
+
+    # - Disable RAM access
+    enable_ram_access(hdk, False)
 
 
 def configure_single_step_time_mode(

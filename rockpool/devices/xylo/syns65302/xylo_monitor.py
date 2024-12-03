@@ -34,6 +34,8 @@ class XyloMonitor(Module):
 
     """
 
+    # TODO: Create XyloAudioFrontendConfig and include hibernation_mode, dn_active and digital microphone in it
+
     def __init__(
         self,
         device: XyloAudio3HDK,
@@ -88,6 +90,9 @@ class XyloMonitor(Module):
         # - Get a default audio frontend configuration
         # TODO: Add audio frontend configuration
 
+        # - Get a default audio frontend configuration
+        # TODO: Add audio frontend configuration
+
         # - Get the network shape
         Nin, Nhidden = np.shape(config.input.weights)
         _, Nout = np.shape(config.readout.weights)
@@ -104,6 +109,7 @@ class XyloMonitor(Module):
 
         # - Set divisive normalization
         config.digital_frontend.filter_bank.dn_enable = dn_active
+        config.enable_hibernation_mode = hibernation_mode
 
         # - Configuration for real time in XyloAudio 3
         config.time_resolution_wrap = self._get_tr_wrap(
