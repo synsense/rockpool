@@ -2,11 +2,13 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-## [Unreleased] -- XXXX-XX-XX
+## [v2.10.0.dev2] -- XXXX-XX-XX
 
 ### Added
 ### Changed
 ### Fixed
+* Remove dependence of imp module that was deprecated in Python 3.12
+
 ### Deprecated
 ### Removed
 ### Security

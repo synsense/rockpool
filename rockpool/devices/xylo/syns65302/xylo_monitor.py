@@ -34,6 +34,7 @@ except ModuleNotFoundError:
 __all__ = ["XyloMonitor"]
 
 Default_Main_Clock_Rate = 50.0  # 50 MHz
+Pdm_Clock_Rate = 1.56
 
 
 class XyloMonitor(Module):
@@ -48,10 +49,13 @@ class XyloMonitor(Module):
 
     """
 
+    # TODO: Create XyloAudioFrontendConfig and include hibernation_mode, dn_active and digital microphone in it
+
     def __init__(
         self,
         device: XyloAudio3HDK,
         config: Optional[XyloConfiguration] = None,
+        # frontend_config: Optional[XyloAudioFrontendConfig] = None,
         output_mode: str = "Spike",
         dt: float = 1e-3,
         main_clk_rate: float = Default_Main_Clock_Rate,
@@ -63,7 +67,7 @@ class XyloMonitor(Module):
         **kwargs,
     ):
         """
-        Instantiate a Module with XyloAudio 3 dev-kit backend.
+        Instantiate a Module with XyloAudio 3 dev-kit backend. XyloMonitor is used in ``RealTime`` mode. For  other operation modes please use :py:class:`.XyloSamna`.
 
         Args:
             device (XyloAudio3HDK): An opened `samna` device to a XyloAudio 3 dev kit
@@ -79,7 +83,6 @@ class XyloMonitor(Module):
         Raises:
             `ValueError`: If ``device`` is not set. ``device`` must be a ``XyloAudio3HDK``.
             `TimeoutError`: If ``output_mode`` is not ``Spike`` or ``Vmem``.
-            `ValueError`: If ``operation_mode`` is not set to ``RealTime``. For  other opeartion modes please use :py:class:`.XyloSamna`.
         """
 
         # - Check input arguments
@@ -93,9 +96,15 @@ class XyloMonitor(Module):
             )
         self._output_mode = output_mode
 
+        # - Configure master clock and communication bus clocks
+        hdkutils.set_xylo_core_clock_freq(device, main_clk_rate)
+
         # - Get a default configuration
         if config is None:
             config = samna.xyloAudio3.configuration.XyloConfiguration()
+
+        # - Get a default audio frontend configuration
+        # TODO: Add audio frontend configuration
 
         # - Get the network shape
         Nin, Nhidden = np.shape(config.input.weights)
@@ -104,12 +113,11 @@ class XyloMonitor(Module):
         # - Register buffers to read and write events, monitor state
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
-        self._state_buffer = hdkutils.new_xylo_state_monitor_buffer(device)
 
-        if config.operation_mode != samna.xyloAudio3.OperationMode.RealTime:
-            raise ValueError("`operation_mode` must be RealTime for XyloMonitor.")
-
+        # - Set operation mode to be RealTime
+        config.operation_mode = samna.xyloAudio3.OperationMode.RealTime
         config.digital_frontend.filter_bank.dn_enable = dn_active
+        config.enable_hibernation_mode = hibernation_mode
 
         # - Configuration for real time in XyloAudio 3
         config.time_resolution_wrap = self._get_tr_wrap(
@@ -120,6 +128,8 @@ class XyloMonitor(Module):
 
         if digital_microphone:
             config.input_source = samna.xyloAudio3.InputSource.DigitalMicrophone
+            # - the ideal sdm clock ratio depends on the main clock rate
+            # -- int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
             config.debug.sdm_clock_ratio = 24
             config.digital_frontend.pdm_preprocessing.clock_direction = 1
             config.digital_frontend.pdm_preprocessing.clock_edge = 0
@@ -131,20 +141,6 @@ class XyloMonitor(Module):
         config.debug.monitor_neuron_v_mem = []
         config.debug.monitor_neuron_spike = []
         config.debug.monitor_neuron_i_syn = []
-
-        # - Build a filter graph to filter `Readout` events from Xylo
-        self._spike_graph = samna.graph.EventFilterGraph()
-
-        _, etf0, self._spike_buffer = self._spike_graph.sequential(
-            [
-                device.get_model_source_node(),
-                "XyloAudio3OutputEventTypeFilter",
-                samna.graph.JitSink(),
-            ]
-        )
-        etf0.set_desired_type("xyloAudio3::event::Readout")
-
-        self._spike_graph.start()
 
         # - Initialise the superclass
         super().__init__(
@@ -161,10 +157,6 @@ class XyloMonitor(Module):
         ] = SimulationParameter(shape=(), init_func=lambda _: config)
         """ `XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
-        # - Enable hibernation mode
-        if hibernation_mode:
-            self._config.enable_hibernation_mode = True
-
         # - Store the timestep
         self.dt: Union[float, SimulationParameter] = dt
         """ float: Simulation time-step of the module, in seconds """
@@ -174,16 +166,23 @@ class XyloMonitor(Module):
         # - Store the io module
         self._io = self._device.get_io_module()
 
-        # - Apply the configuration on Xylo HDK
+        # - Apply the configuration
         hdkutils.apply_configuration(device, self._config)
+
+        # # - Disable RAM access to save power
+        hdkutils.enable_ram_access(self._device, False)
 
         self._power_monitor = None
         """Power monitor for Xylo"""
 
-        self._evolve = False
-        """ Track if evolve function was called """
-
         self._power_frequency = power_frequency
+
+        # - Set power measurement module
+        (
+            self._power_buf,
+            self._power_monitor,
+            self._stopwatch,
+        ) = hdkutils.set_power_measure(self._device, power_frequency)
 
     @property
     def config(self):
@@ -199,6 +198,9 @@ class XyloMonitor(Module):
 
         # - Write the configuration to the device
         hdkutils.apply_configuration(self._device, new_config)
+
+        # - Disable RAM access to save power
+        hdkutils.enable_ram_access(self._device, False)
 
         # - Store the configuration locally
         self._config = new_config
@@ -219,6 +221,9 @@ class XyloMonitor(Module):
         """
         Delete the XyloAudio3Monitor object and reset the HDK.
         """
+
+        # self._spike_graph.stop()
+        self._stopwatch.stop()
         # - Reset the HDK to clean up
         self._device.reset_board_soft()
 
@@ -226,22 +231,25 @@ class XyloMonitor(Module):
         # - Write the configuration to the device
         hdkutils.apply_configuration(self._device, new_config)
 
+        # - Disable RAM access to save power
+        hdkutils.enable_ram_access(self._device, False)
+
         # - Store the configuration locally
         self._config = new_config
 
     def evolve(
         self,
+        input_data: np.ndarray,
         record: bool = False,
         record_power: bool = False,
-        read_timeout: Optional[float] = 1,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
         Evolve a network on the Xylo HDK in Real-time mode.
 
         Args:
-            record (bool): ``False``, do not return a recording dictionary. Recording internal state is not supported by :py:class:`.XyloAudio3Monitor`
+            input_data (np.ndarray): An array ``[T, Nin]``, specifying the number of T time-steps to record.
+            record (bool): ``False``, do not return a recording dictionary. Recording internal state is not supported by :py:class:`.XyloAudio3Monitor`.
             record_power (bool): If ``True``, record the power consumption during each evolve.
-            read_timeout (float): A duration in seconds for a read timeout.
 
         Returns:
             Tuple[np.ndarray, dict, dict] output_events, {}, rec_dict
@@ -254,38 +262,38 @@ class XyloMonitor(Module):
                 f"Recording internal state is not supported by :py:class:`.XyloAudio3Monitor`"
             )
 
-        if read_timeout < self.dt:
-            raise ValueError(
-                "Read timeout can not be smaller then the duration of the processing step."
-            )
-
-        if record_power:
-            raise ValueError(
-                f"Power measurement is not available yet by :py:class:`.XyloMonitor`"
-            )
+        Nt = input_data.shape[0]
+        read_timeout = Nt * self.dt
 
         # use current time to calculate how long the processing will run
-        read_until = time.time() + read_timeout
+        # read_until = time.time() + read_timeout
         output_events = []
 
-        # Start processing
+        # - Disable RAM access to save power
+        hdkutils.enable_ram_access(self._device, False)
+
+        # - Clear the power buffer, if recording power
+        if record_power:
+            self._power_monitor.start_auto_power_measurement(self._power_frequency)
+            self._power_buf.clear_events()
+
+        # - Start processing
         # In realtime mode, sending triggerprocessing again without target timestep is not an issue (i.e., does nothing)
         # TriggerProcessing with target timestep can stop execution if target is smaller than current timestep
         self._write_buffer.write([samna.xyloAudio3.event.TriggerProcessing()])
         self._read_buffer.clear_events()
 
         # - Wait for all the events received during the read timeout
-        readout_events = []
-        # -- We still need the loop because there is no function in samna that wait for a specific ammount of time and return all events
-        while (now := time.time()) < read_until:
-            remaining_time = read_until - now
-            readout_events += self._read_buffer.get_events_blocking(
-                math.ceil(remaining_time * 1000)
-            )
+        readout_events, _ = hdkutils.blocking_read(
+            read_buffer=self._read_buffer, timeout=read_timeout
+        )
 
+        # - Check if events were recorded
+        # The reading is done for a time-window and the error is thrown if nothing was read
         if len(readout_events) == 0:
-            message = f"No event received in {read_timeout}s."
-            raise TimeoutError(message)
+            raise TimeoutError(
+                f"No events received after reading for {read_timeout} seconds."
+            )
 
         ev_filt = [
             e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Readout)
@@ -298,6 +306,30 @@ class XyloMonitor(Module):
                 output_events.append(ev.output_spikes)
 
         rec_dict = {}
+        if record_power:
+            # - Get all recent power events from the power measurement
+            ps = self._power_buf.get_events()
+
+            # - Separate out power meaurement events by channel
+            channels = samna.xyloAudio3.MeasurementChannels
+            io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
+            analog_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.AnalogLogic)]
+            )
+            digital_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.DigitalLogic)]
+            )
+
+            rec_dict.update(
+                {
+                    "io_power": io_power,
+                    "analog_power": analog_power,
+                    "digital_power": digital_power,
+                }
+            )
+
+        self._power_monitor.stop_auto_power_measurement()
 
         # - Return the output spikes, the (empty) new state dictionary, and the recorded power dictionary
+        output_events = np.stack(output_events)
         return output_events, {}, rec_dict
