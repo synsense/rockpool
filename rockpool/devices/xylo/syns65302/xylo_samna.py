@@ -514,15 +514,15 @@ class XyloSamna(Module):
         Nhidden_monitor = Nhidden if record else 0
         Nout_monitor = Nout if record or self._output_mode == "Isyn" else 0
 
+        # - Impose accelerated mode
+        # -- Configure operation mode and recording
+        self._configure_accel_time_mode(Nhidden, Nout, record)
+
         # - Switch on or off RAM clocks depending on state access mode
         if record or self._output_mode != "Spike":
             hdkutils.enable_ram_access(self._device, True)
         else:
             hdkutils.enable_ram_access(self._device, False)
-
-        # - Impose accelerated mode
-        # -- Configure operation mode and recording
-        self._configure_accel_time_mode(Nhidden, Nout, record)
 
         # - Get input shape
         input, _ = self._auto_batch(input)
