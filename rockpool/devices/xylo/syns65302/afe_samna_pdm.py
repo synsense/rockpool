@@ -135,7 +135,6 @@ class AFESamnaPDM(Module):
         # - TODO: AFAIK these parameters are necesary to run with PDM configurations
         # there is a discussion need in order to understand if we will only overwrite parameters
         # or assume that the user knows what parameters he needs.
-        snn_config.debug.sdm_clock_ratio = 48
         snn_config.digital_frontend.filter_bank.dn_enable = dn_active
         snn_config.digital_frontend.hibernation_mode_enable = 0
         snn_config.digital_frontend.filter_bank.use_global_iaf_threshold = 1
@@ -302,7 +301,6 @@ class AFESamnaPDM(Module):
         spikes_ts = []
         output_ts = []
 
-        triggered = False
         # - Send PDM data and extract activity
         for input_sample in tqdm(input_raster):
             # - Send PDM events for this dt
