@@ -81,8 +81,8 @@ class XyloMonitor(Module):
             digital_microphone (bool): If True, configure XyloAudio 3 to use the digital microphone, otherwise, analog microphone. Defaults to True.
 
         Raises:
-            `ValueError`: If ``device`` is not set. ``device`` must be a ``XyloAudio3HDK``.
-            `TimeoutError`: If ``output_mode`` is not ``Spike`` or ``Vmem``.
+            `ValueError`: If ``device`` isoutput_mode not set. ``device`` must be a ``XyloAudio3HDK``.
+            `ValueError`: If ``output_mode`` is not ``Spike`` or ``Vmem``.
         """
 
         # - Check input arguments
