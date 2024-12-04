@@ -42,7 +42,7 @@ class AFESamnaPDM(Module):
     def __init__(
         self,
         device: XyloAudio3HDK,
-        snn_config: XyloConfiguration = None,
+        config: XyloConfiguration = None,
         # pdm_config: PdmPreprocessingConfig = None,
         # dfe_config: DigitalFrontendConfig = None,
         dt: float = 1024e-6,
@@ -55,6 +55,8 @@ class AFESamnaPDM(Module):
     ):
         """
         Instantiate a Module with Xylo dev-kit backend
+        This module use PdmEvents as input source. It bypass the microphone, feeding the input data (PdmEvents) to the filter bank.
+        The output responses are both the generated input spikes that will be fed into the SNN core and the result of the SNN core process.
 
         Args:
             device (XyloAudio3HDK): An opened `samna` device to a XyloAudio 3 dev kit
@@ -63,6 +65,8 @@ class AFESamnaPDM(Module):
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
             record (bool): Record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
             power_frequency (float): The frequency of power measurement. Default: 5.0
+            dn_active (bool): If True, divisive normalization will be used. Defaults to True.
+
 
         Raises:
             `Warning`: For AFESamnaPDM ``config.input_source`` must be set to ``PdmEvents``
@@ -80,20 +84,20 @@ class AFESamnaPDM(Module):
         self._output_mode = output_mode
 
         # - Get a default configuration
-        if snn_config is None:
-            snn_config = samna.xyloAudio3.configuration.XyloConfiguration()
+        if config is None:
+            config = samna.xyloAudio3.configuration.XyloConfiguration()
 
-        if snn_config.input_source is not samna.xyloAudio3.InputSource.PdmEvents:
+        if config.input_source is not samna.xyloAudio3.InputSource.PdmEvents:
             warn(
                 "Changing `input_source` configuration to PdmEvents. For real monitoring or spiking signals use `XyloMonitor` or `XyloSamna`."
             )
-            snn_config.input_source = samna.xyloAudio3.InputSource.PdmEvents
+            config.input_source = samna.xyloAudio3.InputSource.PdmEvents
 
         # - Get the network shape
-        Nin, _ = np.shape(snn_config.input.weights)
-        Nhidden, _ = np.shape(snn_config.hidden.weights)
+        Nin, _ = np.shape(config.input.weights)
+        Nhidden, _ = np.shape(config.hidden.weights)
 
-        _, Nout = np.shape(snn_config.readout.weights)
+        _, Nout = np.shape(config.readout.weights)
 
         # - Initialise the superclass
         super().__init__(
@@ -104,9 +108,9 @@ class AFESamnaPDM(Module):
         # updating the configuration in evolve is leading to erratic behavior because of a mismatch between samna and firmware
         if record:
             # - Switch on reporting of input spike register pointer value
-            snn_config.debug.debug_status_update_enable = 1
+            config.debug.debug_status_update_enable = 1
         else:
-            snn_config.debug.debug_status_update_enable = 0
+            config.debug.debug_status_update_enable = 0
 
         # - Store record option
         self._record: Optional[bool] = record
@@ -131,40 +135,37 @@ class AFESamnaPDM(Module):
         self._sleep_time = 0e-3
         """ float: Post-stimulation sleep time in seconds """
 
-        # - TODO: AFAIK these parameters are necesary to run with PDM configurations
-        # there is a discussion need in order to understand if we will only overwrite parameters
-        # or assume that the user knows what parameters he needs.
-        snn_config.digital_frontend.filter_bank.dn_enable = dn_active
-        snn_config.digital_frontend.hibernation_mode_enable = 0
-        snn_config.digital_frontend.filter_bank.use_global_iaf_threshold = 1
-        snn_config.digital_frontend.pdm_preprocessing.clock_direction = 0
-        snn_config.digital_frontend.pdm_preprocessing.clock_edge = 0
+        # - Configure parameters for PdmEvents as input source
+        config.digital_frontend.filter_bank.dn_enable = dn_active
+        config.digital_frontend.pdm_preprocessing.clock_direction = 0
+        config.digital_frontend.pdm_preprocessing.clock_edge = 0
 
-        if snn_config.operation_mode == samna.xyloAudio3.OperationMode.AcceleratedTime:
-            snn_config.debug.always_update_omp_stat = True
+        config.digital_frontend.hibernation_mode_enable = 0
+        config.digital_frontend.filter_bank.use_global_iaf_threshold = 1
 
-        # - Store the SNN core configuration (and apply it)
+        if config.operation_mode == samna.xyloAudio3.OperationMode.AcceleratedTime:
+            config.debug.always_update_omp_stat = True
+
         time.sleep(self._sleep_time)
 
         # - For AFESamnaPDM, operation mode can be either manual or accelerated time
-        if snn_config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
+        if config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
             raise ValueError(
                 "`operation_mode` can't be RealTime for AFESamnaPDM. Options are Manual or AcceleratedTime."
             )
-
-        self.config: Union[
-            XyloConfiguration, SimulationParameter
-        ] = SimulationParameter(shape=(), init_func=lambda _: snn_config)
-        """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
-
-        self.snn_config = snn_config
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
         self._last_record_mode: Optional[bool] = None
         """ bool: The most recent (and assumed still valid) recording mode """
 
+        # - Store the SNN core configuration
+        self._config: Union[
+            XyloConfiguration, SimulationParameter
+        ] = SimulationParameter(shape=(), init_func=lambda _: config)
+        """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
+
         # - Apply configuration on the board
-        hdkutils.apply_configuration(self._device, self.snn_config)
+        hdkutils.apply_configuration(self._device, self._config)
 
     @property
     def config(self):
@@ -187,8 +188,8 @@ class AFESamnaPDM(Module):
     def reset_state(self) -> "AFESamnaPDM":
         # - Reset neuron and synapse state on Xylo
         # -- Copy values of configuration
-        operation_mode = copy.copy(self.snn_config.operation_mode)
-        status_update = copy.copy(self.snn_config.debug.debug_status_update_enable)
+        operation_mode = copy.copy(self._config.operation_mode)
+        status_update = copy.copy(self._config.debug.debug_status_update_enable)
 
         # - To reset Samna and Firmware, we need to send a configuration with different operation mode
         # -- Operation mode can not be RealTime in AFESamnaPDM
@@ -198,12 +199,12 @@ class AFESamnaPDM(Module):
             == samna.xyloAudio3.OperationMode.AcceleratedTime
             else samna.xyloAudio3.OperationMode.AcceleratedTime
         )
-        self.snn_config.debug.debug_status_update_enable = 0
+        self._config.debug.debug_status_update_enable = 0
         hdkutils.apply_configuration(self._device, self._config)
 
         # - Reapply the user defined configuration
         self._config.operation_mode = operation_mode
-        self.snn_config.debug.debug_status_update_enable = status_update
+        self._config.debug.debug_status_update_enable = status_update
         hdkutils.apply_configuration(self._device, self._config)
         return self
 
@@ -242,7 +243,7 @@ class AFESamnaPDM(Module):
         Nin, Nhidden, Nout = self.shape
 
         # - Check again if operation mode is either manual or accelerated time
-        if self.snn_config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
+        if self._config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
             raise ValueError(
                 "`operation_mode` can't be RealTime for AFESamnaPDM. Options are Manual or AcceleratedTime."
             )
@@ -315,7 +316,7 @@ class AFESamnaPDM(Module):
                 )
 
             # - Trigger processing: if manual mode, advance time step manually
-            if self.snn_config.operation_mode == samna.xyloAudio3.OperationMode.Manual:
+            if self._config.operation_mode == samna.xyloAudio3.OperationMode.Manual:
                 hdkutils.advance_time_step(self._write_buffer)
                 # - Wait until xylo has finished the simulation of this time step
                 t_start = time.time()
