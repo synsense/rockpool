@@ -43,8 +43,8 @@ class AFESamnaPDM(Module):
         self,
         device: XyloAudio3HDK,
         snn_config: XyloConfiguration = None,
-        pdm_config: PdmPreprocessingConfig = None,
-        dfe_config: DigitalFrontendConfig = None,
+        # pdm_config: PdmPreprocessingConfig = None,
+        # dfe_config: DigitalFrontendConfig = None,
         dt: float = 1024e-6,
         output_mode: str = "Spike",
         record: Optional[bool] = False,
@@ -124,7 +124,7 @@ class AFESamnaPDM(Module):
         """ `.XyloAudio3WriteBuffer`: The write buffer for the connected HDK """
 
         # - Store the timestep
-        self.dt: Union[float, SimulationParameter] = dt
+        self._dt: Union[float, SimulationParameter] = dt
         """ float: Simulation time-step of the module, in seconds """
 
         # - Sleep time post sending spikes on each time-step, in manual mode
@@ -162,10 +162,6 @@ class AFESamnaPDM(Module):
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
         self._last_record_mode: Optional[bool] = None
         """ bool: The most recent (and assumed still valid) recording mode """
-
-        # - Store the timestep
-        self.dt: Union[float, SimulationParameter] = dt
-        """ float: Simulation time-step of the module, in seconds """
 
         # - Apply configuration on the board
         hdkutils.apply_configuration(self._device, self.snn_config)
@@ -260,7 +256,7 @@ class AFESamnaPDM(Module):
 
         # - Calculate sample rates and `dt`-length window
         PDM_sample_rate = 1562500
-        PDM_samples_per_dt = PDM_sample_rate * self.dt
+        PDM_samples_per_dt = PDM_sample_rate * self._dt
 
         # - Check window length, should be integer
         if not np.allclose(PDM_samples_per_dt % 1, 0.0):
