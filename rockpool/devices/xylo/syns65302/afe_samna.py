@@ -31,7 +31,7 @@ class AFESamna(Module):
     """
     Interface to the Audio Front-End module on a XyloAudio 3 HDK
 
-    This module uses ``samna`` to interface to the AFE hardware on a XyloAudio 3 HDK. It permits recording from the AFE hardware.
+    This module uses ``samna`` to interface to the Audio FrontEnd (AFE) hardware on a XyloAudio 3 HDK. It permits recording from the AFE hardware.
 
     To record from the module, use the :py:meth:`~.AFESamna.evolve` method. You need to pass this method an empty matrix, with the desired number of time-steps. The time-step ``dt`` is specified at module instantiation.
 
@@ -59,22 +59,24 @@ class AFESamna(Module):
         config: Optional[XyloConfiguration] = None,
         dt: float = 1e-3,
         main_clk_rate: float = Default_Main_Clock_Rate,
-        change_count: Optional[int] = None,
         hibernation_mode: bool = False,
-        divisive_norm: bool = False,
+        divisive_norm: bool = True,
+        sdm_clock_ratio: int = 15,
         *args,
         **kwargs,
     ):
         """
-        Instantiate an AudioFrontEnd module, via a samna backend
+        Instantiate an AudioFrontEnd module, via a samna backend.
+
+        This module runs on the XyloAudio 3 device, capturing data with the microphone, and outputing the generated input spikes that will be processed by the SNN core.
+        Operation mode is set to ``Recording`` in this module.
 
         Args:
             device (XyloA3HDK): A connected XyloAudio 3 HDK device.
             config (XyloConfiguraration): A Xylo configuration from `samna`
-            dt (float): The desired spike time resolution in seconds.
-            change_count (int): If is not None, AFE event counter will change from outputting 1 spike out of 4 into outputting 1 out of change_count.
-            hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
-            divisive_norm (bool): If True, divisive normalization will be switched on.
+            dt (float): The desired spike time resolution in seconds. Default: 0.001s.
+            hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold. Default: False.
+            divisive_norm (bool): If True, divisive normalization will be switched on. Default: True.
         """
         # - Check input arguments
         if device is None:
@@ -93,9 +95,10 @@ class AFESamna(Module):
 
         # - Get a default configuration
         if config is None:
-            default_config = True
             config = samna.xyloAudio3.configuration.XyloConfiguration()
-            config.operation_mode = samna.xyloAudio3.OperationMode.Recording
+
+        # - Set operation mode to Recording
+        config.operation_mode = samna.xyloAudio3.OperationMode.Recording
 
         # - Determine how many output channels we have
         _, Nout = np.shape(config.readout.weights)
@@ -110,44 +113,39 @@ class AFESamna(Module):
         self.dt: P_float = SimulationParameter(dt)
 
         # - Register buffers to read and write events, monitor state
-        self._afe_read_buffer = hdu.new_xylo_read_buffer(device)
-        self._afe_write_buffer = hdu.new_xylo_write_buffer(device)
+        self._afe_read_buffer = hdu.new_xylo_read_buffer(self._device)
+        self._afe_write_buffer = hdu.new_xylo_write_buffer(self._device)
 
-        if default_config:
-            config.debug.use_timestamps = False
-            config.time_resolution_wrap = int(tr_wrap)
-            # Choose PDM as input source.
-            config.input_source = samna.xyloAudio3.InputSource.DigitalMicrophone
-            # We need to set `clock_direction` to 1 (Xylo output), because there is no external clock.
-            config.digital_frontend.pdm_preprocessing.clock_direction = 1
-            config.digital_frontend.pdm_preprocessing.clock_edge = 0
-            # Xylo clock frequency for PDM sampling can be influenced here
-            # In theory, the calculation for SDM clock should use: int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
-            config.debug.sdm_clock_ratio = 24
-            config.digital_frontend.filter_bank.dn_enable = True
-            config.digital_frontend.filter_bank.use_global_iaf_threshold = True
+        config.debug.use_timestamps = False
+        config.time_resolution_wrap = int(tr_wrap)
+        # -- Choose PDM as input source.
+        config.input_source = samna.xyloAudio3.InputSource.DigitalMicrophone
+        # -- We need to set `clock_direction` to 1 (Xylo output), because there is no external clock.
+        config.digital_frontend.pdm_preprocessing.clock_direction = 1
+        config.digital_frontend.pdm_preprocessing.clock_edge = 0
+        # -- Xylo clock frequency for PDM sampling
+        # In theory, the calculation for SDM clock should use: int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
+        config.debug.sdm_clock_ratio = (
+            sdm_clock_ratio  # int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
+        )
+        config.digital_frontend.filter_bank.use_global_iaf_threshold = True
 
-            # TODO: Identify what parameters can be changed by passing a config
-            # # - Change counter threshold
-            # if change_count is not None:
-            #     if change_count < 0:
-            #         raise ValueError(
-            #             f"{change_count} is negative. Must be non-negative values."
-            #         )
-            #     config = hdu.config_afe_channel_thresholds(config, change_count)
+        # - Set hibernation mode
+        config.enable_hibernation_mode = hibernation_mode
 
-        # - Set up hibernation mode
-        if hibernation_mode:
-            config.enable_hibernation_mode = True
-
+        # - Set divisive normalization
         config.digital_frontend.filter_bank.dn_enable = divisive_norm
 
-        ## TODO
-        ## Check if there are other configuration that should be updated for AFESamna?
+        # - Store the configuration
+        self._config: Union[
+            XyloConfiguration, SimulationParameter
+        ] = SimulationParameter(shape=(), init_func=lambda _: config)
+        """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Apply configuration
-        self.apply_config_blocking(config)
-        self._config = config
+        hdu.apply_configuration_blocking(
+            self._device, config, self._afe_read_buffer, self._afe_write_buffer
+        )
 
     def evolve(
         self, input_data, record: bool = False, flip_and_encode: bool = False
@@ -167,7 +165,7 @@ class AFESamna(Module):
         # - Handle auto batching
         input_data, _ = self._auto_batch(input_data)
 
-        # - For how long should we record?
+        # - Calculate the duration of the recording
         duration = input_data.shape[1] * self.dt
 
         flip_and_encode_size = None
@@ -187,6 +185,7 @@ class AFESamna(Module):
         # - Wait for all the events received during the read timeout
         readout_events = []
         read_until = time.time() + duration
+
         # -- We still need the loop because there is no function in samna that wait for a specific ammount of time and return all events
         while (now := time.time()) < read_until:
             remaining_time = read_until - now
@@ -242,6 +241,7 @@ class AFESamna(Module):
         self._device.get_model().apply_configuration(
             samna.xyloAudio3.configuration.XyloConfiguration()
         )
+        self._stopwatch.stop()
 
         if flip_and_encode:
             # - Trim the part of the signal coresponding to __input_rev (which was added to avoid boundary effects)
@@ -278,27 +278,6 @@ class AFESamna(Module):
         """
         # - Reset the HDK to clean up
         self._device.reset_board_soft()
-
-    def apply_config_blocking(self, config):
-        self._device.get_model().apply_configuration(config)
-
-        # Communication with the device is asynchronous, so we don't know when the configuration is finished.
-        # Normally this is not a problem, because events are guaranteed to be sent in order.
-        # But for this script we want to let Xylo run for a specific amount of time, so we need to synchronise somehow,
-        # the easiest way is to read a register and wait for the response.
-
-        self._afe_write_buffer.write(
-            [samna.xyloAudio3.event.ReadRegisterValue(address=0)]
-        )
-        ready = False
-        while not ready:
-            events = self._afe_read_buffer.get_events_blocking(timeout=1000)
-            for ev in events:
-                if (
-                    isinstance(ev, samna.xyloAudio3.event.RegisterValue)
-                    and ev.address == 0
-                ):
-                    ready = True
 
 
 def load_afe_config(filename: str) -> XyloConfiguration:
