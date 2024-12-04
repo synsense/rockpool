@@ -45,7 +45,6 @@ class AFESamnaPDM(Module):
         snn_config: XyloConfiguration = None,
         pdm_config: PdmPreprocessingConfig = None,
         dfe_config: DigitalFrontendConfig = None,
-        register_config: dict = None,
         dt: float = 1024e-6,
         output_mode: str = "Spike",
         record: Optional[bool] = False,
