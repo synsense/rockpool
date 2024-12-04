@@ -55,8 +55,8 @@ class AFESamnaPDM(Module):
     ):
         """
         Instantiate a Module with Xylo dev-kit backend
-        This module use PdmEvents as input source. It bypass the microphone, feeding the input data (PdmEvents) to the filter bank.
-        The output responses are both the generated input spikes that will be fed into the SNN core and the result of the SNN core process.
+        This module uses PdmEvents as input source. It bypass the microphone, feeding the input data (PdmEvents) to the filter bank.
+        The output responses are both the generated input spikes that will be fed into the SNN core and the result of the SNN core processing.
 
         Args:
             device (XyloAudio3HDK): An opened `samna` device to a XyloAudio 3 dev kit
@@ -67,9 +67,11 @@ class AFESamnaPDM(Module):
             power_frequency (float): The frequency of power measurement. Default: 5.0
             dn_active (bool): If True, divisive normalization will be used. Defaults to True.
 
-
         Raises:
-            `Warning`: For AFESamnaPDM ``config.input_source`` must be set to ``PdmEvents``
+            `ValueError`: If ``device`` is not set. ``device`` must be a ``XyloAudio3HDK``.
+            `ValueError`: If ``output_mode`` is not ``Spike``, ``Vmem`` or ``Isyn``.
+            `ValueError`: If ``operation_mode`` is ``RealTime``. Valid options are ``Manual`` or ``AcceleratedTime``.
+
         """
 
         # - Check input arguments
@@ -87,11 +89,8 @@ class AFESamnaPDM(Module):
         if config is None:
             config = samna.xyloAudio3.configuration.XyloConfiguration()
 
-        if config.input_source is not samna.xyloAudio3.InputSource.PdmEvents:
-            warn(
-                "Changing `input_source` configuration to PdmEvents. For real monitoring or spiking signals use `XyloMonitor` or `XyloSamna`."
-            )
-            config.input_source = samna.xyloAudio3.InputSource.PdmEvents
+        # - Input source must be PdmEvents
+        config.input_source = samna.xyloAudio3.InputSource.PdmEvents
 
         # - Get the network shape
         Nin, _ = np.shape(config.input.weights)
@@ -226,8 +225,8 @@ class AFESamnaPDM(Module):
         Args:
             input (np.ndarray): A vector ``(Tpdm, 1)`` with a PDM-encoded audio signal, ``1`` or ``0``. The PDM clock is always 1.5625 MHz. 32 PDM samples correspond to one audio sample passed to the band-pass filterbank (i.e. 48.828125 kHz). The network ``dt`` is independent of this sampling rate, but should be an even divisor of 48.828125 MHz (e.g. 1024 us).
             record (bool): Deprecated parameter. Please use ``record`` from the class initialization.
-            read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
-            flip_and_encode (bool): Determine if flip-and-encode fix should be applied to the input data. When applied, the input data will be flipped on axis=0 and concatenated to the begin of the original input data. Note that input data will have its size doubled.
+            read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: 5s.
+            flip_and_encode (bool): Determine if flip-and-encode should be applied to the input data. When applied, the input data will be flipped on axis=0 and concatenated to the begin of the original input data. Note that input data will have its size doubled.
 
         Returns:
             (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
@@ -236,6 +235,7 @@ class AFESamnaPDM(Module):
             ``record_dict`` is a dictionary containing recorded internal state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
 
         Raises:
+            `ValueError`: If ``operation_mode`` is ``RealTime``. Valid options are ``Manual`` or ``AcceleratedTime``.
             `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
         """
 
