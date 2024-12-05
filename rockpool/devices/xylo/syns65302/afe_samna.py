@@ -2,8 +2,12 @@
 samna-backed module for interfacing with the XyloAudio 3 AudioFrontEnd HW module
 """
 
-import samna
+import numpy as np
+import time
+import math
+from typing import Union, Any, Tuple, Optional
 
+import samna
 from samna.xyloAudio3.configuration import XyloConfiguration
 
 from rockpool.nn.modules.module import Module
@@ -14,11 +18,6 @@ from rockpool.typehints import P_float
 from . import xa3_devkit_utils as hdu
 from .xa3_devkit_utils import XyloAudio3HDK
 
-import numpy as np
-import time
-import math
-
-from typing import Union, Dict, Any, Tuple, Optional
 
 # - Configure exports
 __all__ = ["AFESamna", "load_afe_config", "save_afe_config"]
