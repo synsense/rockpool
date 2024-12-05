@@ -64,6 +64,7 @@ def test_afe_samna_module_flip_and_encode():
 
 def test_afe_samna_save_config():
     import numpy as np
+    import os
 
     pytest.importorskip("samna")
     from rockpool.devices.xylo.syns65302 import AFESamna
@@ -121,6 +122,9 @@ def test_afe_samna_save_config():
 
     assert mod_afe._config.operation_mode, loaded_config.operation_mode
     assert mod_afe._config.input_source, loaded_config.input_source
+
+    # Delete test file
+    os.remove("test_samna_config")
 
 
 def test_afe_samna_module_record():
