@@ -50,6 +50,12 @@ def test_continuous_operators():
     ts = TSContinuous([0], [0])
     ts = TSContinuous([0, 1, 2, 3], [1, 2, 3, 4])
     ts2 = TSContinuous([1, 2, 3, 4], [5, 6, 7, 8])
+    ts3 = TSContinuous([0, 1, 2, 3], [[2, 3], [4, 5], [6, 7], [8, 9]])
+
+    ts2.approx_limit_times = True
+    ts2.beyond_range_exception = False
+    ts3.approx_limit_times = True
+    ts3.beyond_range_exception = False
 
     # - Samples don't match time
     with pytest.raises(ValueError):
@@ -74,6 +80,14 @@ def test_continuous_operators():
     ts *= 0.2
     ts = ts * ts2
     ts *= ts2
+
+    ts_ = ts2 * ts3
+    ts_ = ts3 * ts2
+    ts = ts2
+    ts *= ts3
+
+    ts = ts3
+    ts3 *= ts2
 
     # - Division
     ts = ts / 2.0
