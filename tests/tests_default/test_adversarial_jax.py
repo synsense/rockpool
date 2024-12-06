@@ -81,7 +81,7 @@ def test_adversarial_loss():
                 / attack_steps
                 * jnp.sign(verbose["grads"][step][idx])
             )
-        diagonals.append(1 + jnp.reshape(diagonal_tmp, newshape=(-1,)))
+        diagonals.append(1 + jnp.reshape(diagonal_tmp, shape=(-1,)))
 
     # - Compute jacobian with jax
     J, _ = jacfwd(pga_attack, has_aux=True)(
