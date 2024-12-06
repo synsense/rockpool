@@ -172,7 +172,7 @@ def get_current_timestep(
     Args:
         read_buffer (XyloAudio3ReadBuffer): A connected read buffer for the xylo HDK
         write_buffer (XyloAudio3WriteBuffer): A connected write buffer for the Xylo HDK
-        timeout (float): A timeout for reading
+        timeout (float): A timeout for reading, in seconds. Default: ``3.0``, 3 seconds.
 
     Returns:
         int: The current timestep on the Xylo HDK
@@ -190,7 +190,6 @@ def get_current_timestep(
 
     # - Trigger a readout event on Xylo
     e = samna.xyloAudio3.event.TriggerReadout()
-    # e.target_timestep = int(start_t)
     write_buffer.write([e])
 
     while continue_read:
@@ -206,7 +205,9 @@ def get_current_timestep(
             continue_read &= (time.time() - start_t) < timeout
 
     if timestep is None:
-        raise TimeoutError(f"Timeout after {timeout}s when reading current timestep.")
+        raise TimeoutError(
+            f"Timeout after {timeout:.1f}s when reading current timestep."
+        )
 
     # if nothing has ever processed in the chip, timestep can be negative
     if timestep < 0:
