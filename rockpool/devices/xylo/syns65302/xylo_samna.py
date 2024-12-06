@@ -310,6 +310,7 @@ class XyloSamna(Module):
         self,
         device: XyloAudio3HDK,
         config: XyloConfiguration = None,
+        dt: float = 1e-3,
         output_mode: str = "Spike",
         power_frequency: Optional[float] = 100,
         *args,
@@ -319,8 +320,9 @@ class XyloSamna(Module):
         Instantiate a Module with XyloAudio 3 dev-kit backend.
 
         Args:
-            device (XyloAudio3HDK): An opened `samna` device to a XyloAudio 3 dev kit.
-            config (XyloConfiguration): A Xylo configuration from `samna`.
+            device (XyloAudio3HDK): An opened ``samna`` device to a XyloAudio 3 dev kit.
+            config (XyloConfiguration): A Xylo configuration from ``samna``.
+            dt (float): The time-step for this simulation, in seconds. Default: ``1e-3``, 1 ms.
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
             power_frequency (float): The frequency of power measurement, in Hz. Default: 100 Hz.
 
@@ -362,7 +364,11 @@ class XyloSamna(Module):
 
         # - Initialise the superclass
         super().__init__(
-            shape=(Nin, Nhidden, Nout), spiking_input=True, spiking_output=True
+            shape=(Nin, Nhidden, Nout),
+            spiking_input=True,
+            spiking_output=True,
+            *args,
+            **kwargs,
         )
 
         # - Store the device
@@ -386,10 +392,14 @@ class XyloSamna(Module):
         self._sleep_time = 0e-3
         """ float: Post-stimulation sleep time in seconds """
 
+        # - Store timestep
+        self.dt = dt
+        """ float: Simulation time-step in seconds """
+
         # - Apply configuration
-        self._config: Union[
-            XyloConfiguration, SimulationParameter
-        ] = SimulationParameter(shape=(), init_func=lambda _: config)
+        self._config: Union[XyloConfiguration, SimulationParameter] = (
+            SimulationParameter(shape=(), init_func=lambda _: config)
+        )
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
         self._last_record_mode: Optional[bool] = None
@@ -613,7 +623,7 @@ class XyloSamna(Module):
                 "Spikes": np.array(xylo_data.Spikes_hid),
                 "Vmem_out": np.array(xylo_data.V_mem_out),
                 "Isyn_out": np.array(xylo_data.I_syn_out),
-                "times": np.arange(start_timestep, final_timestep + 1),
+                "times": np.arange(start_timestep, final_timestep + 1) * self.dt,
                 "inf_duration": inf_duration,
             }
         else:
