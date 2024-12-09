@@ -133,9 +133,9 @@ class XyloSamnaPDM(Module):
                 "`operation_mode` can't be RealTime for XyloSamnaPDM. Options are Manual or AcceleratedTime."
             )
 
-        self._snn_config: Union[XyloConfiguration, SimulationParameter] = (
-            SimulationParameter(shape=(), init_func=lambda _: snn_config)
-        )
+        self._snn_config: Union[
+            XyloConfiguration, SimulationParameter
+        ] = SimulationParameter(shape=(), init_func=lambda _: snn_config)
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Store the power frequency
