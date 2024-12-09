@@ -1781,10 +1781,10 @@ class TSContinuous(TimeSeries):
             self.samples, other_samples, is_nan_self, is_nan_other
         )
 
-        # - Perform multiplication
-        self_samples = self_samples * other_samples
+        # - Perform multiplication (on copy, due to broadcast arrays being non-writable)
+        self_samples = np.copy(self_samples) * other_samples
 
-        # - Fill in nans
+        # - Fill in NaNs
         self_samples[np.logical_or(is_nan_self, is_nan_other)] = np.nan
 
         # - Assign samples
