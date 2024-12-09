@@ -51,16 +51,16 @@ class XyloMonitor(Module):
         **kwargs,
     ):
         """
-        Instantiate a Module with XyloAudio 3 dev-kit backend. XyloMonitor is used in ``RealTime`` mode. For  other operation modes please use :py:class:`.XyloSamna`.
+        Instantiate a Module with XyloAudio 3 dev-kit backend. XyloMonitor is used to deploy models in ``RealTime`` mode, using live microphone input. For accelerated operation mode please use :py:class:`.XyloSamna`.
 
         Args:
             device (XyloAudio3HDK): An opened `samna` device to a XyloAudio 3 dev kit.
             config (XyloConfiguration): A Xylo configuration from `samna`.
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Vmem"]``. Default: "Spike", return events from the output layer.
-            dt (float): The timewindow duration, in seconds. Default: 0.001.
-            main_clk_rate (float): The main clock rate of Xylo, in MHz.
+            dt (float): The timewindow duration, in seconds. Default: ``1e-3``, 1 ms.
+            main_clk_rate (float): The main clock rate of Xylo, in MHz. Default: ``50.0``, 50 MHz.
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
-            power_frequency (float): The frequency of power measurement, in Hz. Default: 100 Hz.
+            power_frequency (float): The frequency of power measurement, in Hz. Default: ``100.0``, 100 Hz.
             dn_active (bool): If True, divisive normalization will be used. Defaults to True.
 
         Raises:
@@ -138,9 +138,9 @@ class XyloMonitor(Module):
         """ `.XyloHDK`: The Xylo HDK used by this module """
 
         # - Store the configuration
-        self._config: Union[
-            XyloConfiguration, SimulationParameter
-        ] = SimulationParameter(shape=(), init_func=lambda _: config)
+        self._config: Union[XyloConfiguration, SimulationParameter] = (
+            SimulationParameter(shape=(), init_func=lambda _: config)
+        )
         """ `XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Store the timestep

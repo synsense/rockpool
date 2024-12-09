@@ -114,6 +114,7 @@ class XyloSamnaPDM(Module):
         """ float: Post-stimulation sleep time in seconds """
 
         # - Configure the PDM usage
+        # TODO FIXME: Allow hibnernation mode to be selectable - https://www.wrike.com/open.htm?id=1552655948
         snn_config.digital_frontend.filter_bank.dn_enable = dn_active
         snn_config.digital_frontend.hibernation_mode_enable = 0
         snn_config.digital_frontend.filter_bank.use_global_iaf_threshold = 1
@@ -132,9 +133,9 @@ class XyloSamnaPDM(Module):
                 "`operation_mode` can't be RealTime for XyloSamnaPDM. Options are Manual or AcceleratedTime."
             )
 
-        self._snn_config: Union[
-            XyloConfiguration, SimulationParameter
-        ] = SimulationParameter(shape=(), init_func=lambda _: snn_config)
+        self._snn_config: Union[XyloConfiguration, SimulationParameter] = (
+            SimulationParameter(shape=(), init_func=lambda _: snn_config)
+        )
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Store the power frequency
