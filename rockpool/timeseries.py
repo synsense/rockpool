@@ -1768,21 +1768,32 @@ class TSContinuous(TimeSeries):
         return self * other_samples
 
     def __imul__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
+        # - Resample another continuous time series
         if isinstance(other_samples, TSContinuous):
-            other_samples = self._compatible_shape(other_samples(self.times))
-        else:
-            other_samples = self._compatible_shape(other_samples)
+            other_samples = other_samples(self.times)
 
         # - Propagate NaNs
         is_nan_self = np.isnan(self.samples)
         is_nan_other = np.isnan(other_samples)
 
-        # - Perform multiplication
-        self.samples *= other_samples
+        # - Broadcast all arrays together
+        self_samples, other_samples, is_nan_self, is_nan_other = np.broadcast_arrays(
+            self.samples, other_samples, is_nan_self, is_nan_other
+        )
 
-        # - Fill in nans
-        self.samples[np.logical_or(is_nan_self, is_nan_other)] = np.nan
+        # - Perform multiplication (on copy, due to broadcast arrays being non-writable)
+        self_samples = np.copy(self_samples) * other_samples
 
+        # - Fill in NaNs
+        self_samples[np.logical_or(is_nan_self, is_nan_other)] = np.nan
+
+        # - Assign samples
+        self.samples = self_samples
+
+        # - Create new interpolator
+        self._create_interpolator()
+
+        # - Return
         return self
 
     # - Division
