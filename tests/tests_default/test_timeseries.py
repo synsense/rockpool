@@ -92,6 +92,7 @@ def test_continuous_operators():
     # - Division
     ts = ts / 2.0
     ts /= 1.0
+    ts = ts3
     ts = ts / ts2
     ts /= ts2
 
