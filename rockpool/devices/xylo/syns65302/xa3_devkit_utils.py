@@ -302,6 +302,43 @@ def apply_configuration(
     enable_ram_access(hdk, False)
 
 
+def apply_configuration_blocking(
+    hdk: XyloAudio3HDK,
+    config: XyloConfiguration,
+    read_buffer: XyloAudio3ReadBuffer,
+    write_buffer: XyloAudio3WriteBuffer,
+    *_,
+    **__,
+) -> None:
+    """
+    Apply a configuration to the Xylo HDK and wait for it to be applied.
+
+    Communication with the device is asynchronous, so we don't know when the configuration is finished.
+    Normally this is not a problem, because events are guaranteed to be sent in order.
+    But, in some cases, we want to let Xylo run for a specific amount of time, so we need to synchronise it
+    and the easiest way is to read a register and wait for its response.
+
+    Args:
+        hdk (XyloAudio3HDK): The Xylo HDK to write the configuration to
+        config (XyloConfiguration): A configuration for Xylo
+    """
+    # - Enable RAM access
+    enable_ram_access(hdk, True)
+
+    hdk.get_model().apply_configuration(config)
+
+    write_buffer.write([samna.xyloAudio3.event.ReadRegisterValue(address=0)])
+    ready = False
+    while not ready:
+        events = read_buffer.get_events_blocking(timeout=1000)
+        for ev in events:
+            if isinstance(ev, samna.xyloAudio3.event.RegisterValue) and ev.address == 0:
+                ready = True
+
+    # - Disable RAM access
+    enable_ram_access(hdk, False)
+
+
 def configure_single_step_time_mode(
     config: XyloConfiguration,
 ) -> XyloConfiguration:

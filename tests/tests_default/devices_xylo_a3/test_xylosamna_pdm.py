@@ -20,7 +20,7 @@ def test_xylosamna_pdm():
     pytest.importorskip("samna")
 
     from rockpool.devices.xylo.syns65302 import (
-        XyloSamnaPDM,
+        AFESamnaPDM,
         config_from_specification,
         mapper,
     )
@@ -61,7 +61,7 @@ def test_xylosamna_pdm():
     # - Create a Xylo module with PDM input
     dn = True
     config.operation_mode = samna.xyloAudio3.OperationMode.AcceleratedTime
-    xmod = XyloSamnaPDM(daughterboard, config, dt=1024e-6, dn_active=dn)
+    xmod = AFESamnaPDM(daughterboard, config, dt=1024e-6, dn_active=dn)
 
     assert xmod != None
 
