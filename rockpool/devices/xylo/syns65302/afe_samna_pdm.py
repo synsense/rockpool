@@ -55,9 +55,9 @@ class AFESamnaPDM(Module):
         The output responses are both the generated input spikes that will be fed into the SNN core and the result of the SNN core processing.
 
         Args:
-            device (XyloAudio3HDK): An opened `samna` device to a XyloAudio 3 dev kit
-            config (XyloConfiguration): A Xylo configuration from `samna`
-            dt (float): The simulation time-step to use for this Module
+            device (XyloAudio3HDK): An opened `samna` device to a XyloAudio 3 dev kit.
+            config (XyloConfiguration): A Xylo configuration from `samna`.
+            dt (float): The simulation time-step to use for this Module. Default: 1024e-6.
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
             record (bool): Record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
             power_frequency (float): The frequency of power measurement. Default: 5.0
@@ -180,7 +180,7 @@ class AFESamnaPDM(Module):
         hdkutils.apply_configuration(self._device, new_config)
         time.sleep(self._sleep_time)
 
-        self._snn_config = new_config
+        self._config = new_config
 
     def __del__(self):
         if self._power_monitor:
@@ -242,10 +242,10 @@ class AFESamnaPDM(Module):
             )
 
         if record != self._last_record_mode:
-            self._snn_config.debug.debug_status_update_enable = record
+            self._config.debug.debug_status_update_enable = record
             self._last_record_mode = record
             hdkutils.enable_ram_access(self._device, True)
-            hdkutils.apply_configuration(self._device, self._snn_config)
+            hdkutils.apply_configuration(self._device, self._config)
 
         # - Switch on or off RAM clocks depending on state access mode
         if not record or self._output_mode == "Spike":
