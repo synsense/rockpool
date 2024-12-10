@@ -28,7 +28,7 @@ from . import xa3_devkit_utils as hdkutils
 
 XyloAudio3HDK = samna.xyloAudio3.XyloAudio3TestBoard
 
-__all__ = ["XyloSamnaPDM"]
+__all__ = ["AFESamnaPDM"]
 
 
 class AFESamnaPDM(Module):

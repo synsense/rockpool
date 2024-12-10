@@ -89,7 +89,7 @@ def test_xylosamna_pdm_with_power():
     pytest.importorskip("samna")
 
     from rockpool.devices.xylo.syns65302 import (
-        XyloSamnaPDM,
+        AFESamnaPDM,
         config_from_specification,
         mapper,
     )
@@ -131,7 +131,7 @@ def test_xylosamna_pdm_with_power():
     dn = True
     config.operation_mode = samna.xyloAudio3.OperationMode.AcceleratedTime
 
-    xmod_spike = XyloSamnaPDM(daughterboard, config, dt=1024e-6, dn_active=dn)
+    xmod_spike = AFESamnaPDM(daughterboard, config, dt=1024e-6, dn_active=dn)
     assert xmod_spike != None
 
     input_pdm = np.loadtxt("tests/tests_default/models/xylo_a3_input_pdm.txt")
@@ -151,7 +151,7 @@ def test_xylosamna_pdm_with_power():
     # some error marging accepted
     assert np.all(b)
 
-    xmod_vmem = XyloSamnaPDM(
+    xmod_vmem = AFESamnaPDM(
         daughterboard, config, dt=1024e-6, dn_active=dn, output_mode="Vmem"
     )
     assert xmod_vmem != None
