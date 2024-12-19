@@ -88,6 +88,7 @@ class AFESamna(Module):
         # - Update board configuration
         board_config = samna.xyloAudio3.XyloAudio3TestBoardDefaultConfig()
         board_config.main_clock_frequency = int(main_clk_rate * 1e6)
+        board_config.pdm_clock_frequency = int((main_clk_rate * 1e6) / 32)
         device.reset_board_soft(board_config)
 
         self._stopwatch = device.get_stop_watch()
@@ -128,7 +129,9 @@ class AFESamna(Module):
         config.digital_frontend.pdm_preprocessing.clock_edge = 0
         # -- Xylo clock frequency for PDM sampling
         # In theory, the calculation for SDM clock should use: int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
-        config.debug.sdm_clock_ratio = 24  # int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
+        config.debug.sdm_clock_ratio = 15  # int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
+        config.debug.spk2saer_clock_ratio = 2
+
         config.digital_frontend.filter_bank.use_global_iaf_threshold = True
 
         # - Set hibernation mode
