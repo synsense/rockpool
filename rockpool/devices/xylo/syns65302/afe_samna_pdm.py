@@ -172,24 +172,11 @@ class AFESamnaPDM(Module):
 
     def reset_state(self) -> "AFESamnaPDM":
         # - Reset neuron and synapse state on Xylo
-        # -- Copy values of configuration
-        operation_mode = copy.copy(self._config.operation_mode)
-        status_update = copy.copy(self._config.debug.debug_status_update_enable)
-
-        # - To reset Samna and Firmware, we need to send a configuration with different operation mode
-        # -- Operation mode can not be RealTime in AFESamnaPDM
-        self._config.operation_mode = (
-            samna.xyloAudio3.OperationMode.Manual
-            if self._config.operation_mode
-            == samna.xyloAudio3.OperationMode.AcceleratedTime
-            else samna.xyloAudio3.OperationMode.AcceleratedTime
-        )
-        self._config.debug.debug_status_update_enable = 0
-        hdkutils.apply_configuration(self._device, self._config)
+        # -- To reset Samna and Firmware, we need to send a configuration with different operation mode
+        # -- In AFESamnaPDM the operation mode is `Recording`. The default operation mode is `AcceleratedTime`
+        hdkutils.apply_configuration(samna.xyloAudio3.configuration.XyloConfiguration())
 
         # - Reapply the user defined configuration
-        self._config.operation_mode = operation_mode
-        self._config.debug.debug_status_update_enable = status_update
         hdkutils.apply_configuration(self._device, self._config)
         return self
 
@@ -268,13 +255,14 @@ class AFESamnaPDM(Module):
         self._stopwatch.start()
         self._read_buffer.clear_events()
 
-        # - Send PDM data and extract activity
+        pdm_events = []
+        # - Send all the PDM data at once and extract activity
         for input_sample in tqdm(input_raster):
-            # - Send PDM events for this dt
-            pdm_events = [
+            pdm_events.extend(
                 samna.xyloAudio3.event.AfeSample(data=int(i)) for i in input_sample
-            ]
-            self._write_buffer.write(pdm_events)
+            )
+
+        self._write_buffer.write(pdm_events)
 
         # - Send a read register event to know when all the spikes were received
         self._write_buffer.write([samna.xyloAudio3.event.ReadRegisterValue(address=0)])
@@ -307,7 +295,6 @@ class AFESamnaPDM(Module):
             message = f"Didnt receive all the spikes in {duration}s"
 
         last_timestep = readout_events[-1].timestep
-        print(last_timestep)
         events = [
             (e.timestep, e.neuron_id)
             for e in readout_events
@@ -355,13 +342,13 @@ class AFESamnaPDM(Module):
         self._stopwatch.stop()
 
         if flip_and_encode:
-            size = len(events_ts) / 2
+            size = int(len(events_ts) / 2)
 
             # - Trim the part of the signal coresponding to __input_rev (which was added to avoid boundary effects)
             events_ts = events_ts[size:, :]
 
             # - Trim recordings
-            rec_dict = {k: v[flip_and_encode_size:, :] for k, v in rec_dict.items()}
+            rec_dict = {k: v[flip_and_encode_size:] for k, v in rec_dict.items()}
 
         # - Return output, state, record dict
         return events_ts, self.state(), rec_dict
