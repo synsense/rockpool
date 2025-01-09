@@ -179,7 +179,7 @@ class DivisiveNormalization(Module):
 
         sig_in = sig_in[0, :, :]
 
-        # -- Revert and repeat the input signal in the beginning to avoid boundary effects
+        # # -- Revert and repeat the input signal in the beginning to avoid boundary effects
         # l = np.shape(sig_in)[0]
         # __input_rev = np.flip(sig_in, axis=0)
         # sig_in = np.concatenate((__input_rev, sig_in), axis=0)
