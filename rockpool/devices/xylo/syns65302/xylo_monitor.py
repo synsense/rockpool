@@ -141,6 +141,7 @@ class XyloMonitor(Module):
         config.debug.monitor_neuron_v_mem = []
         config.debug.monitor_neuron_spike = []
         config.debug.monitor_neuron_i_syn = []
+        config.debug.ram_access_enable = False
 
         # - Initialise the superclass
         super().__init__(
@@ -168,9 +169,6 @@ class XyloMonitor(Module):
 
         # - Apply the configuration
         hdkutils.apply_configuration(device, self._config)
-
-        # # - Disable RAM access to save power
-        hdkutils.enable_ram_access(self._device, False)
 
         self._power_monitor = None
         """Power monitor for Xylo"""
@@ -268,9 +266,6 @@ class XyloMonitor(Module):
         # use current time to calculate how long the processing will run
         # read_until = time.time() + read_timeout
         output_events = []
-
-        # - Disable RAM access to save power
-        hdkutils.enable_ram_access(self._device, False)
 
         # - Clear the power buffer, if recording power
         if record_power:

@@ -288,14 +288,8 @@ def apply_configuration(
         hdk (XyloAudio3HDK): The Xylo HDK to write the configuration to
         config (XyloConfiguration): A configuration for Xylo
     """
-    # - Enable RAM access
-    enable_ram_access(hdk, True)
-
     # - Ideal -- just write the configuration using samna
     hdk.get_model().apply_configuration(config)
-
-    # - Disable RAM access
-    enable_ram_access(hdk, False)
 
 
 def apply_configuration_blocking(
@@ -318,9 +312,6 @@ def apply_configuration_blocking(
         hdk (XyloAudio3HDK): The Xylo HDK to write the configuration to
         config (XyloConfiguration): A configuration for Xylo
     """
-    # - Enable RAM access
-    enable_ram_access(hdk, True)
-
     hdk.get_model().apply_configuration(config)
 
     write_buffer.write([samna.xyloAudio3.event.ReadRegisterValue(address=0)])
@@ -330,9 +321,6 @@ def apply_configuration_blocking(
         for ev in events:
             if isinstance(ev, samna.xyloAudio3.event.RegisterValue) and ev.address == 0:
                 ready = True
-
-    # - Disable RAM access
-    enable_ram_access(hdk, False)
 
 
 def configure_single_step_time_mode(
@@ -777,20 +765,6 @@ def read_neuron_synapse_state(
     )
 
 
-def enable_ram_access(device: XyloAudio3HDK, enabled: bool) -> None:
-    """
-    Enable or disable RAM access for a Xylo device
-
-    Args:
-        device (XyloAudio3HDK): A connected XyloAudio 3 device
-        enabled (bool): If ``True``, enable memory access. If ``False``, disable memory access.
-    """
-    if enabled:
-        device.get_model().open_ram_access()
-    else:
-        device.get_model().close_ram_access()
-
-
 def decode_realtime_mode_data(
     readout_events: List[SpikeEvent],
     Nout: int,
@@ -881,16 +855,20 @@ def configure_accel_time_mode(
         config.debug.monitor_neuron_spike = [i for i in range(Nhidden)]
         # Output Isyn is not available by default, so we add both hidden and output neurons.
         config.debug.monitor_neuron_i_syn = [i for i in range(Nhidden + Nout)]
+        config.debug.ram_access_enable = True
 
     else:
         config.debug.monitor_neuron_v_mem = []
         config.debug.monitor_neuron_spike = []
         config.debug.monitor_neuron_i_syn = []
+        config.debug.ram_access_enable = False
 
         if readout == "Isyn":
             config.debug.monitor_neuron_i_syn = [i for i in range(Nhidden + Nout)]
+            config.debug.ram_access_enable = True
         elif readout == "Vmem":
             config.debug.monitor_neuron_v_mem = [i for i in range(Nhidden)]
+            config.debug.ram_access_enable = True
 
     # - Return the configuration and buffer
     return config
