@@ -814,11 +814,8 @@ def set_xylo_core_clock_freq(
     default_config = samna.xyloAudio3.XyloAudio3TestBoardDefaultConfig()
     # - Set main clock frequency
     default_config.main_clock_frequency = int(main_clock_frequency_MHz * 1e6)
-    # - Update other clock frequency based on main clock frequency
-    default_config.saer_clock_frequency = int(main_clock_frequency_MHz / 4)
-    # default_config.pdm_clock_frequency = int(16 * main_clock_frequency_MHz)
-    default_config.pdm_clock_frequency = 2
-    default_config.sadc_clock_frequency = int(main_clock_frequency_MHz / 4)
+    default_config.pdm_clock_frequency = int((main_clock_frequency_MHz * 1e6) / 32)
+
     # - Configure device
     device.reset_board_soft(default_config)
 

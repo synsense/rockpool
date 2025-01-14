@@ -85,11 +85,8 @@ class AFESamna(Module):
         if device is None:
             raise ValueError("`device` must be a valid, opened XyloAudio 3 HDK.")
 
-        # - Update board configuration -- FPGA clocks
-        board_config = samna.xyloAudio3.XyloAudio3TestBoardDefaultConfig()
-        board_config.main_clock_frequency = int(main_clk_rate * 1e6)
-        board_config.pdm_clock_frequency = int((main_clk_rate * 1e6) / 32)
-        device.reset_board_soft(board_config)
+        # - Configure master clock and communication bus clocks
+        hdu.set_xylo_core_clock_freq(device, main_clk_rate)
 
         self._stopwatch = device.get_stop_watch()
         """ `stopwatch`: The Xylo HDK control for timesteps """

@@ -197,9 +197,6 @@ class XyloMonitor(Module):
         # - Write the configuration to the device
         hdkutils.apply_configuration(self._device, new_config)
 
-        # - Disable RAM access to save power
-        hdkutils.enable_ram_access(self._device, False)
-
         # - Store the configuration locally
         self._config = new_config
 
@@ -222,15 +219,14 @@ class XyloMonitor(Module):
 
         # self._spike_graph.stop()
         self._stopwatch.stop()
+        self._power_monitor.stop_auto_power_measurement()
+
         # - Reset the HDK to clean up
         self._device.reset_board_soft()
 
     def apply_configuration(self, new_config):
         # - Write the configuration to the device
         hdkutils.apply_configuration(self._device, new_config)
-
-        # - Disable RAM access to save power
-        hdkutils.enable_ram_access(self._device, False)
 
         # - Store the configuration locally
         self._config = new_config
@@ -269,7 +265,6 @@ class XyloMonitor(Module):
 
         # - Clear the power buffer, if recording power
         if record_power:
-            self._power_monitor.start_auto_power_measurement(self._power_frequency)
             self._power_buf.clear_events()
 
         # - Start processing
@@ -322,8 +317,6 @@ class XyloMonitor(Module):
                     "digital_power": digital_power,
                 }
             )
-
-        self._power_monitor.stop_auto_power_measurement()
 
         # - Return the output spikes, the (empty) new state dictionary, and the recorded power dictionary
         output_events = np.stack(output_events)
