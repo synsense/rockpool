@@ -125,8 +125,7 @@ class AFESamna(Module):
         config.digital_frontend.pdm_preprocessing.clock_direction = 1
         config.digital_frontend.pdm_preprocessing.clock_edge = 0
         # -- Xylo clock frequency for PDM sampling
-        # In theory, the calculation for SDM clock should use: int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
-        config.debug.sdm_clock_ratio = 15  # int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
+        config.debug.sdm_clock_ratio = int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
 
         config.digital_frontend.filter_bank.use_global_iaf_threshold = True
 
