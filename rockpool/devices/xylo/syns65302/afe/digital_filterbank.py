@@ -532,10 +532,10 @@ class ChipButterworth(Module):
         else:
             scale_out_list = np.ones(self.size_out)
 
-        # # -- Revert and repeat the input signal in the beginning to avoid boundary effects
-        # l = np.shape(sig_in)[0]
-        # __input_rev = np.flip(sig_in, axis=0)
-        # sig_in = np.concatenate((__input_rev, sig_in), axis=0)
+        # -- Revert and repeat the input signal in the beginning to avoid boundary effects
+        l = np.shape(sig_in)[0]
+        __input_rev = np.flip(sig_in, axis=0)
+        sig_in = np.concatenate((__input_rev, sig_in), axis=0)
 
         # check if jax version is available
         if JAX_Filter and not python_version:
@@ -605,11 +605,11 @@ class ChipButterworth(Module):
             # in the python version state is empty: for performance reasons
             recording = {}
 
-        # # Trim the part of the signal coresponding to __input_rev (which was added to avoid boundary effects)
-        # sig_out = sig_out[l:, :]
+        # Trim the part of the signal coresponding to __input_rev (which was added to avoid boundary effects)
+        sig_out = sig_out[l:, :]
 
-        # # Trim recordings
-        # recording = {k: v[l:, :] for k, v in recording.items()}
+        # Trim recordings
+        recording = {k: v[l:, :] for k, v in recording.items()}
 
         return sig_out, self.state(), recording
 
