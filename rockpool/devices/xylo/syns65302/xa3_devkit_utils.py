@@ -186,8 +186,6 @@ def get_current_timestep(
     continue_read = True
     start_t = time.time()
 
-    timeout *= 1000
-
     # - Trigger a readout event on Xylo
     e = samna.xyloAudio3.event.TriggerReadout()
     write_buffer.write([e])
