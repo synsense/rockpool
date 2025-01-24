@@ -128,6 +128,9 @@ class XyloMonitor(Module):
         config.debug.monitor_neuron_spike = []
         config.debug.monitor_neuron_i_syn = []
 
+        # - Disable RAM access to save power
+        config.debug.ram_access_enable = False
+
         # - Initialise the superclass
         super().__init__(
             shape=(Nin, Nhidden, Nout), spiking_input=False, spiking_output=True
@@ -154,9 +157,6 @@ class XyloMonitor(Module):
 
         # - Apply the configuration
         hdkutils.apply_configuration(device, self._config)
-
-        # - Disable RAM access to save power
-        hdkutils.enable_ram_access(self._device, False)
 
         self._power_monitor = None
         """Power monitor for Xylo"""

@@ -244,12 +244,7 @@ class AFESamnaPDM(Module):
         if record != self._last_record_mode:
             self._config.debug.debug_status_update_enable = record
             self._last_record_mode = record
-            hdkutils.enable_ram_access(self._device, True)
             hdkutils.apply_configuration(self._device, self._config)
-
-        # - Switch on or off RAM clocks depending on state access mode
-        if not record or self._output_mode == "Spike":
-            hdkutils.enable_ram_access(self._device, False)
 
         if record_power:
             # clear the record buffer

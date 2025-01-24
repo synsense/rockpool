@@ -419,9 +419,6 @@ class XyloSamna(Module):
         # - Apply configuration on the board
         hdkutils.apply_configuration(self._device, self._config)
 
-        # - Turn off RAM access
-        hdkutils.enable_ram_access(self._device, False)
-
     def __del__(self):
         # - Stop the readout graph buffer
         if self._readout_graph:
@@ -527,12 +524,6 @@ class XyloSamna(Module):
         # - Impose accelerated mode
         # -- Configure operation mode and recording
         self._configure_accel_time_mode(Nhidden, Nout, record)
-
-        # - Switch on or off RAM clocks depending on state access mode
-        if record or self._output_mode != "Spike":
-            hdkutils.enable_ram_access(self._device, True)
-        else:
-            hdkutils.enable_ram_access(self._device, False)
 
         # - Get input shape
         input, _ = self._auto_batch(input)
