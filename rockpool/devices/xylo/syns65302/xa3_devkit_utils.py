@@ -172,7 +172,7 @@ def get_current_timestep(
     Args:
         read_buffer (XyloAudio3ReadBuffer): A connected read buffer for the xylo HDK
         write_buffer (XyloAudio3WriteBuffer): A connected write buffer for the Xylo HDK
-        timeout (float): A timeout for reading
+        timeout (float): A timeout for reading, in seconds. Default: ``3.0``, 3 seconds.
 
     Returns:
         int: The current timestep on the Xylo HDK
@@ -187,27 +187,29 @@ def get_current_timestep(
     start_t = time.time()
 
     # - Trigger a readout event on Xylo
-    e = samna.xyloAudio3.event.TriggerProcessing()
-    e.target_timestep = int(start_t)
+    e = samna.xyloAudio3.event.TriggerReadout()
     write_buffer.write([e])
 
     while continue_read:
-        readout_events = read_buffer.get_n_events(1, 3000)
-
-        # TODO: how to access Spike events for XyloAudio 3 instead of ReadoutEvents
-        # the condition for getting the timestep was defined previously on the filtered list
-        # ev_filt = [
-        #     e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Spike)
-        # ]
-        if readout_events:
-            timestep = readout_events[0].timestep
+        readout_events = read_buffer.get_events()
+        ev_filt = [
+            e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Readout)
+        ]
+        if ev_filt:
+            timestep = ev_filt[0].timestep
             continue_read = False
         else:
             # - Check timeout
             continue_read &= (time.time() - start_t) < timeout
 
     if timestep is None:
-        raise TimeoutError(f"Timeout after {timeout}s when reading current timestep.")
+        raise TimeoutError(
+            f"Timeout after {timeout:.1f}s when reading current timestep."
+        )
+
+    # if nothing has ever processed in the chip, timestep can be negative
+    if timestep < 0:
+        timestep = 0
 
     # - Return the timestep
     return timestep
@@ -242,7 +244,7 @@ def is_xylo_ready(
     return stat2 & (1 << reg.stat2__pd__pos)
 
 
-def set_power_measure(
+def set_power_measurement(
     hdk: XyloAudio3HDK,
     frequency: Optional[float] = 5.0,
 ) -> Tuple[
@@ -288,14 +290,8 @@ def apply_configuration(
         hdk (XyloAudio3HDK): The Xylo HDK to write the configuration to
         config (XyloConfiguration): A configuration for Xylo
     """
-    # - Enable RAM access
-    enable_ram_access(hdk, True)
-
     # - Ideal -- just write the configuration using samna
     hdk.get_model().apply_configuration(config)
-
-    # - Disable RAM access
-    enable_ram_access(hdk, False)
 
 
 def apply_configuration_blocking(
@@ -318,9 +314,6 @@ def apply_configuration_blocking(
         hdk (XyloAudio3HDK): The Xylo HDK to write the configuration to
         config (XyloConfiguration): A configuration for Xylo
     """
-    # - Enable RAM access
-    enable_ram_access(hdk, True)
-
     hdk.get_model().apply_configuration(config)
 
     write_buffer.write([samna.xyloAudio3.event.ReadRegisterValue(address=0)])
@@ -330,9 +323,6 @@ def apply_configuration_blocking(
         for ev in events:
             if isinstance(ev, samna.xyloAudio3.event.RegisterValue) and ev.address == 0:
                 ready = True
-
-    # - Disable RAM access
-    enable_ram_access(hdk, False)
 
 
 def configure_single_step_time_mode(
@@ -840,11 +830,8 @@ def set_xylo_core_clock_freq(
     default_config = samna.xyloAudio3.XyloAudio3TestBoardDefaultConfig()
     # - Set main clock frequency
     default_config.main_clock_frequency = int(main_clock_frequency_MHz * 1e6)
-    # - Update other clock frequency based on main clock frequency
-    default_config.saer_clock_frequency = int(main_clock_frequency_MHz / 4)
-    # default_config.pdm_clock_frequency = int(16 * main_clock_frequency_MHz)
-    default_config.pdm_clock_frequency = 2
-    default_config.sadc_clock_frequency = int(main_clock_frequency_MHz / 4)
+    default_config.pdm_clock_frequency = int((main_clock_frequency_MHz * 1e6) / 32)
+
     # - Configure device
     device.reset_board_soft(default_config)
 
@@ -881,54 +868,20 @@ def configure_accel_time_mode(
         config.debug.monitor_neuron_spike = [i for i in range(Nhidden)]
         # Output Isyn is not available by default, so we add both hidden and output neurons.
         config.debug.monitor_neuron_i_syn = [i for i in range(Nhidden + Nout)]
+        config.debug.ram_access_enable = True
 
     else:
         config.debug.monitor_neuron_v_mem = []
         config.debug.monitor_neuron_spike = []
         config.debug.monitor_neuron_i_syn = []
+        config.debug.ram_access_enable = False
 
         if readout == "Isyn":
             config.debug.monitor_neuron_i_syn = [i for i in range(Nhidden + Nout)]
+            config.debug.ram_access_enable = True
         elif readout == "Vmem":
             config.debug.monitor_neuron_v_mem = [i for i in range(Nhidden)]
+            config.debug.ram_access_enable = True
 
     # - Return the configuration and buffer
     return config
-
-
-def get_current_timestep(
-    read_buffer: XyloAudio3ReadBuffer,
-    write_buffer: XyloAudio3WriteBuffer,
-    timeout: float = 3.0,
-) -> int:
-    """
-    Retrieve the current timestep on a XyloAudio 3 HDK
-
-    Args:
-        read_buffer (XyloAudio3ReadBuffer): A connected read buffer for the XyloAudio 3 HDK
-        write_buffer (XyloAudio3WriteBuffer): A connected write buffer for the XyloAudio 3 HDK
-        timeout (float): A timeout for reading, in seconds
-
-    Returns:
-        int: The current timestep on the Xylo HDK
-    """
-
-    timestep = None
-
-    # - Clear read buffer
-    read_buffer.get_events()
-
-    # - Trigger a readout event on Xylo
-    write_buffer.write([samna.xyloAudio3.event.TriggerReadout()])
-
-    # - Wait for the readout event to be sent back, and extract the timestep
-    evts = read_buffer.get_n_events(1, timeout=int(timeout * 1000))
-
-    if len(evts) > 0:
-        timestep = evts[0].timestep + 1
-
-    if timestep is None:
-        raise TimeoutError(f"Timeout after {timeout}s when reading current timestep.")
-
-    # - Return the timestep
-    return timestep

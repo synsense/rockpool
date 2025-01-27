@@ -5,7 +5,8 @@ Provides :py:class:`.AFESamnaPDM`
 import numpy as np
 import samna
 import time
-import copy
+from typing import Optional, Union, Tuple
+from warnings import warn
 
 try:
     from tqdm.autonotebook import tqdm
@@ -27,10 +28,6 @@ from . import xa3_devkit_utils as hdkutils
 
 XyloAudio3HDK = samna.xyloAudio3.XyloAudio3TestBoard
 
-# - Typing
-from typing import Optional, Union, List, Tuple
-from warnings import warn
-
 __all__ = ["AFESamnaPDM"]
 
 
@@ -47,8 +44,7 @@ class AFESamnaPDM(Module):
         # dfe_config: DigitalFrontendConfig = None,
         dt: float = 1024e-6,
         output_mode: str = "Spike",
-        record: Optional[bool] = False,
-        power_frequency: Optional[float] = 5.0,
+        power_frequency: Optional[float] = 100.0,
         dn_active: bool = True,
         *args,
         **kwargs,
@@ -59,9 +55,9 @@ class AFESamnaPDM(Module):
         The output responses are both the generated input spikes that will be fed into the SNN core and the result of the SNN core processing.
 
         Args:
-            device (XyloAudio3HDK): An opened `samna` device to a XyloAudio 3 dev kit
-            config (XyloConfiguration): A Xylo configuration from `samna`
-            dt (float): The simulation time-step to use for this Module
+            device (XyloAudio3HDK): An opened `samna` device to a XyloAudio 3 dev kit.
+            config (XyloConfiguration): A Xylo configuration from `samna`.
+            dt (float): The simulation time-step to use for this Module. Default: 1024e-6.
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
             record (bool): Record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
             power_frequency (float): The frequency of power measurement. Default: 5.0
@@ -103,18 +99,6 @@ class AFESamnaPDM(Module):
             shape=(Nin, Nhidden, Nout), spiking_input=True, spiking_output=True
         )
 
-        # HACK record tag was moved to the constructor of the class instead of evolve
-        # updating the configuration in evolve is leading to erratic behavior because of a mismatch between samna and firmware
-        if record:
-            # - Switch on reporting of input spike register pointer value
-            config.debug.debug_status_update_enable = 1
-        else:
-            config.debug.debug_status_update_enable = 0
-
-        # - Store record option
-        self._record: Optional[bool] = record
-        """ bool: Record and return all internal state of the neurons and synapses on Xylo """
-
         # - Store the device
         self._device: XyloAudio3HDK = device
         """ `.XyloHDK`: The Xylo HDK used by this module """
@@ -122,7 +106,6 @@ class AFESamnaPDM(Module):
         # - Register buffers to read and write events
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
         """ `.XyloAudio3ReadBuffer`: The read buffer for the connected HDK """
-
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
         """ `.XyloAudio3WriteBuffer`: The write buffer for the connected HDK """
 
@@ -134,13 +117,13 @@ class AFESamnaPDM(Module):
         self._sleep_time = 0e-3
         """ float: Post-stimulation sleep time in seconds """
 
-        # - Configure parameters for PdmEvents as input source
+        # - Configure the PDM usage
+        # TODO FIXME: Allow hibnernation mode to be selectable - https://www.wrike.com/open.htm?id=1552655948
         config.digital_frontend.filter_bank.dn_enable = dn_active
-        config.digital_frontend.pdm_preprocessing.clock_direction = 0
-        config.digital_frontend.pdm_preprocessing.clock_edge = 0
-
         config.digital_frontend.hibernation_mode_enable = 0
         config.digital_frontend.filter_bank.use_global_iaf_threshold = 1
+        config.digital_frontend.pdm_preprocessing.clock_direction = 0
+        config.digital_frontend.pdm_preprocessing.clock_edge = 0
 
         if config.operation_mode == samna.xyloAudio3.OperationMode.AcceleratedTime:
             config.debug.always_update_omp_stat = True
@@ -152,6 +135,21 @@ class AFESamnaPDM(Module):
             raise ValueError(
                 "`operation_mode` can't be RealTime for AFESamnaPDM. Options are Manual or AcceleratedTime."
             )
+
+        # - Store the power frequency
+        self._power_frequency = power_frequency
+        """ float: Frequency of power monitoring, in Hz """
+
+        # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
+        self._last_record_mode: Optional[bool] = None
+        """ bool: The most recent (and assumed still valid) recording mode """
+
+        # - Set power measurement module
+        (
+            self._power_buf,
+            self._power_monitor,
+            self._stopwatch,
+        ) = hdkutils.set_power_measurement(self._device, self._power_frequency)
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
         self._last_record_mode: Optional[bool] = None
@@ -184,33 +182,27 @@ class AFESamnaPDM(Module):
 
         self._config = new_config
 
+    def __del__(self):
+        if self._power_monitor:
+            self._power_monitor.stop_auto_power_measurement()
+
+        if self._stopwatch:
+            self._stopwatch.stop()
+
+        # - Reset the HDK to clean up
+        self._device.reset_board_soft()
+
     def reset_state(self) -> "AFESamnaPDM":
         # - Reset neuron and synapse state on Xylo
-        # -- Copy values of configuration
-        operation_mode = copy.copy(self._config.operation_mode)
-        status_update = copy.copy(self._config.debug.debug_status_update_enable)
-
-        # - To reset Samna and Firmware, we need to send a configuration with different operation mode
-        # -- Operation mode can not be RealTime in AFESamnaPDM
-        self._config.operation_mode = (
-            samna.xyloAudio3.OperationMode.Manual
-            if self._config.operation_mode
-            == samna.xyloAudio3.OperationMode.AcceleratedTime
-            else samna.xyloAudio3.OperationMode.AcceleratedTime
-        )
-        self._config.debug.debug_status_update_enable = 0
-        hdkutils.apply_configuration(self._device, self._config)
-
-        # - Reapply the user defined configuration
-        self._config.operation_mode = operation_mode
-        self._config.debug.debug_status_update_enable = status_update
-        hdkutils.apply_configuration(self._device, self._config)
+        # TODO FIXME - https://www.wrike.com/open.htm?id=1533940426 - reset state is not working
+        warn("Reset state is not working yet.")
         return self
 
     def evolve(
         self,
         input: np.ndarray,
         record: bool = False,
+        record_power: bool = False,
         read_timeout: float = 5.0,
         flip_and_encode: bool = False,
         *args,
@@ -224,7 +216,8 @@ class AFESamnaPDM(Module):
 
         Args:
             input (np.ndarray): A vector ``(Tpdm, 1)`` with a PDM-encoded audio signal, ``1`` or ``0``. The PDM clock is always 1.5625 MHz. 32 PDM samples correspond to one audio sample passed to the band-pass filterbank (i.e. 48.828125 kHz). The network ``dt`` is independent of this sampling rate, but should be an even divisor of 48.828125 MHz (e.g. 1024 us).
-            record (bool): Deprecated parameter. Please use ``record`` from the class initialization.
+            record (bool): Record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
+            record_power (bool): Iff ``True``, record the power consumption during each evolve.
             read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: 5s.
             flip_and_encode (bool): Determine if flip-and-encode should be applied to the input data. When applied, the input data will be flipped on axis=0 and concatenated to the begin of the original input data. Note that input data will have its size doubled.
 
@@ -248,12 +241,14 @@ class AFESamnaPDM(Module):
                 "`operation_mode` can't be RealTime for AFESamnaPDM. Options are Manual or AcceleratedTime."
             )
 
-        # HACK record is not working inside evolve and was transferred to the class initialization
-        if record:
-            warn(
-                "`record` is now a parameter in the class initialization and its behavior is not updated in the `evolve` method."
-            )
-        record = self._record
+        if record != self._last_record_mode:
+            self._config.debug.debug_status_update_enable = record
+            self._last_record_mode = record
+            hdkutils.apply_configuration(self._device, self._config)
+
+        if record_power:
+            # clear the record buffer
+            self._power_buf.get_events()
 
         # - Calculate sample rates and `dt`-length window
         PDM_sample_rate = 1562500
@@ -363,11 +358,31 @@ class AFESamnaPDM(Module):
                 "Spikes": np.array(spikes_ts),
                 "Vmem_out": np.array(vmem_out_ts),
                 "Isyn_out": np.array(isyn_out_ts),
-                # "times": np.arange(start_timestep, final_timestep + 1),
             }
         else:
             rec_dict = {}
 
+        if record_power:
+            # - Get all recent power events from the power measurement
+            ps = self._power_buf.get_events()
+
+            # - Separate out power meaurement events by channel
+            channels = samna.xyloAudio3.MeasurementChannels
+            io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
+            analog_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.AnalogLogic)]
+            )
+            digital_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.DigitalLogic)]
+            )
+
+            rec_dict.update(
+                {
+                    "io_power": io_power,
+                    "analog_power": analog_power,
+                    "digital_power": digital_power,
+                }
+            )
         output_ts = np.array(output_ts)
 
         if flip_and_encode:

@@ -5,6 +5,7 @@ All notable changes between Rockpool releases will be documented in this file
 ## [v2.10.0.dev3] -- XXXX-XX-XX
 
 ### Added
+* Power measurement for XyloAudio 3
 * AFESamna module for XyloAudio 3: allow recording of input spikes from live microphone
 
 ### Changed
