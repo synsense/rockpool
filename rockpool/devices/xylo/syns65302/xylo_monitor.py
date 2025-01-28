@@ -2,33 +2,18 @@
 Provides :py:class:`.XyloMonitor`
 """
 
+import numpy as np
+from typing import Optional, Union, Tuple
+
 # - Samna imports
 import samna
 from samna.xyloAudio3.configuration import XyloConfiguration
 
 XyloAudio3HDK = samna.xyloAudio3.XyloAudio3TestBoard
-from . import xa3_devkit_utils as hdkutils
 
-import time
-import math
-import numpy as np
+from . import xa3_devkit_utils as hdkutils
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
-
-# - Typing
-from typing import Optional, Union, Callable, List, Tuple
-from warnings import warn
-
-try:
-    from tqdm.autonotebook import tqdm, trange
-except ModuleNotFoundError:
-
-    def tqdm(wrapped, *args, **kwargs):
-        return wrapped
-
-    def trange(obj, *args, **kwargs):
-        return range(obj)
-
 
 # - Configure exports
 __all__ = ["XyloMonitor"]
@@ -60,28 +45,26 @@ class XyloMonitor(Module):
         dt: float = 1e-3,
         main_clk_rate: float = Default_Main_Clock_Rate,
         hibernation_mode: bool = False,
-        power_frequency: float = 5.0,
+        power_frequency: float = 100.0,
         dn_active: bool = True,
-        digital_microphone=True,
         *args,
         **kwargs,
     ):
         """
-        Instantiate a Module with XyloAudio 3 dev-kit backend. XyloMonitor is used in ``RealTime`` mode. For  other operation modes please use :py:class:`.XyloSamna`.
+        Instantiate a Module with XyloAudio 3 dev-kit backend. XyloMonitor is used to deploy models in ``RealTime`` mode, using live microphone input. For accelerated operation mode please use :py:class:`.XyloSamna`.
 
         Args:
-            device (XyloAudio3HDK): An opened `samna` device to a XyloAudio 3 dev kit
-            config (XyloConfiguraration): A Xylo configuration from `samna`
+            device (XyloAudio3HDK): An opened `samna` device to a XyloAudio 3 dev kit.
+            config (XyloConfiguration): A Xylo configuration from `samna`.
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Vmem"]``. Default: "Spike", return events from the output layer.
-            dt (float): The timewindow duration, in seconds. Default: 0.001
-            main_clk_rate (float): The main clock rate of Xylo, in MHz
+            dt (float): The timewindow duration, in seconds. Default: ``1e-3``, 1 ms.
+            main_clk_rate (float): The main clock rate of Xylo, in MHz. Default: ``50.0``, 50 MHz.
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
-            power_frequency (float): The frequency of power measurement, in Hz. Default: 5.0
+            power_frequency (float): The frequency of power measurement, in Hz. Default: ``100.0``, 100 Hz.
             dn_active (bool): If True, divisive normalization will be used. Defaults to True.
-            digital_microphone (bool): If True, configure XyloAudio 3 to use the digital microphone, otherwise, analog microphone. Defaults to True.
 
         Raises:
-            `ValueError`: If ``device`` isoutput_mode not set. ``device`` must be a ``XyloAudio3HDK``.
+            `ValueError`: If ``device`` is not set. ``device`` must be a ``XyloAudio3HDK``.
             `ValueError`: If ``output_mode`` is not ``Spike`` or ``Vmem``.
         """
 
@@ -102,6 +85,7 @@ class XyloMonitor(Module):
         # - Get a default configuration
         if config is None:
             config = samna.xyloAudio3.configuration.XyloConfiguration()
+            config.operation_mode = samna.xyloAudio3.OperationMode.RealTime
 
         # - Get a default audio frontend configuration
         # TODO: Add audio frontend configuration
@@ -116,6 +100,11 @@ class XyloMonitor(Module):
 
         # - Set operation mode to be RealTime
         config.operation_mode = samna.xyloAudio3.OperationMode.RealTime
+
+        # - Set hibernation mode
+        config.enable_hibernation_mode = hibernation_mode
+
+        # - Set divisive normalization
         config.digital_frontend.filter_bank.dn_enable = dn_active
         config.enable_hibernation_mode = hibernation_mode
 
@@ -126,21 +115,21 @@ class XyloMonitor(Module):
         config.debug.always_update_omp_stat = True
         config.digital_frontend.filter_bank.use_global_iaf_threshold = True
 
-        if digital_microphone:
-            config.input_source = samna.xyloAudio3.InputSource.DigitalMicrophone
-            # - the ideal sdm clock ratio depends on the main clock rate
-            # -- int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
-            config.debug.sdm_clock_ratio = 24
-            config.digital_frontend.pdm_preprocessing.clock_direction = 1
-            config.digital_frontend.pdm_preprocessing.clock_edge = 0
-
-        else:
-            raise ValueError("Analog microphone is not available yet for XyloAudio 3.")
+        # - Activate digital microphone configuration
+        config.input_source = samna.xyloAudio3.InputSource.DigitalMicrophone
+        # - the ideal sdm clock ratio depends on the main clock rate
+        # -- int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
+        config.debug.sdm_clock_ratio = 24
+        config.digital_frontend.pdm_preprocessing.clock_direction = 1
+        config.digital_frontend.pdm_preprocessing.clock_edge = 0
 
         # - Disable internal state monitoring
         config.debug.monitor_neuron_v_mem = []
         config.debug.monitor_neuron_spike = []
         config.debug.monitor_neuron_i_syn = []
+        config.debug.ram_access_enable = False
+
+        # - Disable RAM access to save power
         config.debug.ram_access_enable = False
 
         # - Initialise the superclass
@@ -159,7 +148,7 @@ class XyloMonitor(Module):
         """ `XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Store the timestep
-        self.dt: Union[float, SimulationParameter] = dt
+        self._dt: Union[float, SimulationParameter] = dt
         """ float: Simulation time-step of the module, in seconds """
 
         self._main_clk_rate = main_clk_rate
@@ -180,7 +169,7 @@ class XyloMonitor(Module):
             self._power_buf,
             self._power_monitor,
             self._stopwatch,
-        ) = hdkutils.set_power_measure(self._device, power_frequency)
+        ) = hdkutils.set_power_measurement(self._device, power_frequency)
 
     @property
     def config(self):
@@ -217,7 +206,6 @@ class XyloMonitor(Module):
         Delete the XyloAudio3Monitor object and reset the HDK.
         """
 
-        # self._spike_graph.stop()
         self._stopwatch.stop()
         self._power_monitor.stop_auto_power_measurement()
 
@@ -246,21 +234,24 @@ class XyloMonitor(Module):
             record_power (bool): If ``True``, record the power consumption during each evolve.
 
         Returns:
-            Tuple[np.ndarray, dict, dict] output_events, {}, rec_dict
-            output_events is an array that stores the output events of T time-steps
-            rec_dict is a dictionary that stores the power measurements of T time-steps
+            Tuple[np.ndarray, dict, dict] output_events, {}, rec_dict.
+                output_events is an array that stores the output events of T time-steps.
+                rec_dict is a dictionary that stores the power measurements of T time-steps.
+
+        Raises:
+            `ValueError`: If record is set to True. Internal state recording is not supported by :py:class:`.XyloMonitor`".
+            `TimeoutError`: If no event is received after the processing time.
+
         """
 
         if record:
             raise ValueError(
-                f"Recording internal state is not supported by :py:class:`.XyloAudio3Monitor`"
+                f"Recording internal state is not supported by :py:class:`.XyloMonitor`."
             )
 
         Nt = input_data.shape[0]
-        read_timeout = Nt * self.dt
+        read_timeout = Nt * self._dt
 
-        # use current time to calculate how long the processing will run
-        # read_until = time.time() + read_timeout
         output_events = []
 
         # - Clear the power buffer, if recording power
@@ -268,8 +259,8 @@ class XyloMonitor(Module):
             self._power_buf.clear_events()
 
         # - Start processing
-        # In realtime mode, sending triggerprocessing again without target timestep is not an issue (i.e., does nothing)
-        # TriggerProcessing with target timestep can stop execution if target is smaller than current timestep
+        # -- In realtime mode, sending triggerprocessing again without target timestep is not an issue (i.e., does nothing)
+        # -- TriggerProcessing with target timestep can stop execution if target is smaller than current timestep
         self._write_buffer.write([samna.xyloAudio3.event.TriggerProcessing()])
         self._read_buffer.clear_events()
 
@@ -279,7 +270,7 @@ class XyloMonitor(Module):
         )
 
         # - Check if events were recorded
-        # The reading is done for a time-window and the error is thrown if nothing was read
+        # -- The reading is done for a time-window and the error is thrown if nothing was read
         if len(readout_events) == 0:
             raise TimeoutError(
                 f"No events received after reading for {read_timeout} seconds."

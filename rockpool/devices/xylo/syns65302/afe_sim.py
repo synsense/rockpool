@@ -580,6 +580,8 @@ class AFESim(ModSequential):
         """
         Export a hardware configuration matching this AFE simulation
         """
+
+        # TODO: return only the AFEConfig part
         raise NotImplementedError("To be implemented following `samna` support")
 
 

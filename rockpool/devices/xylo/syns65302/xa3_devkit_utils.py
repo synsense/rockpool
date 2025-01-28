@@ -172,7 +172,7 @@ def get_current_timestep(
     Args:
         read_buffer (XyloAudio3ReadBuffer): A connected read buffer for the xylo HDK
         write_buffer (XyloAudio3WriteBuffer): A connected write buffer for the Xylo HDK
-        timeout (float): A timeout for reading
+        timeout (float): A timeout for reading, in seconds. Default: ``3.0``, 3 seconds.
 
     Returns:
         int: The current timestep on the Xylo HDK
@@ -187,27 +187,29 @@ def get_current_timestep(
     start_t = time.time()
 
     # - Trigger a readout event on Xylo
-    e = samna.xyloAudio3.event.TriggerProcessing()
-    e.target_timestep = int(start_t)
+    e = samna.xyloAudio3.event.TriggerReadout()
     write_buffer.write([e])
 
     while continue_read:
-        readout_events = read_buffer.get_n_events(1, 3000)
-
-        # TODO: how to access Spike events for XyloAudio 3 instead of ReadoutEvents
-        # the condition for getting the timestep was defined previously on the filtered list
-        # ev_filt = [
-        #     e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Spike)
-        # ]
-        if readout_events:
-            timestep = readout_events[0].timestep
+        readout_events = read_buffer.get_events()
+        ev_filt = [
+            e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Readout)
+        ]
+        if ev_filt:
+            timestep = ev_filt[0].timestep
             continue_read = False
         else:
             # - Check timeout
             continue_read &= (time.time() - start_t) < timeout
 
     if timestep is None:
-        raise TimeoutError(f"Timeout after {timeout}s when reading current timestep.")
+        raise TimeoutError(
+            f"Timeout after {timeout:.1f}s when reading current timestep."
+        )
+
+    # if nothing has ever processed in the chip, timestep can be negative
+    if timestep < 0:
+        timestep = 0
 
     # - Return the timestep
     return timestep
@@ -242,7 +244,7 @@ def is_xylo_ready(
     return stat2 & (1 << reg.stat2__pd__pos)
 
 
-def set_power_measure(
+def set_power_measurement(
     hdk: XyloAudio3HDK,
     frequency: Optional[float] = 5.0,
 ) -> Tuple[
@@ -869,41 +871,3 @@ def configure_accel_time_mode(
 
     # - Return the configuration and buffer
     return config
-
-
-def get_current_timestep(
-    read_buffer: XyloAudio3ReadBuffer,
-    write_buffer: XyloAudio3WriteBuffer,
-    timeout: float = 3.0,
-) -> int:
-    """
-    Retrieve the current timestep on a XyloAudio 3 HDK
-
-    Args:
-        read_buffer (XyloAudio3ReadBuffer): A connected read buffer for the XyloAudio 3 HDK
-        write_buffer (XyloAudio3WriteBuffer): A connected write buffer for the XyloAudio 3 HDK
-        timeout (float): A timeout for reading, in seconds
-
-    Returns:
-        int: The current timestep on the Xylo HDK
-    """
-
-    timestep = None
-
-    # - Clear read buffer
-    read_buffer.get_events()
-
-    # - Trigger a readout event on Xylo
-    write_buffer.write([samna.xyloAudio3.event.TriggerReadout()])
-
-    # - Wait for the readout event to be sent back, and extract the timestep
-    evts = read_buffer.get_n_events(1, timeout=int(timeout * 1000))
-
-    if len(evts) > 0:
-        timestep = evts[0].timestep + 1
-
-    if timestep is None:
-        raise TimeoutError(f"Timeout after {timeout}s when reading current timestep.")
-
-    # - Return the timestep
-    return timestep

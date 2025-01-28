@@ -30,10 +30,6 @@ from . import xa3_devkit_utils as hdkutils
 
 XyloAudio3HDK = samna.xyloAudio3.XyloAudio3TestBoard
 
-# - Typing
-from typing import Optional, Union, List, Tuple
-from warnings import warn
-
 __all__ = ["AFESamnaPDM"]
 
 Default_Main_Clock_Rate = 50.0  # 50 MHz
@@ -113,7 +109,6 @@ class AFESamnaPDM(Module):
         # - Register buffers to read and write events
         self._read_buffer = hdkutils.new_xylo_read_buffer(device)
         """ `.XyloAudio3ReadBuffer`: The read buffer for the connected HDK """
-
         self._write_buffer = hdkutils.new_xylo_write_buffer(device)
         """ `.XyloAudio3WriteBuffer`: The write buffer for the connected HDK """
 
@@ -165,6 +160,16 @@ class AFESamnaPDM(Module):
 
         self._config = new_config
 
+    def __del__(self):
+        if self._power_monitor:
+            self._power_monitor.stop_auto_power_measurement()
+
+        if self._stopwatch:
+            self._stopwatch.stop()
+
+        # - Reset the HDK to clean up
+        self._device.reset_board_soft()
+
     def reset_state(self) -> "AFESamnaPDM":
         # - Reset neuron and synapse state on Xylo
         # -- To reset Samna and Firmware, we need to send a configuration with different operation mode
@@ -179,6 +184,7 @@ class AFESamnaPDM(Module):
         self,
         input: np.ndarray,
         record: bool = False,
+        record_power: bool = False,
         read_timeout: float = 5.0,
         flip_and_encode: bool = False,
         *args,
