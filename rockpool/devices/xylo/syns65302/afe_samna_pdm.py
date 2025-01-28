@@ -5,7 +5,6 @@ Provides :py:class:`.AFESamnaPDM`
 import numpy as np
 import samna
 import time
-import copy
 import math
 
 from rockpool import TSEvent
@@ -27,6 +26,11 @@ DigitalFrontendConfig = None
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 from . import xa3_devkit_utils as hdkutils
+
+# - Typing
+from typing import Union, Tuple
+from warnings import warn
+
 
 XyloAudio3HDK = samna.xyloAudio3.XyloAudio3TestBoard
 
