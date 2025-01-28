@@ -8,7 +8,7 @@ def test_imports():
     from rockpool.devices.xylo.syns65302 import (
         save_config,
         load_config,
-        XyloSamna,
+        XyloSamnaPDM,
         config_from_specification,
     )
     import rockpool.devices.xylo.syns65302.xa3_devkit_utils as putils
@@ -20,7 +20,7 @@ def test_xylosamna_pdm():
     pytest.importorskip("samna")
 
     from rockpool.devices.xylo.syns65302 import (
-        AFESamnaPDM,
+        XyloSamnaPDM,
         config_from_specification,
         mapper,
     )
@@ -61,7 +61,7 @@ def test_xylosamna_pdm():
     # - Create a Xylo module with PDM input
     dn = True
     config.operation_mode = samna.xyloAudio3.OperationMode.AcceleratedTime
-    xmod = AFESamnaPDM(daughterboard, config, dt=1024e-6, dn_active=dn)
+    xmod = XyloSamnaPDM(daughterboard, config, dt=1024e-6, dn_active=dn)
 
     assert xmod != None
 
@@ -83,13 +83,13 @@ def test_xylosamna_pdm():
     assert np.all(b)
 
 
-def test_xylosamna_pdm_with_power():
+def test_xylosamna_pdm_power():
     import pytest
 
     pytest.importorskip("samna")
 
     from rockpool.devices.xylo.syns65302 import (
-        AFESamnaPDM,
+        XyloSamnaPDM,
         config_from_specification,
         mapper,
     )
@@ -131,7 +131,7 @@ def test_xylosamna_pdm_with_power():
     dn = True
     config.operation_mode = samna.xyloAudio3.OperationMode.AcceleratedTime
 
-    xmod_spike = AFESamnaPDM(daughterboard, config, dt=1024e-6, dn_active=dn)
+    xmod_spike = XyloSamnaPDM(daughterboard, config, dt=1024e-6, dn_active=dn)
     assert xmod_spike != None
 
     input_pdm = np.loadtxt("tests/tests_default/models/xylo_a3_input_pdm.txt")
@@ -139,24 +139,14 @@ def test_xylosamna_pdm_with_power():
     _, _, rd_spike = xmod_spike(input_pdm, record=True, record_power=True)
     del xmod_spike
 
-    dur = 200e-3
-    # result of the same data simulation
-    a = np.loadtxt("tests/tests_default/models/xylo_a3_afe_sim_pdm_output.txt")
-    b = np.sum(rd_spike["Spikes_in"].T, axis=1) / dur
-
-    result = [abs(i - j) / i for i, j in zip(a, b)]
-
-    b = np.array([element < 0.05 for element in result])
-
-    # some error marging accepted
-    assert np.all(b)
-
-    xmod_vmem = AFESamnaPDM(
+    xmod_vmem = XyloSamnaPDM(
         daughterboard, config, dt=1024e-6, dn_active=dn, output_mode="Vmem"
     )
     assert xmod_vmem != None
     _, _, rd_vmem = xmod_vmem(input_pdm, record=True, record_power=True)
     del xmod_vmem
+
+    assert rd_vmem.keys()
 
     # We expected the power measured in vmem to be higher because more memories are active
     assert np.mean(rd_vmem["digital_power"]) > np.mean(rd_spike["digital_power"])

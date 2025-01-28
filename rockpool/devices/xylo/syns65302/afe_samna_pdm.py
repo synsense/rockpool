@@ -188,8 +188,6 @@ class AFESamnaPDM(Module):
         self,
         input: np.ndarray,
         record: bool = False,
-        record_power: bool = False,
-        read_timeout: float = 5.0,
         flip_and_encode: bool = False,
         *args,
         **kwargs,
