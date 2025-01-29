@@ -21,8 +21,6 @@ def test_afesamna_pdm():
 
     from rockpool.devices.xylo.syns65302 import (
         AFESamnaPDM,
-        config_from_specification,
-        mapper,
     )
     import rockpool.devices.xylo.syns65302.xa3_devkit_utils as putils
     from rockpool.nn.combinators import Sequential
