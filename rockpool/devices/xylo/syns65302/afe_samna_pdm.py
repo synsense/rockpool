@@ -318,7 +318,7 @@ class AFESamnaPDM(Module):
         events_ts = TSEvent(
             timesteps,
             neuron_ids,
-            t_start=0.0,
+            t_start=timesteps[0],
             t_stop=last_timestep + 1,
             num_channels=16,
         ).raster(
