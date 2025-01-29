@@ -165,11 +165,13 @@ class AFESamnaPDM(Module):
         self._config = new_config
 
     def __del__(self):
-        if self._power_monitor:
-            self._power_monitor.stop_auto_power_measurement()
-
         if self._stopwatch:
             self._stopwatch.stop()
+
+        # - Apply a default configuration to stop recording mode
+        self._device.get_model().apply_configuration(
+            samna.xyloAudio3.configuration.XyloConfiguration()
+        )
 
         # - Reset the HDK to clean up
         self._device.reset_board_soft()
@@ -214,12 +216,8 @@ class AFESamnaPDM(Module):
             `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
         """
 
-        if record:
-            # - Switch on reporting of input spike register pointer value
-            self._config.debug.debug_status_update_enable = 1
-        else:
-            self._config.debug.debug_status_update_enable = 0
-        hdkutils.apply_configuration(self._device, self._config)
+        # TODO: how to deal with possible change in the configuration between class initialization and evolve call
+        self._stopwatch.start()
 
         # - Calculate sample rates and `dt`-length window
         PDM_sample_rate = 1562500
@@ -255,7 +253,6 @@ class AFESamnaPDM(Module):
             __input_rev = np.flip(input_raster, axis=0)
             input_raster = np.concatenate((__input_rev, input_raster), axis=0)
 
-        self._stopwatch.start()
         self._read_buffer.clear_events()
 
         pdm_events = []
@@ -331,17 +328,13 @@ class AFESamnaPDM(Module):
         if record:
             # - Build a recorded state dictionary
             rec_dict = {
-                "Spikes_in": np.stack(events),
+                "Spikes_in": np.stack(events_ts),
                 "neuron_ids": np.array(neuron_ids),
                 "timesteps": np.array(timesteps),
             }
         else:
             rec_dict = {}
 
-        # - Apply a default configuration to stop recording mode
-        self._device.get_model().apply_configuration(
-            samna.xyloAudio3.configuration.XyloConfiguration()
-        )
         self._stopwatch.stop()
 
         if flip_and_encode:
