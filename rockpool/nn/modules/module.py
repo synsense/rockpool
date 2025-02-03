@@ -602,7 +602,9 @@ class ModuleBase(ABC):
         return self._shape[0]
 
     @abstractmethod
-    def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
+    def evolve(
+        self, input_data, record: bool = False, *args, **kwargs
+    ) -> Tuple[Any, Any, Any]:
         """
         Evolve the state of this module over input data
 

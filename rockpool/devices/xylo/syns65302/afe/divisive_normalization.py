@@ -156,6 +156,7 @@ class DivisiveNormalization(Module):
         self,
         sig_in: np.ndarray,
         record: bool = False,
+        flip_and_encode: bool = True,
         *args,
         **kwargs,
     ):
@@ -179,10 +180,11 @@ class DivisiveNormalization(Module):
 
         sig_in = sig_in[0, :, :]
 
-        # -- Revert and repeat the input signal in the beginning to avoid boundary effects
-        l = np.shape(sig_in)[0]
-        __input_rev = np.flip(sig_in, axis=0)
-        sig_in = np.concatenate((__input_rev, sig_in), axis=0)
+        if flip_and_encode:
+            # -- Revert and repeat the input signal in the beginning to avoid boundary effects
+            l = np.shape(sig_in)[0]
+            __input_rev = np.flip(sig_in, axis=0)
+            sig_in = np.concatenate((__input_rev, sig_in), axis=0)
 
         # check if jax is available
         if JAX_SPIKE_GEN:
@@ -239,12 +241,13 @@ class DivisiveNormalization(Module):
                 record=record,
             )
 
-        # Trim the part of the signal coresponding to __input_rev (which was added to avoid boundary effects)
-        spikes = spikes[l:, :]
+        if flip_and_encode:
+            # Trim the part of the signal coresponding to __input_rev (which was added to avoid boundary effects)
+            spikes = spikes[l:, :]
 
-        # Trim recordings
-        for k, v in recording.items():
-            recording[k] = v[l:, :] if "state" in k else v
+            # Trim recordings
+            for k, v in recording.items():
+                recording[k] = v[l:, :] if "state" in k else v
 
         return spikes, self.state(), recording
 
