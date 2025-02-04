@@ -318,7 +318,7 @@ class XyloSamnaPDM(Module):
                 samna.xyloAudio3.event.AfeSample(data=int(i)) for i in input_sample
             ]
             self._write_buffer.write(pdm_events)
-            time.sleep(0.5)
+            # time.sleep(0.5)
 
             # - Read input spikes
             if record:
@@ -407,10 +407,10 @@ class XyloSamnaPDM(Module):
 
         if flip_and_encode:
             # Trim the part of the signal coresponding to __input_rev (which was added to avoid boundary effects)
-            output_ts = output_ts[flip_and_encode_size:, :]
+            output_ts = output_ts[flip_and_encode_size:]
 
             # # Trim recordings
-            rec_dict = {k: v[flip_and_encode_size:, :] for k, v in rec_dict.items()}
+            rec_dict = {k: v[flip_and_encode_size:] for k, v in rec_dict.items()}
 
         # - Return the output spikes, the (empty) new state dictionary, and the recorded state dictionary
         return output_ts, {}, rec_dict
