@@ -46,17 +46,17 @@ def test_afesamna_pdm():
 
     input_pdm = np.loadtxt("tests/tests_default/models/xylo_a3_input_pdm.txt")
 
-    _, _, rd = xmod(input_pdm, record=True)
+    _, _, rd = xmod(input_pdm, record=True, flip_and_encode=True)
     del xmod
 
     dur = 200e-3
-    # result of the same data simulation
+    # result of the same data simulation with flip_and_encode flag
     a = np.loadtxt("tests/tests_default/models/xylo_a3_afe_sim_pdm_output.txt")
     b = np.sum(rd["Spikes_in"].T, axis=1) / dur
 
     result = [abs(i - j) / i for i, j in zip(a, b)]
 
+    # some error marging accepted
     b = np.array([element < 0.05 for element in result])
 
-    # some error marging accepted
     assert np.all(b)
