@@ -112,9 +112,7 @@ class SequentialMixin(ABC):
         self._shape = (self.size_in, mod.size_out)
         self._spiking_output = mod.spiking_output
 
-    def evolve(
-        self, input_data, record: bool = False, flip_and_encode: bool = False
-    ) -> Tuple[Any, Any, Any]:
+    def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
         # - Initialise state and record dictionaries
         new_state_dict = {}
         record_dict = {}
@@ -126,7 +124,7 @@ class SequentialMixin(ABC):
             # - Get this submodule
             mod = getattr(self, submod_name)
             # - Push data through submodule
-            x, substate, subrec = mod(x, record=record, flip_and_encode=flip_and_encode)
+            x, substate, subrec = mod(x, record=record)
             new_state_dict.update({submod_name: substate})
             record_dict.update(
                 {
