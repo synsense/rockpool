@@ -67,7 +67,7 @@ def test_xylosamna_pdm():
 
     input_pdm = np.loadtxt("tests/tests_default/models/xylo_a3_input_pdm.txt")
 
-    _, _, rd = xmod(input_pdm, record=True)
+    _, _, rd = xmod(input_pdm, record=True, flip_and_encode=True)
     del xmod
 
     dur = 200e-3
