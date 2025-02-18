@@ -118,8 +118,7 @@ class XyloMonitor(Module):
         # - Activate digital microphone configuration
         config.input_source = samna.xyloAudio3.InputSource.DigitalMicrophone
         # - the ideal sdm clock ratio depends on the main clock rate
-        # -- int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
-        config.debug.sdm_clock_ratio = 24
+        config.debug.sdm_clock_ratio = int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
         config.digital_frontend.pdm_preprocessing.clock_direction = 1
         config.digital_frontend.pdm_preprocessing.clock_edge = 0
 
@@ -164,6 +163,9 @@ class XyloMonitor(Module):
 
         self._power_frequency = power_frequency
 
+        self._power_monitor = None
+        self._stopwatch = None
+
         # - Set power measurement module
         (
             self._power_buf,
@@ -205,9 +207,9 @@ class XyloMonitor(Module):
         """
         Delete the XyloAudio3Monitor object and reset the HDK.
         """
-
         if self._stopwatch:
             self._stopwatch.stop()
+
         if self._power_monitor:
             self._power_monitor.stop_auto_power_measurement()
 
