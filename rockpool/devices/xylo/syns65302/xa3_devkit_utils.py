@@ -871,3 +871,28 @@ def configure_accel_time_mode(
 
     # - Return the configuration and buffer
     return config
+
+
+def reset_board_blocking(
+    device: XyloAudio3HDK,
+    read_buffer: XyloAudio3ReadBuffer,
+    write_buffer: XyloAudio3WriteBuffer,
+) -> None:
+    """
+    Reset the HDK to clean up. Perform a register read to guarantee reset is completed.
+    Args:
+        device (XyloAudio3HDK): A XyloAudio 3 device to reset
+        read_buffer (XyloReadBuffer): A read buffer connected to the Xylo HDK
+        write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK
+
+    """
+    # - Reset device
+    device.reset_board_soft()
+
+    write_buffer.write([samna.xyloAudio3.event.ReadRegisterValue(address=0)])
+    ready = False
+    while not ready:
+        events = read_buffer.get_events_blocking(timeout=1000)
+        for ev in events:
+            if isinstance(ev, samna.xyloAudio3.event.RegisterValue) and ev.address == 0:
+                ready = True
