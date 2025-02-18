@@ -47,7 +47,6 @@ class XyloSamnaPDM(Module):
         # dfe_config: DigitalFrontendConfig = None,
         dt: float = 1024e-6,
         output_mode: str = "Spike",
-        record: Optional[bool] = False,
         power_frequency: Optional[float] = 100.0,
         dn_active: bool = True,
         *args,
@@ -63,7 +62,6 @@ class XyloSamnaPDM(Module):
             config (XyloConfiguration): A Xylo configuration from `samna`.
             dt (float): The simulation time-step to use for this Module. Default: 1024e-6.
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
-            record (bool): Record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
             power_frequency (float): The frequency of power measurement in Hz. Default: 100.0Hz.
             dn_active (bool): If True, divisive normalization will be used. Defaults to True.
 
@@ -103,18 +101,6 @@ class XyloSamnaPDM(Module):
             shape=(Nin, Nhidden, Nout), spiking_input=True, spiking_output=True
         )
 
-        # HACK record tag was moved to the constructor of the class instead of evolve
-        # updating the configuration in evolve is leading to erratic behavior because of a mismatch between samna and firmware
-        if record:
-            # - Switch on reporting of input spike register pointer value
-            config.debug.debug_status_update_enable = 1
-        else:
-            config.debug.debug_status_update_enable = 0
-
-        # - Store record option
-        self._record: Optional[bool] = record
-        """ bool: Record and return all internal state of the neurons and synapses on Xylo """
-
         # - Store the device
         self._device: XyloAudio3HDK = device
         """ `.XyloHDK`: The Xylo HDK used by this module """
@@ -138,7 +124,6 @@ class XyloSamnaPDM(Module):
         config.digital_frontend.filter_bank.dn_enable = dn_active
         config.digital_frontend.pdm_preprocessing.clock_direction = 0
         config.digital_frontend.pdm_preprocessing.clock_edge = 0
-
         config.digital_frontend.hibernation_mode_enable = 0
         config.digital_frontend.filter_bank.use_global_iaf_threshold = 1
 
@@ -150,7 +135,7 @@ class XyloSamnaPDM(Module):
         # - For AFESamnaPDM, operation mode can be either manual or accelerated time
         if config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
             raise ValueError(
-                "`operation_mode` can't be RealTime for AFESamnaPDM. Options are Manual or AcceleratedTime."
+                "`operation_mode` can't be RealTime for XyloSamnaPDM. Options are Manual or AcceleratedTime."
             )
 
         # - Store the power frequency
@@ -203,7 +188,9 @@ class XyloSamnaPDM(Module):
             self._stopwatch.stop()
 
         # - Reset the HDK to clean up
-        self._device.reset_board_soft()
+        hdkutils.reset_board_blocking(
+            self._device, self._read_buffer, self._write_buffer
+        )
 
     def reset_state(self) -> "XyloSamnaPDM":
         # - Reset neuron and synapse state on Xylo
@@ -213,7 +200,9 @@ class XyloSamnaPDM(Module):
         new_config.operation_mode = samna.xyloAudio3.OperationMode.Recording
         hdkutils.apply_configuration(self._device, new_config)
         # - Reapply the user defined configuration
-        hdkutils.apply_configuration(self._device, self._config)
+        hdkutils.apply_configuration_blocking(
+            self._device, self._config, self._read_buffer, self._write_buffer
+        )
         return self
 
     def evolve(
@@ -262,7 +251,7 @@ class XyloSamnaPDM(Module):
         # - Check again if operation mode is either manual or accelerated time
         if self._config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
             raise ValueError(
-                "`operation_mode` can't be RealTime for AFESamnaPDM. Options are Manual or AcceleratedTime."
+                "`operation_mode` can't be RealTime for XyloSamnaPDM. Options are Manual or AcceleratedTime."
             )
 
         # - Get some information about the network size
@@ -318,7 +307,6 @@ class XyloSamnaPDM(Module):
                 samna.xyloAudio3.event.AfeSample(data=int(i)) for i in input_sample
             ]
             self._write_buffer.write(pdm_events)
-            # time.sleep(0.5)
 
             # - Read input spikes
             if record:
