@@ -45,7 +45,7 @@ def test_xylosamna_pdm():
         Linear((16, 63)),
         LIF((63, 63)),
         Linear((63, 32)),
-        LIF(32),
+        LIF(16),
     )
 
     net[0].weight *= 0.05
@@ -114,7 +114,7 @@ def test_xylosamna_pdm_power():
         Linear((16, 63)),
         LIF((63, 63)),
         Linear((63, 32)),
-        LIF(32),
+        LIF(16),
     )
 
     net[0].weight *= 0.05
