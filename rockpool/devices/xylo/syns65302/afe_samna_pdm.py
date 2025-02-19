@@ -37,7 +37,7 @@ XyloAudio3HDK = samna.xyloAudio3.XyloAudio3TestBoard
 __all__ = ["AFESamnaPDM"]
 
 Default_Main_Clock_Rate = 50.0  # 50 MHz
-Pdm_Clock_Rate = 1.56  # MHz
+Pdm_Clock_Rate = 1.5625  # MHz
 
 
 class AFESamnaPDM(Module):
@@ -165,22 +165,23 @@ class AFESamnaPDM(Module):
         self._config = new_config
 
     def __del__(self):
-        if self._stopwatch:
-            self._stopwatch.stop()
-
         # - Apply a default configuration to stop recording mode
-        self._device.get_model().apply_configuration(
-            samna.xyloAudio3.configuration.XyloConfiguration()
+        hdkutils.apply_configuration(
+            self._device, samna.xyloAudio3.configuration.XyloConfiguration()
         )
 
         # - Reset the HDK to clean up
-        self._device.reset_board_soft()
+        hdkutils.reset_board_blocking(
+            self._device, self._read_buffer, self._write_buffer
+        )
 
     def reset_state(self) -> "AFESamnaPDM":
         # - Reset neuron and synapse state on Xylo
         # -- To reset Samna and Firmware, we need to send a configuration with different operation mode
         # -- In AFESamnaPDM the operation mode is `Recording`. The default operation mode is `AcceleratedTime`
-        hdkutils.apply_configuration(samna.xyloAudio3.configuration.XyloConfiguration())
+        hdkutils.apply_configuration(
+            self._device, samna.xyloAudio3.configuration.XyloConfiguration()
+        )
 
         # - Reapply the user defined configuration
         hdkutils.apply_configuration(self._device, self._config)
@@ -216,14 +217,9 @@ class AFESamnaPDM(Module):
             `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
         """
 
-        # TODO: how to deal with possible change in the configuration between class initialization and evolve call
-        self._stopwatch.start()
-
         # - Calculate sample rates and `dt`-length window
-        PDM_sample_rate = 1562500
+        PDM_sample_rate = Pdm_Clock_Rate * 1e6
         PDM_samples_per_dt = PDM_sample_rate * self._dt
-        duration = len(input) / PDM_sample_rate
-        margin = duration * 0.1
 
         # - Check window length, should be integer
         if not np.allclose(PDM_samples_per_dt % 1, 0.0):
@@ -232,60 +228,92 @@ class AFESamnaPDM(Module):
             )
         PDM_samples_per_dt = int(PDM_samples_per_dt)
 
-        # - Compute number of `dt` time-steps
-        num_dt = np.size(input) // PDM_samples_per_dt
-
         # - Check input length
         if np.size(input) % PDM_samples_per_dt > 0:
             warn(
                 f"Input PDM audio trace does not fit evenly into `dt`. Audio will be trimmed at the end of the sample. input size: {np.size(input)}; PDM_samples_per_dt: {PDM_samples_per_dt}."
             )
 
-        # - Bin samples into `dt`-length windows and trim
+        # - Calculate duration of the input data
+        duration = len(input) / PDM_sample_rate
+        margin = duration * 0.1
+
+        # - Compute number of `dt` time-steps
+        # -- This is the expected timestep count from the spikes
+        num_dt = np.size(input) // PDM_samples_per_dt
+
+        if flip_and_encode:
+            # -- Flip the input signal in the beginning to avoid boundary effects
+            __input_rev = np.flip(input, axis=0)
+
+            # - Bin the flipped samples into `dt`-length windows and trim
+            input_rev_raster = np.reshape(
+                __input_rev[: num_dt * PDM_samples_per_dt], [-1, PDM_samples_per_dt]
+            )
+
+        # - Bin input samples into `dt`-length windows and trim
         input_raster = np.reshape(
             input[: num_dt * PDM_samples_per_dt], [-1, PDM_samples_per_dt]
         )
 
-        flip_and_encode_size = None
-        if flip_and_encode:
-            # -- Revert and repeat the input signal in the beginning to avoid boundary effects
-            flip_and_encode_size = np.shape(input_raster)[0]
-            __input_rev = np.flip(input_raster, axis=0)
-            input_raster = np.concatenate((__input_rev, input_raster), axis=0)
-
+        # - Clear the buffer to collect events
         self._read_buffer.clear_events()
 
         pdm_events = []
-        # - Send all the PDM data at once and extract activity
+        if flip_and_encode:
+            # - Add the flipped PDM data
+            for input_sample in tqdm(input_rev_raster):
+                pdm_events.extend(
+                    samna.xyloAudio3.event.AfeSample(data=int(i)) for i in input_sample
+                )
+
+            # - Send the flipped data to the chip
+            self._write_buffer.write(pdm_events)
+
+            # - Send a read register event to know when all the spikes that can be dropped were received
+            self._write_buffer.write(
+                [samna.xyloAudio3.event.ReadRegisterValue(address=0)]
+            )
+
+        # Start timestep counter, we care about timesteps for the input data only
+        self._stopwatch.start()
+        pdm_events = []
+        # - Add all PDM data at once and extract activity
         for input_sample in tqdm(input_raster):
             pdm_events.extend(
                 samna.xyloAudio3.event.AfeSample(data=int(i)) for i in input_sample
             )
 
         self._write_buffer.write(pdm_events)
-
         # - Send a read register event to know when all the spikes were received
         self._write_buffer.write([samna.xyloAudio3.event.ReadRegisterValue(address=0)])
 
         # - Record events
-        # - Wait for all the events received during the read timeout
+        # -- Wait for all the events received during the read timeout
         readout_events = []
         read_until = time.time() + duration + margin
+        if flip_and_encode:
+            read_until *= 2
 
         # -- We still need the loop because there is no function in samna that wait for a specific ammount of time and return all events
         ready = False
+        dropped = False
         while (now := time.time()) < read_until and not ready:
             remaining_time = read_until - now
             readout_events += self._read_buffer.get_events_blocking(
-                math.ceil(remaining_time * 1000)
+                math.ceil(remaining_time)
             )
             for ev in readout_events:
                 if (
                     isinstance(ev, samna.xyloAudio3.event.RegisterValue)
                     and ev.address == 0
                 ):
-                    ready = True
-                    readout_events.pop()
+                    if flip_and_encode and not dropped:
+                        readout_events = []
+                        dropped = True
+                    else:
+                        ready = True
+                        readout_events.pop()
 
         if len(readout_events) == 0:
             message = f"No event received in {duration}s."
@@ -336,15 +364,6 @@ class AFESamnaPDM(Module):
             rec_dict = {}
 
         self._stopwatch.stop()
-
-        if flip_and_encode:
-            size = int(len(events_ts) / 2)
-
-            # - Trim the part of the signal coresponding to __input_rev (which was added to avoid boundary effects)
-            events_ts = events_ts[size:, :]
-
-            # - Trim recordings
-            rec_dict = {k: v[flip_and_encode_size:] for k, v in rec_dict.items()}
 
         # - Return output, state, record dict
         return events_ts, self.state(), rec_dict
