@@ -2,7 +2,7 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-## [v2.10.0.dev4] -- XXXX-XX-XX
+## [v2.10.0.dev5] -- XXXX-XX-XX
 
 ### Added
 * Power measurement for XyloAudio 3

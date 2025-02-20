@@ -26,6 +26,9 @@ from rockpool.parameters import SimulationParameter
 from . import xa3_devkit_utils as hdkutils
 
 XyloAudio3HDK = samna.xyloAudio3.XyloAudio3TestBoard
+XyloAudio3ReadBuffer = samna.BasicSinkNode_xylo_audio3_event_output_event
+XyloAudio3WriteBuffer = samna.BasicSourceNode_xylo_audio3_event_input_event
+
 
 # - Typing
 from typing import Optional, Union, List, Tuple
@@ -81,7 +84,6 @@ class XyloSamnaPDM(Module):
             raise ValueError(
                 f'{output_mode} is not supported. Must be one of `["Spike", "Vmem", "Isyn"]`.'
             )
-        self._output_mode = output_mode
 
         # - Get a default configuration
         if config is None:
@@ -103,13 +105,15 @@ class XyloSamnaPDM(Module):
 
         # - Store the device
         self._device: XyloAudio3HDK = device
-        """ `.XyloHDK`: The Xylo HDK used by this module """
+        """ `.XyloAudio3HDK`: The Xylo HDK used by this module """
 
         # - Register buffers to read and write events
-        self._read_buffer = hdkutils.new_xylo_read_buffer(device)
+        self._read_buffer: XyloAudio3ReadBuffer = hdkutils.new_xylo_read_buffer(device)
         """ `.XyloAudio3ReadBuffer`: The read buffer for the connected HDK """
 
-        self._write_buffer = hdkutils.new_xylo_write_buffer(device)
+        self._write_buffer: XyloAudio3WriteBuffer = hdkutils.new_xylo_write_buffer(
+            device
+        )
         """ `.XyloAudio3WriteBuffer`: The write buffer for the connected HDK """
 
         # - Store the timestep
@@ -139,7 +143,7 @@ class XyloSamnaPDM(Module):
             )
 
         # - Store the power frequency
-        self._power_frequency = power_frequency
+        self._power_frequency: float = power_frequency
         """ float: Frequency of power monitoring, in Hz """
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
