@@ -126,7 +126,6 @@ class XyloMonitor(Module):
         config.debug.monitor_neuron_v_mem = []
         config.debug.monitor_neuron_spike = []
         config.debug.monitor_neuron_i_syn = []
-        config.debug.ram_access_enable = False
 
         # - Disable RAM access to save power
         config.debug.ram_access_enable = False
