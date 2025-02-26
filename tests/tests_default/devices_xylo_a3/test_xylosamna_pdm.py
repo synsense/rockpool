@@ -44,7 +44,7 @@ def test_xylosamna_pdm():
     net = Sequential(
         Linear((16, 63)),
         LIF((63, 63)),
-        Linear((63, 32)),
+        Linear((63, 16)),
         LIF(16),
     )
 
@@ -113,7 +113,7 @@ def test_xylosamna_pdm_power():
     net = Sequential(
         Linear((16, 63)),
         LIF((63, 63)),
-        Linear((63, 32)),
+        Linear((63, 16)),
         LIF(16),
     )
 
