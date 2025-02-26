@@ -26,6 +26,7 @@ DigitalFrontendConfig = None
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 from . import xa3_devkit_utils as hdkutils
+from .afe import params
 
 # - Typing
 from typing import Union, Tuple
@@ -37,9 +38,6 @@ XyloAudio3ReadBuffer = samna.BasicSinkNode_xylo_audio3_event_output_event
 XyloAudio3WriteBuffer = samna.BasicSourceNode_xylo_audio3_event_input_event
 
 __all__ = ["AFESamnaPDM"]
-
-Default_Main_Clock_Rate = 50.0  # 50 MHz
-Pdm_Clock_Rate = 1.5625  # MHz
 
 
 class AFESamnaPDM(Module):
@@ -54,7 +52,7 @@ class AFESamnaPDM(Module):
         # pdm_config: PdmPreprocessingConfig = None,
         # dfe_config: DigitalFrontendConfig = None,
         dt: float = 1024e-6,
-        main_clk_rate: float = Default_Main_Clock_Rate,
+        main_clk_rate: int = params.SYSTEM_CLOCK_RATE,
         dn_active: bool = True,
         *args,
         **kwargs,
@@ -68,6 +66,7 @@ class AFESamnaPDM(Module):
             device (XyloAudio3HDK): An opened `samna` device to a XyloAudio 3 dev kit
             config (XyloConfiguration): A Xylo configuration from `samna`
             dt (float): The simulation time-step to use for this Module
+            main_clk_rate (int): The main clock rate of Xylo, in Hz. Default: 50.000.000 Hz.
             dn_active (bool): If True, divisive normalization will be used. Defaults to True.
 
         Raises:
@@ -80,13 +79,13 @@ class AFESamnaPDM(Module):
             raise ValueError("`device` must be a valid, opened Xylo HDK device.")
 
         # - Configure master clock and communication bus clocks
-        hdkutils.set_xylo_core_clock_freq(device, main_clk_rate)
+        hdkutils.set_xylo_core_clock_freq(device, float(main_clk_rate / 1e6))
 
         self._stopwatch = device.get_stop_watch()
         """ `stopwatch`: The Xylo HDK control for timesteps """
 
         # - Calculate tr_wrap (clock in Hz and dt in seconds)
-        tr_wrap = main_clk_rate * 1e6 * dt
+        tr_wrap = main_clk_rate * dt
 
         # - Get a default configuration
         if config is None:
@@ -222,13 +221,12 @@ class AFESamnaPDM(Module):
         """
 
         # - Calculate sample rates and `dt`-length window
-        PDM_sample_rate = Pdm_Clock_Rate * 1e6
-        PDM_samples_per_dt = PDM_sample_rate * self._dt
+        PDM_samples_per_dt = params.PDM_SAMPLING_RATE * self._dt
 
         # - Check window length, should be integer
         if not np.allclose(PDM_samples_per_dt % 1, 0.0):
             warn(
-                f"Non-integer number of PDM samples per network `dt`. Network evolution will not be accurate. PDM_samples_per_dt: {PDM_samples_per_dt}; PDM_sample_rate: {PDM_sample_rate} Hz."
+                f"Non-integer number of PDM samples per network `dt`. Network evolution will not be accurate. PDM_samples_per_dt: {PDM_samples_per_dt}; PDM_sample_rate: {params.PDM_SAMPLING_RATE/1e6} Hz."
             )
         PDM_samples_per_dt = int(PDM_samples_per_dt)
 
@@ -239,7 +237,7 @@ class AFESamnaPDM(Module):
             )
 
         # - Calculate duration of the input data
-        duration = len(input) / PDM_sample_rate
+        duration = len(input) / params.PDM_SAMPLING_RATE
         margin = duration * 0.1
 
         # - Compute number of `dt` time-steps
