@@ -135,7 +135,6 @@ class AFESamnaPDM(Module):
         config.digital_frontend.filter_bank.dn_enable = dn_active
         config.digital_frontend.pdm_preprocessing.clock_direction = 0
         config.digital_frontend.pdm_preprocessing.clock_edge = 0
-        config.digital_frontend.filter_bank.use_global_iaf_threshold = True
         config.digital_frontend.hibernation_mode_enable = False
 
         # - Store the SNN core configuration

@@ -40,6 +40,9 @@ def test_afesamna_pdm():
 
     # - Create a Xylo module with PDM input
     dn = True
+    config = samna.xyloAudio3.configuration.XyloConfiguration()
+    # the results were generated with global threshold
+    config.digital_frontend.filter_bank.use_global_iaf_threshold = True
     xmod = AFESamnaPDM(daughterboard, dt=1024e-6, dn_active=dn)
 
     assert xmod != None
