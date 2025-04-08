@@ -155,7 +155,9 @@ class XyloMonitor(Module):
         self._io = self._device.get_io_module()
 
         # - Apply the configuration
-        hdkutils.apply_configuration(device, self._config)
+        hdkutils.apply_configuration_blocking(
+            self._device, self._config, self._read_buffer, self._write_buffer
+        )
 
         self._power_monitor = None
         """Power monitor for Xylo"""
@@ -185,7 +187,9 @@ class XyloMonitor(Module):
             raise ValueError(f"Invalid configuration for the Xylo HDK: {msg}")
 
         # - Write the configuration to the device
-        hdkutils.apply_configuration(self._device, new_config)
+        hdkutils.apply_configuration_blocking(
+            self._device, self._config, self._read_buffer, self._write_buffer
+        )
 
         # - Store the configuration locally
         self._config = new_config
@@ -217,7 +221,9 @@ class XyloMonitor(Module):
 
     def apply_configuration(self, new_config):
         # - Write the configuration to the device
-        hdkutils.apply_configuration(self._device, new_config)
+        hdkutils.apply_configuration_blocking(
+            self._device, self._config, self._read_buffer, self._write_buffer
+        )
 
         # - Store the configuration locally
         self._config = new_config
