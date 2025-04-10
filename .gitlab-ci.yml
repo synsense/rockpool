@@ -1,5 +1,5 @@
 default:
-  image: "registry.gitlab.com/synsense/rockpool/clean:latest"
+  image: "registry.gitlab.com/synsense/rockpool/test:latest"
 
 stages:
   - preliminaries
@@ -12,7 +12,7 @@ stages:
 black-check:
   stage: preliminaries
   needs: []
-  image: "registry.gitlab.com/synsense/rockpool/clean:latest"
+  image: "registry.gitlab.com/synsense/rockpool/test:latest"
   before_script:
     - pip install --upgrade pip
     - pip install black==23.1.0
@@ -22,7 +22,7 @@ black-check:
 
 gpu_validation:
   stage: preliminaries
-  image: "registry.gitlab.com/synsense/rockpool/clean:latest"
+  image: "registry.gitlab.com/synsense/rockpool/test:latest"
   allow_failure: true
   tags:
     - cuda
@@ -32,7 +32,7 @@ gpu_validation:
 
 unit_tests_clean:
   stage: test
-  image: "registry.gitlab.com/synsense/rockpool/clean:latest"
+  image: "registry.gitlab.com/synsense/rockpool/test:latest"
   tags:
     - cuda
 
