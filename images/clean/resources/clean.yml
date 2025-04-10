@@ -1,8 +1,0 @@
-channels:
-  - defaults
-  - pytorch
-  - conda-forge
-dependencies:
-  - numpy
-  - scipy
-  - python=3.11
