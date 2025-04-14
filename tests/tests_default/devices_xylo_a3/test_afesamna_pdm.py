@@ -43,13 +43,13 @@ def test_afesamna_pdm():
     config = samna.xyloAudio3.configuration.XyloConfiguration()
     # the results were generated with global threshold
     config.digital_frontend.filter_bank.use_global_iaf_threshold = True
-    xmod = AFESamnaPDM(daughterboard, dt=1024e-6, dn_active=dn)
+    xmod = AFESamnaPDM(daughterboard, config, dt=1024e-6, dn_active=dn)
 
     assert xmod != None
 
     input_pdm = np.loadtxt("tests/tests_default/models/xylo_a3_input_pdm.txt")
 
-    _, _, rd = xmod(input_pdm, record=True, flip_and_encode=True)
+    _, _, rd = xmod.evolve(input_pdm, record=True, flip_and_encode=True)
     del xmod
 
     dur = 200e-3
