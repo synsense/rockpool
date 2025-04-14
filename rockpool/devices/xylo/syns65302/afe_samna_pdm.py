@@ -54,6 +54,7 @@ class AFESamnaPDM(Module):
         dt: float = 1024e-6,
         main_clk_rate: int = params.SYSTEM_CLOCK_RATE,
         dn_active: bool = True,
+        hibernation_mode: bool = False,
         *args,
         **kwargs,
     ):
@@ -68,6 +69,8 @@ class AFESamnaPDM(Module):
             dt (float): The simulation time-step to use for this Module
             main_clk_rate (int): The main clock rate of Xylo, in Hz. Default: 50.000.000 Hz.
             dn_active (bool): If True, divisive normalization will be used. Defaults to True.
+            hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold. Defaults to False.
+
 
         Raises:
             `ValueError`: If ``device`` is not set. ``device`` must be a ``XyloAudio3HDK``.
@@ -135,7 +138,7 @@ class AFESamnaPDM(Module):
         config.digital_frontend.filter_bank.dn_enable = dn_active
         config.digital_frontend.pdm_preprocessing.clock_direction = 0
         config.digital_frontend.pdm_preprocessing.clock_edge = 0
-        config.digital_frontend.hibernation_mode_enable = False
+        config.digital_frontend.hibernation_mode_enable = hibernation_mode
 
         # - Store the SNN core configuration
         self._config: Union[

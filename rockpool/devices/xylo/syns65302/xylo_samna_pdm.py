@@ -52,6 +52,7 @@ class XyloSamnaPDM(Module):
         output_mode: str = "Spike",
         power_frequency: Optional[float] = 100.0,
         dn_active: bool = True,
+        hibernation_mode: bool = False,
         *args,
         **kwargs,
     ):
@@ -67,6 +68,8 @@ class XyloSamnaPDM(Module):
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
             power_frequency (float): The frequency of power measurement in Hz. Default: 100.0Hz.
             dn_active (bool): If True, divisive normalization will be used. Defaults to True.
+            hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold. Defaults to False.
+
 
         Raises:
             `ValueError`: If ``device`` is not set. ``device`` must be a ``XyloAudio3HDK``.
@@ -128,7 +131,7 @@ class XyloSamnaPDM(Module):
         config.digital_frontend.filter_bank.dn_enable = dn_active
         config.digital_frontend.pdm_preprocessing.clock_direction = 0
         config.digital_frontend.pdm_preprocessing.clock_edge = 0
-        config.digital_frontend.hibernation_mode_enable = 0
+        config.digital_frontend.hibernation_mode_enable = hibernation_mode
         config.digital_frontend.filter_bank.use_global_iaf_threshold = 1
 
         if config.operation_mode == samna.xyloAudio3.OperationMode.AcceleratedTime:
