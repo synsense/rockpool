@@ -163,8 +163,8 @@ class XyloMonitor(Module):
         """Power monitor for Xylo"""
 
         self._power_frequency = power_frequency
+        """Power frequency for Xylo"""
 
-        self._power_monitor = None
         self._stopwatch = None
 
         # - Set power measurement module
