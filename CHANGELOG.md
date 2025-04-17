@@ -2,20 +2,32 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-## [v2.10.0.dev5] -- XXXX-XX-XX
+## [Unreleased]
+
+### Added
+### Changed
+### Fixed
+### Deprecated
+### Removed
+### Security
+
+## [v2.9.2] -- 2025-04-17
 
 ### Added
 * Power measurement for XyloAudio 3
 * AFESamna module for XyloAudio 3: allow recording of input spikes from live microphone
+* Complete set of tutorials for XyloAudio 3
 
-### Changed
 ### Fixed
 * Remove dependence of imp module that was deprecated in Python 3.12
 * Fixed bug in multiplying `TSContinuous` objects with differing numbers of channels
 
-### Deprecated
-### Removed
-### Security
+
+## [v.2.9.1 hotfix] -- 2024-10-14
+
+### Fixed
+
+* Rockpool package was not generate on conda-forge. Update package build requirements.
 
 ## [v2.9] -- 2024-10-11
 
