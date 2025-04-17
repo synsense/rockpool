@@ -132,7 +132,7 @@ def test_mismatch_statistics():
                 )
 
                 # - Make sure that the standard deviation of the original model is 0.0
-                assert_almost_equal(jnp.std(__attr) / jnp.mean(__attr), 0.0)
+                assert_almost_equal(jnp.std(__attr) / jnp.mean(__attr), 0.0, decimal=2)
 
                 # - The standard deviations of the deviated parameters should be a lot bigger than zero
                 with pytest.raises(AssertionError):

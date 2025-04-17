@@ -59,7 +59,7 @@ class XyloMonitor(Module):
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Vmem"]``. Default: "Spike", return events from the output layer.
             dt (float): The timewindow duration, in seconds. Default: ``1e-3``, 1 ms.
             main_clk_rate (float): The main clock rate of Xylo, in MHz. Default: ``50.0``, 50 MHz.
-            hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
+            hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold. Defaults to False.
             power_frequency (float): The frequency of power measurement, in Hz. Default: ``100.0``, 100 Hz.
             dn_active (bool): If True, divisive normalization will be used. Defaults to True.
 
@@ -118,8 +118,7 @@ class XyloMonitor(Module):
         # - Activate digital microphone configuration
         config.input_source = samna.xyloAudio3.InputSource.DigitalMicrophone
         # - the ideal sdm clock ratio depends on the main clock rate
-        # -- int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
-        config.debug.sdm_clock_ratio = 24
+        config.debug.sdm_clock_ratio = int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
         config.digital_frontend.pdm_preprocessing.clock_direction = 1
         config.digital_frontend.pdm_preprocessing.clock_edge = 0
 
@@ -156,12 +155,17 @@ class XyloMonitor(Module):
         self._io = self._device.get_io_module()
 
         # - Apply the configuration
-        hdkutils.apply_configuration(device, self._config)
+        hdkutils.apply_configuration_blocking(
+            self._device, self._config, self._read_buffer, self._write_buffer
+        )
 
         self._power_monitor = None
         """Power monitor for Xylo"""
 
         self._power_frequency = power_frequency
+        """Power frequency for Xylo"""
+
+        self._stopwatch = None
 
         # - Set power measurement module
         (
@@ -183,10 +187,9 @@ class XyloMonitor(Module):
             raise ValueError(f"Invalid configuration for the Xylo HDK: {msg}")
 
         # - Write the configuration to the device
-        hdkutils.apply_configuration(self._device, new_config)
-
-        # - Disable RAM access to save power
-        hdkutils.enable_ram_access(self._device, False)
+        hdkutils.apply_configuration_blocking(
+            self._device, self._config, self._read_buffer, self._write_buffer
+        )
 
         # - Store the configuration locally
         self._config = new_config
@@ -207,19 +210,20 @@ class XyloMonitor(Module):
         """
         Delete the XyloAudio3Monitor object and reset the HDK.
         """
+        if self._stopwatch:
+            self._stopwatch.stop()
 
-        self._stopwatch.stop()
-        self._power_monitor.stop_auto_power_measurement()
+        if self._power_monitor:
+            self._power_monitor.stop_auto_power_measurement()
 
         # - Reset the HDK to clean up
         self._device.reset_board_soft()
 
     def apply_configuration(self, new_config):
         # - Write the configuration to the device
-        hdkutils.apply_configuration(self._device, new_config)
-
-        # - Disable RAM access to save power
-        hdkutils.enable_ram_access(self._device, False)
+        hdkutils.apply_configuration_blocking(
+            self._device, self._config, self._read_buffer, self._write_buffer
+        )
 
         # - Store the configuration locally
         self._config = new_config
@@ -258,9 +262,6 @@ class XyloMonitor(Module):
         read_timeout = Nt * self._dt
 
         output_events = []
-
-        # - Disable RAM access to save power
-        hdkutils.enable_ram_access(self._device, False)
 
         # - Clear the power buffer, if recording power
         if record_power:

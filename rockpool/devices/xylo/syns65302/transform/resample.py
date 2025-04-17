@@ -29,7 +29,11 @@ class ResampleAudio(Module):
         """ (float) The target output sampling rate for the audio signal."""
 
     def evolve(
-        self, signal: Union[np.ndarray, Tuple[np.ndarray, float]], record: bool = False
+        self,
+        signal: Union[np.ndarray, Tuple[np.ndarray, float]],
+        record: bool = False,
+        *args,
+        **kwargs,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
         Apply linear interpolation to the input audio signal and resample

@@ -1,4 +1,4 @@
-""" 
+"""
 This module implements the divisive normalization (DN) algorithm to balance the spike rate.
 
 NOTE: In the previous version XyloAudio 2, DN module was after the spike generation because spikes were produced asynchronously within the analog part (analog filter + leaky IF spike generator).

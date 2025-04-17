@@ -46,7 +46,9 @@ class Raster(Module):
         self.max_num_spikes: P_int = SimulationParameter(max_num_spikes)
         self.fs: P_float = SimulationParameter(fs)
 
-    def evolve(self, spikes_in: np.ndarray, record: bool = False) -> np.ndarray:
+    def evolve(
+        self, spikes_in: np.ndarray, record: bool = False, *args, **kwargs
+    ) -> np.ndarray:
         """this modules rasters the input spikes into a signal with lower clock rate.
 
         Args:

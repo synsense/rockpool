@@ -16,6 +16,7 @@ from ..syns63300.power_cycles_model import *
 
 try:
     from .xylo_samna import *
+    from .xylo_samna_pdm import *
     from .afe_samna import *
     from .xa3_devkit_utils import *
     from .xylo_monitor import *
@@ -23,6 +24,7 @@ except:
     if not backend_available("samna"):
         AFESamna = missing_backend_shim("AFESamna", "samna")
         XyloSamna = missing_backend_shim("XyloSamna", "samna")
+        XyloSamnaPDM = missing_backend_shim("XyloSamnaPDM", "samna")
         XyloMonitor = missing_backend_shim("XyloMonitor", "samna")
         config_from_specification = missing_backend_shim(
             "config_from_specification", "samna"

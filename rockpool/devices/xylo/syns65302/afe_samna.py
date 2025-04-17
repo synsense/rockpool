@@ -85,10 +85,8 @@ class AFESamna(Module):
         if device is None:
             raise ValueError("`device` must be a valid, opened XyloAudio 3 HDK.")
 
-        # - Update board configuration
-        board_config = samna.xyloAudio3.XyloAudio3TestBoardDefaultConfig()
-        board_config.main_clock_frequency = int(main_clk_rate * 1e6)
-        device.reset_board_soft(board_config)
+        # - Configure master clock and communication bus clocks
+        hdu.set_xylo_core_clock_freq(device, main_clk_rate)
 
         self._stopwatch = device.get_stop_watch()
         """ `stopwatch`: The Xylo HDK control for timesteps """
@@ -127,8 +125,8 @@ class AFESamna(Module):
         config.digital_frontend.pdm_preprocessing.clock_direction = 1
         config.digital_frontend.pdm_preprocessing.clock_edge = 0
         # -- Xylo clock frequency for PDM sampling
-        # In theory, the calculation for SDM clock should use: int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
-        config.debug.sdm_clock_ratio = 24  # int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
+        config.debug.sdm_clock_ratio = int(main_clk_rate / Pdm_Clock_Rate / 2 - 1)
+
         config.digital_frontend.filter_bank.use_global_iaf_threshold = True
 
         # - Set hibernation mode
@@ -246,10 +244,10 @@ class AFESamna(Module):
 
         if flip_and_encode:
             # - Trim the part of the signal coresponding to __input_rev (which was added to avoid boundary effects)
-            events_ts = events_ts[flip_and_encode_size:, :]
+            events_ts = events_ts[flip_and_encode_size:]
 
             # - Trim recordings
-            rec_dict = {k: v[flip_and_encode_size:, :] for k, v in rec_dict.items()}
+            rec_dict = {k: v[flip_and_encode_size:] for k, v in rec_dict.items()}
 
         # - Return output, state, record dict
         return events_ts, self.state(), rec_dict

@@ -6,7 +6,7 @@ Installing |project| and contributing
 Base requirements
 -----------------
 
-|project| requires `Python 3.8`_, numpy_ and scipy_ to install. These requirements will be installed by ``pip`` when installing |project|. We recommend using anaconda_, miniconda_ or another environment manager to keep your Python dependencies clean.
+|project| requires `Python 3.10`_, numpy_ and scipy_ to install. These requirements will be installed by ``pip`` when installing |project|. We recommend using anaconda_, miniconda_ or another environment manager to keep your Python dependencies clean.
 
 Installation using ``pip``
 --------------------------
