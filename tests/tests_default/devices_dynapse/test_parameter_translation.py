@@ -38,7 +38,6 @@ def test_digital_to_analog():
     """
     import pytest
 
-    pytest.importorskip("samna")
     pytest.importorskip("jax")
 
     from rockpool.devices.dynapse.parameters.biasgen import (
@@ -61,7 +60,6 @@ def test_analog_to_digital():
     """
     import pytest
 
-    pytest.importorskip("samna")
     pytest.importorskip("jax")
     import numpy as np
     from rockpool.devices.dynapse.parameters.biasgen import (
@@ -100,8 +98,8 @@ def test_high_level():
 
     pytest.importorskip("samna")
     pytest.importorskip("jax")
-    import samna
 
+    import samna
     from rockpool.devices.dynapse import (
         dynapsim_net_from_config,
         mapper,

@@ -62,6 +62,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    :caption: Xylo™ inference processors
 
    devices/xylo-overview.ipynb
+   devices/quick-xylo/xylo-audio-intro.ipynb
    devices/quick-xylo/deploy_to_xylo.ipynb
    devices/torch-training-spiking-for-xylo.ipynb
 
@@ -69,7 +70,6 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    :maxdepth: 1
    :caption: Xylo™Audio 2
 
-   devices/quick-xylo/xylo-audio-intro.ipynb
    devices/analog-frontend-example.ipynb
 
 .. toctree::
@@ -79,6 +79,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    devices/xylo-a3/xylo-audio3-intro.ipynb
    devices/xylo-a3/AFESim3_as_transform.ipynb
    devices/xylo-a3/Using_XyloSamna_and_XyloMonitor.ipynb
+   devices/xylo-a3/configure_BPF.ipynb
 
 .. toctree::
    :maxdepth: 1

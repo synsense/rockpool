@@ -18,15 +18,20 @@ import numpy as np
 
 import warnings
 
-import imp
-import pathlib as pl
-
-basedir = pl.Path(imp.find_module("rockpool")[1]) / "devices" / "xylo" / "syns61201"
-
 from typing import Tuple, Union
 
 from enum import IntEnum
 
+# - Locate the base directory for SYNS61201, for use in generating the LFSR code
+import inspect
+import pathlib as pl
+import rockpool.typehints as th
+
+basedir = (
+    pl.Path(*pl.Path(inspect.getfile(th)).parts[:-1]) / "devices" / "xylo" / "syns61201"
+)
+
+# - Define exports
 __all__ = [
     "LowPassMode",
     "DivisiveNormalisation",
@@ -34,7 +39,7 @@ __all__ = [
     "build_lfsr",
 ]
 
-
+# - Build an enumeration for low pass mode
 LowPassMode = IntEnum(
     "LowPassMode",
     "UNDERFLOW_PROTECT OVERFLOW_PROTECT",

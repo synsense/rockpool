@@ -1,5 +1,5 @@
 """
-Provides :py:class:`.XyloSamnaPDM`
+Provides :py:class:`.AFESamnaPDM`
 """
 
 import numpy as np
@@ -26,6 +26,9 @@ from rockpool.parameters import SimulationParameter
 from . import xa3_devkit_utils as hdkutils
 
 XyloAudio3HDK = samna.xyloAudio3.XyloAudio3TestBoard
+XyloAudio3ReadBuffer = samna.BasicSinkNode_xylo_audio3_event_output_event
+XyloAudio3WriteBuffer = samna.BasicSourceNode_xylo_audio3_event_input_event
+
 
 # - Typing
 from typing import Optional, Union, List, Tuple
@@ -42,31 +45,37 @@ class XyloSamnaPDM(Module):
     def __init__(
         self,
         device: XyloAudio3HDK,
-        snn_config: XyloConfiguration = None,
-        pdm_config: PdmPreprocessingConfig = None,
-        dfe_config: DigitalFrontendConfig = None,
-        register_config: dict = None,
+        config: XyloConfiguration = None,
+        # pdm_config: PdmPreprocessingConfig = None,
+        # dfe_config: DigitalFrontendConfig = None,
         dt: float = 1024e-6,
         output_mode: str = "Spike",
-        record: Optional[bool] = False,
-        power_frequency: Optional[float] = 5.0,
+        power_frequency: Optional[float] = 100.0,
         dn_active: bool = True,
+        hibernation_mode: bool = False,
         *args,
         **kwargs,
     ):
         """
         Instantiate a Module with Xylo dev-kit backend
+        This module uses PdmEvents as input source. It bypass the microphone, feeding the input data (PdmEvents) to the filter bank.
+        The output responses are both the generated input spikes that will be fed into the SNN core and the result of the SNN core processing.
 
         Args:
-            device (XyloAudio3HDK): An opened `samna` device to a Xylo dev kit
-            config (XyloConfiguration): A Xylo configuration from `samna`
-            dt (float): The simulation time-step to use for this Module
+            device (XyloAudio3HDK): An opened `samna` device to a XyloAudio 3 dev kit.
+            config (XyloConfiguration): A Xylo configuration from `samna`.
+            dt (float): The simulation time-step to use for this Module. Default: 1024e-6.
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Isyn", "Vmem"]``. Default: "Spike", return events from the output layer.
-            record (bool): Record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
-            power_frequency (float): The frequency of power measurement. Default: 5.0
+            power_frequency (float): The frequency of power measurement in Hz. Default: 100.0Hz.
+            dn_active (bool): If True, divisive normalization will be used. Defaults to True.
+            hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold. Defaults to False.
+
 
         Raises:
-            `Warning`: For XyloSamnaPDM ``config.input_source`` must be set to ``PdmEvents``
+            `ValueError`: If ``device`` is not set. ``device`` must be a ``XyloAudio3HDK``.
+            `ValueError`: If ``output_mode`` is not ``Spike``, ``Vmem`` or ``Isyn``.
+            `ValueError`: If ``operation_mode`` is ``RealTime``. Valid options are ``Manual`` or ``AcceleratedTime``.
+
         """
 
         # - Check input arguments
@@ -78,99 +87,87 @@ class XyloSamnaPDM(Module):
             raise ValueError(
                 f'{output_mode} is not supported. Must be one of `["Spike", "Vmem", "Isyn"]`.'
             )
-        self._output_mode = output_mode
 
         # - Get a default configuration
-        if snn_config is None:
-            snn_config = samna.xyloAudio3.configuration.XyloConfiguration()
+        if config is None:
+            config = samna.xyloAudio3.configuration.XyloConfiguration()
 
-        if snn_config.input_source is not samna.xyloAudio3.InputSource.PdmEvents:
-            warn(
-                "Changing `input_source` configuration to PdmEvents. For real monitoring or spiking signals use `XyloMonitor` or `XyloSamna`."
-            )
-            snn_config.input_source = samna.xyloAudio3.InputSource.PdmEvents
+        # - Input source must be PdmEvents
+        config.input_source = samna.xyloAudio3.InputSource.PdmEvents
 
         # - Get the network shape
-        Nin, _ = np.shape(snn_config.input.weights)
-        Nhidden, _ = np.shape(snn_config.hidden.weights)
+        Nin, _ = np.shape(config.input.weights)
+        Nhidden, _ = np.shape(config.hidden.weights)
 
-        _, Nout = np.shape(snn_config.readout.weights)
+        _, Nout = np.shape(config.readout.weights)
 
         # - Initialise the superclass
         super().__init__(
             shape=(Nin, Nhidden, Nout), spiking_input=True, spiking_output=True
         )
 
-        # HACK record tag was moved to the constructor of the class instead of evolve
-        # updating the configuration in evolve is leading to erratic behavior because of a mismatch between samna and firmware
-        if record:
-            # - Switch on reporting of input spike register pointer value
-            snn_config.debug.debug_status_update_enable = 1
-        else:
-            snn_config.debug.debug_status_update_enable = 0
-
-        # - Store record option
-        self._record: Optional[bool] = record
-        """ bool: Record and return all internal state of the neurons and synapses on Xylo """
-
         # - Store the device
         self._device: XyloAudio3HDK = device
-        """ `.XyloHDK`: The Xylo HDK used by this module """
+        """ `.XyloAudio3HDK`: The Xylo HDK used by this module """
 
         # - Register buffers to read and write events
-        self._read_buffer = hdkutils.new_xylo_read_buffer(device)
+        self._read_buffer: XyloAudio3ReadBuffer = hdkutils.new_xylo_read_buffer(device)
         """ `.XyloAudio3ReadBuffer`: The read buffer for the connected HDK """
 
-        self._write_buffer = hdkutils.new_xylo_write_buffer(device)
+        self._write_buffer: XyloAudio3WriteBuffer = hdkutils.new_xylo_write_buffer(
+            device
+        )
         """ `.XyloAudio3WriteBuffer`: The write buffer for the connected HDK """
 
         # - Store the timestep
-        self.dt: Union[float, SimulationParameter] = dt
+        self._dt: Union[float, SimulationParameter] = dt
         """ float: Simulation time-step of the module, in seconds """
 
         # - Sleep time post sending spikes on each time-step, in manual mode
         self._sleep_time = 0e-3
         """ float: Post-stimulation sleep time in seconds """
 
-        # - TODO: AFAIK these parameters are necesary to run with PDM configurations
-        # there is a discussion need in order to understand if we will only overwrite parameters
-        # or assume that the user knows what parameters he needs.
-        snn_config.debug.sdm_clock_ratio = 48
-        snn_config.digital_frontend.filter_bank.dn_enable = dn_active
-        snn_config.digital_frontend.hibernation_mode_enable = 0
-        snn_config.digital_frontend.filter_bank.use_global_iaf_threshold = 1
-        snn_config.digital_frontend.pdm_preprocessing.clock_direction = 0
-        snn_config.digital_frontend.pdm_preprocessing.clock_edge = 0
+        # - Configure parameters for PdmEvents as input source
+        config.digital_frontend.filter_bank.dn_enable = dn_active
+        config.digital_frontend.pdm_preprocessing.clock_direction = 0
+        config.digital_frontend.pdm_preprocessing.clock_edge = 0
+        config.digital_frontend.hibernation_mode_enable = hibernation_mode
+        config.digital_frontend.filter_bank.use_global_iaf_threshold = 1
 
-        if snn_config.operation_mode == samna.xyloAudio3.OperationMode.AcceleratedTime:
-            snn_config.debug.always_update_omp_stat = True
+        if config.operation_mode == samna.xyloAudio3.OperationMode.AcceleratedTime:
+            config.debug.always_update_omp_stat = True
 
-        # - Store the SNN core configuration (and apply it)
         time.sleep(self._sleep_time)
 
-        # - For XyloSamnaPDM, operation mode can be either manual or accelerated time
-        if snn_config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
+        # - For AFESamnaPDM, operation mode can be either manual or accelerated time
+        if config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
             raise ValueError(
                 "`operation_mode` can't be RealTime for XyloSamnaPDM. Options are Manual or AcceleratedTime."
             )
 
-        self.config: Union[
-            XyloConfiguration, SimulationParameter
-        ] = SimulationParameter(shape=(), init_func=lambda _: snn_config)
-        """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
-
-        self.snn_config = snn_config
+        # - Store the power frequency
+        self._power_frequency: float = power_frequency
+        """ float: Frequency of power monitoring, in Hz """
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
         self._last_record_mode: Optional[bool] = None
         """ bool: The most recent (and assumed still valid) recording mode """
 
-        # - Store the timestep
-        self.dt: Union[float, SimulationParameter] = dt
-        """ float: Simulation time-step of the module, in seconds """
+        # - Set power measurement module
+        (
+            self._power_buf,
+            self._power_monitor,
+            self._stopwatch,
+        ) = hdkutils.set_power_measurement(self._device, self._power_frequency)
+
+        # - Store the SNN core configuration
+        self._config: Union[
+            XyloConfiguration, SimulationParameter
+        ] = SimulationParameter(shape=(), init_func=lambda _: config)
+        """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Apply configuration on the board
-        hdkutils.apply_configuration(self._device, self.snn_config)
+        hdkutils.apply_configuration(self._device, self._config)
 
     @property
     def config(self):
@@ -190,34 +187,38 @@ class XyloSamnaPDM(Module):
 
         self._config = new_config
 
+    def __del__(self):
+        if self._power_monitor:
+            self._power_monitor.stop_auto_power_measurement()
+
+        if self._stopwatch:
+            self._stopwatch.stop()
+
+        # - Reset the HDK to clean up
+        hdkutils.reset_board_blocking(
+            self._device, self._read_buffer, self._write_buffer
+        )
+
     def reset_state(self) -> "XyloSamnaPDM":
         # - Reset neuron and synapse state on Xylo
-        # -- Copy values of configuration
-        operation_mode = copy.copy(self.snn_config.operation_mode)
-        status_update = copy.copy(self.snn_config.debug.debug_status_update_enable)
-
         # - To reset Samna and Firmware, we need to send a configuration with different operation mode
-        # -- Operation mode can not be RealTime in XyloSamnaPDM
-        self._config.operation_mode = (
-            samna.xyloAudio3.OperationMode.Manual
-            if self._config.operation_mode
-            == samna.xyloAudio3.OperationMode.AcceleratedTime
-            else samna.xyloAudio3.OperationMode.AcceleratedTime
-        )
-        self.snn_config.debug.debug_status_update_enable = 0
-        hdkutils.apply_configuration(self._device, self._config)
-
+        new_config = samna.xyloAudio3.configuration.XyloConfiguration()
+        # -- Guarantee a diferent operation mode, sine XyloSamna does not use Recording mode
+        new_config.operation_mode = samna.xyloAudio3.OperationMode.Recording
+        hdkutils.apply_configuration(self._device, new_config)
         # - Reapply the user defined configuration
-        self._config.operation_mode = operation_mode
-        self.snn_config.debug.debug_status_update_enable = status_update
-        hdkutils.apply_configuration(self._device, self._config)
+        hdkutils.apply_configuration_blocking(
+            self._device, self._config, self._read_buffer, self._write_buffer
+        )
         return self
 
     def evolve(
         self,
         input: np.ndarray,
         record: bool = False,
+        record_power: bool = False,
         read_timeout: float = 5.0,
+        flip_and_encode: bool = False,
         *args,
         **kwargs,
     ) -> Tuple[np.ndarray, dict, dict]:
@@ -229,8 +230,10 @@ class XyloSamnaPDM(Module):
 
         Args:
             input (np.ndarray): A vector ``(Tpdm, 1)`` with a PDM-encoded audio signal, ``1`` or ``0``. The PDM clock is always 1.5625 MHz. 32 PDM samples correspond to one audio sample passed to the band-pass filterbank (i.e. 48.828125 kHz). The network ``dt`` is independent of this sampling rate, but should be an even divisor of 48.828125 MHz (e.g. 1024 us).
-            record (bool): Deprecated parameter. Please use ``record`` from the class initialization.
-            read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
+            record (bool): Record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
+            record_power (bool): Iff ``True``, record the power consumption during each evolve.
+            read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: 5s.
+            flip_and_encode (bool): Determine if flip-and-encode should be applied to the input data. When applied, the input data will be flipped on axis=0 and concatenated to the begin of the original input data. Note that input data will have its size doubled.
 
         Returns:
             (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
@@ -239,28 +242,31 @@ class XyloSamnaPDM(Module):
             ``record_dict`` is a dictionary containing recorded internal state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
 
         Raises:
+            `ValueError`: If ``operation_mode`` is ``RealTime``. Valid options are ``Manual`` or ``AcceleratedTime``.
             `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
         """
 
-        # - Get some information about the network size
-        Nin, Nhidden, Nout = self.shape
+        if record != self._last_record_mode:
+            self._config.debug.debug_status_update_enable = record
+            self._last_record_mode = record
+            hdkutils.apply_configuration(self._device, self._config)
+
+        if record_power:
+            # clear the record buffer
+            self._power_buf.get_events()
 
         # - Check again if operation mode is either manual or accelerated time
-        if self.snn_config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
+        if self._config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
             raise ValueError(
                 "`operation_mode` can't be RealTime for XyloSamnaPDM. Options are Manual or AcceleratedTime."
             )
 
-        # HACK record is not working inside evolve and was transferred to the class initialization
-        if record:
-            warn(
-                "`record` is now a parameter in the class initialization and its behavior is not updated in the `evolve` method."
-            )
-        record = self._record
+        # - Get some information about the network size
+        Nin, Nhidden, Nout = self.shape
 
         # - Calculate sample rates and `dt`-length window
         PDM_sample_rate = 1562500
-        PDM_samples_per_dt = PDM_sample_rate * self.dt
+        PDM_samples_per_dt = PDM_sample_rate * self._dt
 
         # - Check window length, should be integer
         if not np.allclose(PDM_samples_per_dt % 1, 0.0):
@@ -283,6 +289,13 @@ class XyloSamnaPDM(Module):
             input[: num_dt * PDM_samples_per_dt], [-1, PDM_samples_per_dt]
         )
 
+        flip_and_encode_size = None
+        if flip_and_encode:
+            # -- Revert and repeat the input signal in the beginning to avoid boundary effects
+            flip_and_encode_size = np.shape(input_raster)[0]
+            __input_rev = np.flip(input_raster, axis=0)
+            input_raster = np.concatenate((__input_rev, input_raster), axis=0)
+
         # - Initialise lists for recording state
         input_spikes = []
         vmem_ts = []
@@ -293,7 +306,6 @@ class XyloSamnaPDM(Module):
         spikes_ts = []
         output_ts = []
 
-        triggered = False
         # - Send PDM data and extract activity
         for input_sample in tqdm(input_raster):
             # - Send PDM events for this dt
@@ -302,7 +314,6 @@ class XyloSamnaPDM(Module):
                 samna.xyloAudio3.event.AfeSample(data=int(i)) for i in input_sample
             ]
             self._write_buffer.write(pdm_events)
-            time.sleep(0.5)
 
             # - Read input spikes
             if record:
@@ -313,7 +324,7 @@ class XyloSamnaPDM(Module):
                 )
 
             # - Trigger processing: if manual mode, advance time step manually
-            if self.snn_config.operation_mode == samna.xyloAudio3.OperationMode.Manual:
+            if self._config.operation_mode == samna.xyloAudio3.OperationMode.Manual:
                 hdkutils.advance_time_step(self._write_buffer)
                 # - Wait until xylo has finished the simulation of this time step
                 t_start = time.time()
@@ -365,5 +376,36 @@ class XyloSamnaPDM(Module):
         else:
             rec_dict = {}
 
+        if record_power:
+            # - Get all recent power events from the power measurement
+            ps = self._power_buf.get_events()
+
+            # - Separate out power meaurement events by channel
+            channels = samna.xyloAudio3.MeasurementChannels
+            io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
+            analog_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.AnalogLogic)]
+            )
+            digital_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.DigitalLogic)]
+            )
+
+            rec_dict.update(
+                {
+                    "io_power": io_power,
+                    "analog_power": analog_power,
+                    "digital_power": digital_power,
+                }
+            )
+
+        output_ts = np.array(output_ts)
+
+        if flip_and_encode:
+            # Trim the part of the signal coresponding to __input_rev (which was added to avoid boundary effects)
+            output_ts = output_ts[flip_and_encode_size:]
+
+            # # Trim recordings
+            rec_dict = {k: v[flip_and_encode_size:] for k, v in rec_dict.items()}
+
         # - Return the output spikes, the (empty) new state dictionary, and the recorded state dictionary
-        return np.array(output_ts), {}, rec_dict
+        return output_ts, {}, rec_dict

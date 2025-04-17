@@ -41,7 +41,7 @@ class AudioQuantizer(Module):
         """The number of bits in the fractional part of the quantized signal"""
 
     def evolve(
-        self, input_data: np.ndarray, record: bool = False
+        self, input_data: np.ndarray, record: bool = False, *args, **kwargs
     ) -> Tuple[np.ndarray, dict, dict]:
         """Quantize the input signal after suitable scaling. The quantization is done using num_bits precision
 

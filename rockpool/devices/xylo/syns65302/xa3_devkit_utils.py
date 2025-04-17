@@ -172,7 +172,7 @@ def get_current_timestep(
     Args:
         read_buffer (XyloAudio3ReadBuffer): A connected read buffer for the xylo HDK
         write_buffer (XyloAudio3WriteBuffer): A connected write buffer for the Xylo HDK
-        timeout (float): A timeout for reading
+        timeout (float): A timeout for reading, in seconds. Default: ``3.0``, 3 seconds.
 
     Returns:
         int: The current timestep on the Xylo HDK
@@ -187,27 +187,29 @@ def get_current_timestep(
     start_t = time.time()
 
     # - Trigger a readout event on Xylo
-    e = samna.xyloAudio3.event.TriggerProcessing()
-    e.target_timestep = int(start_t)
+    e = samna.xyloAudio3.event.TriggerReadout()
     write_buffer.write([e])
 
     while continue_read:
-        readout_events = read_buffer.get_n_events(1, 3000)
-
-        # TODO: how to access Spike events for XyloAudio 3 instead of ReadoutEvents
-        # the condition for getting the timestep was defined previously on the filtered list
-        # ev_filt = [
-        #     e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Spike)
-        # ]
-        if readout_events:
-            timestep = readout_events[0].timestep
+        readout_events = read_buffer.get_events()
+        ev_filt = [
+            e for e in readout_events if isinstance(e, samna.xyloAudio3.event.Readout)
+        ]
+        if ev_filt:
+            timestep = ev_filt[0].timestep
             continue_read = False
         else:
             # - Check timeout
             continue_read &= (time.time() - start_t) < timeout
 
     if timestep is None:
-        raise TimeoutError(f"Timeout after {timeout}s when reading current timestep.")
+        raise TimeoutError(
+            f"Timeout after {timeout:.1f}s when reading current timestep."
+        )
+
+    # if nothing has ever processed in the chip, timestep can be negative
+    if timestep < 0:
+        timestep = 0
 
     # - Return the timestep
     return timestep
@@ -242,12 +244,13 @@ def is_xylo_ready(
     return stat2 & (1 << reg.stat2__pd__pos)
 
 
-def set_power_measure(
+def set_power_measurement(
     hdk: XyloAudio3HDK,
     frequency: Optional[float] = 5.0,
 ) -> Tuple[
     samna.BasicSinkNode_unifirm_modules_events_measurement,
     samna.boards.common.power.PowerMonitor,
+    samna.unifirm.timestamp.StopWatch,
 ]:
     """
     Initialize power consumption measure on a hdk
@@ -264,12 +267,14 @@ def set_power_measure(
     power_source = power_monitor.get_source_node()
     power_buf = samna.graph.sink_from(power_source)
     stopwatch = hdk.get_stop_watch()
+
     # Start the stopwatch to enable time-stamped power sampling
     stopwatch.start()
+
     # Start sampling power on all channels at a rate of frequency in Hz.
     power_monitor.start_auto_power_measurement(frequency)
 
-    return power_buf, power_monitor
+    return power_buf, power_monitor, stopwatch
 
 
 def apply_configuration(
@@ -287,6 +292,37 @@ def apply_configuration(
     """
     # - Ideal -- just write the configuration using samna
     hdk.get_model().apply_configuration(config)
+
+
+def apply_configuration_blocking(
+    hdk: XyloAudio3HDK,
+    config: XyloConfiguration,
+    read_buffer: XyloAudio3ReadBuffer,
+    write_buffer: XyloAudio3WriteBuffer,
+    *_,
+    **__,
+) -> None:
+    """
+    Apply a configuration to the Xylo HDK and wait for it to be applied.
+
+    Communication with the device is asynchronous, so we don't know when the configuration is finished.
+    Normally this is not a problem, because events are guaranteed to be sent in order.
+    But, in some cases, we want to let Xylo run for a specific amount of time, so we need to synchronise it
+    and the easiest way is to read a register and wait for its response.
+
+    Args:
+        hdk (XyloAudio3HDK): The Xylo HDK to write the configuration to
+        config (XyloConfiguration): A configuration for Xylo
+    """
+    hdk.get_model().apply_configuration(config)
+
+    write_buffer.write([samna.xyloAudio3.event.ReadRegisterValue(address=0)])
+    ready = False
+    while not ready:
+        events = read_buffer.get_events_blocking(timeout=1000)
+        for ev in events:
+            if isinstance(ev, samna.xyloAudio3.event.RegisterValue) and ev.address == 0:
+                ready = True
 
 
 def configure_single_step_time_mode(
@@ -417,7 +453,7 @@ def blocking_read(
             continue_read &= len(all_events) < count
 
         # - Continue reading if no events have been read
-        if not target_timestep and not count:
+        if not target_timestep and not count and not timeout:
             continue_read &= len(all_events) == 0
 
     # - Perform one final read for good measure
@@ -450,9 +486,19 @@ def read_register(
 
     # - Set up a register read
     write_buffer.write([samna.xyloAudio3.event.ReadRegisterValue(address=address)])
-    events = read_buffer.get_n_events(1, 3000)
-    assert len(events) == 1
-    return [events[0].data]
+    ready = False
+    data = []
+    while not ready:
+        events = read_buffer.get_events_blocking(timeout=int(timeout * 1000))
+        for ev in events:
+            if (
+                isinstance(ev, samna.xyloAudio3.event.RegisterValue)
+                and ev.address == address
+            ):
+                ready = True
+                data = ev.data
+
+    return [data]
 
 
 def decode_accel_mode_data(
@@ -721,20 +767,6 @@ def read_neuron_synapse_state(
     )
 
 
-def enable_ram_access(device: XyloAudio3HDK, enabled: bool) -> None:
-    """
-    Enable or disable RAM access for a Xylo device
-
-    Args:
-        device (XyloAudio3HDK): A connected XyloAudio 3 device
-        enabled (bool): If ``True``, enable memory access. If ``False``, disable memory access.
-    """
-    if enabled:
-        device.get_model().open_ram_access()
-    else:
-        device.get_model().close_ram_access()
-
-
 def decode_realtime_mode_data(
     readout_events: List[SpikeEvent],
     Nout: int,
@@ -766,3 +798,101 @@ def decode_realtime_mode_data(
 
     # - Return Vmem and spikes
     return neuronId
+
+
+def set_xylo_core_clock_freq(
+    device: XyloAudio3HDK, main_clock_frequency_MHz: float
+) -> None:
+    """
+    Set the internal core clock frequency used by Xylo
+
+    Args:
+        device (XyloAudio3HDK): A XyloAudio 3 device to configure
+        main_clock_frequency_MHz (float): The main clock frequency of XyloAudio 3 in MHz
+
+    """
+
+    # - Get a device config object to define the clocks
+    default_config = samna.xyloAudio3.XyloAudio3TestBoardDefaultConfig()
+    # - Set main clock frequency
+    default_config.main_clock_frequency = int(main_clock_frequency_MHz * 1e6)
+    default_config.pdm_clock_frequency = int((main_clock_frequency_MHz * 1e6) / 32)
+
+    # - Configure device
+    device.reset_board_soft(default_config)
+
+
+def configure_accel_time_mode(
+    config: XyloConfiguration,
+    Nout: int = 0,
+    Nhidden: int = 0,
+    readout="Spike",
+    record=False,
+) -> Tuple[XyloConfiguration]:
+    """
+    Switch on accelerated-time mode on a Xylo hdk, and configure network monitoring
+
+    Args:
+        config (XyloConfiguration): The desired Xylo configuration to use
+        Nout (int): Number of output neurons in total
+        Nhidden (Optional[int]): The number of hidden neurons for which to monitor state during evolution. Default: ``0``, don't monitor any hidden neurons.
+        readout: The readout out mode for which to output neuron states. Default: ``Spike''. Must be one of ``['Vmem', 'Spike', 'Isyn']``.
+        record (bool): Iff ``True``, record state during evolution. Default: ``False``, do not record state.
+
+    Returns:
+        XyloConfiguration: `config`
+    """
+
+    assert readout in ["Vmem", "Spike", "Isyn"], f"{readout} is not supported."
+
+    # - Select accelerated time mode, and general configuration
+    config.operation_mode = samna.xyloAudio3.OperationMode.AcceleratedTime
+    config.input_source = samna.xyloAudio3.InputSource.SpikeEvents
+
+    if record:
+        config.debug.monitor_neuron_v_mem = [i for i in range(Nhidden)]
+        config.debug.monitor_neuron_spike = [i for i in range(Nhidden)]
+        # Output Isyn is not available by default, so we add both hidden and output neurons.
+        config.debug.monitor_neuron_i_syn = [i for i in range(Nhidden + Nout)]
+        config.debug.ram_access_enable = True
+
+    else:
+        config.debug.monitor_neuron_v_mem = []
+        config.debug.monitor_neuron_spike = []
+        config.debug.monitor_neuron_i_syn = []
+        config.debug.ram_access_enable = False
+
+        if readout == "Isyn":
+            config.debug.monitor_neuron_i_syn = [i for i in range(Nhidden + Nout)]
+            config.debug.ram_access_enable = True
+        elif readout == "Vmem":
+            config.debug.monitor_neuron_v_mem = [i for i in range(Nhidden)]
+            config.debug.ram_access_enable = True
+
+    # - Return the configuration and buffer
+    return config
+
+
+def reset_board_blocking(
+    device: XyloAudio3HDK,
+    read_buffer: XyloAudio3ReadBuffer,
+    write_buffer: XyloAudio3WriteBuffer,
+) -> None:
+    """
+    Reset the HDK to clean up. Perform a register read to guarantee reset is completed.
+    Args:
+        device (XyloAudio3HDK): A XyloAudio 3 device to reset
+        read_buffer (XyloReadBuffer): A read buffer connected to the Xylo HDK
+        write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK
+
+    """
+    # - Reset device
+    device.reset_board_soft()
+
+    write_buffer.write([samna.xyloAudio3.event.ReadRegisterValue(address=0)])
+    ready = False
+    while not ready:
+        events = read_buffer.get_events_blocking(timeout=1000)
+        for ev in events:
+            if isinstance(ev, samna.xyloAudio3.event.RegisterValue) and ev.address == 0:
+                ready = True

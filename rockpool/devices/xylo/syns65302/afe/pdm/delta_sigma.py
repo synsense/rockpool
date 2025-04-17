@@ -96,6 +96,8 @@ class DeltaSigma:
         sample_rate: float = None,
         python_version: bool = False,
         record: bool = False,
+        *args,
+        **kwargs,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """this module processes the input signal and produces its corresponding sigmadelta modulation via simulating the corresponding ODE.
 

@@ -2,6 +2,18 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
+## [v2.9.2] -- 2025-04-17
+
+### Added
+* Power measurement for XyloAudio 3
+* AFESamna module for XyloAudio 3: allow recording of input spikes from live microphone
+* Complete set of tutorials for XyloAudio 3
+
+### Fixed
+* Remove dependence of imp module that was deprecated in Python 3.12
+* Fixed bug in multiplying `TSContinuous` objects with differing numbers of channels
+
+
 ## [v.2.9.1 hotfix] -- 2024-10-14
 
 ### Fixed

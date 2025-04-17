@@ -19,23 +19,17 @@ RUN apt-get clean && \
     apt-get install --no-install-recommends -y libgl1-mesa-glx libegl1-mesa libxrandr2 libxrandr2 libxss1 libxcursor1 libxcomposite1 libasound2 libxi6 libxtst6 && \
     apt-get install --no-install-recommends -y wget git ninja-build && \
     apt-get install --no-install-recommends -y pandoc && \
+    apt-get install -y python3.11 python3-pip && \
+    apt-get install -y python-is-python3 && \
+    apt-get install -y python3-tk && \
     rm -rf /var/lib/apt/lists/*
 
-# Install miniconda
-ENV CONDA_DIR $HOME/miniconda
-ENV PATH=$CONDA_DIR/bin:$PATH
-
-RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
-    bash ~/miniconda.sh -b -p $CONDA_DIR && \
-    eval "$(/root/miniconda/bin/conda shell.bash hook)" && conda init
-
 # Copy the requirements file for Rockpool
-COPY ./resources/clean.yml ./
+COPY ./resources/requirements.txt ./
 
 # Update the python environment
-RUN conda update --all && \
-    conda env update --name base --file clean.yml && \
-    rm -rf clean.yml
+RUN pip install -r requirements.txt && \
+    rm -f requirements.txt
 
 ENV CUDA_HOME=/usr/local/cuda
 

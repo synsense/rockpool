@@ -39,7 +39,7 @@ setup_args = {
         ],
         "xylo": [
             "xylosim",
-            "samna>=0.30.25.0",
+            "samna>=0.39.13",
             "bitstruct",
         ],
         "exodus": [
