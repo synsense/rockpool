@@ -276,6 +276,7 @@ Xylo™Audio 3 Support
     :template: class.rst
     :toctree: _autosummary
 
+    devices.xylo.syns65302.AFESim
     devices.xylo.syns65302.AFESimExternal
     devices.xylo.syns65302.AFESimPDM
     devices.xylo.syns65302.XyloSim

@@ -566,7 +566,7 @@ class XyloSamna(Module):
 
         # - Determine a reasonable read timeout
         if read_timeout is None:
-            read_timeout = len(input) * Nhidden / 100.0
+            read_timeout = timestep_count * Nhidden / 100.0
             read_timeout = read_timeout * 100.0 if record else read_timeout
             read_timeout = int(read_timeout)
 
