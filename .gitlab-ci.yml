@@ -55,14 +55,10 @@ unit_tests_known_good:
   # parallel: 4
 
   before_script:
-    - pip install --upgrade pip
-    - pip install --upgrade ".[all]" --no-cache-dir
-    - pip install --upgrade sinabs-exodus --no-cache-dir || exit_code=$?
-    - pip install pytest pytest-cov
-    - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
+    - pip install ".[all]" --no-cache-dir
 
   script:
-    - pytest --cov --cov-report term --cov-report xml:coverage.xml -v tests/tests_default --random-order --junitxml="test_report.xml" #--test-group-count $CI_NODE_TOTAL --test-group=$CI_NODE_INDEX 
+    - pytest --cov=tests/tests_default --cov-report term --cov-report xml:coverage.xml -v tests/tests_default --random-order --junitxml="test_report.xml"
 
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   artifacts:
