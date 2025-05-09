@@ -1,13 +1,21 @@
 # Start from a base image with cuda support (driver 525)
 FROM registry.gitlab.com/synsense/rockpool/clean:latest
 
-# Copy the requirements file for Rockpool
-COPY ./resources/known_good.yml ./
+# - Set CUDA environment
+ENV CUDA_HOME=/usr/local/cuda
 
-# Update the python environment
-RUN conda update --all && \
-    conda env update --name base --file known_good.yml && \
-    rm -rf known_good.yml
+# - Ensure we run non-interactive
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Change shell to bash
+SHELL ["/bin/bash", "--login", "-c"]
+
+# Copy the requirements file for Rockpool
+COPY ./resources/requirements.txt ./
+
+# Configure the rockpool requirements (base environment comes from clean docker image)
+RUN pip install -r requirements.txt && \
+    rm -f requirements.txt
 
 # - Set default entry command
 CMD ["/bin/bash", "--login"]
