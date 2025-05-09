@@ -244,7 +244,7 @@ class AFESamna(Module):
 
         if flip_and_encode:
             # - Trim the part of the signal coresponding to __input_rev (which was added to avoid boundary effects)
-            events_ts = events_ts[flip_and_encode_size:]
+            events_ts = events_ts[flip_and_encode_size:, :]
 
             # - Trim recordings
             rec_dict = {k: v[flip_and_encode_size:] for k, v in rec_dict.items()}
