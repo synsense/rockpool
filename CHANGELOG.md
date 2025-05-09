@@ -2,7 +2,7 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-## [v.2.9.2.1 hotfix] -- 2025-05-08
+## [v.2.9.2.1 hotfix] -- 2025-05-09
 
 ### Fixed
 
