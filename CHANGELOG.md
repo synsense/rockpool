@@ -2,6 +2,15 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
+## [Unreleased]
+
+### Added
+### Changed
+### Fixed
+### Deprecated
+### Removed
+### Security
+
 ## [v.2.9.2.1 hotfix] -- 2025-05-09
 
 ### Fixed
