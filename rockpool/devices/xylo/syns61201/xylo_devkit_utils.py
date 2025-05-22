@@ -120,28 +120,6 @@ class XyloAllRam(NamedTuple):
 from ..syns61201.xa2_devkit_utils import find_xylo_a2_boards
 
 
-def find_xylo_boards() -> List[XyloA2HDK]:
-    """
-    Search for and return a list of Xylo HDKs
-
-    Iterate over devices and search for Xylo HDKs. Return a list of available Xylo HDKs, or an empty list if none are found.
-
-    Returns:
-        List[XyloHDK]: A (possibly empty) list of Xylo HDK hdks.
-    """
-    # - Get a list of devices
-    device_list = samna.device.get_all_devices()
-
-    # - Search for a xylo dev kit
-    xylo_hdk_list = [
-        samna.device.open_device(d)
-        for d in device_list
-        if d.device_type_name == "XyloDevKit" or d.device_type_name == "XyloTestBoard"
-    ]
-
-    return xylo_hdk_list
-
-
 def zero_memory(
     write_buffer: Xylo2WriteBuffer,
 ) -> None:

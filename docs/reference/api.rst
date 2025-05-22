@@ -221,7 +221,6 @@ Support modules
     :toctree: _autosummary
     :template: module.rst
 
-    devices.xylo.syns61300
     devices.xylo.syns61201
     devices.xylo.syns65302
     devices.xylo.syns63300

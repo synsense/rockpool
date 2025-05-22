@@ -4,11 +4,9 @@ Xylo-family device simulations, deployment and HDK support
 See Also:
     See :ref:`/devices/xylo-overview.ipynb`, :ref:`/devices/torch-training-spiking-for-xylo.ipynb` and :ref:`/devices/analog-frontend-example.ipynb` for documentation of this module.
 
-    Defines the subpackages :py:mod:`.syns61201`, :py:mod:`.syns61300`, :py:mod:`.syns63300`, :py:mod:`.syns65302`
+    Defines the subpackages :py:mod:`.syns61201`, :py:mod:`.syns63300`, :py:mod:`.syns65302`
 
     Use the function :py:func:`~.devices.xylo.find_xylo_hdks` to connect and identify an HDK, detect the correct version and import the required module for support.
-
-    If you don't have a Xylo HDK, use the module :py:mod:`.syns61300` to access Xylo support.
 
 .. list-table:: Xylo versions and support modules
    :widths: 25 25 25
@@ -17,9 +15,6 @@ See Also:
    * - Chip version
      - Support module
      - Description
-   * - SYNS61300
-     - :py:mod:`~rockpool.devices.xylo.syns61300`
-     - Xylo™ SNN core only. Two synapses per neuron.
    * - SYNS61201
      - :py:mod:`~rockpool.devices.xylo.syns61201`
      - Xylo™Audio 2. Two synapses per neuron. Includes Analog audio front-end core and Xylo SNN core. Includes divisive normalisation simulation modules. Includes AFE simulation modules.
@@ -36,7 +31,6 @@ from rockpool.utilities.backend_management import (
     missing_backend_shim,
 )
 
-import rockpool.devices.xylo.syns61300 as pollen
 import rockpool.devices.xylo.syns61201 as vA2
 import rockpool.devices.xylo.syns65302 as vA3
 import rockpool.devices.xylo.syns63300 as imu
