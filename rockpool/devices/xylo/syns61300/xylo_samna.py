@@ -9,13 +9,13 @@ from os import makedirs
 # - Samna imports
 import samna
 
-from samna.xylo.configuration import (
+from samna.xyloCore2.configuration import (
     ReservoirNeuron,
     OutputNeuron,
 )
-from samna.xylo.configuration import XyloConfiguration
+from samna.xyloCore2.configuration import XyloConfiguration
 
-from samna.xylo import validate_configuration
+from samna.xyloCore2 import validate_configuration
 
 # - Rockpool imports
 from rockpool.nn.modules.module import Module
@@ -87,7 +87,7 @@ def config_from_specification(
         weight_shift_out (int): The number of bits to left-shift each output layer weight. Default: ``0``
         aliases (Optional[List[List[int]]]): For each neuron in the hidden population, a list containing the alias targets for that neuron
 
-    Returns: (:py:class:`.samna.xylo.XyloConfiguration`, bool, str): config, is_valid, message
+    Returns: (:py:class:`.samna.xyloCore2.XyloConfiguration`, bool, str): config, is_valid, message
         ``config`` will be a `XyloConfiguration`.
         ``is_valid`` will be a boolean flag ``True`` iff the configuration is valid.
         ``message`` will be an empty string if the configuration is valid, or a message indicating why the configuration is invalid.
@@ -347,7 +347,7 @@ class XyloSamna(Module):
 
         # - Get a default configuration
         if config is None:
-            config = samna.xylo.configuration.XyloConfiguration()
+            config = samna.xyloCore2.configuration.XyloConfiguration()
 
         # - Get the network shape
         Nin, Nhidden = np.shape(config.input.weights)
@@ -403,7 +403,7 @@ class XyloSamna(Module):
     @config.setter
     def config(self, new_config):
         # - Test for a valid configuration
-        is_valid, msg = samna.xylo.validate_configuration(new_config)
+        is_valid, msg = samna.xyloCore2.validate_configuration(new_config)
         if not is_valid:
             raise ValueError(f"Invalid configuration for the Xylo HDK: {msg}")
 
@@ -496,19 +496,19 @@ class XyloSamna(Module):
         # - Generate input events
         for timestep, channel, count in zip(spikes[:, 0], spikes[:, 1], counts):
             for _ in range(count):
-                event = samna.xylo.event.Spike()
+                event = samna.xyloCore2.event.Spike()
                 event.neuron_id = channel
                 event.timestamp = start_timestep + timestep
                 input_events_list.append(event)
 
         # - Add an extra event to ensure readout for entire input extent
-        event = samna.xylo.event.Spike()
+        event = samna.xyloCore2event.Spike()
         event.timestamp = final_timestep + 1
         input_events_list.append(event)
 
         # - Clear the input event count register to make sure the dummy event is ignored
         for addr in [0x0C, 0x0D, 0x0E, 0x0F]:
-            event = samna.xylo.event.WriteRegisterValue()
+            event = samna.xyloCore2.event.WriteRegisterValue()
             event.address = addr
             input_events_list.append(event)
 
@@ -581,7 +581,7 @@ class XyloSamna(Module):
         **kwargs,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
-        Evolve a network on the Xylo HDK in single-step manual mode. For debug purposes only. Uses 'samna.xylo.OperationMode.Manual' in samna.
+        Evolve a network on the Xylo HDK in single-step manual mode. For debug purposes only. Uses 'samna.xyloCore2.OperationMode.Manual' in samna.
 
         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
 
@@ -694,7 +694,7 @@ class XyloSamna(Module):
         **kwargs,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
-        Evolve a network on the Xylo HDK in single-step manual mode, while recording the entire RAM contents of Xylo. Uses 'samna.xylo.OperationMode.Manual' in samna.
+        Evolve a network on the Xylo HDK in single-step manual mode, while recording the entire RAM contents of Xylo. Uses 'samna.xyloCore2.OperationMode.Manual' in samna.
 
         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
 
@@ -851,9 +851,9 @@ class XyloSamna(Module):
         **kwargs,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
-        Evolve a network on the Xylo HDK in single-step manual mode, while recording the entire RAM and register contents of Xylo. Uses 'samna.xylo.OperationMode.Manual' in samna.
+        Evolve a network on the Xylo HDK in single-step manual mode, while recording the entire RAM and register contents of Xylo. Uses 'samna.xyloCore2.OperationMode.Manual' in samna.
 
-        Evolve a network on the Xylo HDK with manual mode. It is through 'samna.xylo.OperationMode.Manual' in samna.
+        Evolve a network on the Xylo HDK with manual mode. It is through 'samna.xyloCore2.OperationMode.Manual' in samna.
 
         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
 

@@ -5,9 +5,9 @@ def test_configure():
     pytest.importorskip("xylosim")
 
     # - Samna imports
-    from samna.xylo.configuration import ReservoirNeuron, OutputNeuron
-    from samna.xylo.configuration import XyloConfiguration
-    from samna.xylo import validate_configuration
+    from samna.xyloCore2.configuration import ReservoirNeuron, OutputNeuron
+    from samna.xyloCore2.configuration import XyloConfiguration
+    from samna.xyloCore2 import validate_configuration
     from rockpool.devices.xylo.syns61300 import XyloSim
     import numpy as np
 
@@ -144,7 +144,7 @@ def test_from_config():
 
     # - Samna imports
     from rockpool.devices.xylo.syns61300 import XyloSim, config_from_specification
-    from samna.xylo import validate_configuration
+    from samna.xyloCore2 import validate_configuration
     import numpy as np
 
     Nin = 8

@@ -10,7 +10,7 @@ See Also:
 
 # - `samna` imports
 import samna
-from samna.xylo.configuration import XyloConfiguration
+from samna.xyloCore2.configuration import XyloConfiguration
 
 # - Other imports
 from warnings import warn
@@ -24,9 +24,9 @@ import json
 from typing import Any, List, Iterable, Optional, NamedTuple, Union, Tuple
 
 XyloHDK = Any
-XyloReadBuffer = samna.BasicSinkNode_xylo_event_output_event
-XyloWriteBuffer = samna.BasicSourceNode_xylo_event_input_event
-XyloNeuronStateBuffer = samna.xylo.NeuronStateSinkNode
+XyloReadBuffer = samna.BasicSinkNode_xylo_core2_event_output_event
+XyloWriteBuffer = samna.BasicSourceNode_xylo_core2_event_input_event
+XyloNeuronStateBuffer = samna.xyloCore2.NeuronStateSinkNode
 
 
 class XyloState(NamedTuple):
@@ -309,7 +309,7 @@ def write_register(
         register (int): The address of the register to write to
         data (int): The data to write. Default: 0x0
     """
-    wwv_ev = samna.xylo.event.WriteRegisterValue()
+    wwv_ev = samna.xyloCore2.event.WriteRegisterValue()
     wwv_ev.address = register
     wwv_ev.data = data
     write_buffer.write([wwv_ev])
@@ -334,7 +334,7 @@ def read_register(
         List[int]: A list of events returned from the read
     """
     # - Set up a register read
-    rrv_ev = samna.xylo.event.ReadRegisterValue()
+    rrv_ev = samna.xyloCore2.event.ReadRegisterValue()
     rrv_ev.address = address
 
     # - Request read
@@ -385,12 +385,12 @@ def read_memory(
     read_events_list = []
 
     # - Insert an extra read to avoid zero data
-    rmv_ev = samna.xylo.event.ReadMemoryValue()
+    rmv_ev = samna.xyloCore2.event.ReadMemoryValue()
     rmv_ev.address = start_address
     read_events_list.append(rmv_ev)
 
     for elem in range(count):
-        rmv_ev = samna.xylo.event.ReadMemoryValue()
+        rmv_ev = samna.xyloCore2.event.ReadMemoryValue()
         rmv_ev.address = start_address + elem
         read_events_list.append(rmv_ev)
 
@@ -442,12 +442,12 @@ def generate_read_memory_events(
     read_events_list = []
 
     # - Insert an extra read to avoid zero data
-    rmv_ev = samna.xylo.event.ReadMemoryValue()
+    rmv_ev = samna.xyloCore2.event.ReadMemoryValue()
     rmv_ev.address = start_address
     read_events_list.append(rmv_ev)
 
     for elem in range(count):
-        rmv_ev = samna.xylo.event.ReadMemoryValue()
+        rmv_ev = samna.xyloCore2.event.ReadMemoryValue()
         rmv_ev.address = start_address + elem
         read_events_list.append(rmv_ev)
 
@@ -507,14 +507,16 @@ def verify_xylo_version(
     read_buffer.get_events()
 
     # - Read the version register
-    write_buffer.write([samna.xylo.event.ReadVersion()])
+    write_buffer.write([samna.xyloCore2.event.ReadVersion()])
 
     # - Read events until timeout
     filtered_events = []
     t_end = time.time() + timeout
     while len(filtered_events) == 0:
         events = read_buffer.get_events()
-        filtered_events = [e for e in events if isinstance(e, samna.xylo.event.Version)]
+        filtered_events = [
+            e for e in events if isinstance(e, samna.xyloCore2.event.Version)
+        ]
 
         # - Check timeout
         if time.time() > t_end:
@@ -559,7 +561,7 @@ def write_memory(
     # - Set up a list of write events
     write_event_list = []
     for elem in range(count):
-        wmv_ev = samna.xylo.event.WriteMemoryValue()
+        wmv_ev = samna.xyloCore2.event.WriteMemoryValue()
         wmv_ev.address = start_address + elem
 
         if data is not None:
@@ -1003,12 +1005,12 @@ def decode_accel_mode_data(
     # - Loop over events and decode
     for e in events:
         # - Handle an output spike event
-        if isinstance(e, samna.xylo.event.Spike):
+        if isinstance(e, samna.xyloCore2.event.Spike):
             # - Save this output event
             spikes_out_ts[e.timestamp - 1][e.neuron_id] = True
 
         # - Handle a memory value read event
-        if isinstance(e, samna.xylo.event.MemoryValue):
+        if isinstance(e, samna.xyloCore2.event.MemoryValue):
             # - Find out which memory block this event corresponds to
             memory_block = [
                 block
@@ -1035,7 +1037,7 @@ def decode_accel_mode_data(
                     spikes_ts[-1][e.address - memory_table["rspkram"][0]] = e.data
 
         # - Handle the readout event, which signals the *end* of a time step
-        if isinstance(e, samna.xylo.event.Readout):
+        if isinstance(e, samna.xyloCore2.event.Readout):
             # - Advance the timestep counter
             timestep = e.timestamp
             times.append(timestep)
@@ -1104,7 +1106,7 @@ def advance_time_step(write_buffer: XyloWriteBuffer) -> None:
     Args:
         write_buffer (XyloWriteBuffer): A write buffer connected to the Xylo HDK
     """
-    e = samna.xylo.event.TriggerProcessing()
+    e = samna.xyloCore2.event.TriggerProcessing()
     write_buffer.write([e])
 
 
@@ -1134,7 +1136,7 @@ def send_immediate_input_spikes(
     for input_channel, event in enumerate(spike_counts):
         if event:
             for _ in range(int(event)):
-                s_event = samna.xylo.event.Spike()
+                s_event = samna.xyloCore2.event.Spike()
                 s_event.neuron_id = input_channel
                 events_list.append(s_event)
 
@@ -1509,7 +1511,7 @@ def get_current_timestamp(
     read_buffer.get_events()
 
     # - Trigger a readout event on Xylo
-    e = samna.xylo.event.TriggerReadout()
+    e = samna.xyloCore2.event.TriggerReadout()
     write_buffer.write([e])
 
     # - Wait for the readout event to be sent back, and extract the timestamp
@@ -1518,7 +1520,9 @@ def get_current_timestamp(
     start_t = time.time()
     while continue_read:
         readout_events = read_buffer.get_events()
-        ev_filt = [e for e in readout_events if isinstance(e, samna.xylo.event.Readout)]
+        ev_filt = [
+            e for e in readout_events if isinstance(e, samna.xyloCore2.event.Readout)
+        ]
         if ev_filt:
             timestamp = ev_filt[0].timestamp
             continue_read = False
@@ -1563,7 +1567,7 @@ def configure_accel_time_mode(
     assert readout in ["Isyn", "Vmem", "Spike"], f"{readout} is not supported."
 
     # - Select accelerated time mode
-    config.operation_mode = samna.xylo.OperationMode.AcceleratedTime
+    config.operation_mode = samna.xyloCore2.OperationMode.AcceleratedTime
 
     config.debug.monitor_neuron_i_syn = None
     config.debug.monitor_neuron_i_syn2 = None
@@ -1571,30 +1575,34 @@ def configure_accel_time_mode(
     config.debug.monitor_neuron_v_mem = None
 
     if record:
-        config.debug.monitor_neuron_i_syn = samna.xylo.configuration.NeuronRange(
+        config.debug.monitor_neuron_i_syn = samna.xyloCore2.configuration.NeuronRange(
             0, monitor_Nhidden + monitor_Noutput
         )
-        config.debug.monitor_neuron_i_syn2 = samna.xylo.configuration.NeuronRange(
+        config.debug.monitor_neuron_i_syn2 = samna.xyloCore2.configuration.NeuronRange(
             0, monitor_Nhidden
         )
-        config.debug.monitor_neuron_spike = samna.xylo.configuration.NeuronRange(
+        config.debug.monitor_neuron_spike = samna.xyloCore2.configuration.NeuronRange(
             0, monitor_Nhidden
         )
-        config.debug.monitor_neuron_v_mem = samna.xylo.configuration.NeuronRange(
+        config.debug.monitor_neuron_v_mem = samna.xyloCore2.configuration.NeuronRange(
             0, monitor_Nhidden + monitor_Noutput
         )
 
     else:
         if readout == "Isyn":
-            config.debug.monitor_neuron_i_syn = samna.xylo.configuration.NeuronRange(
-                monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+            config.debug.monitor_neuron_i_syn = (
+                samna.xyloCore2.configuration.NeuronRange(
+                    monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+                )
             )
         # elif readout == "Spike":
         #     config.debug.monitor_neuron_spike = (
-        #         samna.xylo.configuration.NeuronRange(monitor_Nhidden, monitor_Nhidden + monitor_Noutput))
+        #         samna.xyloCore2.configuration.NeuronRange(monitor_Nhidden, monitor_Nhidden + monitor_Noutput))
         elif readout == "Vmem":
-            config.debug.monitor_neuron_v_mem = samna.xylo.configuration.NeuronRange(
-                monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+            config.debug.monitor_neuron_v_mem = (
+                samna.xyloCore2.configuration.NeuronRange(
+                    monitor_Nhidden, monitor_Nhidden + monitor_Noutput
+                )
             )
 
     # - Configure the monitor buffer
@@ -1613,7 +1621,7 @@ def configure_single_step_time_mode(config: XyloConfiguration) -> XyloConfigurat
         config (XyloConfiguration): The desired Xylo configuration to use
     """
     # - Write the configuration
-    config.operation_mode = samna.xylo.OperationMode.Manual
+    config.operation_mode = samna.xyloCore2.OperationMode.Manual
     return config
 
 
