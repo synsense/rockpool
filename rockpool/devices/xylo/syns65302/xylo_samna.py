@@ -664,7 +664,7 @@ class XyloSamna(Module):
         **kwargs,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
-        Evolve a network on the XyloAudio 3 HDK in single-step manual mode. For debug purposes only. Uses 'samna.xylo.OperationMode.Manual' in samna.
+        Evolve a network on the XyloAudio 3 HDK in single-step manual mode. For debug purposes only. Uses 'samna.xyloAudio3.OperationMode.Manual' in samna.
 
         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
 
