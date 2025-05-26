@@ -2,14 +2,11 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-## [Unreleased]
+## [v.2.9.2.2 hotfix] -- 2025-05-26
 
-### Added
-### Changed
 ### Fixed
-### Deprecated
-### Removed
-### Security
+
+* Restrict max version for samna to prevent unexpected updates breaking Rockpool
 
 ## [v.2.9.2.1 hotfix] -- 2025-05-09
 
