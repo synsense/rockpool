@@ -225,10 +225,7 @@ def config_from_specification(
     # - Build the configuration
     config = XyloConfiguration()
 
-    # - WORKAROUD: Ensure that RAM power is enabled, and the chip clock is running
-    config.debug.clock_enable = True
     config.debug.ram_power_enable = True
-
     config.synapse2_enable = enable_isyn2
     config.reservoir.aliasing = aliases is not None
     config.input.weight_bit_shift = weight_shift_in
