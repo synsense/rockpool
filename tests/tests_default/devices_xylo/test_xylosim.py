@@ -8,7 +8,7 @@ def test_configure():
     from samna.xyloCore2.configuration import ReservoirNeuron, OutputNeuron
     from samna.xyloCore2.configuration import XyloConfiguration
     from samna.xyloCore2 import validate_configuration
-    from rockpool.devices.xylo.syns61300 import XyloSim
+    from rockpool.devices.xylo.syns61201 import XyloSim
     import numpy as np
 
     # - Build a network
@@ -87,7 +87,7 @@ def test_specification():
     pytest.importorskip("xylosim")
 
     # - Rockpool imports
-    from rockpool.devices.xylo.syns61300 import XyloSim
+    from rockpool.devices.xylo.syns61201 import XyloSim
 
     import numpy as np
 
@@ -143,7 +143,7 @@ def test_from_config():
     pytest.importorskip("xylosim")
 
     # - Samna imports
-    from rockpool.devices.xylo.syns61300 import XyloSim, config_from_specification
+    from rockpool.devices.xylo.syns61201 import XyloSim, config_from_specification
     from samna.xyloCore2 import validate_configuration
     import numpy as np
 

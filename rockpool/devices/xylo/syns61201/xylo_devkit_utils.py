@@ -14,9 +14,9 @@ from rockpool.devices.xylo.syns61201.xa2_devkit_utils import (
     read_memory,
     read_output_events,
     read_register,
+    num_buffer_neurons,
     XyloState,
 )
-from rockpool.devices.xylo.syns61300.xylo_devkit_utils import num_buffer_neurons
 
 # - `samna` imports
 import samna

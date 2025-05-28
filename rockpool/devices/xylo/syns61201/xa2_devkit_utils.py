@@ -2137,3 +2137,17 @@ def read_all_xylo_register(
     for address in range(0x33):
         data = read_register(read_buffer, write_buffer, address)[0]
         print("read xylo register ", hex(address), hex(data))
+
+
+def num_buffer_neurons(Nhidden: int) -> int:
+    """
+    Number of buffer neurons required for this network on Xylo 1
+
+    Args:
+        Nhidden (int): Number of hidden layer neurons
+
+    Returns:
+        int: The number of buffer neurons
+    """
+    Nbuffer = 2 if Nhidden % 2 == 1 else 1
+    return Nbuffer
