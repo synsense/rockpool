@@ -39,7 +39,7 @@ setup_args = {
         ],
         "xylo": [
             "xylosim",
-            "samna>=0.39.13,<0.46.0",
+            "samna>=0.39.13",
             "bitstruct",
         ],
         "exodus": [
@@ -55,7 +55,7 @@ setup_args = {
         ],
         "dynapse": [
             "rockpool[jax]",
-            "samna>=0.32.1.0,<0.46.0",
+            "samna>=0.32.1.0",
         ],
         "nir": [
             "nir",
