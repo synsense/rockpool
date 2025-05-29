@@ -58,7 +58,7 @@ setup_args = {
             "samna>=0.32.1.0",
         ],
         "nir": [
-            "nir",
+            "nir <= 1.0.4",
             "nirtorch",
         ],
         "extras": [
