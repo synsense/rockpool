@@ -6,6 +6,11 @@ Includes simulation, interfacing and deployment modules.
 Provides the modules :py:class:`.AFESimExternal`, :py:class:`.AFESimPDM`, :py:class:`~.syns65302.XyloSim`, :py:class:`~.syns65302.XyloSamna`, :py:class:`~.syns65302.XyloMonitor`, and the functions :py:func:`~.syns65302.save_config`, :py:func:`~.syns65302.load_config`, :py:func:`~.syns65302.mapper`, :py:func:`~.syns65302.config_from_specification`.
 """
 
+from rockpool.utilities.backend_management import (
+    backend_available,
+    missing_backend_shim,
+)
+
 from .afe.params import *
 from .afe_sim import *
 from .xylo_mapper import *
