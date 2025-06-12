@@ -479,41 +479,9 @@ def mapper(
         source_ids = source_neurons.hw_ids
         target_ids = target_neurons.hw_ids
 
-        # TODO: evaluate the implementation of recurrency in A2 vs A1
-        # - How many synapses are used on the HW, and how many provided by the model?
-        # weight_num_synapses_hw = (
-        #     2
-        #     if len(target_neurons.input_nodes) > len(target_neurons.output_nodes)
-        #     else 1
-        # )
-
         # - Does this go in the recurrent or output weights?
         if isinstance(target_neurons, Xylo2HiddenNeurons):
             # - Recurrent weights
-            # weight_num_synapses_model = int(
-            #     np.round(w.weights.shape[1] / len(target_neurons.output_nodes))
-            # )
-
-            # # - If the model weights provide too few synapses, assume the remainder are zero
-            # if weight_num_synapses_model < weight_num_synapses_hw:
-            #     weights_model = np.zeros_like(
-            #         w.weights,
-            #         shape=(
-            #             w.weights.shape[0],
-            #             len(target_neurons.input_nodes),
-            #         ),
-            #     )
-
-            #     weights_model[
-            #         np.ix_(
-            #             range(w.weights.shape[0]),
-            #             range(w.weights.shape[1]),
-            #         )
-            #     ] = w.weights
-
-            # else:
-            #     weights_model = w.weights
-
             these_weights = np.reshape(
                 w.weights, (len(source_ids), len(target_ids), num_target_syns)
             )
