@@ -475,50 +475,42 @@ def test_ahp_LIFTorch_tau():
     mod.as_graph()
 
 
-# TODO: these tests are failing, evaluate if they make sense for A2
 
-# def test_ahp_LIFTorch_network_graph_no_recurrency():
-#     from rockpool.nn.modules import aLIFTorch, LinearTorch, LIFTorch
-#     from rockpool.nn.combinators import Sequential
+def test_ahp_LIFTorch_network_graph():
+    """Test aLIF implementation with the newer SYNS61201 mapper"""
+    from rockpool.nn.modules import aLIFTorch, LinearTorch, LIFTorch
+    from rockpool.nn.combinators import Sequential
 
-#     net = Sequential(
-#         LinearTorch((2, 5)),
-#         aLIFTorch((5, 5)),  # FFwd aLIF layer, single input synapse
-#         LinearTorch((5, 5)),
-#         aLIFTorch((5, 5), has_rec=False),  # Recurrent aLIF layer, single input synapse
-#         LinearTorch((5, 8)),
-#         LIFTorch((8, 8)),  # Non-recurrent output layer
-#     )
+    # Create a network with both feed-forward and recurrent aLIF layers
+    net = Sequential(
+        LinearTorch((2, 5)),
+        aLIFTorch((5, 5)),  # FFwd aLIF layer
+        LinearTorch((5, 5)),
+        aLIFTorch((5, 5), has_rec=True),  # Recurrent aLIF layer
+        LinearTorch((5, 8)),
+        LIFTorch((8, 8)),  # Output layer
+    )
 
-#     g = net.as_graph()
+    # Convert to graph
+    g = net.as_graph()
 
-#     from rockpool.devices.xylo.syns61201 import mapper, config_from_specification
+    # Use the newer SYNS61201 mapper
+    from rockpool.devices.xylo.syns61201 import mapper, config_from_specification
 
-#     spec = mapper(g)
-#     config, valid, msg = config_from_specification(**spec)
+    # Map the graph
+    spec = mapper(g)
+    config, valid, msg = config_from_specification(**spec)
 
-#     print(valid, msg)
+    # Verify the mapping was successful
+    assert valid, f"Mapping failed: {msg}"
 
-# Mapping of recurrent weight is different in A2 and A1
-#
-# def test_ahp_LIFTorch_network_graph_recurrency():
-#     from rockpool.nn.modules import aLIFTorch, LinearTorch, LIFTorch
-#     from rockpool.nn.combinators import Sequential
+    # Verify the weight matrices have the correct shapes
+    assert spec["weights_in"].shape[0] == 2  # Input channels
+    assert spec["weights_rec"].shape[0] == spec["weights_rec"].shape[1]  # Square matrix
+    assert spec["weights_out"].shape[1] == 8  # Output neurons
 
-#     net = Sequential(
-#         LinearTorch((2, 5)),
-#         aLIFTorch((5, 5)),  # FFwd aLIF layer, single input synapse
-#         LinearTorch((5, 5)),
-#         aLIFTorch((5, 5), has_rec=True),  # Recurrent aLIF layer, single input synapse
-#         LinearTorch((5, 8)),
-#         LIFTorch((8, 8)),  # Non-recurrent output layer
-#     )
-
-#     g = net.as_graph()
-
-#     from rockpool.devices.xylo.syns61201 import mapper, config_from_specification
-
-#     spec = mapper(g)
-#     config, valid, msg = config_from_specification(**spec)
-
-#     print(valid, msg)
+    # Verify the AHP functionality is preserved
+    # The recurrent weights should include the AHP weights on the diagonal
+    w_rec = spec["weights_rec"]
+    for i in range(w_rec.shape[0]):
+        assert w_rec[i, i] != 0, f"AHP weight missing at position {i}"
