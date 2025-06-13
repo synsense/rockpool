@@ -3,7 +3,6 @@ Package to support the Simulation of Xylo HW SYNS61300 (Xylo™ core; "Pollen")
 
 Defines the Rockpool modules :py:class:`.XyloSim`
 
-This package is aliased to :py:mod:`.rockpool.devices.xylo.pollen`
 """
 
 try:
