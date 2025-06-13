@@ -10,7 +10,7 @@ def test_imports():
         load_config,
         XyloSamna,
     )
-    import rockpool.devices.xylo.syns61201.xylo_devkit_utils as putils
+    import rockpool.devices.xylo.syns61201.xa2_devkit_utils as putils
 
 
 def test_from_specification():
