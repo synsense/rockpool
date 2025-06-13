@@ -2,12 +2,11 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-## [v.2.9.3] -- 2025-05-30
+## [v.3.0.0] -- 2025-06-13
 
 ### Removed
 
 * Remove support for XyloTestBoard, XyloDevKit and XyloAudio 1, following updates on Samna 0.46.0
-
 
 ## [v.2.9.2.2 hotfix] -- 2025-05-26
 
