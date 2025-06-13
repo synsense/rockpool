@@ -475,7 +475,6 @@ def test_ahp_LIFTorch_tau():
     mod.as_graph()
 
 
-
 def test_ahp_LIFTorch_network_graph():
     """Test aLIF implementation with the newer SYNS61201 mapper"""
     from rockpool.nn.modules import aLIFTorch, LinearTorch, LIFTorch
