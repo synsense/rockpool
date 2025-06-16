@@ -47,19 +47,6 @@ def find_xylo_hdks() -> Tuple[List["XyloHDK"], List[ModuleType], List[str]]:
             xylo_support_modules.append(x2)
             xylo_versions.append("syns61201")
 
-        elif (
-            d.device_type_name == "XyloDevKit" or d.device_type_name == "XyloTestBoard"
-        ):
-            print(
-                "The connected Xylo HDK contains a Xylo SNN core (SYNS61300). Importing `rockpool.devices.xylo.syns61300`"
-            )
-
-            import rockpool.devices.xylo.syns61300 as x1
-
-            xylo_hdks.append(samna.device.open_device(d))
-            xylo_support_modules.append(x1)
-            xylo_versions.append("syns61300")
-
         elif d.device_type_name == "XyloImuTestBoard":
             dev = samna.device.open_device(d)
 
