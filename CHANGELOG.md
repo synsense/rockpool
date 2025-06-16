@@ -8,6 +8,10 @@ All notable changes between Rockpool releases will be documented in this file
 
 * Remove support for XyloTestBoard, XyloDevKit and XyloAudio 1, following updates on Samna 0.46.0
 
+### Updated
+
+* `as_graph` method of `ahp_lif` module changed to make it compatible with the mapper of XyloAudio 2
+
 ## [v.2.9.2.2 hotfix] -- 2025-05-26
 
 ### Fixed
