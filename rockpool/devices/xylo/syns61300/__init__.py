@@ -1,5 +1,7 @@
 """
-Package to support the Simulation of Xylo HW SYNS61300 (Xylo™ core; "Pollen")
+Package to support the Simulation of the chips from Xylo™ family (Xylo™ core).
+
+This simulates the basic design of Xylo™ and serves as a base to the chips in the same family.
 
 Defines the Rockpool modules :py:class:`.XyloSim`
 
