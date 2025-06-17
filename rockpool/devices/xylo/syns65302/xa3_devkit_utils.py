@@ -272,7 +272,8 @@ def set_power_measurement(
     stopwatch.start()
 
     # Start sampling power on all channels at a rate of frequency in Hz.
-    power_monitor.start_auto_power_measurement(frequency)
+    if not power_monitor.is_auto_power_measurement_active:
+        power_monitor.start_auto_power_measurement(frequency)
 
     return power_buf, power_monitor, stopwatch
 

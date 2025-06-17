@@ -163,7 +163,8 @@ def set_power_measure(
     power_monitor = hdk.get_power_monitor()
     power_source = power_monitor.get_source_node()
     power_buf = samna.graph.sink_from(power_source)
-    power_monitor.start_auto_power_measurement(frequency)
+    if not power_monitor.is_auto_power_measurement_active:
+        power_monitor.start_auto_power_measurement(frequency)
     return power_buf, power_monitor
 
 
