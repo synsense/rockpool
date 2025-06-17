@@ -2,11 +2,11 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-## [v.3.0.0] -- 2025-06-13
+## [v.3.0.0] -- 2025-06-17
 
 ### Removed
 
-* Remove support for XyloTestBoard, XyloDevKit and XyloAudio 1, following updates on Samna 0.46.0
+* Remove support for XyloTestBoard, XyloDevKit and XyloAudio 1, following updates on Samna 0.46.0. This breaks compatibility with old versions.
 
 ### Updated
 
@@ -18,7 +18,7 @@ All notable changes between Rockpool releases will be documented in this file
 
 ### Fixed
 
-* Initialization of `XyloSamna` or `XyloMonitor` in a loop was crashing when measuring power was active. 
+* Initialization of `XyloSamna` or `XyloMonitor` in a loop was crashing when recording power. 
 
 ## [v.2.9.2.2 hotfix] -- 2025-05-26
 
