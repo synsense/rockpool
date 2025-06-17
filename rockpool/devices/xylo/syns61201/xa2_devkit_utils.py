@@ -1660,7 +1660,7 @@ def set_power_measure(
     power_buf = samna.BasicSinkNode_unifirm_modules_events_measurement()
     graph = samna.graph.EventFilterGraph()
     graph.sequential([power_monitor.get_source_node(), power_buf])
-    if not power_monitor.is_auto_power_measurement_active:
+    if not power_monitor.is_auto_power_measurement_active():
         power_monitor.start_auto_power_measurement(frequency)
     return power_buf, power_monitor
 
