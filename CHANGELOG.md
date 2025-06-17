@@ -12,6 +12,14 @@ All notable changes between Rockpool releases will be documented in this file
 
 * `as_graph` method of `ahp_lif` module changed to make it compatible with the mapper of XyloAudio 2
 
+### Added
+
+* Add missing audio samples for XyloAudio 3 tutorial `Using XyloSamna and XyloMonitor to deploy a model on XyloAudio 3 HDK`
+
+### Fixed
+
+* Initialization of `XyloSamna` or `XyloMonitor` in a loop was crashing when measuring power was active. 
+
 ## [v.2.9.2.2 hotfix] -- 2025-05-26
 
 ### Fixed
