@@ -39,7 +39,7 @@ setup_args = {
         ],
         "xylo": [
             "xylosim",
-            "samna>=0.39.13,<0.46.0",
+            "samna>=0.46.0",
             "bitstruct",
         ],
         "exodus": [
@@ -55,10 +55,10 @@ setup_args = {
         ],
         "dynapse": [
             "rockpool[jax]",
-            "samna>=0.32.1.0,<0.46.0",
+            "samna>=0.32.1.0",
         ],
         "nir": [
-            "nir",
+            "nir <= 1.0.4",
             "nirtorch",
         ],
         "extras": [
@@ -67,7 +67,7 @@ setup_args = {
             "rich",
         ],
         "all": [
-            "rockpool[numba, docs, tests, torch, jax, xylo, brian, sinabs, dynapse, extras]",
+            "rockpool[numba, docs, tests, torch, jax, xylo, brian, sinabs, dynapse, nir, extras]",
         ],
     },
     "description": "A Python package for developing, simulating and training spiking neural networks, and deploying on neuromorphic hardware",

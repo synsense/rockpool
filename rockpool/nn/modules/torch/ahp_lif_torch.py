@@ -21,6 +21,7 @@ from rockpool.graph import (
     GraphHolder,
     LIFNeuronWithSynsRealValue,
     LinearWeights,
+    as_GraphHolder,
 )
 
 __all__ = ["aLIFTorch"]
@@ -298,11 +299,10 @@ class aLIFTorch(LIFBaseTorch):
             Returns:
                 np.array: ``w_ahp``
             """
-            # - to match the shape of w_ahp with the shape of w_rec for mapper
-            # w_ahp is a vector while training but for mapper we build matrix out of that of size: (n_neurons, n_neurons)
-            w_ahp = torch.zeros((self.size_out, self.size_out))
+            # Create a matrix for AHP weights that matches the input size
+            w_ahp = torch.zeros((self.size_out, self.size_in))
             for i in range(self.size_out):
-                w_ahp[i, i] += self.w_ahp[i]
+                w_ahp[i, i % self.size_in] += self.w_ahp[i]
             return w_ahp
 
         # - Get tau_mem for export
@@ -318,39 +318,34 @@ class aLIFTorch(LIFBaseTorch):
 
         # - Generate a GraphModule for the neurons
         neurons = LIFNeuronWithSynsRealValue._factory(
-            self.size_in + self.size_out,  # Including AHP synapses
+            self.size_in,  # Removed extra AHP synapses
             self.size_out,
             f"{type(self).__name__}_{self.name}_{id(self)}",
             self,
             tau_mem,
-            tau_syn_ahp,  # Including AHP synapses
+            tau_syn_ahp,
             threshold,
             bias,
             self.dt,
         )
 
-        # - Include recurrent weights if present and combine them with ahp weights
-        # - Weights are connected over the existing input and output nodes
+        # - Include recurrent weights if present
         w_rec = (
             self.w_rec
             if hasattr(self, "w_rec")
             else torch.zeros(self.size_out, self.size_in)
         )
 
-        all_wrec = torch.cat((w_rec, w_ahp), 1)
+        # Add AHP weights to recurrent weights
+        combined_w = w_rec + w_ahp
 
         w_rec_graph = LinearWeights(
             neurons.output_nodes,
             neurons.input_nodes,
             f"{type(self).__name__}_recurrent_{self.name}_{id(self)}",
             self,
-            all_wrec.detach().numpy(),
+            combined_w.detach().numpy(),
         )
 
-        # - Return a graph containing neurons and weights, but trimming off the AHP input nodes
-        return GraphHolder(
-            neurons.input_nodes[: self.size_in],
-            neurons.output_nodes,
-            neurons.name,
-            None,
-        )
+        # - Return a graph containing neurons and weights
+        return as_GraphHolder(neurons)

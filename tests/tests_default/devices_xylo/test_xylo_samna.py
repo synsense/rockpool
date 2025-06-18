@@ -4,13 +4,13 @@ def test_imports():
     pytest.importorskip("samna")
     pytest.importorskip("xylosim")
 
-    from rockpool.devices.xylo.syns61300 import (
+    from rockpool.devices.xylo.syns61201 import (
         config_from_specification,
         save_config,
         load_config,
         XyloSamna,
     )
-    import rockpool.devices.xylo.syns61300.xylo_devkit_utils as putils
+    import rockpool.devices.xylo.syns61201.xa2_devkit_utils as putils
 
 
 def test_from_specification():
@@ -19,7 +19,7 @@ def test_from_specification():
     pytest.importorskip("samna")
     pytest.importorskip("xylosim")
 
-    from rockpool.devices.xylo.syns61300 import config_from_specification
+    from rockpool.devices.xylo.syns61201 import config_from_specification
     import numpy as np
 
     Nin = 3
@@ -50,7 +50,7 @@ def test_save_load():
     pytest.importorskip("samna")
     pytest.importorskip("xylosim")
 
-    from rockpool.devices.xylo.syns61300 import (
+    from rockpool.devices.xylo.syns61201 import (
         config_from_specification,
         save_config,
         load_config,
@@ -127,54 +127,3 @@ def test_save_load():
         config.readout.neurons[0].v_mem_decay,
         conf2.readout.neurons[0].v_mem_decay,
     )
-
-
-def test_XyloSamna():
-    import pytest
-
-    pytest.importorskip("samna")
-    pytest.importorskip("xylosim")
-
-    from rockpool.devices.xylo.syns61300 import XyloSamna, config_from_specification
-    import rockpool.devices.xylo.syns61300.xylo_devkit_utils as putils
-    import numpy as np
-
-    xylo_hdk_nodes = putils.find_xylo_boards()
-
-    if len(xylo_hdk_nodes) == 0:
-        pytest.skip("A connected Xylo HDK is required to run this test")
-
-    daughterboard = xylo_hdk_nodes[0]
-
-    # - Make a Xylo configuration
-    Nin = 3
-    Nhidden = 5
-    Nout = 2
-    dt = 1e-3
-
-    config, valid, msg = config_from_specification(
-        weights_in=np.random.uniform(-127, 127, size=(Nin, Nhidden, 2)),
-        weights_out=np.random.uniform(-127, 127, size=(Nhidden, Nout)),
-        weights_rec=np.random.uniform(-127, 127, size=(Nhidden, Nhidden, 2)),
-        dash_mem=2 * np.ones(Nhidden),
-        dash_mem_out=3 * np.ones(Nout),
-        dash_syn=4 * np.ones(Nhidden),
-        dash_syn_2=2 * np.ones(Nhidden),
-        dash_syn_out=3 * np.ones(Nout),
-        threshold=128 * np.ones(Nhidden),
-        threshold_out=256 * np.ones(Nout),
-        weight_shift_in=1,
-        weight_shift_rec=1,
-        weight_shift_out=1,
-        aliases=None,
-    )
-
-    # - Make a XyloSamna module
-    mod_xylo = XyloSamna(daughterboard, config, dt)
-
-    # - Simulate with random input
-    T = 10
-    f_rate = 0.01
-    input_ts = np.random.rand(T, Nin) < 0.01
-    mod_xylo.reset_state()
-    output_ts, _, rec_state = mod_xylo(input_ts, record=True)

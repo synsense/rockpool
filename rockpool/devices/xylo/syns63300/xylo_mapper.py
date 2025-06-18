@@ -26,7 +26,7 @@ from .xylo_graph_modules import (
     XyloIMUOutputNeurons,
     XyloIMUNeurons,
 )
-from rockpool.devices.xylo.syns61300.xylo_mapper import (
+from rockpool.devices.xylo.syns61201.xylo_mapper import (
     DRCError,
     DRCWarning,
     check_drc,

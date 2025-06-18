@@ -103,7 +103,7 @@ class XyloSim(Module):
         dt: float
             Timestep for simulation, in seconds. Default: 1ms
         config: XyloConfiguration
-            ``samna.xylo.XyloConfiguration`` object to specify all parameters. See samna documentation for details.
+            ``samna.xyloCore2.XyloConfiguration`` object to specify all parameters. See samna documentation for details.
 
         """
         cls.output_mode = output_mode

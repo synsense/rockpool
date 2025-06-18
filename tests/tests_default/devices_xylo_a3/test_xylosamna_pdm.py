@@ -68,7 +68,6 @@ def test_xylosamna_pdm():
     input_pdm = np.loadtxt("tests/tests_default/models/xylo_a3_input_pdm.txt")
 
     _, _, rd = xmod(input_pdm, record=True, flip_and_encode=True)
-    del xmod
 
     dur = 200e-3
     # result of the same data simulation
@@ -137,14 +136,12 @@ def test_xylosamna_pdm_power():
     input_pdm = np.loadtxt("tests/tests_default/models/xylo_a3_input_pdm.txt")
 
     _, _, rd_spike = xmod_spike(input_pdm, record=True, record_power=True)
-    del xmod_spike
 
     xmod_vmem = XyloSamnaPDM(
         daughterboard, config, dt=1024e-6, dn_active=dn, output_mode="Vmem"
     )
     assert xmod_vmem != None
     _, _, rd_vmem = xmod_vmem(input_pdm, record=True, record_power=True)
-    del xmod_vmem
 
     assert rd_vmem.keys()
 
