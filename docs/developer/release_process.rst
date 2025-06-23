@@ -15,6 +15,7 @@ Checklist for releasing a new |project| version
 - Check if copyright date needs to be update in ``docs/conf.py``
 - Once the merge has succeeded, delete the ``rc/...`` branch
 - Make and push a tag to the ``master`` branch for the new version (i.e. "vX.Y.Z")
+- When version update is major or minor, a new color should be picked to be used in the logo. The color should be register in `Wrike <https://www.wrike.com/open.htm?id=1682432003>`_.
 - Once all CI tasks have succeeded, a manual CI task "pypi_deploy" will be available. Run this task to deploy to PyPI. **This task must be run from the internal Rockpool repository and after the commit has been tagged**
 - A pull request for the `conda feedstock <https://github.com/ai-cortex/rockpool-feedstock>`_ should be created automatically by a conda-forge bot. Check and merge this PR to bump the version on ``conda-forge``
 - Merge ``master`` back into ``develop``

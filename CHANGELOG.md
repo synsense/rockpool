@@ -4,9 +4,10 @@ All notable changes between Rockpool releases will be documented in this file
 
 ## [vX.X.X] -- XXXX-XX-XX
 
-
 ### Added
 ### Changed
+* Update release instructions to add logo color information
+
 ### Fixed
 ### Deprecated
 ### Removed
