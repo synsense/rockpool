@@ -254,6 +254,9 @@ class XyloSamnaPDM(Module):
         if record_power:
             # clear the record buffer
             self._power_buf.get_events()
+            # Start power measurement in case is not active yet
+            if not self._power_monitor.is_auto_power_measurement_active():
+                self._power_monitor.start_auto_power_measurement(self._power_frequency)
 
         # - Check again if operation mode is either manual or accelerated time
         if self._config.operation_mode == samna.xyloAudio3.OperationMode.RealTime:
@@ -397,6 +400,10 @@ class XyloSamnaPDM(Module):
                     "digital_power": digital_power,
                 }
             )
+
+            # stop power measurement at the end of evolve
+            if self._power_monitor.is_auto_power_measurement_active():
+                self._power_monitor.stop_auto_power_measurement()
 
         output_ts = np.array(output_ts)
 

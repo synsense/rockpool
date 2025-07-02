@@ -141,6 +141,7 @@ def test_xylosamna_pdm_power():
         daughterboard, config, dt=1024e-6, dn_active=dn, output_mode="Vmem"
     )
     assert xmod_vmem != None
+
     _, _, rd_vmem = xmod_vmem(input_pdm, record=True, record_power=True)
 
     assert rd_vmem.keys()

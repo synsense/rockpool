@@ -2,6 +2,12 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
+## [v.3.0.0.1 hotfix] -- 2025-07-02
+
+### Fixed
+
+* Improve precision of power measurement by start and stop power measurement in evolve call of XyloMonitor/XyloSamna
+
 ## [v.3.0.0] -- 2025-06-17
 
 ### Removed
