@@ -19,7 +19,9 @@ RUN apt-get clean && \
     apt-get install --no-install-recommends -y libgl1-mesa-glx libegl1-mesa libxrandr2 libxrandr2 libxss1 libxcursor1 libxcomposite1 libasound2 libxi6 libxtst6 && \
     apt-get install --no-install-recommends -y wget git ninja-build && \
     apt-get install --no-install-recommends -y pandoc && \
-    apt-get install -y python3.11 python3-pip && \
+    apt-get install software-properties-common -y && \
+    add-apt-repository ppa:deadsnakes/ppa -y && \
+    apt-get install -y python3.13 python3-pip && \
     apt-get install -y python-is-python3 && \
     apt-get install -y python3-tk && \
     rm -rf /var/lib/apt/lists/*
