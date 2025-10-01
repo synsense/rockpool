@@ -1,4 +1,3 @@
-from distutils.core import setup
 import setuptools
 
 # - Read version
@@ -88,4 +87,4 @@ setup_args = {
     "include_package_data": True,
 }
 
-setup(**setup_args)
+setuptools.setup(**setup_args)
