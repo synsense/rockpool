@@ -42,7 +42,8 @@ unit_tests_clean:
     - python -c 'import samna'
     - pip install --upgrade sinabs-exodus --no-cache-dir || exit_code=$?
     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
-    - pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+    - pip install -U torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+
 
   script:
     - pytest -v tests/tests_default --random-order
