@@ -1,5 +1,5 @@
-# Start from a base image with cuda support (driver 535)
-FROM nvidia/cuda:12.1.1-devel-ubuntu22.04
+# Start from a base image with cuda support (driver 580)
+FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04
 
 # - Set CUDA environment
 ENV CUDA_HOME=/usr/local/cuda
@@ -22,11 +22,11 @@ RUN apt-get clean && \
     apt-get install software-properties-common -y && \
     add-apt-repository ppa:deadsnakes/ppa -y && \
     apt-get update && \
-    apt-get install -y python3.13-full python3-pip && \
+    apt-get install -y python3.12-full python3-pip && \
     apt-get install -y python-is-python3 && \
     apt-get install -y python3-tk && \
-    apt-get install -y python3.13-dev && \
-    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.13 1 && \
+    apt-get install -y python3.12-dev && \
+    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1 && \
     python3 -m ensurepip --upgrade && \
     pip install --upgrade setuptools[core] && \
     rm -rf /var/lib/apt/lists/*
