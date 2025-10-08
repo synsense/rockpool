@@ -249,7 +249,7 @@ def test_int_quant():
     from rockpool.transform.torch_transform import int_quant
 
     value = torch.randn(1000)
-    nbits = torch.range(2, 8)
+    nbits = torch.arange(2, 9)
 
     # verify n_levels
     for nbit in nbits:
@@ -258,7 +258,7 @@ def test_int_quant():
 
         assert len(torch.unique(rounded_levels)) <= 2**nbit - 1
         assert all(
-            i in torch.range(-N_max, N_max) for i in torch.unique(rounded_levels)
+            i in torch.arange(-N_max, N_max + 1) for i in torch.unique(rounded_levels)
         )
 
     # verifying mainain_zero with a non asymetric input
@@ -303,7 +303,8 @@ def net_test_int_quant():
 
     assert len(torch.unique(qmodel[0]._mod.weight)) <= 2**nbit - 1
     assert all(
-        i in torch.range(-N_max, N_max) for i in torch.unique(qmodel[0]._mod.weight)
+        i in torch.arange(-N_max, N_max + 1)
+        for i in torch.unique(qmodel[0]._mod.weight)
     )
 
 

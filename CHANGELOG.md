@@ -7,6 +7,7 @@ All notable changes between Rockpool releases will be documented in this file
 ### Added
 ### Changed
 * Update release instructions to add logo color information
+* Update functions and methods to be compatible with Python 3.12 and Numpy >= 2.0
 
 ### Fixed
 ### Deprecated
