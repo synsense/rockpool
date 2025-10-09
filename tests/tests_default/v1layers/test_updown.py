@@ -16,7 +16,7 @@ def test_updown():
     fl0 = FFUpDown(weights=weights, dt=0.01, thr_down=0.02, thr_up=0.01, tau_decay=0.1)
 
     # - Check layer properties
-    assert fl0.size == 4, "Problem with size"
+    assert fl0.size_out == 4, "Problem with size_out"
     assert fl0.size_in == 2, "Problem with size_in"
     assert (fl0.thr_down == np.array([0.02, 0.02])).all(), "Problem with thr_down"
     assert (fl0.thr_up == np.array([0.01, 0.01])).all(), "Problem with thr_up"
@@ -48,7 +48,7 @@ def test_updown():
         thr_up=0.01,
         tau_decay=0.1,
     )
-    assert fl1.size == fl0.size
+    assert fl1.size_out == fl0.size_out
     ts1, states, rec = fl1.evolve(tsInCont, duration=0.1)
     assert (ts1.times == np.repeat(ts0.times, 3)).all()
     assert (ts1.channels == np.repeat(ts0.channels, 3)).all()

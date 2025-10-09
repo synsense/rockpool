@@ -193,7 +193,7 @@ class SamnaAlias:
 
     @staticmethod
     def jlist_dict_alias(
-        __list_dict: List[Dict[str, SamnaAlias]]
+        __list_dict: List[Dict[str, SamnaAlias]],
     ) -> Dict[List[Dict[str, Any]]]:
         """
         jlist_dict_alias processes the list of samna object dictionaries (usually parameter map lists)

@@ -437,9 +437,7 @@ class TWrapper(TorchModule):
             kwargs["record"] = self._record
 
         # - Call module with torch functional API
-        out = torch.nn.utils.stateless.functional_call(
-            self._mod, transformed_attrs, args, kwargs
-        )
+        out = torch.func.functional_call(self._mod, transformed_attrs, args, kwargs)
 
         if not self._has_torch_api:
             self._record_dict = out[2]

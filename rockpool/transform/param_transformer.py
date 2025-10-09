@@ -85,7 +85,7 @@ class ParameterTransformerMixin(ABC):
         return f"{type(self).__name__}({self.module})"
 
     def transformed_parameters(
-        self: Union[Module, "ParameterTransformerMixin"]
+        self: Union[Module, "ParameterTransformerMixin"],
     ) -> dict:
         # - Get the base set of parameters
         params = self.parameters()

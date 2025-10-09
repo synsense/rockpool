@@ -2,6 +2,13 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
+## [v3.0.1] -- 2025-10-09
+
+### Changed
+* Update release instructions to add logo color information
+* Update functions and methods to be compatible with Python 3.12 and Numpy >= 2.0
+* Update docker image for CI pipeline
+
 ## [v.3.0.0.1 hotfix] -- 2025-07-02
 
 ### Fixed
