@@ -164,7 +164,7 @@ def update_register_field(
 def get_current_timestep(
     read_buffer: XyloAudio3ReadBuffer,
     write_buffer: XyloAudio3WriteBuffer,
-    timeout: float = 3.0,
+    timeout: float = 5.0,
 ) -> int:
     """
     Retrieve the current timestep on a Xylo HDK
@@ -272,6 +272,8 @@ def set_power_measurement(
     stopwatch.start()
 
     # Start sampling power on all channels at a rate of frequency in Hz
+    if power_monitor.is_auto_power_measurement_active():
+        power_monitor.stop_auto_power_measurement()
     if not power_monitor.is_auto_power_measurement_active():
         power_monitor.start_auto_power_measurement(frequency)
 

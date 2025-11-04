@@ -2,9 +2,17 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
+
+## [v.3.0.2] -- 2025-11-04
+
+### Fixed
+
+* Fix bug that was generating NaN values in power measurement if XyloMonitor or XyloSamna classes were initialized in a loop.
+
 ## [v3.0.1] -- 2025-10-09
 
 ### Changed
+
 * Update release instructions to add logo color information
 * Update functions and methods to be compatible with Python 3.12 and Numpy >= 2.0
 * Update docker image for CI pipeline

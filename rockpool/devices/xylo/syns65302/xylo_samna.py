@@ -419,20 +419,6 @@ class XyloSamna(Module):
         # - Apply configuration on the board
         hdkutils.apply_configuration(self._device, self._config)
 
-    def __del__(self):
-        # - Stop the readout graph buffer
-        if self._readout_graph:
-            self._readout_graph.stop()
-
-        if self._power_monitor:
-            self._power_monitor.stop_auto_power_measurement()
-
-        if self._stopwatch:
-            self._stopwatch.stop()
-
-        # - Reset the HDK to clean up
-        self._device.reset_board_soft()
-
     @property
     def config(self):
         """`.XyloConfiguration`: The HDK configuration applied to the Xylo module"""

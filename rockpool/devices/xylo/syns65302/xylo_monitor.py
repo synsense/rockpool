@@ -206,19 +206,6 @@ class XyloMonitor(Module):
         tr_wrap = int(ts * main_clk_freq)
         return tr_wrap
 
-    def __del__(self):
-        """
-        Delete the XyloAudio3Monitor object and reset the HDK.
-        """
-        if self._stopwatch:
-            self._stopwatch.stop()
-
-        if self._power_monitor:
-            self._power_monitor.stop_auto_power_measurement()
-
-        # - Reset the HDK to clean up
-        self._device.reset_board_soft()
-
     def apply_configuration(self, new_config):
         # - Write the configuration to the device
         hdkutils.apply_configuration_blocking(
