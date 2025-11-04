@@ -10,6 +10,8 @@ All notable changes between Rockpool releases will be documented in this file
 * Update functions and methods to be compatible with Python 3.12 and Numpy >= 2.0
 
 ### Fixed
+* Fix bug that was generating NaN values in power measurement if XyloMonitor or XyloSamna classes were initialized in a loop.
+
 ### Deprecated
 ### Removed
 ### Security
