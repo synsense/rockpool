@@ -549,6 +549,9 @@ class XyloSamna(Module):
         # - Clear the power recording buffer, if recording power
         if record_power:
             self._power_buf.clear_events()
+            # Start power measurement in case is not active yet
+            if not self._power_monitor.is_auto_power_measurement_active():
+                self._power_monitor.start_auto_power_measurement(self._power_frequency)
 
         # - Determine a reasonable read timeout
         if read_timeout is None:
@@ -629,6 +632,10 @@ class XyloSamna(Module):
                 }
             )
 
+            # stop power measurement at the end of evolve
+            if self._power_monitor.is_auto_power_measurement_active():
+                self._power_monitor.stop_auto_power_measurement()
+
         # - This module holds no state
         new_state = {}
 
@@ -700,6 +707,9 @@ class XyloSamna(Module):
         # - Clear the power recording buffer, if recording power
         if record_power:
             self._power_buf.clear_events()
+            # Start power measurement in case is not active yet
+            if not self._power_monitor.is_auto_power_measurement_active():
+                self._power_monitor.start_auto_power_measurement(self._power_frequency)
 
         # - Initialise lists for recording state
         vmem_ts = []
@@ -782,6 +792,10 @@ class XyloSamna(Module):
                     "digital_power": digital_power,
                 }
             )
+
+            # stop power measurement at the end of evolve
+            if self._power_monitor.is_auto_power_measurement_active():
+                self._power_monitor.stop_auto_power_measurement()
 
         # - Return the output spikes, the (empty) new state dictionary, and the recorded state dictionary
         return np.array(output_ts), {}, rec_dict

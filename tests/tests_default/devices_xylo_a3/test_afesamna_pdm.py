@@ -50,7 +50,6 @@ def test_afesamna_pdm():
     input_pdm = np.loadtxt("tests/tests_default/models/xylo_a3_input_pdm.txt")
 
     _, _, rd = xmod.evolve(input_pdm, record=True, flip_and_encode=True)
-    del xmod
 
     dur = 200e-3
     # result of the same data simulation with flip_and_encode flag
