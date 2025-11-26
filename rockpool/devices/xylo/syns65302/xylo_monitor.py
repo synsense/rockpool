@@ -253,6 +253,9 @@ class XyloMonitor(Module):
         # - Clear the power buffer, if recording power
         if record_power:
             self._power_buf.clear_events()
+            # Start power measurement in case is not active yet
+            if not self._power_monitor.is_auto_power_measurement_active():
+                self._power_monitor.start_auto_power_measurement(self._power_frequency)
 
         # - Start processing
         # -- In realtime mode, sending triggerprocessing again without target timestep is not an issue (i.e., does nothing)
@@ -283,6 +286,7 @@ class XyloMonitor(Module):
                 output_events.append(ev.output_spikes)
 
         rec_dict = {}
+
         if record_power:
             # - Get all recent power events from the power measurement
             ps = self._power_buf.get_events()
@@ -304,6 +308,10 @@ class XyloMonitor(Module):
                     "digital_power": digital_power,
                 }
             )
+
+            # stop power measurement at the end of evolve
+            if self._power_monitor.is_auto_power_measurement_active():
+                self._power_monitor.stop_auto_power_measurement()
 
         # - Return the output spikes, the (empty) new state dictionary, and the recorded power dictionary
         output_events = np.stack(output_events)

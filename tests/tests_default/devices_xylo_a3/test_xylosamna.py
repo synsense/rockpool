@@ -148,8 +148,6 @@ def test_XyloSamna_power():
     assert modXyloSamna._output_mode == "Vmem"
     assert "io_power" in rd
 
-    del modXyloSamna
-
     # - Make a XyloSamna module for Isyn
     modXyloSamna = XyloSamna(device=daughterboard, config=config, output_mode="Isyn")
     _, _, rd = modXyloSamna.evolve(input_spikes, record=True, record_power=True)
@@ -158,8 +156,6 @@ def test_XyloSamna_power():
     assert modXyloSamna._output_mode == "Isyn"
     assert "io_power" in rd
 
-    del modXyloSamna
-
     # - Make a XyloSamna module for Spike
     modXyloSamna = XyloSamna(device=daughterboard, config=config)
     _, _, rd = modXyloSamna.evolve(input_spikes, record=True, record_power=True)
@@ -167,8 +163,6 @@ def test_XyloSamna_power():
     assert modXyloSamna != None
     assert modXyloSamna._output_mode == "Spike"
     assert "io_power" in rd
-
-    del modXyloSamna
 
 
 def test_save_load():
