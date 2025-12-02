@@ -4,6 +4,7 @@ All notable changes between Rockpool releases will be documented in this file
 
 ### Unreleased
 
+* Update documentation: now typehint from function descriptions appear also in parameter description automatically
 
 ## [v.3.0.2] -- 2025-11-04
 
