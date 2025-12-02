@@ -3,7 +3,7 @@ Package to support the Xylo HW SYNS65302 (Xylo™Audio 3)
 
 Includes simulation, interfacing and deployment modules.
 
-Provides the modules :py:class:`.AFESimExternal`, :py:class:`.AFESimPDM`, :py:class:`~.syns65302.XyloSim`, :py:class:`~.syns65302.XyloSamna`, :py:class:`~.syns65302.XyloMonitor`, and the functions :py:func:`~.syns65302.save_config`, :py:func:`~.syns65302.load_config`, :py:func:`~.syns65302.mapper`, :py:func:`~.syns65302.config_from_specification`.
+Provides the modules :py:class:`.AFESimExternal`, :py:class:`.AFESimPDM`, :py:class:`~.syns65302.XyloSim`, :py:class:`~.syns65302.AFESamna`, :py:class:`~.syns65302.XyloSamna`, :py:class:`~.syns65302.XyloSamnaPDM`, :py:class:`~.syns65302.XyloMonitor`, and the functions :py:func:`~.syns65302.save_config`, :py:func:`~.syns65302.load_config`, :py:func:`~.syns65302.mapper`, :py:func:`~.syns65302.config_from_specification`.
 """
 
 from rockpool.utilities.backend_management import (
