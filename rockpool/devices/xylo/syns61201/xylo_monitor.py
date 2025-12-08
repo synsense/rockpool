@@ -299,7 +299,9 @@ class XyloMonitor(Module):
                 "Recording internal state in real-time mode is not permitted by XyloAudio 2."
             )
 
-        Nt, nout = input_data.shape
+        Nt = input_data.shape[0]
+        # - Get the number of output neurons in the last layer
+        Nout = np.shape(self._config.readout.weights)[1]
         out = []
         count = 0
 
@@ -316,7 +318,11 @@ class XyloMonitor(Module):
 
             if output[0]:
                 self._state_buffer.reset()
-                count += len(output) / nout
+                # - The size of the output should match the number of output neurons
+                # -- Every timestep should have #output_neurons size
+                # -- at the end of this processing if `out` size is not exactly the size of input
+                # -- something is wrong
+                count += len(output) / Nout
                 out.append([sub[-1] for sub in output])
 
         rec_dict = {}
