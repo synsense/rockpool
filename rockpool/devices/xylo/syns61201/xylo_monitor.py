@@ -296,10 +296,10 @@ class XyloMonitor(Module):
         # - Check `record` flag
         if record:
             raise ValueError(
-                "Recording internal state is not supported by XyloIMUMonitor."
+                "Recording internal state in real-time mode is not permitted by XyloAudio 2."
             )
 
-        Nt = input_data.shape[0]
+        Nt, nout = input_data.shape
         out = []
         count = 0
 
@@ -316,7 +316,7 @@ class XyloMonitor(Module):
 
             if output[0]:
                 self._state_buffer.reset()
-                count += len(output)
+                count += len(output) / nout
                 out.append([sub[-1] for sub in output])
 
         rec_dict = {}
