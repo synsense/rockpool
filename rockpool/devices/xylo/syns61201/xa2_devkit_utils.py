@@ -498,7 +498,7 @@ def blocking_read(
 
             if timestamps:
                 reached_timestamp = timestamps[-1] >= target_timestamp
-                continue_read &= ~reached_timestamp
+                continue_read &= not (reached_timestamp)
 
         # - Check timeout
         if timeout:
