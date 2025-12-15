@@ -5,6 +5,7 @@ All notable changes between Rockpool releases will be documented in this file
 ### Unreleased
 
 * Update documentation: now typehint from function descriptions appear also in parameter description automatically
+* Fix bug on timestep count in real-time mode for XyloAudio 2
 
 ## [v.3.0.2] -- 2025-11-04
 
