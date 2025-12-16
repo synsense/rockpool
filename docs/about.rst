@@ -35,17 +35,56 @@ If you use Rockpool in your academic work, we would appreciate a citation! You c
 Or using the bibtex block::
 
     @misc{muir_dylan_2019_4639684,
-      author       = {Muir, Dylan R. and
-                      Bauer, Felix and
-                      Weidel, Philipp},
-      title        = {Rockpool Documentaton},
-      month        = sep,
-      year         = 2019,
-      publisher    = {Zenodo},
-      doi          = {10.5281/zenodo.3773845},
-      url          = {https://doi.org/10.5281/zenodo.3773845}
+        author    = {Muir, Dylan R. and
+                    Bauer, Felix and
+                    Weidel, Philipp},
+        title     = {Rockpool Documentaton},
+        month     = sep,
+        year      = 2019,
+        publisher = {Zenodo},
+        doi       = {10.5281/zenodo.3773845},
+        url       = {https://doi.org/10.5281/zenodo.3773845}
     }
 
+
+Citing Xylo (Audio 2, Audio 3 or IMU)
+-------------------------------------
+
+Please cite us as
+
+    Bos, H., & Muir, D. (2023). Sub-mw neuromorphic snn audio processing applications with rockpool and xylo.
+    In Embedded Artificial Intelligence (pp. 69-78). River Publishers.
+
+Or using the bibtex block::
+
+    @incollection{bos2023sub,
+        title     = {Sub-mw neuromorphic snn audio processing applications with rockpool and xylo},
+        author    = {Bos, Hannah and Muir, Dylan},
+        booktitle = {Embedded Artificial Intelligence},
+        pages     = {69--78},
+        year      = {2023},
+        publisher = {River Publishers}
+    }
+
+Citing DYNAP-SE2
+----------------
+
+Please cite us as
+
+    Ole Richter et al. (2024) Neuromorph. Comput. Eng. 4 014003
+
+Or using the bibtex block::
+
+    @article{richter2024dynap,
+        title     = {DYNAP-SE2: a scalable multi-core dynamic neuromorphic asynchronous spiking neural network processor},
+        author    = {Richter, Ole and Wu, Chenxi and Whatley, Adrian M and K{\"o}stinger, German and Nielsen, Carsten and Qiao, Ning and Indiveri, Giacomo},
+        journal   = {Neuromorphic computing and engineering},
+        volume    = {4},
+        number    = {1},
+        pages     = {014003},
+        year      = {2024},
+        publisher = {IOP Publishing}
+    }
 
 About SynSense
 --------------
