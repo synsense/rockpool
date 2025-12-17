@@ -2,12 +2,13 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-### Unreleased
+## [v.3.0.3] -- 2025-12-17
 
 * Update documentation: now typehint from function descriptions appear also in parameter description automatically
 * Fix bug on timestep count in real-time mode for XyloAudio 2
-* Update documentaion: Add bibtex references for hardware that can be used with Rockpool
+* Update documentaion: Add bibtex references for SynSense hardware that can be used with Rockpool
 * Update documentation: fix typos and minor bugs on tutorials for XyloAudio 2 and XyloAudio 3
+* Update documentation on Zenodo
 
 ## [v.3.0.2] -- 2025-11-04
 
