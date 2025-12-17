@@ -160,7 +160,7 @@ To run all the unit tests for |project|, use ``pytest``:
     $ pip install ".[tests]"
     $ pytest tests
 
-.. _Python 3.8: https://python.org
+.. _Python 3.10: https://python.org
 .. _numpy: https://www.numpy.org
 .. _scipy: https://www.scipy.org
 .. _numba: https://numba.pydata.org

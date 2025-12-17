@@ -21,6 +21,7 @@ Checklist for releasing a new |project| version
 - Merge ``master`` back into ``develop``
 - Bump the version number in the ``develop`` branch to something like "vX.Y.Z.dev"
 - Update ``CHANGELOG.md``in the ``develop`` branch to "[Unreleased]" and complete headings (as listed below)
+- Generate a new PDF for the documentation to be uploaded to Zenodo. Contact the developer with Zenodo permissions for the update.
 - Notify all the developer a new version is out and that they need to update their branches
 
 
