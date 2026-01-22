@@ -36,5 +36,8 @@ except:
         )
         save_config = missing_backend_shim("save_config", "samna")
         load_config = missing_backend_shim("load_config", "samna")
+        cycles_model = missing_backend_shim("cycles_model", "samna")
+        est_clock_freq = missing_backend_shim("est_clock_freq", "samna")
+
     else:
         raise
