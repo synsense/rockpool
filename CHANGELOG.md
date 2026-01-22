@@ -7,6 +7,9 @@ All notable changes between Rockpool releases will be documented in this file
 ### Added
 ### Changed
 ### Fixed
+
+* Update internal clocks of XyloIMU automatically when updating the main clock frequency.
+
 ### Deprecated
 ### Removed
 ### Security
