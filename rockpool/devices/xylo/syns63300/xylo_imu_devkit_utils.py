@@ -399,9 +399,6 @@ def decode_accel_mode_data(
         if type(ev) is ReadoutEvent:
             timestep = ev.timestep - T_start
 
-            if timestep >= T_end:
-                break
-
             vmems = ev.neuron_v_mems
             isyns = ev.neuron_i_syns
 
