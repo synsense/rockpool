@@ -161,10 +161,15 @@ def set_power_measure(
         power_monitor: The power monitoring object
     """
     power_monitor = hdk.get_power_monitor()
+
     power_source = power_monitor.get_source_node()
     power_buf = samna.graph.sink_from(power_source)
-    if not power_monitor.is_auto_power_measurement_active():
-        power_monitor.start_auto_power_measurement(frequency)
+
+    # force restart of power measurement
+    if power_monitor.is_auto_power_measurement_active():
+        power_monitor.stop_auto_power_measurement()
+
+    power_monitor.start_auto_power_measurement(frequency)
     return power_buf, power_monitor
 
 
@@ -393,16 +398,20 @@ def decode_accel_mode_data(
     for ev in readout_events:
         if type(ev) is ReadoutEvent:
             timestep = ev.timestep - T_start
-            vmems = ev.neuron_v_mems
-            vmem_ts[timestep, 0:Nhidden_monitor] = vmems[0:Nhidden_monitor]
-            vmem_out_ts[timestep, 0:Nout] = ev.output_v_mems
 
+            if timestep >= T_end:
+                break
+
+            vmems = ev.neuron_v_mems
             isyns = ev.neuron_i_syns
+
+            vmem_ts[timestep, 0:Nhidden_monitor] = vmems[0:Nhidden_monitor]
             isyn_ts[timestep, 0:Nhidden_monitor] = isyns[0:Nhidden_monitor]
             isyn_out_ts[timestep, 0:Nout] = isyns[
                 Nhidden_monitor : Nhidden_monitor + Nout_monitor
             ]
 
+            vmem_out_ts[timestep, 0:Nout] = ev.output_v_mems
             spikes_ts[timestep] = ev.hidden_spikes
             output_ts[timestep] = ev.output_spikes
 
@@ -728,21 +737,26 @@ def write_imu_register(
 
 def set_xylo_core_clock_freq(device: XyloIMUHDK, desired_freq_MHz: float) -> float:
     """
-    Set the inference core clock frequency used by Xylo
+    Set the inference core clock frequency used by Xylo.
 
     Args:
         device (XyloIMUHDK): A Xylo device to configure
         desired_freq_MHz (float): The desired Xylo core clock frequency in MHz
 
     Returns:
-        (float): Actual frequency obtained, in MHz
+        (float): Actual clock frequency obtained, in MHz
     """
     # - Determine wait period and actual obtained clock frequency
     wait_period = int(np.ceil(round(100 / desired_freq_MHz) / 2 - 1))
     actual_freq = 100 / (2 * (wait_period + 1))
 
-    # - Configure device
+    saer_freq = int(actual_freq * 1e6 / 8)
+    spi_freq = int(actual_freq * 1e6 / 20)
+
+    # - Configure main, saer and spi clocks
     device.get_io_module().set_main_clk_rate(int(actual_freq * 1e6))
+    device.get_io_module().set_saer_clk_rate(saer_freq)
+    device.get_io_module().set_spi_clk_rate(spi_freq)
 
     return actual_freq
 
