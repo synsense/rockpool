@@ -85,7 +85,7 @@ class AFESamna(Module):
             device (AFE2HDK): A connected AFE2 HDK device.
             config (AFE2Configuration): A samna AFE2 configuration object.
             dt (float): The desired spike time resolution in seconds.
-            auto_calibrate (bool): If True, will apply auto-calibration.
+            auto_calibrate (bool): If True, will apply auto-calibration. Defaults to False.
             amplify_level(str): The level of volume gain. Defaul "low" is the one without gain.
             change_count (int): If is not None, AFE event counter will change from outputting 1 spike out of 4 into outputting 1 out of change_count.
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.

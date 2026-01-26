@@ -56,6 +56,7 @@ class XyloMonitor(Module):
         calibration_params: Optional[dict] = {},
         read_register: bool = False,
         power_frequency: float = 5.0,
+        auto_calibrate: bool = False,
         *args,
         **kwargs,
     ):
@@ -77,6 +78,8 @@ class XyloMonitor(Module):
             calibration_params (Dict): Specify the calibration parameters.
             read_register (bool): If True, will print all register values of AFE and Xylo after initialization.
             power_frequency (float): The frequency of power measurement. Default: 5.0
+            auto_calibrate (bool): If True, will apply auto-calibration. Defaults to True.
+
         """
 
         # - Check input arguments
@@ -187,14 +190,15 @@ class XyloMonitor(Module):
                 afe_config, change_count
             )
 
-        # - Set up known good AFE configuration
-        print("Configuring AFE...")
-        afe_config = hdkutils.apply_afe2_default_config(
-            afe2hdk=self._device,
-            config=afe_config,
-            **calibration_params,
-        )
-        print("Configured AFE")
+        # - Set up known good AFE configuration if autocalibration is True
+        if auto_calibrate:
+            print("Configuring AFE...")
+            afe_config = hdkutils.apply_afe2_default_config(
+                afe2hdk=self._device,
+                config=afe_config,
+                **calibration_params,
+            )
+            print("Configured AFE")
 
         # - Amplify input volume
         afe_config = hdkutils.config_lna_amplification(afe_config, level=amplify_level)
