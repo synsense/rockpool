@@ -150,9 +150,11 @@ def cycles_model(
 
 def est_clock_freq(config: XyloA2Config, dt: float, margin: float = 0.2):
     """
-    Estimate the required master clock frequency, to run a network in real-time
+    Estimate the required master clock frequency, to run a network in real-time.
 
-    This function will perform a worst-case analysis, assuming that every input channel, every hidden neuron and every output neuron fire an event on each `dt`. An additional margin is included (Default: 20%), to guarantee that the model will run in real time at the suggested master clock frequency.
+    This function will perform a worst-case analysis, assuming that every input channel, every hidden neuron and every output neuron fire an event on each `dt`.
+    An additional margin is included (Default: 20%), to guarantee that the model will run in real time at the suggested master clock frequency.
+    Note: The clock frequency is returned in Hz.
 
     Args:
         config (XyloA2Config):  A XyloAudio 2 configuration for which to estimate the required clock frequency

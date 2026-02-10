@@ -394,6 +394,7 @@ class XyloSamna(Module):
         """ float: Simulation time-step of the module, in seconds """
 
         # - Set power measurement module
+        self._power_frequency = power_frequency
         self._power_buf, self.power = hdkutils.set_power_measure(
             self._device, power_frequency
         )
@@ -516,15 +517,19 @@ class XyloSamna(Module):
         self._read_buffer.get_events()
 
         # - Clear the power recording buffer, if recording power
-        self._power_buf.clear_events()
-
-        # - Write the events and trigger the simulation
-        self._write_buffer.write(input_events_list)
+        if record_power:
+            self._power_buf.clear_events()
+            # Start power measurement in case is not active yet
+            if not self.power.is_auto_power_measurement_active():
+                self.power.start_auto_power_measurement(self._power_frequency)
 
         # - Determine a reasonable read timeout
         if read_timeout is None:
-            read_timeout = 2 * len(input) * self.dt * Nhidden / 100.0
-            read_timeout = read_timeout * 30.0 if record else read_timeout
+            read_timeout = len(input) * Nhidden / 100.0
+            read_timeout = read_timeout * 100.0 if record else read_timeout
+
+        # - Write the events and trigger the simulation
+        self._write_buffer.write(input_events_list)
 
         # - Wait until the simulation is finished
         start_time = time.time()
@@ -554,17 +559,6 @@ class XyloSamna(Module):
             final_timestep,
         )
 
-        if record_power:
-            # - Get all recent power events from the power measurement
-            ps = self._power_buf.get_events()
-
-            # - Separate out power meaurement events by channel
-            channels = samna.xyloImuBoards.MeasurementChannels
-            io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
-            core_power = np.array(
-                [e.value for e in ps if e.channel == int(channels.Core)]
-            )
-
         if record:
             rec_dict = {
                 "Vmem": np.array(xylo_data.V_mem_hid),
@@ -578,8 +572,17 @@ class XyloSamna(Module):
         else:
             rec_dict = {}
 
-        # - Return power recordings if requested
         if record_power:
+            # - Get all recent power events from the power measurement
+            ps = self._power_buf.get_events()
+
+            # - Separate out power meaurement events by channel
+            channels = samna.xyloImuBoards.MeasurementChannels
+            io_power = np.array([e.value for e in ps if e.channel == int(channels.Io)])
+            core_power = np.array(
+                [e.value for e in ps if e.channel == int(channels.Core)]
+            )
+
             rec_dict.update(
                 {
                     "io_power": io_power,
@@ -587,6 +590,10 @@ class XyloSamna(Module):
                     "inf_duration": inf_duration,
                 }
             )
+
+            # stop power measurement at the end of evolve
+            if self.power.is_auto_power_measurement_active():
+                self.power.stop_auto_power_measurement()
 
         # - This module holds no state
         new_state = {}
