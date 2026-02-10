@@ -56,7 +56,7 @@ class XyloMonitor(Module):
         calibration_params: Optional[dict] = {},
         read_register: bool = False,
         power_frequency: float = 5.0,
-        auto_calibrate: bool = False,
+        auto_calibrate: bool = True,
         *args,
         **kwargs,
     ):
