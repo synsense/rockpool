@@ -12,6 +12,7 @@ All notable changes between Rockpool releases will be documented in this file
 ### Fixed
 
 * Fix bug on XyloIMU when changing the main clock frequency. Now, other internal clocks of XyloIMU are automatically updated to match constraints among clocks.
+* Fix typo in documentation for XyloIMU
 
 ### Deprecated
 ### Removed

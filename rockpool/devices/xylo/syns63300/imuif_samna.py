@@ -166,7 +166,7 @@ class IMUIFSamna(Module):
         Args:
             device (Optional[XyloIMUHDK], optional):  device (XyloIMUHDK): An opened `samna` device to a Xylo dev kit. Defaults to None.
             interface_params (dict, optional): IMUIF params. Defaults to {}.
-            prerecorded_imu_input (bool, optional): If ``True``, use prerocorded imu data from PC as input. If ``False``, use the live IMU sensor on the HDK. Defaults to True.
+            prerecorded_imu_input (bool, optional): If ``True``, use prerecorded imu data from PC as input. If ``False``, use the live IMU sensor on the HDK. Defaults to True.
         """
         # - Check input arguments
         if device is None:
