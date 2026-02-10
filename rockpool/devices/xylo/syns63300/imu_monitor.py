@@ -77,7 +77,7 @@ class XyloIMUMonitor(Module):
             device (XyloIMUHDK): An opened `samna` device to a Xylo dev kit
             config (XyloConfiguraration): A Xylo configuration from `samna`
             output_mode (str): The readout mode for the Xylo device. This must be one of ``["Spike", "Vmem"]``. Default: "Spike", return events from the output layer.
-            prerecorded_imu_input (bool): If ``True``, use prerocorded imu data from PC as input. If ``False``, use the live IMU sensor on the HDK. Default: ``False``, use the IMU sensor.
+            prerecorded_imu_input (bool): If ``True``, use prerecorded imu data from PC as input. If ``False``, use the live IMU sensor on the HDK. Default: ``False``, use the IMU sensor.
             main_clk_rate (float): The main clock rate of Xylo, in MHz
             hibernation_mode (bool): If True, hibernation mode will be switched on, which only outputs events if it receives inputs above a threshold.
             interface_params(dict): The dictionary of Xylo interface parameters used for the `hdkutils.config_if_module` function, the keys of which must be "num_avg_bitshif", "select_iaf_output", "sampling_period", "filter_a1_list", "filter_a2_list", "scale_values", "Bb_list", "B_wf_list", "B_af_list", "iaf_threshold_values".
