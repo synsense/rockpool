@@ -2,9 +2,8 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-## [Unreleased]
+## [v.3.0.4] -- 2026-02-10
 
-### Added
 ### Changed
 
 * XyloMonitor for XyloAudio 2 now has an `auto_calibrate` flag. The autocalibration is performed by default, so old behavior does not change.
@@ -13,10 +12,6 @@ All notable changes between Rockpool releases will be documented in this file
 
 * Fix bug on XyloIMU when changing the main clock frequency. Now, other internal clocks of XyloIMU are automatically updated to match constraints among clocks.
 * Fix typo in documentation for XyloIMU
-
-### Deprecated
-### Removed
-### Security
 
 ## [v.3.0.3] -- 2025-12-17
 
