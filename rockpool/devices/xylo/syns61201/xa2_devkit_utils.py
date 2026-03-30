@@ -1912,14 +1912,15 @@ def set_xylo_core_clock_freq(device: XyloA2HDK, desired_freq_MHz: float) -> floa
     saer_freq = int(actual_freq * 1e6 / 4)
     spi_freq = int(actual_freq * 1e6 / 8)
 
-    # - Configure device
-    device.get_io_module().write_config(0x0021, wait_period)
+    # - Configure main clock device
+    device.get_io_module().write_config(0x0020, wait_period >> 16)
+    device.get_io_module().write_config(0x0021, wait_period & 0xFFFF)
 
     # - Set SAER clock frequency to 1/4 master clock freq
-    # device.get_io_module().set_saer_clk_rate(saer_freq)
+    device.get_io_module().set_saer_clk_rate(saer_freq)
 
     # - Set SPI clock frequency to 1/16 master clock freq
-    # device.get_io_module().set_spi_clk_rate(spi_freq)
+    device.get_io_module().set_spi_clk_rate(spi_freq)
 
     # - Return actual obtained clock freq.
     return actual_freq
