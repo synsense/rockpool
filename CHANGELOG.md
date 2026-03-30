@@ -2,6 +2,12 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
+## Unrelease
+
+### Fixed
+
+* Setting main clock of XyloAudio 2 was incomplete. Now it also adjust SPI and SAER clocks that are dependent on the main clock.
+
 ## [v.3.0.4] -- 2026-02-10
 
 ### Changed
