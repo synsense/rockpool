@@ -40,6 +40,7 @@ setup_args = {
             "xylosim",
             "samna>=0.46.1",
             "bitstruct",
+            "rockpool[jax]",
         ],
         "exodus": [
             "torch",
@@ -66,7 +67,7 @@ setup_args = {
             "rich",
         ],
         "all": [
-            "rockpool[numba, docs, tests, torch, jax, xylo, brian, sinabs, dynapse, nir, extras]",
+            "rockpool[numba, docs, tests, torch, jax, xylo, exodus, brian, sinabs, dynapse, nir, extras]",
         ],
     },
     "description": "A Python package for developing, simulating and training spiking neural networks, and deploying on neuromorphic hardware",
@@ -78,7 +79,7 @@ setup_args = {
         "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     ],
     "keywords": "spiking neural network SNN neuromorphic machine learning ML",
-    "python_requires": ">=3.8",
+    "python_requires": ">=3.10",
     "project_urls": {
         "Source Code": "https://github.com/SynSense/rockpool",
         "Documentation": "https://rockpool.ai",
