@@ -12,7 +12,6 @@ All notable changes between Rockpool releases will be documented in this file
 ### Fixed
 
 * Fix JAX dependency for Xylo. Absence of JAX library was causing error when using AFESimExternal.
-* Call to install rockpool[all] was missing exodus installation.
 
 ### Deprecated
 ### Removed
