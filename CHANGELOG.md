@@ -2,9 +2,8 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-## Unrelease
+## [v3.0.5] -- 2026-04-01
 
-### Added
 ### Changed
 
 * Update setup.py file to match the minimum Python requirement for Rockpool: v3.10
@@ -13,10 +12,6 @@ All notable changes between Rockpool releases will be documented in this file
 
 * Fix JAX dependency for Xylo. Absence of JAX library was causing error when using AFESimExternal.
 * Fix update of main clock frequency of XyloAudio 2. Now it also adjust SPI and SAER clocks that are dependent on the main clock.
-
-### Deprecated
-### Removed
-### Security
 
 ## [v3.0.4] -- 2026-02-10
 
