@@ -2,7 +2,18 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-## [v.3.0.4] -- 2026-02-10
+## [v3.0.5] -- 2026-04-01
+
+### Changed
+
+* Update setup.py file to match the minimum Python requirement for Rockpool: v3.10
+
+### Fixed
+
+* Fix JAX dependency for Xylo. Absence of JAX library was causing error when using AFESimExternal.
+* Fix update of main clock frequency of XyloAudio 2. Now it also adjust SPI and SAER clocks that are dependent on the main clock.
+
+## [v3.0.4] -- 2026-02-10
 
 ### Changed
 
@@ -13,7 +24,7 @@ All notable changes between Rockpool releases will be documented in this file
 * Fix bug on XyloIMU when changing the main clock frequency. Now, other internal clocks of XyloIMU are automatically updated to match constraints among clocks.
 * Fix typo in documentation for XyloIMU
 
-## [v.3.0.3] -- 2025-12-17
+## [v3.0.3] -- 2025-12-17
 
 * Update documentation: now typehint from function descriptions appear also in parameter description automatically
 * Fix bug on timestep count in real-time mode for XyloAudio 2
@@ -21,7 +32,7 @@ All notable changes between Rockpool releases will be documented in this file
 * Update documentation: fix typos and minor bugs on tutorials for XyloAudio 2 and XyloAudio 3
 * Update documentation on Zenodo
 
-## [v.3.0.2] -- 2025-11-04
+## [v3.0.2] -- 2025-11-04
 
 ### Fixed
 
@@ -35,13 +46,13 @@ All notable changes between Rockpool releases will be documented in this file
 * Update functions and methods to be compatible with Python 3l.12 and Numpy >= 2.0
 * Update docker image for CI pipeline
 
-## [v.3.0.0.1 hotfix] -- 2025-07-02
+## [v3.0.0.1 hotfix] -- 2025-07-02
 
 ### Fixed
 
 * Improve precision of power measurement by start and stop power measurement in evolve call of XyloMonitor/XyloSamna
 
-## [v.3.0.0] -- 2025-06-17
+## [v3.0.0] -- 2025-06-17
 
 ### Removed
 
@@ -59,13 +70,13 @@ All notable changes between Rockpool releases will be documented in this file
 
 * Initialization of `XyloSamna` or `XyloMonitor` in a loop was crashing when recording power. 
 
-## [v.2.9.2.2 hotfix] -- 2025-05-26
+## [v2.9.2.2 hotfix] -- 2025-05-26
 
 ### Fixed
 
 * Restrict max version for samna to prevent unexpected updates breaking Rockpool
 
-## [v.2.9.2.1 hotfix] -- 2025-05-09
+## [v2.9.2.1 hotfix] -- 2025-05-09
 
 ### Fixed
 
@@ -82,7 +93,7 @@ All notable changes between Rockpool releases will be documented in this file
 * Remove dependence of imp module that was deprecated in Python 3.12
 * Fixed bug in multiplying `TSContinuous` objects with differing numbers of channels
 
-## [v.2.9.1 hotfix] -- 2024-10-14
+## [v2.9.1 hotfix] -- 2024-10-14
 
 ### Fixed
 
