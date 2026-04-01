@@ -2,7 +2,7 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
-## Unreleased
+## Unrelease
 
 ### Added
 ### Changed
@@ -12,6 +12,7 @@ All notable changes between Rockpool releases will be documented in this file
 ### Fixed
 
 * Fix JAX dependency for Xylo. Absence of JAX library was causing error when using AFESimExternal.
+* Fix update of main clock frequency of XyloAudio 2. Now it also adjust SPI and SAER clocks that are dependent on the main clock.
 
 ### Deprecated
 ### Removed
