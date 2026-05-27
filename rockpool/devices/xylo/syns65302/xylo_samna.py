@@ -41,6 +41,7 @@ def config_from_specification(
     dash_mem: Optional[np.ndarray] = None,
     dash_mem_out: Optional[np.ndarray] = None,
     dash_syn: Optional[np.ndarray] = None,
+    dash_syn_2: Optional[np.ndarray] = None,
     dash_syn_out: Optional[np.ndarray] = None,
     threshold: Optional[np.ndarray] = None,
     threshold_out: Optional[np.ndarray] = None,
@@ -66,6 +67,7 @@ def config_from_specification(
         dash_mem (np.ndarray): A vector or list ``(Nhidden,)`` specifing decay bitshift for neuron state for each hidden layer neuron. Default: ``1``
         dash_mem_out (np.ndarray): A vector or list ``(Nout,)`` specifing decay bitshift for neuron state for each output neuron. Default: ``1``
         dash_syn (np.ndarray): A vector or list ``(Nhidden,)`` specifing decay bitshift for synapse 1 state for each hidden layer neuron. Default: ``1``
+        dash_syn_2 (np.ndarray): A vector or list ``(Nhidden,)`` specifing decay bitshift for synapse 2 state for each hidden layer neuron. Default: ``1``
         dash_syn_out (np.ndarray): A vector or list ``(Nout,)`` specifing decay bitshift for synapse state for each output layer neuron. Default: ``1``
         threshold (np.ndarray): A vector or list ``(Nhidden,)`` specifing the firing threshold for each hidden layer neuron. Default: ``0``
         threshold_out (np.ndarray): A vector or list ``(Nout,)`` specifing the firing threshold for each output layer neuron. Default: ``0``
@@ -81,16 +83,18 @@ def config_from_specification(
         ``is_valid`` will be a boolean flag ``True`` iff the configuration is valid.
         ``message`` will be an empty string if the configuration is valid, or a message indicating why the configuration is invalid.
     """
+
     # - Check input weights
     if weights_in.ndim != 3:
         raise ValueError(
             f"Input weights must be 3 dimensional `(Nin, Nin_res, Nsyn)`. Found {weights_in.shape}"
         )
 
-    if weights_rec.ndim != 3:
-        raise ValueError(
-            f"Recurrent weights must be 3 dimensional `(Nin_res, Nin_res, Nsyn)`. Found {weights_rec.shape}"
-        )
+    if weights_rec is not None:
+        if weights_rec.ndim != 3:
+            raise ValueError(
+                f"Recurrent weights must be 3 dimensional `(Nin_res, Nin_res, Nsyn)`. Found {weights_rec.shape}"
+            )
 
     # - Check output weights
     if weights_out.ndim != 2:
@@ -98,7 +102,7 @@ def config_from_specification(
 
     # - Get network shape
     _, Nin_res, Nsyn = weights_in.shape
-    Nhidden, _, _ = weights_rec.shape
+    Nhidden, _, _ = weights_rec.shape if weights_rec is not None else (0, 0, 0)
     _, Nout = weights_out.shape
 
     # - Check number of input synapses
@@ -107,16 +111,24 @@ def config_from_specification(
             f"Max of 2 input synapses are supported on XyloAudio 3. Found {Nsyn}."
         )
 
+    enable_isyn_2 = Nsyn > 1
+
     # - Check input and hidden weight sizes
     if Nin_res > Nhidden:
         raise ValueError("Input weight dimension `Nin_res` must be <= `Nhidden`")
 
     # - Provide default `weights_rec`
     weights_rec = (
-        np.zeros((Nhidden, Nhidden, 1), "int") if weights_rec is None else weights_rec
+        np.zeros((Nhidden, Nhidden, 1 + enable_isyn_2), "int")
+        if weights_rec is None
+        else weights_rec
     )
 
     # - Check `weights_rec`
+    if weights_rec.ndim == 2:
+        enable_isyn_2 = False
+        weights_rec = np.reshape(weights_rec, [*weights_rec.shape, 1])
+
     if weights_rec.ndim != 3 or weights_rec.shape[0] != weights_rec.shape[1]:
         raise ValueError(
             "Recurrent weights must be of shape `(Nhidden, Nhidden, Nsyn)`"
@@ -131,15 +143,20 @@ def config_from_specification(
     # - Check bitshift TCs, assign defaults
     dash_mem = np.ones(Nhidden, "int") if dash_mem is None else np.array(dash_mem)
     dash_syn = np.ones(Nhidden, "int") if dash_syn is None else np.array(dash_syn)
+    dash_syn_2 = np.ones(Nhidden, "int") if dash_syn_2 is None else np.array(dash_syn_2)
     if bias_hidden is not None:
         bias_hidden = np.round(np.array(bias_hidden)).astype("int")
     if bias_out is not None:
         bias_out = np.round(np.array(bias_out)).astype("int")
 
-    if np.size(dash_mem) != Nhidden or np.size(dash_syn) != Nhidden:
+    if (
+        np.size(dash_mem) != Nhidden
+        or np.size(dash_syn) != Nhidden
+        or np.size(dash_syn_2) != Nhidden
+    ):
         raise ValueError(
-            f"`dash_mem`, `dash_syn` need `Nhidden` entries (`Nhidden` = {Nhidden})"
-            + f" found {np.size(dash_mem)}, {np.size(dash_syn)}"
+            f"`dash_mem`, `dash_syn` and `dash_syn_2` need `Nhidden` entries (`Nhidden` = {Nhidden})"
+            + f" found {np.size(dash_mem)}, {np.size(dash_syn)}, {np.size(dash_syn_2)}"
         )
 
     dash_mem_out = (
@@ -181,6 +198,7 @@ def config_from_specification(
     if (
         threshold.dtype.kind not in "ui"
         or dash_syn.dtype.kind not in "ui"
+        or dash_syn_2.dtype.kind not in "ui"
         or dash_syn_out.dtype.kind not in "ui"
         or dash_mem.dtype.kind not in "ui"
         or dash_mem_out.dtype.kind not in "ui"
@@ -196,6 +214,7 @@ def config_from_specification(
     dash_mem = np.round(dash_mem).astype("int8")
     dash_mem_out = np.round(dash_mem_out).astype("int8")
     dash_syn = np.round(dash_syn).astype("int8")
+    dash_syn_2 = np.round(dash_syn_2).astype("int8")
     dash_syn_out = np.round(dash_syn_out).astype("int8")
     threshold = np.round(threshold).astype("int")
     threshold_out = np.round(threshold_out).astype("int")
@@ -231,6 +250,11 @@ def config_from_specification(
     else:
         config.readout.weights = weights_out
 
+    config.synapse2_enable = enable_isyn_2
+    if enable_isyn_2:
+        config.input.syn2_weights = weights_in[:, :, 1]
+        config.reservoir.syn2_weights = weights_rec[:, :, 1]
+
     hidden_neurons = []
     for i in range(len(weights_rec)):
         neuron = samna.xyloAudio3.configuration.HiddenNeuron()
@@ -238,6 +262,7 @@ def config_from_specification(
             neuron.alias_target = aliases[i][0]
 
         neuron.i_syn_decay = dash_syn[i]
+        neuron.i_syn2_decay = dash_syn_2[i]
         neuron.v_mem_decay = dash_mem[i]
         neuron.threshold = threshold[i]
         if bias_hidden is not None:
@@ -296,7 +321,8 @@ def load_config(filename: str) -> XyloConfiguration:
     return conf
 
 
-class XyloSamna(Module):
+class XyloSamna(Module):  # type: ignore
+
     """
     A spiking neuron :py:class:`.Module` backed by the XyloAudio 3 hardware, via `samna`.
 
@@ -308,7 +334,7 @@ class XyloSamna(Module):
 
     def __init__(
         self,
-        device: XyloAudio3HDK,
+        device: XyloAudio3HDK,  # type: ignore
         config: XyloConfiguration = None,
         dt: float = 1e-3,
         output_mode: str = "Spike",
@@ -372,7 +398,7 @@ class XyloSamna(Module):
         )
 
         # - Store the device
-        self._device: XyloAudio3HDK = device
+        self._device: XyloAudio3HDK = device  # type: ignore
         """ `.XyloHDK`: The Xylo HDK used by this module """
 
         # - Register buffer to read and write events
@@ -481,7 +507,7 @@ class XyloSamna(Module):
         read_timeout: Optional[float] = None,
         *args,
         **kwargs,
-    ) -> Tuple[np.ndarray, dict, dict]:
+    ) -> tuple[np.ndarray, dict, dict]:
         """
         Evolve a network on the XyloAudio 3 HDK in accelerated-time mode
         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period. Optionally record internal state of the network, selectable with the ``record`` flag.
