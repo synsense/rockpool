@@ -7,6 +7,9 @@ All notable changes between Rockpool releases will be documented in this file
 ### Added
 ### Changed
 ### Fixed
+
+* Update implementation for use of the second synapses in XyloAudio 3. Implementation was incomplete in the front-end.
+
 ### Deprecated
 ### Removed
 ### Security
