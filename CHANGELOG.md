@@ -7,6 +7,9 @@ All notable changes between Rockpool releases will be documented in this file
 ### Added
 ### Changed
 ### Fixed
+
+* pkg_resources was removed from setuptools>=82, fix Rockpool code to not depend on it anymore. Now using packaging.
+
 ### Deprecated
 ### Removed
 ### Security
