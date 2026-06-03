@@ -21,7 +21,6 @@ def test_XyloSamna():
 
     from rockpool.devices.xylo.syns65302 import XyloSamna, config_from_specification
     import rockpool.devices.xylo.syns65302.xa3_devkit_utils as putils
-    from rockpool import TSEvent, TSContinuous
 
     import numpy as np
     import samna
@@ -46,6 +45,7 @@ def test_XyloSamna():
         dash_mem=2 * np.ones(Nhidden),
         dash_mem_out=3 * np.ones(Nout),
         dash_syn=4 * np.ones(Nhidden),
+        dash_syn_2=2 * np.ones(Nhidden, dtype=int),
         dash_syn_out=3 * np.ones(Nout),
         threshold=128 * np.ones(Nhidden),
         threshold_out=256 * np.ones(Nout),
@@ -98,7 +98,6 @@ def test_XyloSamna_power():
 
     from rockpool.devices.xylo.syns65302 import XyloSamna, config_from_specification
     import rockpool.devices.xylo.syns65302.xa3_devkit_utils as putils
-    from rockpool import TSEvent, TSContinuous
 
     import numpy as np
     import samna
@@ -123,6 +122,7 @@ def test_XyloSamna_power():
         dash_mem=2 * np.ones(Nhidden),
         dash_mem_out=3 * np.ones(Nout),
         dash_syn=4 * np.ones(Nhidden),
+        dash_syn_2=2 * np.ones(Nhidden, dtype=int),
         dash_syn_out=3 * np.ones(Nout),
         threshold=128 * np.ones(Nhidden),
         threshold_out=256 * np.ones(Nout),
@@ -189,6 +189,7 @@ def test_save_load():
         dash_mem=2 * np.ones(Nhidden),
         dash_mem_out=3 * np.ones(Nout),
         dash_syn=4 * np.ones(Nhidden),
+        dash_syn_2=2 * np.ones(Nhidden),
         dash_syn_out=3 * np.ones(Nout),
         threshold=128 * np.ones(Nhidden),
         threshold_out=256 * np.ones(Nout),
@@ -203,12 +204,20 @@ def test_save_load():
 
     # - Test configuration should be equal
     np.testing.assert_allclose(config.input.weights, conf2.input.weights)
+    np.testing.assert_allclose(config.input.syn2_weights, conf2.input.syn2_weights)
     np.testing.assert_allclose(
         config.input.weight_bit_shift, conf2.input.weight_bit_shift
     )
     np.testing.assert_allclose(config.hidden.weights, conf2.hidden.weights)
     np.testing.assert_allclose(
+        config.hidden.syn2_weights, conf2.hidden.syn2_weights
+    )
+    np.testing.assert_allclose(
         config.hidden.weight_bit_shift, conf2.hidden.weight_bit_shift
+    )
+    np.testing.assert_allclose(
+        config.hidden.neurons[0].i_syn2_decay,
+        conf2.hidden.neurons[0].i_syn2_decay,
     )
     np.testing.assert_allclose(
         config.hidden.neurons[0].threshold,
@@ -240,7 +249,6 @@ def test_save_load():
         conf2.readout.neurons[0].v_mem_decay,
     )
 
-
 def test_xylo_vs_xylosim_acceleratedtime():
     import pytest
 
@@ -268,6 +276,7 @@ def test_xylo_vs_xylosim_acceleratedtime():
         dash_mem=2 * np.ones(Nhidden),
         dash_mem_out=3 * np.ones(Nout),
         dash_syn=4 * np.ones(Nhidden),
+        dash_syn_2=2 * np.ones(Nhidden),
         dash_syn_out=3 * np.ones(Nout),
         threshold=128 * np.ones(Nhidden),
         threshold_out=256 * np.ones(Nout),
@@ -353,6 +362,7 @@ def test_xylo_vs_xylosim_manual():
         dash_mem=2 * np.ones(Nhidden),
         dash_mem_out=3 * np.ones(Nout),
         dash_syn=4 * np.ones(Nhidden),
+        dash_syn_2=2 * np.ones(Nhidden, dtype=int),
         dash_syn_out=3 * np.ones(Nout),
         threshold=128 * np.ones(Nhidden),
         threshold_out=256 * np.ones(Nout),
