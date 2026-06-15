@@ -10,11 +10,6 @@ stages:
   - deploy
 
 
-docker_info:
-  stage: preliminaries
-  script:
-    - docker info
-
 black-check:
   stage: preliminaries
   needs: []
