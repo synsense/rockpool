@@ -209,9 +209,7 @@ def test_save_load():
         config.input.weight_bit_shift, conf2.input.weight_bit_shift
     )
     np.testing.assert_allclose(config.hidden.weights, conf2.hidden.weights)
-    np.testing.assert_allclose(
-        config.hidden.syn2_weights, conf2.hidden.syn2_weights
-    )
+    np.testing.assert_allclose(config.hidden.syn2_weights, conf2.hidden.syn2_weights)
     np.testing.assert_allclose(
         config.hidden.weight_bit_shift, conf2.hidden.weight_bit_shift
     )
@@ -248,6 +246,7 @@ def test_save_load():
         config.readout.neurons[0].v_mem_decay,
         conf2.readout.neurons[0].v_mem_decay,
     )
+
 
 def test_xylo_vs_xylosim_acceleratedtime():
     import pytest
