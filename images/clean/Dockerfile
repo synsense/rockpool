@@ -1,5 +1,5 @@
 # Start from a base image with cuda support (driver 580)
-FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04
+FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04
 
 # - Set CUDA environment
 ENV CUDA_HOME=/usr/local/cuda

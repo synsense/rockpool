@@ -9,6 +9,7 @@ stages:
   - build
   - deploy
 
+
 black-check:
   stage: preliminaries
   needs: []

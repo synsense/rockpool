@@ -636,7 +636,7 @@ try:
                 (sig_in_rect,) = data_in_tuple
 
                 # update the states: truncate
-                state_low_res_filter = jnp.fix(
+                state_low_res_filter = jnp.trunc(
                     state_high_res_filter / (2**low_pass_bitshift)
                 )
                 state_high_res_filter = (

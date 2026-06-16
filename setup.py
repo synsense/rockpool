@@ -41,6 +41,7 @@ setup_args = {
             "samna>=0.46.1",
             "bitstruct",
             "rockpool[jax]",
+            "packaging",
         ],
         "exodus": [
             "torch",
