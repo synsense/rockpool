@@ -17,8 +17,6 @@ def test_imports():
 def test_XyloSamna():
     import pytest
 
-    pytest.importorskip("samna")
-
     from rockpool.devices.xylo.syns65302 import XyloSamna, config_from_specification
     import rockpool.devices.xylo.syns65302.xa3_devkit_utils as putils
 
@@ -90,8 +88,6 @@ def test_XyloSamna():
 
 def test_XyloSamna_isyn2():
     import pytest
-
-    pytest.importorskip("samna")
 
     from rockpool.devices.xylo.syns65302 import XyloSamna, config_from_specification
     import rockpool.devices.xylo.syns65302.xa3_devkit_utils as putils
@@ -165,8 +161,6 @@ def test_XyloSamna_isyn2():
 
 def test_XyloSamna_power():
     import pytest
-
-    pytest.importorskip("samna")
 
     from rockpool.devices.xylo.syns65302 import XyloSamna, config_from_specification
     import rockpool.devices.xylo.syns65302.xa3_devkit_utils as putils
@@ -243,8 +237,6 @@ def test_XyloSamna_power():
 def test_XyloSamna_power_isyn2():
     import pytest
 
-    pytest.importorskip("samna")
-
     from rockpool.devices.xylo.syns65302 import XyloSamna, config_from_specification
     import rockpool.devices.xylo.syns65302.xa3_devkit_utils as putils
 
@@ -320,8 +312,6 @@ def test_XyloSamna_power_isyn2():
 
 def test_save_load():
     import pytest
-
-    pytest.importorskip("samna")
 
     from rockpool.devices.xylo.syns65302 import (
         config_from_specification,
@@ -407,9 +397,6 @@ def test_save_load():
 
 def test_xylo_vs_xylosim_acceleratedtime():
     import pytest
-
-    pytest.importorskip("samna")
-    pytest.importorskip("xylosim")
 
     # - Samna imports
     import samna
@@ -497,9 +484,6 @@ def test_xylo_vs_xylosim_acceleratedtime():
 @pytest.mark.skip("XyloSim is using XyloIMUSim and doesnt have isyn2")
 def test_xylo_vs_xylosim_acceleratedtime_isyn2():
     import pytest
-
-    pytest.importorskip("samna")
-    pytest.importorskip("xylosim")
 
     # - Samna imports
     import samna
@@ -589,9 +573,6 @@ def test_xylo_vs_xylosim_acceleratedtime_isyn2():
 def test_xylo_vs_xylosim_manual():
     import pytest
 
-    pytest.importorskip("samna")
-    pytest.importorskip("xylosim")
-
     # - Samna imports
     import samna
 
@@ -678,9 +659,6 @@ def test_xylo_vs_xylosim_manual():
 @pytest.mark.skip("XyloSim is using XyloIMUSim and doesnt have isyn2")
 def test_xylo_vs_xylosim_manual_isyn2():
     import pytest
-
-    pytest.importorskip("samna")
-    pytest.importorskip("xylosim")
 
     # - Samna imports
     import samna
@@ -769,8 +747,6 @@ def test_xylo_vs_xylosim_manual_isyn2():
 
 def test_config_from_specification():
     import pytest
-
-    pytest.importorskip("samna")
 
     from rockpool.devices.xylo.syns65302 import config_from_specification, mapper
     from rockpool.transform import quantize_methods as q
