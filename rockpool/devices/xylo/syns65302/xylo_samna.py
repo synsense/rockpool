@@ -253,7 +253,7 @@ def config_from_specification(
     config.synapse2_enable = enable_isyn_2
     if enable_isyn_2:
         config.input.syn2_weights = weights_in[:, :, 1]
-        config.reservoir.syn2_weights = weights_rec[:, :, 1]
+        config.hidden.syn2_weights = weights_rec[:, :, 1]
 
     hidden_neurons = []
     for i in range(len(weights_rec)):
@@ -285,6 +285,7 @@ def config_from_specification(
 
     # - Validate the configuration and return
     is_valid, message = samna.xyloAudio3.validate_configuration(config)
+
     return config, is_valid, message
 
 
@@ -612,6 +613,7 @@ class XyloSamna(Module):  # type: ignore
         # - Read the simulation output data
         xylo_data = hdkutils.decode_accel_mode_data(
             readout_events,
+            self._config.synapse2_enable,
             Nin,
             Nhidden_monitor,
             Nout_monitor,
