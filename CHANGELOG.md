@@ -5,6 +5,9 @@ All notable changes between Rockpool releases will be documented in this file
 ## [Unreleased]
 
 ### Added
+
+* More information about power measurement in XyloAudio 3.
+
 ### Changed
 ### Fixed
 
