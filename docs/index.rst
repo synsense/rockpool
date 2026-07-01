@@ -64,6 +64,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    devices/xylo-overview.ipynb
    devices/quick-xylo/xylo-audio-intro.ipynb
    devices/quick-xylo/deploy_to_xylo.ipynb
+   devices/quick-xylo/xylo-audio-power.ipynb
    devices/torch-training-spiking-for-xylo.ipynb
 
 .. toctree::
