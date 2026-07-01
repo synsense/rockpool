@@ -22,7 +22,7 @@ XyloConfiguration = Union[Dict, Any]
 __all__ = ["XyloSim"]
 
 
-class XyloSim(XyloSimV1):
+class XyloSim(XyloSimV1):  # type: ignore
     """
     A :py:class:`.Module` simulating a digital SNN on Xylo, using XyloSim as a back-end.
 
