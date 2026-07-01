@@ -32,7 +32,7 @@ except ModuleNotFoundError:
 __all__ = ["XyloMonitor"]
 
 
-class XyloMonitor(Module):
+class XyloMonitor(Module):  # type: ignore
     """
     A spiking neuron :py:class:`.Module` backed by the Xylo hardware, via `samna`.
 

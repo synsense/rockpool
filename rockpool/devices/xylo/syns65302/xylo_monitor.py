@@ -22,7 +22,7 @@ Default_Main_Clock_Rate = 50.0  # 50 MHz
 Pdm_Clock_Rate = 1.56
 
 
-class XyloMonitor(Module):
+class XyloMonitor(Module):  # type: ignore
     """
     A spiking neuron :py:class:`.Module` backed by the XyloAudio 3 hardware, via `samna`.
 

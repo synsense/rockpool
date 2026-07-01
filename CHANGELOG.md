@@ -6,7 +6,8 @@ All notable changes between Rockpool releases will be documented in this file
 
 ### Added
 
-* More information about power measurement in XyloAudio 3.
+* More detailed description about power measurement in XyloAudio 3.
+* Add missing implementation for use of the second synapses in XyloAudio 3. Implementation was incomplete in the front-end.
 
 ### Changed
 ### Fixed
