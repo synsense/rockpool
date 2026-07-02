@@ -38,9 +38,10 @@ setup_args = {
         ],
         "xylo": [
             "xylosim",
-            "samna>=0.46.1",
+            "samna>=0.48.6",
             "bitstruct",
             "rockpool[jax]",
+            "packaging",
         ],
         "exodus": [
             "torch",

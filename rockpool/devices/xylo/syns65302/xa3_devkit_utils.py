@@ -293,6 +293,7 @@ def apply_configuration(
         hdk (XyloAudio3HDK): The Xylo HDK to write the configuration to
         config (XyloConfiguration): A configuration for Xylo
     """
+
     # - Ideal -- just write the configuration using samna
     hdk.get_model().apply_configuration(config)
 
@@ -506,6 +507,7 @@ def read_register(
 
 def decode_accel_mode_data(
     readout_events: List[ReadoutEvent],
+    is_syn2_enable: bool,
     Nin: int,
     Nhidden_monitor: int,
     Nout_monitor: int,
@@ -543,12 +545,13 @@ def decode_accel_mode_data(
         timestep = ev.timestep - T_start
         vmems = ev.neuron_v_mems
         isyns = ev.neuron_i_syns
-        # FIXME - syn2 needs to be added
+        isyns2 = ev.neuron_i_syn2s
 
         if Nhidden_monitor != 0:
             vmem_ts[timestep, 0:Nhidden_monitor] = vmems[0:Nhidden_monitor]
             isyn_ts[timestep, 0:Nhidden_monitor] = isyns[0:Nhidden_monitor]
-            isyn2_ts[timestep, 0:Nhidden_monitor] = isyns[0:Nhidden_monitor]
+            if is_syn2_enable:
+                isyn2_ts[timestep, 0:Nhidden_monitor] = isyns2[0:Nhidden_monitor]
             spikes_ts[timestep] = ev.hidden_spikes
 
         if Nhidden_monitor != 0 or Nout_monitor != 0:
@@ -857,16 +860,23 @@ def configure_accel_time_mode(
         config.debug.monitor_neuron_spike = [i for i in range(Nhidden)]
         # Output Isyn is not available by default, so we add both hidden and output neurons.
         config.debug.monitor_neuron_i_syn = [i for i in range(Nhidden + Nout)]
+        if config.synapse2_enable:
+            config.debug.monitor_neuron_i_syn2 = [i for i in range(Nhidden)]
+
         config.debug.ram_access_enable = True
 
     else:
         config.debug.monitor_neuron_v_mem = []
         config.debug.monitor_neuron_spike = []
         config.debug.monitor_neuron_i_syn = []
+        config.debug.monitor_neuron_i_syn2 = []
         config.debug.ram_access_enable = False
 
         if readout == "Isyn":
             config.debug.monitor_neuron_i_syn = [i for i in range(Nhidden + Nout)]
+            if config.synapse2_enable:
+                config.debug.monitor_neuron_i_syn2 = [i for i in range(Nhidden)]
+
             config.debug.ram_access_enable = True
         elif readout == "Vmem":
             config.debug.monitor_neuron_v_mem = [i for i in range(Nhidden)]

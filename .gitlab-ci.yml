@@ -9,6 +9,7 @@ stages:
   - build
   - deploy
 
+
 black-check:
   stage: preliminaries
   needs: []
@@ -39,8 +40,8 @@ unit_tests_clean:
   before_script:
     - pip install --upgrade pip
     - pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+    - pip install --upgrade samna
     - pip install --upgrade ".[all]" --no-cache-dir
-    - python -c 'import samna'
     - pip install --upgrade sinabs-exodus --no-cache-dir || exit_code=$?
     - if [ $exit_code -ne 0 ]; then echo "Exodus could not be installed"; fi;
 
@@ -81,7 +82,6 @@ documentation_linting:
   before_script:
     - pip install --upgrade pip
     - pip install --upgrade ".[all]" --no-cache-dir
-    - python -c 'import samna'
 
   script:
     - sphinx-build -n -b dummy docs docs/_build/html
@@ -93,7 +93,6 @@ docs_build:
   before_script:
     - pip install --upgrade pip
     - pip install ".[all]" --no-cache-dir
-    - python -c 'import samna'
 
   script:
     - cp CHANGELOG.md docs/advanced

@@ -5,7 +5,7 @@ Helper function used to check board version and import matching packages.
 from typing import Tuple, List
 from types import ModuleType
 
-from pkg_resources import parse_version
+from packaging.version import parse as parse_version
 
 import samna
 

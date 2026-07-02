@@ -323,7 +323,7 @@ def load_config(filename: str) -> XyloConfiguration:
     return conf
 
 
-class XyloSamna(Module):
+class XyloSamna(Module):  # type: ignore
     """
     A spiking neuron :py:class:`.Module` backed by the Xylo hardware, via `samna`.
 
