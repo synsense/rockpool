@@ -513,3 +513,52 @@ def test_LIFTorch_initialization_bitshifts():
         raise AssertionError(
             "ValueError was not raised for wrong parameter initilization"
         )
+
+
+def test_LIFTorch_preserves_dtype():
+    """`.to(dtype)` followed by `reset_state()` used to always reset
+    `vmem`/`isyn`/`spikes` back to float32, and the forward pass had three
+    more independent places (default spike_fn, the state-record buffers,
+    and the noise trace) that likewise silently reset to float32 --
+    regardless of what dtype the module was actually cast to."""
+    from rockpool.nn.modules.torch.lif_torch import LIFTorch
+    import torch
+
+    for has_rec in (False, True):
+        for dtype in (torch.float64, torch.float16):
+            mod = LIFTorch(shape=(3,), has_rec=has_rec, dt=1e-3).to(dtype)
+            mod.reset_state()
+            assert mod.vmem.dtype == dtype
+            assert mod.isyn.dtype == dtype
+            assert mod.spikes.dtype == dtype
+
+            x = (torch.rand(2, 5, 3) * 2).to(dtype)
+            out, state, _ = mod(x)
+            assert out.dtype == dtype
+            assert state["vmem"].dtype == dtype
+
+
+def test_LIFTorch_dtype_gradients_still_flow():
+    from rockpool.nn.modules.torch.lif_torch import LIFTorch
+    import torch
+
+    mod = LIFTorch(shape=(3,), has_rec=False, dt=1e-3)
+    mod.reset_state()
+    x = torch.rand(2, 5, 3, requires_grad=True)
+    out, _, _ = mod(x)
+    out.sum().backward()
+    assert torch.isfinite(x.grad).all()
+    assert mod.threshold.grad is not None
+
+
+def test_LIFBitshiftTorch_preserves_dtype():
+    """LIFBitshiftTorch inherits LIFTorch's state descriptors unmodified;
+    confirm the fix applies there too."""
+    from rockpool.nn.modules.torch.lif_bitshift_torch import LIFBitshiftTorch
+    import torch
+
+    mod = LIFBitshiftTorch(shape=(3,), has_rec=False, dt=1e-3).double()
+    mod.reset_state()
+    x = torch.rand(2, 5, 3, dtype=torch.float64)
+    out, _, _ = mod(x)
+    assert out.dtype == torch.float64

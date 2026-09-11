@@ -77,9 +77,15 @@ class ExpSynTorch(TorchModule):
         """ (float) Noise std. dev after 1 second """
 
         # - Initialise state
+        # dtype/device-aware init_func -- reset_state() calls init_func(shape)
+        # directly with no cast, so this always reset `isyn` to float32
+        # after a .double()/.half() cast (see lif_torch.py's LIFTorch for
+        # the full diagnosis of this bug class).
         self.isyn: rt.P_tensor = rp.State(
             shape=(self.size_out,),
-            init_func=lambda s: torch.zeros(*s),
+            init_func=lambda s: torch.zeros(
+                *s, dtype=self.tau.dtype, device=self.tau.device
+            ),
         )
         """ (torch.tensor) Synaptic current state for each synapse ``(1, N)`` """
 
