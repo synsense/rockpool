@@ -31,9 +31,11 @@ class StepPWL(torch.autograd.Function):
     ):
         ctx.save_for_backward(x, threshold)
         ctx.window = window
-        nr_spikes = ((x >= threshold) * torch.floor(x / threshold)).float()
-        clamp_bool = (nr_spikes > max_spikes_per_dt).float()
-        nr_spikes -= (nr_spikes - max_spikes_per_dt.float()) * clamp_bool
+        # .to(x.dtype), not .float() -- see the matching fix + comment on
+        # lif_torch.py's StepPWL (the same class, duplicated in this file).
+        nr_spikes = ((x >= threshold) * torch.floor(x / threshold)).to(x.dtype)
+        clamp_bool = (nr_spikes > max_spikes_per_dt).to(x.dtype)
+        nr_spikes -= (nr_spikes - max_spikes_per_dt.to(x.dtype)) * clamp_bool
         return nr_spikes
 
     @staticmethod
@@ -168,8 +170,16 @@ class LIFNeuronTorch(TorchModule):
         self.dt: P_float = rp.SimulationParameter(dt)
         """ (float) Simulation time-step in seconds """
 
+        # dtype/device-aware init_func -- reset_state() calls init_func(shape)
+        # directly with no cast, so `vmem` always reset to float32 after a
+        # .double()/.half() cast (see lif_torch.py's LIFTorch for the full
+        # diagnosis of this bug class).
         self.vmem: P_tensor = rp.State(
-            shape=self.n_neurons, init_func=torch.zeros, cast_fn=to_float_tensor
+            shape=self.n_neurons,
+            init_func=lambda shape: torch.zeros(
+                shape, dtype=self.threshold.dtype, device=self.threshold.device
+            ),
+            cast_fn=to_float_tensor,
         )
         """ (Tensor) Membrane potentials `(Nout,)` """
 

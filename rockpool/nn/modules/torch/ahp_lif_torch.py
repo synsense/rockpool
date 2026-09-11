@@ -129,9 +129,18 @@ class aLIFTorch(LIFBaseTorch):
         )
         """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
 
+        # dtype/device-aware init_func: reset_state() calls init_func(shape)
+        # directly and does NOT re-apply cast_fn (cast_fn only runs once, at
+        # construction -- see ParameterBase.__init__ / State's own
+        # docstring). A bare `torch.zeros` here always reset `iahp` back to
+        # float32 on every reset_state(), even after the module had been
+        # correctly cast with .double() / .half() (see the matching fix +
+        # comment in lif_torch.py's LIFTorch for the full diagnosis).
         self.iahp: P_tensor = rp.State(
             shape=(self.size_out),
-            init_func=torch.zeros,
+            init_func=lambda shape: torch.zeros(
+                shape, dtype=self.tau_ahp.dtype, device=self.tau_ahp.device
+            ),
             cast_fn=to_float_tensor,
         )
         """ (Tensor)  currents `(Nin,)` """
