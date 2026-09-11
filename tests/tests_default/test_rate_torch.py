@@ -43,3 +43,13 @@ def test_evolve():
     assert not all_zero(mod.bias.grad)
     assert not all_zero(mod.threshold.grad)
     assert not all_zero(mod.w_rec.grad)
+
+
+def test_RateTorch_preserves_dtype():
+    from rockpool.nn.modules import RateTorch
+    import torch
+
+    for dtype in (torch.float64, torch.float16):
+        mod = RateTorch((3, 3), has_rec=False, dt=1e-3).to(dtype)
+        mod.reset_state()
+        assert mod.x.dtype == dtype
