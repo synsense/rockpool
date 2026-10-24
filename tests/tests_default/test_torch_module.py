@@ -305,3 +305,25 @@ def test_torch_device_to():
     assert mod.test_const_param != "cpu", "Constant parameter was not moved to GPU"
     assert mod.test_simparam != "cpu", "SimulationParameter was not moved to GPU"
     assert mod.test_state != "cpu", "State was not moved to GPU"
+
+
+def test_auto_batch_preserves_dtype():
+    """`_auto_batch()` replicates state tensors via
+    `torch.ones((n_batches, *shape)) * s` -- with no `dtype=` on the
+    `torch.ones(...)` call, this always promoted to float32 whenever `s`
+    was narrower than float32 (float16 / bfloat16), silently upcasting
+    every module's state the moment its forward() calls this shared
+    helper -- regardless of what dtype the module had been cast to."""
+    import torch
+    from rockpool.nn.modules.torch.lif_torch import LIFTorch
+
+    for dtype in (torch.float64, torch.float16):
+        mod = LIFTorch(shape=(3,), has_rec=False, dt=1e-3).to(dtype)
+        data, (vmem, spikes, isyn) = mod._auto_batch(
+            (torch.rand(2, 5, 3) * 2).to(dtype),
+            (mod.vmem, mod.spikes, mod.isyn),
+            ((mod.size_out,), (mod.size_out,), (mod.size_out, mod.n_synapses)),
+        )
+        assert vmem.dtype == dtype
+        assert spikes.dtype == dtype
+        assert isyn.dtype == dtype
