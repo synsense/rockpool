@@ -562,3 +562,35 @@ def test_LIFBitshiftTorch_preserves_dtype():
     x = torch.rand(2, 5, 3, dtype=torch.float64)
     out, _, _ = mod(x)
     assert out.dtype == torch.float64
+
+
+def test_LIFTorch_batch_state_warns_and_keeps_sample_0():
+    """A batched forward()/evolve() call simulates each batch index
+    independently, but the shape-locked state attributes (self.vmem etc.)
+    can only ever persist ONE sample's final state (batch index 0) -- the
+    rest is discarded. This used to happen completely silently. It must
+    now raise a UserWarning, and the retained state must genuinely be
+    sample 0's real final value, not some other silently-wrong value."""
+    from rockpool.nn.modules.torch.lif_torch import LIFTorch
+    import torch
+
+    N = 4
+    T = 20
+    mod = LIFTorch(N)
+
+    sample0 = torch.zeros(T, N)
+    sample1 = torch.ones(T, N) * 5.0
+    batch = torch.stack([sample0, sample1], dim=0)
+
+    with pytest.warns(UserWarning, match="only batch index 0"):
+        out, new_state, record = mod.evolve(batch, record=True)
+
+    assert torch.allclose(mod.vmem.detach(), record["vmem"][0, -1, :].detach())
+
+    # batch size 1 must NOT warn -- nothing is actually discarded
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        mod2 = LIFTorch(N)
+        mod2.evolve(torch.rand(1, T, N))

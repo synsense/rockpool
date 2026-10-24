@@ -6,6 +6,7 @@ Provides :py:class:`.LIFBaseTorch` base class for LIF torch modules, and :py:cla
 
 from tempfile import gettempprefix
 from typing import Union, Tuple, Callable, Optional, Any
+import warnings
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
 import torch
@@ -775,6 +776,24 @@ class LIFTorch(LIFBaseTorch):
             self._record_dict["spikes"][:, t] = spikes
 
         # - Update states
+        # Registered state attributes are shape-locked to (self.size_out,) --
+        # there's no architectural support for persisting a batched state
+        # here, so for n_batches > 1 this keeps ONLY batch index 0's final
+        # state, discarding the rest. That used to happen completely
+        # silently: a later forward()/evolve() call meant to continue the
+        # same batch of sequences would incorrectly resume ALL of them from
+        # sample 0's state, with no indication anything was lost. Now at
+        # least visible, not silent. Same defect, same fix as
+        # rockpool/nn/modules/native/lif.py's LIF.evolve().
+        if n_batches > 1:
+            warnings.warn(
+                f"LIFTorch forward()/evolve() was called with batch size {n_batches}, "
+                f"but only batch index 0's final state is retained for the next call -- "
+                f"state continuation is NOT correct per-sample for batches > 1. Call "
+                f"reset_state() between independent batched calls if you don't need "
+                f"cross-call continuation.",
+                stacklevel=2,
+            )
         self.vmem = vmem[0].detach()
         self.isyn = isyn[0].detach()
         self.spikes = spikes[0].detach()
