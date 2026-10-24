@@ -8,6 +8,7 @@ from rockpool.nn.modules.native.linear import kaiming
 from rockpool import TSContinuous, TSEvent
 
 import numpy as np
+import warnings
 
 from typing import Optional, Tuple, Union, Dict, Callable, Any
 from rockpool.typehints import (
@@ -352,6 +353,23 @@ class LIF(Module):
                     (input_data[b, t, :], noise_ts[b, t, :]),
                 )
 
+        # Registered state attributes are shape-locked to (self.size_out,)
+        # by Module.__setattr__ -- there's no architectural support for
+        # persisting a batched state here, so for batches > 1 this keeps
+        # ONLY batch index 0's final state, discarding the rest. That used
+        # to happen completely silently: a later evolve() call meant to
+        # continue the same batch of sequences would incorrectly resume
+        # ALL of them from sample 0's state, with no indication anything
+        # was lost. Now at least visible, not silent.
+        if batches > 1:
+            warnings.warn(
+                f"LIF.evolve() was called with batch size {batches}, but only batch "
+                f"index 0's final state is retained for the next evolve() call -- "
+                f"state continuation is NOT correct per-sample for batches > 1. "
+                f"Call reset_state() between independent batched calls if you don't "
+                f"need cross-call continuation.",
+                stacklevel=2,
+            )
         self.spikes = spikes[0]
         self.isyn = isyn[0]
         self.vmem = vmem[0]
