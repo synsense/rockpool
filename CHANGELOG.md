@@ -2,6 +2,17 @@
 
 All notable changes between Rockpool releases will be documented in this file
 
+## [Unreleased]
+
+### Changed
+
+* `LIF`, `LIFTorch` and the modules derived from `LIFTorch` now warn when they are evolved with a batch size greater than 1. Only the final state of the first sample is kept for the next call. This is a diagnostic only: per-sample state continuation over a batch is not implemented.
+
+### Fixed
+
+* Torch modules converted with `.to(dtype)`, `.double()` or `.half()` keep that dtype through `reset_state()`, `forward()` and `TorchModule._auto_batch()` (`LIFTorch`, `aLIFTorch`, `ExpSynTorch`, `LIFNeuronTorch`, `RateTorch`). Previously their states, records and outputs returned to float32 (#31).
+* `LIFTorch` and `LIFNeuronTorch` no longer produce NaN spikes in float16, where the default `max_spikes_per_dt` of 2**16 is not representable. The spike cap is now limited to the largest finite value of the dtype.
+
 ## [v3.1.0] -- 2026-07-02
 
 ### Added
