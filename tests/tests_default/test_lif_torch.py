@@ -515,12 +515,29 @@ def test_LIFTorch_initialization_bitshifts():
         )
 
 
+def test_cap_spikes_keeps_dtype_and_is_never_nan():
+    import torch
+    from rockpool.nn.modules.torch.lif_torch import _cap_spikes
+
+    counts = torch.tensor([0.0, 1.0, 5.0, 100.0])
+    for dtype in (torch.float64, torch.float32, torch.bfloat16, torch.float16):
+        n = counts.to(dtype)
+
+        capped = _cap_spikes(n, torch.tensor(3.0))
+        assert capped.dtype == dtype
+        assert capped.tolist() == [0.0, 1.0, 3.0, 3.0]
+
+        # A cap the dtype cannot represent (2**16 in float16), and an infinite cap,
+        # leave the counts unchanged
+        for cap in (2.0**16, float("inf")):
+            same = _cap_spikes(n, torch.tensor(cap))
+            assert same.dtype == dtype
+            assert torch.equal(same, n)
+
+
 def test_LIFTorch_preserves_dtype():
-    """`.to(dtype)` followed by `reset_state()` used to always reset
-    `vmem`/`isyn`/`spikes` back to float32, and the forward pass had three
-    more independent places (default spike_fn, the state-record buffers,
-    and the noise trace) that likewise silently reset to float32 --
-    regardless of what dtype the module was actually cast to."""
+    """After `.to(dtype)` and `reset_state()`, the state, the output and the returned
+    state all have that dtype"""
     from rockpool.nn.modules.torch.lif_torch import LIFTorch
     import torch
 
@@ -538,6 +555,31 @@ def test_LIFTorch_preserves_dtype():
             assert state["vmem"].dtype == dtype
 
 
+@pytest.mark.parametrize("dtype_name", ["float64", "bfloat16", "float16"])
+def test_LIFTorch_forward_and_backward_are_finite_in_converted_dtype(dtype_name):
+    from rockpool.nn.modules.torch.lif_torch import LIFTorch
+    import torch
+
+    dtype = getattr(torch, dtype_name)
+    mod = LIFTorch(shape=(3,), has_rec=False, dt=1e-3).to(dtype)
+    mod.reset_state()
+
+    x = (torch.rand(2, 5, 3) * 2).to(dtype).requires_grad_()
+    out, state, _ = mod(x)
+    assert out.dtype == dtype
+    assert torch.isfinite(out).all()
+    assert all(torch.isfinite(s).all() for s in state.values())
+
+    out.sum().backward()
+    assert x.grad.dtype == dtype
+    assert torch.isfinite(x.grad).all()
+    assert mod.threshold.grad is not None
+    for p in mod.parameters().values():
+        if p.grad is not None:
+            assert p.grad.dtype == dtype
+            assert torch.isfinite(p.grad).all()
+
+
 def test_LIFTorch_dtype_gradients_still_flow():
     from rockpool.nn.modules.torch.lif_torch import LIFTorch
     import torch
@@ -552,8 +594,7 @@ def test_LIFTorch_dtype_gradients_still_flow():
 
 
 def test_LIFBitshiftTorch_preserves_dtype():
-    """LIFBitshiftTorch inherits LIFTorch's state descriptors unmodified;
-    confirm the fix applies there too."""
+    """LIFBitshiftTorch shares the state initialisation of LIFTorch"""
     from rockpool.nn.modules.torch.lif_bitshift_torch import LIFBitshiftTorch
     import torch
 
@@ -564,33 +605,42 @@ def test_LIFBitshiftTorch_preserves_dtype():
     assert out.dtype == torch.float64
 
 
-def test_LIFTorch_batch_state_warns_and_keeps_sample_0():
-    """A batched forward()/evolve() call simulates each batch index
-    independently, but the shape-locked state attributes (self.vmem etc.)
-    can only ever persist ONE sample's final state (batch index 0) -- the
-    rest is discarded. This used to happen completely silently. It must
-    now raise a UserWarning, and the retained state must genuinely be
-    sample 0's real final value, not some other silently-wrong value."""
+def test_LIFTorch_batch_state_warns_and_keeps_only_sample_0():
     from rockpool.nn.modules.torch.lif_torch import LIFTorch
     import torch
+    import warnings
 
     N = 4
     T = 20
+    torch.manual_seed(0)
+    sample0 = torch.rand(T, N) * 3.0
+    sample1 = torch.rand(T, N) * 3.0 + 2.0
+
     mod = LIFTorch(N)
 
-    sample0 = torch.zeros(T, N)
-    sample1 = torch.ones(T, N) * 5.0
-    batch = torch.stack([sample0, sample1], dim=0)
+    # Final state of each sample, from separate single-sample calls
+    finals = []
+    for sample in (sample0, sample1):
+        mod.reset_state()
+        mod.evolve(sample[None])
+        finals.append(
+            {k: getattr(mod, k).detach().clone() for k in ("vmem", "isyn", "spikes")}
+        )
 
+    # The samples must differ, otherwise the test cannot tell them apart
+    assert not torch.allclose(finals[0]["vmem"], finals[1]["vmem"])
+    assert not torch.allclose(finals[0]["isyn"], finals[1]["isyn"])
+
+    mod.reset_state()
     with pytest.warns(UserWarning, match="only batch index 0"):
-        out, new_state, record = mod.evolve(batch, record=True)
+        mod.evolve(torch.stack([sample0, sample1]))
 
-    assert torch.allclose(mod.vmem.detach(), record["vmem"][0, -1, :].detach())
+    for name in ("vmem", "isyn", "spikes"):
+        assert torch.allclose(getattr(mod, name).detach(), finals[0][name])
+    assert not torch.allclose(mod.vmem.detach(), finals[1]["vmem"])
+    assert not torch.allclose(mod.isyn.detach(), finals[1]["isyn"])
 
-    # batch size 1 must NOT warn -- nothing is actually discarded
-    import warnings
-
+    # A batch of one discards nothing, so it must not warn
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        mod2 = LIFTorch(N)
-        mod2.evolve(torch.rand(1, T, N))
+        LIFTorch(N).evolve(torch.rand(1, T, N))

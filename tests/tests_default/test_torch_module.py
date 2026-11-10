@@ -308,12 +308,7 @@ def test_torch_device_to():
 
 
 def test_auto_batch_preserves_dtype():
-    """`_auto_batch()` replicates state tensors via
-    `torch.ones((n_batches, *shape)) * s` -- with no `dtype=` on the
-    `torch.ones(...)` call, this always promoted to float32 whenever `s`
-    was narrower than float32 (float16 / bfloat16), silently upcasting
-    every module's state the moment its forward() calls this shared
-    helper -- regardless of what dtype the module had been cast to."""
+    """`_auto_batch()` keeps the dtype of the states it replicates over the batch"""
     import torch
     from rockpool.nn.modules.torch.lif_torch import LIFTorch
 

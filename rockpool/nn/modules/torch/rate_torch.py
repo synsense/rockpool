@@ -144,10 +144,8 @@ class RateTorch(TorchModule):
         self.act_fn: rt.P_Callable = rp.SimulationParameter(activation_func)
         """ (Callable) Activation function for the units """
 
-        # dtype/device-aware init_func -- reset_state() calls init_func(shape)
-        # directly with no cast, so `x` always reset to float32 after a
-        # .double()/.half() cast (see lif_torch.py's LIFTorch for the full
-        # diagnosis of this bug class).
+        # reset_state() calls init_func(shape) and does not apply cast_fn, so the state
+        # takes its dtype and device from `tau`
         self.x: rt.P_tensor = rp.State(
             shape=self.size_out,
             init_func=lambda shape: torch.zeros(

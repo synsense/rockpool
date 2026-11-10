@@ -243,14 +243,8 @@ class TorchModule(Module, nn.Module):
             )
 
         # - Replicate shapes and return
-        # dtype=s.dtype: without it, `torch.ones(...)` (float32) * `s`
-        # (the real state tensor) promotes to float32 whenever `s` is
-        # narrower than float32 (float16 / bfloat16) -- silently upcasting
-        # every module's state the moment its forward() calls
-        # _auto_batch(), regardless of what dtype the module had been
-        # correctly cast to. (float64 states happened to survive this by
-        # luck: float64 is *wider* than float32, so the same promotion
-        # rule silently corrects itself the other way.)
+        # The ones tensor has the dtype of the state, so the product is not promoted
+        # to float32 for float16 or bfloat16 states
         states = tuple(
             torch.ones((n_batches, *shape), device=s.device, dtype=s.dtype) * s
             for s, shape in zip(states, target_shapes)

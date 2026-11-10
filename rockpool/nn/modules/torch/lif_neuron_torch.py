@@ -5,6 +5,7 @@ Implement a LIF Neuron Module, using a Torch backend
 from typing import Union, Tuple, Any
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
+from rockpool.nn.modules.torch.lif_torch import _cap_spikes
 import torch
 import rockpool.parameters as rp
 
@@ -31,12 +32,8 @@ class StepPWL(torch.autograd.Function):
     ):
         ctx.save_for_backward(x, threshold)
         ctx.window = window
-        # .to(x.dtype), not .float() -- see the matching fix + comment on
-        # lif_torch.py's StepPWL (the same class, duplicated in this file).
         nr_spikes = ((x >= threshold) * torch.floor(x / threshold)).to(x.dtype)
-        clamp_bool = (nr_spikes > max_spikes_per_dt).to(x.dtype)
-        nr_spikes -= (nr_spikes - max_spikes_per_dt.to(x.dtype)) * clamp_bool
-        return nr_spikes
+        return _cap_spikes(nr_spikes, max_spikes_per_dt)
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -170,10 +167,8 @@ class LIFNeuronTorch(TorchModule):
         self.dt: P_float = rp.SimulationParameter(dt)
         """ (float) Simulation time-step in seconds """
 
-        # dtype/device-aware init_func -- reset_state() calls init_func(shape)
-        # directly with no cast, so `vmem` always reset to float32 after a
-        # .double()/.half() cast (see lif_torch.py's LIFTorch for the full
-        # diagnosis of this bug class).
+        # reset_state() calls init_func(shape) and does not apply cast_fn, so the state
+        # takes its dtype and device from `threshold`
         self.vmem: P_tensor = rp.State(
             shape=self.n_neurons,
             init_func=lambda shape: torch.zeros(

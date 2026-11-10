@@ -353,14 +353,8 @@ class LIF(Module):
                     (input_data[b, t, :], noise_ts[b, t, :]),
                 )
 
-        # Registered state attributes are shape-locked to (self.size_out,)
-        # by Module.__setattr__ -- there's no architectural support for
-        # persisting a batched state here, so for batches > 1 this keeps
-        # ONLY batch index 0's final state, discarding the rest. That used
-        # to happen completely silently: a later evolve() call meant to
-        # continue the same batch of sequences would incorrectly resume
-        # ALL of them from sample 0's state, with no indication anything
-        # was lost. Now at least visible, not silent.
+        # State attributes are shape-locked to (size_out,), so only the final state of
+        # batch index 0 is kept for the next call
         if batches > 1:
             warnings.warn(
                 f"LIF.evolve() was called with batch size {batches}, but only batch "
