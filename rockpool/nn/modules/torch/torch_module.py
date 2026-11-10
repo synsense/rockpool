@@ -317,7 +317,7 @@ class TorchModule(Module, nn.Module):
         if init_func is not None:
             new_value = init_func(shape)
             new_value = (
-                new_value.to(value.device)
+                new_value.to(device=value.device, dtype=value.dtype)
                 if isinstance(value, torch.Tensor)
                 else new_value
             )
