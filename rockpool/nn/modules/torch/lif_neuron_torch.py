@@ -5,6 +5,7 @@ Implement a LIF Neuron Module, using a Torch backend
 from typing import Union, Tuple, Any
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
+from rockpool.nn.modules.torch.lif_torch import _cap_spikes
 import torch
 import rockpool.parameters as rp
 
@@ -31,10 +32,8 @@ class StepPWL(torch.autograd.Function):
     ):
         ctx.save_for_backward(x, threshold)
         ctx.window = window
-        nr_spikes = ((x >= threshold) * torch.floor(x / threshold)).float()
-        clamp_bool = (nr_spikes > max_spikes_per_dt).float()
-        nr_spikes -= (nr_spikes - max_spikes_per_dt.float()) * clamp_bool
-        return nr_spikes
+        nr_spikes = ((x >= threshold) * torch.floor(x / threshold)).to(x.dtype)
+        return _cap_spikes(nr_spikes, max_spikes_per_dt)
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -168,8 +167,14 @@ class LIFNeuronTorch(TorchModule):
         self.dt: P_float = rp.SimulationParameter(dt)
         """ (float) Simulation time-step in seconds """
 
+        # reset_state() calls init_func(shape) and does not apply cast_fn, so the state
+        # takes its dtype and device from `threshold`
         self.vmem: P_tensor = rp.State(
-            shape=self.n_neurons, init_func=torch.zeros, cast_fn=to_float_tensor
+            shape=self.n_neurons,
+            init_func=lambda shape: torch.zeros(
+                shape, dtype=self.threshold.dtype, device=self.threshold.device
+            ),
+            cast_fn=to_float_tensor,
         )
         """ (Tensor) Membrane potentials `(Nout,)` """
 

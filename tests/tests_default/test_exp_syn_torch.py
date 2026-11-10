@@ -53,3 +53,13 @@ def test_ExpSynTorch():
     out = mod(input_data)
 
     out.sum().backward()
+
+
+def test_ExpSynTorch_preserves_dtype():
+    from rockpool.nn.modules.torch.exp_syn_torch import ExpSynTorch
+    import torch
+
+    for dtype in (torch.float64, torch.float16):
+        mod = ExpSynTorch(3, dt=1e-3).to(dtype)
+        mod.reset_state()
+        assert mod.isyn.dtype == dtype

@@ -305,3 +305,20 @@ def test_torch_device_to():
     assert mod.test_const_param != "cpu", "Constant parameter was not moved to GPU"
     assert mod.test_simparam != "cpu", "SimulationParameter was not moved to GPU"
     assert mod.test_state != "cpu", "State was not moved to GPU"
+
+
+def test_auto_batch_preserves_dtype():
+    """`_auto_batch()` keeps the dtype of the states it replicates over the batch"""
+    import torch
+    from rockpool.nn.modules.torch.lif_torch import LIFTorch
+
+    for dtype in (torch.float64, torch.float16):
+        mod = LIFTorch(shape=(3,), has_rec=False, dt=1e-3).to(dtype)
+        data, (vmem, spikes, isyn) = mod._auto_batch(
+            (torch.rand(2, 5, 3) * 2).to(dtype),
+            (mod.vmem, mod.spikes, mod.isyn),
+            ((mod.size_out,), (mod.size_out,), (mod.size_out, mod.n_synapses)),
+        )
+        assert vmem.dtype == dtype
+        assert spikes.dtype == dtype
+        assert isyn.dtype == dtype

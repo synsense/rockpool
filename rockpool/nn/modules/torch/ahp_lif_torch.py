@@ -129,9 +129,13 @@ class aLIFTorch(LIFBaseTorch):
         )
         """ (Tensor) Synaptic time constants `(Nin,)` or `()` """
 
+        # reset_state() calls init_func(shape) and does not apply cast_fn, so the state
+        # takes its dtype and device from `tau_ahp`
         self.iahp: P_tensor = rp.State(
             shape=(self.size_out),
-            init_func=torch.zeros,
+            init_func=lambda shape: torch.zeros(
+                shape, dtype=self.tau_ahp.dtype, device=self.tau_ahp.device
+            ),
             cast_fn=to_float_tensor,
         )
         """ (Tensor)  currents `(Nin,)` """

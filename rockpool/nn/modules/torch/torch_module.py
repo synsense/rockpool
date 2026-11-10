@@ -243,8 +243,10 @@ class TorchModule(Module, nn.Module):
             )
 
         # - Replicate shapes and return
+        # The ones tensor has the dtype of the state, so the product is not promoted
+        # to float32 for float16 or bfloat16 states
         states = tuple(
-            torch.ones((n_batches, *shape), device=s.device) * s
+            torch.ones((n_batches, *shape), device=s.device, dtype=s.dtype) * s
             for s, shape in zip(states, target_shapes)
         )
         return data, states

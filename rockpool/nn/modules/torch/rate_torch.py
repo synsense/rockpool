@@ -144,8 +144,14 @@ class RateTorch(TorchModule):
         self.act_fn: rt.P_Callable = rp.SimulationParameter(activation_func)
         """ (Callable) Activation function for the units """
 
+        # reset_state() calls init_func(shape) and does not apply cast_fn, so the state
+        # takes its dtype and device from `tau`
         self.x: rt.P_tensor = rp.State(
-            shape=self.size_out, init_func=torch.zeros, cast_fn=to_float_tensor
+            shape=self.size_out,
+            init_func=lambda shape: torch.zeros(
+                shape, dtype=self.tau.dtype, device=self.tau.device
+            ),
+            cast_fn=to_float_tensor,
         )
         """ (Tensor) Unit state `(Nout,)` """
 
