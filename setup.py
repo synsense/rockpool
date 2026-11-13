@@ -66,6 +66,7 @@ setup_args = {
             "matplotlib",
             "tqdm",
             "rich",
+            "black==26.10.1",
         ],
         "all": [
             "rockpool[numba, docs, tests, torch, jax, xylo, brian, sinabs, dynapse, nir, extras]",
