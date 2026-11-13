@@ -1,6 +1,6 @@
 """
-    Loss modules are implemented analogously to losses in PyTorch. All losses inherit from a common Loss class.
-    All loss classes need to implement a forward method which returns a scalar.
+Loss modules are implemented analogously to losses in PyTorch. All losses inherit from a common Loss class.
+All loss classes need to implement a forward method which returns a scalar.
 """
 
 from torch import nn

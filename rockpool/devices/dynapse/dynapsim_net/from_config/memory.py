@@ -1,7 +1,7 @@
 """
 Dynap-SE2 distributed memory reading, serves as a backend tool
 
-* Non User Facing * 
+* Non User Facing *
 """
 
 from typing import Dict, List, Tuple

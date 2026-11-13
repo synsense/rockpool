@@ -178,7 +178,7 @@ class WaveSenseBlock(TorchModule):
 
     def forward(self, data: torch.tensor) -> Tuple[torch.tensor, dict, dict]:
         # Expecting data to be of the format (batch, time, Nchannels)
-        (n_batches, t_sim, Nchannels) = data.shape
+        n_batches, t_sim, Nchannels = data.shape
 
         # - Pass through dilated weight layer
         out, _, self._record_dict["lin1"] = self.lin1(data, record=self._record)
@@ -461,7 +461,7 @@ class WaveSenseNet(TorchModule):
 
     def forward(self, data: torch.Tensor):
         # Expected data shape
-        (n_batches, t_sim, n_channels_in) = data.shape
+        n_batches, t_sim, n_channels_in = data.shape
 
         # - Input mapping layers
         out, _, self._record_dict["lin1"] = self.lin1(data, record=self._record)

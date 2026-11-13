@@ -9,7 +9,6 @@ import numpy as np
 
 from .autoencoder import learn_weights
 
-
 __all__ = ["autoencoder_quantization"]
 
 

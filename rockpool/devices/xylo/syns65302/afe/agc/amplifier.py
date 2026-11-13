@@ -1,5 +1,5 @@
 """
-This module implements a simple model of the amplifier as a high-pass module with possibility 
+This module implements a simple model of the amplifier as a high-pass module with possibility
 to switch the amplitudes abruptly if its gain changes.
 """
 

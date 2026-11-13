@@ -1,7 +1,7 @@
 """
 Dynap-SE2 time constant computation and and conversion utils
 
-* Non User Facing * 
+* Non User Facing *
 """
 
 from __future__ import annotations
@@ -13,7 +13,6 @@ import numpy as np
 
 from rockpool.typehints import FloatVector
 from .high import DynapSimCoreHigh, DynapSimCore
-
 
 __all__ = ["DynapSimTime"]
 

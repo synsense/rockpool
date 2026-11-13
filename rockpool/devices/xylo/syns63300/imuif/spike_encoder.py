@@ -14,7 +14,6 @@ from rockpool.devices.xylo.syns63300.imuif.params import NUM_BITS_SPIKE
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 
-
 __all__ = ["ScaleSpikeEncoder", "IAFSpikeEncoder"]
 
 

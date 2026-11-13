@@ -21,7 +21,6 @@ from rockpool.nn.modules.native.linear import kaiming
 
 from .gradient import step_pwl_ae
 
-
 __all__ = ["DigitalAutoEncoder"]
 
 

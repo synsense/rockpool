@@ -1,4 +1,4 @@
-""" 
+"""
 Tests for quantization preprocessing module
 """
 

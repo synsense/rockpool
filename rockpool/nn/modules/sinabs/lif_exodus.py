@@ -136,7 +136,7 @@ class LIFExodus(LIFBaseTorch):
         )
 
         # - Get input data size
-        (n_batches, time_steps, n_connections) = data.shape
+        n_batches, time_steps, n_connections = data.shape
 
         # - Broadcast parameters to full size for this module
         beta = self.beta.expand((n_batches, self.n_neurons, self.n_synapses)).flatten()
@@ -313,7 +313,7 @@ class ExpSynExodus(LIFBaseTorch):
         data, (isyn,) = self._auto_batch(data, (self.isyn,))
 
         # - Get input data size
-        (n_batches, time_steps, n_connections) = data.shape
+        n_batches, time_steps, n_connections = data.shape
 
         # - Broadcast parameters to full size for this module
         beta = self.beta.expand((n_batches, self.n_neurons, self.n_synapses)).flatten()
@@ -439,7 +439,7 @@ class LIFMembraneExodus(LIFBaseTorch):
         data, (vmem, isyn) = self._auto_batch(data, (self.vmem, self.isyn))
 
         # - Get input data size
-        (n_batches, time_steps, n_connections) = data.shape
+        n_batches, time_steps, n_connections = data.shape
 
         # - Broadcast parameters to full size for this module
         beta = self.beta.expand((n_batches, self.n_neurons, self.n_synapses)).flatten()

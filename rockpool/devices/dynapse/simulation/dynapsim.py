@@ -365,7 +365,6 @@ class DynapSim(JaxModule):
                 if _o is None or type(_o) is object
                 else jnp.array(_o, dtype=jnp.float32)
             ),
-
         )
 
         # -- #

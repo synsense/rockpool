@@ -162,7 +162,7 @@ class RateTorch(TorchModule):
     def forward(self, data, *args, **kwargs) -> torch.Tensor:
         # - Perform auto-batching
         data, (neur_state,) = self._auto_batch(data, (self.x,))
-        (n_batches, time_steps, _) = data.shape
+        n_batches, time_steps, _ = data.shape
 
         act = self.act_fn(neur_state, self.threshold)
 

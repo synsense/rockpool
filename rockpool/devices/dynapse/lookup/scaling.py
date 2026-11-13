@@ -7,7 +7,7 @@ Multiply the theoretical value obtained with the table values considering the pa
 
 :math:`I_{scaled} = I * \\text{scale_factor}`
 
-Obtained from 
+Obtained from
 https://hardware.basket.office.synsense.ai/documentation/dynapse2docs/Sections/input_interface_config.html
 for more accurate simulation of DynapSE-2 bias generator
 

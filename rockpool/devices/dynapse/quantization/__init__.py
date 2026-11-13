@@ -1,4 +1,4 @@
-""" 
+"""
 Dynap-SE2 quantization implementation
 """
 

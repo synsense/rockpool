@@ -1,5 +1,5 @@
 """
-Dynap-SE tuturials common utility functions 
+Dynap-SE tuturials common utility functions
 
 * Non User facing *
 """

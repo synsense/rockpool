@@ -24,12 +24,10 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 __all__ = ["FFExpSynBrian", "eqSynapseExp"]
 
 # - Equations for an exponential synapse
-eqSynapseExp = b2.Equations(
-    """
+eqSynapseExp = b2.Equations("""
     dI_syn/dt = (-I_syn + I_inp(t, i)) / tau_s  : amp                       # Synaptic current
     tau_s                                       : second                    # Synapse time constant
-"""
-)
+""")
 
 
 ## - FFExpSynBrian - Class: define an exponential synapse layer (spiking input)

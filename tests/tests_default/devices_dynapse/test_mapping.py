@@ -1,4 +1,4 @@
-""" 
+"""
 Dynap-SE2 API supports converting multi-layer `LIFJax` and `DynapSim` networks to a 2 layer Sequential `LinearJax`, `DynapSim` combination by preserving the connectivity.
 The tests listed here explore the limits of the conversion and make sure that the weight placement is healthy.
 The tests here use the functions that `devices.dynapse.mapper` uses under the hood to be able to address the problems easily.

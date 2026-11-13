@@ -11,7 +11,6 @@ import time
 import numpy as np
 from bitstruct import pack_dict, unpack_dict
 
-
 # - Typing and useful proxy types
 from typing import Any, List, Iterable, Optional, NamedTuple, Union, Tuple
 

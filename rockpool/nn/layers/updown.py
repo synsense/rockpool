@@ -15,7 +15,6 @@ from rockpool.utilities.property_arrays import ArrayLike
 from rockpool.nn.layers.layer import Layer
 from rockpool.nn.modules.timed_module import astimedmodule
 
-
 # - Default maximum numbers of time steps for a single evolution batch
 MAX_NUM_TIMESTEPS_DEFAULT = 5000
 
@@ -75,10 +74,10 @@ class FFUpDownV1(Layer):
 
         elif np.size(weights) == 2:
             # - Tuple determining shape
-            (size_in, self._multi_channels) = weights
+            size_in, self._multi_channels = weights
             size = 2 * self._multi_channels * size_in
         else:
-            (size_in, size) = np.shape(weights)
+            size_in, size = np.shape(weights)
             assert (
                 size % (2 * size_in) == 0
             ), "Layer `{}`: size (here {}) must be a multiple of 2*size_in (here {}).".format(
@@ -159,9 +158,9 @@ class FFUpDownV1(Layer):
             #     mnOutputSpikes[idx_curr : idx_curr+num_ts_curr],
             #     record[idx_curr : idx_curr+num_ts_curr]
             # ) = self._single_batch_evolution(
-            mnOutputSpikes[
-                idx_curr : idx_curr + num_ts_curr
-            ] = self._single_batch_evolution(matr_input_curr, num_ts_curr, verbose)
+            mnOutputSpikes[idx_curr : idx_curr + num_ts_curr] = (
+                self._single_batch_evolution(matr_input_curr, num_ts_curr, verbose)
+            )
             idx_curr += num_ts_curr
 
         ## -- Distribute output spikes over output channels by assigning to each channel

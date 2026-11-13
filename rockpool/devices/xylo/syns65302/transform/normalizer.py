@@ -97,5 +97,5 @@ class AmplitudeNormalizer(Module):
         index = min(max(index, 0), len(sorted_amp) - 1)
 
         robust_amplitude = sorted_amp[index]
-        
+
         return robust_amplitude

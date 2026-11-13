@@ -1,5 +1,5 @@
 """
-Implement a fast exponential synapse layer using convolution 
+Implement a fast exponential synapse layer using convolution
 """
 
 # - Rockpool imports

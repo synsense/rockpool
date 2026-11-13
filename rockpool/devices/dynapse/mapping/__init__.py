@@ -1,4 +1,4 @@
-""" 
+"""
 Dynap-SE2 SNN graph mapping package
 
 Supported Operations:

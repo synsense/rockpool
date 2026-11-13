@@ -3,7 +3,7 @@ Dynap-SE2 circuit bias generator transistor current responses to given coarse an
 
 {<transistor_type> : {<coarse_value> : [255 current values each result of a consecutive fine value]}}
 
-Obtained from 
+Obtained from
 https://hardware.basket.office.synsense.ai/documentation/dynapse2docs/Sections/input_interface_config.html
 for more accurate simulation of Dynap-SE2 bias generator
 

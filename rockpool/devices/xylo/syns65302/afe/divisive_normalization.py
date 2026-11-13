@@ -108,11 +108,9 @@ class DivisiveNormalization(Module):
 
         # make sure that in all the channels b1 is larger than b2
         if np.any(self.spike_rate_scale_bitshift1 <= self.spike_rate_scale_bitshift2):
-            raise ValueError(
-                """
+            raise ValueError("""
                 For smooth spike rate variation, we use `M(t)<<b1 - M(t)<<b2` as the spike generation threshold. This requires than b1 in all channels is larger than b2 so that the threshold is always positive.
-                """
-            )
+                """)
 
         # minimum value for spike generation threshold during the DN mode
         self.EPS_vec: P_ndarray = SimulationParameter(

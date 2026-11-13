@@ -102,7 +102,7 @@ class JaxModule(Module, ABC):
             data = np.broadcast_to(data, (data.shape[0], data.shape[1], self.size_in))
 
         # - Get shape of input
-        (n_batches, time_steps, n_connections) = data.shape
+        n_batches, time_steps, n_connections = data.shape
 
         # - Check input dimensions
         if n_connections != self.size_in:

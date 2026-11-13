@@ -37,7 +37,9 @@ class AudioQuantizer(Module):
         self.scale = SimulationParameter(scale, shape=(1,))
         """scaling factor applied before quantization"""
 
-        self.num_bits = SimulationParameter(num_bits, shape=(1,), cast_fn=lambda x: int(np.asarray(x).item()))
+        self.num_bits = SimulationParameter(
+            num_bits, shape=(1,), cast_fn=lambda x: int(np.asarray(x).item())
+        )
         """The number of bits in the fractional part of the quantized signal"""
 
     def evolve(
@@ -65,7 +67,7 @@ class AudioQuantizer(Module):
             Returns:
                 int: quantized and scaled version of the input signal.
             """
-            
+
             scale = float(np.asarray(self.scale).item())
             num_bits = int(np.asarray(self.num_bits).item())
 

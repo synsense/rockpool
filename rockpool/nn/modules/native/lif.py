@@ -26,7 +26,6 @@ from rockpool.graph import (
     LinearWeights,
 )
 
-
 __all__ = ["LIF", "spike_subtract_threshold"]
 
 
@@ -297,7 +296,7 @@ class LIF(Module):
                 Isyn_ts:        (np.ndarray) Synaptic input current received by each neuron over time [T, N]
             """
             # - Unpack inputs
-            (sp_in_t, I_in_t) = inputs_t
+            sp_in_t, I_in_t = inputs_t
 
             # - Unpack state
             spikes, Isyn, Vmem = state

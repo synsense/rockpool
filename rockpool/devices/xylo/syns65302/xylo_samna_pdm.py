@@ -161,9 +161,9 @@ class XyloSamnaPDM(Module):
         ) = hdkutils.set_power_measurement(self._device, self._power_frequency)
 
         # - Store the SNN core configuration
-        self._config: Union[
-            XyloConfiguration, SimulationParameter
-        ] = SimulationParameter(shape=(), init_func=lambda _: config)
+        self._config: Union[XyloConfiguration, SimulationParameter] = (
+            SimulationParameter(shape=(), init_func=lambda _: config)
+        )
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Apply configuration on the board

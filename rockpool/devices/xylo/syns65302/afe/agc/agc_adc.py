@@ -1,15 +1,15 @@
 """
 This file implements the analog input path for XyloAudio 3, which starts from an analog microphone and consists of several preprocessing modules.
 
-    - `PGA (programmable gain amplifier)`: This gain of the amplifier can be controlled by the 4-bit command sent from `envelope controller` module. 
-        So using PGA we can have one of the following gains $g_1, g_2, \dots, g_{16}$. In our design, we set $g_1=1$ and $g_{16}=64$ giving a total maximum gain of 36 dB. 
-    - `ADC (anaolg to digital converter)`: this module takes the signal amplified with PGA and quantizes it into `num_bits = 10` bits. 
-        So the signed output can be in the range $-2^{\text{num-bits - 1}} = -512, \dots, 2^\text{num-bits - 1}-1 = 511$. 
-    - `EC (envelope controller)`: This module observes the `num-bits=10` bit quantized signal from ADC and makes processing as we explain in a moment to decide if the gain needs to be increased or decreased and how it should happen. 
+    - `PGA (programmable gain amplifier)`: This gain of the amplifier can be controlled by the 4-bit command sent from `envelope controller` module.
+        So using PGA we can have one of the following gains $g_1, g_2, \dots, g_{16}$. In our design, we set $g_1=1$ and $g_{16}=64$ giving a total maximum gain of 36 dB.
+    - `ADC (anaolg to digital converter)`: this module takes the signal amplified with PGA and quantizes it into `num_bits = 10` bits.
+        So the signed output can be in the range $-2^{\text{num-bits - 1}} = -512, \dots, 2^\text{num-bits - 1}-1 = 511$.
+    - `EC (envelope controller)`: This module observes the `num-bits=10` bit quantized signal from ADC and makes processing as we explain in a moment to decide if the gain needs to be increased or decreased and how it should happen.
         The output of this module is a 4-bit command that informs PGA and other modules of what is the best gain that should be selected for the next time steps.
-    - `GS (gain smoother)`: One of the problems with AGC is that the PGA part has to be implemented in the analog domain. 
-        As a result, we cannot vary the desired gain very smoothly. In particular, when the gain changes from some $g_i$ to some $g_j$ the output undergoes a jump of size $\frac{g_j}{g_i} - 1$. 
-        This sudden jump in gain may create transient effects in the filters in the filterbank following AGC. 
+    - `GS (gain smoother)`: One of the problems with AGC is that the PGA part has to be implemented in the analog domain.
+        As a result, we cannot vary the desired gain very smoothly. In particular, when the gain changes from some $g_i$ to some $g_j$ the output undergoes a jump of size $\frac{g_j}{g_i} - 1$.
+        This sudden jump in gain may create transient effects in the filters in the filterbank following AGC.
         To solve this issue, we have added the gain smoother module, which makes sure that the gain transition from $g_i$ to $g_j$ happens smoothly in time so that the transient effect is not problematic.
 
 """

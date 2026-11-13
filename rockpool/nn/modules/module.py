@@ -163,7 +163,7 @@ class ModuleBase(ABC):
         # - Check if this is an already registered attribute
         if name in __registered_attributes:
             if hasattr(self, name):
-                (_, _, _, _, shape) = __registered_attributes[name]
+                _, _, _, _, shape = __registered_attributes[name]
 
                 if val is not None:
                     # - Should we force-set the attribute?
@@ -477,7 +477,7 @@ class ModuleBase(ABC):
             raise KeyError(f"{name} is not a registered attribute.")
 
         # - Get the initialisation function from the registry
-        (_, _, family, init_func, shape) = __registered_attributes[name]
+        _, _, family, init_func, shape = __registered_attributes[name]
 
         # - Use the registered initialisation function, if present
         if init_func is not None:
@@ -773,7 +773,7 @@ class Module(ModuleBase, ABC, metaclass=PostInitMetaMixin):
             data = np.broadcast_to(data, (data.shape[0], data.shape[1], self.size_in))
 
         # - Get shape of input
-        (n_batches, time_steps, n_connections) = data.shape
+        n_batches, time_steps, n_connections = data.shape
 
         # - Check input dimensions
         if n_connections != self.size_in:

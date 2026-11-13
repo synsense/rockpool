@@ -1,7 +1,7 @@
 """
 Tree manipulation utilities with no external dependencies
 
-This module provides methods for building and manipulating trees. 
+This module provides methods for building and manipulating trees.
 
 A `Tree` is a nested dictionary. A `Leaf` is any other object. A `Node` is a non-leaf `Tree` node. A `TreeDef` is a nested dictionary with no data, only structure.
 """

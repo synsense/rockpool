@@ -24,7 +24,6 @@ from brian2.core.names import Nameable
 from brian2.utils.logger import get_logger
 from brian2.utils.stringtools import replace
 
-
 __all__ = ["TimedArray"]
 
 
@@ -181,9 +180,7 @@ class TimedArray(Function, Nameable):
                     i = %NUM_VALUES%-1;
                 return _namespace%NAME%_values[i];
             }
-            """.replace(
-                    "%NAME%", self.name
-                )
+            """.replace("%NAME%", self.name)
                 .replace("%DT%", "%.18f" % dt)
                 .replace("%K%", str(K))
                 .replace("%NUM_VALUES%", str(len(self.values)))
@@ -217,9 +214,7 @@ class TimedArray(Function, Nameable):
                 if i >= %NUM_VALUES%:
                     i = %NUM_VALUES% - 1
                 return _namespace%NAME%_values[i]
-            """.replace(
-                    "%NAME%", self.name
-                )
+            """.replace("%NAME%", self.name)
                 .replace("%DT%", "%.18f" % dt)
                 .replace("%K%", str(K))
                 .replace("%NUM_VALUES%", str(len(self.values)))

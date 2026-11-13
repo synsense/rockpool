@@ -16,7 +16,6 @@ from .weight_handler import WeightHandler
 
 import jax
 
-
 __all__ = ["loss_reconstruction", "penalty_negative", "penalty_reconstruction"]
 
 

@@ -6,7 +6,6 @@ from typing import Any, List
 import logging
 from rockpool.devices.dynapse.samna_alias import DeviceInfo
 
-
 # Try to import samna for device interfacing
 try:
     import samna

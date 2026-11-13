@@ -1,5 +1,5 @@
 """
-A deltasigma based PDM microphone that converts the input analog audio into a PDM bit stream 
+A deltasigma based PDM microphone that converts the input analog audio into a PDM bit stream
 where the relative frequency of 1-vs-0 depends on the amplitude of the signal
 """
 
