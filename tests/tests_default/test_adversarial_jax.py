@@ -99,7 +99,7 @@ def test_adversarial_loss():
     W = []
     for idx, p in enumerate(parameters_flattened):
         J_sub = J[idx][idx]
-        W.append(np.reshape(J_sub, shape=(np.prod(p.shape), np.prod(p.shape))))
+        W.append(np.reshape(J_sub, (np.prod(p.shape), np.prod(p.shape))))
 
     # - Compare jacobian calculated values with attack values
     for idx in range(len(parameters_flattened)):
