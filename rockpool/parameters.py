@@ -216,7 +216,7 @@ class ParameterBase:
 
         # - Cast the data using the cast function
         if self.cast_fn is not None:
-            if isinstance(self.data, np.ndarray) and self.data.size == 1:
+            if self.cast_fn in (int, float, bool) and self.data.size == 1:
                 self.data = self.cast_fn(self.data.item())
             else:
                 self.data = self.cast_fn(self.data)
