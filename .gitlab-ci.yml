@@ -16,7 +16,7 @@ black-check:
   image: "registry.gitlab.com/synsense/research/rockpool/clean:latest"
   before_script:
     - pip install --upgrade pip
-    - pip install black==23.1.0
+    - pip install black==26.10.0
 
   script:
     - python -m black --check rockpool tests
