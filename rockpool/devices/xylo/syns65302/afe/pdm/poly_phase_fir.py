@@ -1,5 +1,5 @@
 """
-A poly phase low-pass filter follows by decimation stage that processes the PDM bit stream 
+A poly phase low-pass filter follows by decimation stage that processes the PDM bit stream
 and recovers the sampled audio upto a given bit precision.
 """
 

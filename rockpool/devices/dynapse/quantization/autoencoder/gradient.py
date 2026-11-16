@@ -11,7 +11,6 @@ from typing import Tuple
 import jax
 from jax import numpy as jnp
 
-
 __all__ = ["step_pwl_ae"]
 
 

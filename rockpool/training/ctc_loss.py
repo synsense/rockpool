@@ -94,7 +94,7 @@ try:
 
         # for i in range(1, seq_length):
         def outer(carry, inputs) -> Tuple[jnp.ndarray, jnp.ndarray]:
-            (log_prob_i, log_prob_label_i) = inputs
+            log_prob_i, log_prob_label_i = inputs
             aa_isub1 = carry
 
             # - Initialise aa_ret_i

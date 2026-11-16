@@ -1,16 +1,16 @@
 """
 Dynap-SE2 Application Programming Interface (API)
 
-This package provides an abstract Dynap-SE2 machine that operates in the same parameter space as Dynap-SE2 processors. 
+This package provides an abstract Dynap-SE2 machine that operates in the same parameter space as Dynap-SE2 processors.
 More, all the required tools to convert a simulation setting to an hardware configuration and a hardware configuration to a simulation setting.
 
 It's possible to go from simulation to deployment:
 
-* Define a rockpool network 
+* Define a rockpool network
 * Map this network to a hardware specification
 * Quantize the parameters
 * Obtain a samna configuration
-* Connect and configure a Dynap-SE2 chip 
+* Connect and configure a Dynap-SE2 chip
 * Run a real-time, hardware simulation
 
 ..  code-block:: python
@@ -24,7 +24,7 @@ It's possible to go from simulation to deployment:
     spec.update(autoencoder_quantization(**spec))
     config = config_from_specification(**spec)
 
-    # Connect 
+    # Connect
     se2_devices = find_dynapse_boards()
     se2 = DynapseSamna(se2_devices[0], **config)
     out, state, rec = se2(raster, record=True)

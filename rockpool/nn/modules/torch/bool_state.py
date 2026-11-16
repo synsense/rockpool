@@ -70,7 +70,7 @@ class BooleanState(TorchModule):
     def forward(self, input_data: torch.Tensor):
         # - Perform auto-batching over data
         data, (bool_state,) = self._auto_batch(input_data, (self.bool_state,))
-        (num_batches, num_timesteps, _) = data.shape
+        num_batches, num_timesteps, _ = data.shape
 
         # - Convert input to a sign tensor, taking into account threshold
         bdata = (torch.abs(data) > self.threshold) * torch.sign(data)

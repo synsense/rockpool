@@ -61,7 +61,7 @@ def test_Sequential_mod():
     input_data = np.random.rand(100, 10)
 
     # - Test evolve
-    (output, _, _) = seq(input_data)
+    output, _, _ = seq(input_data)
     print(output.shape)
 
     # - Test parameters

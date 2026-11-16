@@ -13,7 +13,6 @@ from rockpool.nn.modules.module import Module
 from . import xylo_imu_devkit_utils as hdkutils
 from .xylo_imu_devkit_utils import XyloIMUHDK
 
-
 __all__ = ["IMUData"]
 
 

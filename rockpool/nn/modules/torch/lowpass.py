@@ -1,4 +1,4 @@
-""""
+""" "
 Implements an exponential low-pass synapse using Torch backend
 """
 
@@ -90,7 +90,7 @@ class LowPass(TorchModule):
             Tensor of spikes with the shape (time_steps, batch, n_neurons)
 
         """
-        (time_steps, n_batches, n_neurons) = data.shape
+        time_steps, n_batches, n_neurons = data.shape
         vmem = self.vmem
         alpha_mem = self.alpha_mem
         out_states = torch.zeros((time_steps, n_batches, n_neurons), device=data.device)

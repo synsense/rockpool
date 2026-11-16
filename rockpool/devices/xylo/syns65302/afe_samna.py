@@ -18,7 +18,6 @@ from rockpool.typehints import P_float
 from . import xa3_devkit_utils as hdu
 from .xa3_devkit_utils import XyloAudio3HDK
 
-
 # - Configure exports
 __all__ = ["AFESamna", "load_config", "save_config"]
 
@@ -136,9 +135,9 @@ class AFESamna(Module):
         config.digital_frontend.filter_bank.dn_enable = divisive_norm
 
         # - Store the configuration
-        self._config: Union[
-            XyloConfiguration, SimulationParameter
-        ] = SimulationParameter(shape=(), init_func=lambda _: config)
+        self._config: Union[XyloConfiguration, SimulationParameter] = (
+            SimulationParameter(shape=(), init_func=lambda _: config)
+        )
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Apply configuration

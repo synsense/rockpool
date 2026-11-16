@@ -9,7 +9,6 @@ from rockpool.devices.xylo.syns61300.xylo_sim import XyloSim as XyloSimV1
 
 from xylosim.v2 import XyloSynapse, XyloLayer
 
-
 # - Numpy
 import numpy as np
 

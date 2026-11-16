@@ -265,7 +265,12 @@ class DynapSim(JaxModule):
             init_func=init_func,
             shape=(self.size_out,),
             permit_reshape=False,
-            cast_fn=lambda _o: jnp.array(_o, dtype=jnp.float32),
+            # cast_fn=lambda _o: jnp.array(_o, dtype=jnp.float32),
+            cast_fn=lambda _o: (
+                _o
+                if _o is None or type(_o) is object
+                else jnp.array(_o, dtype=jnp.float32)
+            ),
         )
 
         __Io_state = lambda _: __state(
@@ -313,7 +318,12 @@ class DynapSim(JaxModule):
             family="bias",
             shape=(self.size_out,),
             permit_reshape=False,
-            cast_fn=lambda _o: jnp.array(_o, dtype=jnp.float32),
+            # cast_fn=lambda _o: jnp.array(_o, dtype=jnp.float32),
+            cast_fn=lambda _o: (
+                _o
+                if _o is None or type(_o) is object
+                else jnp.array(_o, dtype=jnp.float32)
+            ),
         )
 
         # Special handler for wrec
@@ -324,7 +334,12 @@ class DynapSim(JaxModule):
                 init_func=weight_init_func,
                 shape=(self.size_out, self.size_in),
                 permit_reshape=False,
-                cast_fn=lambda _o: jnp.array(_o, dtype=jnp.float32),
+                # cast_fn=lambda _o: jnp.array(_o, dtype=jnp.float32),
+                cast_fn=lambda _o: (
+                    _o
+                    if _o is None or type(_o) is object
+                    else jnp.array(_o, dtype=jnp.float32)
+                ),
             )
         else:
             # Do not let it break the pipeline
@@ -344,7 +359,12 @@ class DynapSim(JaxModule):
             ),
             shape=(self.size_out,),
             permit_reshape=False,
-            cast_fn=lambda _o: jnp.array(_o, dtype=jnp.float32),
+            # cast_fn=lambda _o: jnp.array(_o, dtype=jnp.float32),
+            cast_fn=lambda _o: (
+                _o
+                if _o is None or type(_o) is object
+                else jnp.array(_o, dtype=jnp.float32)
+            ),
         )
 
         # -- #

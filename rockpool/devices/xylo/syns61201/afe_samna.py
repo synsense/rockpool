@@ -28,7 +28,6 @@ except ModuleNotFoundError:
 
 from typing import Union, Dict, Any, Tuple, Optional
 
-
 __all__ = ["AFESamna", "load_afe_config", "save_afe_config"]
 
 

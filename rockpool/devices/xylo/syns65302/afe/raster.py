@@ -17,7 +17,6 @@ import numpy as np
 from typing import Union, Tuple
 from rockpool.typehints import P_int, P_float, P_ndarray
 
-
 # list of modules exported
 __all__ = ["Raster"]
 

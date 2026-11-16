@@ -91,7 +91,11 @@ class AmplitudeNormalizer(Module):
             robust_amplitude (float)
         """
         sorted_amp = np.sort(np.abs(input_data), axis=1).squeeze()
-        robust_amplitude = sorted_amp[
-            int((len(sorted_amp) - 1) * (1 - self.outlier_ratio))
-        ]
+        outlier_ratio = float(np.asarray(self.outlier_ratio).item())
+
+        index = int((len(sorted_amp) - 1) * (1.0 - outlier_ratio))
+        index = min(max(index, 0), len(sorted_amp) - 1)
+
+        robust_amplitude = sorted_amp[index]
+
         return robust_amplitude

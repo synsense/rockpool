@@ -3,7 +3,7 @@ Dynap-SE2 samna alias implementations
 
 The modules listed here do not replace the exact samna classes.
 All modules listed copy the data segments of the samna classes and provide type hints.
-The package is not aimed to be maintained long-term. 
+The package is not aimed to be maintained long-term.
 To be removed at some point when the missing functionality is shipped to samna.
 
 * Non User Facing *

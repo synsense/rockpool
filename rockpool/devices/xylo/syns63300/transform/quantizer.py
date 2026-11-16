@@ -40,7 +40,9 @@ class Quantizer(Module):
         self.scale = SimulationParameter(scale, shape=(1,))
         """scale factor applied before quantization"""
 
-        self.num_bits = SimulationParameter(num_bits, shape=(1,), cast_fn=int)
+        self.num_bits = SimulationParameter(
+            num_bits, shape=(1,), cast_fn=lambda x: int(np.asarray(x).item())
+        )
         """The number of bits in the fractional part of the quantized signal"""
 
     def evolve(
@@ -68,7 +70,9 @@ class Quantizer(Module):
             Returns:
                 int: quantized and scaled version of the input signal.
             """
-            return int(self.scale * __data * (2 ** (self.num_bits - 1)))
+            scale = float(np.asarray(self.scale).item())
+            num_bits = int(np.asarray(self.num_bits).item())
+            return int(scale * __data * (2 ** (num_bits - 1)))
 
         input_data, _ = self._auto_batch(input_data)
         out = np.vectorize(__forward, otypes=[object])(input_data)

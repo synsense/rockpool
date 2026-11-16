@@ -1,5 +1,5 @@
-""" 
-The current dynap-se2 API support avoids using samna objects directly in dynap-se2 application software support pipeline. 
+"""
+The current dynap-se2 API support avoids using samna objects directly in dynap-se2 application software support pipeline.
 Instead it copies the data-segment from the samna objects to samna_alias objects whenever needed
 
 The workflow is samna.to_json -> alias.from_json -> play and manipulate inside rockpool -> alias.to_json -> samna.from_json

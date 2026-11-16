@@ -1,4 +1,4 @@
-""" 
+"""
 Getting a deployable configuration file starting from a simulated network requires a couple of conversion steps
 The tests here makes sure that intermediate steps works as expected.
 To test the pipeline, two weight matrices (w_in and w_rec) are loaded

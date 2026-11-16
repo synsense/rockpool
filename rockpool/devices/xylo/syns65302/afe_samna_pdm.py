@@ -32,7 +32,6 @@ from .afe import params
 from typing import Union, Tuple
 from warnings import warn
 
-
 XyloAudio3HDK = samna.xyloAudio3.XyloAudio3TestBoard
 XyloAudio3ReadBuffer = samna.BasicSinkNode_xylo_audio3_event_output_event
 XyloAudio3WriteBuffer = samna.BasicSourceNode_xylo_audio3_event_input_event
@@ -142,9 +141,9 @@ class AFESamnaPDM(Module):
         config.digital_frontend.filter_bank.use_global_iaf_threshold = True
 
         # - Store the SNN core configuration
-        self._config: Union[
-            XyloConfiguration, SimulationParameter
-        ] = SimulationParameter(shape=(), init_func=lambda _: config)
+        self._config: Union[XyloConfiguration, SimulationParameter] = (
+            SimulationParameter(shape=(), init_func=lambda _: config)
+        )
         """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Apply configuration on the board

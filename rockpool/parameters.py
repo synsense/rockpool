@@ -216,7 +216,10 @@ class ParameterBase:
 
         # - Cast the data using the cast function
         if self.cast_fn is not None:
-            self.data = self.cast_fn(self.data)
+            if self.cast_fn in (int, float, bool) and self.data.size == 1:
+                self.data = self.cast_fn(self.data.item())
+            else:
+                self.data = self.cast_fn(self.data)
 
     def __repr__(self):
         return f"{type(self).__name__}(data={self.data}, family={self.family}, init_func={self.init_func}, shape={self.shape})"

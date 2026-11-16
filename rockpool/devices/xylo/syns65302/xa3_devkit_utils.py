@@ -14,7 +14,6 @@ from warnings import warn
 # - Useful constants for XA3
 from . import ram, reg
 
-
 # - Typing and useful proxy types
 from typing import List, Optional, NamedTuple, Tuple, Union, Iterable
 

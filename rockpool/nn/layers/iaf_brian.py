@@ -42,8 +42,7 @@ __all__ = [
 ]
 
 # - Equations for an integrate-and-fire neuron, ff-layer, analogue external input
-eqNeuronIAFFF = b2.Equations(
-    """
+eqNeuronIAFFF = b2.Equations("""
     dv/dt = (v_rest - v + r_m * I_total) / tau_m    : volt (unless refractory)  # Neuron membrane voltage
     I_total = I_inp(t, i) + I_bias                  : amp                       # Total input current
     I_bias                                          : amp                       # Per-neuron bias current
@@ -52,12 +51,10 @@ eqNeuronIAFFF = b2.Equations(
     r_m                                             : ohm                       # Membrane resistance
     v_thresh                                        : volt                      # Firing threshold potential
     v_reset                                         : volt                      # Reset potential
-"""
-)
+""")
 
 # - Equations for an integrate-and-fire neuron, ff-layer, analogue external input, constant leak
-eqNeuronCLIAFFF = b2.Equations(
-    """
+eqNeuronCLIAFFF = b2.Equations("""
     dv/dt = (r_m * I_total) / tau_m                 : volt (unless refractory)  # Neuron membrane voltage
     I_total = I_inp(t, i) + I_bias                  : amp                       # Total input current
     I_bias                                          : amp                       # Per-neuron bias current
@@ -66,12 +63,10 @@ eqNeuronCLIAFFF = b2.Equations(
     r_m                                             : ohm                       # Membrane resistance
     v_thresh                                        : volt                      # Firing threshold potential
     v_reset                                         : volt                      # Reset potential
-"""
-)
+""")
 
 # - Equations for an integrate-and-fire neuron, ff-layer, spiking external input
-eqNeuronIAFSpkInFF = b2.Equations(
-    """
+eqNeuronIAFSpkInFF = b2.Equations("""
     dv/dt = (v_rest - v + r_m * I_total) / tau_m    : volt (unless refractory)  # Neuron membrane voltage
     I_total = I_syn + I_bias + I_inp(t, i)          : amp                       # Total input current
     dI_syn/dt = -I_syn / tau_s                      : amp                       # Synaptic input current
@@ -82,12 +77,10 @@ eqNeuronIAFSpkInFF = b2.Equations(
     r_m                                             : ohm                       # Membrane resistance
     v_thresh                                        : volt                      # Firing threshold potential
     v_reset                                         : volt                      # Reset potential
-"""
-)
+""")
 
 # - Equations for an integrate-and-fire neuron, recurrent layer, analogue external input
-eqNeuronIAFRec = b2.Equations(
-    """
+eqNeuronIAFRec = b2.Equations("""
    dv/dt = (v_rest - v + r_m * I_total) / tau_m    : volt (unless refractory)  # Neuron membrane voltage
    I_total = I_inp(t, i) + I_syn + I_bias          : amp                       # Total input current
    I_bias                                          : amp                       # Per-neuron bias current
@@ -96,12 +89,10 @@ eqNeuronIAFRec = b2.Equations(
    r_m                                             : ohm                       # Membrane resistance
    v_thresh                                        : volt                      # Firing threshold potential
    v_reset                                         : volt                      # Reset potential
-"""
-)
+""")
 
 # - Equations for an integrate-and-fire neuron, recurrent layer, spiking external input
-eqNeuronIAFSpkInRec = b2.Equations(
-    """
+eqNeuronIAFSpkInRec = b2.Equations("""
     dv/dt = (v_rest - v + r_m * I_total) / tau_m    : volt (unless refractory)  # Neuron membrane voltage
     I_total = I_inp(t, i) + I_syn + I_bias          : amp                       # Total input current
     I_syn = I_syn_inp + I_syn_rec                   : amp                       # Synaptic currents
@@ -111,26 +102,21 @@ eqNeuronIAFSpkInRec = b2.Equations(
     r_m                                             : ohm                       # Membrane resistance
     v_thresh                                        : volt                      # Firing threshold potential
     v_reset                                         : volt                      # Reset potential
-"""
-)
+""")
 
 # - Equations for an exponential synapse - used for RecIAFBrian
-eqSynapseExp = b2.Equations(
-    """
+eqSynapseExp = b2.Equations("""
     dI_syn/dt = -I_syn / tau_s                      : amp                       # Synaptic current
     tau_s                                           : second                    # Synapse time constant
-"""
-)
+""")
 
 # - Equations for two exponential synapses (spiking external input and recurrent) for RecIAFSpkInBrian
-eqSynapseExpSpkInRec = b2.Equations(
-    """
+eqSynapseExpSpkInRec = b2.Equations("""
     dI_syn_inp/dt = -I_syn_inp / tau_syn_inp        : amp                       # Synaptic current, input synapses
     dI_syn_rec/dt = -I_syn_rec / tau_syn_rec        : amp                       # Synaptic current, recurrent synapses
     tau_syn_inp                                     : second                    # Synapse time constant, input
     tau_syn_rec                                     : second                    # Synapse time constant, recurrent
-"""
-)
+""")
 
 
 class FFIAFBrianBase(Layer):

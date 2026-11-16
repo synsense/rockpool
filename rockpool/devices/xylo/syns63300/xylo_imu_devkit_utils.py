@@ -74,9 +74,7 @@ def new_xylo_write_buffer(hdk: XyloIMUHDK) -> XyloIMUWriteBuffer:
     return samna.graph.source_to(hdk.get_model_sink_node())
 
 
-def initialise_imu_sensor(
-    hdk: XyloIMUHDK, frequency: int = 200
-) -> Tuple[
+def initialise_imu_sensor(hdk: XyloIMUHDK, frequency: int = 200) -> Tuple[
     IMUSensorReadBuffer,
     IMUSensorWriteBuffer,
     IMUSensorReadBuffer,

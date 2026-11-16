@@ -24,7 +24,6 @@ from rockpool.devices.dynapse.samna_alias import (
 from rockpool.devices.dynapse.lookup import SE2_STACK_FPGA_FILEPATH
 from rockpool.devices.dynapse.dynapsim_net.from_config import MemorySE2
 
-
 # Try to import samna for device interfacing
 try:
     import samna
