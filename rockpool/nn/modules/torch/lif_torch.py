@@ -646,6 +646,18 @@ class LIFTorch(LIFBaseTorch):
     Neurons therefore share a common resting potential of ``0``, have individual firing thresholds, and perform subtractive reset of ``-V_{thr}``.
     """
 
+    def _linear_preserving_dtype(
+        self, x: torch.Tensor, weight: torch.Tensor
+    ) -> torch.Tensor:
+        """Apply linear in float32 when CPU Half matmul is unavailable."""
+        if x.dtype == torch.float16 and x.device.type == "cpu":
+            return F.linear(
+                x.float(),
+                weight.float(),
+            ).to(x.dtype)
+
+        return F.linear(x, weight)
+
     def _sqrt_preserving_dtype(self, x: torch.Tensor) -> torch.Tensor:
         """Compute sqrt in float32 when the CPU Half kernel is unavailable."""
         if x.dtype == torch.float16 and x.device.type == "cpu":
@@ -730,7 +742,7 @@ class LIFTorch(LIFBaseTorch):
 
             # - Apply spikes over the recurrent weights
             if hasattr(self, "w_rec"):
-                irec = F.linear(spikes, self.w_rec.T).reshape(
+                irec = self._linear_preserving_dtype(spikes, self.w_rec.T).reshape(
                     n_batches, self.size_out, self.n_synapses
                 )
                 isyn = isyn + irec
