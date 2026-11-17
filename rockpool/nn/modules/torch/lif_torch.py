@@ -646,6 +646,12 @@ class LIFTorch(LIFBaseTorch):
     Neurons therefore share a common resting potential of ``0``, have individual firing thresholds, and perform subtractive reset of ``-V_{thr}``.
     """
 
+    def _sqrt_preserving_dtype(self, x: torch.Tensor) -> torch.Tensor:
+        """Compute sqrt in float32 when the CPU Half kernel is unavailable."""
+        if x.dtype == torch.float16 and x.device.type == "cpu":
+            return torch.sqrt(x.float()).to(x.dtype)
+        return torch.sqrt(x)
+
     def forward(self, input_data: torch.Tensor) -> torch.Tensor:
         """
         forward  method for processing data through this layer
@@ -705,7 +711,7 @@ class LIFTorch(LIFBaseTorch):
             dtype=input_data.dtype,
         )
 
-        noise_zeta = self.noise_std * torch.sqrt(
+        noise_zeta = self.noise_std * self._sqrt_preserving_dtype(
             torch.tensor(self.dt, dtype=vmem.dtype)
         )
 
