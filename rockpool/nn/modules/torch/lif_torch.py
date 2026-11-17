@@ -39,6 +39,13 @@ def _cap_spikes(nr_spikes: torch.Tensor, max_spikes_per_dt) -> torch.Tensor:
     return torch.minimum(nr_spikes, cap)
 
 
+def _cpu_half_safe(op, x: torch.Tensor) -> torch.Tensor:
+    """Run a unary operation in float32 on CPU Half, preserving dtype."""
+    if x.dtype == torch.float16 and x.device.type == "cpu":
+        return op(x.float()).to(x.dtype)
+    return op(x)
+
+
 class StepPWL(torch.autograd.Function):
     """
     Heaviside step function with piece-wise linear surrogate to use as spike-generation surrogate
@@ -54,7 +61,9 @@ class StepPWL(torch.autograd.Function):
     ):
         ctx.save_for_backward(x, threshold)
         ctx.window = window
-        nr_spikes = ((x >= threshold) * torch.floor(x / threshold)).to(x.dtype)
+        nr_spikes = ((x >= threshold) * _cpu_half_safe(torch.floor, x / threshold)).to(
+            x.dtype
+        )
         return _cap_spikes(nr_spikes, max_spikes_per_dt)
 
     @staticmethod
@@ -89,7 +98,9 @@ class PeriodicExponential(torch.autograd.Function):
         ctx.threshold = threshold
         ctx.window = window
         ctx.max_spikes_per_dt = max_spikes_per_dt
-        nr_spikes = ((data >= threshold) * torch.floor(data / threshold)).to(data.dtype)
+        nr_spikes = (
+            (data >= threshold) * _cpu_half_safe(torch.floor, data / threshold)
+        ).to(data.dtype)
         return _cap_spikes(nr_spikes, max_spikes_per_dt)
 
     @staticmethod
@@ -137,13 +148,6 @@ def decay_to_tau(dt, *decays):
     return tuple(
         [-(dt / _cpu_half_safe(torch.log, decay).to(decay.device)) for decay in decays]
     )
-
-
-def _cpu_half_safe(op, x: torch.Tensor) -> torch.Tensor:
-    """Run a unary operation in float32 on CPU Half, preserving dtype."""
-    if x.dtype == torch.float16 and x.device.type == "cpu":
-        return op(x.float()).to(x.dtype)
-    return op(x)
 
 
 def tau_to_decay(dt, *taus):
