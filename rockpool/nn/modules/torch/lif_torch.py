@@ -135,8 +135,15 @@ def decay_to_tau(dt, *decays):
     return tuple([-(dt / torch.log(decay).to(decay.device)) for decay in decays])
 
 
+def _exp_preserving_dtype(x: torch.Tensor) -> torch.Tensor:
+    """Compute exp in float32 when CPU Half kernels are unavailable."""
+    if x.dtype == torch.float16 and x.device.type == "cpu":
+        return torch.exp(x.float()).to(x.dtype)
+    return torch.exp(x)
+
+
 def tau_to_decay(dt, *taus):
-    return tuple([torch.exp(-dt / tau).to(tau.device) for tau in taus])
+    return tuple([_exp_preserving_dtype(-dt / tau).to(tau.device) for tau in taus])
 
 
 def tau_to_bitshift(dt, *taus):
