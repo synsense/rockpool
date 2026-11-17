@@ -107,7 +107,7 @@ class PeriodicExponential(torch.autograd.Function):
         vmem_above = vmem_periodic * (membranePotential >= ctx.threshold)
         vmem_new = vmem_above + vmem_below
         spikePdf = (
-            torch.exp(-torch.abs(vmem_new - ctx.threshold / 2) / ctx.window)
+            _exp_preserving_dtype(-torch.abs(vmem_new - ctx.threshold / 2) / ctx.window)
             / ctx.threshold
         )
 
@@ -147,7 +147,12 @@ def tau_to_decay(dt, *taus):
 
 
 def tau_to_bitshift(dt, *taus):
-    return tuple([-torch.log2(1 - torch.exp(-dt / tau)).to(tau.device) for tau in taus])
+    return tuple(
+        [
+            -torch.log2(1 - _exp_preserving_dtype(-dt / tau)).to(tau.device)
+            for tau in taus
+        ]
+    )
 
 
 def bitshift_to_tau(dt, *dashes):
