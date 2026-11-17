@@ -107,7 +107,9 @@ class PeriodicExponential(torch.autograd.Function):
         vmem_above = vmem_periodic * (membranePotential >= ctx.threshold)
         vmem_new = vmem_above + vmem_below
         spikePdf = (
-            _exp_preserving_dtype(-torch.abs(vmem_new - ctx.threshold / 2) / ctx.window)
+            _cpu_half_safe(
+                torch.exp, -torch.abs(vmem_new - ctx.threshold / 2) / ctx.window
+            )
             / ctx.threshold
         )
 
@@ -132,24 +134,28 @@ def sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
 
 
 def decay_to_tau(dt, *decays):
-    return tuple([-(dt / torch.log(decay).to(decay.device)) for decay in decays])
+    return tuple(
+        [-(dt / _cpu_half_safe(torch.log, decay).to(decay.device)) for decay in decays]
+    )
 
 
-def _exp_preserving_dtype(x: torch.Tensor) -> torch.Tensor:
-    """Compute exp in float32 when CPU Half kernels are unavailable."""
+def _cpu_half_safe(op, x: torch.Tensor) -> torch.Tensor:
+    """Run a unary operation in float32 on CPU Half, preserving dtype."""
     if x.dtype == torch.float16 and x.device.type == "cpu":
-        return torch.exp(x.float()).to(x.dtype)
-    return torch.exp(x)
+        return op(x.float()).to(x.dtype)
+    return op(x)
 
 
 def tau_to_decay(dt, *taus):
-    return tuple([_exp_preserving_dtype(-dt / tau).to(tau.device) for tau in taus])
+    return tuple([_cpu_half_safe(torch.exp, -dt / tau).to(tau.device) for tau in taus])
 
 
 def tau_to_bitshift(dt, *taus):
     return tuple(
         [
-            -torch.log2(1 - _exp_preserving_dtype(-dt / tau)).to(tau.device)
+            -_cpu_half_safe(torch.log2, 1 - _cpu_half_safe(torch.exp, -dt / tau)).to(
+                tau.device
+            )
             for tau in taus
         ]
     )
@@ -157,12 +163,17 @@ def tau_to_bitshift(dt, *taus):
 
 def bitshift_to_tau(dt, *dashes):
     return tuple(
-        [-dt / torch.log(1 - 1 / (2**dash)).to(dash.device) for dash in dashes]
+        [
+            -dt / _cpu_half_safe(torch.log, 1 - 1 / (2**dash)).to(dash.device)
+            for dash in dashes
+        ]
     )
 
 
 def decay_to_bitshift(*decays):
-    return tuple([-torch.log2(1 - decay).to(decay.device) for decay in decays])
+    return tuple(
+        [-_cpu_half_safe(torch.log2, 1 - decay).to(decay.device) for decay in decays]
+    )
 
 
 def bitshift_to_decay(*dashes):
