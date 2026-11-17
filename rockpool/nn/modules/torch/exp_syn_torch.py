@@ -77,9 +77,13 @@ class ExpSynTorch(TorchModule):
         """ (float) Noise std. dev after 1 second """
 
         # - Initialise state
+        # reset_state() calls init_func(shape) and does not apply cast_fn, so the state
+        # takes its dtype and device from `tau`
         self.isyn: rt.P_tensor = rp.State(
             shape=(self.size_out,),
-            init_func=lambda s: torch.zeros(*s),
+            init_func=lambda s: torch.zeros(
+                *s, dtype=self.tau.dtype, device=self.tau.device
+            ),
         )
         """ (torch.tensor) Synaptic current state for each synapse ``(1, N)`` """
 

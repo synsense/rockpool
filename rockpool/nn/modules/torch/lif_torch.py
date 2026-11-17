@@ -6,6 +6,7 @@ Provides :py:class:`.LIFBaseTorch` base class for LIF torch modules, and :py:cla
 
 from tempfile import gettempprefix
 from typing import Union, Tuple, Callable, Optional, Any
+import warnings
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
 import torch
@@ -25,6 +26,26 @@ from rockpool.graph import (
 __all__ = ["LIFTorch"]
 
 
+def _cap_spikes(nr_spikes: torch.Tensor, max_spikes_per_dt) -> torch.Tensor:
+    """
+    Limit spike counts to ``max_spikes_per_dt``, keeping the dtype of ``nr_spikes``
+
+    The cap is limited to the largest finite value of that dtype first. A cap the dtype cannot
+    represent (``2**16`` in ``float16``) or an infinite cap then leaves the counts unchanged,
+    instead of turning into ``inf`` and producing NaN.
+    """
+    cap = torch.as_tensor(max_spikes_per_dt, device=nr_spikes.device).double()
+    cap = cap.clamp(max=torch.finfo(nr_spikes.dtype).max).to(nr_spikes.dtype)
+    return torch.minimum(nr_spikes, cap)
+
+
+def _cpu_half_safe(op, x: torch.Tensor) -> torch.Tensor:
+    """Run a unary operation in float32 on CPU Half, preserving dtype."""
+    if x.dtype == torch.float16 and x.device.type == "cpu":
+        return op(x.float()).to(x.dtype)
+    return op(x)
+
+
 class StepPWL(torch.autograd.Function):
     """
     Heaviside step function with piece-wise linear surrogate to use as spike-generation surrogate
@@ -40,10 +61,10 @@ class StepPWL(torch.autograd.Function):
     ):
         ctx.save_for_backward(x, threshold)
         ctx.window = window
-        nr_spikes = ((x >= threshold) * torch.floor(x / threshold)).float()
-        clamp_bool = (nr_spikes > max_spikes_per_dt).float()
-        nr_spikes -= (nr_spikes - max_spikes_per_dt.float()) * clamp_bool
-        return nr_spikes
+        nr_spikes = ((x >= threshold) * _cpu_half_safe(torch.floor, x / threshold)).to(
+            x.dtype
+        )
+        return _cap_spikes(nr_spikes, max_spikes_per_dt)
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -77,10 +98,10 @@ class PeriodicExponential(torch.autograd.Function):
         ctx.threshold = threshold
         ctx.window = window
         ctx.max_spikes_per_dt = max_spikes_per_dt
-        nr_spikes = ((data >= threshold) * torch.floor(data / threshold)).float()
-        clamp_bool = (nr_spikes > max_spikes_per_dt).float()
-        nr_spikes -= (nr_spikes - max_spikes_per_dt.float()) * clamp_bool
-        return nr_spikes
+        nr_spikes = (
+            (data >= threshold) * _cpu_half_safe(torch.floor, data / threshold)
+        ).to(data.dtype)
+        return _cap_spikes(nr_spikes, max_spikes_per_dt)
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -97,7 +118,9 @@ class PeriodicExponential(torch.autograd.Function):
         vmem_above = vmem_periodic * (membranePotential >= ctx.threshold)
         vmem_new = vmem_above + vmem_below
         spikePdf = (
-            torch.exp(-torch.abs(vmem_new - ctx.threshold / 2) / ctx.window)
+            _cpu_half_safe(
+                torch.exp, -torch.abs(vmem_new - ctx.threshold / 2) / ctx.window
+            )
             / ctx.threshold
         )
 
@@ -122,25 +145,39 @@ def sigmoid(x: FloatVector, threshold: FloatVector) -> FloatVector:
 
 
 def decay_to_tau(dt, *decays):
-    return tuple([-(dt / torch.log(decay).to(decay.device)) for decay in decays])
+    return tuple(
+        [-(dt / _cpu_half_safe(torch.log, decay).to(decay.device)) for decay in decays]
+    )
 
 
 def tau_to_decay(dt, *taus):
-    return tuple([torch.exp(-dt / tau).to(tau.device) for tau in taus])
+    return tuple([_cpu_half_safe(torch.exp, -dt / tau).to(tau.device) for tau in taus])
 
 
 def tau_to_bitshift(dt, *taus):
-    return tuple([-torch.log2(1 - torch.exp(-dt / tau)).to(tau.device) for tau in taus])
+    return tuple(
+        [
+            -_cpu_half_safe(torch.log2, 1 - _cpu_half_safe(torch.exp, -dt / tau)).to(
+                tau.device
+            )
+            for tau in taus
+        ]
+    )
 
 
 def bitshift_to_tau(dt, *dashes):
     return tuple(
-        [-dt / torch.log(1 - 1 / (2**dash)).to(dash.device) for dash in dashes]
+        [
+            -dt / _cpu_half_safe(torch.log, 1 - 1 / (2**dash)).to(dash.device)
+            for dash in dashes
+        ]
     )
 
 
 def decay_to_bitshift(*decays):
-    return tuple([-torch.log2(1 - decay).to(decay.device) for decay in decays])
+    return tuple(
+        [-_cpu_half_safe(torch.log2, 1 - decay).to(decay.device) for decay in decays]
+    )
 
 
 def bitshift_to_decay(*dashes):
@@ -408,20 +445,27 @@ class LIFBaseTorch(TorchModule):
         )
         """ (float) Learning window cutoff for surrogate gradient function """
 
+        # reset_state() calls init_func(shape) and does not apply cast_fn, so the
+        # state takes its dtype and device from `threshold`, which every leak mode sets
+        def _state_init_func(shape):
+            return torch.zeros(
+                shape, dtype=self.threshold.dtype, device=self.threshold.device
+            )
+
         self.vmem: P_tensor = rp.State(
-            shape=self.size_out, init_func=torch.zeros, cast_fn=to_float_tensor
+            shape=self.size_out, init_func=_state_init_func, cast_fn=to_float_tensor
         )
         """ (Tensor) Membrane potentials `(Nout,)` """
 
         self.isyn: P_tensor = rp.State(
             shape=(self.size_out, self.n_synapses),
-            init_func=torch.zeros,
+            init_func=_state_init_func,
             cast_fn=to_float_tensor,
         )
         """ (Tensor) Synaptic currents `(Nin,)` """
 
         self.spikes: P_tensor = rp.State(
-            shape=self.size_out, init_func=torch.zeros, cast_fn=to_float_tensor
+            shape=self.size_out, init_func=_state_init_func, cast_fn=to_float_tensor
         )
         """ (Tensor) Spikes `(Nin,)` """
 
@@ -629,6 +673,24 @@ class LIFTorch(LIFBaseTorch):
     Neurons therefore share a common resting potential of ``0``, have individual firing thresholds, and perform subtractive reset of ``-V_{thr}``.
     """
 
+    def _linear_preserving_dtype(
+        self, x: torch.Tensor, weight: torch.Tensor
+    ) -> torch.Tensor:
+        """Apply linear in float32 when CPU Half matmul is unavailable."""
+        if x.dtype == torch.float16 and x.device.type == "cpu":
+            return F.linear(
+                x.float(),
+                weight.float(),
+            ).to(x.dtype)
+
+        return F.linear(x, weight)
+
+    def _sqrt_preserving_dtype(self, x: torch.Tensor) -> torch.Tensor:
+        """Compute sqrt in float32 when the CPU Half kernel is unavailable."""
+        if x.dtype == torch.float16 and x.device.type == "cpu":
+            return torch.sqrt(x.float()).to(x.dtype)
+        return torch.sqrt(x)
+
     def forward(self, input_data: torch.Tensor) -> torch.Tensor:
         """
         forward  method for processing data through this layer
@@ -659,26 +721,45 @@ class LIFTorch(LIFBaseTorch):
         )
 
         # - Set up state record and output
+        # Record buffers use the input dtype, because indexed assignment casts to the
+        # dtype of the buffer
         if self._record:
             self._record_dict["vmem"] = torch.zeros(
-                n_batches, n_timesteps, self.size_out
+                n_batches, n_timesteps, self.size_out, dtype=input_data.dtype
             )
             self._record_dict["isyn"] = torch.zeros(
-                n_batches, n_timesteps, self.size_out, self.n_synapses
+                n_batches,
+                n_timesteps,
+                self.size_out,
+                self.n_synapses,
+                dtype=input_data.dtype,
             )
             self._record_dict["irec"] = torch.zeros(
-                n_batches, n_timesteps, self.size_out, self.n_synapses
+                n_batches,
+                n_timesteps,
+                self.size_out,
+                self.n_synapses,
+                dtype=input_data.dtype,
             )
 
         self._record_dict["spikes"] = torch.zeros(
-            n_batches, n_timesteps, self.size_out, device=input_data.device
+            n_batches,
+            n_timesteps,
+            self.size_out,
+            device=input_data.device,
+            dtype=input_data.dtype,
         )
 
-        noise_zeta = self.noise_std * torch.sqrt(torch.tensor(self.dt))
+        noise_zeta = self.noise_std * self._sqrt_preserving_dtype(
+            torch.tensor(self.dt, dtype=vmem.dtype)
+        )
 
         # - Generate membrane noise trace
+        # The noise has the dtype of vmem, so adding it does not promote the update
         noise_ts = noise_zeta * torch.randn(
-            (n_batches, n_timesteps, self.size_out), device=vmem.device
+            (n_batches, n_timesteps, self.size_out),
+            device=vmem.device,
+            dtype=vmem.dtype,
         )
 
         # - Loop over time
@@ -688,7 +769,7 @@ class LIFTorch(LIFBaseTorch):
 
             # - Apply spikes over the recurrent weights
             if hasattr(self, "w_rec"):
-                irec = F.linear(spikes, self.w_rec.T).reshape(
+                irec = self._linear_preserving_dtype(spikes, self.w_rec.T).reshape(
                     n_batches, self.size_out, self.n_synapses
                 )
                 isyn = isyn + irec
@@ -720,6 +801,17 @@ class LIFTorch(LIFBaseTorch):
             self._record_dict["spikes"][:, t] = spikes
 
         # - Update states
+        # State attributes are shape-locked to (size_out,), so only the final state of
+        # batch index 0 is kept for the next call
+        if n_batches > 1:
+            warnings.warn(
+                f"LIFTorch forward()/evolve() was called with batch size {n_batches}, "
+                f"but only batch index 0's final state is retained for the next call -- "
+                f"state continuation is NOT correct per-sample for batches > 1. Call "
+                f"reset_state() between independent batched calls if you don't need "
+                f"cross-call continuation.",
+                stacklevel=2,
+            )
         self.vmem = vmem[0].detach()
         self.isyn = isyn[0].detach()
         self.spikes = spikes[0].detach()

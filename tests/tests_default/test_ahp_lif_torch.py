@@ -513,3 +513,13 @@ def test_ahp_LIFTorch_network_graph():
     w_rec = spec["weights_rec"]
     for i in range(w_rec.shape[0]):
         assert w_rec[i, i] != 0, f"AHP weight missing at position {i}"
+
+
+def test_ahp_LIFTorch_preserves_dtype():
+    from rockpool.nn.modules.torch.ahp_lif_torch import aLIFTorch
+    import torch
+
+    for dtype in (torch.float64, torch.float16):
+        mod = aLIFTorch(shape=(3,), has_rec=False, dt=1e-3).to(dtype)
+        mod.reset_state()
+        assert mod.iahp.dtype == dtype
