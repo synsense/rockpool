@@ -13,6 +13,10 @@ All notable changes between Rockpool releases will be documented in this file
 * Torch modules converted with `.to(dtype)`, `.double()` or `.half()` keep that dtype through `reset_state()`, `forward()` and `TorchModule._auto_batch()` (`LIFTorch`, `aLIFTorch`, `ExpSynTorch`, `LIFNeuronTorch`, `RateTorch`). Previously their states, records and outputs returned to float32 (#31).
 * `LIFTorch` and `LIFNeuronTorch` no longer produce NaN spikes in float16, where the default `max_spikes_per_dt` of 2**16 is not representable. The spike cap is now limited to the largest finite value of the dtype.
 
+### Updated
+
+* Torch calls that fallback to CPU and do not support float16 type are automatically converted to float32.
+
 ## [v3.1.0] -- 2026-07-02
 
 ### Added
