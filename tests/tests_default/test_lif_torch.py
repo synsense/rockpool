@@ -332,6 +332,18 @@ def test_LIFTorch_reset():
     assert mod.bias.device == device
 
 
+def test_LIFTorch_reset_preserves_dtype():
+    from rockpool.nn.modules.torch.lif_torch import LIFTorch
+    import torch
+
+    mod = LIFTorch(10).to(torch.float64)
+    mod.reset_state()
+
+    assert mod.isyn.dtype == torch.float64
+    assert mod.vmem.dtype == torch.float64
+    assert mod.spikes.dtype == torch.float64
+
+
 def test_LIFTorch_tc_training():
     from rockpool.nn.modules.torch import LIFTorch
     from rockpool.parameters import Constant
